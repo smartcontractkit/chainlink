@@ -96,7 +96,7 @@ func DeployKeeperRegistryLogicB(auth *bind.TransactOpts, backend bind.ContractBa
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &KeeperRegistryLogicB{KeeperRegistryLogicBCaller: KeeperRegistryLogicBCaller{contract: contract}, KeeperRegistryLogicBTransactor: KeeperRegistryLogicBTransactor{contract: contract}, KeeperRegistryLogicBFilterer: KeeperRegistryLogicBFilterer{contract: contract}}, nil
+	return address, tx, &KeeperRegistryLogicB{address: address, abi: *parsed, KeeperRegistryLogicBCaller: KeeperRegistryLogicBCaller{contract: contract}, KeeperRegistryLogicBTransactor: KeeperRegistryLogicBTransactor{contract: contract}, KeeperRegistryLogicBFilterer: KeeperRegistryLogicBFilterer{contract: contract}}, nil
 }
 
 type KeeperRegistryLogicB struct {

@@ -52,7 +52,7 @@ func DeployVRFV2ProxyAdmin(auth *bind.TransactOpts, backend bind.ContractBackend
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV2ProxyAdmin{VRFV2ProxyAdminCaller: VRFV2ProxyAdminCaller{contract: contract}, VRFV2ProxyAdminTransactor: VRFV2ProxyAdminTransactor{contract: contract}, VRFV2ProxyAdminFilterer: VRFV2ProxyAdminFilterer{contract: contract}}, nil
+	return address, tx, &VRFV2ProxyAdmin{address: address, abi: *parsed, VRFV2ProxyAdminCaller: VRFV2ProxyAdminCaller{contract: contract}, VRFV2ProxyAdminTransactor: VRFV2ProxyAdminTransactor{contract: contract}, VRFV2ProxyAdminFilterer: VRFV2ProxyAdminFilterer{contract: contract}}, nil
 }
 
 type VRFV2ProxyAdmin struct {

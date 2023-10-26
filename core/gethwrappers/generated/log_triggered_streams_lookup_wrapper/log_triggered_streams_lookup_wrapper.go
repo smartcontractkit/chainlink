@@ -63,7 +63,7 @@ func DeployLogTriggeredStreamsLookup(auth *bind.TransactOpts, backend bind.Contr
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &LogTriggeredStreamsLookup{LogTriggeredStreamsLookupCaller: LogTriggeredStreamsLookupCaller{contract: contract}, LogTriggeredStreamsLookupTransactor: LogTriggeredStreamsLookupTransactor{contract: contract}, LogTriggeredStreamsLookupFilterer: LogTriggeredStreamsLookupFilterer{contract: contract}}, nil
+	return address, tx, &LogTriggeredStreamsLookup{address: address, abi: *parsed, LogTriggeredStreamsLookupCaller: LogTriggeredStreamsLookupCaller{contract: contract}, LogTriggeredStreamsLookupTransactor: LogTriggeredStreamsLookupTransactor{contract: contract}, LogTriggeredStreamsLookupFilterer: LogTriggeredStreamsLookupFilterer{contract: contract}}, nil
 }
 
 type LogTriggeredStreamsLookup struct {

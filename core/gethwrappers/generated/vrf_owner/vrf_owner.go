@@ -84,7 +84,7 @@ func DeployVRFOwner(auth *bind.TransactOpts, backend bind.ContractBackend, _vrfC
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFOwner{VRFOwnerCaller: VRFOwnerCaller{contract: contract}, VRFOwnerTransactor: VRFOwnerTransactor{contract: contract}, VRFOwnerFilterer: VRFOwnerFilterer{contract: contract}}, nil
+	return address, tx, &VRFOwner{address: address, abi: *parsed, VRFOwnerCaller: VRFOwnerCaller{contract: contract}, VRFOwnerTransactor: VRFOwnerTransactor{contract: contract}, VRFOwnerFilterer: VRFOwnerFilterer{contract: contract}}, nil
 }
 
 type VRFOwner struct {
