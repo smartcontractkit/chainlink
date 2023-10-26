@@ -47,8 +47,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   error InvalidWatchList();
   error DuplicateAddress(address duplicate);
 
-  IERC20 public immutable LINK_TOKEN;
-
+  IERC20 private immutable LINK_TOKEN;
   EnumerableMap.AddressToUintMap private s_watchList;
   uint256 private s_topUpAmount;
   uint32 private s_minWaitPeriodSeconds;
