@@ -35,12 +35,22 @@ type logPollerWrapper struct {
 	responseBlockOffset       int64
 	pastBlocksToPoll          int64
 	logPollerCacheDurationSec int64
-	detectedRequests          map[[32]byte]time.Time // Maps request ID to the time it was detected
-	detectedResponses         map[[32]byte]time.Time // Maps request ID to the time the response was detected
+	detectedRequests          detectedEvents
+	detectedResponses         detectedEvents
 	mu                        sync.Mutex
 	closeWait                 sync.WaitGroup
 	stopCh                    utils.StopChan
 	lggr                      logger.Logger
+}
+
+type detectedEvent struct {
+	requestId    [32]byte
+	timeDetected time.Time
+}
+
+type detectedEvents struct {
+	isPreviouslyDetected  map[[32]byte]bool
+	detectedEventsOrdered []detectedEvent
 }
 
 var _ evmRelayTypes.LogPollerWrapper = &logPollerWrapper{}
@@ -83,8 +93,8 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		responseBlockOffset:       responseBlockOffset,
 		pastBlocksToPoll:          pastBlocksToPoll,
 		logPollerCacheDurationSec: logPollerCacheDurationSec,
-		detectedRequests:          make(map[[32]byte]time.Time),
-		detectedResponses:         make(map[[32]byte]time.Time),
+		detectedRequests:          detectedEvents{isPreviouslyDetected: make(map[[32]byte]bool)},
+		detectedResponses:         detectedEvents{isPreviouslyDetected: make(map[[32]byte]bool)},
 		logPoller:                 logPoller,
 		client:                    client,
 		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
@@ -165,11 +175,14 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", latestBlockNum)
 			return nil, nil, err
 		}
-		responseLogs, err := l.logPoller.Logs(startBlockNum, latestBlockNum, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
+		requestLogs = l.FilterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests)
+		endBlock = latest - l.responseBlockOffset
+		responseLogs, err := l.logPoller.Logs(startBlock, endBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", latestBlockNum)
 			return nil, nil, err
 		}
+		responseLogs = l.FilterPreviouslyDetectedEvents(responseLogs, &l.detectedResponses)
 
 		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator, l.client)
 		if err != nil {
@@ -257,49 +270,35 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 			})
 		}
 	}
-	resultsReq = l.FilterPreviouslyDetectedRequests(resultsReq)
-	resultsResp = l.FilterPreviouslyDetectedResponses(resultsResp)
 
 	l.lggr.Debugw("LatestEvents: done", "nRequestLogs", len(resultsReq), "nResponseLogs", len(resultsResp), "startBlock", startBlockNum, "endBlock", latestBlockNum)
 	return resultsReq, resultsResp, nil
 }
 
-func (l *logPollerWrapper) FilterPreviouslyDetectedRequests(requests []evmRelayTypes.OracleRequest) []evmRelayTypes.OracleRequest {
+func (l *logPollerWrapper) FilterPreviouslyDetectedEvents(logs []logpoller.Log, detectedEvents *detectedEvents) []logpoller.Log {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	filteredRequests := []evmRelayTypes.OracleRequest{}
-	for _, request := range requests {
-		if _, ok := l.detectedRequests[request.RequestId]; !ok {
-			filteredRequests = append(filteredRequests, request)
-			l.detectedRequests[request.RequestId] = time.Now()
+	filteredLogs := []logpoller.Log{}
+	for _, log := range logs {
+		var requestId [32]byte
+		copy(requestId[:], log.Topics[1]) // requestId is the second topic (1st topic is the event signature)
+		if _, ok := detectedEvents.isPreviouslyDetected[requestId]; !ok {
+			filteredLogs = append(filteredLogs, log)
+			detectedEvents.isPreviouslyDetected[requestId] = true
+			detectedEvents.detectedEventsOrdered = append(detectedEvents.detectedEventsOrdered, detectedEvent{requestId: requestId, timeDetected: time.Now()})
 		}
 	}
-	// Expire old requests if they are older than logPollerCacheDurationSec
-	for requestId, timeDetected := range l.detectedRequests {
-		if timeDetected.Unix() < time.Now().Unix()-l.logPollerCacheDurationSec {
-			delete(l.detectedRequests, requestId)
+	expiredRequests := 0
+	for _, detectedEvent := range detectedEvents.detectedEventsOrdered {
+		if detectedEvent.timeDetected.Unix() < time.Now().Unix()-l.logPollerCacheDurationSec {
+			delete(detectedEvents.isPreviouslyDetected, detectedEvent.requestId)
+			expiredRequests++
+		} else {
+			break
 		}
 	}
-	return filteredRequests
-}
-
-func (l *logPollerWrapper) FilterPreviouslyDetectedResponses(responses []evmRelayTypes.OracleResponse) []evmRelayTypes.OracleResponse {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	filteredResponses := []evmRelayTypes.OracleResponse{}
-	for _, response := range responses {
-		if _, ok := l.detectedResponses[response.RequestId]; !ok {
-			filteredResponses = append(filteredResponses, response)
-			l.detectedResponses[response.RequestId] = time.Now()
-		}
-	}
-	// Expire old responses if they are older than logPollerCacheDurationSec
-	for requestId, timeDetected := range l.detectedResponses {
-		if timeDetected.Unix() < time.Now().Unix()-l.logPollerCacheDurationSec {
-			delete(l.detectedResponses, requestId)
-		}
-	}
-	return filteredResponses
+	detectedEvents.detectedEventsOrdered = detectedEvents.detectedEventsOrdered[expiredRequests:]
+	return filteredLogs
 }
 
 // "internal" method called only by EVM relayer components
