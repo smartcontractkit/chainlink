@@ -42,7 +42,7 @@ type OnRampReader interface {
 func NewOnRampReader(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAddress common.Address, sourceLP logpoller.LogPoller, source client.Client, finalityTags bool, qopts ...pg.QOpt) (OnRampReader, error) {
 	contractType, version, err := ccipconfig.TypeAndVersion(onRampAddress, source)
 	if err != nil {
-		return nil, errors.Errorf("expected %v got %v", ccipconfig.EVM2EVMOnRamp, contractType)
+		return nil, errors.Errorf("expected '%v' got '%v' (%v)", ccipconfig.EVM2EVMOnRamp, contractType, err)
 	}
 	switch version.String() {
 	case V1_0_0:
