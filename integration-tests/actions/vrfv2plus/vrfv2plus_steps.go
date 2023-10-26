@@ -241,13 +241,16 @@ func SetupVRFV2_5Environment(
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
 	numberOfConsumers int,
 	numberOfSubToCreate int,
+	l zerolog.Logger,
 ) (*VRFV2_5Contracts, []*big.Int, *VRFV2PlusData, error) {
-
+	l.Info().Msg("Starting VRFV2 Plus environment setup")
+	l.Info().Msg("Deploying VRFV2 Plus contracts")
 	vrfv2_5Contracts, err := DeployVRFV2_5Contracts(env.ContractDeployer, env.EVMClient, numberOfConsumers)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrDeployVRFV2_5Contracts)
 	}
 
+	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Setting Coordinator Config")
 	err = vrfv2_5Contracts.Coordinator.SetConfig(
 		vrfv2PlusConfig.MinimumConfirmations,
 		vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
@@ -263,6 +266,7 @@ func SetupVRFV2_5Environment(
 		return nil, nil, nil, errors.Wrap(err, ErrSetVRFCoordinatorConfig)
 	}
 
+	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Setting Link and ETH/LINK feed")
 	err = vrfv2_5Contracts.Coordinator.SetLINKAndLINKNativeFeed(linkToken.Address(), mockNativeLINKFeed.Address())
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrSetLinkNativeLinkFeed)
@@ -271,10 +275,12 @@ func SetupVRFV2_5Environment(
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
+	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Creating and funding subscriptions, adding consumers")
 	subIDs, err := CreateFundSubsAndAddConsumers(env, vrfv2PlusConfig, linkToken, vrfv2_5Contracts.Coordinator, vrfv2_5Contracts.LoadTestConsumers, numberOfSubToCreate)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	l.Info().Str("Node URL", env.ClCluster.NodeAPIs()[0].URL()).Msg("Creating VRF Key on the Node")
 	vrfKey, err := env.ClCluster.NodeAPIs()[0].MustCreateVRFKey()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrCreatingVRFv2PlusKey)
@@ -285,6 +291,7 @@ func SetupVRFV2_5Environment(
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrNodePrimaryKey)
 	}
+	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Registering Proving Key")
 	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, nativeTokenPrimaryKeyAddress, vrfv2_5Contracts.Coordinator)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrRegisteringProvingKey)
@@ -296,6 +303,7 @@ func SetupVRFV2_5Environment(
 
 	chainID := env.EVMClient.GetChainID()
 
+	l.Info().Msg("Creating VRFV2 Plus Job")
 	job, err := CreateVRFV2PlusJob(
 		env.ClCluster.NodeAPIs()[0],
 		vrfv2_5Contracts.Coordinator.Address(),
@@ -318,6 +326,7 @@ func SetupVRFV2_5Environment(
 	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
 		node.WithVRFv2EVMEstimator(addr),
 	)
+	l.Info().Msg("Restarting Node with new sending key PriceMax configuration")
 	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrRestartCLNode)
@@ -336,6 +345,7 @@ func SetupVRFV2_5Environment(
 		chainID,
 	}
 
+	l.Info().Msg("VRFV2 Plus environment setup is finished")
 	return vrfv2_5Contracts, subIDs, &data, nil
 }
 
@@ -518,6 +528,10 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts
 	tx, err := coordinator.CreateSubscription()
 	if err != nil {
 		return nil, errors.Wrap(err, ErrCreateVRFSubscription)
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
 
 	receipt, err := env.EVMClient.GetTxReceipt(tx.Hash())

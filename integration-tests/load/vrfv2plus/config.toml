@@ -3,8 +3,8 @@
 minimum_confirmations = 3
 
 [NewEnvConfig]
-sub_funds_link = 1000
-sub_funds_native = 1000
+sub_funds_link = 1
+sub_funds_native = 1
 node_funds = 10
 
 [ExistingEnvConfig]

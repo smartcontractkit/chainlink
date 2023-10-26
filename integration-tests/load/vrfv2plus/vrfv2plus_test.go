@@ -165,6 +165,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			mockETHLinkFeed,
 			1,
 			vrfv2PlusConfig.NumberOfSubToCreate,
+			l,
 		)
 		require.NoError(t, err, "error setting up VRF v2_5 env")
 	}
@@ -213,7 +214,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//todo - timeout should be configurable depending on the perf test type
-		requestCount, fulfilmentCount, err := vrfv2plus.WaitForRequestCountEqualToFulfilmentCount(consumer, 30*time.Second, &wg)
+		requestCount, fulfilmentCount, err := vrfv2plus.WaitForRequestCountEqualToFulfilmentCount(consumer, 2*time.Minute, &wg)
 		require.NoError(t, err)
 		wg.Wait()
 
