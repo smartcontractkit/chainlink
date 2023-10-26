@@ -28,6 +28,14 @@ jobs:
         with:
           gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
+      - name: Notify Slack
+        if: ${{ failure() && github.event.schedule != '' }}
+        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        with:
+          channel-id: "#team-core"
+          slack-message: "golangci-lint failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
 
   core:
     strategy:
