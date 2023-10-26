@@ -80,7 +80,7 @@ func (c *evmTxmClient) BatchSendTransactions(
 				processingErr[i] = fmt.Errorf("failed to process tx (index %d): %w", i, signedErr)
 				return
 			}
-			codes[i], txErrs[i] = evmclient.SendErrorParse(reqs[i].Error, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
+			codes[i], txErrs[i] = evmclient.ClassifySendError(reqs[i].Error, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
 		}(index)
 	}
 	wg.Wait()

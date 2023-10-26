@@ -397,7 +397,7 @@ func ExtractRPCError(baseErr error) (*JsonError, error) {
 	return &jErr, nil
 }
 
-func SendErrorParse(err error, lggr logger.Logger, tx *types.Transaction, fromAddress common.Address, isL2 bool) (clienttypes.SendTxReturnCode, error) {
+func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fromAddress common.Address, isL2 bool) (clienttypes.SendTxReturnCode, error) {
 	sendError := NewSendError(err)
 	if sendError == nil {
 		return clienttypes.Successful, err
@@ -466,9 +466,9 @@ func SendErrorParse(err error, lggr logger.Logger, tx *types.Transaction, fromAd
 	return clienttypes.Unknown, err
 }
 
-// SendOnlyErrorParse handles SendOnly nodes error codes. In that case, we don't assume there is another transaction that will be correctly
+// ClassifySendOnlyError handles SendOnly nodes error codes. In that case, we don't assume there is another transaction that will be correctly
 // priced.
-func SendOnlyErrorParse(err error) clienttypes.SendTxReturnCode {
+func ClassifySendOnlyError(err error) clienttypes.SendTxReturnCode {
 	sendError := NewSendError(err)
 	if sendError == nil || sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() || sendError.IsTransactionAlreadyInMempool() {
 		// Nonce too low or transaction known errors are expected since
