@@ -293,21 +293,20 @@ func addContractStructFieldsToDeployMethod(contractName string, fileNode *ast.Fi
 			rs, is := returnStmt.Results[2].(*ast.UnaryExpr)
 			if !is {
 				return true
-			} else {
-				lit, is := rs.X.(*ast.CompositeLit)
-				if !is {
-					continue
-				}
-				addressExpr := &ast.KeyValueExpr{
-					Key:   ast.NewIdent("address"),
-					Value: ast.NewIdent("address"),
-				}
-				abiExpr := &ast.KeyValueExpr{
-					Key:   ast.NewIdent("abi"),
-					Value: ast.NewIdent("*parsed"),
-				}
-				lit.Elts = append([]ast.Expr{addressExpr, abiExpr}, lit.Elts...)
 			}
+			lit, is := rs.X.(*ast.CompositeLit)
+			if !is {
+				continue
+			}
+			addressExpr := &ast.KeyValueExpr{
+				Key:   ast.NewIdent("address"),
+				Value: ast.NewIdent("address"),
+			}
+			abiExpr := &ast.KeyValueExpr{
+				Key:   ast.NewIdent("abi"),
+				Value: ast.NewIdent("*parsed"),
+			}
+			lit.Elts = append([]ast.Expr{addressExpr, abiExpr}, lit.Elts...)
 		}
 		return false
 	}, nil).(*ast.File)
