@@ -877,6 +877,8 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	//Optimism payment model
 	case big.NewInt(420):
 		mode = uint8(2)
+	case big.NewInt(84531):
+		mode = uint8(2)
 	default:
 		mode = uint8(0)
 	}
