@@ -50,7 +50,7 @@ func DeployKeeperConsumer(auth *bind.TransactOpts, backend bind.ContractBackend,
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &KeeperConsumer{KeeperConsumerCaller: KeeperConsumerCaller{contract: contract}, KeeperConsumerTransactor: KeeperConsumerTransactor{contract: contract}, KeeperConsumerFilterer: KeeperConsumerFilterer{contract: contract}}, nil
+	return address, tx, &KeeperConsumer{address: address, abi: *parsed, KeeperConsumerCaller: KeeperConsumerCaller{contract: contract}, KeeperConsumerTransactor: KeeperConsumerTransactor{contract: contract}, KeeperConsumerFilterer: KeeperConsumerFilterer{contract: contract}}, nil
 }
 
 type KeeperConsumer struct {

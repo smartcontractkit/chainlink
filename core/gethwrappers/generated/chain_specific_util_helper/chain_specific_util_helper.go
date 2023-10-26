@@ -50,7 +50,7 @@ func DeployChainSpecificUtilHelper(auth *bind.TransactOpts, backend bind.Contrac
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &ChainSpecificUtilHelper{ChainSpecificUtilHelperCaller: ChainSpecificUtilHelperCaller{contract: contract}, ChainSpecificUtilHelperTransactor: ChainSpecificUtilHelperTransactor{contract: contract}, ChainSpecificUtilHelperFilterer: ChainSpecificUtilHelperFilterer{contract: contract}}, nil
+	return address, tx, &ChainSpecificUtilHelper{address: address, abi: *parsed, ChainSpecificUtilHelperCaller: ChainSpecificUtilHelperCaller{contract: contract}, ChainSpecificUtilHelperTransactor: ChainSpecificUtilHelperTransactor{contract: contract}, ChainSpecificUtilHelperFilterer: ChainSpecificUtilHelperFilterer{contract: contract}}, nil
 }
 
 type ChainSpecificUtilHelper struct {

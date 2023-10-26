@@ -52,7 +52,7 @@ func DeployAuthorizedForwarder(auth *bind.TransactOpts, backend bind.ContractBac
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &AuthorizedForwarder{AuthorizedForwarderCaller: AuthorizedForwarderCaller{contract: contract}, AuthorizedForwarderTransactor: AuthorizedForwarderTransactor{contract: contract}, AuthorizedForwarderFilterer: AuthorizedForwarderFilterer{contract: contract}}, nil
+	return address, tx, &AuthorizedForwarder{address: address, abi: *parsed, AuthorizedForwarderCaller: AuthorizedForwarderCaller{contract: contract}, AuthorizedForwarderTransactor: AuthorizedForwarderTransactor{contract: contract}, AuthorizedForwarderFilterer: AuthorizedForwarderFilterer{contract: contract}}, nil
 }
 
 type AuthorizedForwarder struct {
