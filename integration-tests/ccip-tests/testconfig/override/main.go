@@ -13,7 +13,7 @@ func main() {
 	defaultOutputPath := "./.env"
 	overrideconfigPath := flag.String("path", defaultPath, "config for overriding for default test config")
 	outputPath := flag.String("output", defaultOutputPath, "output path for env file")
-	overrideconfig := flag.String("overridewith", "", "config for overriding for default test config")
+
 	flag.Parse()
 	if *overrideconfigPath == "" {
 		overrideconfigPath = &defaultPath
@@ -21,18 +21,13 @@ func main() {
 	if *outputPath == "" {
 		outputPath = &defaultOutputPath
 	}
-	var cData []byte
-	var err error
-	if *overrideconfig != "" {
-		fmt.Println("Using override config from command line")
-		cData = []byte(*overrideconfig)
-	} else {
-		cData, err = os.ReadFile(*overrideconfigPath)
-		if err != nil {
-			log.Println("unable to read the toml at ", *overrideconfigPath, "error - ", err)
-			os.Exit(1)
-		}
+
+	cData, err := os.ReadFile(*overrideconfigPath)
+	if err != nil {
+		log.Println("unable to read the toml at ", *overrideconfigPath, "error - ", err)
+		os.Exit(1)
 	}
+
 	// convert the data to Base64 encoded string
 	encoded := base64.StdEncoding.EncodeToString(cData)
 	// set the env var
