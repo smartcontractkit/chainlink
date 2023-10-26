@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.6;
+pragma solidity 0.8.19;
 
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableMap.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
+
 
 interface IAggregatorProxy {
   function aggregator() external view returns (address);
@@ -35,94 +35,79 @@ interface ILinkAvailable {
 /// we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
 /// which has significantly different trust assumptions
 contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationCompatibleInterface {
-  using EnumerableMap for EnumerableMap.AddressToUintMap;
-
+  event BalanceUpdated(address indexed addr, uint256 oldBalance, uint256 newBalance);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
-  event TopUpSucceeded(address indexed topUpAddress);
-  event TopUpBlocked(address indexed topUpAddress);
-  event WatchlistUpdated();
-  event MaxPerformUpdated(uint256 oldMaxPerform, uint256 newMaxPerform);
   event MaxCheckUpdated(uint256 oldMaxCheck, uint256 newMaxCheck);
+  event MaxPerformUpdated(uint256 oldMaxPerform, uint256 newMaxPerform);
+  event MinWaitPeriodUpdated(uint256 s_minWaitPeriodSeconds, uint256 minWaitPeriodSeconds);
+  event TopUpBlocked(address indexed topUpAddress);
+  event TopUpFailed(address indexed recipient);
+  event TopUpSucceeded(address indexed topUpAddress);
+  event TopUpUpdated(address indexed addr, uint256 oldTopUpAmount, uint256 newTopUpAmount);
+  event WatchlistUpdated();
 
   error InvalidWatchList();
   error DuplicateAddress(address duplicate);
 
-  IERC20 private immutable LINK_TOKEN;
-  EnumerableMap.AddressToUintMap private s_watchList;
-  uint256 private s_topUpAmount;
-  uint32 private s_minWaitPeriodSeconds;
+  struct MonitoredAddress {
+    uint96 minBalance;
+    uint96 topUpAmount;
+    uint56 lastTopUpTimestamp;
+    bool isActive;
+  }
+
+  IERC20 private immutable i_linkToken;
+  uint256 private s_minWaitPeriodSeconds;
   uint16 private s_maxPerform;
   uint16 private s_maxCheck;
+  address[] private s_watchList;
+  mapping(address targetAddress => MonitoredAddress targetProperties) internal s_targets;
 
   /// @param linkTokenAddress the LINK token address
-  /// @param topUpAmount the amount of LINK to top up an aggregator with at once
   constructor(
     address linkTokenAddress,
-    uint256 topUpAmount,
     uint16 maxPerform,
-    uint16 maxCheck
+    uint16 maxCheck,
+    uint256 minWaitPeriodSeconds
   ) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0), "LinkAvailableBalanceMonitor: invalid linkTokenAddress");
-    require(topUpAmount > 0, "LinkAvailableBalanceMonitor: invalid topUpAmount");
-    LINK_TOKEN = IERC20(linkTokenAddress);
-    s_topUpAmount = topUpAmount;
-    s_maxPerform = maxPerform;
-    s_maxCheck = maxCheck;
+    i_linkToken = IERC20(linkTokenAddress);
+    setMaxPerform(maxPerform);
+    setMaxCheck(maxCheck);
+    setMinWaitPeriodSeconds(minWaitPeriodSeconds);
   }
 
   /// @notice Sets the list of subscriptions to watch and their funding parameters
   /// @param addresses the list of target addresses to watch (could be direct target or IAggregatorProxy)
   /// @param minBalances the list of corresponding minBalance for the target address
-  function setWatchList(address[] calldata addresses, uint256[] calldata minBalances) external onlyOwner {
-    if (addresses.length != minBalances.length) {
+  /// @param topUpAmounts the list of corresponding minTopUp for the target address
+  function setWatchList(
+    address[] calldata addresses,
+    uint96[] calldata minBalances,
+    uint96[] calldata topUpAmounts
+  ) external onlyOwner {
+    if (addresses.length != minBalances.length || addresses.length != topUpAmounts.length) {
       revert InvalidWatchList();
     }
-    // first, remove all existing addresses from list
-    for (uint256 idx = s_watchList.length(); idx > 0; idx--) {
-      (address target, ) = s_watchList.at(idx - 1);
-      require(s_watchList.remove(target), "LinkAvailableBalanceMonitor: unable to setWatchlist");
+    for (uint256 idx = 0; idx < s_watchList.length; idx++) {
+      delete s_targets[s_watchList[idx]];
     }
-    // then set new addresses
     for (uint256 idx = 0; idx < addresses.length; idx++) {
-      if (s_watchList.contains(addresses[idx])) {
+      address targetAddress = addresses[idx];
+      if (s_targets[targetAddress].isActive) {
         revert DuplicateAddress(addresses[idx]);
       }
       if (addresses[idx] == address(0)) {
         revert InvalidWatchList();
       }
-      s_watchList.set(addresses[idx], minBalances[idx]);
+      s_targets[targetAddress] = MonitoredAddress({
+        isActive: true,
+        minBalance: minBalances[idx],
+        topUpAmount: topUpAmounts[idx],
+        lastTopUpTimestamp: 0
+      });
     }
-    emit WatchlistUpdated();
-  }
-
-  /// @notice Adds addresses to the watchlist without overwriting existing members
-  /// @param addresses the list of target addresses to watch (could be direct target or IAggregatorProxy)
-  /// @param minBalances the list of corresponding minBalance for the target address
-  function addToWatchList(address[] calldata addresses, uint256[] calldata minBalances) external onlyOwner {
-    if (addresses.length != minBalances.length) {
-      revert InvalidWatchList();
-    }
-    for (uint256 idx = 0; idx < addresses.length; idx++) {
-      if (s_watchList.contains(addresses[idx])) {
-        revert DuplicateAddress(addresses[idx]);
-      }
-      if (addresses[idx] == address(0)) {
-        revert InvalidWatchList();
-      }
-      s_watchList.set(addresses[idx], minBalances[idx]);
-    }
-    emit WatchlistUpdated();
-  }
-
-  /// @notice Removes addresses from the watchlist
-  /// @param addresses the list of target addresses to remove from the watchlist
-  function removeFromWatchlist(address[] calldata addresses) external onlyOwner {
-    for (uint256 idx = 0; idx < addresses.length; idx++) {
-      if (!s_watchList.contains(addresses[idx])) {
-        revert InvalidWatchList();
-      }
-      s_watchList.remove(addresses[idx]);
-    }
+    s_watchList = addresses;
     emit WatchlistUpdated();
   }
 
@@ -135,20 +120,23 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   function sampleUnderfundedAddresses() public view returns (address[] memory) {
     uint16 maxPerform = s_maxPerform;
     uint16 maxCheck = s_maxCheck;
-    uint256 numTargets = s_watchList.length();
-    uint256 idx = uint256(blockhash(block.number - 1)) % numTargets; // start at random index, to distribute load
+    uint256 numTargets = s_watchList.length;
+    uint256 idx = uint256(blockhash(block.number - 1)) % numTargets;
     uint256 numToCheck = numTargets < maxCheck ? numTargets : maxCheck;
     uint256 numFound = 0;
+    uint256 minWaitPeriod = s_minWaitPeriodSeconds;
     address[] memory targetsToFund = new address[](maxPerform);
+    MonitoredAddress memory target;
     for (
       uint256 numChecked = 0;
       numChecked < numToCheck;
       (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)
     ) {
-      (address target, uint256 minBalance) = s_watchList.at(idx);
-      (bool needsFunding, ) = _needsFunding(target, minBalance);
-      if (needsFunding) {
-        targetsToFund[numFound] = target;
+      address targetAddress = s_watchList[idx];
+      target = s_targets[targetAddress];
+      (bool needsFunding, ) = _needsFunding(targetAddress, target.minBalance);
+      if (needsFunding && target.lastTopUpTimestamp + minWaitPeriod <= block.timestamp) {
+        targetsToFund[numFound] = targetAddress;
         numFound++;
         if (numFound == maxPerform) {
           break; // max number of addresses in batch reached
@@ -163,27 +151,66 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     return targetsToFund;
   }
 
-  /// @notice Send funds to the targets provided.
-  /// @param targetAddresses the list of targets to fund
   function topUp(address[] memory targetAddresses) public whenNotPaused {
-    uint256 topUpAmount = s_topUpAmount;
-    uint256 stopIdx = targetAddresses.length;
-    uint256 numCanFund = LINK_TOKEN.balanceOf(address(this)) / topUpAmount;
-    stopIdx = numCanFund < stopIdx ? numCanFund : stopIdx;
-    for (uint256 idx = 0; idx < stopIdx; idx++) {
-      (bool exists, uint256 minBalance) = s_watchList.tryGet(targetAddresses[idx]);
-      if (!exists) {
-        emit TopUpBlocked(targetAddresses[idx]);
-        continue;
+    MonitoredAddress memory target;
+    uint256 localBalance = i_linkToken.balanceOf(address(this));
+    address[] memory targetsTopUp = new address[](targetAddresses.length);
+    for (uint256 idx = 0; idx < targetAddresses.length; idx++) {
+      address targetAddress = targetAddresses[idx];
+      target = s_targets[targetAddress];
+      (bool needsFunding, ) = _needsFunding(targetAddress, target.minBalance);
+      if (target.isActive && localBalance >= target.topUpAmount && !(targetAddress == address(0)) && needsFunding) {
+        targetsTopUp[idx] = targetAddress;
+        localBalance -= target.topUpAmount;
+      } else {
+        emit TopUpBlocked(targetAddress);
       }
-      (bool needsFunding, address target) = _needsFunding(targetAddresses[idx], minBalance);
-      if (!needsFunding) {
-        emit TopUpBlocked(targetAddresses[idx]);
-        continue;
-      }
-      LINK_TOKEN.transfer(target, topUpAmount);
-      emit TopUpSucceeded(targetAddresses[idx]);
     }
+    for (uint256 idx = 0; idx < targetsTopUp.length; idx++) {
+      address targetAddress = targetsTopUp[idx];
+      if (targetAddress == address(0)) {
+        continue;
+      }
+      target = s_targets[targetAddress];
+      bool success = i_linkToken.transfer(targetAddress, target.topUpAmount);
+      if (success) {
+        emit TopUpSucceeded(targetAddress);
+      } else {
+        emit TopUpFailed(targetAddress);
+      }
+    }
+  }
+
+  /// @notice checks the target (could be direct target or IAggregatorProxy), and determines
+  /// if it is elligible for funding
+  /// @param targetAddress the target to check
+  /// @param minBalance minimum balance required for the target
+  /// @return bool whether the target needs funding or not
+  /// @return address the address of the contract needing funding
+  function _needsFunding(address targetAddress, uint256 minBalance) private view returns (bool, address) {
+    ILinkAvailable target;
+    IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
+    // Explicitly check if the targetAddress is the zero address
+    // or if it's not a contract. In both cases return with false,
+    // to prevent target.linkAvailableForPayment from running,
+    // which would revert the operation.
+    if (targetAddress == address(0) || !(targetAddress.code.length > 0)) {
+      return (false, address(0));
+    }
+    try proxy.aggregator() returns (address aggregatorAddress) {
+      if (aggregatorAddress == address(0)) {
+        return (false, address(0));
+      }
+      target = ILinkAvailable(aggregatorAddress);
+    } catch {
+      target = ILinkAvailable(targetAddress);
+    }
+    try target.linkAvailableForPayment() returns (int256 balance) {
+      if (balance < 0 || uint256(balance) < minBalance) {
+        return (true, address(target));
+      }
+    } catch {}
+    return (false, address(0));
   }
 
   /// @notice Gets list of subscription ids that are underfunded and returns a keeper-compatible payload.
@@ -193,12 +220,6 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     bytes calldata
   ) external view override whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
     address[] memory needsFunding = sampleUnderfundedAddresses();
-    uint256 numCanFund = LINK_TOKEN.balanceOf(address(this)) / s_topUpAmount;
-    if (numCanFund < needsFunding.length) {
-      assembly {
-        mstore(needsFunding, numCanFund) // resize
-      }
-    }
     upkeepNeeded = needsFunding.length > 0;
     performData = abi.encode(needsFunding);
     return (upkeepNeeded, performData);
@@ -206,7 +227,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
 
   /// @notice Called by the keeper to send funds to underfunded addresses.
   /// @param performData the abi encoded list of addresses to fund
-  function performUpkeep(bytes calldata performData) external override {
+  function performUpkeep(bytes calldata performData) external override whenNotPaused {
     address[] memory needsFunding = abi.decode(performData, (address[]));
     topUp(needsFunding);
   }
@@ -216,37 +237,50 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @param payee the address to pay
   function withdraw(uint256 amount, address payable payee) external onlyOwner {
     require(payee != address(0), "LinkAvailableBalanceMonitor: invalid payee address");
-    LINK_TOKEN.transfer(payee, amount);
+    i_linkToken.transfer(payee, amount);
     emit FundsWithdrawn(amount, payee);
   }
 
-  /// @notice Sets the top up amount
-  function setTopUpAmount(uint256 topUpAmount) external onlyOwner returns (uint256) {
-    require(topUpAmount > 0, "LinkAvailableBalanceMonitor: invalid linkTokenAddress");
-    return s_topUpAmount = topUpAmount;
+  /// @notice Sets the minimum balance for the given target address
+  function setMinBalance(address target, uint96 minBalance) external onlyOwner {
+    require(target != address(0), "LinkAvailableBalanceMonitor: invalid target address");
+    require(minBalance > 0, "LinkAvailableBalanceMonitor: invalid minBalance");
+    if (!s_targets[target].isActive) {
+      revert InvalidWatchList();
+    }
+    uint256 oldBalance = s_targets[target].minBalance;
+    s_targets[target].minBalance = minBalance;
+    emit BalanceUpdated(target, oldBalance, minBalance);
   }
 
   /// @notice Sets the minimum balance for the given target address
-  function setMinBalance(address target, uint256 minBalance) external onlyOwner returns (uint256) {
-    require(minBalance > 0, "LinkAvailableBalanceMonitor: invalid minBalance");
-    (bool exists, uint256 prevMinBalance) = s_watchList.tryGet(target);
-    if (!exists) {
+  function setTopUpAmount(address target, uint96 topUpAmount) external onlyOwner {
+    require(target != address(0), "LinkAvailableBalanceMonitor: invalid target address");
+    require(topUpAmount > 0, "LinkAvailableBalanceMonitor: invalid topUpAmount");
+    if (!s_targets[target].isActive) {
       revert InvalidWatchList();
     }
-    s_watchList.set(target, minBalance);
-    return prevMinBalance;
+    uint256 oldTopUpAmount = s_targets[target].topUpAmount;
+    s_targets[target].topUpAmount = topUpAmount;
+    emit BalanceUpdated(target, oldTopUpAmount, topUpAmount);
   }
 
   /// @notice Update s_maxPerform
-  function setMaxPerform(uint16 maxPerform) external onlyOwner {
-    emit MaxPerformUpdated(s_maxPerform, maxPerform);
+  function setMaxPerform(uint16 maxPerform) public onlyOwner {
     s_maxPerform = maxPerform;
+    emit MaxPerformUpdated(s_maxPerform, maxPerform);
   }
 
   /// @notice Update s_maxCheck
-  function setMaxCheck(uint16 maxCheck) external onlyOwner {
-    emit MaxCheckUpdated(s_maxCheck, maxCheck);
+  function setMaxCheck(uint16 maxCheck) public onlyOwner {
     s_maxCheck = maxCheck;
+    emit MaxCheckUpdated(s_maxCheck, maxCheck);
+  }
+
+  /// @notice Sets the minimum wait period (in seconds) for addresses between funding
+  function setMinWaitPeriodSeconds(uint256 minWaitPeriodSeconds) public onlyOwner {
+    s_minWaitPeriodSeconds = minWaitPeriodSeconds;
+    emit MinWaitPeriodUpdated(s_minWaitPeriodSeconds, minWaitPeriodSeconds);
   }
 
   /// @notice Gets maxPerform
@@ -259,31 +293,22 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     return s_maxCheck;
   }
 
+  /// @notice Gets the minimum wait period
+  function getMinWaitPeriodSeconds() external view returns (uint256) {
+    return s_minWaitPeriodSeconds;
+  }
+
   /// @notice Gets the list of subscription ids being watched
-  function getWatchList() external view returns (address[] memory, uint256[] memory) {
-    uint256 len = s_watchList.length();
-    address[] memory targets = new address[](len);
-    uint256[] memory minBalances = new uint256[](len);
-
-    for (uint256 idx = 0; idx < len; idx++) {
-      (targets[idx], minBalances[idx]) = s_watchList.at(idx);
-    }
-
-    return (targets, minBalances);
+  function getWatchList() external view returns (address[] memory) {
+    return s_watchList;
   }
 
-  /// @notice Gets the configured top up amount
-  function getTopUpAmount() external view returns (uint256) {
-    return s_topUpAmount;
-  }
-
-  /// @notice Gets the configured minimum balance for the given target
-  function getMinBalance(address target) external view returns (uint256) {
-    (bool exists, uint256 minBalance) = s_watchList.tryGet(target);
-    if (!exists) {
-      revert InvalidWatchList();
-    }
-    return minBalance;
+  /// @notice Gets configuration information for an address on the watchlist
+  function getAccountInfo(
+    address targetAddress
+  ) external view returns (bool isActive, uint256 minBalance, uint256 topUpAmount) {
+    MonitoredAddress memory target = s_targets[targetAddress];
+    return (target.isActive, target.minBalance, target.topUpAmount);
   }
 
   /// @notice Pause the contract, which prevents executing performUpkeep
@@ -294,27 +319,5 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @notice Unpause the contract
   function unpause() external onlyOwner {
     _unpause();
-  }
-
-  /// @notice checks the target (could be direct target or IAggregatorProxy), and determines
-  /// if it is elligible for funding
-  /// @param targetAddress the target to check
-  /// @param minBalance minimum balance required for the target
-  /// @return bool whether the target needs funding or not
-  /// @return address the address of the contract needing funding
-  function _needsFunding(address targetAddress, uint256 minBalance) private view returns (bool, address) {
-    ILinkAvailable target;
-    IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
-    try proxy.aggregator() returns (address aggregatorAddress) {
-      target = ILinkAvailable(aggregatorAddress);
-    } catch {
-      target = ILinkAvailable(targetAddress);
-    }
-    try target.linkAvailableForPayment() returns (int256 balance) {
-      if (balance < 0 || uint256(balance) < minBalance) {
-        return (true, address(target));
-      }
-    } catch {}
-    return (false, address(0));
   }
 }
