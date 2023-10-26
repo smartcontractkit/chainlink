@@ -8,15 +8,15 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 )
 
-// KeyWrapper uses a KeystoreAdapter to implement the cosmos-sdk PrivKey interface for a specific key.
+// KeyWrapper uses a keystoreAdapter to implement the cosmos-sdk PrivKey interface for a specific key.
 type KeyWrapper struct {
-	adapter *KeystoreAdapter
+	adapter *keystoreAdapter
 	account string
 }
 
 var _ cryptotypes.PrivKey = &KeyWrapper{}
 
-func NewKeyWrapper(adapter *KeystoreAdapter, account string) *KeyWrapper {
+func NewKeyWrapper(adapter *keystoreAdapter, account string) *KeyWrapper {
 	return &KeyWrapper{
 		adapter: adapter,
 		account: account,
