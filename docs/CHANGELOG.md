@@ -611,7 +611,7 @@ For backward compatibility all insecure passwords will continue to work, however
 
 - The following ENV variables have been deprecated, and will be removed in a future release: `INSECURE_SKIP_VERIFY`, `CLIENT_NODE_URL`, `ADMIN_CREDENTIALS_FILE`. These vars only applied to Chainlink when running in client mode and have been replaced by command line args, notably: `--insecure-skip-verify`, `--remote-node-url URL` and `--admin-credentials-file FILE` respectively. More information can be found by running `./chainlink --help`.
 
-- The `Optimism2` `GAS_ESTIMATOR_MODE` has been renamed to `L2Suggested`. The old name is still supported for now.
+- The `Optimism2` `GAS_ESTIMATOR_MODE` has been renamed to `SuggestedPrice`. The old name is still supported for now.
 
 - The `p2pBootstrapPeers` property on OCR2 job specs has been renamed to `p2pv2Bootstrappers`.
 
