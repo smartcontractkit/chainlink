@@ -39,11 +39,34 @@ interface ILinkAvailable {
 contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationCompatibleInterface {
   using EnumerableMap for EnumerableMap.AddressToUintMap;
 
+  /**
+   * @dev Emitted when the funds are withdrawn.
+   */
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
+
+  /**
+   * @dev Emitted when the top up is correct and LINK token are transferred.
+   */
   event TopUpSucceeded(address indexed topUpAddress);
+
+  /**
+   * @dev Emitted when the top up is blocked to prevent an invalid top.
+   */
   event TopUpBlocked(address indexed topUpAddress);
+
+  /**
+   * @dev Emitted when watch list is changed.
+   */
   event WatchlistUpdated();
+
+  /**
+   * @dev Emitted when the max number of addresses to top up is changed.
+   */
   event MaxPerformUpdated(uint256 oldMaxPerform, uint256 newMaxPerform);
+
+  /**
+   * @dev Emitted when the max number of upkeeps to check is changed.
+   */
   event MaxCheckUpdated(uint256 oldMaxCheck, uint256 newMaxCheck);
 
   error InvalidWatchList();
@@ -67,8 +90,8 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     uint256 maxPerform,
     uint256 maxCheck
   ) ConfirmedOwner(msg.sender) {
-    require(linkTokenAddress != address(0));
-    require(topUpAmount > 0);
+    require(linkTokenAddress != address(0), "LinkAvailableBalanceMonitor: invalid linkTokenAddress");
+    require(topUpAmount > 0, "LinkAvailableBalanceMonitor: invalid topUpAmount");
     LINK_TOKEN = IERC20(linkTokenAddress);
     s_topUpAmount = topUpAmount;
     s_maxPerform = maxPerform;
@@ -87,7 +110,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     // first, remove all existing addresses from list
     for (uint256 idx = s_watchList.length(); idx > 0; idx--) {
       (address target, ) = s_watchList.at(idx - 1);
-      require(s_watchList.remove(target));
+      require(s_watchList.remove(target), "LinkAvailableBalanceMonitor: unable to setWatchlist");
     }
     // then set new addresses
     for (uint256 idx = 0; idx < addresses.length; idx++) {
@@ -231,7 +254,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
    * @param payee the address to pay
    */
   function withdraw(uint256 amount, address payable payee) external onlyOwner {
-    require(payee != address(0));
+    require(payee != address(0), "LinkAvailableBalanceMonitor: invalid payee address");
     LINK_TOKEN.transfer(payee, amount);
     emit FundsWithdrawn(amount, payee);
   }
@@ -240,7 +263,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
    * @notice Sets the top up amount
    */
   function setTopUpAmount(uint256 topUpAmount) external onlyOwner returns (uint256) {
-    require(topUpAmount > 0);
+    require(topUpAmount > 0, "LinkAvailableBalanceMonitor: invalid linkTokenAddress");
     return s_topUpAmount = topUpAmount;
   }
 
@@ -248,7 +271,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
    * @notice Sets the minimum balance for the given target address
    */
   function setMinBalance(address target, uint256 minBalance) external onlyOwner returns (uint256) {
-    require(minBalance > 0);
+    require(minBalance > 0, "LinkAvailableBalanceMonitor: invalid minBalance");
     (bool exists, uint256 prevMinBalance) = s_watchList.tryGet(target);
     if (!exists) {
       revert InvalidWatchList();
