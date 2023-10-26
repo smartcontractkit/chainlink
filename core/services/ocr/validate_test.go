@@ -12,7 +12,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -399,7 +399,7 @@ answer1      [type=median index=0];
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Insecure.OCRDevelopmentMode = null.BoolFrom(false).Ptr()
 				if tc.overrides != nil {
 					tc.overrides(c, s)

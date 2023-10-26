@@ -19,7 +19,7 @@ jobs:
       changes: ${{ steps.changes.outputs.src }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
@@ -28,6 +28,7 @@ jobs:
               - 'contracts/src/!(v0.8/(llo-feeds|ccip)/**)/**/*'
               - 'contracts/test/**/*'
               - 'contracts/package.json'
+              - 'contracts/pnpm-lock.yaml'
               - 'contracts/hardhat.config.ts'
               - 'contracts/ci.json'
               - '.github/workflows/solidity-hardhat.yml'
@@ -39,7 +40,7 @@ jobs:
       splits: ${{ steps.split.outputs.splits }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Generate splits
         id: split
         uses: ./.github/actions/split-tests
@@ -65,7 +66,7 @@ jobs:
     runs-on: ubuntu20.04-4cores-16GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Setup Hardhat
@@ -103,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Make coverage directory
@@ -130,7 +131,7 @@ jobs:
     runs-on: ubuntu20.04-4cores-16GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Setup Hardhat
