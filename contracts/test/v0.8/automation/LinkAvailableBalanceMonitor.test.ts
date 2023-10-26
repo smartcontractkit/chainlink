@@ -474,8 +474,8 @@ describe('LinkAvailableBalanceMonitor', () => {
       let aggregators: MockContract[]
 
       beforeEach(async () => {
-        MAX_PERFORM = (await labm.getMaxPerform()).toNumber()
-        MAX_CHECK = (await labm.getMaxCheck()).toNumber()
+        MAX_PERFORM = await labm.getMaxPerform()
+        MAX_CHECK = await labm.getMaxCheck()
         proxyAddresses = []
         minBalances = []
         aggregators = []
@@ -580,7 +580,7 @@ describe('LinkAvailableBalanceMonitor', () => {
 
     it('Can handle MAX_PERFORM proxies within gas limit', async () => {
       // add MAX_PERFORM number of proxies
-      const MAX_PERFORM = (await labm.getMaxPerform()).toNumber()
+      const MAX_PERFORM = await labm.getMaxPerform()
       const proxyAddresses = []
       const minBalances = []
       for (let idx = 0; idx < MAX_PERFORM; idx++) {
