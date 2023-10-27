@@ -4,12 +4,13 @@ receivers:
       grpc:
         endpoint: "0.0.0.0:4317"
 exporters:
-  otlp:
-    endpoint: tempo:4317
-    tls:
-      insecure: true
+  file:
+    path: /tracing/trace-data.json
 service:
+  telemetry:
+    logs:
+      level: "debug"  # Set log level to debug
   pipelines:
     traces:
       receivers: [otlp]
-      exporters: [otlp]
+      exporters: [file]

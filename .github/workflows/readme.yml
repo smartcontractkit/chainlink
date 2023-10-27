@@ -28,6 +28,11 @@ jobs:
         with:
           msg: "I see that you haven't updated any README files. Would it make sense to do so?"
           check_for_duplicate_msg: true
+      - name: WIP
+        run: |
+          echo "WIP"
+          pwd
+
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
