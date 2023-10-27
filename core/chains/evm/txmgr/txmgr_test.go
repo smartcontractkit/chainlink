@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	pgmocks "github.com/smartcontractkit/chainlink/v2/core/services/pg/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -620,8 +619,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 	// It should not hang or panic
 	txm.OnNewLongestChain(testutils.Context(t), head)
 
-	sub := pgmocks.NewSubscription(t)
-	sub.On("Events").Return(make(<-chan pg.Event))
 	evmConfig.bumpThreshold = uint64(1)
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
@@ -635,7 +632,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	addr := []gethcommon.Address{keyState.Address.Address()}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
-	sub.On("Close").Return()
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), gethcommon.Address{}).Return(uint64(0), nil).Maybe()
 	keyChangeCh <- struct{}{}
 
@@ -667,9 +663,6 @@ func TestTxm_Reset(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil).Maybe()
-	sub := pgmocks.NewSubscription(t)
-	sub.On("Events").Return(make(<-chan pg.Event))
-	sub.On("Close")
 
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth())

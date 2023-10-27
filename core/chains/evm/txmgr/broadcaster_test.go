@@ -43,9 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
-	pgmocks "github.com/smartcontractkit/chainlink/v2/core/services/pg/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -1724,9 +1722,6 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 	ethNodeNonce := uint64(22)
 
-	sub := pgmocks.NewSubscription(t)
-	sub.On("Events").Return(make(<-chan pg.Event))
-	sub.On("Close")
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), nil)
 	checkerFactory := &testCheckerFactory{}
 

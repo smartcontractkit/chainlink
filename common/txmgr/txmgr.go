@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
@@ -166,14 +165,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 	return b.StartOnce("Txm", func() error {
 		var ms services.MultiStart
 		if err := ms.Start(ctx, b.broadcaster); err != nil {
-			return pkgerrors.Wrap(err, "Txm: Broadcaster failed to start")
+			return fmt.Errorf("Txm: Broadcaster failed to start: %w", err)
 		}
 		if err := ms.Start(ctx, b.confirmer); err != nil {
-			return pkgerrors.Wrap(err, "Txm: Confirmer failed to start")
+			return fmt.Errorf("Txm: Confirmer failed to start: %w", err)
 		}
 
 		if err := ms.Start(ctx, b.txAttemptBuilder); err != nil {
-			return pkgerrors.Wrap(err, "Txm: Estimator failed to start")
+			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
 
 		b.wg.Add(1)
@@ -190,7 +189,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 
 		if b.fwdMgr != nil {
 			if err := ms.Start(ctx, b.fwdMgr); err != nil {
-				return pkgerrors.Wrap(err, "Txm: ForwarderManager failed to start")
+				return fmt.Errorf("Txm: ForwarderManager failed to start: %w", err)
 			}
 		}
 
@@ -224,7 +223,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(ad
 	ctx, cancel := utils.StopChan(b.chStop).NewCtx()
 	defer cancel()
 	err = b.txStore.Abandon(ctx, b.chainID, addr)
-	return pkgerrors.Wrapf(err, "abandon failed to update txes for key %s", addr.String())
+	return fmt.Errorf("abandon failed to update txes for key %s: %w", addr.String(), err)
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (merr error) {
@@ -241,14 +240,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (m
 		}
 		if b.fwdMgr != nil {
 			if err := b.fwdMgr.Close(); err != nil {
-				merr = errors.Join(merr, pkgerrors.Wrap(err, "Txm: failed to stop ForwarderManager"))
+				merr = errors.Join(merr, fmt.Errorf("Txm: failed to stop ForwarderManager: %w", err))
 			}
 		}
 
 		b.wg.Wait()
 
 		if err := b.txAttemptBuilder.Close(); err != nil {
-			merr = errors.Join(merr, pkgerrors.Wrap(err, "Txm: failed to close TxAttemptBuilder"))
+			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close TxAttemptBuilder: %w", err))
 		}
 
 		return nil
@@ -444,7 +443,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		var existingTx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 		existingTx, err = b.txStore.FindTxWithIdempotencyKey(ctx, *txRequest.IdempotencyKey, b.chainID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return tx, pkgerrors.Wrap(err, "Failed to search for transaction with IdempotencyKey")
+			return tx, fmt.Errorf("Failed to search for transaction with IdempotencyKey: %w", err)
 		}
 		if existingTx != nil {
 			b.logger.Infow("Found a Tx with IdempotencyKey. Returning existing Tx without creating a new one.", "IdempotencyKey", *txRequest.IdempotencyKey)
@@ -493,7 +492,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error) {
 	if !b.txConfig.ForwardersEnabled() {
-		return forwarder, pkgerrors.Errorf("Forwarding is not enabled, to enable set Transactions.ForwardersEnabled =true")
+		return forwarder, fmt.Errorf("forwarding is not enabled, to enable set Transactions.ForwardersEnabled =true")
 	}
 	forwarder, err = b.fwdMgr.ForwarderFor(eoa)
 	return
@@ -501,7 +500,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForward
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(addr ADDR) error {
 	err := b.keyStore.CheckEnabled(addr, b.chainID)
-	return pkgerrors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr, b.chainID.String())
+	return fmt.Errorf("cannot send transaction from %s on chain ID %s: %w", addr, b.chainID.String(), err)
 }
 
 // SendNativeToken creates a transaction that transfers the given value of native tokens
