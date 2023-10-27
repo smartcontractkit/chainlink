@@ -299,7 +299,7 @@ func getEnv(key, fallback string) string {
 
 func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork) {
 	l := logging.GetTestLogger(t)
-	testNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
+	testNetwork := networks.MustGetSelectedNetworksFromEnv()[0] // Environment currently being used to run benchmark test on
 	blockTime := "1"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 

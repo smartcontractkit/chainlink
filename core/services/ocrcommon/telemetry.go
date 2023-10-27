@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -357,12 +358,12 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 
 		bridgeRawResponse, ok := trr.Result.Value.(string)
 		if !ok {
-			e.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %s", e.job.ID, trr.Task.DotID())
+			e.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %s, expected string got %T", e.job.ID, trr.Task.DotID(), trr.Result.Value)
 			continue
 		}
 		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
-			e.lggr.Warnf("cannot parse EA telemetry, job %d, id %s", e.job.ID, trr.Task.DotID())
+			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job %d, id %s", e.job.ID, trr.Task.DotID()), "err", err)
 		}
 
 		assetSymbol := e.getAssetSymbolFromRequestData(bridgeTask.RequestData)
@@ -486,17 +487,19 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 }
 
 // getFinalValues runs a parse on the pipeline.TaskRunResults and returns the values
-func (e *EnhancedTelemetryService[T]) getFinalValues(obs relaymercuryv1.Observation) (int64, int64, int64, int64, []byte, uint64) {
-	var benchmarkPrice, bid, ask int64
+func (e *EnhancedTelemetryService[T]) getFinalValues(obs relaymercuryv1.Observation) (*big.Int, *big.Int, *big.Int, int64, []byte, uint64) {
+	benchmarkPrice := big.NewInt(0)
+	bid := big.NewInt(0)
+	ask := big.NewInt(0)
 
 	if obs.BenchmarkPrice.Val != nil {
-		benchmarkPrice = obs.BenchmarkPrice.Val.Int64()
+		benchmarkPrice = obs.BenchmarkPrice.Val
 	}
 	if obs.Bid.Val != nil {
-		bid = obs.Bid.Val.Int64()
+		bid = obs.Bid.Val
 	}
 	if obs.Ask.Val != nil {
-		ask = obs.Ask.Val.Int64()
+		ask = obs.Ask.Val
 	}
 
 	return benchmarkPrice, bid, ask, obs.CurrentBlockNum.Val, obs.CurrentBlockHash.Val, obs.CurrentBlockTimestamp.Val
