@@ -58,9 +58,7 @@ type medianProviderWrapper struct {
 }
 
 // Override relay's implementation of MedianContract with product plugin's implementation of
-// MedianContract, making use of product-agnostic ChainReader to read the contract
-//
-//	instead of relay MedianContract
+// MedianContract, making use of product-agnostic ChainReader to read the contract instead of relay MedianContract
 func (m medianProviderWrapper) MedianContract() median.MedianContract {
 	return m.contract
 }
@@ -216,7 +214,7 @@ func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time
 
 	err = m.chainReader.GetLatestValue(ctx, m.contract, "LatestRoundReported", map[string]string{}, &resp)
 	if err != nil {
-		return // TODO: wrap
+		return
 	}
 
 	return resp.configDigest, resp.epoch, resp.round, err
