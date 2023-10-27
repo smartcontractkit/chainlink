@@ -162,6 +162,7 @@ func TestAutomationBenchmark(t *testing.T) {
 			RegistryVersions: registryVersions,
 			KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 				PaymentPremiumPPB:    uint32(0),
+				FlatFeeMicroLINK:     uint32(40000),
 				BlockCountPerTurn:    big.NewInt(100),
 				CheckGasLimit:        uint32(45_000_000), //45M
 				StalenessSeconds:     big.NewInt(90_000),
