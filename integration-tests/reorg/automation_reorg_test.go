@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -17,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -35,7 +36,6 @@ Enabled = true
 
 [P2P]
 [P2P.V2]
-Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 	networkTOML = `Enabled = true
@@ -48,7 +48,7 @@ HistoryDepth = 400
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
-	activeEVMNetwork          = networks.SelectedNetwork
+	activeEVMNetwork          = networks.MustGetSelectedNetworksFromEnv()[0]
 	defaultAutomationSettings = map[string]interface{}{
 		"toml": client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
 		"db": map[string]interface{}{
@@ -135,7 +135,7 @@ func TestAutomationReorg(t *testing.T) {
 	for name, registryVersion := range registryVersions {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			network := networks.SelectedNetwork
+			network := networks.MustGetSelectedNetworksFromEnv()[0]
 
 			defaultAutomationSettings["replicas"] = numberOfNodes
 			cd := chainlink.New(0, defaultAutomationSettings)
