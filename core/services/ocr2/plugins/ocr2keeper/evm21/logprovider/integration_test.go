@@ -566,7 +566,7 @@ func waitLogPoller(ctx context.Context, t *testing.T, backend *backends.Simulate
 	for {
 		latestPolled, lberr := lp.LatestBlock(pg.WithParentCtx(ctx))
 		require.NoError(t, lberr)
-		if latestPolled >= latestBlock {
+		if latestPolled.BlockNumber >= latestBlock {
 			break
 		}
 		lp.PollAndSaveLogs(ctx, latestBlock)

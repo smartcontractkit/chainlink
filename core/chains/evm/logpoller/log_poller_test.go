@@ -311,8 +311,8 @@ func Test_BackupLogPoller(t *testing.T) {
 			body.Transactions = types.Transactions{} // number of tx's must match # of logs for GetLogs() to succeed
 			rawdb.WriteBody(th.EthDB, h.Hash(), h.Number.Uint64(), body)
 
-			currentBlock := th.PollAndSaveLogs(ctx, 1)
-			assert.Equal(t, int64(35), currentBlock)
+			currentBlockNumber := th.PollAndSaveLogs(ctx, 1)
+			assert.Equal(t, int64(35), currentBlockNumber)
 
 			// simulate logs becoming available
 			rawdb.WriteReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), receipts)
@@ -342,12 +342,12 @@ func Test_BackupLogPoller(t *testing.T) {
 			markBlockAsFinalized(t, th, 34)
 
 			// Run ordinary poller + backup poller at least once
-			currentBlock, _ = th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
-			th.LogPoller.PollAndSaveLogs(ctx, currentBlock+1)
+			currentBlock, _ := th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
+			th.LogPoller.PollAndSaveLogs(ctx, currentBlock.BlockNumber+1)
 			th.LogPoller.BackupPollAndSaveLogs(ctx, 100)
 			currentBlock, _ = th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
 
-			require.Equal(t, int64(37), currentBlock+1)
+			require.Equal(t, int64(37), currentBlock.BlockNumber+1)
 
 			// logs still shouldn't show up, because we don't want to backfill the last finalized log
 			//  to help with reorg detection
@@ -359,11 +359,11 @@ func Test_BackupLogPoller(t *testing.T) {
 			markBlockAsFinalized(t, th, 35)
 
 			// Run ordinary poller + backup poller at least once more
-			th.LogPoller.PollAndSaveLogs(ctx, currentBlock+1)
+			th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber+1)
 			th.LogPoller.BackupPollAndSaveLogs(ctx, 100)
 			currentBlock, _ = th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
 
-			require.Equal(t, int64(38), currentBlock+1)
+			require.Equal(t, int64(38), currentBlock.BlockNumber+1)
 
 			// all 3 logs in block 34 should show up now, thanks to backup logger
 			logs, err = th.LogPoller.Logs(30, 37, EmitterABI.Events["Log1"].ID, th.EmitterAddress1,
@@ -619,7 +619,7 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	require.Len(t, gethLogs, 2)
 
 	lb, _ := th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
-	th.PollAndSaveLogs(context.Background(), lb+1)
+	th.PollAndSaveLogs(context.Background(), lb.BlockNumber+1)
 	lg1, err := th.LogPoller.Logs(0, 20, EmitterABI.Events["Log1"].ID, th.EmitterAddress1,
 		pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
@@ -667,9 +667,9 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
 		}
-		currentBlock := int64(1)
-		lp.PollAndSaveLogs(testutils.Context(t), currentBlock)
-		currentBlock, err = lp.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
+		currentBlockNumber := int64(1)
+		lp.PollAndSaveLogs(testutils.Context(t), currentBlockNumber)
+		currentBlock, err := lp.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
 		require.NoError(t, err)
 		matchesGeth := func() bool {
 			// Check every block is identical
@@ -719,7 +719,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 				require.NoError(t, err1)
 				t.Logf("New latest (%v, %x), latest parent %x)\n", latest.NumberU64(), latest.Hash(), latest.ParentHash())
 			}
-			lp.PollAndSaveLogs(testutils.Context(t), currentBlock)
+			lp.PollAndSaveLogs(testutils.Context(t), currentBlock.BlockNumber)
 			currentBlock, err = lp.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
 			require.NoError(t, err)
 		}
