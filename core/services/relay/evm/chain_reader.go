@@ -14,23 +14,21 @@ import (
 )
 
 // constructor for ChainReader, returns nil if there is any error
-func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts) *chainReader {
+func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts) (*chainReader, error) {
 	relayConfig, err := ropts.RelayConfig()
 	if err != nil {
-		lggr.Errorf("Failed parsing RelayConfig: %w", err.Error())
-		return nil
+		return nil, fmt.Errorf("Failed parsing RelayConfig: %w", err.Error())
 	}
 
 	if relayConfig.ChainReader == nil {
-		return nil
+		return nil, relaytypes.ErrorChainReaderUnsupported{}
 	}
 
 	if err = validateChainReaderConfig(*relayConfig.ChainReader); err != nil {
-		lggr.Errorf("Invalid ChainReader configuration: %w", err.Error())
-		return nil
+		return nil, fmt.Errorf("Invalid ChainReader configuration: %w", err.Error())
 	}
 
-	return &chainReader{lggr, chain.LogPoller()}
+	return NewChainReaderService(lggr, chain.LogPoller())
 }
 
 func validateChainReaderConfig(cfg types.ChainReaderConfig) error {
