@@ -476,7 +476,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 
 	err = b.txStore.CheckTxQueueCapacity(ctx, txRequest.FromAddress, b.txConfig.MaxQueued(), b.chainID)
 	if err != nil {
-		return tx, pkgerrors.Wrap(err, "Txm#CreateTransaction")
+		return tx, fmt.Errorf("Txm#CreateTransaction: %w", err)
 	}
 
 	tx, err = b.txStore.CreateTransaction(ctx, txRequest, b.chainID)
@@ -519,7 +519,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 	}
 	etx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
 	if err != nil {
-		return etx, pkgerrors.Wrap(err, "SendNativeToken failed to insert tx")
+		return etx, fmt.Errorf("SendNativeToken failed to insert tx: %w", err)
 	}
 
 	// Trigger the Broadcaster to check for new transaction
