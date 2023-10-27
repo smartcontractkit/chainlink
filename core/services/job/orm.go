@@ -725,12 +725,6 @@ func (o *orm) LoadEnvConfigVars(jb *Job) error {
 		jb.OCROracleSpec = newSpec
 	} else if jb.VRFSpec != nil {
 		jb.VRFSpec = LoadEnvConfigVarsVRF(*jb.VRFSpec)
-	} else if jb.DirectRequestSpec != nil {
-		ch, err := o.legacyChains.Get(jb.DirectRequestSpec.EVMChainID.String())
-		if err != nil {
-			return err
-		}
-		jb.DirectRequestSpec = LoadEnvConfigVarsDR(ch.Config().EVM().MinIncomingConfirmations(), *jb.DirectRequestSpec)
 	}
 	return nil
 }
