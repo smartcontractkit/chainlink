@@ -724,11 +724,7 @@ func (o *orm) LoadEnvConfigVars(jb *Job) error {
 		}
 		jb.OCROracleSpec = newSpec
 	} else if jb.VRFSpec != nil {
-		ch, err := o.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
-		if err != nil {
-			return err
-		}
-		jb.VRFSpec = LoadEnvConfigVarsVRF(ch.Config().EVM(), *jb.VRFSpec)
+		jb.VRFSpec = LoadEnvConfigVarsVRF(*jb.VRFSpec)
 	} else if jb.DirectRequestSpec != nil {
 		ch, err := o.legacyChains.Get(jb.DirectRequestSpec.EVMChainID.String())
 		if err != nil {
@@ -743,7 +739,7 @@ type DRSpecConfig interface {
 	MinIncomingConfirmations() uint32
 }
 
-func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
+func LoadEnvConfigVarsVRF(vrfs VRFSpec) *VRFSpec {
 	if vrfs.PollPeriod == 0 {
 		vrfs.PollPeriodEnv = true
 		vrfs.PollPeriod = 5 * time.Second
