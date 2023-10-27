@@ -8,9 +8,9 @@ import (
 
 type HelperProcessCommand test.HelperProcessCommand
 
-func (h HelperProcessCommand) New() *exec.Cmd {
+func (h *HelperProcessCommand) New() *exec.Cmd {
 	h.CommandLocation = "./internal/test/cmd/main.go"
-	return (test.HelperProcessCommand)(h).New()
+	return (test.HelperProcessCommand)(*h).New()
 }
 
 func NewHelperProcessCommand(command string) *exec.Cmd {

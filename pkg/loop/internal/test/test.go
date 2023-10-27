@@ -17,6 +17,11 @@ const ConfigTOML = `[Foo]
 Bar = "Baz"
 `
 
+const spec = `
+answer [type=sum values=<[ $(val), 2 ]>]
+answer;
+`
+
 const (
 	account          = libocr.Account("testaccount")
 	balanceCheck     = true
@@ -125,4 +130,16 @@ URL = 'https://test.url'
 	signed         = []byte{13: 37}
 	sigs           = []libocr.AttributedOnchainSignature{{Signature: []byte{9: 8, 7: 6}, Signer: commontypes.OracleID(54)}}
 	value          = big.NewInt(999)
+	vars           = types.Vars{
+		Vars: map[string]interface{}{"foo": "baz"},
+	}
+	options = types.Options{
+		MaxTaskDuration: 10 * time.Second,
+	}
+	taskResults = []types.TaskResult{
+		{
+			Value: "hello",
+			Index: 0,
+		},
+	}
 )

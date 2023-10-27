@@ -25,7 +25,7 @@ func (s StaticReportingPluginWithMedianProvider) ConnToProvider(conn grpc.Client
 	return StaticMedianProvider{}
 }
 
-func (s StaticReportingPluginWithMedianProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.MedianProvider, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
+func (s StaticReportingPluginWithMedianProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner types.PipelineRunnerService, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
 	ocd := provider.OffchainConfigDigester()
 	gotDigestPrefix, err := ocd.ConfigDigestPrefix()
 	if err != nil {
@@ -171,7 +171,7 @@ func (s StaticReportingPluginWithPluginProvider) ConnToProvider(conn grpc.Client
 	return StaticPluginProvider{}
 }
 
-func (s StaticReportingPluginWithPluginProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.PluginProvider, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
+func (s StaticReportingPluginWithPluginProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.PluginProvider, pipelineRunner types.PipelineRunnerService, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
 	ocd := provider.OffchainConfigDigester()
 	gotDigestPrefix, err := ocd.ConfigDigestPrefix()
 	if err != nil {
@@ -234,8 +234,15 @@ func (s StaticReportingPluginWithPluginProvider) NewReportingPluginFactory(ctx c
 	if err != nil {
 		return nil, fmt.Errorf("failed to Transmit")
 	}
-	if err := errorLog.SaveError(ctx, errMsg); err != nil {
-		return nil, fmt.Errorf("failed to save error: %w", err)
+	if err2 := errorLog.SaveError(ctx, errMsg); err2 != nil {
+		return nil, fmt.Errorf("failed to save error: %w", err2)
+	}
+	tr, err := pipelineRunner.ExecuteRun(ctx, spec, vars, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute pipeline: %w", err)
+	}
+	if !reflect.DeepEqual(tr, taskResults) {
+		return nil, fmt.Errorf("expected TaskResults %+v but got %+v", taskResults, tr)
 	}
 	return staticPluginFactory{}, nil
 }

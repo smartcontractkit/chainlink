@@ -39,16 +39,16 @@ type GRPCService[T types.PluginProvider] struct {
 	pluginClient *internal.ReportingPluginServiceClient
 }
 
-type serverAdapter func(context.Context, types.ReportingPluginServiceConfig, grpc.ClientConnInterface, types.ErrorLog) (types.ReportingPluginFactory, error)
+type serverAdapter func(context.Context, types.ReportingPluginServiceConfig, grpc.ClientConnInterface, types.PipelineRunnerService, types.ErrorLog) (types.ReportingPluginFactory, error)
 
-func (s serverAdapter) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, conn grpc.ClientConnInterface, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
-	return s(ctx, config, conn, errorLog)
+func (s serverAdapter) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, conn grpc.ClientConnInterface, pr types.PipelineRunnerService, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
+	return s(ctx, config, conn, pr, errorLog)
 }
 
 func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
-	adapter := func(ctx context.Context, cfg types.ReportingPluginServiceConfig, conn grpc.ClientConnInterface, el types.ErrorLog) (types.ReportingPluginFactory, error) {
+	adapter := func(ctx context.Context, cfg types.ReportingPluginServiceConfig, conn grpc.ClientConnInterface, pr types.PipelineRunnerService, el types.ErrorLog) (types.ReportingPluginFactory, error) {
 		provider := g.PluginServer.ConnToProvider(conn, broker, g.BrokerConfig)
-		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, el)
+		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, el)
 	}
 	return internal.RegisterReportingPluginServiceServer(server, broker, g.BrokerConfig, serverAdapter(adapter))
 }
