@@ -480,7 +480,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 	}
 
 	tx, err = b.txStore.CreateTransaction(ctx, txRequest, b.chainID)
-	return
+	if err != nil {
+		return tx, err
+	}
+
+	// Trigger the Broadcaster to check for new transaction
+	b.broadcaster.Trigger(txRequest.FromAddress)
+
+	return tx, nil
 }
 
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
@@ -511,7 +518,13 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 		Strategy:       NewSendEveryStrategy(),
 	}
 	etx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
-	return etx, pkgerrors.Wrap(err, "SendNativeToken failed to insert tx")
+	if err != nil {
+		return etx, pkgerrors.Wrap(err, "SendNativeToken failed to insert tx")
+	}
+
+	// Trigger the Broadcaster to check for new transaction
+	b.broadcaster.Trigger(from)
+	return etx, nil
 }
 
 type NullTxManager[
