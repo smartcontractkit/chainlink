@@ -70,7 +70,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	// verify contract is correct
 	typeAndVersion, err := keeperRegistry21.TypeAndVersion(latestCallOpts)
 	if err != nil {
-		failCheckConfig("failed to get typeAndVersion: are you sure you have the correct contract address?", err)
+		failCheckConfig("failed to get typeAndVersion: make sure your registry contract address and archive node are valid", err)
 	}
 	if typeAndVersion != expectedTypeAndVersion {
 		failCheckConfig(fmt.Sprintf("invalid registry contract: this command can only debug %s, got: %s", expectedTypeAndVersion, typeAndVersion), nil)
@@ -148,10 +148,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failCheckArgs("unable to parse log index", err)
 		}
-		// find transaciton receipt
+		// find transaction receipt
 		_, isPending, err := k.client.TransactionByHash(ctx, txHash)
 		if err != nil {
-			log.Fatal("failed to fetch tx receipt", err)
+			log.Fatal("failed to get tx by hash", err)
 		}
 		if isPending {
 			resolveIneligible(fmt.Sprintf("tx %s is still pending confirmation", txHash))
@@ -256,6 +256,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				message("using mercury lookup v0.3")
 			}
 			streamsLookup := &StreamsLookup{streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time, streamsLookupErr.ExtraData, upkeepID, blockNum}
+
+			if k.cfg.MercuryLegacyURL == "" || k.cfg.MercuryURL == "" || k.cfg.MercuryID == "" || k.cfg.MercuryKey == "" {
+				failCheckConfig("Mercury configs not set properly, check your MERCURY_LEGACY_URL, MERCURY_URL, MERCURY_ID and MERCURY_KEY", nil)
+			}
 			handler := NewMercuryLookupHandler(&MercuryCredentials{k.cfg.MercuryLegacyURL, k.cfg.MercuryURL, k.cfg.MercuryID, k.cfg.MercuryKey}, k.rpcClient)
 			state, failureReason, values, _, err := handler.doMercuryRequest(ctx, streamsLookup)
 			if failureReason == UpkeepFailureReasonInvalidRevertDataInput {
