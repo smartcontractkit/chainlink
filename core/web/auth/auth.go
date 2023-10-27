@@ -79,6 +79,10 @@ func AuthenticateByToken(c *gin.Context, authr Authenticator) error {
 		Secret:    c.GetHeader(APISecret),
 	}
 
+	if token.AccessKey == "" {
+		return auth.ErrorAuthFailed
+	}
+
 	// We need to first load the user row so we can compare tokens using the stored salt
 	user, err := authr.FindUserByAPIToken(token.AccessKey)
 	if err != nil {

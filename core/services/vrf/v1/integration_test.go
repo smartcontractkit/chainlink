@@ -182,10 +182,9 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 			return true
 		} else if strings.Contains(err2.Error(), "execution reverted") {
 			return false
-		} else {
-			t.Fatal(err2)
-			return false
 		}
+		t.Fatal(err2)
+		return false
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Wait another 160 blocks so that the request is outside the 256 block window

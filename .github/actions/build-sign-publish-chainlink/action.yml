@@ -10,6 +10,7 @@ inputs:
     required: false
 
   dockerfile:
+    description: Path to the Dockerfile (relative to the repo root)
     default: core/chainlink.Dockerfile
     required: false
   ecr-hostname:
@@ -23,6 +24,11 @@ inputs:
     default: chainlink/chainlink
     required: false
   ecr-tag-suffix:
+    description: Docker image tag suffix
+    required: false
+  git-commit-sha:
+    description: Git commit SHA used as metadata when building the application (appears in logs)
+    default: ${{ github.sha }}
     required: false
   aws-role-to-assume:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
@@ -74,7 +80,7 @@ runs:
         )
 
         SHARED_BUILD_ARGS=$(cat << EOF
-        COMMIT_SHA=${{ github.sha }}
+        COMMIT_SHA=${{ inputs.git-commit-sha }}
         EOF
         )
 
@@ -93,7 +99,7 @@ runs:
     - if: inputs.publish == 'true'
       # Log in to AWS for publish to ECR
       name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355 # v2.2.0
+      uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
       with:
         role-to-assume: ${{ inputs.aws-role-to-assume }}
         role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}

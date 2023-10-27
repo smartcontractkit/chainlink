@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -25,7 +25,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 
-	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
+	peerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
 	require.NoError(t, err)
 
 	t.Run("with no p2p keys returns error", func(t *testing.T) {

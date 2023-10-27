@@ -14,13 +14,14 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -50,7 +51,7 @@ func prepareFullTestDBV2(t testing.TB, name string, empty bool, loadFixtures boo
 		t.Fatal("could not load fixtures into an empty DB")
 	}
 
-	gcfg := configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	gcfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Dialect = dialects.Postgres
 		if overrideFn != nil {
 			overrideFn(c, s)
@@ -68,7 +69,7 @@ func prepareFullTestDBV2(t testing.TB, name string, empty bool, loadFixtures boo
 		os.RemoveAll(gcfg.RootDir())
 	})
 
-	gcfg = configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	gcfg = configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Dialect = dialects.Postgres
 		s.Database.URL = models.MustSecretURL(migrationTestDBURL)
 		if overrideFn != nil {

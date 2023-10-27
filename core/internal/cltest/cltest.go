@@ -61,7 +61,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
@@ -98,10 +97,6 @@ import (
 )
 
 const (
-	// APIKey of the fixture API user
-	APIKey = "2d25e62eaf9143e993acaf48691564b2"
-	// APISecret of the fixture API user.
-	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
 	// Collection of test fixture DB user emails per role
 	APIEmailAdmin    = "apiuser@chainlink.test"
 	APIEmailEdit     = "apiuser-edit@chainlink.test"
@@ -112,7 +107,7 @@ const (
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 	// DefaultPeerID is the peer ID of the default p2p key
-	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
+	DefaultPeerID = configtest.DefaultPeerID
 	// DefaultOCRKeyBundleID is the ID of the default ocr key bundle
 	DefaultOCRKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 	// DefaultOCR2KeyBundleID is the ID of the fixture ocr2 key bundle
@@ -244,7 +239,7 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
-	c := configtest2.NewGeneralConfig(t, nil)
+	c := configtest.NewGeneralConfig(t, nil)
 
 	return NewApplicationWithConfig(t, c)
 }
@@ -254,7 +249,7 @@ func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	c := configtest2.NewGeneralConfig(t, nil)
+	c := configtest.NewGeneralConfig(t, nil)
 
 	return NewApplicationWithConfig(t, c, flagsAndDeps...)
 }
@@ -264,7 +259,7 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	config := configtest2.NewGeneralConfig(t, nil)
+	config := configtest.NewGeneralConfig(t, nil)
 	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
@@ -436,8 +431,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 	if cfg.StarkNetEnabled() {
 		starkCfg := chainlink.StarkNetFactoryConfig{
-			Keystore:        keyStore.StarkNet(),
-			StarknetConfigs: cfg.StarknetConfigs(),
+			Keystore:    keyStore.StarkNet(),
+			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
 
@@ -1621,7 +1616,7 @@ func AssertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
 }
 
 func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
-	cfg := configtest2.NewGeneralConfig(t, nil)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 

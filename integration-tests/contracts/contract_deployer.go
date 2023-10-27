@@ -29,6 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
@@ -50,8 +52,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
@@ -164,6 +169,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 		return &PolygonZkEvmContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.LineaClient:
 		return &LineaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.FantomClient:
+		return &FantomContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -224,6 +231,10 @@ type PolygonZkEvmContractDeployer struct {
 }
 
 type LineaContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type FantomContractDeployer struct {
 	*EthereumContractDeployer
 }
 
@@ -1228,14 +1239,14 @@ func (e *EthereumContractDeployer) DeployKeeperConsumer(updateInterval *big.Int)
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployKeeperConsumer(auth, backend, updateInterval)
+		return keeper_consumer_wrapper.DeployKeeperConsumer(auth, backend, updateInterval)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumKeeperConsumer{
 		client:   e.client,
-		consumer: instance.(*eth_contracts.KeeperConsumer),
+		consumer: instance.(*keeper_consumer_wrapper.KeeperConsumer),
 		address:  address,
 	}, err
 }
@@ -1302,14 +1313,14 @@ func (e *EthereumContractDeployer) DeployUpkeepCounter(testRange *big.Int, inter
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployUpkeepCounter(auth, backend, testRange, interval)
+		return upkeep_counter_wrapper.DeployUpkeepCounter(auth, backend, testRange, interval)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumUpkeepCounter{
 		client:   e.client,
-		consumer: instance.(*eth_contracts.UpkeepCounter),
+		consumer: instance.(*upkeep_counter_wrapper.UpkeepCounter),
 		address:  address,
 	}, err
 }
@@ -1319,14 +1330,14 @@ func (e *EthereumContractDeployer) DeployUpkeepPerformCounterRestrictive(testRan
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployUpkeepPerformCounterRestrictive(auth, backend, testRange, averageEligibilityCadence)
+		return upkeep_perform_counter_restrictive_wrapper.DeployUpkeepPerformCounterRestrictive(auth, backend, testRange, averageEligibilityCadence)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumUpkeepPerformCounterRestrictive{
 		client:   e.client,
-		consumer: instance.(*eth_contracts.UpkeepPerformCounterRestrictive),
+		consumer: instance.(*upkeep_perform_counter_restrictive_wrapper.UpkeepPerformCounterRestrictive),
 		address:  address,
 	}, err
 }
@@ -1341,7 +1352,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerPerformance(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployKeeperConsumerPerformance(
+		return keeper_consumer_performance_wrapper.DeployKeeperConsumerPerformance(
 			auth,
 			backend,
 			testBlockRange,
@@ -1355,7 +1366,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerPerformance(
 	}
 	return &EthereumKeeperConsumerPerformance{
 		client:   e.client,
-		consumer: instance.(*eth_contracts.KeeperConsumerPerformance),
+		consumer: instance.(*keeper_consumer_performance_wrapper.KeeperConsumerPerformance),
 		address:  address,
 	}, err
 }
@@ -1403,7 +1414,7 @@ func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData [
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployPerformDataChecker(
+		return perform_data_checker_wrapper.DeployPerformDataChecker(
 			auth,
 			backend,
 			expectedData,
@@ -1414,7 +1425,7 @@ func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData [
 	}
 	return &EthereumKeeperPerformDataCheckerConsumer{
 		client:             e.client,
-		performDataChecker: instance.(*eth_contracts.PerformDataChecker),
+		performDataChecker: instance.(*perform_data_checker_wrapper.PerformDataChecker),
 		address:            address,
 	}, err
 }

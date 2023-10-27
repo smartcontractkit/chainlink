@@ -50,7 +50,7 @@ func DeployVRFSingleConsumerExample(auth *bind.TransactOpts, backend bind.Contra
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFSingleConsumerExample{VRFSingleConsumerExampleCaller: VRFSingleConsumerExampleCaller{contract: contract}, VRFSingleConsumerExampleTransactor: VRFSingleConsumerExampleTransactor{contract: contract}, VRFSingleConsumerExampleFilterer: VRFSingleConsumerExampleFilterer{contract: contract}}, nil
+	return address, tx, &VRFSingleConsumerExample{address: address, abi: *parsed, VRFSingleConsumerExampleCaller: VRFSingleConsumerExampleCaller{contract: contract}, VRFSingleConsumerExampleTransactor: VRFSingleConsumerExampleTransactor{contract: contract}, VRFSingleConsumerExampleFilterer: VRFSingleConsumerExampleFilterer{contract: contract}}, nil
 }
 
 type VRFSingleConsumerExample struct {

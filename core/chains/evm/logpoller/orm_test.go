@@ -47,7 +47,7 @@ func GenLogWithTimestamp(chainID *big.Int, logIndex int64, blockNum int64, block
 
 func TestLogPoller_Batching(t *testing.T) {
 	t.Parallel()
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	var logs []logpoller.Log
 	// Inserts are limited to 65535 parameters. A log being 10 parameters this results in
 	// a maximum of 6553 log inserts per tx. As inserting more than 6553 would result in
@@ -63,7 +63,7 @@ func TestLogPoller_Batching(t *testing.T) {
 }
 
 func TestORM_GetBlocks_From_Range(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
 	// Insert many blocks and read them back together
 	blocks := []block{
@@ -118,7 +118,7 @@ func TestORM_GetBlocks_From_Range(t *testing.T) {
 }
 
 func TestORM_GetBlocks_From_Range_Recent_Blocks(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
 	// Insert many blocks and read them back together
 	var recentBlocks []block
@@ -150,7 +150,7 @@ func TestORM_GetBlocks_From_Range_Recent_Blocks(t *testing.T) {
 }
 
 func TestORM(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
 	o2 := th.ORM2
 	// Insert and read back a block.
@@ -447,7 +447,7 @@ func insertLogsTopicValueRange(t *testing.T, chainID *big.Int, o *logpoller.DbOR
 }
 
 func TestORM_IndexedLogs(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
 	eventSig := common.HexToHash("0x1599")
 	addr := common.HexToAddress("0x1234")
@@ -508,7 +508,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 }
 
 func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
-	th := SetupTH(t, false, 0, 3, 2)
+	th := SetupTH(t, false, 0, 3, 2, 1000)
 	o1 := th.ORM
 	eventSig := common.HexToHash("0x1599")
 	txHash := common.HexToHash("0x1888")
@@ -574,7 +574,7 @@ func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
 }
 
 func TestORM_DataWords(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
 	eventSig := common.HexToHash("0x1599")
 	addr := common.HexToAddress("0x1234")
@@ -637,7 +637,7 @@ func TestORM_DataWords(t *testing.T) {
 }
 
 func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
 
 	// Insert logs on different topics, should be able to read them
@@ -731,7 +731,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 }
 
 func TestORM_DeleteBlocksBefore(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 1, time.Now(), 0))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 2, time.Now(), 0))
@@ -754,7 +754,7 @@ func TestORM_DeleteBlocksBefore(t *testing.T) {
 
 func TestLogPoller_Logs(t *testing.T) {
 	t.Parallel()
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	event1 := EmitterABI.Events["Log1"].ID
 	event2 := EmitterABI.Events["Log2"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
@@ -802,7 +802,7 @@ func TestLogPoller_Logs(t *testing.T) {
 }
 
 func BenchmarkLogs(b *testing.B) {
-	th := SetupTH(b, false, 2, 3, 2)
+	th := SetupTH(b, false, 2, 3, 2, 1000)
 	o := th.ORM
 	var lgs []logpoller.Log
 	addr := common.HexToAddress("0x1234")
@@ -828,7 +828,7 @@ func BenchmarkLogs(b *testing.B) {
 }
 
 func TestSelectLogsWithSigsExcluding(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	orm := th.ORM
 	addressA := common.HexToAddress("0x11111")
 	addressB := common.HexToAddress("0x22222")
@@ -1074,7 +1074,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 }
 
 func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	event1 := EmitterABI.Events["Log1"].ID
 	event2 := EmitterABI.Events["Log2"].ID
 	address1 := utils.RandomAddress()
@@ -1171,7 +1171,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 }
 
 func TestSelectLogsCreatedAfter(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	event := EmitterABI.Events["Log1"].ID
 	address := utils.RandomAddress()
 
@@ -1275,7 +1275,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 }
 
 func TestNestedLogPollerBlocksQuery(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2, 1000)
 	event := EmitterABI.Events["Log1"].ID
 	address := utils.RandomAddress()
 

@@ -6,18 +6,12 @@ echo " ┌───────────────────────�
 echo " │      Compiling Functions contracts...        │"
 echo " └──────────────────────────────────────────────┘"
 
-SOLC_VERSION="0.8.6"
 OPTIMIZE_RUNS=1000000
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
-
-solc-select install $SOLC_VERSION
-solc-select use $SOLC_VERSION
-export SOLC_VERSION=$SOLC_VERSION
-
 
 compileContract () {
   solc @openzeppelin/=$ROOT/node_modules/@openzeppelin/ \
@@ -27,20 +21,6 @@ compileContract () {
       --allow-paths $ROOT/src/v0.8,$ROOT/node_modules \
       $ROOT/src/v0.8/functions/$2
 }
-
-##########################
-# Version 0 (Testnet Beta)
-##########################
-
-compileContract v0_0_0 dev/v0_0_0/Functions.sol
-compileContract v0_0_0 dev/v0_0_0/FunctionsBillingRegistry.sol
-compileContract v0_0_0 dev/v0_0_0/FunctionsClient.sol
-compileContract v0_0_0 dev/v0_0_0/FunctionsOracle.sol
-compileContract v0_0_0 dev/v0_0_0/example/FunctionsClientExample.sol
-
-# Test helpers
-compileContract v0_0_0 tests/v0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol
-compileContract v0_0_0 tests/v0_0_0/testhelpers/FunctionsOracleWithInit.sol
 
 ############################
 # Version 1 (Mainnet Preview)
