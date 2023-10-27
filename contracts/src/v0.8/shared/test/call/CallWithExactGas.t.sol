@@ -11,6 +11,7 @@ contract CallWithExactGasSetup is BaseTest {
   CallWithExactGasHelper internal s_caller;
   uint256 internal constant DEFAULT_GAS_LIMIT = 20_000;
   uint16 internal constant DEFAULT_GAS_FOR_CALL_EXACT_CHECK = 5000;
+  uint256 internal constant EXTCODESIZE_GAS_COST = 2600;
 
   function setUp() public virtual override {
     BaseTest.setUp();
@@ -41,28 +42,21 @@ contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
   }
 
   function test_CallWithExactGasSafeReturnDataExactGas() public {
-    uint256 gasLimit = 10_000;
-    uint16 gasForCallExactCheck = 5_000;
+    // The calculated overhead for otherwise unaccounted for gas usage
+    uint256 overheadForCallWithExactGas = 364;
 
     bytes memory payload = abi.encodeWithSelector(
       s_caller.callWithExactGas.selector,
       "",
       address(s_receiver),
-      gasLimit,
-      gasForCallExactCheck
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
     );
 
     // Since only 63/64th of the gas gets passed, we compensate
-    uint256 allowedGas = (gasLimit + (gasLimit / 64));
-    // We call `extcodesize` which costs 2600 gas
-    allowedGas += 2600;
+    uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64));
 
-    // Add DEFAULT_GAS_FOR_CALL_EXACT_CHECK
-    allowedGas += gasForCallExactCheck;
-
-    // Add some margin for mstore's, gas() call, a function call, 3 slots of func args,
-    // some basic arithmetic and calldata cost.
-    allowedGas += 519;
+    allowedGas += EXTCODESIZE_GAS_COST + DEFAULT_GAS_FOR_CALL_EXACT_CHECK + overheadForCallWithExactGas;
 
     // Due to EIP-150 we expect to lose 1/64, so we compensate for this
     allowedGas = (allowedGas * 64) / 63;
@@ -138,7 +132,7 @@ contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
     // also cost gas.
     uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64)) + DEFAULT_GAS_FOR_CALL_EXACT_CHECK;
     // extcodesize gas cost
-    allowedGas += 2600;
+    allowedGas += EXTCODESIZE_GAS_COST;
     // EIP-150
     allowedGas = (allowedGas * 64) / 63;
 
@@ -174,32 +168,30 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
   }
 
   function test_CallWithExactGasSafeReturnDataExactGas() public {
-    uint256 gasLimit = 10_000;
-    uint16 gasForCallExactCheck = 5_000;
+    // The gas cost for `extcodesize`
+    uint256 extcodesizeGas = EXTCODESIZE_GAS_COST;
+    // The calculated overhead for retData initialization
+    uint256 overheadForRetDataInit = 114;
+    // The calculated overhead for otherwise unaccounted for gas usage
+    uint256 overheadForCallWithExactGas = 480;
 
     bytes memory payload = abi.encodeWithSelector(
       s_caller.callWithExactGasSafeReturnData.selector,
       "",
       address(s_receiver),
-      gasLimit,
-      gasForCallExactCheck,
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
       0
     );
 
     // Since only 63/64th of the gas gets passed, we compensate
-    uint256 allowedGas = (gasLimit + (gasLimit / 64));
-    // We call `extcodesize` which costs 2600 gas
-    allowedGas += 2600;
+    uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64));
 
-    // Add DEFAULT_GAS_FOR_CALL_EXACT_CHECK
-    allowedGas += gasForCallExactCheck;
-
-    // Add gas to init the retData field, calculated to be 114 gas for 0 length
-    allowedGas += 114;
-
-    // Add some margin for mstore's, gas() call, a function call, 3 slots of func args,
-    // some basic arithmetic and calldata cost.
-    allowedGas += 636;
+    allowedGas +=
+      extcodesizeGas +
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK +
+      overheadForRetDataInit +
+      overheadForCallWithExactGas;
 
     // Due to EIP-150 we expect to lose 1/64, so we compensate for this
     allowedGas = (allowedGas * 64) / 63;
@@ -298,7 +290,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     // also cost gas.
     uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64)) + DEFAULT_GAS_FOR_CALL_EXACT_CHECK;
     // extcodesize gas cost
-    allowedGas += 2600;
+    allowedGas += EXTCODESIZE_GAS_COST;
     // EIP-150
     allowedGas = (allowedGas * 64) / 63;
 
@@ -331,26 +323,23 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
   }
 
   function test_CallWithExactGasEvenIfTargetIsNoContractExactGasSuccess() public {
+    // The calculated overhead for otherwise unaccounted for gas usage
+    uint256 overheadForCallWithExactGas = 440;
+
     bytes memory data = abi.encode("0x52656E73");
-    uint256 gasLimit = 10_000;
-    uint16 gasForCallExactCheck = 5_000;
 
     bytes memory payload = abi.encodeWithSelector(
       s_caller.callWithExactGasEvenIfTargetIsNoContract.selector,
       data,
       address(s_receiver),
-      gasLimit,
-      gasForCallExactCheck
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
     );
 
     // Since only 63/64th of the gas gets passed, we compensate
-    uint256 allowedGas = (gasLimit + (gasLimit / 64));
-    // Add DEFAULT_GAS_FOR_CALL_EXACT_CHECK
-    allowedGas += gasForCallExactCheck;
+    uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64));
 
-    // Add some margin for  mstore's, gas() call, a function call, 3 slots of func args,
-    // some basic arithmetic and calldata cost
-    allowedGas += 595;
+    allowedGas += DEFAULT_GAS_FOR_CALL_EXACT_CHECK + overheadForCallWithExactGas;
 
     // Due to EIP-150 we expect to lose 1/64, so we compensate for this
     allowedGas = (allowedGas * 64) / 63;
