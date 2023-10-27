@@ -149,7 +149,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 }
 
 func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = eth.New(&eth.Props{
