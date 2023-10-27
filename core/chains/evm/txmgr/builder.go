@@ -123,12 +123,11 @@ func NewEvmBroadcaster(
 	txConfig txmgrtypes.BroadcasterTransactionsConfig,
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
 	keystore KeyStore,
-	eventBroadcaster pg.EventBroadcaster,
 	txAttemptBuilder TxAttemptBuilder,
 	nonceSyncer NonceSyncer,
 	logger logger.Logger,
 	checkerFactory TransmitCheckerFactory,
 	autoSyncNonce bool,
 ) *Broadcaster {
-	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, eventBroadcaster, txAttemptBuilder, nonceSyncer, logger, checkerFactory, autoSyncNonce, stringToGethAddress, evmtypes.GenerateNextNonce)
+	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, txAttemptBuilder, nonceSyncer, logger, checkerFactory, autoSyncNonce, stringToGethAddress, evmtypes.GenerateNextNonce)
 }
