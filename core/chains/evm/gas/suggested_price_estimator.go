@@ -44,6 +44,7 @@ type SuggestedPriceEstimator struct {
 }
 
 // NewSuggestedPriceEstimator returns a new Estimator which uses the L2 suggested gas price.
+// Can also be used for non-L2 chains.
 func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator {
 	return &SuggestedPriceEstimator{
 		client:         client,
