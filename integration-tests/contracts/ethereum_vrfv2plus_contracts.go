@@ -182,16 +182,16 @@ func (v *EthereumVRFCoordinatorV2_5) RegisterProvingKey(
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) CreateSubscription() error {
+func (v *EthereumVRFCoordinatorV2_5) CreateSubscription() (*types.Transaction, error) {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx, err := v.coordinator.CreateSubscription(opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return v.client.ProcessTransaction(tx)
+	return tx, v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFCoordinatorV2_5) Migrate(subId *big.Int, coordinatorAddress string) error {
@@ -250,11 +250,11 @@ func (v *EthereumVRFCoordinatorV2_5) FundSubscriptionWithNative(subId *big.Int, 
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) FindSubscriptionID() (*big.Int, error) {
+func (v *EthereumVRFCoordinatorV2_5) FindSubscriptionID(subID *big.Int) (*big.Int, error) {
 	owner := v.client.GetDefaultWallet().Address()
 	subscriptionIterator, err := v.coordinator.FilterSubscriptionCreated(
 		nil,
-		nil,
+		[]*big.Int{subID},
 	)
 	if err != nil {
 		return nil, err

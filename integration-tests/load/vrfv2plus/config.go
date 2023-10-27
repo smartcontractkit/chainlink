@@ -36,8 +36,11 @@ type PerformanceConfig struct {
 type ExistingEnvConfig struct {
 	CoordinatorAddress string `toml:"coordinator_address"`
 	ConsumerAddress    string `toml:"consumer_address"`
+	LinkAddress        string `toml:"link_address"`
 	SubID              string `toml:"sub_id"`
 	KeyHash            string `toml:"key_hash"`
+	SubFunding
+	CreateFundSubsAndAddConsumers bool `toml:"create_fund_subs_and_add_consumers"`
 }
 
 type NewEnvConfig struct {
@@ -49,9 +52,13 @@ type Common struct {
 }
 
 type Funding struct {
-	NodeFunds      float64 `toml:"node_funds"`
-	SubFundsLink   int64   `toml:"sub_funds_link"`
-	SubFundsNative int64   `toml:"sub_funds_native"`
+	NodeFunds float64 `toml:"node_funds"`
+	SubFunding
+}
+
+type SubFunding struct {
+	SubFundsLink   int64 `toml:"sub_funds_link"`
+	SubFundsNative int64 `toml:"sub_funds_native"`
 }
 
 type Soak struct {
