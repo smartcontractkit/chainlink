@@ -1038,7 +1038,6 @@ func setupAutomationTestDocker(
 	clNodeConfig.Keeper.TurnLookBack = it_utils.Ptr[int64](int64(0))
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
 	clNodeConfig.Keeper.Registry.PerformGasOverhead = it_utils.Ptr[uint32](uint32(150000))
-	clNodeConfig.P2P.V2.Enabled = it_utils.Ptr[bool](true)
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 

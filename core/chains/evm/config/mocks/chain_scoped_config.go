@@ -252,9 +252,9 @@ func (_m *ChainScopedConfig) Log() coreconfig.Log {
 	return r0
 }
 
-// LogConfiguration provides a mock function with given fields: log
-func (_m *ChainScopedConfig) LogConfiguration(log coreconfig.LogfFn) {
-	_m.Called(log)
+// LogConfiguration provides a mock function with given fields: log, warn
+func (_m *ChainScopedConfig) LogConfiguration(log coreconfig.LogfFn, warn coreconfig.LogfFn) {
+	_m.Called(log, warn)
 }
 
 // Mercury provides a mock function with given fields:

@@ -190,10 +190,6 @@ func setupNode(
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
 		c.P2P.TraceLogging = ptr(true)
 
-		// [P2P.V1]
-		// Enabled = false
-		c.P2P.V1.Enabled = ptr(false)
-
 		// [P2P.V2]
 		// Enabled = true
 		// AnnounceAddresses = ['$EXT_IP:17775']
