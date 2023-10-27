@@ -10,6 +10,8 @@ import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
+import {ChainSpecificUtil} from "./ChainSpecificUtil.sol";
+
 /// @title Functions Billing contract
 /// @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).
 abstract contract FunctionsBilling is Routable, IFunctionsBilling {
@@ -173,6 +175,12 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint96 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
     uint256 estimatedGasReimbursement = juelsPerGas * executionGas;
     uint96 fees = uint96(donFee) + uint96(adminFee);
+
+    // Will return non-zero on chains that have this enabled
+    uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
+    if (l1CostWei > 0) {
+      estimatedGasReimbursement += _getJuelsPerGas(l1CostWei) * executionGas;
+    }
 
     return SafeCast.toUint96(estimatedGasReimbursement + fees);
   }
