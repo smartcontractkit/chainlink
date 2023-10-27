@@ -150,6 +150,9 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	MessageIDs []string `json:"MessageIDs,omitempty"`
 	// SeqNumbers is used by CCIP for tx to committed sequence numbers correlation in logs
 	SeqNumbers []uint64 `json:"SeqNumbers,omitempty"`
+
+	// Used to set the gas limit on every transaction
+	GasLimit *uint32 `json:"GasLimit,omitempty"`
 }
 
 type TxAttempt[
@@ -299,6 +302,10 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger
 
 		if len(meta.SeqNumbers) > 0 {
 			lgr = lgr.With("SeqNumbers", meta.SeqNumbers)
+		}
+
+		if meta.GasLimit != nil {
+			lgr = lgr.With("GasLimit", *meta.GasLimit)
 		}
 	}
 

@@ -71,11 +71,18 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
+	var gasLimit uint32
+	if txMeta != nil && txMeta.GasLimit != nil {
+		gasLimit = *txMeta.GasLimit
+	} else {
+		gasLimit = t.gasLimit
+	}
+
 	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
-		FeeLimit:         t.gasLimit,
+		FeeLimit:         gasLimit,
 		ForwarderAddress: t.forwarderAddress(),
 		Strategy:         t.strategy,
 		Checker:          t.checker,
