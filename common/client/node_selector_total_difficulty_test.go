@@ -11,7 +11,7 @@ import (
 
 func TestTotalDifficultyNodeSelectorName(t *testing.T) {
 	selector := NewTotalDifficultyNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](nil)
-	assert.Equal(t, selector.Name(), NodeSelectionMode_TotalDifficulty)
+	assert.Equal(t, selector.Name(), NodeSelectionModeTotalDifficulty)
 }
 
 func TestTotalDifficultyNodeSelector(t *testing.T) {

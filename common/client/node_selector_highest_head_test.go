@@ -10,7 +10,7 @@ import (
 
 func TestHighestHeadNodeSelectorName(t *testing.T) {
 	selector := NewHighestHeadNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](nil)
-	assert.Equal(t, selector.Name(), NodeSelectionMode_HighestHead)
+	assert.Equal(t, selector.Name(), NodeSelectionModeHighestHead)
 }
 
 func TestHighestHeadNodeSelector(t *testing.T) {

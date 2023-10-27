@@ -10,7 +10,7 @@ import (
 
 func TestPriorityLevelNodeSelectorName(t *testing.T) {
 	selector := NewPriorityLevelNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](nil)
-	assert.Equal(t, selector.Name(), NodeSelectionMode_PriorityLevel)
+	assert.Equal(t, selector.Name(), NodeSelectionModePriorityLevel)
 }
 
 func TestPriorityLevelNodeSelector(t *testing.T) {

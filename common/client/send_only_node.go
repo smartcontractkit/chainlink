@@ -23,6 +23,8 @@ type sendOnlyClient[
 }
 
 // SendOnlyNode represents one node used as a sendonly
+//
+//go:generate mockery --quiet --name SendOnlyNode --structname mockSendOnlyNode --inpackage --case=underscore
 type SendOnlyNode[
 	CHAIN_ID types.ID,
 	RPC sendOnlyClient[CHAIN_ID],

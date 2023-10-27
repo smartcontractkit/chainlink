@@ -11,6 +11,8 @@ import (
 )
 
 // RPC includes all the necessary methods for a multi-node client to interact directly with any RPC endpoint.
+//
+//go:generate mockery --quiet --name RPC --structname mockRPC --inpackage --case=underscore
 type RPC[
 	CHAIN_ID types.ID,
 	SEQ types.Sequence,

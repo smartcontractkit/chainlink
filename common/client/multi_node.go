@@ -30,25 +30,6 @@ var (
 	ErroringNodeError = fmt.Errorf("no live nodes available")
 )
 
-const (
-	NodeSelectionModeHighestHead     = "HighestHead"
-	NodeSelectionModeRoundRobin      = "RoundRobin"
-	NodeSelectionModeTotalDifficulty = "TotalDifficulty"
-	NodeSelectionModePriorityLevel   = "PriorityLevel"
-)
-
-type NodeSelector[
-	CHAIN_ID types.ID,
-	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
-] interface {
-	// Select returns a Node, or nil if none can be selected.
-	// Implementation must be thread-safe.
-	Select() Node[CHAIN_ID, HEAD, RPC]
-	// Name returns the strategy name, e.g. "HighestHead" or "RoundRobin"
-	Name() string
-}
-
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
 // It also handles multiple node RPC connections simultaneously.
 type MultiNode[
@@ -148,20 +129,7 @@ func NewMultiNode[
 	chainFamily string,
 	sendOnlyErrorParser func(err error) SendTxReturnCode,
 ) MultiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT] {
-	nodeSelector := func() NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT] {
-		switch selectionMode {
-		case NodeSelectionModeHighestHead:
-			return NewHighestHeadNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		case NodeSelectionModeRoundRobin:
-			return NewRoundRobinSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		case NodeSelectionModeTotalDifficulty:
-			return NewTotalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		case NodeSelectionModePriorityLevel:
-			return NewPriorityLevelNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		default:
-			panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", selectionMode))
-		}
-	}()
+	nodeSelector := newNodeSelector(selectionMode, nodes)
 
 	lggr := logger.Named("MultiNode").With("chainID", chainID.String())
 
@@ -308,6 +276,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	for _, n := range c.nodes {
 		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
 		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
+		// TODO: elaborate why do we care about node's health before unsubscription
 		if n.State() == nodeStateAlive && n != bestNode && n.SubscribersCount() > 1 {
 			c.logger.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
 			n.UnsubscribeAllExceptAliveLoop()
