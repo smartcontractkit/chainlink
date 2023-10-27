@@ -730,13 +730,9 @@ func (o *orm) LoadEnvConfigVars(jb *Job) error {
 		if err != nil {
 			return err
 		}
-		jb.DirectRequestSpec = LoadEnvConfigVarsDR(ch.Config().EVM(), *jb.DirectRequestSpec)
+		jb.DirectRequestSpec = LoadEnvConfigVarsDR(ch.Config().EVM().MinIncomingConfirmations(), *jb.DirectRequestSpec)
 	}
 	return nil
-}
-
-type DRSpecConfig interface {
-	MinIncomingConfirmations() uint32
 }
 
 func LoadEnvConfigVarsVRF(vrfs VRFSpec) *VRFSpec {
@@ -748,11 +744,10 @@ func LoadEnvConfigVarsVRF(vrfs VRFSpec) *VRFSpec {
 	return &vrfs
 }
 
-func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequestSpec {
+func LoadEnvConfigVarsDR(defaultMinIncomingConfirmations uint32, drs DirectRequestSpec) *DirectRequestSpec {
 	// Take the largest of the global vs specific.
-	minIncomingConfirmations := cfg.MinIncomingConfirmations()
-	if !drs.MinIncomingConfirmations.Valid || drs.MinIncomingConfirmations.Uint32 < minIncomingConfirmations {
-		drs.MinIncomingConfirmations = null.Uint32From(minIncomingConfirmations)
+	if !drs.MinIncomingConfirmations.Valid || drs.MinIncomingConfirmations.Uint32 < defaultMinIncomingConfirmations {
+		drs.MinIncomingConfirmations = null.Uint32From(defaultMinIncomingConfirmations)
 	}
 
 	return &drs
