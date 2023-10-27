@@ -50,7 +50,7 @@ func DeployUpkeepTranscoder(auth *bind.TransactOpts, backend bind.ContractBacken
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &UpkeepTranscoder{UpkeepTranscoderCaller: UpkeepTranscoderCaller{contract: contract}, UpkeepTranscoderTransactor: UpkeepTranscoderTransactor{contract: contract}, UpkeepTranscoderFilterer: UpkeepTranscoderFilterer{contract: contract}}, nil
+	return address, tx, &UpkeepTranscoder{address: address, abi: *parsed, UpkeepTranscoderCaller: UpkeepTranscoderCaller{contract: contract}, UpkeepTranscoderTransactor: UpkeepTranscoderTransactor{contract: contract}, UpkeepTranscoderFilterer: UpkeepTranscoderFilterer{contract: contract}}, nil
 }
 
 type UpkeepTranscoder struct {

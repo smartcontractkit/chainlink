@@ -9,8 +9,9 @@ RPCBlockQueryDelay = 2
 Enabled = true
 
 [GasEstimator]
-PriceDefault = '15 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+# Fantom network has been slow to include txs at times when using the BlockHistory estimator, and the recommendation is to use L2Suggested mode.
+# There is work under way to improve L2Suggested mode's name so that its use on non-L2 chains will be less confusing in the future.
+Mode = 'L2Suggested'
 
 [OCR2.Automation]
 GasLimit = 3800000

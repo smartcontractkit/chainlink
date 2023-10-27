@@ -8,7 +8,10 @@ import (
 	"sync"
 
 	pkgerrors "github.com/pkg/errors"
+
 	"github.com/smartcontractkit/sqlx"
+
+	relayservices "github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -63,7 +66,7 @@ type (
 		// job. In case a given job type relies upon well-defined startup/shutdown
 		// ordering for services, they are started in the order they are given
 		// and stopped in reverse order.
-		ServicesForSpec(spec Job, qopts ...pg.QOpt) ([]ServiceCtx, error)
+		ServicesForSpec(spec Job) ([]ServiceCtx, error)
 		AfterJobCreated(spec Job)
 		BeforeJobDeleted(spec Job)
 		// OnDeleteJob will be called from within DELETE db transaction.  Any db
@@ -122,7 +125,7 @@ func (js *spawner) Name() string {
 }
 
 func (js *spawner) HealthReport() map[string]error {
-	return map[string]error{js.Name(): js.StartStopOnce.Healthy()}
+	return map[string]error{js.Name(): js.Healthy()}
 }
 
 func (js *spawner) startAllServices(ctx context.Context) {
@@ -167,7 +170,7 @@ func (js *spawner) stopService(jobID int32) {
 	for i := len(aj.services) - 1; i >= 0; i-- {
 		service := aj.services[i]
 		sLggr := lggr.With("subservice", i, "serviceType", reflect.TypeOf(service))
-		if c, ok := service.(services.Checkable); ok {
+		if c, ok := service.(relayservices.HealthReporter); ok {
 			if err := js.checker.Unregister(c.Name()); err != nil {
 				sLggr.Warnw("Failed to unregister service from health checker", "err", err)
 			}
@@ -208,7 +211,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job, qopts ...pg.QOpt) e
 		jb.PipelineSpec.GasLimit = &jb.GasLimit.Uint32
 	}
 
-	srvs, err := delegate.ServicesForSpec(jb, qopts...)
+	srvs, err := delegate.ServicesForSpec(jb)
 	if err != nil {
 		lggr.Errorw("Error creating services for job", "err", err)
 		cctx, cancel := js.chStop.NewCtx()
@@ -227,7 +230,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job, qopts ...pg.QOpt) e
 			lggr.Criticalw("Error starting service for job", "err", err)
 			return err
 		}
-		if c, ok := srv.(services.Checkable); ok {
+		if c, ok := srv.(relayservices.HealthReporter); ok {
 			err = js.checker.Register(c)
 			if err != nil {
 				lggr.Errorw("Error registering service with health checker", "err", err)
@@ -384,7 +387,7 @@ func (n *NullDelegate) JobType() Type {
 }
 
 // ServicesForSpec does no-op.
-func (n *NullDelegate) ServicesForSpec(spec Job, qopts ...pg.QOpt) (s []ServiceCtx, err error) {
+func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
 	return
 }
 

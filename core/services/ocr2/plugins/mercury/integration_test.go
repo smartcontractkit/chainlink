@@ -22,16 +22,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/wsrpc/credentials"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaycodecv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
@@ -173,8 +174,8 @@ func TestIntegration_MercuryV1(t *testing.T) {
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
-	bootstrapNodePort := int64(19700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
@@ -183,11 +184,9 @@ func TestIntegration_MercuryV1(t *testing.T) {
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
 	)
-	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
-			// Supply the bootstrap IP and port as a V2 peer address
-			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, backend, clientCSAKeys[i])
+	ports := freeport.GetN(t, n)
+	for i := 0; i < n; i++ {
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -524,8 +523,8 @@ func TestIntegration_MercuryV2(t *testing.T) {
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
-	bootstrapNodePort := int64(20700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
@@ -534,11 +533,9 @@ func TestIntegration_MercuryV2(t *testing.T) {
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
 	)
-	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
-			// Supply the bootstrap IP and port as a V2 peer address
-			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, backend, clientCSAKeys[i])
+	ports := freeport.GetN(t, n)
+	for i := 0; i < n; i++ {
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -802,8 +799,8 @@ func TestIntegration_MercuryV3(t *testing.T) {
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
-	bootstrapNodePort := int64(21700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
@@ -812,11 +809,9 @@ func TestIntegration_MercuryV3(t *testing.T) {
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
 	)
-	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
-			// Supply the bootstrap IP and port as a V2 peer address
-			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, backend, clientCSAKeys[i])
+	ports := freeport.GetN(t, n)
+	for i := 0; i < n; i++ {
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,

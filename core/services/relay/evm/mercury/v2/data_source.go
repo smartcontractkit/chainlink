@@ -210,11 +210,12 @@ func setBenchmarkPrice(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
 		o.benchmarkPrice.Err = res.Error
 		return res.Error
-	} else if val, err := toBigInt(res.Value); err != nil {
-		return fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
-	} else {
-		o.benchmarkPrice.Val = val
 	}
+	val, err := toBigInt(res.Value)
+	if err != nil {
+		return fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
+	}
+	o.benchmarkPrice.Val = val
 	return nil
 }
 

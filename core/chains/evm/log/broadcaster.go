@@ -188,7 +188,7 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 
 func (b *broadcaster) Start(context.Context) error {
 	return b.StartOnce("LogBroadcaster", func() error {
-		b.wgDone.Add(2)
+		b.wgDone.Add(1)
 		go b.awaitInitialSubscribers()
 		b.mailMon.Monitor(b.changeSubscriberStatus, "LogBroadcaster", "ChangeSubscriber", b.evmChainID.String())
 		return nil
@@ -220,7 +220,7 @@ func (b *broadcaster) Name() string {
 }
 
 func (b *broadcaster) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
+	return map[string]error{b.Name(): b.Healthy()}
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {
@@ -234,11 +234,11 @@ func (b *broadcaster) awaitInitialSubscribers() {
 		case <-b.DependentAwaiter.AwaitDependents():
 			// ensure that any queued dependent subscriptions are registered first
 			b.onChangeSubscriberStatus()
+			b.wgDone.Add(1)
 			go b.startResubscribeLoop()
 			return
 
 		case <-b.chStop:
-			b.wgDone.Done() // because startResubscribeLoop won't be called
 			return
 		}
 	}

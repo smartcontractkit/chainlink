@@ -6,9 +6,9 @@ This directory supports Local-Out-Of-Process (LOOP) Plugins, an alternative node
 separate processes, plug-in via [github.com/hashicorp/go-plugin](https://github.com/hashicorp/go-plugin), and 
 communicate via [GRPC](https://grpc.io).
 
-There are currently two kinds of plugins, and one implementation of each: a Solana Relayer plugin, and a Median Reporting
-plugin. The [cmd](cmd) directory contains their `package main`s for now. These can be built via `make install-solana` and 
-`make install-median`.
+There are currently two kinds of plugins: Relayer plugins, and a Median product plugin. The [cmd](cmd) directory contains
+some `package main`s while we transition, and they can be built via `make install-<plugin>`. Solana & Starknet has been 
+moved to their respective repos, and all must be moved out of this module eventually.
 
 ## How to use
 

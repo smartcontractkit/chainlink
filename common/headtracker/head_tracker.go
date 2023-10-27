@@ -9,7 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -154,10 +155,8 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Name() string {
 }
 
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
-	report := map[string]error{
-		ht.Name(): ht.StartStopOnce.Healthy(),
-	}
-	maps.Copy(report, ht.headListener.HealthReport())
+	report := map[string]error{ht.Name(): ht.Healthy()}
+	services.CopyHealth(report, ht.headListener.HealthReport())
 	return report
 }
 

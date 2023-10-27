@@ -1,11 +1,13 @@
 package v2
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +22,6 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/slices"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -503,8 +504,8 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		// first. This allows us to break out of the processing loop as early as possible
 		// in the event that a subscription is too underfunded to have it's
 		// requests processed.
-		slices.SortFunc(reqs, func(a, b pendingRequest) bool {
-			return a.req.CallbackGasLimit() < b.req.CallbackGasLimit()
+		slices.SortFunc(reqs, func(a, b pendingRequest) int {
+			return cmp.Compare(a.req.CallbackGasLimit(), b.req.CallbackGasLimit())
 		})
 
 		p := lsn.processRequestsPerSub(ctx, sID, startLinkBalance, startEthBalance, reqs, subIsActive)
@@ -917,7 +918,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 		subID := p.req.req.SubID()
 		requestTxHash := p.req.req.Raw().TxHash
-		etx, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
+		etx, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
@@ -1124,7 +1125,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
 				requestTxHash := p.req.req.Raw().TxHash
-				transaction, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
+				transaction, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),

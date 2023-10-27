@@ -25,6 +25,7 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
     bytes blob,
     bytes verified
   );
+  event LimitOrderExecuted(uint256 indexed orderId, uint256 indexed amount, address indexed exchange); // keccak(LimitOrderExecuted(uint256,uint256,address)) => 0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd
 
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
   IVerifierProxy internal constant VERIFIER = IVerifierProxy(0x09DFf56A4fF44e0f4436260A04F5CFa65636A481);
@@ -40,10 +41,17 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
   string[] public feedsHex = ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"];
   string public feedParamKey = "feedIdHex";
   string public timeParamKey = "blockNumber";
+  uint256 public counter;
 
   constructor(bool _useArbitrumBlockNum, bool _verify) {
     useArbitrumBlockNum = _useArbitrumBlockNum;
     verify = _verify;
+    counter = 0;
+  }
+
+  function start() public {
+    // need an initial event to begin the cycle
+    emit LimitOrderExecuted(1, 100, address(0x0));
   }
 
   function setTimeParamKey(string memory timeParam) external {
@@ -74,18 +82,32 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
       bytes memory t3 = abi.encodePacked(log.topics[3]);
       address exchange = abi.decode(t3, (address));
 
-      revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(orderId, amount, exchange));
+      revert StreamsLookup(
+        feedParamKey,
+        feedsHex,
+        timeParamKey,
+        blockNum,
+        abi.encode(orderId, amount, exchange, executedSig)
+      );
     }
     revert("could not find matching event sig");
   }
 
   function performUpkeep(bytes calldata performData) external override {
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
-    (uint256 orderId, uint256 amount, address exchange) = abi.decode(extraData, (uint256, uint256, address));
+    (uint256 orderId, uint256 amount, address exchange, bytes32 logTopic0) = abi.decode(
+      extraData,
+      (uint256, uint256, address, bytes32)
+    );
 
     bytes memory verifiedResponse = "";
     if (verify) {
       verifiedResponse = VERIFIER.verify(values[0]);
+    }
+
+    counter = counter + 1;
+    if (logTopic0 == executedSig) {
+      emit LimitOrderExecuted(1, 100, address(0x0));
     }
 
     emit PerformingLogTriggerUpkeep(

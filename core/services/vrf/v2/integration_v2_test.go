@@ -57,7 +57,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -222,9 +222,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	backend.Commit()
 
 	// Deploy old VRF v2 coordinator from bytecode
-	err, oldRootContractAddress, oldRootContract := deployOldCoordinator(
+	oldRootContractAddress, oldRootContract := deployOldCoordinator(
 		t, linkAddress, bhsAddress, linkEthFeed, backend, neil)
-	require.NoError(t, err)
 
 	// Deploy the VRFOwner contract, which will own the VRF coordinator
 	// in some tests.
@@ -252,12 +251,12 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	)
 	for _, author := range vrfConsumers {
 		// Deploy a VRF consumer. It has a starting balance of 500 LINK.
-		consumerContractAddress, _, consumerContract, err :=
+		consumerContractAddress, _, consumerContract, err2 :=
 			vrf_consumer_v2.DeployVRFConsumerV2(
 				author, backend, coordinatorAddress, linkAddress)
-		require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
-		_, err = linkContract.Transfer(sergey, consumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
-		require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
+		require.NoError(t, err2, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
+		_, err2 = linkContract.Transfer(sergey, consumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
+		require.NoError(t, err2, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
 
 		consumerContracts = append(consumerContracts, vrftesthelpers.NewVRFConsumerV2(consumerContract))
 		consumerContractAddresses = append(consumerContractAddresses, consumerContractAddress)
@@ -423,7 +422,6 @@ func deployOldCoordinator(
 	backend *backends.SimulatedBackend,
 	neil *bind.TransactOpts,
 ) (
-	error,
 	common.Address,
 	*vrf_coordinator_v2.VRFCoordinatorV2,
 ) {
@@ -447,7 +445,7 @@ func deployOldCoordinator(
 	require.NotEqual(t, common.HexToAddress("0x0"), oldRootContractAddress, "old vrf coordinator address equal to zero address, deployment failed")
 	oldRootContract, err := vrf_coordinator_v2.NewVRFCoordinatorV2(oldRootContractAddress, backend)
 	require.NoError(t, err, "could not create wrapper object for old vrf coordinator v2")
-	return err, oldRootContractAddress, oldRootContract
+	return oldRootContractAddress, oldRootContract
 }
 
 // Send eth from prefunded account.
@@ -799,8 +797,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *bac
 	return gomega.NewWithT(t).Eventually(func() bool {
 		backend.Commit()
 		var txs []txmgr.DbEthTx
-		err := db.Select(&txs, query, subID.String())
-		require.NoError(t, err)
+		require.NoError(t, db.Select(&txs, query, subID.String()))
 		for _, tx := range txs {
 			var evmTx txmgr.Tx
 			tx.ToTx(&evmTx)
@@ -1013,8 +1010,10 @@ func testEoa(
 	// Make a randomness request with the EOA. This request is impossible to fulfill.
 	numWords := uint32(1)
 	minRequestConfirmations := uint16(2)
-	_, err := uni.rootContract.RequestRandomWords(consumer, keyHash, subID, minRequestConfirmations, uint32(200_000), numWords, false)
-	require.NoError(t, err)
+	{
+		_, err := uni.rootContract.RequestRandomWords(consumer, keyHash, subID, minRequestConfirmations, uint32(200_000), numWords, false)
+		require.NoError(t, err)
+	}
 	uni.backend.Commit()
 
 	// Ensure request is not fulfilled.
@@ -1033,8 +1032,7 @@ func testEoa(
 	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config.Database())
 
 	// Execute the query.
-	err = q.Select(&broadcastsBeforeFinality, query)
-	require.NoError(t, err)
+	require.NoError(t, q.Select(&broadcastsBeforeFinality, query))
 
 	// Ensure there is only one log broadcast (our EOA request), and that
 	// it hasn't been marked as consumed yet.
@@ -1056,8 +1054,7 @@ func testEoa(
 	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
 
 	// Execute the query for log broadcasts again after finality depth has elapsed.
-	err = q.Select(&broadcastsAfterFinality, query)
-	require.NoError(t, err)
+	require.NoError(t, q.Select(&broadcastsAfterFinality, query))
 
 	// Ensure that there is still only one log broadcast (our EOA request), but that
 	// it has been marked as "consumed," such that it won't be retried.
@@ -1184,8 +1181,8 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	// Wait for simulation to pass.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
-		require.NoError(t, err)
+		runs, err2 := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err2)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
@@ -1264,8 +1261,8 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	// Wait for simulation to pass.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
-		require.NoError(t, err)
+		runs, err2 := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err2)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
@@ -1896,15 +1893,18 @@ func TestFulfillmentCost(t *testing.T) {
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	vrfkey, err := app.GetKeyStore().VRF().Create()
-	require.NoError(t, err)
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
-	require.NoError(t, err)
-	uni.backend.Commit()
-
+	var vrfkey vrfkey.KeyV2
+	{
+		var err error
+		vrfkey, err = app.GetKeyStore().VRF().Create()
+		require.NoError(t, err)
+		p, err := vrfkey.PublicKey.Point()
+		require.NoError(t, err)
+		_, err = uni.rootContract.RegisterProvingKey(
+			uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
+		require.NoError(t, err)
+		uni.backend.Commit()
+	}
 	var (
 		nonProxiedConsumerGasEstimate uint64
 		proxiedConsumerGasEstimate    uint64
@@ -1914,7 +1914,7 @@ func TestFulfillmentCost(t *testing.T) {
 		carolContract := uni.consumerContracts[0]
 		carolContractAddress := uni.consumerContractAddresses[0]
 
-		_, err = carolContract.CreateSubscriptionAndFund(carol,
+		_, err := carolContract.CreateSubscriptionAndFund(carol,
 			big.NewInt(1000000000000000000)) // 0.1 LINK
 		require.NoError(tt, err)
 		uni.backend.Commit()
@@ -1957,7 +1957,7 @@ func TestFulfillmentCost(t *testing.T) {
 		consumerContract := uni.consumerProxyContract
 		consumerContractAddress := uni.consumerProxyContractAddress
 
-		_, err = consumerContract.CreateSubscriptionAndFund(consumerOwner, assets.Ether(5).ToInt())
+		_, err := consumerContract.CreateSubscriptionAndFund(consumerOwner, assets.Ether(5).ToInt())
 		require.NoError(t, err)
 		uni.backend.Commit()
 		subId, err := consumerContract.SSubId(nil)
@@ -2006,7 +2006,7 @@ func TestStartingCountsV1(t *testing.T) {
 	finalityDepth := 3
 	counts := vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))
 	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 	err = ks.Unlock(testutils.Password)
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(1337))
@@ -2082,11 +2082,10 @@ func TestStartingCountsV1(t *testing.T) {
 	unconfirmedTxes := []txmgr.Tx{}
 	for i := int64(4); i < 6; i++ {
 		reqID3 := utils.PadByteToHash(0x12)
-		md, err := json.Marshal(&txmgr.TxMeta{
+		md, err2 := json.Marshal(&txmgr.TxMeta{
 			RequestID: &reqID3,
 		})
-		require.NoError(t, err)
-		md1 := datatypes.JSON(md)
+		require.NoError(t, err2)
 		newNonce := evmtypes.Nonce(i + 1)
 		unconfirmedTxes = append(unconfirmedTxes, txmgr.Tx{
 			Sequence:           &newNonce,
@@ -2096,7 +2095,7 @@ func TestStartingCountsV1(t *testing.T) {
 			State:              txmgrcommon.TxUnconfirmed,
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
-			Meta:               &md1,
+			Meta:               (*datatypes.JSON)(&md),
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
 		})
@@ -2164,8 +2163,8 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	sql = `INSERT INTO evm.receipts (block_hash, tx_hash, block_number, transaction_index, receipt, created_at)
 		VALUES (:block_hash, :tx_hash, :block_number, :transaction_index, :receipt, :created_at)`
 	for _, r := range receipts {
-		_, err := db.NamedExec(sql, r)
-		require.NoError(t, err)
+		_, err2 := db.NamedExec(sql, r)
+		require.NoError(t, err2)
 	}
 
 	counts = vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))

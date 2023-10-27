@@ -6,9 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"time"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -283,15 +282,15 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 			if jb.OCR2OracleSpec.PluginType == types.Median {
 				var cfg medianconfig.PluginConfig
-				err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
-				if err != nil {
-					return errors.Wrap(err, "failed to parse plugin config")
+				err2 := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
+				if err2 != nil {
+					return errors.Wrap(err2, "failed to parse plugin config")
 				}
-				feePipeline, err := pipeline.Parse(cfg.JuelsPerFeeCoinPipeline)
-				if err != nil {
-					return err
+				feePipeline, err2 := pipeline.Parse(cfg.JuelsPerFeeCoinPipeline)
+				if err2 != nil {
+					return err2
 				}
-				if err2 := o.AssertBridgesExist(*feePipeline); err2 != nil {
+				if err2 = o.AssertBridgesExist(*feePipeline); err2 != nil {
 					return err2
 				}
 			}

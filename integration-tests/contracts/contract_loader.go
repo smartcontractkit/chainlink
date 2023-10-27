@@ -2,6 +2,8 @@ package contracts
 
 import (
 	"errors"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,6 +41,10 @@ type ContractLoader interface {
 	LoadMercuryRewardManager(addr common.Address) (MercuryRewardManager, error)
 
 	LoadWERC20Mock(addr common.Address) (WERC20Mock, error)
+
+	// VRF
+	LoadVRFCoordinatorV2_5(addr string) (VRFCoordinatorV2_5, error)
+	LoadVRFv2PlusLoadTestConsumer(addr string) (VRFv2PlusLoadTestConsumer, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
@@ -56,6 +62,8 @@ func NewContractLoader(bcClient blockchain.EVMClient, logger zerolog.Logger) (Co
 		return &PolygonContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.OptimismClient:
 		return &OptimismContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
+	case *blockchain.PolygonZkEvmClient:
+		return &PolygonZkEvmContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -88,6 +96,14 @@ type PolygonContractLoader struct {
 
 // OptimismContractLoader wraps for Optimism
 type OptimismContractLoader struct {
+	*EthereumContractLoader
+}
+type PolygonZkEvmContractLoader struct {
+	*EthereumContractLoader
+}
+
+// PolygonZKEVMContractLoader wraps for Polygon zkEVM
+type PolygonZKEVMContractLoader struct {
 	*EthereumContractLoader
 }
 
@@ -294,5 +310,41 @@ func (e *EthereumContractLoader) LoadWERC20Mock(addr common.Address) (WERC20Mock
 		client:   e.client,
 		instance: instance.(*werc20_mock.WERC20Mock),
 		address:  addr,
+	}, err
+}
+
+func (e *EthereumContractLoader) LoadVRFCoordinatorV2_5(addr string) (VRFCoordinatorV2_5, error) {
+	address := common.HexToAddress(addr)
+	instance, err := e.client.LoadContract("VRFCoordinatorV2_5", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return vrf_coordinator_v2_5.NewVRFCoordinatorV25(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVRFCoordinatorV2_5{
+		address:     &address,
+		client:      e.client,
+		coordinator: instance.(*vrf_coordinator_v2_5.VRFCoordinatorV25),
+	}, err
+}
+
+func (e *EthereumContractLoader) LoadVRFv2PlusLoadTestConsumer(addr string) (VRFv2PlusLoadTestConsumer, error) {
+	address := common.HexToAddress(addr)
+	instance, err := e.client.LoadContract("VRFV2PlusLoadTestWithMetrics", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVRFv2PlusLoadTestConsumer{
+		client:   e.client,
+		consumer: instance.(*vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetrics),
+		address:  &address,
 	}, err
 }

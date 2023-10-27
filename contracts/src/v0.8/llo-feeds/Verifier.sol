@@ -173,7 +173,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   address private immutable i_verifierProxyAddr;
 
   /// @notice Verifier states keyed on Feed ID
-  mapping(bytes32 => VerifierState) s_feedVerifierStates;
+  mapping(bytes32 => VerifierState) internal s_feedVerifierStates;
 
   /// @param verifierProxyAddr The address of the VerifierProxy contract
   constructor(address verifierProxyAddr) ConfirmedOwner(msg.sender) {

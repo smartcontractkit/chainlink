@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -42,7 +42,7 @@ import (
 func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
 	f := chainlink.RelayerFactory{
 		Logger:       opts.Logger,
-		LoopRegistry: plugins.NewLoopRegistry(opts.Logger),
+		LoopRegistry: plugins.NewLoopRegistry(opts.Logger, opts.AppConfig.Tracing()),
 	}
 
 	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.InitEVM(testutils.Context(t), f, chainlink.EVMFactoryConfig{
@@ -370,7 +370,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
 
-			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
+			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 			txStore := cltest.NewTestTxStore(t, sqlxDB, config.Database())
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
@@ -448,7 +448,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
 
-			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
+			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 			if !test.enableAddress {
 				err := keyStore.Eth().Disable(fromAddress, testutils.FixtureChainID)

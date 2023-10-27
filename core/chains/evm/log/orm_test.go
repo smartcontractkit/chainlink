@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -26,7 +26,7 @@ func TestORM_broadcasts(t *testing.T) {
 
 	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
-	_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
 
 	const selectQuery = `SELECT consumed FROM log_broadcasts
@@ -165,10 +165,10 @@ func TestORM_MarkUnconsumed(t *testing.T) {
 
 	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
-	_, addr1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	job1 := cltest.MustInsertV2JobSpec(t, db, addr1)
 
-	_, addr2 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, addr2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	job2 := cltest.MustInsertV2JobSpec(t, db, addr2)
 
 	logBefore := cltest.RandomLog(t)

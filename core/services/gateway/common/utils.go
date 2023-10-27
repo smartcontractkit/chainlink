@@ -3,8 +3,7 @@ package common
 import (
 	"crypto/ecdsa"
 	"encoding/binary"
-
-	"golang.org/x/exp/slices"
+	"slices"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )

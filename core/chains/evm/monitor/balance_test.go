@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -40,8 +40,8 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
@@ -69,7 +69,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
@@ -89,7 +89,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
@@ -119,7 +119,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
@@ -146,8 +146,8 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
+		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		k0bal := big.NewInt(42)
@@ -197,7 +197,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	ethClient := newEthClientMock(t)
 

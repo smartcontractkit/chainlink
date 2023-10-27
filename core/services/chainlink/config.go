@@ -1,25 +1,24 @@
 package chainlink
 
 import (
-	"fmt"
-
 	"errors"
+	"fmt"
 
 	"go.uber.org/multierr"
 
 	gotoml "github.com/pelletier/go-toml/v2"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 // Config is the root type used for TOML configuration.
@@ -39,9 +38,9 @@ type Config struct {
 
 	Cosmos cosmos.CosmosConfigs `toml:",omitempty"`
 
-	Solana solana.SolanaConfigs `toml:",omitempty"`
+	Solana solana.TOMLConfigs `toml:",omitempty"`
 
-	Starknet starknet.StarknetConfigs `toml:",omitempty"`
+	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
 }
 
 // TOMLString returns a TOML encoded string.
@@ -83,14 +82,14 @@ func (c *Config) setDefaults() {
 
 	for i := range c.Solana {
 		if c.Solana[i] == nil {
-			c.Solana[i] = new(solana.SolanaConfig)
+			c.Solana[i] = new(solana.TOMLConfig)
 		}
 		c.Solana[i].Chain.SetDefaults()
 	}
 
 	for i := range c.Starknet {
 		if c.Starknet[i] == nil {
-			c.Starknet[i] = new(starknet.StarknetConfig)
+			c.Starknet[i] = new(stkcfg.TOMLConfig)
 		}
 		c.Starknet[i].Chain.SetDefaults()
 	}
