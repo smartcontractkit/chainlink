@@ -39,6 +39,7 @@ type VRFV2PlusConfig struct {
 	UseExistingEnv     bool   `envconfig:"USE_EXISTING_ENV" default:"false"` // Whether to use an existing environment or create a new one
 	CoordinatorAddress string `envconfig:"COORDINATOR_ADDRESS" default:""`   // Coordinator address
 	ConsumerAddress    string `envconfig:"CONSUMER_ADDRESS" default:""`      // Consumer address
+	LinkAddress        string `envconfig:"LINK_ADDRESS" default:""`          // Link address
 	SubID              string `envconfig:"SUB_ID" default:""`                // Subscription ID
 	KeyHash            string `envconfig:"KEY_HASH" default:""`
 }
