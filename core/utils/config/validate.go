@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/config"
@@ -145,4 +146,17 @@ type ErrOverride struct {
 
 func (e ErrOverride) Error() string {
 	return fmt.Sprintf("%s: overrides (duplicate keys or list elements) are not allowed for multiple secrets files", e.Name)
+}
+
+type ErrDeprecated struct {
+	Name    string
+	Version semver.Version
+}
+
+func (e ErrDeprecated) Error() string {
+	when := "a future version"
+	if e.Version != (semver.Version{}) {
+		when = fmt.Sprintf("version %s", e.Version)
+	}
+	return fmt.Sprintf("%s: is deprecated and will be removed in %s", e.Name, when)
 }

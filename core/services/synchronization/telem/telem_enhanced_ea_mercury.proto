@@ -26,4 +26,7 @@ message EnhancedEAMercury {
   int64 round=19;
   int64 epoch=20;
   string asset_symbol=21;
+  string observation_benchmark_price_string = 22;
+  string observation_bid_string = 23;
+  string observation_ask_string = 24;
 }
