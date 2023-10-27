@@ -55,7 +55,7 @@ type chainReader struct {
 
 // chainReader constructor
 func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller) (*chainReader, error) {
-	return &chainReader{lggr, lp}, nil
+	return &chainReader{lggr.Named("ChainReader"), lp}, nil
 }
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) error {
