@@ -298,9 +298,9 @@ func (_m *GeneralConfig) Log() config.Log {
 	return r0
 }
 
-// LogConfiguration provides a mock function with given fields: log
-func (_m *GeneralConfig) LogConfiguration(log config.LogfFn) {
-	_m.Called(log)
+// LogConfiguration provides a mock function with given fields: log, warn
+func (_m *GeneralConfig) LogConfiguration(log config.LogfFn, warn config.LogfFn) {
+	_m.Called(log, warn)
 }
 
 // Mercury provides a mock function with given fields:
