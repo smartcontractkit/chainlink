@@ -92,12 +92,13 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
 					Type: job.DirectRequest,
 					DirectRequestSpec: &job.DirectRequestSpec{
-						ContractAddress:          contractAddress,
-						CreatedAt:                f.Timestamp(),
-						EVMChainID:               utils.NewBigI(42),
-						MinIncomingConfirmations: clnull.NewUint32(1, true),
-						MinContractPayment:       assets.NewLinkFromJuels(1000),
-						Requesters:               models.AddressCollection{requesterAddress},
+						ContractAddress:             contractAddress,
+						CreatedAt:                   f.Timestamp(),
+						EVMChainID:                  utils.NewBigI(42),
+						MinIncomingConfirmations:    clnull.NewUint32(1, true),
+						MinIncomingConfirmationsEnv: true,
+						MinContractPayment:          assets.NewLinkFromJuels(1000),
+						Requesters:                  models.AddressCollection{requesterAddress},
 					},
 				}, nil)
 			},
@@ -112,6 +113,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 									createdAt
 									evmChainID
 									minIncomingConfirmations
+									minIncomingConfirmationsEnv
 									minContractPaymentLinkJuels
 									requesters
 								}
@@ -129,6 +131,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
 							"minIncomingConfirmations": 1,
+							"minIncomingConfirmationsEnv": true,
 							"minContractPaymentLinkJuels": "1000",
 							"requesters": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"]
 						}

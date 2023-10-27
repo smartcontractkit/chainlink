@@ -41,24 +41,26 @@ const (
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress          ethkey.EIP55Address      `json:"contractAddress"`
-	MinIncomingConfirmations clnull.Uint32            `json:"minIncomingConfirmations"`
-	MinContractPayment       *assets.Link             `json:"minContractPaymentLinkJuels"`
-	Requesters               models.AddressCollection `json:"requesters"`
-	Initiator                string                   `json:"initiator"`
-	CreatedAt                time.Time                `json:"createdAt"`
-	UpdatedAt                time.Time                `json:"updatedAt"`
-	EVMChainID               *utils.Big               `json:"evmChainID"`
+	ContractAddress             ethkey.EIP55Address      `json:"contractAddress"`
+	MinIncomingConfirmations    clnull.Uint32            `json:"minIncomingConfirmations"`
+	MinIncomingConfirmationsEnv bool                     `json:"minIncomingConfirmationsEnv,omitempty"`
+	MinContractPayment          *assets.Link             `json:"minContractPaymentLinkJuels"`
+	Requesters                  models.AddressCollection `json:"requesters"`
+	Initiator                   string                   `json:"initiator"`
+	CreatedAt                   time.Time                `json:"createdAt"`
+	UpdatedAt                   time.Time                `json:"updatedAt"`
+	EVMChainID                  *utils.Big               `json:"evmChainID"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
 // job.DirectRequestSpec
 func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
-		ContractAddress:          spec.ContractAddress,
-		MinIncomingConfirmations: spec.MinIncomingConfirmations,
-		MinContractPayment:       spec.MinContractPayment,
-		Requesters:               spec.Requesters,
+		ContractAddress:             spec.ContractAddress,
+		MinIncomingConfirmations:    spec.MinIncomingConfirmations,
+		MinIncomingConfirmationsEnv: spec.MinIncomingConfirmationsEnv,
+		MinContractPayment:          spec.MinContractPayment,
+		Requesters:                  spec.Requesters,
 		// This is hardcoded to runlog. When we support other initiators, we need
 		// to change this
 		Initiator:  "runlog",

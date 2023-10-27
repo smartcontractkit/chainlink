@@ -164,6 +164,11 @@ func (r *DirectRequestSpecResolver) MinIncomingConfirmations() int32 {
 	return 0
 }
 
+// EVMChainID resolves the spec's evm chain id.
+func (r *DirectRequestSpecResolver) MinIncomingConfirmationsEnv() bool {
+	return r.spec.MinIncomingConfirmationsEnv
+}
+
 // MinContractPaymentLinkJuels resolves the spec's min contract payment link.
 func (r *DirectRequestSpecResolver) MinContractPaymentLinkJuels() string {
 	return r.spec.MinContractPayment.String()
