@@ -15,6 +15,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -438,15 +439,14 @@ func (w *WebhookSpec) SetID(value string) error {
 }
 
 type DirectRequestSpec struct {
-	ID                          int32                    `toml:"-"`
-	ContractAddress             ethkey.EIP55Address      `toml:"contractAddress"`
-	MinIncomingConfirmations    clnull.Uint32            `toml:"minIncomingConfirmations"`
-	MinIncomingConfirmationsEnv bool                     `toml:"minIncomingConfirmationsEnv"`
-	Requesters                  models.AddressCollection `toml:"requesters"`
-	MinContractPayment          *assets.Link             `toml:"minContractPaymentLinkJuels"`
-	EVMChainID                  *utils.Big               `toml:"evmChainID"`
-	CreatedAt                   time.Time                `toml:"-"`
-	UpdatedAt                   time.Time                `toml:"-"`
+	ID                       int32                    `toml:"-"`
+	ContractAddress          ethkey.EIP55Address      `toml:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
+	Requesters               models.AddressCollection `toml:"requesters"`
+	MinContractPayment       *assets.Link             `toml:"minContractPaymentLinkJuels"`
+	EVMChainID               *utils.Big               `toml:"evmChainID"`
+	CreatedAt                time.Time                `toml:"-"`
+	UpdatedAt                time.Time                `toml:"-"`
 }
 
 type CronSpec struct {

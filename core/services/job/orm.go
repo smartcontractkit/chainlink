@@ -752,7 +752,6 @@ func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequest
 	// Take the largest of the global vs specific.
 	minIncomingConfirmations := cfg.MinIncomingConfirmations()
 	if !drs.MinIncomingConfirmations.Valid || drs.MinIncomingConfirmations.Uint32 < minIncomingConfirmations {
-		drs.MinIncomingConfirmationsEnv = true
 		drs.MinIncomingConfirmations = null.Uint32From(minIncomingConfirmations)
 	}
 
