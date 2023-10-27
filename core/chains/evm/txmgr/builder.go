@@ -127,5 +127,5 @@ func NewEvmBroadcaster(
 	checkerFactory TransmitCheckerFactory,
 	autoSyncNonce bool,
 ) *Broadcaster {
-	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, txAttemptBuilder, nonceSyncer, logger, checkerFactory, autoSyncNonce, stringToGethAddress, evmtypes.GenerateNextNonce)
+	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, txAttemptBuilder, nonceSyncer, logger, checkerFactory, autoSyncNonce, evmtypes.GenerateNextNonce)
 }

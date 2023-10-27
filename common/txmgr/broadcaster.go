@@ -139,8 +139,6 @@ type Broadcaster[
 	isStarted bool
 	utils.StartStopOnce
 
-	parseAddr func(string) (ADDR, error)
-
 	sequenceLock         sync.RWMutex
 	nextSequenceMap      map[ADDR]SEQ
 	generateNextSequence types.GenerateNextSequenceFunc[SEQ]
@@ -167,7 +165,6 @@ func NewBroadcaster[
 	logger logger.Logger,
 	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	autoSyncSequence bool,
-	parseAddress func(string) (ADDR, error),
 	generateNextSequence types.GenerateNextSequenceFunc[SEQ],
 ) *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	logger = logger.Named("Broadcaster")
@@ -185,7 +182,6 @@ func NewBroadcaster[
 		ks:               keystore,
 		checkerFactory:   checkerFactory,
 		autoSyncSequence: autoSyncSequence,
-		parseAddr:        parseAddress,
 	}
 
 	b.processUnstartedTxsImpl = b.processUnstartedTxs
