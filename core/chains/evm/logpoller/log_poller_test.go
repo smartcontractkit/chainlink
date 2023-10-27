@@ -471,6 +471,13 @@ func TestLogPoller_BackupPollAndSaveLogsWithDeepBlockDelay(t *testing.T) {
 	// 1 -> 2 -> ...
 	th.PollAndSaveLogs(ctx, 1)
 
+	// Check that latest block has the same properties as the head
+	latestBlock, err := th.LogPoller.LatestBlock()
+	require.NoError(t, err)
+	assert.Equal(t, latestBlock.BlockNumber, header.Number.Int64())
+	assert.Equal(t, latestBlock.FinalizedBlockNumber, header.Number.Int64())
+	assert.Equal(t, latestBlock.BlockHash, header.Hash())
+
 	// Register filter
 	err = th.LogPoller.RegisterFilter(logpoller.Filter{
 		Name:      "Test Emitter",
@@ -1245,7 +1252,7 @@ func TestGetReplayFromBlock(t *testing.T) {
 	require.NoError(t, err)
 	latest, err := th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	assert.Equal(t, latest, fromBlock)
+	assert.Equal(t, latest.BlockNumber, fromBlock)
 
 	// Should take min(latest, requested) in this case requested.
 	requested = int64(7)
@@ -1551,6 +1558,10 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			th := SetupTH(t, tt.useFinalityTag, tt.finalityDepth, 3, 2, 1000)
+			// Should return error before the first poll and save
+			_, err := th.LogPoller.LatestBlock()
+			require.Error(t, err)
+
 			// Mark first block as finalized
 			h := th.Client.Blockchain().CurrentHeader()
 			th.Client.Blockchain().SetFinalized(h)
@@ -1562,7 +1573,7 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 
 			th.PollAndSaveLogs(ctx, 1)
 
-			latestBlock, err := th.ORM.SelectLatestBlock()
+			latestBlock, err := th.LogPoller.LatestBlock()
 			require.NoError(t, err)
 			require.Equal(t, int64(numberOfBlocks), latestBlock.BlockNumber)
 			require.Equal(t, tt.expectedFinalizedBlock, latestBlock.FinalizedBlockNumber)
