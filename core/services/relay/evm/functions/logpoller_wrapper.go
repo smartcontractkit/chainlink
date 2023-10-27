@@ -63,7 +63,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	blockOffset := int64(pluginConfig.MinIncomingConfirmations) - 1
 	if blockOffset < 0 {
 		lggr.Warnw("invalid minIncomingConfirmations, using 1 instead", "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations)
-		blockOffset = 0
+		const blockOffset = 0
 	}
 	requestBlockOffset := int64(pluginConfig.MinRequestConfirmations) - 1
 	if requestBlockOffset < 0 {
@@ -78,12 +78,16 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	logPollerCacheDurationSec := int64(pluginConfig.LogPollerCacheDurationSec)
 	if logPollerCacheDurationSec <= 0 {
 		lggr.Warnw("invalid logPollerCacheDuration, using 300 instead", "logPollerCacheDurationSec", logPollerCacheDurationSec)
-		logPollerCacheDurationSec = 300
+		const logPollerCacheDurationSec = 300
 	}
 	pastBlocksToPoll := int64(pluginConfig.PastBlocksToPoll)
 	if pastBlocksToPoll <= 0 {
 		lggr.Warnw("invalid pastBlocksToPoll, using 50 instead", "pastBlocksToPoll", pastBlocksToPoll)
-		pastBlocksToPoll = 50
+		const pastBlocksToPoll = 50
+	}
+	if blockOffset >= pastBlocksToPoll || requestBlockOffset >= pastBlocksToPoll || responseBlockOffset >= pastBlocksToPoll {
+		lggr.Errorf("invalid config: number of required confirmation blocks >= pastBlocksToPoll", "pastBlocksToPoll", pastBlocksToPoll, "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations, "minRequestConfirmations", pluginConfig.MinRequestConfirmations, "minResponseConfirmations", pluginConfig.MinResponseConfirmations)
+		return nil, errors.Errorf("invalid config: number of required confirmation blocks >= pastBlocksToPoll")
 	}
 
 	return &logPollerWrapper{
@@ -175,14 +179,16 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", latestBlockNum)
 			return nil, nil, err
 		}
-		requestLogs = l.FilterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests)
+		l.lggr.Debugw("LatestEvents: fetched request logs", "nRequestLogs", len(requestLogs), "latestBlock", latest, "startBlock", startBlock, "endBlock", endBlock)
+		requestLogs = l.FilterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests, "requests")
 		endBlock = latest - l.responseBlockOffset
 		responseLogs, err := l.logPoller.Logs(startBlock, endBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", latestBlockNum)
 			return nil, nil, err
 		}
-		responseLogs = l.FilterPreviouslyDetectedEvents(responseLogs, &l.detectedResponses)
+		l.lggr.Debugw("LatestEvents: fetched request logs", "nResponseLogs", len(responseLogs), "latestBlock", latest, "startBlock", startBlock, "endBlock", endBlock)
+		responseLogs = l.FilterPreviouslyDetectedEvents(responseLogs, &l.detectedResponses, "responses")
 
 		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator, l.client)
 		if err != nil {
@@ -195,7 +201,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 			gethLog := log.ToGethLog()
 			oracleRequest, err := parsingContract.ParseOracleRequest(gethLog)
 			if err != nil {
-				l.lggr.Errorw("LatestEvents: failed to parse a request log, skipping")
+				l.lggr.Errorw("LatestEvents: failed to parse a request log, skipping", "err", err)
 				continue
 			}
 
@@ -275,7 +281,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	return resultsReq, resultsResp, nil
 }
 
-func (l *logPollerWrapper) FilterPreviouslyDetectedEvents(logs []logpoller.Log, detectedEvents *detectedEvents) []logpoller.Log {
+func (l *logPollerWrapper) FilterPreviouslyDetectedEvents(logs []logpoller.Log, detectedEvents *detectedEvents, filterType string) []logpoller.Log {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	filteredLogs := []logpoller.Log{}
@@ -298,6 +304,7 @@ func (l *logPollerWrapper) FilterPreviouslyDetectedEvents(logs []logpoller.Log, 
 		}
 	}
 	detectedEvents.detectedEventsOrdered = detectedEvents.detectedEventsOrdered[expiredRequests:]
+	l.lggr.Debugw("FilterPreviouslyDetectedEvents: done", "filterType", filterType, "nLogs", len(logs), "nFilteredLogs", len(filteredLogs), "nExpiredRequests", expiredRequests, "previouslyDetectedCacheSize", len(detectedEvents.detectedEventsOrdered))
 	return filteredLogs
 }
 
