@@ -22,7 +22,6 @@ type DirectRequestSpec {
     createdAt: Time!
     evmChainID: String
     minIncomingConfirmations: Int!
-    minIncomingConfirmationsEnv: Boolean!
     minContractPaymentLinkJuels: String!
     requesters: [String!]
 }
