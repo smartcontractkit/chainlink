@@ -36,7 +36,7 @@ func GetRespCounts(ctx context.Context, txm txmgr.TxManager, chainID *big.Int, c
 	if err != nil {
 		return nil, errors.Wrap(err, "getRespCounts failed due to error in FindTxesWithMetaFieldByReceiptBlockNum")
 	}
-	txes := append(unconfirmedTxes, confirmedTxes...)
+	txes := DedupeTxList(append(unconfirmedTxes, confirmedTxes...))
 	respCountMap := make(map[string]int)
 	// Consolidate the number of txes for each meta RequestID
 	for _, tx := range txes {
@@ -63,4 +63,16 @@ func GetRespCounts(ctx context.Context, txm txmgr.TxManager, chainID *big.Int, c
 		counts = append(counts, respCountEntry)
 	}
 	return counts, nil
+}
+
+func DedupeTxList(txes []*txmgr.Tx) []*txmgr.Tx {
+	txIdMap := make(map[string]bool)
+	dedupedTxes := []*txmgr.Tx{}
+	for _, tx := range txes {
+		if _, found := txIdMap[tx.GetID()]; !found {
+			txIdMap[tx.GetID()] = true
+			dedupedTxes = append(dedupedTxes, tx)
+		}
+	}
+	return dedupedTxes
 }
