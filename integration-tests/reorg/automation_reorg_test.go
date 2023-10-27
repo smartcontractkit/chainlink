@@ -48,7 +48,7 @@ HistoryDepth = 400
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
-	activeEVMNetwork          = networks.SelectedNetwork
+	activeEVMNetwork          = networks.MustGetSelectedNetworksFromEnv()[0]
 	defaultAutomationSettings = map[string]interface{}{
 		"toml": client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
 		"db": map[string]interface{}{
@@ -135,7 +135,7 @@ func TestAutomationReorg(t *testing.T) {
 	for name, registryVersion := range registryVersions {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			network := networks.SelectedNetwork
+			network := networks.MustGetSelectedNetworksFromEnv()[0]
 
 			defaultAutomationSettings["replicas"] = numberOfNodes
 			cd := chainlink.New(0, defaultAutomationSettings)
