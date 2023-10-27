@@ -5002,7 +5002,7 @@ Mode controls what type of gas estimator is used.
 
 - `FixedPrice` uses static configured values for gas price (can be set via API call).
 - `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
-- `SuggestedPrice` is a special mode only for use with L2 blockchains. This mode will use the gas price suggested by the rpc endpoint via `eth_gasPrice`.
+- `SuggestedPrice` is a mode which uses the gas price suggested by the rpc endpoint via `eth_gasPrice`.
 - `Arbitrum` is a special mode only for use with Arbitrum blockchains. It uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
 
 Chainlink nodes decide what gas price to use using an `Estimator`. It ships with several simple and battle-hardened built-in estimators that should work well for almost all use-cases. Note that estimators will change their behaviour slightly depending on if you are in EIP-1559 mode or not.
