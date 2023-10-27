@@ -565,7 +565,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 			Meta:           nil,
 			Strategy:       strategy,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
@@ -587,7 +587,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 			Meta:           nil,
 			Strategy:       strategy,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 }
