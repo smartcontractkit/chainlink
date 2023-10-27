@@ -130,14 +130,14 @@ func WithP2Pv2() NodeConfigOpt {
 func WithTracing() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.Tracing = toml.Tracing{
-			Enabled: utils2.Ptr(true),
+			Enabled:         utils2.Ptr(true),
 			CollectorTarget: utils2.Ptr("otel-collector:4317"),
 			// ksortable unique id
-			NodeID: 		 utils2.Ptr(ksuid.New().String()),
-			Attributes:      map[string]string{
+			NodeID: utils2.Ptr(ksuid.New().String()),
+			Attributes: map[string]string{
 				"env": "smoke",
 			},
-			SamplingRatio:  utils2.Ptr(1.0),
+			SamplingRatio: utils2.Ptr(1.0),
 		}
 	}
 }
@@ -165,8 +165,9 @@ func SetChainConfig(
 		if chain.Simulated {
 			chainConfig = evmcfg.Chain{
 				AutoCreateKey:      utils2.Ptr(true),
-				FinalityDepth:      utils2.Ptr[uint32](1),
+				FinalityDepth:      utils2.Ptr[uint32](50),
 				MinContractPayment: assets.NewLinkFromJuels(0),
+				LogPollInterval:    models.MustNewDuration(1 * time.Second),
 			}
 		}
 		cfg.EVM = evmcfg.EVMConfigs{

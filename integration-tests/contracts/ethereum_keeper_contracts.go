@@ -215,6 +215,10 @@ type EthereumKeeperRegistry struct {
 	l           zerolog.Logger
 }
 
+func (v *EthereumKeeperRegistry) GetRegistry21Instance() *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMaster {
+	return v.registry2_1
+}
+
 func (v *EthereumKeeperRegistry) Address() string {
 	return v.address.Hex()
 }

@@ -10,7 +10,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/spf13/cobra"
 	"github.com/testcontainers/testcontainers-go"
 )
@@ -50,7 +52,37 @@ func main() {
 			return nil
 		},
 	}
+	startLpEnvCmd := &cobra.Command{
+		Use:   "lp-cluster",
+		Short: "Log poller CL cluster",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			utils.SetupCoreDockerEnvLogger()
+			log.Info().Msg("Starting LP cluster test environment..")
+
+			clNodeConfig := node.NewConfig(node.NewBaseConfig())
+			clNodeConfig.Feature.LogPoller = it_utils.Ptr[bool](true)
+
+			_, err := test_env.NewCLTestEnvBuilder().
+				WithGeth().
+				WithMockAdapter().
+				WithCLNodeConfig(clNodeConfig).
+				WithCLNodes(2).
+				WithoutCleanup().
+				Build()
+			if err != nil {
+				return err
+			}
+
+			log.Info().Msg("LP cluster is ready")
+
+			handleExitSignal()
+
+			return nil
+		},
+	}
+
 	startEnvCmd.AddCommand(startFullEnvCmd)
+	startEnvCmd.AddCommand(startLpEnvCmd)
 
 	// Set default log level for non-testcontainer code
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)

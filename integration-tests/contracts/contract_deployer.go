@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
@@ -138,6 +139,7 @@ type ContractDeployer interface {
 	DeployMercuryVerifierProxyContract(accessControllerAddr common.Address) (MercuryVerifierProxy, error)
 	DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error)
 	DeployMercuryRewardManager(linkAddress common.Address) (MercuryRewardManager, error)
+	DeployLogEmitterContract() (LogEmitter, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -1595,6 +1597,24 @@ func (e *EthereumContractDeployer) DeployWERC20Mock() (WERC20Mock, error) {
 	return &EthereumWERC20Mock{
 		client:   e.client,
 		instance: instance.(*werc20_mock.WERC20Mock),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployLogEmitterContract() (LogEmitter, error) {
+	address, _, instance, err := e.client.DeployContract("Log Emitter", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return le.DeployLogEmitter(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &LogEmitterContract{
+		client:   e.client,
+		instance: instance.(*le.LogEmitter),
 		address:  *address,
 		l:        e.l,
 	}, err
