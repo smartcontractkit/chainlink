@@ -156,7 +156,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     vm.expectCall(address(s_receiver), data);
     vm.resumeGasMetering();
 
-    (bool success, ) = s_caller.callWithExactGasSafeReturnData(
+    (bool success, bytes memory retData, uint256 gasUsed) = s_caller.callWithExactGasSafeReturnData(
       data,
       address(s_receiver),
       DEFAULT_GAS_LIMIT,
@@ -165,6 +165,8 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     );
 
     assertTrue(success);
+    assertEq(retData.length, 0);
+    assertGt(gasUsed, 500);
   }
 
   function test_CallWithExactGasSafeReturnDataExactGas() public {
@@ -173,7 +175,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     // The calculated overhead for retData initialization
     uint256 overheadForRetDataInit = 114;
     // The calculated overhead for otherwise unaccounted for gas usage
-    uint256 overheadForCallWithExactGas = 480;
+    uint256 overheadForCallWithExactGas = 486;
 
     bytes memory payload = abi.encodeWithSelector(
       s_caller.callWithExactGasSafeReturnData.selector,
@@ -200,10 +202,11 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     (bool success, bytes memory retData) = address(s_caller).call{gas: allowedGas}(payload);
 
     assertTrue(success);
-    (bool innerSuccess, bytes memory innerRetData) = abi.decode(retData, (bool, bytes));
+    (bool innerSuccess, bytes memory innerRetData, uint256 gasUsed) = abi.decode(retData, (bool, bytes, uint256));
 
     assertTrue(innerSuccess);
     assertEq(innerRetData.length, 0);
+    assertGt(gasUsed, 500);
   }
 
   function testFuzz_CallWithExactGasReceiverErrorSuccess(uint16 testRetBytes) public {
@@ -222,7 +225,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
 
     vm.expectCall(address(s_receiver), data);
 
-    (bool success, bytes memory retData) = s_caller.callWithExactGasSafeReturnData(
+    (bool success, bytes memory retData, uint256 gasUsed) = s_caller.callWithExactGasSafeReturnData(
       data,
       address(s_receiver),
       DEFAULT_GAS_LIMIT * 10,
@@ -242,6 +245,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
       }
     }
     assertEq(expectedReturnData, retData);
+    assertGt(gasUsed, 500);
   }
 
   function test_NoContractReverts() public {
