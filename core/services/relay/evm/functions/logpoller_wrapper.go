@@ -63,7 +63,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	blockOffset := int64(pluginConfig.MinIncomingConfirmations) - 1
 	if blockOffset < 0 {
 		lggr.Warnw("invalid minIncomingConfirmations, using 1 instead", "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations)
-		const blockOffset = 0
+		blockOffset = 0
 	}
 	requestBlockOffset := int64(pluginConfig.MinRequestConfirmations) - 1
 	if requestBlockOffset < 0 {
@@ -78,15 +78,15 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	logPollerCacheDurationSec := int64(pluginConfig.LogPollerCacheDurationSec)
 	if logPollerCacheDurationSec <= 0 {
 		lggr.Warnw("invalid logPollerCacheDuration, using 300 instead", "logPollerCacheDurationSec", logPollerCacheDurationSec)
-		const logPollerCacheDurationSec = 300
+		logPollerCacheDurationSec = 300
 	}
 	pastBlocksToPoll := int64(pluginConfig.PastBlocksToPoll)
 	if pastBlocksToPoll <= 0 {
 		lggr.Warnw("invalid pastBlocksToPoll, using 50 instead", "pastBlocksToPoll", pastBlocksToPoll)
-		const pastBlocksToPoll = 50
+		pastBlocksToPoll = 50
 	}
 	if blockOffset >= pastBlocksToPoll || requestBlockOffset >= pastBlocksToPoll || responseBlockOffset >= pastBlocksToPoll {
-		lggr.Errorf("invalid config: number of required confirmation blocks >= pastBlocksToPoll", "pastBlocksToPoll", pastBlocksToPoll, "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations, "minRequestConfirmations", pluginConfig.MinRequestConfirmations, "minResponseConfirmations", pluginConfig.MinResponseConfirmations)
+		lggr.Errorw("invalid config: number of required confirmation blocks >= pastBlocksToPoll", "pastBlocksToPoll", pastBlocksToPoll, "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations, "minRequestConfirmations", pluginConfig.MinRequestConfirmations, "minResponseConfirmations", pluginConfig.MinResponseConfirmations)
 		return nil, errors.Errorf("invalid config: number of required confirmation blocks >= pastBlocksToPoll")
 	}
 
