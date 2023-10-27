@@ -27,7 +27,7 @@ We will be looking into `forge fmt`, but for now we still use `prettier`.
   - This `dev` folder also has implications for when code is valid for bug bounties, so be extra careful to move functionality out of a `dev` folder.
 
 
-### comments 
+## comments 
 - Besides comment above functions/structs, comments should live everywhere a reader might be confused.
   Don’t overestimate the reader of your contract, expect confusion in many places and document accordingly.
   This will help massively during audits and onboarding new team members.
@@ -85,7 +85,7 @@ struct FeeTokenConfigArgs {
   uint256 fee; //                 The flat fee the user pays in juels        
 }
 ```
-
+## Functions
 
 ### Naming
 
@@ -113,9 +113,6 @@ struct FeeTokenConfigArgs {
 
 - Events should only be triggered on state changes. If the value is set but not changed, we prefer avoiding a log emission indicating a change. (e.g. Either do not emit a log, or name the event `ConfigSet` instead of `ConfigUpdated`.)
 - Events should be emitted for all state changes, not emitting should be an exception
-
-### Naming
-
 - When possible event names should correspond to the method they are in or the action that is being taken. Events preferably follow the format <subject><actionPerformed>, where the action performed is the past tense of the imperative verb in the method name.  e.g. calling `setConfig` should emit an event called `ConfigSet`, not `ConfigUpdated` in a method named `setConfig`.
 
 
@@ -153,7 +150,7 @@ return (success, retData);
 
 This will cost slightly more gas to copy the response into memory, but will ultimately make contract usage more understandable and easier to debug. Whether it is worth the extra gas is a judgement call you’ll have to make based on your needs.
 
-The original error will not be human readable in an off-chain explorer because it is RLP hex encoded but is easily decoded with standard Solidity ABI decoding tools, or a hex to UTF-8 converter and some basic ABI knowledge.
+The original error will not be human-readable in an off-chain explorer because it is RLP hex encoded but is easily decoded with standard Solidity ABI decoding tools, or a hex to UTF-8 converter and some basic ABI knowledge.
 
 
 ## Interfaces
@@ -204,7 +201,7 @@ The original error will not be human readable in an off-chain explorer because i
 ## Testing
 
 - Test using Foundry.
-- Aim for 90%+ *useful* coverage as a baseline, but (near) 100% is achievable in Solidity. Always 100% test the critical path.
+- Aim for at least 90% *useful* coverage as a baseline, but (near) 100% is achievable in Solidity. Always 100% test the critical path.
   - Make sure to test for each event emitted
   - Test each reverting path
 - Consider fuzzing, start with stateless (very easy in Foundry) and if that works, try stateful fuzzing.
@@ -295,11 +292,11 @@ All rules have a `rule` tag which indicated how the rule is enforced.
 - Comments should follow [NatSpec](https://docs.soliditylang.org/en/latest/natspec-format.html)
   - rule: `tbd`
 
-### Imports
+## Imports
 
 - Imports should always be explicit
   - rule: `no-global-import`
-- Imports should follow the following format:
+- Imports have follow the following format:
   - rule: `tbd`
 
 ```solidity
@@ -323,14 +320,12 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/tok
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 ```
 
-- Sorting imports alphabetically within the sections is nice, but since we don’t have any tooling to automatically do this it is not required.
-
 ## Variables
 
 ### Visibility
 
 All contract variables should be private by default. Getters should be explicitly written and documented when you want to expose a variable publicly.
-  Whether a getter function reads from storage, a constant, or calculates a value from somewhere else, that’s all implementation details that should not be exposed to the consumer by casing or other conventions.
+Whether a getter function reads from storage, a constant, or calculates a value from somewhere else, that’s all implementation details that should not be exposed to the consumer by casing or other conventions.
 
 rule: tbd
 
@@ -384,8 +379,6 @@ function getNum() external view returns (uint64 num) {
 ```
 
 ## Errors
-
-### Use Custom Errors
 
 Use [custom errors](https://blog.soliditylang.org/2021/04/21/custom-errors/) instead of emitting strings. This saves contract code size and simultaneously provides more informative error messages.
 
