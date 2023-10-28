@@ -76,7 +76,7 @@ func (s *sleeperTask) WakeUpIfStarted() {
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.
 func (s *sleeperTask) WakeUp() {
-	if s.StartStopOnce.State() == StartStopOnce_Stopped {
+	if s.State() == StartStopOnce_Stopped {
 		panic("cannot wake up stopped sleeper task")
 	}
 	select {

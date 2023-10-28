@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/commontypes"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -143,7 +144,7 @@ func (m *Manager) HealthReport() map[string]error {
 	hr[m.lggr.Name()] = m.Healthy()
 	for _, e := range m.endpoints {
 		name := fmt.Sprintf("%s.%s.%s", m.lggr.Name(), e.Network, e.ChainID)
-		hr[name] = e.StartStopOnce.Healthy()
+		hr[name] = e.Healthy()
 	}
 	return hr
 }

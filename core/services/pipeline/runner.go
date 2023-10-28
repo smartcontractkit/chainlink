@@ -150,7 +150,7 @@ func (r *runner) Name() string {
 }
 
 func (r *runner) HealthReport() map[string]error {
-	return map[string]error{r.Name(): r.StartStopOnce.Healthy()}
+	return map[string]error{r.Name(): r.Healthy()}
 }
 
 func (r *runner) destroy() {

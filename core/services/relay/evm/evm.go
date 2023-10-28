@@ -312,7 +312,7 @@ func (c *configWatcher) Close() error {
 }
 
 func (c *configWatcher) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	return map[string]error{c.Name(): c.Healthy()}
 }
 
 func (c *configWatcher) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {

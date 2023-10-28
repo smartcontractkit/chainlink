@@ -130,7 +130,7 @@ func (pr *promReporter) Name() string {
 }
 
 func (pr *promReporter) HealthReport() map[string]error {
-	return map[string]error{pr.Name(): pr.StartStopOnce.Healthy()}
+	return map[string]error{pr.Name(): pr.Healthy()}
 }
 
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
