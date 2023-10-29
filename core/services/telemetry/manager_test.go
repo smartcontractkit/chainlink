@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -24,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func setupMockConfig(t *testing.T, useBatchSend bool) *mocks.TelemetryIngress {
@@ -246,10 +246,10 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		})
 
 		tm.endpoints[i] = &telemetryEndpoint{
-			StartStopOnce: utils.StartStopOnce{},
-			ChainID:       e.chainID,
-			Network:       e.network,
-			client:        clientMock,
+			StateMachine: services.StateMachine{},
+			ChainID:      e.chainID,
+			Network:      e.network,
+			client:       clientMock,
 		}
 
 	}

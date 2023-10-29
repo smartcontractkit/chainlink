@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 )
 
 // SleeperTask represents a task that waits in the background to process some work.
@@ -19,12 +21,12 @@ type Worker interface {
 }
 
 type sleeperTask struct {
+	services.StateMachine
 	worker     Worker
 	chQueue    chan struct{}
 	chStop     chan struct{}
 	chDone     chan struct{}
 	chWorkDone chan struct{}
-	StartStopOnce
 }
 
 // NewSleeperTask takes a worker and returns a SleeperTask.
@@ -76,12 +78,13 @@ func (s *sleeperTask) WakeUpIfStarted() {
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.
 func (s *sleeperTask) WakeUp() {
-	if s.StartStopOnce.State() == StartStopOnce_Stopped {
+	if !s.IfStarted(func() {
+		select {
+		case s.chQueue <- struct{}{}:
+		default:
+		}
+	}) {
 		panic("cannot wake up stopped sleeper task")
-	}
-	select {
-	case s.chQueue <- struct{}{}:
-	default:
 	}
 }
 

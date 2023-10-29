@@ -10,16 +10,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/util"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
 	"github.com/smartcontractkit/ocr2keepers/pkg/v2/encoding"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type TransmitUnpacker interface {
@@ -27,7 +28,7 @@ type TransmitUnpacker interface {
 }
 
 type LogProvider struct {
-	sync              utils.StartStopOnce
+	sync              services.StateMachine
 	mu                sync.RWMutex
 	runState          int
 	runError          error

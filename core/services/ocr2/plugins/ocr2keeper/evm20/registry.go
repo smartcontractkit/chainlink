@@ -15,9 +15,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
 	"go.uber.org/multierr"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -25,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -135,7 +136,7 @@ type activeUpkeep struct {
 
 type EvmRegistry struct {
 	HeadProvider
-	sync          utils.StartStopOnce
+	sync          services.StateMachine
 	lggr          logger.Logger
 	poller        logpoller.LogPoller
 	addr          common.Address

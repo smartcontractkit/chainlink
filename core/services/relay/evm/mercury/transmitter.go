@@ -84,7 +84,7 @@ type TransmitterReportDecoder interface {
 var _ Transmitter = (*mercuryTransmitter)(nil)
 
 type mercuryTransmitter struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lggr               logger.Logger
 	rpcClient          wsrpc.Client
 	cfgTracker         ConfigTracker
@@ -127,7 +127,7 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
 	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg), jobID, maxTransmitQueueSize, flushDeletesFrequency, pruneFrequency)
 	return &mercuryTransmitter{
-		utils.StartStopOnce{},
+		services.StateMachine{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
 		cfgTracker,
