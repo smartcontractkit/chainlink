@@ -79,6 +79,7 @@ compileContract vrf/dev/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusMaliciousMigrator.sol
 compileContract vrf/dev/libraries/VRFV2PlusClient.sol
 compileContract vrf/dev/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
+compileContract vrf/dev/BlockhashStore.sol
 compileContract vrf/dev/TrustedBlockhashStore.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
 compileContractAltOpts vrf/dev/testhelpers/VRFCoordinatorV2PlusUpgradedVersion.sol 5
