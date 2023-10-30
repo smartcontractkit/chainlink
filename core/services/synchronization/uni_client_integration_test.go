@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/wsrpc"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/wsrpc"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestUniClient(t *testing.T) {
-	t.Skip()
+	t.Skip("Incomplete", "https://smartcontract-it.atlassian.net/browse/BCF-2729")
 	privKey, err := hex.DecodeString("TODO")
 	require.NoError(t, err)
 	pubKey, err := hex.DecodeString("TODO")

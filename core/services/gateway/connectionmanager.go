@@ -42,7 +42,7 @@ type ConnectionManager interface {
 }
 
 type connectionManager struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	config             *config.ConnectionManagerConfig
 	dons               map[string]*donConnectionManager

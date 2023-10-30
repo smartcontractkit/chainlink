@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -48,7 +49,7 @@ func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProv
 }
 
 type reportingPluginFactoryService struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lggr logger.Logger
 	ocrtypes.ReportingPluginFactory
 }

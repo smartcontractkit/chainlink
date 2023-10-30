@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
@@ -98,7 +99,7 @@ type Service interface {
 }
 
 type service struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	orm          ORM
 	jobORM       job.ORM

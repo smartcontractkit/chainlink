@@ -28,26 +28,26 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
-	_ services.ServiceCtx = (*Txm)(nil)
-	_ adapters.TxManager  = (*Txm)(nil)
+	_ services.Service   = (*Txm)(nil)
+	_ adapters.TxManager = (*Txm)(nil)
 )
 
 // Txm manages transactions for the cosmos blockchain.
 type Txm struct {
-	starter         utils.StartStopOnce
+	services.StateMachine
 	eb              pg.EventBroadcaster
 	sub             pg.Subscription
 	orm             *ORM
 	lggr            logger.Logger
 	tc              func() (cosmosclient.ReaderWriter, error)
-	keystoreAdapter *KeystoreAdapter
+	keystoreAdapter *keystoreAdapter
 	stop, done      chan struct{}
 	cfg             coscfg.Config
 	gpe             cosmosclient.ComposedGasPriceEstimator
@@ -56,9 +56,8 @@ type Txm struct {
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
 func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmosclient.ComposedGasPriceEstimator, chainID string, cfg coscfg.Config, ks loop.Keystore, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
 	lggr = logger.Named(lggr, "Txm")
-	keystoreAdapter := NewKeystoreAdapter(ks, cfg.Bech32Prefix())
+	keystoreAdapter := newKeystoreAdapter(ks, cfg.Bech32Prefix())
 	return &Txm{
-		starter:         utils.StartStopOnce{},
 		eb:              eb,
 		orm:             NewORM(chainID, db, lggr, logCfg),
 		lggr:            lggr,
@@ -73,7 +72,7 @@ func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmo
 
 // Start subscribes to pg notifications about cosmos msg inserts and processes them.
 func (txm *Txm) Start(context.Context) error {
-	return txm.starter.StartOnce("cosmostxm", func() error {
+	return txm.StartOnce("Txm", func() error {
 		sub, err := txm.eb.Subscribe(pg.ChannelInsertOnCosmosMsg, "")
 		if err != nil {
 			return err
@@ -520,13 +519,15 @@ func (txm *Txm) GasPrice() (sdk.DecCoin, error) {
 
 // Close close service
 func (txm *Txm) Close() error {
-	txm.sub.Close()
-	close(txm.stop)
-	<-txm.done
-	return nil
+	return txm.StopOnce("Txm", func() error {
+		txm.sub.Close()
+		close(txm.stop)
+		<-txm.done
+		return nil
+	})
 }
 
-func (txm *Txm) Name() string { return "cosmostxm" }
+func (txm *Txm) Name() string { return txm.lggr.Name() }
 
 // Healthy service is healthy
 func (txm *Txm) Healthy() error {
