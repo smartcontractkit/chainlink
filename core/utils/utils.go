@@ -31,6 +31,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 )
 
 const (
@@ -819,14 +821,6 @@ func EVMBytesToUint64(buf []byte) uint64 {
 	return result
 }
 
-type errNotStarted struct {
-	state StartStopOnceState
-}
-
-func (e *errNotStarted) Error() string {
-	return fmt.Sprintf("service is %q, not started", e.state)
-}
-
 var (
 	ErrAlreadyStopped      = errors.New("already stopped")
 	ErrCannotStopUnstarted = errors.New("cannot stop unstarted service")
@@ -834,176 +828,7 @@ var (
 
 // StartStopOnce contains a StartStopOnceState integer
 // Deprecated: use services.StateMachine
-type StartStopOnce struct {
-	state        atomic.Int32
-	sync.RWMutex // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state
-
-	// SvcErrBuffer is an ErrorBuffer that let service owners track critical errors happening in the service.
-	//
-	// SvcErrBuffer.SetCap(int) Overrides buffer limit from defaultErrorBufferCap
-	// SvcErrBuffer.Append(error) Appends an error to the buffer
-	// SvcErrBuffer.Flush() error returns all tracked errors as a single joined error
-	SvcErrBuffer ErrorBuffer
-}
-
-// StartStopOnceState holds the state for StartStopOnce
-type StartStopOnceState int32
-
-// nolint
-const (
-	StartStopOnce_Unstarted StartStopOnceState = iota
-	StartStopOnce_Started
-	StartStopOnce_Starting
-	StartStopOnce_StartFailed
-	StartStopOnce_Stopping
-	StartStopOnce_Stopped
-	StartStopOnce_StopFailed
-)
-
-func (s StartStopOnceState) String() string {
-	switch s {
-	case StartStopOnce_Unstarted:
-		return "Unstarted"
-	case StartStopOnce_Started:
-		return "Started"
-	case StartStopOnce_Starting:
-		return "Starting"
-	case StartStopOnce_StartFailed:
-		return "StartFailed"
-	case StartStopOnce_Stopping:
-		return "Stopping"
-	case StartStopOnce_Stopped:
-		return "Stopped"
-	case StartStopOnce_StopFailed:
-		return "StopFailed"
-	default:
-		return fmt.Sprintf("unrecognized state: %d", s)
-	}
-}
-
-// StartOnce sets the state to Started
-func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
-	// SAFETY: We do this compare-and-swap outside of the lock so that
-	// concurrent StartOnce() calls return immediately.
-	success := once.state.CompareAndSwap(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
-
-	if !success {
-		return pkgerrors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
-	}
-
-	once.Lock()
-	defer once.Unlock()
-
-	// Setting cap before calling startup fn in case of crits in startup
-	once.SvcErrBuffer.SetCap(defaultErrorBufferCap)
-	err := fn()
-
-	if err == nil {
-		success = once.state.CompareAndSwap(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
-	} else {
-		success = once.state.CompareAndSwap(int32(StartStopOnce_Starting), int32(StartStopOnce_StartFailed))
-	}
-
-	if !success {
-		// SAFETY: If this is reached, something must be very wrong: once.state
-		// was tampered with outside of the lock.
-		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to started", name))
-	}
-
-	return err
-}
-
-// StopOnce sets the state to Stopped
-func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
-	// SAFETY: We hold the lock here so that Stop blocks until StartOnce
-	// executes. This ensures that a very fast call to Stop will wait for the
-	// code to finish starting up before teardown.
-	once.Lock()
-	defer once.Unlock()
-
-	success := once.state.CompareAndSwap(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
-
-	if !success {
-		state := once.state.Load()
-		switch state {
-		case int32(StartStopOnce_Stopped):
-			return pkgerrors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
-		case int32(StartStopOnce_Unstarted):
-			return pkgerrors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
-		default:
-			return pkgerrors.Errorf("%v cannot be stopped from this state; state=%v", name, StartStopOnceState(state))
-		}
-	}
-
-	err := fn()
-
-	if err == nil {
-		success = once.state.CompareAndSwap(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
-	} else {
-		success = once.state.CompareAndSwap(int32(StartStopOnce_Stopping), int32(StartStopOnce_StopFailed))
-	}
-
-	if !success {
-		// SAFETY: If this is reached, something must be very wrong: once.state
-		// was tampered with outside of the lock.
-		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to stopped", name))
-	}
-
-	return err
-}
-
-// State retrieves the current state
-func (once *StartStopOnce) State() StartStopOnceState {
-	state := once.state.Load()
-	return StartStopOnceState(state)
-}
-
-// IfStarted runs the func and returns true only if started, otherwise returns false
-func (once *StartStopOnce) IfStarted(f func()) (ok bool) {
-	once.RLock()
-	defer once.RUnlock()
-
-	state := once.state.Load()
-
-	if StartStopOnceState(state) == StartStopOnce_Started {
-		f()
-		return true
-	}
-	return false
-}
-
-// IfNotStopped runs the func and returns true if in any state other than Stopped
-func (once *StartStopOnce) IfNotStopped(f func()) (ok bool) {
-	once.RLock()
-	defer once.RUnlock()
-
-	state := once.state.Load()
-
-	if StartStopOnceState(state) == StartStopOnce_Stopped {
-		return false
-	}
-	f()
-	return true
-}
-
-// Ready returns ErrNotStarted if the state is not started.
-func (once *StartStopOnce) Ready() error {
-	state := once.State()
-	if state == StartStopOnce_Started {
-		return nil
-	}
-	return &errNotStarted{state: state}
-}
-
-// Healthy returns ErrNotStarted if the state is not started.
-// Override this per-service with more specific implementations.
-func (once *StartStopOnce) Healthy() error {
-	state := once.State()
-	if state == StartStopOnce_Started {
-		return once.SvcErrBuffer.Flush()
-	}
-	return &errNotStarted{state: state}
-}
+type StartStopOnce = services.StateMachine
 
 // EnsureClosed closes the io.Closer, returning nil if it was already
 // closed or not started yet

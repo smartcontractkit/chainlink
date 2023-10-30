@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -52,7 +53,7 @@ type (
 	// OCRContractTracker complies with ContractConfigTracker interface and
 	// handles log events related to the contract more generally
 	OCRContractTracker struct {
-		utils.StartStopOnce
+		services.StateMachine
 
 		ethClient        evmclient.Client
 		contract         *offchain_aggregator_wrapper.OffchainAggregator

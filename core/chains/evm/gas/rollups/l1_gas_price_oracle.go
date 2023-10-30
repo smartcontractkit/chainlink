@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -26,6 +27,7 @@ type ethClient interface {
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
 type l1GasPriceOracle struct {
+	services.StateMachine
 	client     ethClient
 	pollPeriod time.Duration
 	logger     logger.Logger
@@ -38,7 +40,6 @@ type l1GasPriceOracle struct {
 	chInitialised chan struct{}
 	chStop        utils.StopChan
 	chDone        chan struct{}
-	utils.StartStopOnce
 }
 
 const (
