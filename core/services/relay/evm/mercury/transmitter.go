@@ -137,7 +137,11 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		jobID,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
-		NewTransmitQueue(lggr, feedIDHex, maxTransmitQueueSize, nil, persistenceManager), // FIXME: MERC-1975 Should this not be nil? Its completely useless
+		// <<<<<<< HEAD
+		//         NewTransmitQueue(lggr, feedIDHex, maxTransmitQueueSize, nil, persistenceManager), // FIXME: MERC-1975 Should this not be nil? Its completely useless
+		// =======
+		nil,
+		// >>>>>>> origin/develop
 		sync.WaitGroup{},
 		transmitSuccessCount.WithLabelValues(feedIDHex),
 		transmitDuplicateCount.WithLabelValues(feedIDHex),
