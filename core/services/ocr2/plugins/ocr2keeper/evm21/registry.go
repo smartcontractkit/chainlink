@@ -35,7 +35,7 @@ import (
 
 const (
 	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
-	defaultAllowListExpiration = 20 * time.Minute
+	defaultAllowListExpiration = 10 * time.Minute
 	// allowListCleanupInterval decides when the expired items in allowList cache will be deleted.
 	allowListCleanupInterval   = 5 * time.Minute
 	logTriggerRefreshBatchSize = 32
