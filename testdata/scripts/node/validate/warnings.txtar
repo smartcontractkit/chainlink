@@ -1,13 +1,50 @@
-! exec chainlink node validate
-stderr 'invalid configuration'
+exec chainlink node -c config.toml -s secrets.toml validate
 cmp stdout out.txt
+
+-- config.toml --
+[P2P.V1]
+Enabled = true
+AnnounceIP = ''
+AnnouncePort = 0
+BootstrapCheckInterval = '20s'
+DefaultBootstrapPeers = []
+DHTAnnouncementCounterUserPrefix = 0
+DHTLookupInterval = 10
+ListenIP = '0.0.0.0'
+ListenPort = 0
+NewStreamTimeout = '10s'
+PeerstoreWriteInterval = '5m0s'
+
+-- secrets.toml --
+[Database]
+URL = 'postgresql://user:pass1234567890abcd@localhost:5432/dbname?sslmode=disable'
+
+[Password]
+Keystore = 'keystore_pass'
 
 -- out.txt --
 # Secrets:
 [Database]
+URL = 'xxxxx'
 AllowSimplePasswords = false
 
+[Password]
+Keystore = 'xxxxx'
+
 # Input Configuration:
+[P2P]
+[P2P.V1]
+Enabled = true
+AnnounceIP = ''
+AnnouncePort = 0
+BootstrapCheckInterval = '20s'
+DefaultBootstrapPeers = []
+DHTAnnouncementCounterUserPrefix = 0
+DHTLookupInterval = 10
+ListenIP = '0.0.0.0'
+ListenPort = 0
+NewStreamTimeout = '10s'
+PeerstoreWriteInterval = '5m0s'
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
@@ -154,7 +191,7 @@ PeerID = ''
 TraceLogging = false
 
 [P2P.V1]
-Enabled = false
+Enabled = true
 AnnounceIP = ''
 AnnouncePort = 0
 BootstrapCheckInterval = '20s'
@@ -225,7 +262,18 @@ CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
 
-Invalid configuration: invalid secrets: 2 errors:
-	- Database.URL: empty: must be provided and non-empty
-	- Password.Keystore: empty: must be provided and non-empty
-
+# Configuration warning:
+2 errors:
+	- P2P.V1: is deprecated and will be removed in a future version
+	- P2P.V1: 10 errors:
+		- AnnounceIP: is deprecated and will be removed in a future version
+		- AnnouncePort: is deprecated and will be removed in a future version
+		- BootstrapCheckInterval: is deprecated and will be removed in a future version
+		- DefaultBootstrapPeers: is deprecated and will be removed in a future version
+		- DHTAnnouncementCounterUserPrefix: is deprecated and will be removed in a future version
+		- DHTLookupInterval: is deprecated and will be removed in a future version
+		- ListenIP: is deprecated and will be removed in a future version
+		- ListenPort: is deprecated and will be removed in a future version
+		- NewStreamTimeout: is deprecated and will be removed in a future version
+		- PeerstoreWriteInterval: is deprecated and will be removed in a future version
+Valid configuration.

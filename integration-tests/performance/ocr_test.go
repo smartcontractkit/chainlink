@@ -90,7 +90,7 @@ func TestOCRBasic(t *testing.T) {
 }
 
 func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -101,6 +101,10 @@ func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testN
 	}
 	baseTOML := `[OCR]
 Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = false
 
 [P2P]
 [P2P.V1]

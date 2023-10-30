@@ -15,7 +15,6 @@ DefaultTransactionQueueDepth = 0
 
 [P2P]
 [P2P.V2]
-Enabled = true
 ListenAddresses = ['0.0.0.0:6690']
 AnnounceAddresses = ['0.0.0.0:6690']
 DeltaDial = '500ms'

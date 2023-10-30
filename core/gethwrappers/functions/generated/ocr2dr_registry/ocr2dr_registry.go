@@ -71,7 +71,7 @@ func DeployOCR2DRRegistry(auth *bind.TransactOpts, backend bind.ContractBackend,
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &OCR2DRRegistry{OCR2DRRegistryCaller: OCR2DRRegistryCaller{contract: contract}, OCR2DRRegistryTransactor: OCR2DRRegistryTransactor{contract: contract}, OCR2DRRegistryFilterer: OCR2DRRegistryFilterer{contract: contract}}, nil
+	return address, tx, &OCR2DRRegistry{address: address, abi: *parsed, OCR2DRRegistryCaller: OCR2DRRegistryCaller{contract: contract}, OCR2DRRegistryTransactor: OCR2DRRegistryTransactor{contract: contract}, OCR2DRRegistryFilterer: OCR2DRRegistryFilterer{contract: contract}}, nil
 }
 
 type OCR2DRRegistry struct {

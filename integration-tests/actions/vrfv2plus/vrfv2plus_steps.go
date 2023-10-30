@@ -241,13 +241,16 @@ func SetupVRFV2_5Environment(
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
 	numberOfConsumers int,
 	numberOfSubToCreate int,
+	l zerolog.Logger,
 ) (*VRFV2_5Contracts, []*big.Int, *VRFV2PlusData, error) {
-
+	l.Info().Msg("Starting VRFV2 Plus environment setup")
+	l.Info().Msg("Deploying VRFV2 Plus contracts")
 	vrfv2_5Contracts, err := DeployVRFV2_5Contracts(env.ContractDeployer, env.EVMClient, numberOfConsumers)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrDeployVRFV2_5Contracts)
 	}
 
+	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Setting Coordinator Config")
 	err = vrfv2_5Contracts.Coordinator.SetConfig(
 		vrfv2PlusConfig.MinimumConfirmations,
 		vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
@@ -263,6 +266,7 @@ func SetupVRFV2_5Environment(
 		return nil, nil, nil, errors.Wrap(err, ErrSetVRFCoordinatorConfig)
 	}
 
+	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Setting Link and ETH/LINK feed")
 	err = vrfv2_5Contracts.Coordinator.SetLINKAndLINKNativeFeed(linkToken.Address(), mockNativeLINKFeed.Address())
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrSetLinkNativeLinkFeed)
@@ -271,32 +275,12 @@ func SetupVRFV2_5Environment(
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
-
-	subIDs, err := CreateSubsAndFund(env, vrfv2PlusConfig, linkToken, vrfv2_5Contracts, numberOfSubToCreate)
+	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Creating and funding subscriptions, adding consumers")
+	subIDs, err := CreateFundSubsAndAddConsumers(env, vrfv2PlusConfig, linkToken, vrfv2_5Contracts.Coordinator, vrfv2_5Contracts.LoadTestConsumers, numberOfSubToCreate)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
-	subToConsumersMap := map[*big.Int][]contracts.VRFv2PlusLoadTestConsumer{}
-
-	//each subscription will have the same consumers
-	for _, subID := range subIDs {
-		subToConsumersMap[subID] = vrfv2_5Contracts.LoadTestConsumers
-	}
-
-	err = AddConsumersToSubs(
-		subToConsumersMap,
-		vrfv2_5Contracts.Coordinator,
-	)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	err = env.EVMClient.WaitForEvents()
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
-	}
-
+	l.Info().Str("Node URL", env.ClCluster.NodeAPIs()[0].URL()).Msg("Creating VRF Key on the Node")
 	vrfKey, err := env.ClCluster.NodeAPIs()[0].MustCreateVRFKey()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrCreatingVRFv2PlusKey)
@@ -307,6 +291,7 @@ func SetupVRFV2_5Environment(
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrNodePrimaryKey)
 	}
+	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Registering Proving Key")
 	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, nativeTokenPrimaryKeyAddress, vrfv2_5Contracts.Coordinator)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrRegisteringProvingKey)
@@ -318,6 +303,7 @@ func SetupVRFV2_5Environment(
 
 	chainID := env.EVMClient.GetChainID()
 
+	l.Info().Msg("Creating VRFV2 Plus Job")
 	job, err := CreateVRFV2PlusJob(
 		env.ClCluster.NodeAPIs()[0],
 		vrfv2_5Contracts.Coordinator.Address(),
@@ -340,6 +326,7 @@ func SetupVRFV2_5Environment(
 	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
 		node.WithVRFv2EVMEstimator(addr),
 	)
+	l.Info().Msg("Restarting Node with new sending key PriceMax configuration")
 	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrRestartCLNode)
@@ -358,17 +345,52 @@ func SetupVRFV2_5Environment(
 		chainID,
 	}
 
+	l.Info().Msg("VRFV2 Plus environment setup is finished")
 	return vrfv2_5Contracts, subIDs, &data, nil
+}
+
+func CreateFundSubsAndAddConsumers(
+	env *test_env.CLClusterTestEnv,
+	vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig,
+	linkToken contracts.LinkToken,
+	coordinator contracts.VRFCoordinatorV2_5,
+	consumers []contracts.VRFv2PlusLoadTestConsumer,
+	numberOfSubToCreate int,
+) ([]*big.Int, error) {
+	subIDs, err := CreateSubsAndFund(env, vrfv2PlusConfig, linkToken, coordinator, numberOfSubToCreate)
+	if err != nil {
+		return nil, err
+	}
+	subToConsumersMap := map[*big.Int][]contracts.VRFv2PlusLoadTestConsumer{}
+
+	//each subscription will have the same consumers
+	for _, subID := range subIDs {
+		subToConsumersMap[subID] = consumers
+	}
+
+	err = AddConsumersToSubs(
+		subToConsumersMap,
+		coordinator,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+	return subIDs, nil
 }
 
 func CreateSubsAndFund(
 	env *test_env.CLClusterTestEnv,
 	vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig,
 	linkToken contracts.LinkToken,
-	vrfv2_5Contracts *VRFV2_5Contracts,
+	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
 ) ([]*big.Int, error) {
-	subs, err := CreateSubs(env, vrfv2_5Contracts.Coordinator, subAmountToCreate)
+	subs, err := CreateSubs(env, coordinator, subAmountToCreate)
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +398,7 @@ func CreateSubsAndFund(
 	if err != nil {
 		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
-	err = FundSubscriptions(env, vrfv2PlusConfig, linkToken, vrfv2_5Contracts.Coordinator, subs)
+	err = FundSubscriptions(env, vrfv2PlusConfig, linkToken, coordinator, subs)
 	if err != nil {
 		return nil, err
 	}
@@ -503,21 +525,27 @@ func SetupVRFV2PlusWrapperEnvironment(
 	return wrapperContracts, wrapperSubID, nil
 }
 func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
-	err := coordinator.CreateSubscription()
+	tx, err := coordinator.CreateSubscription()
 	if err != nil {
 		return nil, errors.Wrap(err, ErrCreateVRFSubscription)
 	}
-
-	sub, err := coordinator.WaitForSubscriptionCreatedEvent(time.Second * 10)
-	if err != nil {
-		return nil, errors.Wrap(err, ErrFindSubID)
-	}
-
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
 		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
-	return sub.SubId, nil
+
+	receipt, err := env.EVMClient.GetTxReceipt(tx.Hash())
+
+	//SubscriptionsCreated Log should be emitted with the subscription ID
+	subID := receipt.Logs[0].Topics[1].Big()
+
+	//verify that the subscription was created
+	_, err = coordinator.FindSubscriptionID(subID)
+	if err != nil {
+		return nil, errors.Wrap(err, ErrFindSubID)
+	}
+
+	return subID, nil
 }
 
 func GetUpgradedCoordinatorTotalBalance(coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion) (linkTotalBalance *big.Int, nativeTokenTotalBalance *big.Int, err error) {
