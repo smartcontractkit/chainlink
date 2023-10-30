@@ -17,12 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -520,7 +522,9 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
-	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
@@ -620,7 +624,9 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
-	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()

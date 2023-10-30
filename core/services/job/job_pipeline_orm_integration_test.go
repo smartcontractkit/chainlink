@@ -156,7 +156,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), cfg.WebServer(), legacyChains, nil, nil, lggr, nil, nil)
 
-		jobORM := NewTestORM(t, db, orm, btORM, keyStore, cfg.Database())
+		jobORM := NewTestORM(t, db, legacyChains, orm, btORM, keyStore, cfg.Database())
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 

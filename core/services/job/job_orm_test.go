@@ -85,7 +85,7 @@ func TestORM(t *testing.T) {
 
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 	borm := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
@@ -333,7 +333,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 	scopedConfig := evmtest.NewChainScopedConfig(t, config)
 	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
 
@@ -434,7 +434,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
 	jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
@@ -516,7 +516,7 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
 	jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
@@ -601,7 +601,7 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(testspecs.GetOCRBootstrapSpec())
 	require.NoError(t, err)
@@ -630,7 +630,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	t.Run("evm chain id validation for ocr works", func(t *testing.T) {
 		jb := job.Job{
@@ -727,7 +727,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	// defaultChainID is deprecated
 	defaultChainID := customChainID
@@ -796,7 +796,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
@@ -860,7 +860,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	require.True(t, relayExtenders.Len() > 0)
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal())
 	require.NoError(t, err)
@@ -976,7 +976,7 @@ func Test_FindJobs(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
@@ -1056,7 +1056,7 @@ func Test_FindJob(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
@@ -1234,7 +1234,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)
@@ -1276,7 +1276,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 		relayExtenders2 := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: newCfg, KeyStore: keyStore.Eth()})
 		legacyChains2 := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders2)
 
-		orm2 := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+		orm2 := NewTestORM(t, db, legacyChains2, pipelineORM, bridgesORM, keyStore, config.Database())
 
 		jbs, err2 := orm2.FindJobsByPipelineSpecIDs([]int32{jb.PipelineSpecID})
 		require.NoError(t, err2)
@@ -1297,7 +1297,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
@@ -1358,7 +1358,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
@@ -1419,7 +1419,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
@@ -1527,7 +1527,7 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
@@ -1585,7 +1585,7 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)
@@ -1630,7 +1630,7 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)
@@ -1669,7 +1669,7 @@ func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)
@@ -1705,7 +1705,7 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore, config.Database())
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())

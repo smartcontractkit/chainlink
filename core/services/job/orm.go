@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -83,18 +85,20 @@ type ORMConfig interface {
 }
 
 type orm struct {
-	q           pg.Q
-	keyStore    keystore.Master
-	pipelineORM pipeline.ORM
-	lggr        logger.SugaredLogger
-	cfg         pg.QConfig
-	bridgeORM   bridges.ORM
+	q            pg.Q
+	legacyChains evm.LegacyChainContainer
+	keyStore     keystore.Master
+	pipelineORM  pipeline.ORM
+	lggr         logger.SugaredLogger
+	cfg          pg.QConfig
+	bridgeORM    bridges.ORM
 }
 
 var _ ORM = (*orm)(nil)
 
 func NewORM(
 	db *sqlx.DB,
+	legacyChains evm.LegacyChainContainer,
 	pipelineORM pipeline.ORM,
 	bridgeORM bridges.ORM,
 	keyStore keystore.Master, // needed to validation key properties on new job creation
@@ -103,12 +107,13 @@ func NewORM(
 ) *orm {
 	namedLogger := logger.Sugared(lggr.Named("JobORM"))
 	return &orm{
-		q:           pg.NewQ(db, namedLogger, cfg),
-		keyStore:    keyStore,
-		pipelineORM: pipelineORM,
-		bridgeORM:   bridgeORM,
-		lggr:        namedLogger,
-		cfg:         cfg,
+		q:            pg.NewQ(db, namedLogger, cfg),
+		legacyChains: legacyChains,
+		keyStore:     keyStore,
+		pipelineORM:  pipelineORM,
+		bridgeORM:    bridgeORM,
+		lggr:         namedLogger,
+		cfg:          cfg,
 	}
 }
 func (o *orm) Close() error {
@@ -700,17 +705,28 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 			return err
 		}
 		for i := range jobs {
-			o.LoadEnvConfigVars(&jobs[i])
+			err = multierr.Combine(err, o.LoadEnvConfigVars(&jobs[i]))
 		}
 		return nil
 	})
 	return jobs, int(count), err
 }
 
-func (o *orm) LoadEnvConfigVars(jb *Job) {
-	if jb.VRFSpec != nil {
+func (o *orm) LoadEnvConfigVars(jb *Job) error {
+	if jb.OCROracleSpec != nil {
+		ch, err := o.legacyChains.Get(jb.OCROracleSpec.EVMChainID.String())
+		if err != nil {
+			return err
+		}
+		newSpec, err := LoadEnvConfigVarsOCR(ch.Config().EVM().OCR(), ch.Config().OCR(), *jb.OCROracleSpec)
+		if err != nil {
+			return err
+		}
+		jb.OCROracleSpec = newSpec
+	} else if jb.VRFSpec != nil {
 		jb.VRFSpec = LoadEnvConfigVarsVRF(*jb.VRFSpec)
 	}
+	return nil
 }
 
 func LoadEnvConfigVarsVRF(vrfs VRFSpec) *VRFSpec {
@@ -841,8 +857,7 @@ func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
 		return jb, errors.Wrap(err, "FindJobWithoutSpecErrors failed")
 	}
 
-	o.LoadEnvConfigVars(&jb)
-	return jb, nil
+	return jb, o.LoadEnvConfigVars(&jb)
 }
 
 // FindSpecErrorsByJobIDs returns all jobs spec errors by jobs IDs
@@ -931,8 +946,7 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) er
 	if err != nil {
 		return errors.Wrap(err, "findJob failed")
 	}
-	o.LoadEnvConfigVars(jb)
-	return nil
+	return o.LoadEnvConfigVars(jb)
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
@@ -1176,8 +1190,13 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 			return err
 		}
 		for i := range jbs {
-			o.LoadEnvConfigVars(&jbs[i])
+			err = o.LoadEnvConfigVars(&jbs[i])
+			//We must return the jobs even if the chainID is disabled
+			if err != nil && !errors.Is(err, chains.ErrNoSuchChainID) {
+				return err
+			}
 		}
+
 		return nil
 	})
 

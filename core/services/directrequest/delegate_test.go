@@ -89,7 +89,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	orm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jobORM := job.NewORM(db, orm, btORM, keyStore, lggr, cfg.Database())
+	jobORM := job.NewORM(db, legacyChains, orm, btORM, keyStore, lggr, cfg.Database())
 	delegate := directrequest.NewDelegate(lggr, runner, orm, legacyChains, mailMon)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)
