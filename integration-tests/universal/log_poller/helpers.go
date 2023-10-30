@@ -118,10 +118,8 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 		for i := 1; i < len(testEnv.ClCluster.Nodes); i++ {
 			nodeName := testEnv.ClCluster.Nodes[i].ContainerName
 			l.Info().Str("Node name", nodeName).Msg("Fetching filters from log poller's DB")
-			orm, err := NewOrm(coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
-			require.NoError(t, err, "Error creating ORM")
 
-			hasFilters, err := nodeHasExpectedFilters(expectedFilters, orm)
+			hasFilters, err := nodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
 			if err != nil {
 				l.Warn().Err(err).Msg("Error checking if node has expected filters. Retrying...")
 				return
@@ -138,11 +136,13 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	startBlock := int64(sb)
 
 	l.Info().Msg("Starting event emission")
+	startTime := time.Now()
 	totalLogsEmitted, err := executeGenerator(t, cfg, logEmitters)
+	endTime := time.Now()
 	require.NoError(t, err, "Error executing event generator")
 	expectedLogsEmitted := getExpectedLogCount(cfg)
-	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Msg("Finished emitting events")
-	// l.Info().Int("Actual total logs emitted", totalLogsEmitted).Int("Expected total logs emitted", len(logEmitters)*len(cfg.General.EventsToEmit)*cfg.LoopedConfig.ExecutionCount).Msg("Finished emitting events")
+	duration := int(endTime.Sub(startTime).Seconds())
+	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Int("Duration (sec)", duration).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("Finished emitting events")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
 	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
@@ -151,12 +151,18 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	// as some trx might be included in a block that was pruned
 	endBlock := int64(eb) + 10
 
+	// Wait until last block in which events were emitted has been finalised
+	// how long should we wait here until all logs are processed? wait for block X to be processed by all nodes?
 	waitDuration := "30s"
 	l.Warn().Str("Duration", waitDuration).Msg("Waiting for logs to be processed by all nodes and for chain to advance beyond finality")
 
-	// Wait until last block in which events were emitted has been finalised
-	// how long should we wait here until all logs are processed? wait for block X to be processed by all nodes?
 	gom.Eventually(func(g gomega.Gomega) {
+		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
+		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
+		if err != nil {
+			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
+		}
+
 		hasAdvanced, err := chainHasAdvancedBeyondFinality(testEnv.EVMClient, endBlock)
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if chain has advanced beyond finality. Retrying...")
@@ -179,6 +185,300 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 		}
 		g.Expect(missingLogs.IsEmpty()).To(gomega.BeTrue(), "Some CL nodes were missing logs")
 	}, logConsistencyWaitDuration, "1s").Should(gomega.Succeed())
+}
+
+func ExecuteBackupLogPollerTest(t *testing.T, cfg *Config) {
+	l := logging.GetTestLogger(t)
+	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
+
+	if cfg.General.EventsToEmit == nil || len(cfg.General.EventsToEmit) == 0 {
+		l.Warn().Msg("No events to emit specified, using all events from log emitter contract")
+		for _, event := range EmitterABI.Events {
+			cfg.General.EventsToEmit = append(cfg.General.EventsToEmit, event)
+		}
+	}
+
+	l.Info().Msg("Starting backup log poller test")
+
+	var (
+		err      error
+		testName = "backup-log-poller"
+	)
+
+	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
+		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, time.Duration(500*time.Millisecond), 500, 10, false,
+	)
+
+	upKeepsNeeded := cfg.General.Contracts * len(cfg.General.EventsToEmit)
+	_, upkeepIDs := actions.DeployConsumers(
+		t,
+		registry,
+		registrar,
+		linkToken,
+		contractDeployer,
+		chainClient,
+		upKeepsNeeded,
+		big.NewInt(automationDefaultLinkFunds),
+		automationDefaultUpkeepGasLimit,
+		true,
+		false,
+	)
+
+	// Deploy Log Emitter contracts
+	logEmitters := make([]*contracts.LogEmitter, 0)
+	for i := 0; i < cfg.General.Contracts; i++ {
+		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
+		logEmitters = append(logEmitters, &logEmitter)
+		require.NoError(t, err, "Error deploying log emitter contract")
+		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
+	}
+
+	time.Sleep(5 * time.Second) //wait for contracts to be uploaded to chain, TODO: could make this wait fluent
+
+	// Save block number before starting to emit events, so that we can later use it when querying logs
+	sb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
+	require.NoError(t, err, "Error getting latest block number")
+	startBlock := int64(sb)
+
+	l.Info().Msg("Starting event emission")
+	startTime := time.Now()
+	totalLogsEmitted, err := executeGenerator(t, cfg, logEmitters)
+	endTime := time.Now()
+	require.NoError(t, err, "Error executing event generator")
+	expectedLogsEmitted := getExpectedLogCount(cfg)
+	duration := int(endTime.Sub(startTime).Seconds())
+	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Int("Duration (sec)", duration).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("Finished emitting events")
+
+	// Save block number after finishing to emit events, so that we can later use it when querying logs
+	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
+	require.NoError(t, err, "Error getting latest block number")
+	// +10 to be safe, but this should be done fluently, but in such a way that can handle reorgs, so making sure that each trx is included in finalised block might not suffice
+	// as some trx might be included in a block that was pruned
+	endBlock := int64(eb) + 10
+
+	// Lets make sure no logs are in DB yet
+	expectedFilters := getExpectedFilters(logEmitters, cfg)
+	logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), 0, expectedFilters, l, coreLogger, testEnv.ClCluster)
+	require.NoError(t, err, "Error checking if CL nodes have expected log count")
+	require.True(t, logCountMatches, "Some CL nodes already had logs in DB")
+	l.Info().Msg("No logs were saved by CL nodes yet, as expected. Proceeding.")
+
+	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
+	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
+	for i := 0; i < len(upkeepIDs); i++ {
+		emitterAddress := (*logEmitters[i%cfg.General.Contracts]).Address()
+		upkeepID := upkeepIDs[i]
+		topicId := cfg.General.EventsToEmit[i%len(cfg.General.EventsToEmit)].ID
+
+		l.Info().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
+		err = registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
+		require.NoError(t, err, "Error registering log trigger for log emitter")
+	}
+
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
+
+	// Make sure that all nodes have expected filters registered before starting to emit events
+	gom := gomega.NewGomegaWithT(t)
+	gom.Eventually(func(g gomega.Gomega) {
+		for i := 1; i < len(testEnv.ClCluster.Nodes); i++ {
+			nodeName := testEnv.ClCluster.Nodes[i].ContainerName
+			l.Info().Str("Node name", nodeName).Msg("Fetching filters from log poller's DB")
+
+			hasFilters, err := nodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
+			if err != nil {
+				l.Warn().Err(err).Msg("Error checking if node has expected filters. Retrying...")
+				return
+			}
+
+			g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
+		}
+	}, "30s", "1s").Should(gomega.Succeed())
+	l.Info().Msg("All nodes have expected filters registered")
+
+	// backup poller runs every 100 * log poller interval
+	// we will double the time to be extra sure that backup poller has executed at least once
+	minBackpollerWaitTime := testEnv.ClCluster.Nodes[0].NodeConfig.EVM[0].LogPollInterval.Duration().Seconds() * float64(100) * 2
+	backupPollerStartTime := startTime.Add(time.Duration(minBackpollerWaitTime) * time.Second)
+
+	timeToWaitSec := int(backupPollerStartTime.Sub(time.Now()).Seconds())
+
+	l.Info().Str("Wait time", fmt.Sprintf("%d sec", timeToWaitSec)).Msg("Waiting for backup poller to execute at least once")
+	time.Sleep(time.Duration(timeToWaitSec) * time.Second)
+
+	// Wait until last block in which events were emitted has been finalised
+	// how long should we wait here until all logs are processed? wait for block X to be processed by all nodes?
+	waitDuration := "30s"
+	l.Warn().Str("Duration", waitDuration).Msg("Waiting for logs to be processed by all nodes and for chain to advance beyond finality")
+
+	gom.Eventually(func(g gomega.Gomega) {
+		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
+		if err != nil {
+			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
+		}
+		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
+	}, waitDuration, "1s").Should(gomega.Succeed())
+
+	// Wait until all CL nodes have exactly the same logs emitted by test contracts as the EVM node has
+	logConsistencyWaitDuration := "1m"
+	l.Warn().Str("Duration", logConsistencyWaitDuration).Msg("Waiting for CL nodes to have all the logs that EVM node has")
+
+	gom.Eventually(func(g gomega.Gomega) {
+		missingLogs, err := getMissingLogs(startBlock, endBlock, logEmitters, testEnv.EVMClient, testEnv.ClCluster, l, coreLogger, cfg)
+		if err != nil {
+			l.Warn().Err(err).Msg("Error getting missing logs. Retrying...")
+		}
+
+		if !missingLogs.IsEmpty() {
+			printMissingLogsByType(missingLogs, l, cfg)
+		}
+		g.Expect(missingLogs.IsEmpty()).To(gomega.BeTrue(), "Some CL nodes were missing logs")
+	}, logConsistencyWaitDuration, "1s").Should(gomega.Succeed())
+}
+
+func ExecuteBackupLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string) {
+	l := logging.GetTestLogger(t)
+	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
+
+	if cfg.General.EventsToEmit == nil || len(cfg.General.EventsToEmit) == 0 {
+		l.Warn().Msg("No events to emit specified, using all events from log emitter contract")
+		for _, event := range EmitterABI.Events {
+			cfg.General.EventsToEmit = append(cfg.General.EventsToEmit, event)
+		}
+	}
+
+	l.Info().Msg("Starting replay log poller test")
+
+	var (
+		err      error
+		testName = "replay-log-poller"
+	)
+
+	// we set blockBackfillDepth to 0, to make sure nothing will be backfilled and won't interfere with our test
+	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
+		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, time.Duration(1000*time.Millisecond), 0, 10, false,
+	)
+
+	upKeepsNeeded := cfg.General.Contracts * len(cfg.General.EventsToEmit)
+	_, upkeepIDs := actions.DeployConsumers(
+		t,
+		registry,
+		registrar,
+		linkToken,
+		contractDeployer,
+		chainClient,
+		upKeepsNeeded,
+		big.NewInt(automationDefaultLinkFunds),
+		automationDefaultUpkeepGasLimit,
+		true,
+		false,
+	)
+
+	// Deploy Log Emitter contracts
+	logEmitters := make([]*contracts.LogEmitter, 0)
+	for i := 0; i < cfg.General.Contracts; i++ {
+		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
+		logEmitters = append(logEmitters, &logEmitter)
+		require.NoError(t, err, "Error deploying log emitter contract")
+		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
+	}
+
+	time.Sleep(5 * time.Second) //wait for contracts to be uploaded to chain, TODO: could make this wait fluent
+
+	// Save block number before starting to emit events, so that we can later use it when querying logs
+	sb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
+	require.NoError(t, err, "Error getting latest block number")
+	startBlock := int64(sb)
+
+	l.Info().Msg("Starting event emission")
+	startTime := time.Now()
+	totalLogsEmitted, err := executeGenerator(t, cfg, logEmitters)
+	endTime := time.Now()
+	require.NoError(t, err, "Error executing event generator")
+	expectedLogsEmitted := getExpectedLogCount(cfg)
+	duration := int(endTime.Sub(startTime).Seconds())
+	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Int("Duration (sec)", duration).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("Finished emitting events")
+
+	// Save block number after finishing to emit events, so that we can later use it when querying logs
+	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
+	require.NoError(t, err, "Error getting latest block number")
+	// +10 to be safe, but this should be done fluently, but in such a way that can handle reorgs, so making sure that each trx is included in finalised block might not suffice
+	// as some trx might be included in a block that was pruned
+	endBlock := int64(eb) + 10
+
+	// Lets make sure no logs are in DB yet
+	expectedFilters := getExpectedFilters(logEmitters, cfg)
+	logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), 0, expectedFilters, l, coreLogger, testEnv.ClCluster)
+	require.NoError(t, err, "Error checking if CL nodes have expected log count")
+	require.True(t, logCountMatches, "Some CL nodes already had logs in DB")
+	l.Info().Msg("No logs were saved by CL nodes yet, as expected. Proceeding.")
+
+	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
+	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
+	for i := 0; i < len(upkeepIDs); i++ {
+		emitterAddress := (*logEmitters[i%cfg.General.Contracts]).Address()
+		upkeepID := upkeepIDs[i]
+		topicId := cfg.General.EventsToEmit[i%len(cfg.General.EventsToEmit)].ID
+
+		l.Info().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
+		err = registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
+		require.NoError(t, err, "Error registering log trigger for log emitter")
+	}
+
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
+
+	// Make sure that all nodes have expected filters registered before starting to emit events
+	gom := gomega.NewGomegaWithT(t)
+	gom.Eventually(func(g gomega.Gomega) {
+		for i := 1; i < len(testEnv.ClCluster.Nodes); i++ {
+			nodeName := testEnv.ClCluster.Nodes[i].ContainerName
+			l.Info().Str("Node name", nodeName).Msg("Fetching filters from log poller's DB")
+
+			hasFilters, err := nodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
+			if err != nil {
+				l.Warn().Err(err).Msg("Error checking if node has expected filters. Retrying...")
+				return
+			}
+
+			g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
+		}
+	}, "30s", "1s").Should(gomega.Succeed())
+	l.Info().Msg("All nodes have expected filters registered")
+
+	// Trigger replay
+	l.Info().Msg("Triggering log poller's replay")
+	for i := 1; i < len(testEnv.ClCluster.Nodes); i++ {
+		nodeName := testEnv.ClCluster.Nodes[i].ContainerName
+		response, _, err := testEnv.ClCluster.Nodes[i].API.ReplayLogPollerFromBlock(startBlock, testEnv.EVMClient.GetChainID().Int64())
+		require.NoError(t, err, "Error triggering log poller's replay on node %s", nodeName)
+		require.Equal(t, "Replay started", response.Data.Attributes.Message, "Unexpected response message from log poller's replay")
+	}
+
+	l.Warn().Str("Duration", consistencyTimeout).Msg("Waiting for logs to be processed by all nodes and for chain to advance beyond finality")
+
+	gom.Eventually(func(g gomega.Gomega) {
+		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
+		if err != nil {
+			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
+		}
+		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
+	}, consistencyTimeout, "30s").Should(gomega.Succeed())
+
+	// Wait until all CL nodes have exactly the same logs emitted by test contracts as the EVM node has
+	l.Warn().Str("Duration", consistencyTimeout).Msg("Waiting for CL nodes to have all the logs that EVM node has")
+
+	gom.Eventually(func(g gomega.Gomega) {
+		missingLogs, err := getMissingLogs(startBlock, endBlock, logEmitters, testEnv.EVMClient, testEnv.ClCluster, l, coreLogger, cfg)
+		if err != nil {
+			l.Warn().Err(err).Msg("Error getting missing logs. Retrying...")
+		}
+
+		if !missingLogs.IsEmpty() {
+			printMissingLogsByType(missingLogs, l, cfg)
+		}
+		g.Expect(missingLogs.IsEmpty()).To(gomega.BeTrue(), "Some CL nodes were missing logs")
+	}, consistencyTimeout, "10s").Should(gomega.Succeed())
 }
 
 var (
@@ -269,15 +569,15 @@ var registerMultipleTopicsFilter = func(registry contracts.KeeperRegistry, upkee
 	return nil
 }
 
-func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (*lpEvm.DbORM, error) {
+func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (*lpEvm.DbORM, *sqlx.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", postgresDb.ExternalPort, "postgres", "mysecretpassword", "testdb")
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
-		return nil, err
+		return nil, db, err
 	}
 
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
-	return lpEvm.NewORM(chainID, db, logger, pg.NewQConfig(false)), nil
+	return lpEvm.NewORM(chainID, db, logger, pg.NewQConfig(false)), db, nil
 }
 
 type ExpectedFilter struct {
@@ -299,7 +599,13 @@ func getExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []Expe
 	return expectedFilters
 }
 
-var nodeHasExpectedFilters = func(expectedFilters []ExpectedFilter, orm *lpEvm.DbORM) (bool, error) {
+var nodeHasExpectedFilters = func(expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (bool, error) {
+	orm, db, err := NewOrm(logger, chainID, postgresDb)
+	if err != nil {
+		return false, err
+	}
+
+	defer db.Close()
 	knownFilters, err := orm.LoadFilters()
 	if err != nil {
 		return false, err
@@ -353,13 +659,14 @@ func getStringSlice(length int) []string {
 }
 
 var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contracts.LogEmitter, cfg *Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
-	defer wg.Done()
 	address := (*logEmitter).Address().String()
 	localCounter := 0
 	select {
 	case <-ctx.Done():
+		l.Warn().Str("Emitter address", address).Msg("Context cancelled, not emitting events")
 		return
 	default:
+		defer wg.Done()
 		for i := 0; i < cfg.LoopedConfig.ExecutionCount; i++ {
 			for _, event := range cfg.General.EventsToEmit {
 				l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", (i+1), cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
@@ -392,6 +699,8 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 			}
 		}
 
+		l.Info().Str("Emitter address", address).Int("Total logs emitted", localCounter).Msg("Finished emitting events")
+
 		results <- LogEmitterChannel{
 			logsEmitted: localCounter,
 			err:         nil,
@@ -408,25 +717,91 @@ var chainHasAdvancedBeyondFinality = func(evmClint ctf_blockchain.EVMClient, end
 	return lastFinalisedBlockHeader.Number.Int64() > endBlock+1, nil
 }
 
-// TODO this fails, because not all logs emited by contracts are even in the EVM node
-var nodeDbHasExpectedLogCount = func(startBlock, endBlock int64, chainID *big.Int, expectedLogCount int, expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, postgresDB *ctf_test_env.PostgresDb) (bool, error) {
-	orm, err := NewOrm(logger, chainID, postgresDB)
-	if err != nil {
-		return false, err
+var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.Int, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
+	wg := &sync.WaitGroup{}
+
+	type logQueryResult struct {
+		nodeName         string
+		logCount         int
+		hasExpectedCount bool
+		err              error
 	}
 
-	foundLogsCount := 0
+	queryCh := make(chan logQueryResult, len(nodes.Nodes)-1)
+	ctx, cancelFn := context.WithCancel(context.Background())
 
-	for _, filter := range expectedFilters {
-		logs, err := orm.SelectLogs(startBlock, endBlock, filter.emitterAddress, filter.topic)
-		if err != nil {
-			return false, err
+	for i := 1; i < len(nodes.Nodes); i++ {
+		wg.Add(1)
+
+		go func(clNode *test_env.ClNode, r chan logQueryResult) {
+			defer wg.Done()
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				orm, db, err := NewOrm(coreLogger, chainID, clNode.PostgresDb)
+				if err != nil {
+					r <- logQueryResult{
+						nodeName:         clNode.ContainerName,
+						logCount:         0,
+						hasExpectedCount: false,
+						err:              err,
+					}
+				}
+
+				defer db.Close()
+				foundLogsCount := 0
+
+				for _, filter := range expectedFilters {
+					logs, err := orm.SelectLogs(startBlock, endBlock, filter.emitterAddress, filter.topic)
+					if err != nil {
+						r <- logQueryResult{
+							nodeName:         clNode.ContainerName,
+							logCount:         0,
+							hasExpectedCount: false,
+							err:              err,
+						}
+					}
+
+					foundLogsCount += len(logs)
+				}
+
+				// l.Info().Str("Node name", clNode.ContainerName).Int("Found logs", foundLogsCount).Int("Expected logs", expectedLogCount).Msg("Logs found per CL node [goroutine]")
+
+				r <- logQueryResult{
+					nodeName:         clNode.ContainerName,
+					logCount:         foundLogsCount,
+					hasExpectedCount: foundLogsCount >= expectedLogCount,
+					err:              err,
+				}
+			}
+		}(nodes.Nodes[i], queryCh)
+	}
+
+	allFound := true
+	var err error
+
+	go func() {
+		for r := range queryCh {
+			if r.err != nil {
+				err = r.err
+				cancelFn()
+				return
+			}
+
+			if !r.hasExpectedCount {
+				l.Warn().Str("Node name", r.nodeName).Str("Found/Expected logs", fmt.Sprintf("%d/%d", r.logCount, expectedLogCount)).Int("Missing logs", expectedLogCount-r.logCount).Msg("Logs found per CL node")
+				allFound = false
+			} else {
+				l.Info().Str("Node name", r.nodeName).Int("Found logs", r.logCount).Int("Expected logs", expectedLogCount).Msg("Logs found per CL node")
+			}
 		}
+	}()
 
-		foundLogsCount += len(logs)
-	}
+	wg.Wait()
+	close(queryCh)
 
-	return foundLogsCount == expectedLogCount, nil
+	return allFound, err
 }
 
 type MissingLogs map[string][]geth_types.Log
@@ -442,7 +817,7 @@ func (m *MissingLogs) IsEmpty() bool {
 }
 
 var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient ctf_blockchain.EVMClient, clnodeCluster *test_env.ClCluster, l zerolog.Logger, coreLogger core_logger.SugaredLogger, cfg *Config) (MissingLogs, error) {
-	wg := sync.WaitGroup{}
+	wg := &sync.WaitGroup{}
 
 	type dbQueryResult struct {
 		err      error
@@ -451,7 +826,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 	}
 
 	ctx, cancelFn := context.WithCancel(context.Background())
-	resultCh := make(chan dbQueryResult, len(clnodeCluster.Nodes))
+	resultCh := make(chan dbQueryResult, len(clnodeCluster.Nodes)-1)
 
 	for i := 1; i < len(clnodeCluster.Nodes); i++ {
 		wg.Add(1)
@@ -460,12 +835,13 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 			defer wg.Done()
 			select {
 			case <-ctx.Done():
+				l.Warn().Msg("Context cancelled. Terminating fetching logs from log poller's DB")
 				return
 			default:
 				nodeName := clnodeCluster.Nodes[i].ContainerName
 
 				l.Info().Str("Node name", nodeName).Msg("Start fetching logs from log poller's DB")
-				orm, err := NewOrm(coreLogger, evmClient.GetChainID(), clnodeCluster.Nodes[i].PostgresDb)
+				orm, db, err := NewOrm(coreLogger, evmClient.GetChainID(), clnodeCluster.Nodes[i].PostgresDb)
 				if err != nil {
 					r <- dbQueryResult{
 						err:      err,
@@ -474,6 +850,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 					}
 				}
 
+				defer db.Close()
 				logs := make([]logpoller.Log, 0)
 
 				for j := 0; j < len(logEmitters); j++ {
@@ -518,10 +895,12 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 	go func() {
 		for r := range resultCh {
 			if r.err != nil {
+				l.Err(r.err).Str("Node name", r.nodeName).Msg("Error fetching logs from log poller's DB")
 				dbError = r.err
 				cancelFn()
 				return
 			}
+			// use channel for aggregation and then for := range over it after closing resultCh?
 			allLogPollerLogs[r.nodeName] = r.logs
 		}
 	}()
@@ -559,18 +938,18 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 
 	l.Warn().Int("Count", len(allLogsInEVMNode)).Msg("Logs in EVM node")
 
-	wg = sync.WaitGroup{}
+	wg = &sync.WaitGroup{}
 
 	type missingLogResult struct {
 		nodeName string
 		logs     []geth_types.Log
 	}
 
-	missingCh := make(chan missingLogResult, len(clnodeCluster.Nodes))
+	missingCh := make(chan missingLogResult, len(clnodeCluster.Nodes)-1)
 	for i := 1; i < len(clnodeCluster.Nodes); i++ {
+		wg.Add(1)
 
 		go func(i int, result chan missingLogResult) {
-			wg.Add(1)
 			defer wg.Done()
 			nodeName := clnodeCluster.Nodes[i].ContainerName
 			l.Info().Str("Node name", nodeName).Int("Log count", len(allLogPollerLogs[nodeName])).Msg("CL node log count")
@@ -599,10 +978,13 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 	}
 
 	wg.Wait()
-	for v := range missingCh {
-		missingLogs[v.nodeName] = v.logs
-	}
 	close(missingCh)
+
+	for v := range missingCh {
+		if len(v.logs) > 0 {
+			missingLogs[v.nodeName] = v.logs
+		}
+	}
 
 	expectedTotalLogsEmitted := getExpectedLogCount(cfg)
 	if int64(len(allLogsInEVMNode)) != expectedTotalLogsEmitted {
@@ -651,7 +1033,26 @@ func executeGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
 	l := logging.GetTestLogger(t)
 
-	RPSprime := cfg.Wasp.Load.RPS / int64(cfg.General.Contracts)
+	var RPSprime int64
+
+	// if LPS is set, we need to calculate based on countract count and events per transaction
+	if cfg.Wasp.Load.LPS > 0 {
+		RPSprime = cfg.Wasp.Load.LPS / int64(cfg.General.Contracts) / int64(cfg.General.EventsPerTx) / int64(len(cfg.General.EventsToEmit))
+
+		if RPSprime < 1 {
+			return 0, fmt.Errorf("Invalid load configuration, effective RPS would have been zero. Adjust LPS, contracts count, events per tx or events to emit")
+		}
+	}
+
+	// if RPS is set simply split it between contracts
+	if cfg.Wasp.Load.RPS > 0 {
+		RPSprime = cfg.Wasp.Load.RPS / int64(cfg.General.Contracts)
+	}
+
+	counter := &Counter{
+		mu:    &sync.Mutex{},
+		value: 0,
+	}
 
 	p := wasp.NewProfile()
 
@@ -672,6 +1073,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 				cfg.General.EventsPerTx,
 				l,
 			),
+			SharedData: counter,
 		})
 		p.Add(g, err)
 	}
@@ -682,14 +1084,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 		return 0, err
 	}
 
-	total := 0
-	for _, g := range p.Generators {
-		if v, ok := g.GetData().OKData.Data[0].(int); ok {
-			total += v
-		}
-	}
-
-	return total, nil
+	return counter.value, nil
 }
 
 func runLoopedGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
@@ -697,18 +1092,21 @@ func runLoopedGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogE
 
 	// Start emitting events in parallel, each contract is emitting events in a separate goroutine
 	// We will stop as soon as we encounter an error
-	var wg sync.WaitGroup
+	wg := &sync.WaitGroup{}
 	emitterCh := make(chan LogEmitterChannel, len(logEmitters))
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	defer cancelFn()
+
 	for i := 0; i < len(logEmitters); i++ {
 		wg.Add(1)
-		go emitEvents(ctx, l, logEmitters[i], cfg, &wg, emitterCh)
+		go emitEvents(ctx, l, logEmitters[i], cfg, wg, emitterCh)
 	}
 
 	var emitErr error
-	totalLogsEmitted := 0
+	total := 0
+
+	aggrChan := make(chan int, len(logEmitters))
 
 	go func() {
 		for emitter := range emitterCh {
@@ -717,24 +1115,31 @@ func runLoopedGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogE
 				cancelFn()
 				return
 			}
-			totalLogsEmitted += emitter.logsEmitted
+			aggrChan <- emitter.logsEmitted
 		}
 	}()
 
 	wg.Wait()
-
 	close(emitterCh)
+
+	for i := 0; i < len(logEmitters); i++ {
+		total += <-aggrChan
+	}
 
 	if emitErr != nil {
 		return 0, emitErr
 	}
 
-	return totalLogsEmitted, nil
+	return int(total), nil
 }
 
 func getExpectedLogCount(cfg *Config) int64 {
 	if cfg.General.Generator == GeneratorType_WASP {
-		return cfg.Wasp.Load.RPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds()) * int64(cfg.General.EventsPerTx)
+		if cfg.Wasp.Load.RPS != 0 {
+			return cfg.Wasp.Load.RPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds()) * int64(cfg.General.EventsPerTx)
+		} else {
+			return cfg.Wasp.Load.LPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds())
+		}
 	}
 
 	return int64(len(cfg.General.EventsToEmit) * cfg.LoopedConfig.ExecutionCount * cfg.General.Contracts * cfg.General.EventsPerTx)

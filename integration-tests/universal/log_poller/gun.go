@@ -2,6 +2,7 @@ package logpoller
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/rs/zerolog"
@@ -16,6 +17,11 @@ type LogEmitterGun struct {
 	eventsToEmit []abi.Event
 	logger       zerolog.Logger
 	eventsPerTx  int
+}
+
+type Counter struct {
+	mu    *sync.Mutex
+	value int
 }
 
 func NewLogEmitterGun(
@@ -53,10 +59,20 @@ func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.CallResult {
 		if err != nil {
 			return &wasp.CallResult{Error: err.Error(), Failed: true}
 		}
-		localCounter += m.eventsPerTx * 3
+		localCounter += 1
 	}
 
-	return &wasp.CallResult{
-		Data: localCounter,
+	// I don't think that will work as expected, I should atomically read the value and save it, so maybe just a mutex?
+	if counter, ok := l.InputSharedData().(*Counter); ok {
+		counter.mu.Lock()
+		defer counter.mu.Unlock()
+		counter.value += localCounter
+	} else {
+		return &wasp.CallResult{
+			Error:  "SharedData did not contain a Counter",
+			Failed: true,
+		}
 	}
+
+	return &wasp.CallResult{}
 }

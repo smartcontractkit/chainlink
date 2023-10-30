@@ -58,6 +58,7 @@ type WaspConfig struct {
 
 type Load struct {
 	RPS                   int64            `toml:"rps"`
+	LPS                   int64            `toml:"lps"`
 	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
 	Duration              *models.Duration `toml:"duration"`
 	CallTimeout           *models.Duration `toml:"call_timeout"`
@@ -151,9 +152,12 @@ func (w *WaspConfig) validate() error {
 }
 
 func (l *Load) validate() error {
-	if l.RPS == 0 {
-		return fmt.Errorf("RPS is 0, but must be > 0")
+	if l.RPS == 0 && l.LPS == 0 {
+		return fmt.Errorf("Either RPS or LPS needs to be set")
+	}
 
+	if l.RPS != 0 && l.LPS != 0 {
+		return fmt.Errorf("Only one of RPS or LPS can be set")
 	}
 
 	if l.Duration == nil {
