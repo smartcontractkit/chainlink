@@ -53,6 +53,9 @@ type detectedEvents struct {
 	detectedEventsOrdered []detectedEvent
 }
 
+const logPollerCacheDurationSecDefault = 300
+const pastBlocksToPollDefault = 50
+
 var _ evmRelayTypes.LogPollerWrapper = &logPollerWrapper{}
 
 func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig config.PluginConfig, client client.Client, logPoller logpoller.LogPoller, lggr logger.Logger) (evmRelayTypes.LogPollerWrapper, error) {
@@ -78,12 +81,12 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	logPollerCacheDurationSec := int64(pluginConfig.LogPollerCacheDurationSec)
 	if logPollerCacheDurationSec <= 0 {
 		lggr.Warnw("invalid logPollerCacheDuration, using 300 instead", "logPollerCacheDurationSec", logPollerCacheDurationSec)
-		logPollerCacheDurationSec = 300
+		logPollerCacheDurationSec = logPollerCacheDurationSecDefault
 	}
 	pastBlocksToPoll := int64(pluginConfig.PastBlocksToPoll)
 	if pastBlocksToPoll <= 0 {
 		lggr.Warnw("invalid pastBlocksToPoll, using 50 instead", "pastBlocksToPoll", pastBlocksToPoll)
-		pastBlocksToPoll = 50
+		pastBlocksToPoll = pastBlocksToPollDefault
 	}
 	if blockOffset >= pastBlocksToPoll || requestBlockOffset >= pastBlocksToPoll || responseBlockOffset >= pastBlocksToPoll {
 		lggr.Errorw("invalid config: number of required confirmation blocks >= pastBlocksToPoll", "pastBlocksToPoll", pastBlocksToPoll, "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations, "minRequestConfirmations", pluginConfig.MinRequestConfirmations, "minResponseConfirmations", pluginConfig.MinResponseConfirmations)
