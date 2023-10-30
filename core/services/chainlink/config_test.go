@@ -23,7 +23,6 @@ import (
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -138,7 +137,7 @@ var (
 					},
 				}},
 		},
-		Cosmos: []*cosmos.CosmosConfig{
+		Cosmos: []*coscfg.TOMLConfig{
 			{
 				ChainID: ptr("Ibiza-808"),
 				Chain: coscfg.Chain{
@@ -622,7 +621,7 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
-	full.Cosmos = []*cosmos.CosmosConfig{
+	full.Cosmos = []*coscfg.TOMLConfig{
 		{
 			ChainID: ptr("Malaga-420"),
 			Enabled: ptr(true),
@@ -1435,7 +1434,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
-	c.Cosmos = cosmos.CosmosConfigs{{ChainID: ptr("unknown cosmos chain")}}
+	c.Cosmos = coscfg.TOMLConfigs{{ChainID: ptr("unknown cosmos chain")}}
 	c.Solana = solana.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = stkcfg.TOMLConfigs{{ChainID: ptr("unknown starknet chain")}}
 	c.setDefaults()

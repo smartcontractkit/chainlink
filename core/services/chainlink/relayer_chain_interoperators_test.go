@@ -16,7 +16,6 @@ import (
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -132,8 +131,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			},
 		}
 
-		c.Cosmos = cosmos.CosmosConfigs{
-			&cosmos.CosmosConfig{
+		c.Cosmos = coscfg.TOMLConfigs{
+			&coscfg.TOMLConfig{
 				ChainID: &cosmosChainID1,
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
@@ -141,14 +140,14 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					Bech32Prefix:       ptr("wasm"),
 					GasToken:           ptr("cosm"),
 				},
-				Nodes: cosmos.CosmosNodes{
+				Nodes: coscfg.Nodes{
 					&coscfg.Node{
 						Name:          ptr("cosmos chain 1 node 1"),
 						TendermintURL: (*relayutils.URL)(models.MustParseURL("http://localhost:9548").URL()),
 					},
 				},
 			},
-			&cosmos.CosmosConfig{
+			&coscfg.TOMLConfig{
 				ChainID: &cosmosChainID2,
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
@@ -156,7 +155,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					Bech32Prefix:       ptr("wasm"),
 					GasToken:           ptr("cosm"),
 				},
-				Nodes: cosmos.CosmosNodes{
+				Nodes: coscfg.Nodes{
 					&coscfg.Node{
 						Name:          ptr("cosmos chain 2 node 1"),
 						TendermintURL: (*relayutils.URL)(models.MustParseURL("http://localhost:9598").URL()),
@@ -259,7 +258,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
 					Keystore:         keyStore.Cosmos(),
-					CosmosConfigs:    cfg.CosmosConfigs(),
+					TOMLConfigs:      cfg.CosmosConfigs(),
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					DB:               db,
 					QConfig:          cfg.Database()}),
@@ -292,7 +291,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					TOMLConfigs: cfg.StarknetConfigs()}),
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
 					Keystore:         keyStore.Cosmos(),
-					CosmosConfigs:    cfg.CosmosConfigs(),
+					TOMLConfigs:      cfg.CosmosConfigs(),
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					DB:               db,
 					QConfig:          cfg.Database(),

@@ -15,10 +15,10 @@ import (
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -199,7 +199,7 @@ func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
 	return g.c.EVM
 }
 
-func (g *generalConfig) CosmosConfigs() cosmos.CosmosConfigs {
+func (g *generalConfig) CosmosConfigs() coscfg.TOMLConfigs {
 	return g.c.Cosmos
 }
 

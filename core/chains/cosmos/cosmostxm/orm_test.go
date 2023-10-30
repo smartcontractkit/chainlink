@@ -1,4 +1,4 @@
-package cosmostxm_test
+package cosmostxm
 
 import (
 	"testing"
@@ -8,7 +8,6 @@ import (
 
 	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,7 +18,7 @@ func TestORM(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	logCfg := pgtest.NewQConfig(true)
 	chainID := cosmostest.RandomChainID()
-	o := cosmostxm.NewORM(chainID, db, lggr, logCfg)
+	o := NewORM(chainID, db, lggr, logCfg)
 
 	// Create
 	mid, err := o.InsertMsg("0x123", "", []byte("hello"))

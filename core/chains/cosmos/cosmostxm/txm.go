@@ -47,7 +47,7 @@ type Txm struct {
 	orm             *ORM
 	lggr            logger.Logger
 	tc              func() (cosmosclient.ReaderWriter, error)
-	keystoreAdapter *KeystoreAdapter
+	keystoreAdapter *keystoreAdapter
 	stop, done      chan struct{}
 	cfg             coscfg.Config
 	gpe             cosmosclient.ComposedGasPriceEstimator
@@ -56,7 +56,7 @@ type Txm struct {
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
 func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmosclient.ComposedGasPriceEstimator, chainID string, cfg coscfg.Config, ks loop.Keystore, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
 	lggr = logger.Named(lggr, "Txm")
-	keystoreAdapter := NewKeystoreAdapter(ks, cfg.Bech32Prefix())
+	keystoreAdapter := newKeystoreAdapter(ks, cfg.Bech32Prefix())
 	return &Txm{
 		eb:              eb,
 		orm:             NewORM(chainID, db, lggr, logCfg),
