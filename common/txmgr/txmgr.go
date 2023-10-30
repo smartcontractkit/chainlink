@@ -165,14 +165,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 	return b.StartOnce("Txm", func() error {
 		var ms services.MultiStart
 		if err := ms.Start(ctx, b.broadcaster); err != nil {
-			return fmt.Errorf("Txm: Broadcaster failed to start: %s", err)
+			return fmt.Errorf("Txm: Broadcaster failed to start: %w", err)
 		}
 		if err := ms.Start(ctx, b.confirmer); err != nil {
-			return fmt.Errorf("Txm: Confirmer failed to start: %s", err)
+			return fmt.Errorf("Txm: Confirmer failed to start: %w", err)
 		}
 
 		if err := ms.Start(ctx, b.txAttemptBuilder); err != nil {
-			return fmt.Errorf("Txm: Estimator failed to start: %s", err)
+			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
 
 		b.wg.Add(1)
@@ -189,7 +189,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 
 		if b.fwdMgr != nil {
 			if err := ms.Start(ctx, b.fwdMgr); err != nil {
-				return fmt.Errorf("Txm: ForwarderManager failed to start: %s", err)
+				return fmt.Errorf("Txm: ForwarderManager failed to start: %w", err)
 			}
 		}
 
@@ -223,7 +223,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(ad
 	ctx, cancel := utils.StopChan(b.chStop).NewCtx()
 	defer cancel()
 	if err = b.txStore.Abandon(ctx, b.chainID, addr); err != nil {
-		return fmt.Errorf("abandon failed to update txes for key %s: %s", addr.String(), err)
+		return fmt.Errorf("abandon failed to update txes for key %s: %w", addr.String(), err)
 	}
 	return nil
 }
@@ -242,14 +242,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (m
 		}
 		if b.fwdMgr != nil {
 			if err := b.fwdMgr.Close(); err != nil {
-				merr = errors.Join(merr, fmt.Errorf("Txm: failed to stop ForwarderManager: %s", err))
+				merr = errors.Join(merr, fmt.Errorf("Txm: failed to stop ForwarderManager: %w", err))
 			}
 		}
 
 		b.wg.Wait()
 
 		if err := b.txAttemptBuilder.Close(); err != nil {
-			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close TxAttemptBuilder: %s", err))
+			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close TxAttemptBuilder: %w", err))
 		}
 
 		return nil
@@ -445,7 +445,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		var existingTx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 		existingTx, err = b.txStore.FindTxWithIdempotencyKey(ctx, *txRequest.IdempotencyKey, b.chainID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return tx, fmt.Errorf("Failed to search for transaction with IdempotencyKey: %s", err)
+			return tx, fmt.Errorf("Failed to search for transaction with IdempotencyKey: %w", err)
 		}
 		if existingTx != nil {
 			b.logger.Infow("Found a Tx with IdempotencyKey. Returning existing Tx without creating a new one.", "IdempotencyKey", *txRequest.IdempotencyKey)
@@ -471,13 +471,13 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 			txRequest.ToAddress = txRequest.ForwarderAddress
 			txRequest.EncodedPayload = fwdPayload
 		} else {
-			b.logger.Errorf("Failed to use forwarder set upstream: %s", fwdErr.Error())
+			b.logger.Errorf("Failed to use forwarder set upstream: %w", fwdErr.Error())
 		}
 	}
 
 	err = b.txStore.CheckTxQueueCapacity(ctx, txRequest.FromAddress, b.txConfig.MaxQueued(), b.chainID)
 	if err != nil {
-		return tx, fmt.Errorf("Txm#CreateTransaction: %s", err)
+		return tx, fmt.Errorf("Txm#CreateTransaction: %w", err)
 	}
 
 	tx, err = b.txStore.CreateTransaction(ctx, txRequest, b.chainID)
@@ -502,7 +502,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForward
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(addr ADDR) error {
 	if err := b.keyStore.CheckEnabled(addr, b.chainID); err != nil {
-		return fmt.Errorf("cannot send transaction from %s on chain ID %s: %s", addr, b.chainID.String(), err)
+		return fmt.Errorf("cannot send transaction from %s on chain ID %s: %w", addr, b.chainID.String(), err)
 	}
 	return nil
 }
@@ -522,7 +522,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 	}
 	etx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
 	if err != nil {
-		return etx, fmt.Errorf("SendNativeToken failed to insert tx: %s", err)
+		return etx, fmt.Errorf("SendNativeToken failed to insert tx: %w", err)
 	}
 
 	// Trigger the Broadcaster to check for new transaction
