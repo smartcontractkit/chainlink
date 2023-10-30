@@ -705,46 +705,41 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 			return err
 		}
 		for i := range jobs {
-			err = multierr.Combine(err, o.LoadEnvConfigVars(&jobs[i]))
+			err = multierr.Combine(err, o.LoadConfigVars(&jobs[i]))
 		}
 		return nil
 	})
 	return jobs, int(count), err
 }
 
-func (o *orm) LoadEnvConfigVars(jb *Job) error {
+func (o *orm) LoadConfigVars(jb *Job) error {
 	if jb.OCROracleSpec != nil {
 		ch, err := o.legacyChains.Get(jb.OCROracleSpec.EVMChainID.String())
 		if err != nil {
 			return err
 		}
-		newSpec, err := LoadEnvConfigVarsOCR(ch.Config().EVM().OCR(), ch.Config().OCR(), *jb.OCROracleSpec)
+		newSpec, err := LoadConfigVarsOCR(ch.Config().EVM().OCR(), ch.Config().OCR(), *jb.OCROracleSpec)
 		if err != nil {
 			return err
 		}
 		jb.OCROracleSpec = newSpec
-	} else if jb.VRFSpec != nil {
-		jb.VRFSpec = LoadEnvConfigVarsVRF(*jb.VRFSpec)
 	}
 	return nil
 }
 
-func LoadEnvConfigVarsVRF(vrfs VRFSpec) *VRFSpec {
+func SetDefaultVRFPollPeriod(vrfs VRFSpec) *VRFSpec {
 	if vrfs.PollPeriod == 0 {
-		vrfs.PollPeriodEnv = true
 		vrfs.PollPeriod = 5 * time.Second
 	}
 
 	return &vrfs
 }
 
-func LoadEnvConfigVarsDR(defaultMinIncomingConfirmations uint32, drs DirectRequestSpec) *DirectRequestSpec {
-	// Take the largest of the global vs specific.
+// SetDRMinIncomingConfirmations takes the largest of the global vs specific.
+func SetDRMinIncomingConfirmations(defaultMinIncomingConfirmations uint32, drs DirectRequestSpec) *DirectRequestSpec {
 	if !drs.MinIncomingConfirmations.Valid || drs.MinIncomingConfirmations.Uint32 < defaultMinIncomingConfirmations {
-		drs.MinIncomingConfirmationsEnv = true
 		drs.MinIncomingConfirmations = null.Uint32From(defaultMinIncomingConfirmations)
 	}
-
 	return &drs
 }
 
@@ -758,38 +753,30 @@ type OCRConfig interface {
 	TransmitterAddress() (ethkey.EIP55Address, error)
 }
 
-// LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
-func LoadEnvConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg OCRConfig) *OCROracleSpec {
+// LoadConfigVarsLocalOCR loads local OCR vars into the OCROracleSpec.
+func LoadConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg OCRConfig) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
-		os.ObservationTimeoutEnv = true
 		os.ObservationTimeout = models.Interval(ocrCfg.ObservationTimeout())
 	}
 	if os.BlockchainTimeout == 0 {
-		os.BlockchainTimeoutEnv = true
 		os.BlockchainTimeout = models.Interval(ocrCfg.BlockchainTimeout())
 	}
 	if os.ContractConfigTrackerSubscribeInterval == 0 {
-		os.ContractConfigTrackerSubscribeIntervalEnv = true
 		os.ContractConfigTrackerSubscribeInterval = models.Interval(ocrCfg.ContractSubscribeInterval())
 	}
 	if os.ContractConfigTrackerPollInterval == 0 {
-		os.ContractConfigTrackerPollIntervalEnv = true
 		os.ContractConfigTrackerPollInterval = models.Interval(ocrCfg.ContractPollInterval())
 	}
 	if os.ContractConfigConfirmations == 0 {
-		os.ContractConfigConfirmationsEnv = true
 		os.ContractConfigConfirmations = evmOcrCfg.ContractConfirmations()
 	}
 	if os.DatabaseTimeout == nil {
-		os.DatabaseTimeoutEnv = true
 		os.DatabaseTimeout = models.NewInterval(evmOcrCfg.DatabaseTimeout())
 	}
 	if os.ObservationGracePeriod == nil {
-		os.ObservationGracePeriodEnv = true
 		os.ObservationGracePeriod = models.NewInterval(evmOcrCfg.ObservationGracePeriod())
 	}
 	if os.ContractTransmitterTransmitTimeout == nil {
-		os.ContractTransmitterTransmitTimeoutEnv = true
 		os.ContractTransmitterTransmitTimeout = models.NewInterval(evmOcrCfg.ContractTransmitterTransmitTimeout())
 	}
 	os.CaptureEATelemetry = ocrCfg.CaptureEATelemetry()
@@ -797,8 +784,8 @@ func LoadEnvConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg
 	return &os
 }
 
-// LoadEnvConfigVarsOCR loads OCR env vars into the OCROracleSpec.
-func LoadEnvConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSpec) (*OCROracleSpec, error) {
+// LoadConfigVarsOCR loads OCR config vars into the OCROracleSpec.
+func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := ocrCfg.TransmitterAddress()
 		if !errors.Is(errors.Cause(err), config.ErrEnvUnset) {
@@ -823,7 +810,7 @@ func LoadEnvConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracl
 		os.EncryptedOCRKeyBundleID = &encryptedOCRKeyBundleID
 	}
 
-	return LoadEnvConfigVarsLocalOCR(evmOcrCfg, os, ocrCfg), nil
+	return LoadConfigVarsLocalOCR(evmOcrCfg, os, ocrCfg), nil
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
@@ -857,7 +844,7 @@ func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
 		return jb, errors.Wrap(err, "FindJobWithoutSpecErrors failed")
 	}
 
-	return jb, o.LoadEnvConfigVars(&jb)
+	return jb, o.LoadConfigVars(&jb)
 }
 
 // FindSpecErrorsByJobIDs returns all jobs spec errors by jobs IDs
@@ -946,7 +933,7 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) er
 	if err != nil {
 		return errors.Wrap(err, "findJob failed")
 	}
-	return o.LoadEnvConfigVars(jb)
+	return o.LoadConfigVars(jb)
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
@@ -1190,7 +1177,7 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 			return err
 		}
 		for i := range jbs {
-			err = o.LoadEnvConfigVars(&jbs[i])
+			err = o.LoadConfigVars(&jbs[i])
 			//We must return the jobs even if the chainID is disabled
 			if err != nil && !errors.Is(err, chains.ErrNoSuchChainID) {
 				return err
