@@ -415,7 +415,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
 			Keystore:         keyStore.Cosmos(),
-			CosmosConfigs:    cfg.CosmosConfigs(),
+			TOMLConfigs:      cfg.CosmosConfigs(),
 			EventBroadcaster: eventBroadcaster,
 			DB:               db,
 			QConfig:          cfg.Database(),
