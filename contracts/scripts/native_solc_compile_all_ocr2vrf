@@ -24,8 +24,11 @@ export SOLC_VERSION=$SOLC_VERSION
 
 
 compileContract () {
+  local contract
+  contract=$(basename "$1" ".sol")
+
   solc --overwrite --optimize --optimize-runs $2 --metadata-hash none \
-      -o $ROOT/contracts/solc/v0.8.19 \
+      -o $ROOT/contracts/solc/v0.8.19/"$contract" \
       --abi --bin \
       --allow-paths $ROOT/../$FOLDER/contracts \
       $ROOT/$1
