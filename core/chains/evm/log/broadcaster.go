@@ -12,13 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -44,7 +45,7 @@ type (
 	// Of course, these backfilled logs + any new logs will only be sent after the NumConfirmations for given subscriber.
 	Broadcaster interface {
 		utils.DependentAwaiter
-		services.ServiceCtx
+		services.Service
 		httypes.HeadTrackable
 
 		// ReplayFromBlock enqueues a replay from the provided block number. If forceBroadcast is
@@ -88,6 +89,7 @@ type (
 	}
 
 	broadcaster struct {
+		services.StateMachine
 		orm        ORM
 		config     Config
 		connected  atomic.Bool
@@ -106,7 +108,6 @@ type (
 		changeSubscriberStatus *utils.Mailbox[changeSubscriberStatus]
 		newHeads               *utils.Mailbox[*evmtypes.Head]
 
-		utils.StartStopOnce
 		utils.DependentAwaiter
 
 		chStop                utils.StopChan

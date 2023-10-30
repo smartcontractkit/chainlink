@@ -7,15 +7,16 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ ocr2keepers.TransmitEventProvider = &EventProvider{}
@@ -23,7 +24,7 @@ var _ ocr2keepers.TransmitEventProvider = &EventProvider{}
 type logParser func(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error)
 
 type EventProvider struct {
-	sync     utils.StartStopOnce
+	sync     services.StateMachine
 	mu       sync.RWMutex
 	runState int
 	runError error

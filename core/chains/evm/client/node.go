@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -132,7 +133,7 @@ type rawclient struct {
 // Node represents one ethereum node.
 // It must have a ws url and may have a http url
 type node struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lfcLog              logger.Logger
 	rpcLog              logger.Logger
 	name                string

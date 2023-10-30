@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // DefaultRequestTimeout is the default Cosmos client timeout.
@@ -93,7 +92,7 @@ func NewChain(cfg *CosmosConfig, opts ChainOpts) (adapters.Chain, error) {
 var _ adapters.Chain = (*chain)(nil)
 
 type chain struct {
-	utils.StartStopOnce
+	services.StateMachine
 	id   string
 	cfg  *CosmosConfig
 	txm  *cosmostxm.Txm
@@ -197,7 +196,7 @@ func (c *chain) Close() error {
 
 func (c *chain) Ready() error {
 	return multierr.Combine(
-		c.StartStopOnce.Ready(),
+		c.StateMachine.Ready(),
 		c.txm.Ready(),
 	)
 }

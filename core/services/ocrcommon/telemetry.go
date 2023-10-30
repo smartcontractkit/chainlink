@@ -7,10 +7,13 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/libocr/commontypes"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -50,7 +53,7 @@ type EnhancedTelemetryMercuryData struct {
 }
 
 type EnhancedTelemetryService[T EnhancedTelemetryData | EnhancedTelemetryMercuryData] struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	chTelem            <-chan T
 	chDone             chan struct{}
