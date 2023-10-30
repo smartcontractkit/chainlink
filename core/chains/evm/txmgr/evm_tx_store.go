@@ -1498,9 +1498,9 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 			// and could potentially get the node stuck. If the INSERT is going to succeed then we definitely want to continue.
 			// And even if the INSERT fails, an error message showing the txmgr is having trouble inserting tx's in the db may be
 			// easier to understand quickly if there is a problem with the node.
-			o.logger.Warnw("Ignoring unexpected db error while checking for txhash conflict", "err", err)
+			o.logger.Errorw("Ignoring unexpected db error while checking for txhash conflict", "err", err)
 		} else if rows, err := res.RowsAffected(); err != nil {
-			o.logger.Warnw("Ignoring unexpected db error reading rows affected while checking for txhash conflict", "err", err)
+			o.logger.Errorw("Ignoring unexpected db error reading rows affected while checking for txhash conflict", "err", err)
 		} else if rows > 0 {
 			o.logger.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", attempt.Hash, attempt.TxID)
 		}
