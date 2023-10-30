@@ -236,9 +236,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncStatus(num int64, td *utils.Big) (outOfS
 	ln, highest, greatest := n.nLiveNodes()
 	mode := n.nodePoolCfg.SelectionMode()
 	switch mode {
-	case NodeSelectionMode_HighestHead, NodeSelectionMode_RoundRobin, NodeSelectionMode_PriorityLevel:
+	case NodeSelectionModeHighestHead, NodeSelectionModeRoundRobin, NodeSelectionModePriorityLevel:
 		return num < highest-int64(threshold), ln
-	case NodeSelectionMode_TotalDifficulty:
+	case NodeSelectionModeTotalDifficulty:
 		bigThreshold := utils.NewBigI(int64(threshold))
 		return td.Cmp(greatest.Sub(bigThreshold)) < 0, ln
 	default:

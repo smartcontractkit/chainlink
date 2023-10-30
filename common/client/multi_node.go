@@ -31,10 +31,10 @@ var (
 )
 
 const (
-	NodeSelectionMode_HighestHead     = "HighestHead"
-	NodeSelectionMode_RoundRobin      = "RoundRobin"
-	NodeSelectionMode_TotalDifficulty = "TotalDifficulty"
-	NodeSelectionMode_PriorityLevel   = "PriorityLevel"
+	NodeSelectionModeHighestHead     = "HighestHead"
+	NodeSelectionModeRoundRobin      = "RoundRobin"
+	NodeSelectionModeTotalDifficulty = "TotalDifficulty"
+	NodeSelectionModePriorityLevel   = "PriorityLevel"
 )
 
 type NodeSelector[
@@ -150,13 +150,13 @@ func NewMultiNode[
 ) MultiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT] {
 	nodeSelector := func() NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT] {
 		switch selectionMode {
-		case NodeSelectionMode_HighestHead:
+		case NodeSelectionModeHighestHead:
 			return NewHighestHeadNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		case NodeSelectionMode_RoundRobin:
+		case NodeSelectionModeRoundRobin:
 			return NewRoundRobinSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		case NodeSelectionMode_TotalDifficulty:
+		case NodeSelectionModeTotalDifficulty:
 			return NewTotalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		case NodeSelectionMode_PriorityLevel:
+		case NodeSelectionModePriorityLevel:
 			return NewPriorityLevelNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
 		default:
 			panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", selectionMode))
@@ -223,7 +223,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		c.wg.Add(1)
 		go c.runLoop()
 
-		if c.leaseDuration.Seconds() > 0 && c.selectionMode != NodeSelectionMode_RoundRobin {
+		if c.leaseDuration.Seconds() > 0 && c.selectionMode != NodeSelectionModeRoundRobin {
 			c.logger.Infof("The MultiNode will switch to best node every %s", c.leaseDuration.String())
 			c.wg.Add(1)
 			go c.checkLeaseLoop()

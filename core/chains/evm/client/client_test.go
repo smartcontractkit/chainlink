@@ -811,7 +811,7 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	// Empty node means there are no active nodes to select from, causing client to always return error.
-	erroringClient := evmclient.NewChainClientWithEmptyNode(t, commonclient.NodeSelectionMode_RoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID)
+	erroringClient := evmclient.NewChainClientWithEmptyNode(t, commonclient.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID)
 
 	_, err := erroringClient.BalanceAt(ctx, common.Address{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)

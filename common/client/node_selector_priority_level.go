@@ -53,7 +53,7 @@ func (s priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, 
 }
 
 func (s priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC]) Name() string {
-	return NodeSelectionMode_PriorityLevel
+	return NodeSelectionModePriorityLevel
 }
 
 // getHighestPriorityAliveTier filters nodes that are not in state nodeStateAlive and

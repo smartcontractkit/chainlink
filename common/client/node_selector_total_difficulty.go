@@ -50,5 +50,5 @@ func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID
 }
 
 func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Name() string {
-	return NodeSelectionMode_TotalDifficulty
+	return NodeSelectionModeTotalDifficulty
 }

@@ -37,5 +37,5 @@ func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HE
 }
 
 func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC]) Name() string {
-	return NodeSelectionMode_HighestHead
+	return NodeSelectionModeHighestHead
 }

@@ -46,5 +46,5 @@ func (s *roundRobinSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HEAD, 
 }
 
 func (s *roundRobinSelector[CHAIN_ID, HEAD, RPC]) Name() string {
-	return NodeSelectionMode_RoundRobin
+	return NodeSelectionModeRoundRobin
 }
