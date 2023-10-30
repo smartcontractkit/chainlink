@@ -33,6 +33,7 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 
 - `P2P.V1` is now disabled (`Enabled = false`) by default. It must be explicitly enabled with `true` to be used. However, it is deprecated and will be removed in the future.
 - `P2P.V2` is now enabled (`Enabled = true`) by default.
+- `L2Suggested` mode is now called `SuggestedPrice`
 
 ### Upcoming Required Configuration Changes
 Starting in `v2.9.0`:
@@ -42,6 +43,7 @@ Starting in `v2.9.0`:
 ### Removed
 
 - Removed the ability to set a next nonce value for an address through CLI
+- Removed `Optimism2` as a supported gas estimator mode
 
 <!-- unreleasedstop -->
 
