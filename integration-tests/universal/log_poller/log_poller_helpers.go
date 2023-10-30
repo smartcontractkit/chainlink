@@ -559,26 +559,50 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 
 	l.Warn().Int("Count", len(allLogsInEVMNode)).Msg("Logs in EVM node")
 
-	for i := 1; i < len(clnodeCluster.Nodes); i++ {
-		nodeName := clnodeCluster.Nodes[i].ContainerName
-		l.Info().Str("Node name", nodeName).Int("Log count", len(allLogPollerLogs[nodeName])).Msg("CL node log count")
+	wg = sync.WaitGroup{}
 
-		missingLogs[nodeName] = make([]geth_types.Log, 0)
-		for _, evmLog := range allLogsInEVMNode {
-			logFound := false
-			for _, logPollerLog := range allLogPollerLogs[nodeName] {
-				if logPollerLog.BlockNumber == int64(evmLog.BlockNumber) && logPollerLog.TxHash == evmLog.TxHash && bytes.Equal(logPollerLog.Data, evmLog.Data) && logPollerLog.LogIndex == int64(evmLog.Index) &&
-					logPollerLog.Address == evmLog.Address && logPollerLog.BlockHash == evmLog.BlockHash && bytes.Equal(logPollerLog.Topics[0][:], evmLog.Topics[0].Bytes()) {
-					logFound = true
-					continue
+	type missingLogResult struct {
+		nodeName string
+		logs     []geth_types.Log
+	}
+
+	missingCh := make(chan missingLogResult, len(clnodeCluster.Nodes))
+	for i := 1; i < len(clnodeCluster.Nodes); i++ {
+
+		go func(i int, result chan missingLogResult) {
+			wg.Add(1)
+			defer wg.Done()
+			nodeName := clnodeCluster.Nodes[i].ContainerName
+			l.Info().Str("Node name", nodeName).Int("Log count", len(allLogPollerLogs[nodeName])).Msg("CL node log count")
+
+			missingLogs := make([]geth_types.Log, 0)
+			for _, evmLog := range allLogsInEVMNode {
+				logFound := false
+				for _, logPollerLog := range allLogPollerLogs[nodeName] {
+					if logPollerLog.BlockNumber == int64(evmLog.BlockNumber) && logPollerLog.TxHash == evmLog.TxHash && bytes.Equal(logPollerLog.Data, evmLog.Data) && logPollerLog.LogIndex == int64(evmLog.Index) &&
+						logPollerLog.Address == evmLog.Address && logPollerLog.BlockHash == evmLog.BlockHash && bytes.Equal(logPollerLog.Topics[0][:], evmLog.Topics[0].Bytes()) {
+						logFound = true
+						continue
+					}
+				}
+
+				if !logFound {
+					missingLogs = append(missingLogs, evmLog)
 				}
 			}
 
-			if !logFound {
-				missingLogs[nodeName] = append(missingLogs[nodeName], evmLog)
+			result <- missingLogResult{
+				nodeName: nodeName,
+				logs:     missingLogs,
 			}
-		}
+		}(i, missingCh)
 	}
+
+	wg.Wait()
+	for v := range missingCh {
+		missingLogs[v.nodeName] = v.logs
+	}
+	close(missingCh)
 
 	expectedTotalLogsEmitted := getExpectedLogCount(cfg)
 	if int64(len(allLogsInEVMNode)) != expectedTotalLogsEmitted {
@@ -627,7 +651,7 @@ func executeGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
 	l := logging.GetTestLogger(t)
 
-	RPSprime := cfg.Wasp.Load.RPS / int64(cfg.General.Contracts) / int64(len(cfg.General.EventsToEmit))
+	RPSprime := cfg.Wasp.Load.RPS / int64(cfg.General.Contracts)
 
 	p := wasp.NewProfile()
 

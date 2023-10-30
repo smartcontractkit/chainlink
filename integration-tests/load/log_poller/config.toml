@@ -1,7 +1,7 @@
 [general]
-generator = "looped"
-contracts = 2
-events_per_tx = 10
+generator = "wasp"
+contracts = 4
+events_per_tx = 5
 
 [looped]
 [looped.contract]
@@ -15,5 +15,5 @@ max_emit_wait_time_ms = 500
 [wasp.load]
 call_timeout = "3m"
 rate_limit_unit_duration = "2s"
-RPS = 14
-duration = "30s"
+RPS = 30
+duration = "30m"
