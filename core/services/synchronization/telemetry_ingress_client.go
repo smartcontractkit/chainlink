@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
@@ -35,7 +36,7 @@ func (NoopTelemetryIngressClient) Name() string                   { return "Noop
 func (NoopTelemetryIngressClient) Ready() error { return nil }
 
 type telemetryIngressClient struct {
-	utils.StartStopOnce
+	services.StateMachine
 	url             *url.URL
 	ks              keystore.CSA
 	serverPubKeyHex string

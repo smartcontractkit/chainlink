@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name HttpServer --output ./mocks/ --case=underscore
@@ -44,7 +44,7 @@ type HTTPServerConfig struct {
 }
 
 type httpServer struct {
-	utils.StartStopOnce
+	services.StateMachine
 	config            *HTTPServerConfig
 	listener          net.Listener
 	server            *http.Server

@@ -42,7 +42,6 @@ import (
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ relaytypes.Relayer = &Relayer{} //nolint:staticcheck
@@ -238,7 +237,7 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 }
 
 type configWatcher struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lggr             logger.Logger
 	contractAddress  common.Address
 	contractABI      abi.ABI
@@ -263,7 +262,6 @@ func newConfigWatcher(lggr logger.Logger,
 ) *configWatcher {
 	replayCtx, replayCancel := context.WithCancel(context.Background())
 	return &configWatcher{
-		StartStopOnce:    utils.StartStopOnce{},
 		lggr:             lggr.Named("ConfigWatcher").Named(contractAddress.String()),
 		contractAddress:  contractAddress,
 		contractABI:      contractABI,
@@ -274,7 +272,6 @@ func newConfigWatcher(lggr logger.Logger,
 		fromBlock:        fromBlock,
 		replayCtx:        replayCtx,
 		replayCancel:     replayCancel,
-		wg:               sync.WaitGroup{},
 	}
 
 }
@@ -312,7 +309,7 @@ func (c *configWatcher) Close() error {
 }
 
 func (c *configWatcher) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	return map[string]error{c.Name(): c.Healthy()}
 }
 
 func (c *configWatcher) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
