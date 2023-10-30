@@ -21,23 +21,23 @@ type accountInfo struct {
 	PubKey  *secp256k1.PubKey
 }
 
-// An adapter for a Cosmos loop.Keystore to translate public keys into bech32-prefixed account addresses.
-type KeystoreAdapter struct {
+// keystoreAdapter adapts a Cosmos loop.Keystore to translate public keys into bech32-prefixed account addresses.
+type keystoreAdapter struct {
 	keystore        loop.Keystore
 	accountPrefix   string
 	mutex           sync.RWMutex
 	addressToPubKey map[string]*accountInfo
 }
 
-func NewKeystoreAdapter(keystore loop.Keystore, accountPrefix string) *KeystoreAdapter {
-	return &KeystoreAdapter{
+func newKeystoreAdapter(keystore loop.Keystore, accountPrefix string) *keystoreAdapter {
+	return &keystoreAdapter{
 		keystore:        keystore,
 		accountPrefix:   accountPrefix,
 		addressToPubKey: make(map[string]*accountInfo),
 	}
 }
 
-func (ka *KeystoreAdapter) updateMappingLocked() error {
+func (ka *keystoreAdapter) updateMappingLocked() error {
 	accounts, err := ka.keystore.Accounts(context.Background())
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (ka *KeystoreAdapter) updateMappingLocked() error {
 	return nil
 }
 
-func (ka *KeystoreAdapter) lookup(id string) (*accountInfo, error) {
+func (ka *keystoreAdapter) lookup(id string) (*accountInfo, error) {
 	ka.mutex.RLock()
 	ai, ok := ka.addressToPubKey[id]
 	ka.mutex.RUnlock()
@@ -111,7 +111,7 @@ func (ka *KeystoreAdapter) lookup(id string) (*accountInfo, error) {
 	return ai, nil
 }
 
-func (ka *KeystoreAdapter) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
+func (ka *keystoreAdapter) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
 	accountInfo, err := ka.lookup(id)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (ka *KeystoreAdapter) Sign(ctx context.Context, id string, hash []byte) ([]
 }
 
 // Returns the cosmos PubKey associated with the prefixed address.
-func (ka *KeystoreAdapter) PubKey(address string) (cryptotypes.PubKey, error) {
+func (ka *keystoreAdapter) PubKey(address string) (cryptotypes.PubKey, error) {
 	accountInfo, err := ka.lookup(address)
 	if err != nil {
 		return nil, err
