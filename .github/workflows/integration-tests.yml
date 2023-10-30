@@ -8,6 +8,13 @@ on:
   push:
     tags:
       - "*"
+  workflow_dispatch:
+    inputs:
+      liveNetwork:
+        description: "Run Live Testnet Tests"
+        required: false
+        type: boolean
+
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
