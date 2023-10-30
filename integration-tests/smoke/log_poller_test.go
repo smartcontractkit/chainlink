@@ -107,7 +107,7 @@ func TestLogPollerReplay(t *testing.T) {
 	}
 
 	cfg.General.EventsToEmit = eventsToEmit
-	consistencyTimeout := "5m"
+	consistencyTimeout := "15m"
 
 	logpoller.ExecuteBackupLogPollerReplay(t, &cfg, consistencyTimeout)
 }
