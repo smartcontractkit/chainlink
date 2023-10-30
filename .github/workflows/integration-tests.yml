@@ -893,7 +893,7 @@ jobs:
   ### Start Live Testnet Section
 
   testnet-smoke-tests-matrix:
-    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }} ## Only run live tests on new tags and nightly
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && inputs.liveNetwork) }} ## Only run live tests on new tags, schedule, or on manual request
     environment: integration
     permissions:
       checks: write
