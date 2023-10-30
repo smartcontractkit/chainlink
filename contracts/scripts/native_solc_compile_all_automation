@@ -12,7 +12,7 @@ OPTIMIZE_RUNS=1000000
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
-python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
 
 solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION
@@ -23,10 +23,10 @@ compileContract () {
   local contract
   contract=$(basename "$1" ".sol")
 
-  solc @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
-      -o $ROOT/contracts/solc/v$SOLC_VERSION/"$contract" \
-      --abi --bin --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/node_modules\
-      $ROOT/contracts/src/v0.8/$1
+  solc @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
+      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8,"$ROOT"/contracts/node_modules\
+      "$ROOT"/contracts/src/v0.8/"$1"
 }
 
 compileContract automation/upkeeps/CronUpkeepFactory.sol

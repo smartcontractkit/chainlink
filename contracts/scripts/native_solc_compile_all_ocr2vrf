@@ -16,7 +16,7 @@ echo "Compiling OCR2VRF contracts..."
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1; cd ../../ && pwd -P )"
-python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
 
 solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION
@@ -27,11 +27,11 @@ compileContract () {
   local contract
   contract=$(basename "$1" ".sol")
 
-  solc --overwrite --optimize --optimize-runs $2 --metadata-hash none \
-      -o $ROOT/contracts/solc/v0.8.19/"$contract" \
+  solc --overwrite --optimize --optimize-runs "$2" --metadata-hash none \
+      -o "$ROOT"/contracts/solc/v0.8.19/"$contract" \
       --abi --bin \
-      --allow-paths $ROOT/../$FOLDER/contracts \
-      $ROOT/$1
+      --allow-paths "$ROOT"/../$FOLDER/contracts \
+      "$ROOT"/"$1"
 }
 
 # OCR2VRF
