@@ -60,6 +60,8 @@ const (
 	msgDegradedState = "Chainlink is now operating in a degraded state and urgent action is required to resolve the issue"
 )
 
+const rpcSubscriptionMethodNewHeads = "newHeads"
+
 // Node is a FSM
 // Each state has a loop that goes with it, which monitors the node and moves it into another state as necessary.
 // Only one loop must run at a time.
@@ -90,12 +92,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	lggr.Tracew("Alive loop starting", "nodeState", n.State())
 
 	headsC := make(chan HEAD)
-	sub, err := n.rpc.Subscribe(n.nodeCtx, headsC, "newHeads")
+	sub, err := n.rpc.Subscribe(n.nodeCtx, headsC, rpcSubscriptionMethodNewHeads)
 	if err != nil {
 		lggr.Errorw("Initial subscribe for heads failed", "nodeState", n.State())
 		n.declareUnreachable()
 		return
 	}
+	// TODO: nit fix. If multinode switches primary node before we set sub as AliveSub, sub will be closed and we'll
+	// falsely transition this node to unreachable state
 	n.rpc.SetAliveLoopSub(sub)
 	defer sub.Unsubscribe()
 
@@ -224,6 +228,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSync(num int64, td *utils.Big) (outOf
 // syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
 // Always returns outOfSync false for SyncThreshold 0.
 // liveNodes is only included when outOfSync is true.
+// TODO: cover with tests
 func (n *node[CHAIN_ID, HEAD, RPC]) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
 	if n.nLiveNodes == nil {
 		return // skip for tests
@@ -289,7 +294,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "nodeState", n.State())
 
 	ch := make(chan HEAD)
-	sub, err := n.rpc.Subscribe(n.nodeCtx, ch, "newHeads")
+	sub, err := n.rpc.Subscribe(n.nodeCtx, ch, rpcSubscriptionMethodNewHeads)
 	if err != nil {
 		lggr.Errorw("Failed to subscribe heads on out-of-sync RPC node", "nodeState", n.State(), "err", err)
 		n.declareUnreachable()

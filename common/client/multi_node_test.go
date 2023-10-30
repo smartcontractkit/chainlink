@@ -540,7 +540,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		err := mn.SendTransaction(testutils.Context(t), nil)
 		require.EqualError(t, err, expectedError.Error())
 	})
-	t.Run("Returns result of main node and logs secondary logs results", func(t *testing.T) {
+	t.Run("Returns result of main node and logs secondary nodes results", func(t *testing.T) {
 		// setup RPCs
 		failedRPC := newMultiNodeRPCClient(t)
 		failedRPC.On("SendTransaction", mock.Anything, mock.Anything).

@@ -179,18 +179,22 @@ func (n *node[CHAIN_ID, HEAD, RPC]) UnsubscribeAllExceptAliveLoop() {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Close() error {
 	return n.StopOnce(n.name, func() error {
-		defer func() {
-			n.wg.Wait()
-			n.rpc.Close()
-		}()
-
-		n.stateMu.Lock()
-		defer n.stateMu.Unlock()
-
-		n.cancelNodeCtx()
-		n.state = nodeStateClosed
-		return nil
+		return n.close()
 	})
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
+	defer func() {
+		n.wg.Wait()
+		n.rpc.Close()
+	}()
+
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+
+	n.cancelNodeCtx()
+	n.state = nodeStateClosed
+	return nil
 }
 
 // Start dials and verifies the node
