@@ -3,6 +3,7 @@
 [CCIP]
 # all variables to set up the test environment
 [CCIP.Env]
+TTL = '5h'
 # networks between which lanes will be set up and  the messages will be sent
 # if more than 2 networks are specified, then lanes will be set up between all possible pairs of networks
 # default value is ['SIMULATED_1', 'SIMULATED_2'] which means that test will create two private geth networks from scratch and set up lanes between them

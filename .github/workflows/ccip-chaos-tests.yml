@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
           repository: chainlink
           tag: ${{ github.sha }}
@@ -38,7 +38,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         env:
           GH_TOKEN: ${{ github.token }}
         with:
@@ -94,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ build-chainlink, build-test-image ]
     env:
-      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+      SELECTED_NETWORKS: SIMULATED
       TEST_SUITE: chaos
       TEST_ARGS: -test.timeout 30m
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -115,7 +115,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Run Chaos Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 1h -count=1 -json -test.parallel 11 -run 'TestChaosCCIP' ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod
@@ -131,11 +131,14 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
           CGO_ENABLED: "1"
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          cache_key_id: ccip-load-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
 
       ## Run Cleanup if the job succeeds
       - name: cleanup
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
 
@@ -151,7 +154,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ build-chainlink, build-test-image ]
     env:
-      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+      SELECTED_NETWORKS: SIMULATED
       TEST_SUITE: load
       TEST_ARGS: -test.timeout 1h
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -160,8 +163,8 @@ jobs:
       TEST_LOG_LEVEL: debug
       DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
       GH_TOKEN: ${{ github.token }}
-      TEST_LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
-      TEST_LOKI_URL: ${{ secrets.LOKI_URL }}
+      TEST_LOKI_TENANT_ID: ${{ secrets.TEST_LOKI_TENANT_ID }}
+      TEST_LOKI_URL: ${{ secrets.TEST_LOKI_URL }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -174,7 +177,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Run Load With Chaos Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests/ccip-tests && go test -timeout 1h -count=1 -json -test.parallel 4 -run '^TestLoadCCIPStableWithPodChaosDiffCommitAndExec' ./load 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod
@@ -190,10 +193,13 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
           CGO_ENABLED: "1"
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          cache_key_id: ccip-load-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
 
       ## Run Cleanup if the job succeeds
       - name: cleanup
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
