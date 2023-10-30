@@ -727,7 +727,7 @@ func (o *orm) LoadConfigVars(jb *Job) error {
 	return nil
 }
 
-func SetDefaultVRFPollPeriod(vrfs VRFSpec) *VRFSpec {
+func LoadDefaultVRFPollPeriod(vrfs VRFSpec) *VRFSpec {
 	if vrfs.PollPeriod == 0 {
 		vrfs.PollPeriod = 5 * time.Second
 	}
