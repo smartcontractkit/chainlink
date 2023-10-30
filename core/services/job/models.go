@@ -242,19 +242,18 @@ type OCROracleSpec struct {
 	EncryptedOCRKeyBundleID                *models.Sha256Hash  `toml:"keyBundleID"`
 	EncryptedOCRKeyBundleIDEnv             bool
 	TransmitterAddress                     *ethkey.EIP55Address `toml:"transmitterAddress"`
-	TransmitterAddressEnv                  bool
-	ObservationTimeout                     models.Interval  `toml:"observationTimeout"`
-	BlockchainTimeout                      models.Interval  `toml:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval  `toml:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval  `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16           `toml:"contractConfigConfirmations"`
-	EVMChainID                             *utils.Big       `toml:"evmChainID" db:"evm_chain_id"`
-	DatabaseTimeout                        *models.Interval `toml:"databaseTimeout"`
-	ObservationGracePeriod                 *models.Interval `toml:"observationGracePeriod"`
-	ContractTransmitterTransmitTimeout     *models.Interval `toml:"contractTransmitterTransmitTimeout"`
-	CaptureEATelemetry                     bool             `toml:"captureEATelemetry"`
-	CreatedAt                              time.Time        `toml:"-"`
-	UpdatedAt                              time.Time        `toml:"-"`
+	ObservationTimeout                     models.Interval      `toml:"observationTimeout"`
+	BlockchainTimeout                      models.Interval      `toml:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
+	EVMChainID                             *utils.Big           `toml:"evmChainID" db:"evm_chain_id"`
+	DatabaseTimeout                        *models.Interval     `toml:"databaseTimeout"`
+	ObservationGracePeriod                 *models.Interval     `toml:"observationGracePeriod"`
+	ContractTransmitterTransmitTimeout     *models.Interval     `toml:"contractTransmitterTransmitTimeout"`
+	CaptureEATelemetry                     bool                 `toml:"captureEATelemetry"`
+	CreatedAt                              time.Time            `toml:"-"`
+	UpdatedAt                              time.Time            `toml:"-"`
 }
 
 // GetID is a getter function that returns the ID of the spec.

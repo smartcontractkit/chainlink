@@ -792,7 +792,6 @@ func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSp
 			if err != nil {
 				return nil, err
 			}
-			os.TransmitterAddressEnv = true
 			os.TransmitterAddress = &ta
 		}
 	}
