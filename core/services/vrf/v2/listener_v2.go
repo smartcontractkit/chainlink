@@ -270,7 +270,7 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 				"proofVerificationGas", GasProofVerification)
 		}
 
-		spec := job.SetDefaultVRFPollPeriod(*lsn.job.VRFSpec)
+		spec := job.LoadDefaultVRFPollPeriod(*lsn.job.VRFSpec)
 
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract:       lsn.coordinator.Address(),

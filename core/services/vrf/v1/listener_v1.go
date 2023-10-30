@@ -111,7 +111,7 @@ func (lsn *Listener) getLatestHead() uint64 {
 // Start complies with job.Service
 func (lsn *Listener) Start(context.Context) error {
 	return lsn.StartOnce("VRFListener", func() error {
-		spec := job.SetDefaultVRFPollPeriod(*lsn.Job.VRFSpec)
+		spec := job.LoadDefaultVRFPollPeriod(*lsn.Job.VRFSpec)
 
 		unsubscribeLogs := lsn.LogBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract: lsn.Coordinator.Address(),
