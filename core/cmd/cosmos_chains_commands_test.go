@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -17,7 +17,7 @@ func TestShell_IndexCosmosChains(t *testing.T) {
 	t.Parallel()
 
 	chainID := cosmostest.RandomChainID()
-	chain := cosmos.CosmosConfig{
+	chain := coscfg.TOMLConfig{
 		ChainID: ptr(chainID),
 		Enabled: ptr(true),
 	}

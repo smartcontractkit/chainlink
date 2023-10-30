@@ -14,6 +14,7 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -105,6 +106,7 @@ type Broadcaster[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
+	services.StateMachine
 	logger  logger.Logger
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	client  txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -140,7 +142,6 @@ type Broadcaster[
 
 	initSync  sync.Mutex
 	isStarted bool
-	utils.StartStopOnce
 
 	parseAddr func(string) (ADDR, error)
 

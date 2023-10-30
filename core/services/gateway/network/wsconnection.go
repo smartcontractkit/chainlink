@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // WSConnectionWrapper is a websocket connection abstraction that supports re-connects.
@@ -42,7 +41,7 @@ type WSConnectionWrapper interface {
 }
 
 type wsConnectionWrapper struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lggr logger.Logger
 
 	conn atomic.Pointer[websocket.Conn]

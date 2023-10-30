@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -34,7 +36,7 @@ var (
 )
 
 type BlockSubscriber struct {
-	utils.StartStopOnce
+	services.StateMachine
 	threadCtrl utils.ThreadControl
 
 	mu               sync.RWMutex

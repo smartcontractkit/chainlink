@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -68,7 +69,7 @@ type FunctionsHandlerConfig struct {
 }
 
 type functionsHandler struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	handlerConfig   FunctionsHandlerConfig
 	donConfig       *config.DONConfig

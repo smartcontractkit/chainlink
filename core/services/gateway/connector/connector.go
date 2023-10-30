@@ -46,7 +46,7 @@ type GatewayConnectorHandler interface {
 }
 
 type gatewayConnector struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	config      *ConnectorConfig
 	codec       api.Codec
