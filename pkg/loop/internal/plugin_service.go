@@ -28,7 +28,7 @@ type grpcPlugin interface {
 // pluginService is a [types.Service] wrapper that maintains an internal [types.Service] created from a [grpcPlugin]
 // client instance by launching and re-launching as necessary.
 type PluginService[P grpcPlugin, S services.Service] struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	pluginName string
 

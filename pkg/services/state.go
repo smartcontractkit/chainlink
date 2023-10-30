@@ -13,7 +13,7 @@ import (
 const defaultErrorBufferCap = 50
 
 type errNotStarted struct {
-	state State
+	state state
 }
 
 func (e *errNotStarted) Error() string {
@@ -25,7 +25,7 @@ var (
 	ErrCannotStopUnstarted = errors.New("cannot stop unstarted service")
 )
 
-// StateMachine contains a State integer
+// StateMachine contains a state integer
 type StateMachine struct {
 	state        atomic.Int32
 	sync.RWMutex // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state
@@ -38,12 +38,12 @@ type StateMachine struct {
 	SvcErrBuffer ErrorBuffer
 }
 
-// State holds the state for StateMachine
-type State int32
+// state holds the state for StateMachine
+type state int32
 
 // nolint
 const (
-	stateUnstarted State = iota
+	stateUnstarted state = iota
 	stateStarted
 	stateStarting
 	stateStartFailed
@@ -52,7 +52,7 @@ const (
 	stateStopFailed
 )
 
-func (s State) String() string {
+func (s state) String() string {
 	switch s {
 	case stateUnstarted:
 		return "Unstarted"
@@ -80,7 +80,7 @@ func (once *StateMachine) StartOnce(name string, fn func() error) error {
 	success := once.state.CompareAndSwap(int32(stateUnstarted), int32(stateStarting))
 
 	if !success {
-		return pkgerrors.Errorf("%v has already been started once; state=%v", name, State(once.state.Load()))
+		return pkgerrors.Errorf("%v has already been started once; state=%v", name, state(once.state.Load()))
 	}
 
 	once.Lock()
@@ -116,14 +116,14 @@ func (once *StateMachine) StopOnce(name string, fn func() error) error {
 	success := once.state.CompareAndSwap(int32(stateStarted), int32(stateStopping))
 
 	if !success {
-		state := once.state.Load()
-		switch state {
-		case int32(stateStopped):
+		s := once.loadState()
+		switch s {
+		case stateStopped:
 			return pkgerrors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
-		case int32(stateUnstarted):
+		case stateUnstarted:
 			return pkgerrors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
 		default:
-			return pkgerrors.Errorf("%v cannot be stopped from this state; state=%v", name, State(state))
+			return pkgerrors.Errorf("%v cannot be stopped from this state; state=%v", name, s)
 		}
 	}
 
@@ -145,9 +145,12 @@ func (once *StateMachine) StopOnce(name string, fn func() error) error {
 }
 
 // State retrieves the current state
-func (once *StateMachine) State() State {
-	state := once.state.Load()
-	return State(state)
+func (once *StateMachine) State() string {
+	return once.loadState().String()
+}
+
+func (once *StateMachine) loadState() state {
+	return state(once.state.Load())
 }
 
 // IfStarted runs the func and returns true only if started, otherwise returns false
@@ -155,9 +158,7 @@ func (once *StateMachine) IfStarted(f func()) (ok bool) {
 	once.RLock()
 	defer once.RUnlock()
 
-	state := once.state.Load()
-
-	if State(state) == stateStarted {
+	if once.loadState() == stateStarted {
 		f()
 		return true
 	}
@@ -169,9 +170,7 @@ func (once *StateMachine) IfNotStopped(f func()) (ok bool) {
 	once.RLock()
 	defer once.RUnlock()
 
-	state := once.state.Load()
-
-	if State(state) == stateStopped {
+	if once.loadState() == stateStopped {
 		return false
 	}
 	f()
@@ -180,7 +179,7 @@ func (once *StateMachine) IfNotStopped(f func()) (ok bool) {
 
 // Ready returns ErrNotStarted if the state is not started.
 func (once *StateMachine) Ready() error {
-	state := once.State()
+	state := once.loadState()
 	if state == stateStarted {
 		return nil
 	}
@@ -190,7 +189,7 @@ func (once *StateMachine) Ready() error {
 // Healthy returns ErrNotStarted if the state is not started.
 // Override this per-service with more specific implementations.
 func (once *StateMachine) Healthy() error {
-	state := once.State()
+	state := once.loadState()
 	if state == stateStarted {
 		return once.SvcErrBuffer.Flush()
 	}
