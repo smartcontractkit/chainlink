@@ -30,8 +30,9 @@ import (
 const (
 	applicationJson                = "application/json"
 	blockNumber                    = "blockNumber" // valid for v0.2
-	feedIDs                        = "feedIDs"     // valid for v0.3
-	feedIdHex                      = "feedIdHex"   // valid for v0.2
+	dataNotFound                   = "Data Not Found"
+	feedIDs                        = "feedIDs"   // valid for v0.3
+	feedIdHex                      = "feedIdHex" // valid for v0.2
 	headerAuthorization            = "Authorization"
 	headerContentType              = "Content-Type"
 	headerTimestamp                = "X-Authorization-Timestamp"
@@ -66,6 +67,7 @@ type MercuryV03Report struct {
 	ValidFromTimestamp    uint32 `json:"validFromTimestamp"`
 	ObservationsTimestamp uint32 `json:"observationsTimestamp"`
 	FullReport            string `json:"fullReport"` // the actual hex encoded mercury report of this feed, can be sent to verifier
+	Error                 string `json:"error"`      // error will only be populated in 206 status code where the request is valid but mercury does not have data for certain feeds
 }
 
 type MercuryData struct {
@@ -499,20 +501,46 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			if resp.StatusCode == http.StatusUnauthorized {
 				retryable = false
 				state = encoding.UpkeepNotAuthorized
-				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by unauthorized upkeep", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode)
+				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this upkeep does not have access to certain feed IDs", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode)
 			} else if resp.StatusCode == http.StatusBadRequest {
 				retryable = false
 				state = encoding.InvalidMercuryRequest
-				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3 with message: %s", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode, string(body))
+				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely the requested feed ids are not properly hex encoded", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode)
 			} else if resp.StatusCode == http.StatusInternalServerError {
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", http.StatusInternalServerError)
+			} else if resp.StatusCode == http.StatusUnprocessableEntity {
+				retryable = false
+				state = encoding.InvalidMercuryRequest
+				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely feed ID exists, user has permissions, but the feed is not active (deactivated). This should not happen. Contact Mercury team about this", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode)
 			} else if resp.StatusCode == 420 {
 				// in 0.3, this will happen when missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds
 				retryable = false
 				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode)
+			} else if resp.StatusCode == http.StatusPartialContent {
+				retryable = true
+				state = encoding.MercuryFlakyFailure
+
+				// request is completely valid but mercury server has not generated reports for some feeds
+				var response MercuryV03Response
+				err1 = json.Unmarshal(body, &response)
+				if err1 != nil {
+					lggr.Warnf("at timestamp %s upkeep %s failed to unmarshal body to MercuryV03Response from mercury v0.3: %v", sl.Time.String(), sl.upkeepId.String(), err1)
+					retryable = false
+					state = encoding.MercuryUnmarshalError
+					return err1
+				}
+				var missingFeeds []string
+				for _, rsp := range response.Reports {
+					if rsp.Error == dataNotFound {
+						missingFeeds = append(missingFeeds, rsp.FeedID)
+					}
+				}
+
+				lggr.Infof("at timestamp %s upkeep %s received status code %d from mercury v0.3, the request is valid but mercury doesn't have reports for %s", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode, missingFeeds)
+				return fmt.Errorf("%d", http.StatusPartialContent)
 			} else if resp.StatusCode != http.StatusOK {
 				retryable = false
 				state = encoding.InvalidMercuryRequest
@@ -528,15 +556,6 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				retryable = false
 				state = encoding.MercuryUnmarshalError
 				return err1
-			}
-			// in v0.3, if some feeds are not available, the server will only return available feeds, but we need to make sure ALL feeds are retrieved before calling user contract
-			// hence, retry in this case. retry will help when we send a very new timestamp and reports are not yet generated
-			if len(response.Reports) != len(sl.Feeds) {
-				// TODO: AUTO-5044: calculate what reports are missing and log a warning
-				lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server retruned 200 status with %d reports while we requested %d feeds, treating as 404 (not found) and retrying", sl.Time.String(), sl.upkeepId.String(), len(response.Reports), len(sl.Feeds))
-				retryable = true
-				state = encoding.MercuryFlakyFailure
-				return fmt.Errorf("%d", http.StatusNotFound)
 			}
 			var reportBytes [][]byte
 			for _, rsp := range response.Reports {
@@ -560,7 +579,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 		},
 		// only retry when the error is 404 Not Found or 500 Internal Server Error
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError)
+			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusPartialContent)
 		}),
 		retry.Context(ctx),
 		retry.Delay(retryDelay),

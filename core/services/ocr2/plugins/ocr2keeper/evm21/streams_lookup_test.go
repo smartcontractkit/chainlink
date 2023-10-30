@@ -975,7 +975,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			retryNumber:    1,
 			statusCode:     http.StatusInternalServerError,
 			lastStatusCode: http.StatusUnauthorized,
-			errorMessage:   "All attempts fail:\n#1: 500\n#2: at timestamp 123456 upkeep 123456789 received status code 401 from mercury v0.3, most likely this is caused by unauthorized upkeep",
+			errorMessage:   "All attempts fail:\n#1: 500\n#2: at timestamp 123456 upkeep 123456789 received status code 401 from mercury v0.3, most likely this upkeep does not have access to certain feed IDs",
 		},
 		{
 			name: "failure - returns status code 420 not retryable",
@@ -1006,7 +1006,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			errorMessage: "All attempts fail:\n#1: at timestamp 123456 upkeep 123456789 received status code 502 from mercury v0.3",
 		},
 		{
-			name: "success - retry when reports length does not match feeds length",
+			name: "success - retry when response code is 206",
 			lookup: &StreamsLookup{
 				StreamsLookupError: &encoding.StreamsLookupError{
 					FeedParamKey: feedIDs,
@@ -1019,10 +1019,14 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			firstResponse: &MercuryV03Response{
 				Reports: []MercuryV03Report{
 					{
-						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-						ValidFromTimestamp:    123456,
-						ObservationsTimestamp: 123456,
-						FullReport:            "0xab2123dc00000012",
+						FeedID: "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						Error:  dataNotFound,
+					},
+					{
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            "0xab2123dc00000019",
 					},
 				},
 			},
@@ -1042,8 +1046,9 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					},
 				},
 			},
-			retryNumber: 1,
-			statusCode:  http.StatusOK,
+			retryNumber:    1,
+			statusCode:     http.StatusPartialContent,
+			lastStatusCode: http.StatusOK,
 		},
 	}
 
@@ -1071,7 +1076,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					b1, err := json.Marshal(tt.response)
 					assert.Nil(t, err)
 					resp1 := &http.Response{
-						StatusCode: tt.statusCode,
+						StatusCode: tt.lastStatusCode,
 						Body:       io.NopCloser(bytes.NewReader(b1)),
 					}
 					hc.On("Do", mock.Anything).Return(resp0, nil).Once().On("Do", mock.Anything).Return(resp1, nil).Once()
