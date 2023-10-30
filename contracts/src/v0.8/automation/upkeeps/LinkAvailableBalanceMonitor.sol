@@ -124,7 +124,6 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     uint256 idx = uint256(blockhash(block.number - 1)) % numTargets;
     uint256 numToCheck = numTargets < maxCheck ? numTargets : maxCheck;
     uint256 numFound = 0;
-    uint256 minWaitPeriod = s_minWaitPeriodSeconds;
     address[] memory targetsToFund = new address[](maxPerform);
     MonitoredAddress memory target;
     for (
@@ -135,7 +134,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
       address targetAddress = s_watchList[idx];
       target = s_targets[targetAddress];
       (bool needsFunding, ) = _needsFunding(targetAddress, target.minBalance);
-      if (needsFunding && target.lastTopUpTimestamp + minWaitPeriod <= block.timestamp) {
+      if (needsFunding) {
         targetsToFund[numFound] = targetAddress;
         numFound++;
         if (numFound == maxPerform) {
@@ -152,7 +151,6 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   }
 
   function topUp(address[] memory targetAddresses) public whenNotPaused {
-    uint256 minWaitPeriodSeconds = s_minWaitPeriodSeconds;
     MonitoredAddress memory target;
     uint256 localBalance = i_linkToken.balanceOf(address(this));
     address[] memory targetsTopUp = new address[](targetAddresses.length);
@@ -161,11 +159,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
       target = s_targets[targetAddress];
       (bool needsFunding, ) = _needsFunding(targetAddress, target.minBalance);
       if (
-        target.isActive &&
-        localBalance >= target.topUpAmount &&
-        !(targetAddress == address(0)) &&
-        needsFunding &&
-        target.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp
+        target.topUpAmount > 0 && localBalance >= target.topUpAmount && !(targetAddress == address(0)) && needsFunding
       ) {
         targetsTopUp[idx] = targetAddress;
         localBalance -= target.topUpAmount;
@@ -196,6 +190,8 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @return bool whether the target needs funding or not
   /// @return address the address of the contract needing funding
   function _needsFunding(address targetAddress, uint256 minBalance) private view returns (bool, address) {
+    uint256 minWaitPeriodSeconds = s_minWaitPeriodSeconds;
+    MonitoredAddress memory addressToCheck = s_targets[targetAddress];
     ILinkAvailable target;
     IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
     // Explicitly check if the targetAddress is the zero address
@@ -214,7 +210,10 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
       target = ILinkAvailable(targetAddress);
     }
     try target.linkAvailableForPayment() returns (int256 balance) {
-      if (balance < 0 || uint256(balance) < minBalance) {
+      if (
+        balance < 0 ||
+        (uint256(balance) < minBalance && addressToCheck.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp)
+      ) {
         return (true, address(target));
       }
     } catch {}
