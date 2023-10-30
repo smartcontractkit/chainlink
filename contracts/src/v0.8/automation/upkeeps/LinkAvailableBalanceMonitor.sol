@@ -152,6 +152,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   }
 
   function topUp(address[] memory targetAddresses) public whenNotPaused {
+    uint256 minWaitPeriodSeconds = s_minWaitPeriodSeconds;
     MonitoredAddress memory target;
     uint256 localBalance = i_linkToken.balanceOf(address(this));
     address[] memory targetsTopUp = new address[](targetAddresses.length);
@@ -159,7 +160,13 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
       address targetAddress = targetAddresses[idx];
       target = s_targets[targetAddress];
       (bool needsFunding, ) = _needsFunding(targetAddress, target.minBalance);
-      if (target.isActive && localBalance >= target.topUpAmount && !(targetAddress == address(0)) && needsFunding) {
+      if (
+        target.isActive &&
+        localBalance >= target.topUpAmount &&
+        !(targetAddress == address(0)) &&
+        needsFunding &&
+        target.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp
+      ) {
         targetsTopUp[idx] = targetAddress;
         localBalance -= target.topUpAmount;
       } else {
@@ -174,6 +181,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
       target = s_targets[targetAddress];
       bool success = i_linkToken.transfer(targetAddress, target.topUpAmount);
       if (success) {
+        target.lastTopUpTimestamp = uint56(block.timestamp);
         emit TopUpSucceeded(targetAddress);
       } else {
         emit TopUpFailed(targetAddress);
