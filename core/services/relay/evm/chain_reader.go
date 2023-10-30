@@ -17,7 +17,7 @@ import (
 func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts) (*chainReader, error) {
 	relayConfig, err := ropts.RelayConfig()
 	if err != nil {
-		return nil, fmt.Errorf("Failed parsing RelayConfig: %w", err.Error())
+		return nil, fmt.Errorf("Failed parsing RelayConfig: %w", err)
 	}
 
 	if relayConfig.ChainReader == nil {
@@ -25,7 +25,7 @@ func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts)
 	}
 
 	if err = validateChainReaderConfig(*relayConfig.ChainReader); err != nil {
-		return nil, fmt.Errorf("Invalid ChainReader configuration: %w", err.Error())
+		return nil, fmt.Errorf("Invalid ChainReader configuration: %w", err)
 	}
 
 	return NewChainReaderService(lggr, chain.LogPoller())
