@@ -135,14 +135,22 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	require.NoError(t, err, "Error getting latest block number")
 	startBlock := int64(sb)
 
-	l.Info().Msg("Starting event emission")
+	l.Info().Msg("STARTING EVENT EMISSION")
 	startTime := time.Now()
+
+	// Start chaos experimnents by randomly pausing random containers (Chainlink nodes or their DBs)
+	chaosDoneCh := make(chan error, 1)
+	go func() {
+		executeChaosExperiments(l, testEnv, cfg, chaosDoneCh)
+	}()
+
 	totalLogsEmitted, err := executeGenerator(t, cfg, logEmitters)
 	endTime := time.Now()
 	require.NoError(t, err, "Error executing event generator")
+
 	expectedLogsEmitted := getExpectedLogCount(cfg)
 	duration := int(endTime.Sub(startTime).Seconds())
-	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Int("Duration (sec)", duration).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("Finished emitting events")
+	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Int("Duration (sec)", duration).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
 	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
@@ -151,24 +159,34 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	// as some trx might be included in a block that was pruned
 	endBlock := int64(eb) + 10
 
+	l.Info().Msg("Waiting before proceeding with test until all chaos experiments finish")
+	chaosError := <-chaosDoneCh
+	require.NoError(t, chaosError, "Error encountered during chaos experiment")
+	// select {
+	// case chaosChannel := <-chaosDoneCh:
+	// 	require.NoError(t, chaosChannel.err, "Error encountered during chaos experiment")
+	// }
+
 	// Wait until last block in which events were emitted has been finalised
 	// how long should we wait here until all logs are processed? wait for block X to be processed by all nodes?
 	waitDuration := "30s"
 	l.Warn().Str("Duration", waitDuration).Msg("Waiting for logs to be processed by all nodes and for chain to advance beyond finality")
 
 	gom.Eventually(func(g gomega.Gomega) {
-		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
-		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
-		if err != nil {
-			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
-		}
-
 		hasAdvanced, err := chainHasAdvancedBeyondFinality(testEnv.EVMClient, endBlock)
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if chain has advanced beyond finality. Retrying...")
 		}
 		g.Expect(hasAdvanced).To(gomega.BeTrue(), "Chain has not advanced beyond finality")
-	}, waitDuration, "1s").Should(gomega.Succeed())
+	}, waitDuration, "5s").Should(gomega.Succeed())
+
+	gom.Eventually(func(g gomega.Gomega) {
+		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
+		if err != nil {
+			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
+		}
+		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
+	}, waitDuration, "5s").Should(gomega.Succeed())
 
 	// Wait until all CL nodes have exactly the same logs emitted by test contracts as the EVM node has
 	logConsistencyWaitDuration := "1m"
@@ -184,7 +202,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 			printMissingLogsByType(missingLogs, l, cfg)
 		}
 		g.Expect(missingLogs.IsEmpty()).To(gomega.BeTrue(), "Some CL nodes were missing logs")
-	}, logConsistencyWaitDuration, "1s").Should(gomega.Succeed())
+	}, logConsistencyWaitDuration, "5s").Should(gomega.Succeed())
 }
 
 func ExecuteBackupLogPollerTest(t *testing.T, cfg *Config) {
@@ -247,7 +265,7 @@ func ExecuteBackupLogPollerTest(t *testing.T, cfg *Config) {
 	require.NoError(t, err, "Error executing event generator")
 	expectedLogsEmitted := getExpectedLogCount(cfg)
 	duration := int(endTime.Sub(startTime).Seconds())
-	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Int("Duration (sec)", duration).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("Finished emitting events")
+	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("Finished emitting events")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
 	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
@@ -287,7 +305,7 @@ func ExecuteBackupLogPollerTest(t *testing.T, cfg *Config) {
 
 			hasFilters, err := nodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
 			if err != nil {
-				l.Warn().Err(err).Msg("Error checking if node has expected filters. Retrying...")
+				l.Info().Err(err).Msg("Error checking if node has expected filters. Retrying...")
 				return
 			}
 
@@ -1208,7 +1226,7 @@ func setupLogPollerTestDocker(
 	l := logging.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-	network := networks.SelectedNetwork
+	network := networks.MustGetSelectedNetworksFromEnv()[0]
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
@@ -1284,4 +1302,85 @@ func setupLogPollerTestDocker(
 	require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
 
 	return env.EVMClient, nodeClients, env.ContractDeployer, linkToken, registry, registrar, env
+}
+
+var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv) error {
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+	randomBool := rand.Intn(2) == 0
+
+	randomNode := testEnv.ClCluster.Nodes[rand.Intn(len(testEnv.ClCluster.Nodes)-1)+1]
+	var component ctf_test_env.EnvComponent
+
+	if randomBool {
+		component = randomNode.EnvComponent
+	} else {
+		component = randomNode.PostgresDb.EnvComponent
+	}
+
+	pauseTimeSec := rand.Intn(20-5) + 5
+	l.Info().Str("Container", component.ContainerName).Int("Pause time", pauseTimeSec).Msg("Pausing component")
+	pauseTimeDur := time.Duration(pauseTimeSec) * time.Second
+	err := component.ChaosPause(l, pauseTimeDur)
+	l.Info().Str("Container", component.ContainerName).Msg("Component unpaused")
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var executeChaosExperiments = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, cfg *Config, errorCh chan error) {
+	if cfg.ChaosConfig == nil || cfg.ChaosConfig.ExperimentCount == 0 {
+		errorCh <- nil
+	}
+
+	chaosChan := make(chan error, cfg.ChaosConfig.ExperimentCount)
+
+	wg := &sync.WaitGroup{}
+
+	go func() {
+		// if we wanted to have more than 1 container paused, we'd need to make sure we aren't trying to pause an already paused one
+		guardChan := make(chan struct{}, 1)
+
+		for i := 0; i < cfg.ChaosConfig.ExperimentCount; i++ {
+			wg.Add(1)
+			guardChan <- struct{}{}
+			go func() {
+				defer func() {
+					<-guardChan
+					wg.Done()
+					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", i, cfg.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
+				}()
+				chaosChan <- chaosPauseSyncFn(l, testEnv)
+			}()
+		}
+
+		wg.Wait()
+
+		close(chaosChan)
+	}()
+
+	go func() {
+		for {
+			select {
+			case err, ok := <-chaosChan:
+				if !ok {
+					l.Info().Msg("All chaos experiments finished")
+					errorCh <- nil
+					// return
+				} else {
+					if err != nil {
+						l.Err(err).Msg("Error encountered during chaos experiment")
+						// doneCh <- ChaosChannel{
+						// 	chaosDoneCh: false,
+						// 	err:         err,
+						// }
+						errorCh <- err
+					}
+				}
+				// default:
+			}
+		}
+	}()
 }

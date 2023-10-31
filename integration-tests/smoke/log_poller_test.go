@@ -35,6 +35,37 @@ func TestLogPoller(t *testing.T) {
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
+func TestLogPollerWithChaos(t *testing.T) {
+	cfg := logpoller.Config{
+		General: &logpoller.General{
+			Generator:   logpoller.GeneratorType_Looped,
+			Contracts:   2,
+			EventsPerTx: 5,
+		},
+		LoopedConfig: &logpoller.LoopedConfig{
+			ContractConfig: logpoller.ContractConfig{
+				ExecutionCount: 100,
+			},
+			FuzzConfig: logpoller.FuzzConfig{
+				MinEmitWaitTimeMs: 200,
+				MaxEmitWaitTimeMs: 500,
+			},
+		},
+		ChaosConfig: &logpoller.ChaosConfig{
+			ExperimentCount: 10,
+		},
+	}
+
+	eventsToEmit := []abi.Event{}
+	for _, event := range logpoller.EmitterABI.Events {
+		eventsToEmit = append(eventsToEmit, event)
+	}
+
+	cfg.General.EventsToEmit = eventsToEmit
+
+	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
+}
+
 func TestLogPollerBackup(t *testing.T) {
 	cfg := logpoller.Config{
 		General: &logpoller.General{
@@ -44,7 +75,7 @@ func TestLogPollerBackup(t *testing.T) {
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 10,
+				ExecutionCount: 14,
 			},
 			FuzzConfig: logpoller.FuzzConfig{
 				MinEmitWaitTimeMs: 200,

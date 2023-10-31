@@ -27,6 +27,7 @@ const (
 
 type Config struct {
 	General      *General      `toml:"general"`
+	ChaosConfig  *ChaosConfig  `toml:"chaos"`
 	Wasp         *WaspConfig   `toml:"wasp"`
 	LoopedConfig *LoopedConfig `toml:"looped"`
 }
@@ -50,6 +51,10 @@ type General struct {
 	EventsToEmit []abi.Event `toml:"-"`
 	Contracts    int         `toml:"contracts"`
 	EventsPerTx  int         `toml:"events_per_tx"`
+}
+
+type ChaosConfig struct {
+	ExperimentCount int `toml:"experiment_count"`
 }
 
 type WaspConfig struct {
