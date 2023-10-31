@@ -131,7 +131,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), &arbConfig{}, rpcClient, ethClient)
 		_, _, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), gasLimit, assets.NewWeiI(10), nil)
-		assert.EqualError(t, err, "bump gas is not supported for this l2")
+		assert.EqualError(t, err, "bump gas is not supported for this chain")
 	})
 
 	t.Run("calling GetLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {
