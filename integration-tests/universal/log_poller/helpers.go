@@ -570,7 +570,7 @@ var registerMultipleTopicsFilter = func(registry contracts.KeeperRegistry, upkee
 }
 
 func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (*lpEvm.DbORM, *sqlx.DB, error) {
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", postgresDb.ExternalPort, "postgres", "mysecretpassword", "testdb")
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", postgresDb.ExternalPort, postgresDb.User, postgresDb.Password, postgresDb.DbName)
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, db, err
