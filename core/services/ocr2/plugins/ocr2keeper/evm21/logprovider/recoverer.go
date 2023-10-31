@@ -208,7 +208,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 		return nil, err
 	}
 
-	start, offsetBlock := r.getRecoveryWindow(latest)
+	start, offsetBlock := r.getRecoveryWindow(latest.BlockNumber)
 	if proposal.Trigger.LogTriggerExtension == nil {
 		return nil, errors.New("missing log trigger extension")
 	}
@@ -297,7 +297,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	allLogsCounter := 0
 	logsCount := map[string]int{}
 
-	r.sortPending(uint64(latestBlock))
+	r.sortPending(uint64(latestBlock.BlockNumber))
 
 	var results, pending []ocr2keepers.UpkeepPayload
 	for _, payload := range r.pending {
@@ -330,7 +330,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
-	start, offsetBlock := r.getRecoveryWindow(latest)
+	start, offsetBlock := r.getRecoveryWindow(latest.BlockNumber)
 	if offsetBlock < 0 {
 		// too soon to recover, we don't have enough blocks
 		return nil
@@ -611,7 +611,7 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 		return fmt.Errorf("failed to get states: %w", err)
 	}
 	lggr := r.lggr.With("where", "clean")
-	start, _ := r.getRecoveryWindow(latestBlock)
+	start, _ := r.getRecoveryWindow(latestBlock.BlockNumber)
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	var removed int
