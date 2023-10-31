@@ -5,6 +5,10 @@ var (
 Enabled = true
 
 [P2P]
+[P2P.V2]
+Enabled = false
+
+[P2P]
 [P2P.V1]
 Enabled = true
 ListenIP = '0.0.0.0'
@@ -18,7 +22,6 @@ Enabled = true
 
 [P2P]
 [P2P.V2]
-Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 
@@ -67,7 +70,6 @@ CaptureEATelemetry = true
 
 [P2P]
 [P2P.V2]
-Enabled = true
 ListenAddresses = ['0.0.0.0:6690']`
 
 	TelemetryIngressConfig = `[TelemetryIngress]

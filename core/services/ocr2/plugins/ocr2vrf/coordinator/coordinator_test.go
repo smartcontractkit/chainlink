@@ -1032,7 +1032,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		requestedBlocks := []uint64{195, 196}
 		lp := lp_mocks.NewLogPoller(t)
 		lp.On("LatestBlock", mock.Anything).
-			Return(int64(latestHeadNumber), nil)
+			Return(logpoller.LogPollerBlock{BlockNumber: int64(latestHeadNumber)}, nil)
 
 		lp.On("GetBlocksRange", mock.Anything, append(requestedBlocks, uint64(latestHeadNumber-lookbackBlocks+1), uint64(latestHeadNumber)), mock.Anything).
 			Return(nil, errors.New("GetBlocks error"))
@@ -1720,7 +1720,7 @@ func getLogPoller(
 	lp := lp_mocks.NewLogPoller(t)
 	if needsLatestBlock {
 		lp.On("LatestBlock", mock.Anything).
-			Return(int64(latestHeadNumber), nil)
+			Return(logpoller.LogPollerBlock{BlockNumber: int64(latestHeadNumber)}, nil)
 	}
 	var logPollerBlocks []logpoller.LogPollerBlock
 

@@ -238,7 +238,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 		return b.te, nil
 	}
-	networkConfig := networks.SelectedNetwork
+	networkConfig := networks.MustGetSelectedNetworksFromEnv()[0]
 	var internalDockerUrls test_env.InternalDockerUrls
 	if b.hasGeth && networkConfig.Simulated {
 		networkConfig, internalDockerUrls, err = b.te.StartGeth()

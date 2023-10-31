@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/chaos"
-	"github.com/smartcontractkit/chainlink-env/environment"
-	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	a "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/alias"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -37,13 +37,12 @@ Enabled = true
 
 [P2P]
 [P2P.V2]
-Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 
 	defaultAutomationSettings = map[string]interface{}{
 		"replicas": 6,
-		"toml":     client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
+		"toml":     client.AddNetworksConfig(baseTOML, networks.MustGetSelectedNetworksFromEnv()[0]),
 		"db": map[string]interface{}{
 			"stateful": true,
 			"capacity": "1Gi",
@@ -61,9 +60,10 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	}
 
 	defaultEthereumSettings = &ethereum.Props{
-		NetworkName: networks.SelectedNetwork.Name,
-		Simulated:   networks.SelectedNetwork.Simulated,
-		WsURLs:      networks.SelectedNetwork.URLs,
+		// utils.MustGetSelectedNetworksFromEnv()
+		NetworkName: networks.MustGetSelectedNetworksFromEnv()[0].Name,
+		Simulated:   networks.MustGetSelectedNetworksFromEnv()[0].Simulated,
+		WsURLs:      networks.MustGetSelectedNetworksFromEnv()[0].URLs,
 		Values: map[string]interface{}{
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
@@ -182,7 +182,7 @@ func TestAutomationChaos(t *testing.T) {
 				testCase := tst
 				t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 					t.Parallel()
-					network := networks.SelectedNetwork // Need a new copy of the network for each test
+					network := networks.MustGetSelectedNetworksFromEnv()[0] // Need a new copy of the network for each test
 
 					testEnvironment := environment.
 						New(&environment.Config{

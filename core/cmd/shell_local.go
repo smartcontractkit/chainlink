@@ -290,7 +290,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	s.Config.SetPasswords(pwd, vrfpwd)
 
-	s.Config.LogConfiguration(lggr.Debugf)
+	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
 	if err := s.Config.Validate(); err != nil {
 		return errors.Wrap(err, "config validation failed")
@@ -689,7 +689,8 @@ var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or p
 
 // ConfigValidate validate the client configuration and pretty-prints results
 func (s *Shell) ConfigFileValidate(_ *cli.Context) error {
-	s.Config.LogConfiguration(func(f string, params ...any) { fmt.Printf(f, params...) })
+	fn := func(f string, params ...any) { fmt.Printf(f, params...) }
+	s.Config.LogConfiguration(fn, fn)
 	if err := s.configExitErr(s.Config.Validate); err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
@@ -45,7 +46,7 @@ type OnchainAllowlist interface {
 }
 
 type onchainAllowlist struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	config             OnchainAllowlistConfig
 	allowlist          atomic.Pointer[map[common.Address]struct{}]
