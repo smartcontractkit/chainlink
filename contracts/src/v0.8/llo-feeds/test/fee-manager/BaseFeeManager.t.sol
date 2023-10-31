@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {FeeManager} from "../../FeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
-import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
+import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
 import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 import {FeeManagerProxy} from "../mocks/FeeManagerProxy.sol";

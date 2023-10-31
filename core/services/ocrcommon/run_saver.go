@@ -3,13 +3,13 @@ package ocrcommon
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type RunResultSaver struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	maxSuccessfulRuns uint64
 	runResults        <-chan *pipeline.Run

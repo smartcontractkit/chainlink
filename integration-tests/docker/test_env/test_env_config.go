@@ -10,7 +10,7 @@ type TestEnvConfig struct {
 	Networks    []string          `json:"networks"`
 	Geth        GethConfig        `json:"geth"`
 	MockAdapter MockAdapterConfig `json:"mock_adapter"`
-	Nodes       []ClNodeConfig    `json:"nodes"`
+	ClCluster   *ClCluster        `json:"clCluster"`
 }
 
 type MockAdapterConfig struct {
@@ -20,11 +20,6 @@ type MockAdapterConfig struct {
 
 type GethConfig struct {
 	ContainerName string `json:"container_name"`
-}
-
-type ClNodeConfig struct {
-	NodeContainerName string `json:"container_name"`
-	DbContainerName   string `json:"db_container_name"`
 }
 
 func NewTestEnvConfigFromFile(path string) (*TestEnvConfig, error) {

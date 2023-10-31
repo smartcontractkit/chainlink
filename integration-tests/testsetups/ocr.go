@@ -24,17 +24,18 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -120,13 +121,12 @@ func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
 		ocrRoundStates: make([]*testreporters.OCRRoundState, 0),
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
 	}
-	test.ensureInputValues()
-	return test, nil
+	return test, test.ensureInputValues()
 }
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
 func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
-	network := networks.SelectedNetwork // Environment currently being used to soak test on
+	network := networks.MustGetSelectedNetworksFromEnv()[0] // Environment currently being used to soak test on
 	nsPre := "soak-ocr-"
 	if o.OperatorForwarderFlow {
 		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
@@ -165,7 +165,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 // LoadEnvironment loads an existing test environment using the provided URLs
 func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, chainURL, mockServerURL string) {
 	var (
-		network = networks.SelectedNetwork
+		network = networks.MustGetSelectedNetworksFromEnv()[0]
 		err     error
 	)
 	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
@@ -185,7 +185,7 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 func (o *OCRSoakTest) Setup() {
 	var (
 		err     error
-		network = networks.SelectedNetwork
+		network = networks.MustGetSelectedNetworksFromEnv()[0]
 	)
 
 	// Environment currently being used to soak test on
@@ -387,7 +387,7 @@ func (o *OCRSoakTest) LoadState() error {
 	o.startTime = testState.StartTime
 	o.startingBlockNum = testState.StartingBlockNum
 
-	network := networks.SelectedNetwork
+	network := networks.MustGetSelectedNetworksFromEnv()[0]
 	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
 	if err != nil {
 		return err

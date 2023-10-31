@@ -256,6 +256,7 @@ func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 
 	return ql.withLogError(q.Queryer.GetContext(ctx, dest, query, args...))
 }
+
 func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	query, args, err := q.BindNamed(sql, arg)
 	if err != nil {
@@ -272,7 +273,9 @@ func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 }
 
 func (q Q) newQueryLogger(query string, args []interface{}) *queryLogger {
-	return &queryLogger{Q: q, query: query, args: args}
+	return &queryLogger{Q: q, query: query, args: args, str: sync.OnceValue(func() string {
+		return sprintQ(query, args)
+	})}
 }
 
 // sprintQ formats the query with the given args and returns the resulting string.
@@ -314,15 +317,11 @@ type queryLogger struct {
 	query string
 	args  []interface{}
 
-	str     string
-	strOnce sync.Once
+	str func() string
 }
 
 func (q *queryLogger) String() string {
-	q.strOnce.Do(func() {
-		q.str = sprintQ(q.query, q.args)
-	})
-	return q.str
+	return q.str()
 }
 
 func (q *queryLogger) logSqlQuery() {

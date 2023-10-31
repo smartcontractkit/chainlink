@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -29,7 +29,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 		t.Run(test.origin, func(t *testing.T) {
 			app := cltest.NewApplicationWithConfig(t, config)
 
-			client := app.NewHTTPClient(&cltest.User{})
+			client := app.NewHTTPClient(nil)
 
 			headers := map[string]string{"Origin": test.origin}
 			resp, cleanup := client.Get("/v2/chains/evm", headers)
@@ -61,7 +61,7 @@ func TestCors_OverrideOrigins(t *testing.T) {
 			})
 			app := cltest.NewApplicationWithConfig(t, config)
 
-			client := app.NewHTTPClient(&cltest.User{})
+			client := app.NewHTTPClient(nil)
 
 			headers := map[string]string{"Origin": test.origin}
 			resp, cleanup := client.Get("/v2/chains/evm", headers)

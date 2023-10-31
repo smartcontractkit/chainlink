@@ -29,7 +29,7 @@ contract BatchBlockhashStore {
     for (uint256 i = 0; i < blockNumbers.length; i++) {
       // skip the block if it's not storeable, the caller will have to check
       // after the transaction is mined to see if the blockhash was truly stored.
-      if (!storeableBlock(blockNumbers[i])) {
+      if (!_storeableBlock(blockNumbers[i])) {
         continue;
       }
       BHS.store(blockNumbers[i]);
@@ -73,10 +73,10 @@ contract BatchBlockhashStore {
    *   using the blockhash() instruction.
    * @param blockNumber the block number to check if it's storeable with blockhash()
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function storeableBlock(uint256 blockNumber) private view returns (bool) {
+  function _storeableBlock(uint256 blockNumber) private view returns (bool) {
     // handle edge case on simulated chains which possibly have < 256 blocks total.
-    return ChainSpecificUtil.getBlockNumber() <= 256 ? true : blockNumber >= (ChainSpecificUtil.getBlockNumber() - 256);
+    return
+      ChainSpecificUtil._getBlockNumber() <= 256 ? true : blockNumber >= (ChainSpecificUtil._getBlockNumber() - 256);
   }
 }
 

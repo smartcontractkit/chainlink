@@ -8,12 +8,13 @@ import (
 	"net/url"
 	"time"
 
+	gotoml "github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/sqlx"
 
-	gotoml "github.com/pelletier/go-toml/v2"
-
+	relaychains "github.com/smartcontractkit/chainlink-relay/pkg/chains"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -29,10 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -109,7 +108,7 @@ func (c *LegacyChains) Get(id string) (Chain, error) {
 }
 
 type chain struct {
-	utils.StartStopOnce
+	services.StateMachine
 	id              *big.Int
 	cfg             *evmconfig.ChainScoped
 	client          evmclient.Client
@@ -248,7 +247,16 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 		if opts.GenLogPoller != nil {
 			logPoller = opts.GenLogPoller(chainID)
 		} else {
-			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, db, l, cfg.Database()), client, l, cfg.EVM().LogPollInterval(), int64(cfg.EVM().FinalityDepth()), int64(cfg.EVM().LogBackfillBatchSize()), int64(cfg.EVM().RPCDefaultBatchSize()), int64(cfg.EVM().LogKeepBlocksDepth()))
+			logPoller = logpoller.NewLogPoller(
+				logpoller.NewObservedORM(chainID, db, l, cfg.Database()),
+				client,
+				l,
+				cfg.EVM().LogPollInterval(),
+				cfg.EVM().FinalityTagEnabled(),
+				int64(cfg.EVM().FinalityDepth()),
+				int64(cfg.EVM().LogBackfillBatchSize()),
+				int64(cfg.EVM().RPCDefaultBatchSize()),
+				int64(cfg.EVM().LogKeepBlocksDepth()))
 		}
 	}
 
@@ -358,7 +366,7 @@ func (c *chain) Close() error {
 
 func (c *chain) Ready() (merr error) {
 	merr = multierr.Combine(
-		c.StartStopOnce.Ready(),
+		c.StateMachine.Ready(),
 		c.txm.Ready(),
 		c.headBroadcaster.Ready(),
 		c.headTracker.Ready(),
@@ -413,7 +421,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 	nodes := c.cfg.Nodes()
 	total := len(nodes)
 	if start >= total {
-		return nil, total, internal.ErrOutOfRange
+		return nil, total, relaychains.ErrOutOfRange
 	}
 	if end > total {
 		end = total
@@ -450,7 +458,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 }
 
 func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
-	return internal.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
+	return relaychains.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }

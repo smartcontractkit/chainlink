@@ -33,7 +33,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -2251,7 +2251,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// No new tx attempts
 		require.Len(t, etx3.TxAttempts, 4)
-		attempt3_4 := etx3.TxAttempts[0]
+		attempt3_4 = etx3.TxAttempts[0]
 		assert.Equal(t, gasPrice.Int64(), attempt3_4.TxFee.Legacy.ToInt().Int64())
 	})
 
@@ -2319,9 +2319,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// No new tx attempts
 		require.Len(t, etx4.TxAttempts, 2)
-		attempt4_2 := etx4.TxAttempts[0]
-		assert.Equal(t, assets.GWei(999).Int64(), attempt4_2.TxFee.DynamicTipCap.ToInt().Int64())
-		assert.Equal(t, assets.GWei(1000).Int64(), attempt4_2.TxFee.DynamicFeeCap.ToInt().Int64())
+		assert.Equal(t, assets.GWei(999).Int64(), etx4.TxAttempts[0].TxFee.DynamicTipCap.ToInt().Int64())
+		assert.Equal(t, assets.GWei(1000).Int64(), etx4.TxAttempts[0].TxFee.DynamicFeeCap.ToInt().Int64())
 	})
 
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
@@ -2412,8 +2411,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 	})
 
-	realKst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-
 	t.Run("multiple gas bumps with existing broadcast attempts are retried with more gas until success in legacy mode", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
@@ -2439,7 +2436,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		).Run(func(args mock.Arguments) {
 			unsignedLegacyTx := args.Get(1).(*types.Transaction)
 			// Use the real keystore to do the actual signing
-			thisSignedLegacyTx, err := realKst.SignTx(fromAddress, unsignedLegacyTx, testutils.FixtureChainID)
+			thisSignedLegacyTx, err := ethKeyStore.SignTx(fromAddress, unsignedLegacyTx, testutils.FixtureChainID)
 			require.NoError(t, err)
 			*signedLegacyTx = *thisSignedLegacyTx
 		}).Times(4) // 3 failures 1 success
@@ -2471,7 +2468,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		).Run(func(args mock.Arguments) {
 			unsignedDxFeeTx := args.Get(1).(*types.Transaction)
 			// Use the real keystore to do the actual signing
-			thisSignedDxFeeTx, err := realKst.SignTx(fromAddress, unsignedDxFeeTx, testutils.FixtureChainID)
+			thisSignedDxFeeTx, err := ethKeyStore.SignTx(fromAddress, unsignedDxFeeTx, testutils.FixtureChainID)
 			require.NoError(t, err)
 			*signedDxFeeTx = *thisSignedDxFeeTx
 		}).Times(4) // 3 failures 1 success

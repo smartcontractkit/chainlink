@@ -60,7 +60,7 @@ func setUp(t *testing.T, updateFrequencySec uint32) (*lpmocks.LogPoller, types.L
 	lpWrapper, err := functions.NewLogPollerWrapper(gethcommon.Address{}, config, client, lp, lggr)
 	require.NoError(t, err)
 
-	lp.On("LatestBlock").Return(int64(100), nil)
+	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
 	return lp, lpWrapper, client
 }

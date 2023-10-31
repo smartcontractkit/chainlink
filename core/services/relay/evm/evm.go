@@ -20,13 +20,13 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -42,10 +42,9 @@ import (
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ relaytypes.Relayer = &Relayer{}
+var _ relaytypes.Relayer = &Relayer{} //nolint:staticcheck
 
 type Relayer struct {
 	db               *sqlx.DB
@@ -140,7 +139,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	}
 
 	var mercuryConfig mercuryconfig.PluginConfig
-	if err := json.Unmarshal(pargs.PluginConfig, &mercuryConfig); err != nil {
+	if err = json.Unmarshal(pargs.PluginConfig, &mercuryConfig); err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
 
@@ -152,7 +151,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	configWatcher, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
+	cw, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
@@ -188,9 +187,9 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	default:
 		return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
 	}
-	transmitter := mercury.NewTransmitter(lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
+	transmitter := mercury.NewTransmitter(lggr, cw.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
 
-	return NewMercuryProvider(configWatcher, transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
+	return NewMercuryProvider(cw, transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
 }
 
 func (r *Relayer) NewFunctionsProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.FunctionsProvider, error) {
@@ -238,7 +237,7 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 }
 
 type configWatcher struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lggr             logger.Logger
 	contractAddress  common.Address
 	contractABI      abi.ABI
@@ -263,7 +262,6 @@ func newConfigWatcher(lggr logger.Logger,
 ) *configWatcher {
 	replayCtx, replayCancel := context.WithCancel(context.Background())
 	return &configWatcher{
-		StartStopOnce:    utils.StartStopOnce{},
 		lggr:             lggr.Named("ConfigWatcher").Named(contractAddress.String()),
 		contractAddress:  contractAddress,
 		contractABI:      contractABI,
@@ -274,7 +272,6 @@ func newConfigWatcher(lggr logger.Logger,
 		fromBlock:        fromBlock,
 		replayCtx:        replayCtx,
 		replayCancel:     replayCancel,
-		wg:               sync.WaitGroup{},
 	}
 
 }
@@ -312,7 +309,7 @@ func (c *configWatcher) Close() error {
 }
 
 func (c *configWatcher) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	return map[string]error{c.Name(): c.Healthy()}
 }
 
 func (c *configWatcher) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {

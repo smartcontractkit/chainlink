@@ -64,7 +64,7 @@ func DeploySCA(auth *bind.TransactOpts, backend bind.ContractBackend, owner comm
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &SCA{SCACaller: SCACaller{contract: contract}, SCATransactor: SCATransactor{contract: contract}, SCAFilterer: SCAFilterer{contract: contract}}, nil
+	return address, tx, &SCA{address: address, abi: *parsed, SCACaller: SCACaller{contract: contract}, SCATransactor: SCATransactor{contract: contract}, SCAFilterer: SCAFilterer{contract: contract}}, nil
 }
 
 type SCA struct {

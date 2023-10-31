@@ -18,7 +18,10 @@ type VRFV2PlusConfig struct {
 	FulfillmentFlatFeeLinkPPM       uint32  `envconfig:"FULFILLMENT_FLAT_FEE_LINK_PPM" default:"500"`             // Flat fee in ppm for LINK for the VRF Coordinator config
 	FulfillmentFlatFeeNativePPM     uint32  `envconfig:"FULFILLMENT_FLAT_FEE_NATIVE_PPM" default:"500"`           // Flat fee in ppm for native currency for the VRF Coordinator config
 
-	RandomnessRequestCountPerRequest uint16 `envconfig:"RANDOMNESS_REQUEST_COUNT_PER_REQUEST" default:"1"` // How many randomness requests to send per request
+	NumberOfSubToCreate int `envconfig:"NUMBER_OF_SUB_TO_CREATE" default:"1"` // Number of subscriptions to create
+
+	RandomnessRequestCountPerRequest          uint16 `envconfig:"RANDOMNESS_REQUEST_COUNT_PER_REQUEST" default:"1"`           // How many randomness requests to send per request
+	RandomnessRequestCountPerRequestDeviation uint16 `envconfig:"RANDOMNESS_REQUEST_COUNT_PER_REQUEST_DEVIATION" default:"0"` // How many randomness requests to send per request
 
 	//Wrapper Config
 	WrapperGasOverhead                      uint32  `envconfig:"WRAPPER_GAS_OVERHEAD" default:"50000"`
@@ -32,4 +35,11 @@ type VRFV2PlusConfig struct {
 	TestDuration          time.Duration `envconfig:"TEST_DURATION" default:"3m"` // How long to run the test for
 	RPS                   int64         `envconfig:"RPS" default:"1"`            // How many requests per second to send
 	RateLimitUnitDuration time.Duration `envconfig:"RATE_LIMIT_UNIT_DURATION" default:"1m"`
+	//Using existing environment and contracts
+	UseExistingEnv     bool   `envconfig:"USE_EXISTING_ENV" default:"false"` // Whether to use an existing environment or create a new one
+	CoordinatorAddress string `envconfig:"COORDINATOR_ADDRESS" default:""`   // Coordinator address
+	ConsumerAddress    string `envconfig:"CONSUMER_ADDRESS" default:""`      // Consumer address
+	LinkAddress        string `envconfig:"LINK_ADDRESS" default:""`          // Link address
+	SubID              string `envconfig:"SUB_ID" default:""`                // Subscription ID
+	KeyHash            string `envconfig:"KEY_HASH" default:""`
 }

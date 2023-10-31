@@ -270,13 +270,13 @@ Logging toggles verbose logging of the raw telemetry messages being sent.
 ```toml
 ServerPubKey = 'test-pub-key' # Example
 ```
-ServerPubKey is the public key of the telemetry server.
+ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
 
 ### URL
 ```toml
 URL = 'https://prom.test' # Example
 ```
-URL is where to send telemetry.
+URL is where to send telemetry. This field will be removed in a furture version
 
 ### BufferSize
 ```toml
@@ -307,6 +307,40 @@ SendTimeout is the max duration to wait for the request to complete when sending
 UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+
+## TelemetryIngress.Endpoints
+```toml
+[[TelemetryIngress.Endpoints]] # Example
+Network = 'EVM' # Example
+ChainID = '111551111' # Example
+ServerPubKey = 'test-pub-key-111551111-evm' # Example
+URL = 'localhost-111551111-evm:9000' # Example
+```
+
+
+### Network
+```toml
+Network = 'EVM' # Example
+```
+Network aka EVM, Solana, Starknet
+
+### ChainID
+```toml
+ChainID = '111551111' # Example
+```
+ChainID of the network
+
+### ServerPubKey
+```toml
+ServerPubKey = 'test-pub-key-111551111-evm' # Example
+```
+ServerPubKey is the public key of the telemetry server.
+
+### URL
+```toml
+URL = 'localhost-111551111-evm:9000' # Example
+```
+URL is where to send telemetry.
 
 ## AuditLogger
 ```toml
@@ -947,6 +981,8 @@ If both are configured, then for each link with another peer, V2 networking will
 automatically fall back to V1. If V2 starts working again later, it will automatically be preferred again. This is useful
 for migrating networks without downtime. Note that the two networking stacks _must not_ be configured to bind to the same IP/port.
 
+Note: P2P.V1 is deprecated will be removed in the future.
+
 All nodes in the OCR network should share the same networking stack.
 
 ### IncomingMessageBufferSize
@@ -983,7 +1019,7 @@ TraceLogging enables trace level logging.
 ## P2P.V1
 ```toml
 [P2P.V1]
-Enabled = true # Default
+Enabled = false # Default
 AnnounceIP = '1.2.3.4' # Example
 AnnouncePort = 1337 # Example
 BootstrapCheckInterval = '20s' # Default
@@ -995,11 +1031,11 @@ ListenPort = 1337 # Example
 NewStreamTimeout = '10s' # Default
 PeerstoreWriteInterval = '5m' # Default
 ```
-
+P2P.V1 is deprecated and will be removed in a future version.
 
 ### Enabled
 ```toml
-Enabled = true # Default
+Enabled = false # Default
 ```
 Enabled enables P2P V1.
 
@@ -1085,7 +1121,7 @@ PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networkin
 ## P2P.V2
 ```toml
 [P2P.V2]
-Enabled = false # Default
+Enabled = true # Default
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
 DeltaDial = '15s' # Default
@@ -1096,7 +1132,7 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 
 ### Enabled
 ```toml
-Enabled = false # Default
+Enabled = true # Default
 ```
 Enabled enables P2P V2.
 Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
@@ -1421,6 +1457,53 @@ InfiniteDepthQueries skips graphql query depth limit checks.
 DisableRateLimiting = false # Default
 ```
 DisableRateLimiting skips ratelimiting on asset requests.
+
+## Tracing
+```toml
+[Tracing]
+Enabled = false # Default
+CollectorTarget = "localhost:4317" # Example
+NodeID = "NodeID" # Example
+SamplingRatio = 1.0 # Example
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled turns trace collection on or off. On requires an OTEL Tracing Collector.
+
+### CollectorTarget
+```toml
+CollectorTarget = "localhost:4317" # Example
+```
+CollectorTarget is the logical address of the OTEL Tracing Collector.
+
+### NodeID
+```toml
+NodeID = "NodeID" # Example
+```
+NodeID is an unique name for this node relative to any other node traces are collected for.
+
+### SamplingRatio
+```toml
+SamplingRatio = 1.0 # Example
+```
+SamplingRatio is the ratio of traces to sample for this node.
+
+## Tracing.Attributes
+```toml
+[Tracing.Attributes]
+env = "test" # Example
+```
+Tracing.Attributes are user specified key-value pairs to associate in the context of the traces
+
+### env
+```toml
+env = "test" # Example
+```
+env is an example user specified key-value pair
 
 ## EVM
 EVM defaults depend on ChainID:
@@ -2643,8 +2726,8 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '15 gwei'
+Mode = 'L2Suggested'
+PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
@@ -3116,8 +3199,8 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '15 gwei'
+Mode = 'L2Suggested'
+PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
@@ -3717,6 +3800,162 @@ GasLimit = 5300000
 
 </p></details>
 
+<details><summary>Linea Goerli (59140)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 15
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '3m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 40
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>Linea Mainnet (59144)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 300
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '3m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '400 mwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 40
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 350
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
 <details><summary>Polygon Mumbai (80001)</summary><p>
 
 ```toml
@@ -3965,6 +4204,85 @@ ChainType = 'arbitrum'
 FinalityDepth = 50
 FinalityTagEnabled = false
 LinkContractAddress = '0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28'
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'Arbitrum'
+PriceDefault = '100 mwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMax = 1000000000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+EIP1559DynamicFees = false
+FeeCapDefault = '1 micro'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 14500000
+```
+
+</p></details>
+
+<details><summary>Arbitrum Sepolia (421614)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'arbitrum'
+FinalityDepth = 50
+FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000

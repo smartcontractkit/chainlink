@@ -88,13 +88,13 @@ LeaseRefreshInterval = '1s'
 [TelemetryIngress]
 UniConn = true
 Logging = false
-ServerPubKey = ''
-URL = ''
 BufferSize = 100
 MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
+URL = ''
+ServerPubKey = ''
 
 [AuditLogger]
 Enabled = false
@@ -195,7 +195,7 @@ PeerID = ''
 TraceLogging = false
 
 [P2P.V1]
-Enabled = true
+Enabled = false
 AnnounceIP = ''
 AnnouncePort = 0
 BootstrapCheckInterval = '20s'
@@ -208,7 +208,7 @@ NewStreamTimeout = '10s'
 PeerstoreWriteInterval = '5m0s'
 
 [P2P.V2]
-Enabled = false
+Enabled = true
 AnnounceAddresses = []
 DefaultBootstrappers = []
 DeltaDial = '15s'
@@ -259,6 +259,12 @@ DevWebServer = false
 OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
+
+[Tracing]
+Enabled = false
+CollectorTarget = ''
+NodeID = ''
+SamplingRatio = 0.0
 
 [[EVM]]
 ChainID = '1'

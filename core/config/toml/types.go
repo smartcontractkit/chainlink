@@ -1,11 +1,11 @@
 package toml
 
 import (
-	_ "embed"
 	"errors"
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -52,6 +52,7 @@ type Core struct {
 	Pyroscope        Pyroscope        `toml:",omitempty"`
 	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
+	Tracing          Tracing          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -85,6 +86,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Pyroscope.setFrom(&f.Pyroscope)
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
+	c.Tracing.setFrom(&f.Tracing)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -426,13 +428,22 @@ func (d *DatabaseBackup) setFrom(f *DatabaseBackup) {
 type TelemetryIngress struct {
 	UniConn      *bool
 	Logging      *bool
-	ServerPubKey *string
-	URL          *models.URL
 	BufferSize   *uint16
 	MaxBatchSize *uint16
 	SendInterval *models.Duration
 	SendTimeout  *models.Duration
 	UseBatchSend *bool
+	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
+
+	URL          *models.URL `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, this field will be removed in future versions
+	ServerPubKey *string     `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, this field will be removed in future versions
+}
+
+type TelemetryIngressEndpoint struct {
+	Network      *string
+	ChainID      *string
+	URL          *models.URL
+	ServerPubKey *string
 }
 
 func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
@@ -441,12 +452,6 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 	if v := f.Logging; v != nil {
 		t.Logging = v
-	}
-	if v := f.ServerPubKey; v != nil {
-		t.ServerPubKey = v
-	}
-	if v := f.URL; v != nil {
-		t.URL = v
 	}
 	if v := f.BufferSize; v != nil {
 		t.BufferSize = v
@@ -463,6 +468,29 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	if v := f.UseBatchSend; v != nil {
 		t.UseBatchSend = v
 	}
+	if v := f.Endpoints; v != nil {
+		t.Endpoints = v
+	}
+	if v := f.ServerPubKey; v != nil {
+		t.ServerPubKey = v
+	}
+	if v := f.URL; v != nil {
+		t.URL = v
+	}
+}
+
+func (t *TelemetryIngress) ValidateConfig() (err error) {
+	if (!t.URL.IsZero() || *t.ServerPubKey != "") && len(t.Endpoints) > 0 {
+		return configutils.ErrInvalid{Name: "URL", Value: t.URL.String(),
+			Msg: `Cannot set both TelemetryIngress.URL and TelemetryIngress.ServerPubKey alongside TelemetryIngress.Endpoints. Please use only TelemetryIngress.Endpoints:
+			[[TelemetryIngress.Endpoints]]
+			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+			URL = '...'
+			ServerPubKey = '...'`}
+	}
+
+	return nil
 }
 
 type AuditLogger struct {
@@ -1274,4 +1302,85 @@ func (t *ThresholdKeyShareSecrets) validateMerge(f *ThresholdKeyShareSecrets) (e
 	}
 
 	return err
+}
+
+type Tracing struct {
+	Enabled         *bool
+	CollectorTarget *string
+	NodeID          *string
+	SamplingRatio   *float64
+	Attributes      map[string]string `toml:",omitempty"`
+}
+
+func (t *Tracing) setFrom(f *Tracing) {
+	if v := f.Enabled; v != nil {
+		t.Enabled = f.Enabled
+	}
+	if v := f.CollectorTarget; v != nil {
+		t.CollectorTarget = f.CollectorTarget
+	}
+	if v := f.NodeID; v != nil {
+		t.NodeID = f.NodeID
+	}
+	if v := f.Attributes; v != nil {
+		t.Attributes = f.Attributes
+	}
+	if v := f.SamplingRatio; v != nil {
+		t.SamplingRatio = f.SamplingRatio
+	}
+}
+
+func (t *Tracing) ValidateConfig() (err error) {
+	if t.Enabled == nil || !*t.Enabled {
+		return err
+	}
+
+	if t.SamplingRatio != nil {
+		if *t.SamplingRatio < 0 || *t.SamplingRatio > 1 {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "SamplingRatio", Value: *t.SamplingRatio, Msg: "must be between 0 and 1"})
+		}
+	}
+
+	if t.CollectorTarget != nil {
+		ok := isValidURI(*t.CollectorTarget)
+		if !ok {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+		}
+	}
+
+	return err
+}
+
+var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)
+
+func isValidURI(uri string) bool {
+	if strings.Contains(uri, "://") {
+		// Standard URI check
+		_, _ = url.ParseRequestURI(uri)
+		// TODO: BCF-2703. Handle error. All external addresses currently fail validation until we have secure transport to external networks.
+		return false
+	}
+
+	// For URIs like "otel-collector:4317"
+	parts := strings.Split(uri, ":")
+	if len(parts) == 2 {
+		host, port := parts[0], parts[1]
+
+		// Validating hostname
+		if !isValidHostname(host) {
+			return false
+		}
+
+		// Validating port
+		if _, err := net.LookupPort("tcp", port); err != nil {
+			return false
+		}
+
+		return true
+	}
+	return false
+}
+
+func isValidHostname(hostname string) bool {
+	return hostnameRegex.MatchString(hostname)
 }

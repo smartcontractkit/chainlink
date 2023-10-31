@@ -21,7 +21,7 @@ contract BlockhashStore {
    * @param n the number of the block whose blockhash should be stored
    */
   function store(uint256 n) public {
-    bytes32 h = ChainSpecificUtil.getBlockhash(uint64(n));
+    bytes32 h = ChainSpecificUtil._getBlockhash(uint64(n));
     // solhint-disable-next-line custom-errors
     require(h != 0x0, "blockhash(n) failed");
     s_blockhashes[n] = h;
@@ -31,7 +31,7 @@ contract BlockhashStore {
    * @notice stores blockhash of the earliest block still available through BLOCKHASH.
    */
   function storeEarliest() external {
-    store(ChainSpecificUtil.getBlockNumber() - 256);
+    store(ChainSpecificUtil._getBlockNumber() - 256);
   }
 
   /**

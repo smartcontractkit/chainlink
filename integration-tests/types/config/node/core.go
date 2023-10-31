@@ -9,6 +9,8 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/segmentio/ksuid"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -113,14 +115,30 @@ func WithP2Pv1() NodeConfigOpt {
 			ListenIP:   utils2.MustIP("0.0.0.0"),
 			ListenPort: utils2.Ptr[uint16](6690),
 		}
+		// disabled default
+		c.P2P.V2 = toml.P2PV2{Enabled: utils2.Ptr(false)}
 	}
 }
 
 func WithP2Pv2() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V2 = toml.P2PV2{
-			Enabled:         utils2.Ptr(true),
 			ListenAddresses: &[]string{"0.0.0.0:6690"},
+		}
+	}
+}
+
+func WithTracing() NodeConfigOpt {
+	return func(c *chainlink.Config) {
+		c.Tracing = toml.Tracing{
+			Enabled:         utils2.Ptr(true),
+			CollectorTarget: utils2.Ptr("otel-collector:4317"),
+			// ksortable unique id
+			NodeID: utils2.Ptr(ksuid.New().String()),
+			Attributes: map[string]string{
+				"env": "smoke",
+			},
+			SamplingRatio: utils2.Ptr(1.0),
 		}
 	}
 }

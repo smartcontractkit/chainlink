@@ -1,4 +1,4 @@
-package cosmostxm_test
+package cosmostxm
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 	"time"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	tmtypes "github.com/cometbft/cometbft/proto/tendermint/types"
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -16,24 +15,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	tcmocks "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client/mocks"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
-	tcmocks "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client/mocks"
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	. "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 )
 
-func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddress) cosmostypes.Msg {
+func generateExecuteMsg(msg []byte, from, to cosmostypes.AccAddress) cosmostypes.Msg {
 	return &wasmtypes.MsgExecuteContract{
 		Sender:   from.String(),
 		Contract: to.String(),
@@ -52,7 +48,7 @@ func newReaderWriterMock(t *testing.T) *tcmocks.ReaderWriter {
 func TestTxm(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := testutils.LoggerAssertMaxLevel(t, zapcore.ErrorLevel)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
 	require.NoError(t, ks.Unlock("blah"))
 
 	for i := 0; i < 4; i++ {
@@ -61,8 +57,8 @@ func TestTxm(t *testing.T) {
 	}
 
 	loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
-	adapter := cosmostxm.NewKeystoreAdapter(loopKs, "wasm")
-	accounts, err := adapter.Accounts(testutils.Context(t))
+	adapter := newKeystoreAdapter(loopKs, "wasm")
+	accounts, err := adapter.Accounts()
 	require.NoError(t, err)
 	require.Equal(t, len(accounts), 4)
 
@@ -79,7 +75,7 @@ func TestTxm(t *testing.T) {
 	chainID := cosmostest.RandomChainID()
 	two := int64(2)
 	gasToken := "ucosm"
-	cfg := &cosmos.CosmosConfig{Chain: coscfg.Chain{
+	cfg := &coscfg.TOMLConfig{Chain: coscfg.Chain{
 		MaxMsgsPerBatch: &two,
 		GasToken:        &gasToken,
 	}}
@@ -96,10 +92,10 @@ func TestTxm(t *testing.T) {
 		tc := newReaderWriterMock(t)
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
 		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, logCfg, nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, logCfg, nil)
 
 		// Enqueue a single msg, then send it in a batch
-		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
+		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg([]byte(`1`), sender1, contract))
 		require.NoError(t, err)
 		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil)
 		tc.On("BatchSimulateUnsigned", mock.Anything, mock.Anything).Return(&cosmosclient.BatchSimResults{
@@ -112,32 +108,32 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil)
-		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
-			Header: tmtypes.Header{Height: 1},
+		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{SdkBlock: &tmservicetypes.Block{
+			Header: tmservicetypes.Header{Height: 1},
 		}}, nil)
 		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil)
 
 		txResp := &cosmostypes.TxResponse{TxHash: "4BF5122F344554C53BDE2EBB8CD2B7E3D1600AD631C385A5D7CCE23C7785459A"}
 		tc.On("Broadcast", mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{TxResponse: txResp}, nil)
 		tc.On("Tx", mock.Anything).Return(&txtypes.GetTxResponse{Tx: &txtypes.Tx{}, TxResponse: txResp}, nil)
-		txm.SendMsgBatch(testutils.Context(t))
+		txm.sendMsgBatch(testutils.Context(t))
 
 		// Should be in completed state
-		completed, err := txm.ORM().GetMsgs(id1)
+		completed, err := txm.orm.GetMsgs(id1)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(completed))
-		assert.Equal(t, completed[0].State, Confirmed)
+		assert.Equal(t, completed[0].State, cosmosdb.Confirmed)
 	})
 
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := newReaderWriterMock(t)
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
 		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
 
-		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
+		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg([]byte(`0`), sender1, contract))
 		require.NoError(t, err)
-		id2, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender2, contract))
+		id2, err := txm.Enqueue(contract.String(), generateExecuteMsg([]byte(`1`), sender2, contract))
 		require.NoError(t, err)
 
 		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil).Once()
@@ -168,32 +164,32 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil).Once()
-		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
-			Header: tmtypes.Header{Height: 1},
+		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{SdkBlock: &tmservicetypes.Block{
+			Header: tmservicetypes.Header{Height: 1},
 		}}, nil).Once()
 		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil).Once()
 		txResp := &cosmostypes.TxResponse{TxHash: "4BF5122F344554C53BDE2EBB8CD2B7E3D1600AD631C385A5D7CCE23C7785459A"}
 		tc.On("Broadcast", mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{TxResponse: txResp}, nil).Once()
 		tc.On("Tx", mock.Anything).Return(&txtypes.GetTxResponse{Tx: &txtypes.Tx{}, TxResponse: txResp}, nil).Once()
-		txm.SendMsgBatch(testutils.Context(t))
+		txm.sendMsgBatch(testutils.Context(t))
 
 		// Should be in completed state
-		completed, err := txm.ORM().GetMsgs(id1, id2)
+		completed, err := txm.orm.GetMsgs(id1, id2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(completed))
-		assert.Equal(t, Errored, completed[0].State) // cancelled
-		assert.Equal(t, Confirmed, completed[1].State)
+		assert.Equal(t, cosmosdb.Errored, completed[0].State) // cancelled
+		assert.Equal(t, cosmosdb.Confirmed, completed[1].State)
 	})
 
 	t.Run("two msgs different contracts", func(t *testing.T) {
 		tc := newReaderWriterMock(t)
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
 		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
 
-		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
+		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg([]byte(`0`), sender1, contract))
 		require.NoError(t, err)
-		id2, err := txm.Enqueue(contract2.String(), generateExecuteMsg(t, []byte(`1`), sender2, contract2))
+		id2, err := txm.Enqueue(contract2.String(), generateExecuteMsg([]byte(`1`), sender2, contract2))
 		require.NoError(t, err)
 		ids := []int64{id1, id2}
 		senders := []string{sender1.String(), sender2.String()}
@@ -227,22 +223,22 @@ func TestTxm(t *testing.T) {
 			tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 				GasUsed: 1_000_000,
 			}}, nil).Once()
-			tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
-				Header: tmtypes.Header{Height: 1},
+			tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{SdkBlock: &tmservicetypes.Block{
+				Header: tmservicetypes.Header{Height: 1},
 			}}, nil).Once()
 			tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil).Once()
 		}
 		txResp := &cosmostypes.TxResponse{TxHash: "4BF5122F344554C53BDE2EBB8CD2B7E3D1600AD631C385A5D7CCE23C7785459A"}
 		tc.On("Broadcast", mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{TxResponse: txResp}, nil).Twice()
 		tc.On("Tx", mock.Anything).Return(&txtypes.GetTxResponse{Tx: &txtypes.Tx{}, TxResponse: txResp}, nil).Twice()
-		txm.SendMsgBatch(testutils.Context(t))
+		txm.sendMsgBatch(testutils.Context(t))
 
 		// Should be in completed state
-		completed, err := txm.ORM().GetMsgs(id1, id2)
+		completed, err := txm.orm.GetMsgs(id1, id2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(completed))
-		assert.Equal(t, Confirmed, completed[0].State)
-		assert.Equal(t, Confirmed, completed[1].State)
+		assert.Equal(t, cosmosdb.Confirmed, completed[0].State)
+		assert.Equal(t, cosmosdb.Confirmed, completed[1].State)
 	})
 
 	t.Run("failed to confirm", func(t *testing.T) {
@@ -253,18 +249,18 @@ func TestTxm(t *testing.T) {
 		}, errors.New("not found")).Twice()
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
 		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
-		i, err := txm.ORM().InsertMsg("blah", "", []byte{0x01})
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
+		i, err := txm.orm.InsertMsg("blah", "", []byte{0x01})
 		require.NoError(t, err)
 		txh := "0x123"
-		require.NoError(t, txm.ORM().UpdateMsgs([]int64{i}, Started, &txh))
-		require.NoError(t, txm.ORM().UpdateMsgs([]int64{i}, Broadcasted, &txh))
-		err = txm.ConfirmTx(testutils.Context(t), tc, txh, []int64{i}, 2, 1*time.Millisecond)
+		require.NoError(t, txm.orm.UpdateMsgs([]int64{i}, cosmosdb.Started, &txh))
+		require.NoError(t, txm.orm.UpdateMsgs([]int64{i}, cosmosdb.Broadcasted, &txh))
+		err = txm.confirmTx(testutils.Context(t), tc, txh, []int64{i}, 2, 1*time.Millisecond)
 		require.NoError(t, err)
-		m, err := txm.ORM().GetMsgs(i)
+		m, err := txm.orm.GetMsgs(i)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(m))
-		assert.Equal(t, Errored, m[0].State)
+		assert.Equal(t, cosmosdb.Errored, m[0].State)
 	})
 
 	t.Run("confirm any unconfirmed", func(t *testing.T) {
@@ -284,36 +280,36 @@ func TestTxm(t *testing.T) {
 		}, nil).Once()
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
 		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
 
 		// Insert and broadcast 3 msgs with different txhashes.
-		id1, err := txm.ORM().InsertMsg("blah", "", []byte{0x01})
+		id1, err := txm.orm.InsertMsg("blah", "", []byte{0x01})
 		require.NoError(t, err)
-		id2, err := txm.ORM().InsertMsg("blah", "", []byte{0x02})
+		id2, err := txm.orm.InsertMsg("blah", "", []byte{0x02})
 		require.NoError(t, err)
-		id3, err := txm.ORM().InsertMsg("blah", "", []byte{0x03})
+		id3, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id1}, Started, &txHash1)
+		err = txm.orm.UpdateMsgs([]int64{id1}, cosmosdb.Started, &txHash1)
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id2}, Started, &txHash2)
+		err = txm.orm.UpdateMsgs([]int64{id2}, cosmosdb.Started, &txHash2)
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id3}, Started, &txHash3)
+		err = txm.orm.UpdateMsgs([]int64{id3}, cosmosdb.Started, &txHash3)
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id1}, Broadcasted, &txHash1)
+		err = txm.orm.UpdateMsgs([]int64{id1}, cosmosdb.Broadcasted, &txHash1)
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id2}, Broadcasted, &txHash2)
+		err = txm.orm.UpdateMsgs([]int64{id2}, cosmosdb.Broadcasted, &txHash2)
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id3}, Broadcasted, &txHash3)
+		err = txm.orm.UpdateMsgs([]int64{id3}, cosmosdb.Broadcasted, &txHash3)
 		require.NoError(t, err)
 
 		// Confirm them as in a restart while confirming scenario
-		txm.ConfirmAnyUnconfirmed(testutils.Context(t))
-		msgs, err := txm.ORM().GetMsgs(id1, id2, id3)
+		txm.confirmAnyUnconfirmed(testutils.Context(t))
+		msgs, err := txm.orm.GetMsgs(id1, id2, id3)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(msgs))
-		assert.Equal(t, Confirmed, msgs[0].State)
-		assert.Equal(t, Confirmed, msgs[1].State)
-		assert.Equal(t, Confirmed, msgs[2].State)
+		assert.Equal(t, cosmosdb.Confirmed, msgs[0].State)
+		assert.Equal(t, cosmosdb.Confirmed, msgs[1].State)
+		assert.Equal(t, cosmosdb.Confirmed, msgs[2].State)
 	})
 
 	t.Run("expired msgs", func(t *testing.T) {
@@ -322,36 +318,36 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
 		two := int64(2)
-		cfgShortExpiry := &cosmos.CosmosConfig{Chain: coscfg.Chain{
+		cfgShortExpiry := &coscfg.TOMLConfig{Chain: coscfg.Chain{
 			MaxMsgsPerBatch: &two,
 			TxMsgTimeout:    &timeout,
 		}}
 		cfgShortExpiry.SetDefaults()
 		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfgShortExpiry, loopKs, lggr, pgtest.NewQConfig(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfgShortExpiry, loopKs, lggr, pgtest.NewQConfig(true), nil)
 
 		// Send a single one expired
-		id1, err := txm.ORM().InsertMsg("blah", "", []byte{0x03})
+		id1, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
 		time.Sleep(1 * time.Millisecond)
-		txm.SendMsgBatch(testutils.Context(t))
+		txm.sendMsgBatch(testutils.Context(t))
 		// Should be marked errored
-		m, err := txm.ORM().GetMsgs(id1)
+		m, err := txm.orm.GetMsgs(id1)
 		require.NoError(t, err)
-		assert.Equal(t, Errored, m[0].State)
+		assert.Equal(t, cosmosdb.Errored, m[0].State)
 
 		// Send a batch which is all expired
-		id2, err := txm.ORM().InsertMsg("blah", "", []byte{0x03})
+		id2, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
-		id3, err := txm.ORM().InsertMsg("blah", "", []byte{0x03})
+		id3, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
 		time.Sleep(1 * time.Millisecond)
-		txm.SendMsgBatch(testutils.Context(t))
+		txm.sendMsgBatch(testutils.Context(t))
 		require.NoError(t, err)
-		ms, err := txm.ORM().GetMsgs(id2, id3)
+		ms, err := txm.orm.GetMsgs(id2, id3)
 		require.NoError(t, err)
-		assert.Equal(t, Errored, ms[0].State)
-		assert.Equal(t, Errored, ms[1].State)
+		assert.Equal(t, cosmosdb.Errored, ms[0].State)
+		assert.Equal(t, cosmosdb.Errored, ms[1].State)
 	})
 
 	t.Run("started msgs", func(t *testing.T) {
@@ -360,8 +356,8 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil)
-		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
-			Header: tmtypes.Header{Height: 1},
+		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{SdkBlock: &tmservicetypes.Block{
+			Header: tmservicetypes.Header{Height: 1},
 		}}, nil)
 		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil)
 		txResp := &cosmostypes.TxResponse{TxHash: "4BF5122F344554C53BDE2EBB8CD2B7E3D1600AD631C385A5D7CCE23C7785459A"}
@@ -369,17 +365,17 @@ func TestTxm(t *testing.T) {
 		tc.On("Tx", mock.Anything).Return(&txtypes.GetTxResponse{Tx: &txtypes.Tx{}, TxResponse: txResp}, nil)
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
 		two := int64(2)
-		cfgMaxMsgs := &cosmos.CosmosConfig{Chain: coscfg.Chain{
+		cfgMaxMsgs := &coscfg.TOMLConfig{Chain: coscfg.Chain{
 			MaxMsgsPerBatch: &two,
 		}}
 		cfgMaxMsgs.SetDefaults()
 		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfgMaxMsgs, loopKs, lggr, pgtest.NewQConfig(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfgMaxMsgs, loopKs, lggr, pgtest.NewQConfig(true), nil)
 
 		// Leftover started is processed
-		msg1 := generateExecuteMsg(t, []byte{0x03}, sender1, contract)
+		msg1 := generateExecuteMsg([]byte{0x03}, sender1, contract)
 		id1 := mustInsertMsg(t, txm, contract.String(), msg1)
-		require.NoError(t, txm.ORM().UpdateMsgs([]int64{id1}, Started, nil))
+		require.NoError(t, txm.orm.UpdateMsgs([]int64{id1}, cosmosdb.Started, nil))
 		msgs := cosmosclient.SimMsgs{{ID: id1, Msg: &wasmtypes.MsgExecuteContract{
 			Sender:   sender1.String(),
 			Msg:      []byte{0x03},
@@ -388,16 +384,16 @@ func TestTxm(t *testing.T) {
 		tc.On("BatchSimulateUnsigned", msgs, mock.Anything).
 			Return(&cosmosclient.BatchSimResults{Failed: nil, Succeeded: msgs}, nil).Once()
 		time.Sleep(1 * time.Millisecond)
-		txm.SendMsgBatch(testutils.Context(t))
-		m, err := txm.ORM().GetMsgs(id1)
+		txm.sendMsgBatch(testutils.Context(t))
+		m, err := txm.orm.GetMsgs(id1)
 		require.NoError(t, err)
-		assert.Equal(t, Confirmed, m[0].State)
+		assert.Equal(t, cosmosdb.Confirmed, m[0].State)
 
 		// Leftover started is not cancelled
-		msg2 := generateExecuteMsg(t, []byte{0x04}, sender1, contract)
-		msg3 := generateExecuteMsg(t, []byte{0x05}, sender1, contract)
+		msg2 := generateExecuteMsg([]byte{0x04}, sender1, contract)
+		msg3 := generateExecuteMsg([]byte{0x05}, sender1, contract)
 		id2 := mustInsertMsg(t, txm, contract.String(), msg2)
-		require.NoError(t, txm.ORM().UpdateMsgs([]int64{id2}, Started, nil))
+		require.NoError(t, txm.orm.UpdateMsgs([]int64{id2}, cosmosdb.Started, nil))
 		time.Sleep(time.Millisecond) // ensure != CreatedAt
 		id3 := mustInsertMsg(t, txm, contract.String(), msg3)
 		msgs = cosmosclient.SimMsgs{{ID: id2, Msg: &wasmtypes.MsgExecuteContract{
@@ -412,19 +408,19 @@ func TestTxm(t *testing.T) {
 		tc.On("BatchSimulateUnsigned", msgs, mock.Anything).
 			Return(&cosmosclient.BatchSimResults{Failed: nil, Succeeded: msgs}, nil).Once()
 		time.Sleep(1 * time.Millisecond)
-		txm.SendMsgBatch(testutils.Context(t))
+		txm.sendMsgBatch(testutils.Context(t))
 		require.NoError(t, err)
-		ms, err := txm.ORM().GetMsgs(id2, id3)
+		ms, err := txm.orm.GetMsgs(id2, id3)
 		require.NoError(t, err)
-		assert.Equal(t, Confirmed, ms[0].State)
-		assert.Equal(t, Confirmed, ms[1].State)
+		assert.Equal(t, cosmosdb.Confirmed, ms[0].State)
+		assert.Equal(t, cosmosdb.Confirmed, ms[1].State)
 	})
 }
 
-func mustInsertMsg(t *testing.T, txm *cosmostxm.Txm, contractID string, msg cosmostypes.Msg) int64 {
-	typeURL, raw, err := txm.MarshalMsg(msg)
+func mustInsertMsg(t *testing.T, txm *Txm, contractID string, msg cosmostypes.Msg) int64 {
+	typeURL, raw, err := txm.marshalMsg(msg)
 	require.NoError(t, err)
-	id, err := txm.ORM().InsertMsg(contractID, typeURL, raw)
+	id, err := txm.orm.InsertMsg(contractID, typeURL, raw)
 	require.NoError(t, err)
 	return id
 }

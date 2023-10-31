@@ -91,7 +91,7 @@ func TestUserController_CreateUser(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	longPassword := strings.Repeat("x", sessions.MaxBcryptPasswordLength+1)
 
@@ -186,8 +186,7 @@ func TestUserController_UpdateRole(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	u := cltest.User{}
-	client := app.NewHTTPClient(&u)
+	client := app.NewHTTPClient(nil)
 	user := cltest.MustRandomUser(t)
 	err := app.SessionORM().CreateUser(&user)
 	require.NoError(t, err)
@@ -234,7 +233,7 @@ func TestUserController_DeleteUser(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 	user := cltest.MustRandomUser(t)
 	err := app.SessionORM().CreateUser(&user)
 	require.NoError(t, err)
@@ -260,7 +259,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: cltest.Password,
 	})
@@ -282,7 +281,7 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: "wrong-password",
 	})
@@ -298,7 +297,7 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: cltest.Password,
 	})
@@ -315,7 +314,7 @@ func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: "wrong-password",
 	})

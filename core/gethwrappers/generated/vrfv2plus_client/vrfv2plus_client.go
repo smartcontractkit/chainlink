@@ -50,7 +50,7 @@ func DeployVRFV2PlusClient(auth *bind.TransactOpts, backend bind.ContractBackend
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV2PlusClient{VRFV2PlusClientCaller: VRFV2PlusClientCaller{contract: contract}, VRFV2PlusClientTransactor: VRFV2PlusClientTransactor{contract: contract}, VRFV2PlusClientFilterer: VRFV2PlusClientFilterer{contract: contract}}, nil
+	return address, tx, &VRFV2PlusClient{address: address, abi: *parsed, VRFV2PlusClientCaller: VRFV2PlusClientCaller{contract: contract}, VRFV2PlusClientTransactor: VRFV2PlusClientTransactor{contract: contract}, VRFV2PlusClientFilterer: VRFV2PlusClientFilterer{contract: contract}}, nil
 }
 
 type VRFV2PlusClient struct {

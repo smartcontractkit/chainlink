@@ -957,6 +957,16 @@ func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockN
 	return
 }
 
+func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (nonce evmtypes.Nonce, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	sql := `SELECT nonce FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 AND nonce IS NOT NULL ORDER BY nonce DESC LIMIT 1`
+	err = qq.Get(&nonce, sql, fromAddress, chainId.String())
+	return
+}
+
 // FindTxWithIdempotencyKey returns any broadcast ethtx with the given idempotencyKey and chainID
 func (o *evmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID *big.Int) (etx *Tx, err error) {
 	var cancel context.CancelFunc
@@ -1413,11 +1423,12 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 }
 
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
-// Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrNextNonceCallback txmgrtypes.QueryerFunc, qopts ...pg.QOpt) error {
-	qq := o.q.WithOpts(qopts...)
-
+func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	if etx.BroadcastAt == nil {
 		return errors.New("unconfirmed transaction must have broadcast_at time")
 	}
@@ -1436,9 +1447,6 @@ func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *Tx, attempt TxAtt
 	etx.State = txmgr.TxUnconfirmed
 	attempt.State = NewAttemptState
 	return qq.Transaction(func(tx pg.Queryer) error {
-		if err := incrNextNonceCallback(tx); err != nil {
-			return pkgerrors.Wrap(err, "SaveEthTxAttempt failed on incrNextNonceCallback")
-		}
 		var dbEtx DbEthTx
 		dbEtx.FromTx(etx)
 		if err := tx.Get(&dbEtx, `UPDATE evm.txes SET state=$1, error=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id = $5 RETURNING *`, dbEtx.State, dbEtx.Error, dbEtx.BroadcastAt, dbEtx.InitialBroadcastAt, dbEtx.ID); err != nil {
@@ -1478,14 +1486,23 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 		// Note:  the record of the original abandoned transaction will remain in evm.txes, only the attempt is replaced.  (Any receipt
 		// associated with the abandoned attempt would also be lost, although this shouldn't happen since only unconfirmed transactions
 		// can be abandoned.)
-		_, err := tx.Exec(`DELETE FROM evm.tx_attempts a USING evm.txes t
+		res, err2 := tx.Exec(`DELETE FROM evm.tx_attempts a USING evm.txes t
 			WHERE t.id = a.eth_tx_id AND a.hash = $1 AND t.state = $2 AND t.error = 'abandoned'`,
 			attempt.Hash, txmgr.TxFatalError,
 		)
-		if err == nil {
+
+		if err2 != nil {
+			// If the DELETE fails, we don't want to abort before at least attempting the INSERT. tx hash conflicts with
+			// abandoned transactions can only happen after a nonce reset. If the node is operating normally but there is
+			// some unexpected issue with the DELETE query, blocking the txmgr from sending transactions would be risky
+			// and could potentially get the node stuck. If the INSERT is going to succeed then we definitely want to continue.
+			// And even if the INSERT fails, an error message showing the txmgr is having trouble inserting tx's in the db may be
+			// easier to understand quickly if there is a problem with the node.
+			o.logger.Errorw("Ignoring unexpected db error while checking for txhash conflict", "err", err2)
+		} else if rows, err := res.RowsAffected(); err != nil {
+			o.logger.Errorw("Ignoring unexpected db error reading rows affected while checking for txhash conflict", "err", err)
+		} else if rows > 0 {
 			o.logger.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", attempt.Hash, attempt.TxID)
-		} else if errors.Is(err, sql.ErrNoRows) {
-			return err
 		}
 
 		var dbAttempt DbEthTxAttempt
@@ -1494,7 +1511,7 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 		if e != nil {
 			return pkgerrors.Wrap(e, "failed to BindNamed")
 		}
-		err = tx.Get(&dbAttempt, query, args...)
+		err := tx.Get(&dbAttempt, query, args...)
 		if err != nil {
 			var pqErr *pgconn.PgError
 			if isPqErr := errors.As(err, &pqErr); isPqErr &&

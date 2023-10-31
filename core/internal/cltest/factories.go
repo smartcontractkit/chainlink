@@ -34,7 +34,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -490,8 +490,6 @@ func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2
 	for _, cid := range r.chainIDs {
 		require.NoError(t, keystore.Add(key.Address, cid.ToInt()))
 		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
-		err := keystore.Reset(key.Address, cid.ToInt(), r.Nonce)
-		require.NoError(t, err)
 		if r.Disabled {
 			require.NoError(t, keystore.Disable(key.Address, cid.ToInt()))
 		}

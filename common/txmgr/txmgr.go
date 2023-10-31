@@ -3,19 +3,21 @@ package txmgr
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -39,13 +41,13 @@ type TxManager[
 	FEE feetypes.Fee,
 ] interface {
 	types.HeadTrackable[HEAD, BLOCK_HASH]
-	services.ServiceCtx
+	services.Service
 	Trigger(addr ADDR)
 	CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH]) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error)
 	RegisterResumeCallback(fn ResumeCallback)
 	SendNativeToken(ctx context.Context, chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
-	Reset(f func(), addr ADDR, abandon bool) error
+	Reset(addr ADDR, abandon bool) error
 }
 
 type reset struct {
@@ -67,7 +69,7 @@ type Txm[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
-	utils.StartStopOnce
+	services.StateMachine
 	logger         logger.Logger
 	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	config         txmgrtypes.TransactionManagerChainConfig
@@ -91,7 +93,7 @@ type Txm[
 	confirmer        *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	sequenceSyncer   SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH]
+	sequenceSyncer   SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH, SEQ]
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
@@ -120,7 +122,7 @@ func NewTxm[
 	fwdMgr txmgrtypes.ForwarderManager[ADDR],
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	sequenceSyncer SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH],
+	sequenceSyncer SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH, SEQ],
 	broadcaster *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
@@ -164,14 +166,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 	return b.StartOnce("Txm", func() error {
 		var ms services.MultiStart
 		if err := ms.Start(ctx, b.broadcaster); err != nil {
-			return errors.Wrap(err, "Txm: Broadcaster failed to start")
+			return pkgerrors.Wrap(err, "Txm: Broadcaster failed to start")
 		}
 		if err := ms.Start(ctx, b.confirmer); err != nil {
-			return errors.Wrap(err, "Txm: Confirmer failed to start")
+			return pkgerrors.Wrap(err, "Txm: Confirmer failed to start")
 		}
 
 		if err := ms.Start(ctx, b.txAttemptBuilder); err != nil {
-			return errors.Wrap(err, "Txm: Estimator failed to start")
+			return pkgerrors.Wrap(err, "Txm: Estimator failed to start")
 		}
 
 		b.wg.Add(1)
@@ -188,7 +190,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 
 		if b.fwdMgr != nil {
 			if err := ms.Start(ctx, b.fwdMgr); err != nil {
-				return errors.Wrap(err, "Txm: ForwarderManager failed to start")
+				return pkgerrors.Wrap(err, "Txm: ForwarderManager failed to start")
 			}
 		}
 
@@ -196,13 +198,11 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 	})
 }
 
-// Reset stops Broadcaster/Confirmer, executes callback, then starts them
-// again
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(callback func(), addr ADDR, abandon bool) (err error) {
+// Reset stops Broadcaster/Confirmer, executes callback, then starts them again
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(addr ADDR, abandon bool) (err error) {
 	ok := b.IfStarted(func() {
 		done := make(chan error)
 		f := func() {
-			callback()
 			if abandon {
 				err = b.abandon(addr)
 			}
@@ -224,7 +224,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(ad
 	ctx, cancel := utils.StopChan(b.chStop).NewCtx()
 	defer cancel()
 	err = b.txStore.Abandon(ctx, b.chainID, addr)
-	return errors.Wrapf(err, "abandon failed to update txes for key %s", addr.String())
+	return pkgerrors.Wrapf(err, "abandon failed to update txes for key %s", addr.String())
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (merr error) {
@@ -241,13 +241,15 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (m
 		}
 		if b.fwdMgr != nil {
 			if err := b.fwdMgr.Close(); err != nil {
-				return errors.Wrap(err, "Txm: failed to stop ForwarderManager")
+				merr = errors.Join(merr, pkgerrors.Wrap(err, "Txm: failed to stop ForwarderManager"))
 			}
 		}
 
 		b.wg.Wait()
 
-		b.txAttemptBuilder.Close()
+		if err := b.txAttemptBuilder.Close(); err != nil {
+			merr = errors.Join(merr, pkgerrors.Wrap(err, "Txm: failed to close TxAttemptBuilder"))
+		}
 
 		return nil
 	})
@@ -442,7 +444,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		var existingTx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 		existingTx, err = b.txStore.FindTxWithIdempotencyKey(ctx, *txRequest.IdempotencyKey, b.chainID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return tx, errors.Wrap(err, "Failed to search for transaction with IdempotencyKey")
+			return tx, pkgerrors.Wrap(err, "Failed to search for transaction with IdempotencyKey")
 		}
 		if existingTx != nil {
 			b.logger.Infow("Found a Tx with IdempotencyKey. Returning existing Tx without creating a new one.", "IdempotencyKey", *txRequest.IdempotencyKey)
@@ -474,7 +476,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 
 	err = b.txStore.CheckTxQueueCapacity(ctx, txRequest.FromAddress, b.txConfig.MaxQueued(), b.chainID)
 	if err != nil {
-		return tx, errors.Wrap(err, "Txm#CreateTransaction")
+		return tx, pkgerrors.Wrap(err, "Txm#CreateTransaction")
 	}
 
 	tx, err = b.txStore.CreateTransaction(ctx, txRequest, b.chainID)
@@ -484,7 +486,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error) {
 	if !b.txConfig.ForwardersEnabled() {
-		return forwarder, errors.Errorf("Forwarding is not enabled, to enable set Transactions.ForwardersEnabled =true")
+		return forwarder, pkgerrors.Errorf("Forwarding is not enabled, to enable set Transactions.ForwardersEnabled =true")
 	}
 	forwarder, err = b.fwdMgr.ForwarderFor(eoa)
 	return
@@ -492,7 +494,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForward
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(addr ADDR) error {
 	err := b.keyStore.CheckEnabled(addr, b.chainID)
-	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr, b.chainID.String())
+	return pkgerrors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr, b.chainID.String())
 }
 
 // SendNativeToken creates a transaction that transfers the given value of native tokens
@@ -509,7 +511,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 		Strategy:       NewSendEveryStrategy(),
 	}
 	etx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
-	return etx, errors.Wrap(err, "SendNativeToken failed to insert tx")
+	return etx, pkgerrors.Wrap(err, "SendNativeToken failed to insert tx")
 }
 
 type NullTxManager[
@@ -546,7 +548,7 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Cre
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetForwarderForEOA(addr ADDR) (fwdr ADDR, err error) {
 	return fwdr, err
 }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Reset(f func(), addr ADDR, abandon bool) error {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Reset(addr ADDR, abandon bool) error {
 	return nil
 }
 

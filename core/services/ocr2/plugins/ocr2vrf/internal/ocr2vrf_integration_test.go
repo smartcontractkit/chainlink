@@ -48,8 +48,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -224,8 +225,7 @@ func setupNodeOCR2(
 	useForwarders bool,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
-	p2pKey, err := p2pkey.NewV2()
-	require.NoError(t, err)
+	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
@@ -252,9 +252,13 @@ func setupNodeOCR2(
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
-	require.NoError(t, err)
-	require.Len(t, sendingKeys, 1)
+	var sendingKeys []ethkey.KeyV2
+	{
+		var err error
+		sendingKeys, err = app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+		require.NoError(t, err)
+		require.Len(t, sendingKeys, 1)
+	}
 	transmitter := sendingKeys[0].Address
 	effectiveTransmitter := sendingKeys[0].Address
 
@@ -322,12 +326,12 @@ func setupNodeOCR2(
 }
 
 func TestIntegration_OCR2VRF_ForwarderFlow(t *testing.T) {
-	t.Skip()
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/VRF-688")
 	runOCR2VRFTest(t, true)
 }
 
 func TestIntegration_OCR2VRF(t *testing.T) {
-	t.Skip()
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/VRF-688")
 	runOCR2VRFTest(t, false)
 }
 
@@ -493,10 +497,10 @@ linkEthFeedAddress     	= "%s"
 			uni.feedAddress.String(),
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
-		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec)
-		require.NoError(t, err)
-		err = apps[i].AddJobV2(context.Background(), &ocrJob)
-		require.NoError(t, err)
+		ocrJob2, err2 := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec)
+		require.NoError(t, err2)
+		err2 = apps[i].AddJobV2(context.Background(), &ocrJob2)
+		require.NoError(t, err2)
 	}
 
 	t.Log("Waiting for DKG key to get written")
@@ -505,10 +509,10 @@ linkEthFeedAddress     	= "%s"
 	var emptyKH [32]byte
 	emptyHash := crypto.Keccak256Hash(emptyKH[:])
 	gomega.NewWithT(t).Eventually(func() bool {
-		kh, err := uni.beacon.SProvingKeyHash(&bind.CallOpts{
+		kh, err2 := uni.beacon.SProvingKeyHash(&bind.CallOpts{
 			Context: testutils.Context(t),
 		})
-		require.NoError(t, err)
+		require.NoError(t, err2)
 		t.Log("proving keyhash:", hexutil.Encode(kh[:]))
 		return crypto.Keccak256Hash(kh[:]) != emptyHash
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
@@ -591,9 +595,9 @@ linkEthFeedAddress     	= "%s"
 	// poll until we're able to redeem the randomness without reverting
 	// at that point, it's been fulfilled
 	gomega.NewWithT(t).Eventually(func() bool {
-		_, err := uni.consumer.TestRedeemRandomness(uni.owner, uni.subID, redemptionRequestID)
-		t.Logf("TestRedeemRandomness err: %+v", err)
-		return err == nil
+		_, err2 := uni.consumer.TestRedeemRandomness(uni.owner, uni.subID, redemptionRequestID)
+		t.Logf("TestRedeemRandomness err: %+v", err2)
+		return err2 == nil
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
 
 	gomega.NewWithT(t).Eventually(func() bool {
@@ -601,8 +605,8 @@ linkEthFeedAddress     	= "%s"
 		// We use an upper and lower bound such that this part of the test is not excessively brittle to upstream tweaks.
 		refundUpperBound := big.NewInt(0).Add(assets.GWei(17_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
 		refundLowerBound := big.NewInt(0).Add(assets.GWei(15_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
-		subAfterRefund, err := uni.coordinator.GetSubscription(nil, uni.subID)
-		require.NoError(t, err)
+		subAfterRefund, err2 := uni.coordinator.GetSubscription(nil, uni.subID)
+		require.NoError(t, err2)
 		balanceAfterRefund = subAfterRefund.Balance
 		if ok := ((balanceAfterRefund.Cmp(refundUpperBound) == -1) && (balanceAfterRefund.Cmp(refundLowerBound) == 1)); !ok {
 			t.Logf("unexpected sub balance after refund: %d", balanceAfterRefund)
@@ -626,8 +630,8 @@ linkEthFeedAddress     	= "%s"
 	// get total owed amount to NOPs and ensure linkAvailableForPayment (CLL profit) calculation is correct
 	nopOwedAmount := new(big.Int)
 	for _, transmitter := range transmitters {
-		owedAmount, err := uni.beacon.OwedPayment(nil, transmitter)
-		require.NoError(t, err)
+		owedAmount, err2 := uni.beacon.OwedPayment(nil, transmitter)
+		require.NoError(t, err2)
 		nopOwedAmount = new(big.Int).Add(nopOwedAmount, owedAmount)
 	}
 	linkAvailable, err := uni.beacon.LinkAvailableForPayment(nil)
@@ -656,27 +660,27 @@ linkEthFeedAddress     	= "%s"
 	totalNopPayout := new(big.Int)
 	for idx, payeeTransactor := range payeeTransactors {
 		// Fund the payee with some ETH.
-		n, err := uni.backend.NonceAt(testutils.Context(t), uni.owner.From, nil)
-		require.NoError(t, err)
+		n, err2 := uni.backend.NonceAt(testutils.Context(t), uni.owner.From, nil)
+		require.NoError(t, err2)
 		tx := types.NewTransaction(
 			n, payeeTransactor.From,
 			assets.Ether(1).ToInt(),
 			21000,
 			assets.GWei(1).ToInt(),
 			nil)
-		signedTx, err := uni.owner.Signer(uni.owner.From, tx)
-		require.NoError(t, err)
-		err = uni.backend.SendTransaction(testutils.Context(t), signedTx)
-		require.NoError(t, err)
+		signedTx, err2 := uni.owner.Signer(uni.owner.From, tx)
+		require.NoError(t, err2)
+		err2 = uni.backend.SendTransaction(testutils.Context(t), signedTx)
+		require.NoError(t, err2)
 
-		_, err = uni.beacon.WithdrawPayment(payeeTransactor, transmitters[idx])
-		require.NoError(t, err)
+		_, err2 = uni.beacon.WithdrawPayment(payeeTransactor, transmitters[idx])
+		require.NoError(t, err2)
 		uni.backend.Commit()
-		payoutAmount, err := uni.link.BalanceOf(nil, payeeTransactor.From)
-		require.NoError(t, err)
+		payoutAmount, err2 := uni.link.BalanceOf(nil, payeeTransactor.From)
+		require.NoError(t, err2)
 		totalNopPayout = new(big.Int).Add(totalNopPayout, payoutAmount)
-		owedAmountAfter, err := uni.beacon.OwedPayment(nil, transmitters[idx])
-		require.NoError(t, err)
+		owedAmountAfter, err2 := uni.beacon.OwedPayment(nil, transmitters[idx])
+		require.NoError(t, err2)
 		require.True(t, owedAmountAfter.Cmp(big.NewInt(0)) == 0)
 	}
 	require.True(t, nopOwedAmount.Cmp(totalNopPayout) == 0)
@@ -710,33 +714,33 @@ linkEthFeedAddress     	= "%s"
 	gomega.NewWithT(t).Eventually(func() bool {
 
 		var errs []error
-		rw1, err := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(0))
-		t.Logf("TestRedeemRandomness 1st word err: %+v", err)
-		errs = append(errs, err)
-		rw2, err := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(1))
-		t.Logf("TestRedeemRandomness 2nd word err: %+v", err)
-		errs = append(errs, err)
-		rw3, err := uni.consumer.SReceivedRandomnessByRequestID(nil, fulfillmentRequestID, big.NewInt(0))
-		t.Logf("FulfillRandomness 1st word err: %+v", err)
-		errs = append(errs, err)
-		rw4, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, batchFulfillmentRequestID1, big.NewInt(0))
-		t.Logf("Batch FulfillRandomness 1st word err: %+v", err)
-		errs = append(errs, err)
-		rw5, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, batchFulfillmentRequestID2, big.NewInt(0))
-		t.Logf("Batch FulfillRandomness 2nd word err: %+v", err)
-		errs = append(errs, err)
-		batchTotalRequests, err := uni.loadTestConsumer.STotalRequests(nil)
-		t.Logf("Batch FulfillRandomness total requests err: %+v", err)
-		errs = append(errs, err)
-		batchTotalFulfillments, err := uni.loadTestConsumer.STotalFulfilled(nil)
-		t.Logf("Batch FulfillRandomness total fulfillments err: %+v", err)
-		errs = append(errs, err)
-		err = nil
+		rw1, err2 := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(0))
+		t.Logf("TestRedeemRandomness 1st word err: %+v", err2)
+		errs = append(errs, err2)
+		rw2, err2 := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(1))
+		t.Logf("TestRedeemRandomness 2nd word err: %+v", err2)
+		errs = append(errs, err2)
+		rw3, err2 := uni.consumer.SReceivedRandomnessByRequestID(nil, fulfillmentRequestID, big.NewInt(0))
+		t.Logf("FulfillRandomness 1st word err: %+v", err2)
+		errs = append(errs, err2)
+		rw4, err2 := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, batchFulfillmentRequestID1, big.NewInt(0))
+		t.Logf("Batch FulfillRandomness 1st word err: %+v", err2)
+		errs = append(errs, err2)
+		rw5, err2 := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, batchFulfillmentRequestID2, big.NewInt(0))
+		t.Logf("Batch FulfillRandomness 2nd word err: %+v", err2)
+		errs = append(errs, err2)
+		batchTotalRequests, err2 := uni.loadTestConsumer.STotalRequests(nil)
+		t.Logf("Batch FulfillRandomness total requests err: %+v", err2)
+		errs = append(errs, err2)
+		batchTotalFulfillments, err2 := uni.loadTestConsumer.STotalFulfilled(nil)
+		t.Logf("Batch FulfillRandomness total fulfillments err: %+v", err2)
+		errs = append(errs, err2)
+		err2 = nil
 		if batchTotalRequests.Int64() != batchTotalFulfillments.Int64() {
-			err = errors.New("batchTotalRequests is not equal to batchTotalFulfillments")
-			errs = append(errs, err)
+			err2 = errors.New("batchTotalRequests is not equal to batchTotalFulfillments")
+			errs = append(errs, err2)
 		}
-		t.Logf("Batch FulfillRandomness total requests/fulfillments equal err: %+v", err)
+		t.Logf("Batch FulfillRandomness total requests/fulfillments equal err: %+v", err2)
 
 		t.Logf("randomness from redeemRandomness: %s %s", rw1.String(), rw2.String())
 		t.Logf("randomness from fulfillRandomness: %s", rw3.String())

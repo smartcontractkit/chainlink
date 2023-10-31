@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -41,7 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -170,12 +169,12 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	)
 	for _, author := range vrfConsumers {
 		// Deploy a VRF consumer. It has a starting balance of 500 LINK.
-		consumerContractAddress, _, consumerContract, err :=
+		consumerContractAddress, _, consumerContract, err2 :=
 			vrfv2plus_consumer_example.DeployVRFV2PlusConsumerExample(
 				author, backend, coordinatorAddress, linkAddress)
-		require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
-		_, err = linkContract.Transfer(sergey, consumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
-		require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
+		require.NoError(t, err2, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
+		_, err2 = linkContract.Transfer(sergey, consumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
+		require.NoError(t, err2, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
 
 		consumerContracts = append(consumerContracts, vrftesthelpers.NewVRFV2PlusConsumer(consumerContract))
 		consumerContractAddresses = append(consumerContractAddresses, consumerContractAddress)
@@ -487,9 +486,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *tes
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
-	// See: https://smartcontract-it.atlassian.net/browse/VRF-589
-	// Temporarily skipping to figure out issue with test
-	t.Skip()
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/VRF-589")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
@@ -1019,11 +1016,11 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 			big.NewInt(1000000000000000000)) // 0.1 LINK
 		require.NoError(tt, err)
 		uni.backend.Commit()
-		subID, err := carolContract.SSubId(nil)
-		require.NoError(tt, err)
-		_, err = carolContract.TopUpSubscriptionNative(carol,
+		subID, err2 := carolContract.SSubId(nil)
+		require.NoError(tt, err2)
+		_, err2 = carolContract.TopUpSubscriptionNative(carol,
 			big.NewInt(2000000000000000000)) // 0.2 ETH
-		require.NoError(tt, err)
+		require.NoError(tt, err2)
 		gasRequested := 50_000
 		nw := 1
 		requestedIncomingConfs := 3
@@ -1071,11 +1068,11 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 		consumerContract := uni.consumerProxyContract
 		consumerContractAddress := uni.consumerProxyContractAddress
 
-		_, err = consumerContract.CreateSubscriptionAndFund(consumerOwner, assets.Ether(5).ToInt())
-		require.NoError(t, err)
+		_, err2 := consumerContract.CreateSubscriptionAndFund(consumerOwner, assets.Ether(5).ToInt())
+		require.NoError(t, err2)
 		uni.backend.Commit()
-		subID, err := consumerContract.SSubId(nil)
-		require.NoError(t, err)
+		subID, err2 := consumerContract.SSubId(nil)
+		require.NoError(t, err2)
 		gasRequested := 50_000
 		nw := 1
 		requestedIncomingConfs := 3
@@ -1096,15 +1093,6 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 			500_000,
 		)
 	})
-}
-
-func AssertEthBalances(t *testing.T, backend *backends.SimulatedBackend, addresses []common.Address, balances []*big.Int) {
-	require.Equal(t, len(addresses), len(balances))
-	for i, a := range addresses {
-		b, err := backend.BalanceAt(testutils.Context(t), a, nil)
-		require.NoError(t, err)
-		assert.Equal(t, balances[i].String(), b.String(), "invalid balance for %v", a)
-	}
 }
 
 func setupSubscriptionAndFund(

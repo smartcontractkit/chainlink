@@ -60,12 +60,20 @@ var (
 	grpcOpts        loop.GRPCOpts
 )
 
-func initGlobals(cfg config.Prometheus) {
-	// Avoid double initializations.
+func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing) error {
+	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
+	var err error
 	initGlobalsOnce.Do(func() {
-		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.AuthToken()))
-		grpcOpts = loop.SetupTelemetry(nil) // default prometheus.Registerer
+		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfgProm.AuthToken()))
+		grpcOpts = loop.NewGRPCOpts(nil) // default prometheus.Registerer
+		err = loop.SetupTracing(loop.TracingConfig{
+			Enabled:         cfgTracing.Enabled(),
+			CollectorTarget: cfgTracing.CollectorTarget(),
+			NodeAttributes:  cfgTracing.Attributes(),
+			SamplingRatio:   cfgTracing.SamplingRatio(),
+		})
 	})
+	return err
 }
 
 var (
@@ -126,7 +134,10 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	initGlobals(cfg.Prometheus())
+	err = initGlobals(cfg.Prometheus(), cfg.Tracing())
+	if err != nil {
+		appLggr.Errorf("Failed to initialize globals: %v", err)
+	}
 
 	err = migrate.SetMigrationENVVars(cfg)
 	if err != nil {
@@ -143,7 +154,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	dbListener := cfg.Database().Listener()
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
-	loopRegistry := plugins.NewLoopRegistry(appLggr)
+	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing())
 
 	// create the relayer-chain interoperators from application configuration
 	relayerFactory := chainlink.RelayerFactory{
@@ -163,22 +174,22 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
 			Keystore:         keyStore.Cosmos(),
-			CosmosConfigs:    cfg.CosmosConfigs(),
+			TOMLConfigs:      cfg.CosmosConfigs(),
 			EventBroadcaster: eventBroadcaster,
 		}
 		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := chainlink.SolanaFactoryConfig{
-			Keystore:      keyStore.Solana(),
-			SolanaConfigs: cfg.SolanaConfigs(),
+			Keystore:    keyStore.Solana(),
+			TOMLConfigs: cfg.SolanaConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
 		starkCfg := chainlink.StarkNetFactoryConfig{
-			Keystore:        keyStore.StarkNet(),
-			StarknetConfigs: cfg.StarknetConfigs(),
+			Keystore:    keyStore.StarkNet(),
+			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
 
@@ -997,8 +1008,7 @@ func confirmAction(c *cli.Context) bool {
 			return true
 		} else if answer == "no" {
 			return false
-		} else {
-			fmt.Printf("%s is not valid. Please type yes or no\n", answer)
 		}
+		fmt.Printf("%s is not valid. Please type yes or no\n", answer)
 	}
 }

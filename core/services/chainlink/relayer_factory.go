@@ -10,14 +10,15 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-
+	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -83,10 +84,10 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 type SolanaFactoryConfig struct {
 	Keystore keystore.Solana
-	solana.SolanaConfigs
+	solana.TOMLConfigs
 }
 
-func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaConfigs) (map[relay.ID]loop.Relayer, error) {
+func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConfigs) (map[relay.ID]loop.Relayer, error) {
 	solanaRelayers := make(map[relay.ID]loop.Relayer)
 	var (
 		solLggr = r.Logger.Named("Solana")
@@ -116,7 +117,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 
 			// setup the solana relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
-				Solana solana.SolanaConfig
+				Solana solana.TOMLConfig
 			}{Solana: *chainCfg})
 
 			if err != nil {
@@ -144,7 +145,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			if err != nil {
 				return nil, err
 			}
-			solanaRelayers[relayID] = relay.NewRelayerServerAdapter(pkgsolana.NewRelayer(lggr, chain), chain)
+			solanaRelayers[relayID] = relay.NewServerAdapter(pkgsolana.NewRelayer(lggr, chain), chain)
 		}
 	}
 	return solanaRelayers, nil
@@ -152,12 +153,12 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 
 type StarkNetFactoryConfig struct {
 	Keystore keystore.StarkNet
-	starknet.StarknetConfigs
+	config.TOMLConfigs
 }
 
 // TODO BCF-2606 consider consolidating the driving logic with that of NewSolana above via generics
 // perhaps when we implement a Cosmos LOOP
-func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.ID]loop.Relayer, error) {
+func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOMLConfigs) (map[relay.ID]loop.Relayer, error) {
 	starknetRelayers := make(map[relay.ID]loop.Relayer)
 
 	var (
@@ -186,7 +187,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 		if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
 			// setup the starknet relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
-				Starknet starknet.StarknetConfig
+				Starknet config.TOMLConfig
 			}{Starknet: *chainCfg})
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
@@ -204,17 +205,17 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			starknetRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, starknetCmdFn, string(cfgTOML), loopKs)
 		} else {
 			// fallback to embedded chain
-			opts := starknet.ChainOpts{
+			opts := starkchain.ChainOpts{
 				Logger:   lggr,
 				KeyStore: loopKs,
 			}
 
-			chain, err := starknet.NewChain(chainCfg, opts)
+			chain, err := starkchain.NewChain(chainCfg, opts)
 			if err != nil {
 				return nil, err
 			}
 
-			starknetRelayers[relayID] = relay.NewRelayerServerAdapter(pkgstarknet.NewRelayer(lggr, chain), chain)
+			starknetRelayers[relayID] = relay.NewServerAdapter(pkgstarknet.NewRelayer(lggr, chain), chain)
 		}
 	}
 	return starknetRelayers, nil
@@ -223,7 +224,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 
 type CosmosFactoryConfig struct {
 	Keystore keystore.Cosmos
-	cosmos.CosmosConfigs
+	coscfg.TOMLConfigs
 	EventBroadcaster pg.EventBroadcaster
 	*sqlx.DB
 	pg.QConfig
@@ -234,7 +235,7 @@ func (c CosmosFactoryConfig) Validate() error {
 	if c.Keystore == nil {
 		err = errors.Join(err, fmt.Errorf("nil Keystore"))
 	}
-	if len(c.CosmosConfigs) == 0 {
+	if len(c.TOMLConfigs) == 0 {
 		err = errors.Join(err, fmt.Errorf("no CosmosConfigs provided"))
 	}
 	if c.EventBroadcaster == nil {
@@ -266,7 +267,7 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 	)
 
 	// create one relayer per chain id
-	for _, chainCfg := range config.CosmosConfigs {
+	for _, chainCfg := range config.TOMLConfigs {
 		relayID := relay.ID{Network: relay.Cosmos, ChainID: *chainCfg.ChainID}
 
 		lggr := cosmosLggr.Named(relayID.ChainID)

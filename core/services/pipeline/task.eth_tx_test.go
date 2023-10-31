@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -166,8 +166,8 @@ func TestETHTxTask(t *testing.T) {
 			}),
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
-				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				addr := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
+				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, addr).Return(addr, nil)
 				txManager.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 					return tx.MinConfirmations == clnull.Uint32From(2)
 				})).Return(txmgr.Tx{}, nil)

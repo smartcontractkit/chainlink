@@ -106,8 +106,8 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			// Assert the request was fulfilled on-chain.
 			var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled
 			gomega.NewWithT(t).Eventually(func() bool {
-				rfIterator, err := cu.RootContract.FilterRandomnessRequestFulfilled(nil)
-				require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
+				rfIterator, err2 := cu.RootContract.FilterRandomnessRequestFulfilled(nil)
+				require.NoError(t, err2, "failed to subscribe to RandomnessRequest logs")
 				rf = nil
 				for rfIterator.Next() {
 					rf = append(rf, rfIterator.Event)
@@ -172,20 +172,19 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Wait for the blockhash to be stored
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		cu.Backend.Commit()
-		_, err := cu.BHSContract.GetBlockhash(&bind.CallOpts{
+		_, err2 := cu.BHSContract.GetBlockhash(&bind.CallOpts{
 			Pending:     false,
 			From:        common.Address{},
 			BlockNumber: nil,
 			Context:     nil,
 		}, requestBlock)
-		if err == nil {
+		if err2 == nil {
 			return true
-		} else if strings.Contains(err.Error(), "execution reverted") {
-			return false
-		} else {
-			t.Fatal(err)
+		} else if strings.Contains(err2.Error(), "execution reverted") {
 			return false
 		}
+		t.Fatal(err2)
+		return false
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Wait another 160 blocks so that the request is outside the 256 block window

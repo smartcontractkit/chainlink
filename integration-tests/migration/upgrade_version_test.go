@@ -34,6 +34,6 @@ func TestVersionUpgrade(t *testing.T) {
 	// MigrateOnStartup = true
 	//
 	// by default
-	err = env.CLNodes[0].Restart(env.CLNodes[0].NodeConfig)
+	err = env.ClCluster.Nodes[0].Restart(env.ClCluster.Nodes[0].NodeConfig)
 	require.NoError(t, err)
 }
