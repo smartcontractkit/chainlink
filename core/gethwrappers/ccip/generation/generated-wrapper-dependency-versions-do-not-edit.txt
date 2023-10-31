@@ -14,5 +14,5 @@ mock_arm_contract: ../../../contracts/solc/v0.8.19/MockARM.abi ../../../contract
 ping_pong_demo: ../../../contracts/solc/v0.8.19/PingPongDemo.abi ../../../contracts/solc/v0.8.19/PingPongDemo.bin f2972aa082cee8b461122f79773ce247d23b551ddc2ca9926ae90624134cfb23
 price_registry: ../../../contracts/solc/v0.8.19/PriceRegistry.abi ../../../contracts/solc/v0.8.19/PriceRegistry.bin 36e8d2c44a16fefb5258557cb1eae25eca1cc12efcd3c3270f91a90a5f81e7ea
 router: ../../../contracts/solc/v0.8.19/Router.abi ../../../contracts/solc/v0.8.19/Router.bin 78a5f557cb3925da28aa755c8c69742b936e2db3c524bdff34a9f5ce024b8b0e
-usdc_token_pool: ../../../contracts/solc/v0.8.19/USDCTokenPool.abi ../../../contracts/solc/v0.8.19/USDCTokenPool.bin dd7e1adb7e9bcfafe86721206ebf84dbfedf236adf0040b853d30575c207f3e4
+usdc_token_pool: ../../../contracts/solc/v0.8.19/USDCTokenPool.abi ../../../contracts/solc/v0.8.19/USDCTokenPool.bin 1b96c5a03654d5c9167b21678b0f41dbd3ff4713dffeb255bdaa840ea80570e1
 weth9: ../../../contracts/solc/v0.8.19/WETH9.abi ../../../contracts/solc/v0.8.19/WETH9.bin 5a7d64fb19b62ec523c7667ce4c2983295c05f74935b5f994c06a6f70d440f8b

@@ -8,9 +8,14 @@ import {IMessageReceiver} from "./IMessageReceiver.sol";
 
 import {TokenPool} from "../TokenPool.sol";
 
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
+
 /// @notice This pool mints and burns USDC tokens through the Cross Chain Transfer
 /// Protocol (CCTP).
 contract USDCTokenPool is TokenPool, ITypeAndVersion {
+  using SafeERC20 for IERC20;
+
   event DomainsSet(DomainUpdate[]);
   event ConfigSet(USDCConfig);
 
@@ -183,7 +188,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
       // we will only be left with the first 4 bytes of the message.
       version := mload(add(usdcMessage, 4)) // 0 + 4 = 4
     }
-    // This token pool only supports version 1 of the CCTP message format
+    // This token pool only supports version 0 of the CCTP message format
     // We check the version prior to loading the rest of the message
     // to avoid unexpected reverts due to out-of-bounds reads.
     if (version != SUPPORTED_USDC_VERSION) revert InvalidMessageVersion(version);
@@ -228,9 +233,10 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     if (tokenMessengerVersion != SUPPORTED_USDC_VERSION) revert InvalidTokenMessengerVersion(tokenMessengerVersion);
 
     // Revoke approval for previous token messenger
-    if (s_config.tokenMessenger != address(0)) i_token.approve(s_config.tokenMessenger, 0);
-    // Approve new token messenger
-    i_token.approve(config.tokenMessenger, type(uint256).max);
+    if (s_config.tokenMessenger != address(0)) i_token.safeApprove(s_config.tokenMessenger, 0);
+    // Approve new token messenger. New tokenMessenger must have an allowance of 0, otherwise safeApprove reverts.
+    // Since we set allowance to 0 for existing tokenMessenger before approving a new one, this condition is always met.
+    i_token.safeApprove(config.tokenMessenger, type(uint256).max);
     s_config = config;
     emit ConfigSet(config);
   }

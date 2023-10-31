@@ -31,10 +31,6 @@ type USDCConfig struct {
 }
 
 func (uc *USDCConfig) ValidateUSDCConfig() error {
-	if uc.AttestationAPI == "" && uc.SourceTokenAddress == utils.ZeroAddress && uc.SourceMessageTransmitterAddress == utils.ZeroAddress {
-		return nil
-	}
-
 	if uc.AttestationAPI == "" {
 		return errors.New("AttestationAPI is required")
 	}

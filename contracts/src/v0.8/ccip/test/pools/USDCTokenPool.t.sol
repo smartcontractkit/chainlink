@@ -467,6 +467,15 @@ contract USDCTokenPool_setConfig is USDCTokenPoolSetup {
 
     USDCTokenPool.USDCConfig memory oldConfig = s_usdcTokenPool.getConfig();
 
+    vm.expectCall(
+      address(s_usdcTokenPool.getToken()),
+      abi.encodeWithSelector(IERC20.approve.selector, oldConfig.tokenMessenger, 0)
+    );
+    vm.expectCall(
+      address(s_usdcTokenPool.getToken()),
+      abi.encodeWithSelector(IERC20.approve.selector, newMockUSDC, type(uint256).max)
+    );
+
     vm.expectEmit();
     emit ConfigSet(newConfig);
     s_usdcTokenPool.setConfig(newConfig);
