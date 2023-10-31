@@ -40,9 +40,6 @@ const (
 	DefaultSecretSize = 48
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
-
-	// defaultErrorBufferCap is the default cap on the errors an error buffer can store at any time
-	defaultErrorBufferCap = 50
 )
 
 // ZeroAddress is an address of all zeroes, otherwise in Ethereum as

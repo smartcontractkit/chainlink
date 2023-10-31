@@ -77,7 +77,7 @@ func (l *logPollerWrapper) Start(context.Context) error {
 				l.lggr.Errorw("LogPollerWrapper: LatestBlock() failed, starting from 0", "error", err)
 			} else {
 				l.lggr.Debugw("LogPollerWrapper: LatestBlock() got starting block", "block", nextBlock)
-				l.nextBlock = nextBlock - l.blockOffset
+				l.nextBlock = nextBlock.BlockNumber - l.blockOffset
 			}
 			l.closeWait.Add(1)
 			go l.checkForRouteUpdates()
@@ -123,9 +123,10 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.mu.Unlock()
 		return nil, nil, err
 	}
-	latest -= l.blockOffset
-	if latest >= nextBlock {
-		l.nextBlock = latest + 1
+	latestBlockNumber := latest.BlockNumber
+	latestBlockNumber -= l.blockOffset
+	if latestBlockNumber >= nextBlock {
+		l.nextBlock = latestBlockNumber + 1
 	}
 	l.mu.Unlock()
 
@@ -136,18 +137,18 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.lggr.Debug("LatestEvents: no non-zero coordinators to check")
 		return resultsReq, resultsResp, errors.New("no non-zero coordinators to check")
 	}
-	if latest < nextBlock {
+	if latestBlockNumber < nextBlock {
 		l.lggr.Debugw("LatestEvents: no new blocks to check", "latest", latest, "nextBlock", nextBlock)
 		return resultsReq, resultsResp, nil
 	}
 
 	for _, coordinator := range coordinators {
-		requestLogs, err := l.logPoller.Logs(nextBlock, latest, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
+		requestLogs, err := l.logPoller.Logs(nextBlock, latestBlockNumber, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "latest", latest, "nextBlock", nextBlock)
 			return nil, nil, err
 		}
-		responseLogs, err := l.logPoller.Logs(nextBlock, latest, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
+		responseLogs, err := l.logPoller.Logs(nextBlock, latestBlockNumber, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "latest", latest, "nextBlock", nextBlock)
 			return nil, nil, err

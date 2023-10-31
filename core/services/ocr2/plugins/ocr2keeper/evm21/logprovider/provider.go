@@ -161,11 +161,11 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
-	start := latest - p.opts.LookbackBlocks
+	start := latest.BlockNumber - p.opts.LookbackBlocks
 	if start <= 0 {
 		start = 1
 	}
-	logs := p.buffer.dequeueRange(start, latest, AllowedLogsPerUpkeep, MaxPayloads)
+	logs := p.buffer.dequeueRange(start, latest.BlockNumber, AllowedLogsPerUpkeep, MaxPayloads)
 
 	// p.lggr.Debugw("got latest logs from buffer", "latest", latest, "diff", diff, "logs", len(logs))
 
@@ -199,12 +199,12 @@ func (p *logEventProvider) ReadLogs(pctx context.Context, ids ...*big.Int) error
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
-	if latest == 0 {
+	if latest.BlockNumber == 0 {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, "latest block is 0")
 	}
-	filters := p.getFilters(latest, ids...)
+	filters := p.getFilters(latest.BlockNumber, ids...)
 
-	err = p.readLogs(ctx, latest, filters)
+	err = p.readLogs(ctx, latest.BlockNumber, filters)
 	p.updateFiltersLastPoll(filters)
 	// p.lggr.Debugw("read logs for entries", "latestBlock", latest, "entries", len(entries), "err", err)
 	if err != nil {
