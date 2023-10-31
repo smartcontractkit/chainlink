@@ -164,11 +164,6 @@ func (r *DirectRequestSpecResolver) MinIncomingConfirmations() int32 {
 	return 0
 }
 
-// EVMChainID resolves the spec's evm chain id.
-func (r *DirectRequestSpecResolver) MinIncomingConfirmationsEnv() bool {
-	return r.spec.MinIncomingConfirmationsEnv
-}
-
 // MinContractPaymentLinkJuels resolves the spec's min contract payment link.
 func (r *DirectRequestSpecResolver) MinContractPaymentLinkJuels() string {
 	return r.spec.MinContractPayment.String()
@@ -328,12 +323,6 @@ func (r *OCRSpecResolver) BlockchainTimeout() *string {
 	return &timeout
 }
 
-// BlockchainTimeoutEnv resolves whether the spec's blockchain timeout comes
-// from an env var.
-func (r *OCRSpecResolver) BlockchainTimeoutEnv() bool {
-	return r.spec.BlockchainTimeoutEnv
-}
-
 // ContractAddress resolves the spec's contract address.
 func (r *OCRSpecResolver) ContractAddress() string {
 	return r.spec.ContractAddress.String()
@@ -350,12 +339,6 @@ func (r *OCRSpecResolver) ContractConfigConfirmations() *int32 {
 	return &confirmations
 }
 
-// ContractConfigConfirmationsEnv resolves whether spec's confirmations
-// config comes from an env var.
-func (r *OCRSpecResolver) ContractConfigConfirmationsEnv() bool {
-	return r.spec.ContractConfigConfirmationsEnv
-}
-
 // ContractConfigTrackerPollInterval resolves the spec's contract tracker poll
 // interval config.
 func (r *OCRSpecResolver) ContractConfigTrackerPollInterval() *string {
@@ -368,12 +351,6 @@ func (r *OCRSpecResolver) ContractConfigTrackerPollInterval() *string {
 	return &interval
 }
 
-// ContractConfigTrackerPollIntervalEnv resolves the whether spec's tracker poll
-// config comes from an env var.
-func (r *OCRSpecResolver) ContractConfigTrackerPollIntervalEnv() bool {
-	return r.spec.ContractConfigTrackerPollIntervalEnv
-}
-
 // ContractConfigTrackerSubscribeInterval resolves the spec's tracker subscribe
 // interval config.
 func (r *OCRSpecResolver) ContractConfigTrackerSubscribeInterval() *string {
@@ -384,12 +361,6 @@ func (r *OCRSpecResolver) ContractConfigTrackerSubscribeInterval() *string {
 	interval := r.spec.ContractConfigTrackerSubscribeInterval.Duration().String()
 
 	return &interval
-}
-
-// ContractConfigTrackerSubscribeIntervalEnv resolves whether spec's tracker
-// subscribe interval config comes from an env var.
-func (r *OCRSpecResolver) ContractConfigTrackerSubscribeIntervalEnv() bool {
-	return r.spec.ContractConfigTrackerSubscribeIntervalEnv
 }
 
 // CreatedAt resolves the spec's created at timestamp.
@@ -413,32 +384,14 @@ func (r *OCRSpecResolver) DatabaseTimeout() string {
 	return r.spec.DatabaseTimeout.Duration().String()
 }
 
-// DatabaseTimeoutEnv resolves the whether spec's database timeout
-// config comes from an env var.
-func (r *OCRSpecResolver) DatabaseTimeoutEnv() bool {
-	return r.spec.DatabaseTimeoutEnv
-}
-
 // ObservationGracePeriod resolves the spec's observation grace period.
 func (r *OCRSpecResolver) ObservationGracePeriod() string {
 	return r.spec.ObservationGracePeriod.Duration().String()
 }
 
-// ObservationGracePeriodEnv resolves the whether spec's observation grace period
-// config comes from an env var.
-func (r *OCRSpecResolver) ObservationGracePeriodEnv() bool {
-	return r.spec.ObservationGracePeriodEnv
-}
-
 // ContractTransmitterTransmitTimeout resolves the spec's contract transmitter transmit timeout.
 func (r *OCRSpecResolver) ContractTransmitterTransmitTimeout() string {
 	return r.spec.ContractTransmitterTransmitTimeout.Duration().String()
-}
-
-// ContractTransmitterTransmitTimeoutEnv resolves the whether spec's
-// contract transmitter transmit timeout config comes from an env var.
-func (r *OCRSpecResolver) ContractTransmitterTransmitTimeoutEnv() bool {
-	return r.spec.ContractTransmitterTransmitTimeoutEnv
 }
 
 // IsBootstrapPeer resolves whether spec is a bootstrap peer.
@@ -466,12 +419,6 @@ func (r *OCRSpecResolver) ObservationTimeout() *string {
 	timeout := r.spec.ObservationTimeout.Duration().String()
 
 	return &timeout
-}
-
-// ObservationTimeoutEnv resolves whether spec's observation timeout comes
-// from an env var.
-func (r *OCRSpecResolver) ObservationTimeoutEnv() bool {
-	return r.spec.ObservationTimeoutEnv
 }
 
 // P2PBootstrapPeers resolves the spec's p2p bootstrap peers
@@ -629,11 +576,6 @@ type VRFSpecResolver struct {
 // MinIncomingConfirmations resolves the spec's min incoming confirmations.
 func (r *VRFSpecResolver) MinIncomingConfirmations() int32 {
 	return int32(r.spec.MinIncomingConfirmations)
-}
-
-// MinIncomingConfirmations resolves the spec's min incoming confirmations.
-func (r *VRFSpecResolver) MinIncomingConfirmationsEnv() bool {
-	return r.spec.ConfirmationsEnv
 }
 
 // CoordinatorAddress resolves the spec's coordinator address.
