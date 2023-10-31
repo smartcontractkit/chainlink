@@ -1,34 +1,62 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 var _ grpc.ClientConnInterface = (*mockClientConn)(nil)
 
-type staticTelemetry struct {
-	endpoints map[string]staticEndpoint
-}
-
 type staticEndpoint struct {
+	network    string
+	chainID    string
+	contractID string
+	telemType  string
+
+	StaticTelemetry
 }
 
-func (s staticEndpoint) SendLog(log []byte) {}
+func (s staticEndpoint) SendLog(ctx context.Context, log []byte) error {
+	return s.StaticTelemetry.Send(ctx, s.network, s.chainID, s.contractID, s.telemType, log)
+}
 
-func (s staticTelemetry) GenMonitoringEndpoint(network string, chainID string, contractID string, telemType string) commontypes.MonitoringEndpoint {
-	s.endpoints[fmt.Sprintf("%s_%s_%s_%s", contractID, telemType, network, chainID)] = staticEndpoint{}
-	return s.endpoints[fmt.Sprintf("%s_%s_%s_%s", contractID, telemType, network, chainID)]
+type StaticTelemetry struct{}
+
+func (s StaticTelemetry) NewEndpoint(ctx context.Context, network string, chainID string, contractID string, telemType string) (types.TelemetryClientEndpoint, error) {
+	return staticEndpoint{
+		network:         network,
+		chainID:         chainID,
+		contractID:      contractID,
+		telemType:       telemType,
+		StaticTelemetry: s,
+	}, nil
+}
+
+func (s StaticTelemetry) Send(ctx context.Context, n string, chid string, conid string, t string, p []byte) error {
+	if n != network {
+		return fmt.Errorf("expected %s but got %s", network, n)
+	}
+	if chid != chainID {
+		return fmt.Errorf("expected %s but got %s", chainID, chid)
+	}
+	if conid != contractID {
+		return fmt.Errorf("expected %s but got %s", contractID, conid)
+	}
+	if t != telemType {
+		return fmt.Errorf("expected %s but got %s", telemType, t)
+	}
+	if !bytes.Equal(p, payload) {
+		return fmt.Errorf("expected %s but got %s", payload, p)
+	}
+	return nil
 }
 
 type mockClientConn struct{}
@@ -43,8 +71,7 @@ func (m mockClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, me
 
 func Telemetry(t *testing.T) {
 	mcc := mockClientConn{}
-	lggr, ol := logger.TestObserved(t, zapcore.ErrorLevel)
-	c := internal.NewTelemetryClient(&mcc, lggr)
+	c := internal.NewTelemetryClient(&mcc)
 
 	type sendTest struct {
 		contractID    string
@@ -139,7 +166,7 @@ func Telemetry(t *testing.T) {
 			network:       "",
 			chainID:       "",
 			shouldError:   true,
-			error:         "cannot generate monitoring endpoint, contractID is empty",
+			error:         "contractID cannot be empty",
 		},
 		{
 			contractID:    "some-contractID",
@@ -147,7 +174,7 @@ func Telemetry(t *testing.T) {
 			network:       "",
 			chainID:       "",
 			shouldError:   true,
-			error:         "cannot generate monitoring endpoint, telemetryType is empty",
+			error:         "telemetryType cannot be empty",
 		},
 		{
 			contractID:    "some-contractID",
@@ -155,7 +182,7 @@ func Telemetry(t *testing.T) {
 			network:       "",
 			chainID:       "",
 			shouldError:   true,
-			error:         "cannot generate monitoring endpoint, network is empty",
+			error:         "network cannot be empty",
 		},
 		{
 			contractID:    "some-contractID",
@@ -163,7 +190,7 @@ func Telemetry(t *testing.T) {
 			network:       "some-network",
 			chainID:       "",
 			shouldError:   true,
-			error:         "cannot generate monitoring endpoint, chainID is empty",
+			error:         "chainId cannot be empty",
 		},
 		{
 			contractID:    "some-contractID",
@@ -175,123 +202,14 @@ func Telemetry(t *testing.T) {
 	}
 
 	for _, test := range genMonitoringEndpointTests {
-		e := c.GenMonitoringEndpoint(test.network, test.chainID, test.contractID, test.telemetryType)
+		e, err := c.NewEndpoint(context.Background(), test.network, test.chainID, test.contractID, test.telemetryType)
 		if test.shouldError {
 			require.Nil(t, e)
-			require.Equal(t, 1, ol.Len())
-			require.Contains(t, ol.TakeAll()[0].Message, test.error)
+			require.ErrorContains(t, err, test.error)
 		} else {
 			require.NotNil(t, e)
-			require.Equal(t, 0, ol.Len())
-			e.SendLog([]byte("some-data"))
-			require.Equal(t, 0, ol.Len())
+			require.Nil(t, err)
+			require.Nil(t, e.SendLog(context.Background(), []byte("some-data")))
 		}
 	}
-
-	st := staticTelemetry{
-		endpoints: make(map[string]staticEndpoint),
-	}
-	s := internal.NewTelemetryServer(st)
-
-	type endpointTest struct {
-		relayID       *pb.RelayID
-		contractID    string
-		telemetryType string
-
-		shouldError     bool
-		error           string
-		endpointsLength int
-	}
-
-	endpointTests := []endpointTest{
-		{
-			relayID:       nil,
-			contractID:    "",
-			telemetryType: "",
-			shouldError:   true,
-			error:         "contractID cannot be empty",
-		},
-		{
-			relayID:       nil,
-			contractID:    "some-contractID",
-			telemetryType: "",
-			shouldError:   true,
-			error:         "telemetryType cannot be empty",
-		},
-		{
-			relayID:       nil,
-			contractID:    "some-contractID",
-			telemetryType: "some-telemetryType",
-			shouldError:   true,
-			error:         "RelayID cannot be nil",
-		},
-		{
-			relayID: &pb.RelayID{
-				Network: "",
-				ChainId: "",
-			},
-			contractID:    "some-contractID",
-			telemetryType: "some-telemetryType",
-			shouldError:   true,
-			error:         "RelayID.Network cannot be empty",
-		},
-		{
-			relayID: &pb.RelayID{
-				Network: "some-network",
-				ChainId: "",
-			},
-			contractID:    "some-contractID",
-			telemetryType: "some-telemetryType",
-			shouldError:   true,
-			error:         "RelayID.ChainId cannot be empty",
-		},
-		{
-			relayID: &pb.RelayID{
-				Network: "some-network",
-				ChainId: "some-chainID",
-			},
-			contractID:      "some-contractID",
-			telemetryType:   "some-telemetryType",
-			shouldError:     false,
-			endpointsLength: 1,
-		},
-		{
-			relayID: &pb.RelayID{
-				Network: "some-network",
-				ChainId: "some-chainID",
-			},
-			contractID:      "some-contractID",
-			telemetryType:   "some-telemetryType",
-			shouldError:     false,
-			endpointsLength: 1,
-		},
-		{
-			relayID: &pb.RelayID{
-				Network: "some-network",
-				ChainId: "some-other-chainID",
-			},
-			contractID:      "some-contractID",
-			telemetryType:   "some-telemetryType",
-			shouldError:     false,
-			endpointsLength: 2,
-		},
-	}
-
-	for _, test := range endpointTests {
-		_, err := s.Send(context.Background(), &pb.TelemetryMessage{
-			RelayID:       test.relayID,
-			ContractID:    test.contractID,
-			TelemetryType: test.telemetryType,
-			Payload:       nil,
-		})
-		if test.shouldError {
-			require.Error(t, err)
-			require.Contains(t, err.Error(), test.error)
-		} else {
-			require.NoError(t, err)
-			require.Len(t, st.endpoints, test.endpointsLength)
-		}
-
-	}
-
 }

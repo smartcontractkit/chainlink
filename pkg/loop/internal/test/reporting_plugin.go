@@ -25,7 +25,7 @@ func (s StaticReportingPluginWithMedianProvider) ConnToProvider(conn grpc.Client
 	return StaticMedianProvider{}
 }
 
-func (s StaticReportingPluginWithMedianProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner types.PipelineRunnerService, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
+func (s StaticReportingPluginWithMedianProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner types.PipelineRunnerService, telemetry types.TelemetryClient, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
 	ocd := provider.OffchainConfigDigester()
 	gotDigestPrefix, err := ocd.ConfigDigestPrefix()
 	if err != nil {
@@ -158,8 +158,16 @@ func (s StaticReportingPluginWithMedianProvider) NewReportingPluginFactory(ctx c
 	if !reflect.DeepEqual(gotDecoded, onchainConfig) {
 		return nil, fmt.Errorf("expected OnchainConfig %s but got %s", onchainConfig, gotDecoded)
 	}
-	if err := errorLog.SaveError(ctx, errMsg); err != nil {
-		return nil, fmt.Errorf("failed to save error: %w", err)
+	if err2 := errorLog.SaveError(ctx, errMsg); err2 != nil {
+		return nil, fmt.Errorf("failed to save error: %w", err2)
+	}
+	endpoint, err := telemetry.NewEndpoint(ctx, network, chainID, contractID, telemType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate endpoint: %w", err)
+	}
+	err = endpoint.SendLog(ctx, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send log: %w", err)
 	}
 	return staticPluginFactory{}, nil
 }
@@ -171,7 +179,7 @@ func (s StaticReportingPluginWithPluginProvider) ConnToProvider(conn grpc.Client
 	return StaticPluginProvider{}
 }
 
-func (s StaticReportingPluginWithPluginProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.PluginProvider, pipelineRunner types.PipelineRunnerService, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
+func (s StaticReportingPluginWithPluginProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.PluginProvider, pipelineRunner types.PipelineRunnerService, telemetry types.TelemetryClient, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
 	ocd := provider.OffchainConfigDigester()
 	gotDigestPrefix, err := ocd.ConfigDigestPrefix()
 	if err != nil {
@@ -243,6 +251,14 @@ func (s StaticReportingPluginWithPluginProvider) NewReportingPluginFactory(ctx c
 	}
 	if !reflect.DeepEqual(tr, taskResults) {
 		return nil, fmt.Errorf("expected TaskResults %+v but got %+v", taskResults, tr)
+	}
+	endpoint, err := telemetry.NewEndpoint(ctx, network, chainID, contractID, telemType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate endpoint: %w", err)
+	}
+	err = endpoint.SendLog(ctx, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send log: %w", err)
 	}
 	return staticPluginFactory{}, nil
 }

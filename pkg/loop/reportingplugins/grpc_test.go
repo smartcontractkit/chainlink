@@ -25,7 +25,7 @@ func newStopCh(t *testing.T) <-chan struct{} {
 func PluginGenericTest(t *testing.T, p types.ReportingPluginClient) {
 	t.Run("PluginServer", func(t *testing.T) {
 		ctx := tests.Context(t)
-		factory, err := p.NewReportingPluginFactory(ctx, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticErrorLog{})
+		factory, err := p.NewReportingPluginFactory(ctx, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{})
 		require.NoError(t, err)
 
 		test.TestReportingPluginFactory(t, factory)

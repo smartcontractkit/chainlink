@@ -46,7 +46,7 @@ func TestLOOPPService(t *testing.T) {
 	for _, ts := range tests {
 		looppSvc := reportingplugins.NewLOOPPService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
 			return NewHelperProcessCommand(ts.Plugin)
-		}, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticErrorLog{})
+		}, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{})
 		hook := looppSvc.XXXTestHook()
 		require.NoError(t, looppSvc.Start(utilstests.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, looppSvc.Close()) })
@@ -84,7 +84,7 @@ func TestLOOPPService_recovery(t *testing.T) {
 			Limit:   int(limit.Add(1)),
 		}
 		return h.New()
-	}, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticErrorLog{})
+	}, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{})
 	require.NoError(t, looppSvc.Start(utilstests.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, looppSvc.Close()) })
 

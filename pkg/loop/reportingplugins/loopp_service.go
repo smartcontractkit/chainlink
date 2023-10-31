@@ -24,13 +24,22 @@ type LOOPPService struct {
 // NewLOOPPService returns a new [*PluginService].
 // cmd must return a new exec.Cmd each time it is called.
 // We use a `conn` here rather than a provider so that we can enforce proxy providers being passed in.
-func NewLOOPPService(lggr logger.Logger, grpcOpts loop.GRPCOpts, cmd func() *exec.Cmd, config types.ReportingPluginServiceConfig, providerConn grpc.ClientConnInterface, pipelineRunner types.PipelineRunnerService, errorLog types.ErrorLog) *LOOPPService {
+func NewLOOPPService(
+	lggr logger.Logger,
+	grpcOpts loop.GRPCOpts,
+	cmd func() *exec.Cmd,
+	config types.ReportingPluginServiceConfig,
+	providerConn grpc.ClientConnInterface,
+	pipelineRunner types.PipelineRunnerService,
+	telemetryService types.TelemetryClient,
+	errorLog types.ErrorLog,
+) *LOOPPService {
 	newService := func(ctx context.Context, instance any) (types.ReportingPluginFactory, error) {
 		plug, ok := instance.(types.ReportingPluginClient)
 		if !ok {
 			return nil, fmt.Errorf("expected GenericPluginClient but got %T", instance)
 		}
-		return plug.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, errorLog)
+		return plug.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetryService, errorLog)
 	}
 	stopCh := make(chan struct{})
 	lggr = logger.Named(lggr, "GenericService")

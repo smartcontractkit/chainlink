@@ -38,6 +38,9 @@ const (
 	offset           = 11
 	round            = uint8(74)
 	to               = "0x1234"
+	network          = "solana"
+	contractID       = "contract-id"
+	telemType        = "mercury"
 )
 
 var (
@@ -142,4 +145,5 @@ URL = 'https://test.url'
 			Index: 0,
 		},
 	}
+	payload = []byte("oops")
 )
