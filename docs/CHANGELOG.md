@@ -8,7 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 
 ## [dev]
+
+### Changed
+
 - `L2Suggested` mode is now called `SuggestedPrice`
+
+### Removed
+
 - Removed `Optimism2` as a supported gas estimator mode
 
 ...
