@@ -510,10 +510,6 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", http.StatusInternalServerError)
-			} else if resp.StatusCode == http.StatusUnprocessableEntity {
-				retryable = false
-				state = encoding.InvalidMercuryRequest
-				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely feed ID exists, user has permissions, but the feed is not active (deactivated). This should not happen. Contact Mercury team about this", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode)
 			} else if resp.StatusCode == 420 {
 				// in 0.3, this will happen when missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds
 				retryable = false
