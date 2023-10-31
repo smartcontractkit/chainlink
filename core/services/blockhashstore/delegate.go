@@ -172,7 +172,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			if err != nil {
 				return 0, errors.Wrap(err, "getting chain head")
 			}
-			return uint64(head), nil
+			return uint64(head.BlockNumber), nil
 		})
 
 	return []job.ServiceCtx{&service{
