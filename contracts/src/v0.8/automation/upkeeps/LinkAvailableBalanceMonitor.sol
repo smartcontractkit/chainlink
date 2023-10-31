@@ -4,9 +4,9 @@ pragma solidity 0.8.6;
 
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableMap.sol";
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
-import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
+import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableMap.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
 
 interface IAggregatorProxy {
   function aggregator() external view returns (address);
