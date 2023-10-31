@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -96,7 +97,7 @@ type estimatorGasEstimatorConfig interface {
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
 	BlockHistoryEstimator struct {
-		utils.StartStopOnce
+		services.StateMachine
 		ethClient evmclient.Client
 		chainID   big.Int
 		config    chainConfig

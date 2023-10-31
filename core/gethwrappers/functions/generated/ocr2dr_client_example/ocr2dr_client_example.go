@@ -61,7 +61,7 @@ func DeployOCR2DRClientExample(auth *bind.TransactOpts, backend bind.ContractBac
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &OCR2DRClientExample{OCR2DRClientExampleCaller: OCR2DRClientExampleCaller{contract: contract}, OCR2DRClientExampleTransactor: OCR2DRClientExampleTransactor{contract: contract}, OCR2DRClientExampleFilterer: OCR2DRClientExampleFilterer{contract: contract}}, nil
+	return address, tx, &OCR2DRClientExample{address: address, abi: *parsed, OCR2DRClientExampleCaller: OCR2DRClientExampleCaller{contract: contract}, OCR2DRClientExampleTransactor: OCR2DRClientExampleTransactor{contract: contract}, OCR2DRClientExampleFilterer: OCR2DRClientExampleFilterer{contract: contract}}, nil
 }
 
 type OCR2DRClientExample struct {

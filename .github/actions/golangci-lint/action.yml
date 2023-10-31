@@ -30,7 +30,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
     - name: Setup Go
       uses: ./.github/actions/setup-go
       with:
@@ -69,7 +69,7 @@ runs:
         path: ${{ inputs.go-directory }}/golangci-lint-report.xml
     - name: Collect Metrics
       if: always()
-      uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
+      uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
       with:
         basic-auth: ${{ inputs.gc-basic-auth }}
         hostname: ${{ inputs.gc-host }}

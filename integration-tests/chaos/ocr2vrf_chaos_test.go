@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/chaos"
-	"github.com/smartcontractkit/chainlink-env/environment"
-	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	a "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/alias"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -31,7 +31,7 @@ import (
 func TestOCR2VRFChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	loadedNetwork := networks.SelectedNetwork
+	loadedNetwork := networks.MustGetSelectedNetworksFromEnv()[0]
 
 	defaultOCR2VRFSettings := map[string]interface{}{
 		"replicas": 6,
@@ -119,7 +119,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		testCase := tc
 		t.Run(fmt.Sprintf("OCR2VRF_%s", testCaseName), func(t *testing.T) {
 			t.Parallel()
-			testNetwork := networks.SelectedNetwork // Need a new copy of the network for each test
+			testNetwork := networks.MustGetSelectedNetworksFromEnv()[0] // Need a new copy of the network for each test
 			testEnvironment := environment.
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf(

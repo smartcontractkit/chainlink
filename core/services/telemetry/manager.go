@@ -8,14 +8,15 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/commontypes"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //// Client encapsulates all the functionality needed to
@@ -26,7 +27,7 @@ import (
 //}
 
 type Manager struct {
-	utils.StartStopOnce
+	services.StateMachine
 	bufferSize                  uint
 	endpoints                   []*telemetryEndpoint
 	ks                          keystore.CSA
@@ -67,7 +68,7 @@ func (l *legacyEndpointConfig) URL() *url.URL {
 }
 
 type telemetryEndpoint struct {
-	utils.StartStopOnce
+	services.StateMachine
 	ChainID string
 	Network string
 	URL     *url.URL
@@ -143,7 +144,7 @@ func (m *Manager) HealthReport() map[string]error {
 	hr[m.lggr.Name()] = m.Healthy()
 	for _, e := range m.endpoints {
 		name := fmt.Sprintf("%s.%s.%s", m.lggr.Name(), e.Network, e.ChainID)
-		hr[name] = e.StartStopOnce.Healthy()
+		hr[name] = e.Healthy()
 	}
 	return hr
 }

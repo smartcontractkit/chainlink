@@ -171,6 +171,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 		return &PolygonZkEvmContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.LineaClient:
 		return &LineaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.FantomClient:
+		return &FantomContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -231,6 +233,10 @@ type PolygonZkEvmContractDeployer struct {
 }
 
 type LineaContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type FantomContractDeployer struct {
 	*EthereumContractDeployer
 }
 

@@ -11,8 +11,10 @@ import (
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -30,7 +32,7 @@ type (
 	}
 
 	Pstorewrapper struct {
-		utils.StartStopOnce
+		services.StateMachine
 		Peerstore     p2ppeerstore.Peerstore
 		peerID        string
 		q             pg.Q
@@ -50,7 +52,7 @@ func NewPeerstoreWrapper(db *sqlx.DB, writeInterval time.Duration, peerID p2pkey
 	q := pg.NewQ(db, namedLogger, cfg)
 
 	return &Pstorewrapper{
-		utils.StartStopOnce{},
+		services.StateMachine{},
 		pstoremem.NewPeerstore(),
 		peerID.Raw(),
 		q,

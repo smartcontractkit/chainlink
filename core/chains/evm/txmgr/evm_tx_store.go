@@ -1486,20 +1486,23 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 		// Note:  the record of the original abandoned transaction will remain in evm.txes, only the attempt is replaced.  (Any receipt
 		// associated with the abandoned attempt would also be lost, although this shouldn't happen since only unconfirmed transactions
 		// can be abandoned.)
-		result, err := tx.Exec(`DELETE FROM evm.tx_attempts a USING evm.txes t
+		res, err := tx.Exec(`DELETE FROM evm.tx_attempts a USING evm.txes t
 			WHERE t.id = a.eth_tx_id AND a.hash = $1 AND t.state = $2 AND t.error = 'abandoned'`,
 			attempt.Hash, txmgr.TxFatalError,
 		)
-		if err == nil {
-			count, err := result.RowsAffected()
-			if err != nil {
-				return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to get rows affected")
-			}
-			if count > 0 {
-				o.logger.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", attempt.Hash, attempt.TxID)
-			}
-		} else {
-			return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to delete abandoned transactions")
+
+		if err != nil {
+			// If the DELETE fails, we don't want to abort before at least attempting the INSERT. tx hash conflicts with
+			// abandoned transactions can only happen after a nonce reset. If the node is operating normally but there is
+			// some unexpected issue with the DELETE query, blocking the txmgr from sending transactions would be risky
+			// and could potentially get the node stuck. If the INSERT is going to succeed then we definitely want to continue.
+			// And even if the INSERT fails, an error message showing the txmgr is having trouble inserting tx's in the db may be
+			// easier to understand quickly if there is a problem with the node.
+			o.logger.Errorw("Ignoring unexpected db error while checking for txhash conflict", "err", err)
+		} else if rows, err := res.RowsAffected(); err != nil {
+			o.logger.Errorw("Ignoring unexpected db error reading rows affected while checking for txhash conflict", "err", err)
+		} else if rows > 0 {
+			o.logger.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", attempt.Hash, attempt.TxID)
 		}
 
 		var dbAttempt DbEthTxAttempt

@@ -551,7 +551,7 @@ func (d *Delegate) newServicesMercury(
 
 	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
 
-	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
+	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.EnhancedEAMercury, rid.Network, rid.ChainID), lggr.Named("EnhancedTelemetryMercury"))
 		mercuryServices = append(mercuryServices, enhancedTelemService)
 	}

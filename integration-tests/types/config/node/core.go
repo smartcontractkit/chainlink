@@ -115,13 +115,14 @@ func WithP2Pv1() NodeConfigOpt {
 			ListenIP:   utils2.MustIP("0.0.0.0"),
 			ListenPort: utils2.Ptr[uint16](6690),
 		}
+		// disabled default
+		c.P2P.V2 = toml.P2PV2{Enabled: utils2.Ptr(false)}
 	}
 }
 
 func WithP2Pv2() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V2 = toml.P2PV2{
-			Enabled:         utils2.Ptr(true),
 			ListenAddresses: &[]string{"0.0.0.0:6690"},
 		}
 	}
