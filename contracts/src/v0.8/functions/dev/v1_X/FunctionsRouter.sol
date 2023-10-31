@@ -10,8 +10,8 @@ import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 
-import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
-import {Pausable} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {Pausable} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
 
 contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, ITypeAndVersion, ConfirmedOwner {
   using FunctionsResponse for FunctionsResponse.RequestMeta;
