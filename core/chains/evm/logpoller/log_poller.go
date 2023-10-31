@@ -70,7 +70,7 @@ const (
 
 type LogPollerTest interface {
 	LogPoller
-	PollAndSaveLogs(ctx context.Context, currentBlockNumber int64)
+	PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) (latestFinalizedBlockNumber int64, latestFinalizedBlock *evmtypes.Head)
 	BackupPollAndSaveLogs(ctx context.Context, backupPollerBlockDelay int64)
 	Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery
 	GetReplayFromBlock(ctx context.Context, requested int64) (int64, error)
@@ -455,20 +455,22 @@ func (lp *logPoller) run() {
 			return
 		case fromBlockReq := <-lp.replayStart:
 			fromBlock, err := lp.GetReplayFromBlock(lp.ctx, fromBlockReq)
-			if err == nil {
+			if err != nil {
+				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
+			} else {
 				if !filtersLoaded {
 					lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", fromBlockReq)
 					if err = loadFilters(); err != nil {
 						lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
 					}
 				}
+
 				if err == nil {
 					// Serially process replay requests.
 					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
-					lp.PollAndSaveLogs(lp.ctx, fromBlock)
+					latestFinalizedBlockNumber, latestBlock := lp.PollAndSaveLogs(lp.ctx, fromBlock)
+					lp.lggr.Infow("Replay complete, resuming normal operation", "fromBlock", fromBlock, "latestFinalizedBlock", latestFinalizedBlockNumber, "latestBlock", latestBlock.Number)
 				}
-			} else {
-				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
 			}
 			select {
 			case <-lp.ctx.Done():
@@ -517,7 +519,7 @@ func (lp *logPoller) run() {
 			} else {
 				start = lastProcessed.BlockNumber + 1
 			}
-			lp.PollAndSaveLogs(lp.ctx, start)
+			_, _ = lp.PollAndSaveLogs(lp.ctx, start)
 		case <-backupLogPollTick:
 			// Backup log poller:  this serves as an emergency backup to protect against eventual-consistency behavior
 			// of an rpc node (seen occasionally on optimism, but possibly could happen on other chains?).  If the first
@@ -777,7 +779,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 // PollAndSaveLogs On startup/crash current is the first block after the last processed block.
 // currentBlockNumber is the block from where new logs are to be polled & saved. Under normal
 // conditions this would be equal to lastProcessed.BlockNumber + 1.
-func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) {
+func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) (latestFinalizedBlockNumber int64, latestBlock *evmtypes.Head) {
 	lp.lggr.Debugw("Polling for logs", "currentBlockNumber", currentBlockNumber)
 	// Intentionally not using logPoller.finalityDepth directly but the latestFinalizedBlockNumber returned from lp.latestBlocks()
 	// latestBlocks knows how to pick a proper latestFinalizedBlockNumber based on the logPoller's configuration
@@ -880,6 +882,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		}
 		currentBlockNumber = currentBlock.Number
 	}
+	return latestFinalizedBlockNumber, latestBlock
 }
 
 // Returns information about latestBlock, latestFinalizedBlockNumber
