@@ -10,7 +10,6 @@ import (
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
 func TestLogPoller(t *testing.T) {
-	t.Skip()
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:   logpoller.GeneratorType_Looped,
@@ -41,7 +40,6 @@ func TestLogPoller(t *testing.T) {
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
 func TestLogManyFiltersPoller(t *testing.T) {
-	// t.Skip("test me first")
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:   logpoller.GeneratorType_Looped,
@@ -69,12 +67,10 @@ func TestLogManyFiltersPoller(t *testing.T) {
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
-// FIX VALUES
 // consistency test that introduces random distruptions by pausing either Chainlink or Postgres containers for random interval of 5-20 seconds
-// with approximate emission of 1500-1600 logs per second for ~110-120 seconds
+// with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 func TestLogPollerWithChaos(t *testing.T) {
-	t.Skip()
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:   logpoller.GeneratorType_Looped,
@@ -103,38 +99,6 @@ func TestLogPollerWithChaos(t *testing.T) {
 	cfg.General.EventsToEmit = eventsToEmit
 
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
-}
-
-// consistency test that waits for log poller to process last block after event emission, then it registers filters
-// and then waits for backup poller process to kick in and process the past logs
-func TestLogPollerBackup(t *testing.T) {
-	t.Skip()
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:   logpoller.GeneratorType_Looped,
-			Contracts:   2,
-			EventsPerTx: 200,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 14,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 200,
-				MaxEmitWaitTimeMs: 500,
-			},
-		},
-	}
-
-	eventsToEmit := []abi.Event{}
-	for _, event := range logpoller.EmitterABI.Events {
-		eventsToEmit = append(eventsToEmit, event)
-	}
-
-	cfg.General.EventsToEmit = eventsToEmit
-	backupPollerTimeout := "5m"
-
-	logpoller.ExecuteBackupLogPollerTest(t, &cfg, backupPollerTimeout)
 }
 
 // consistency test that registers filters after events were emitted and then triggers replay via API
@@ -167,5 +131,5 @@ func TestLogPollerReplay(t *testing.T) {
 	cfg.General.EventsToEmit = eventsToEmit
 	consistencyTimeout := "5m"
 
-	logpoller.ExecuteBackupLogPollerReplay(t, &cfg, consistencyTimeout)
+	logpoller.ExecuteLogPollerReplay(t, &cfg, consistencyTimeout)
 }
