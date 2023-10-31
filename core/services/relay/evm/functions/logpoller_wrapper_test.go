@@ -1,9 +1,11 @@
-package functions_test
+package functions
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -58,10 +59,8 @@ func setUp(t *testing.T, updateFrequencySec uint32) (*lpmocks.LogPoller, types.L
 		ContractUpdateCheckFrequencySec: updateFrequencySec,
 		ContractVersion:                 1,
 	}
-	lpWrapper, err := functions.NewLogPollerWrapper(common.Address{}, config, client, lp, lggr)
+	lpWrapper, err := NewLogPollerWrapper(common.Address{}, config, client, lp, lggr)
 	require.NoError(t, err)
-
-	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
 	return lp, lpWrapper, client
 }
@@ -72,7 +71,9 @@ func getMockedRequestLog(t *testing.T) logpoller.Log {
 	require.NoError(t, err)
 	topic0, err := hex.DecodeString("bf50768ccf13bd0110ca6d53a9c4f1f3271abdd4c24a56878863ed25b20598ff")
 	require.NoError(t, err)
-	topic1, err := hex.DecodeString("82cd81744eb9504dc37f53a86db7e3fb24929b8e7507b097d501ab5b315fb20e")
+	// Create a random requestID
+	topic1 := make([]byte, 32)
+	_, err = rand.Read(topic1)
 	require.NoError(t, err)
 	topic2, err := hex.DecodeString("000000000000000000000000665785a800593e8fa915208c1ce62f6e57fd75ba")
 	require.NoError(t, err)
@@ -85,6 +86,7 @@ func getMockedRequestLog(t *testing.T) logpoller.Log {
 func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 	t.Parallel()
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
+	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
 	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{}, nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "01"), nil)
@@ -104,7 +106,8 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 
 func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
 	t.Parallel()
-	_, lpWrapper, client := setUp(t, 100_000) // check only once
+	lp, lpWrapper, client := setUp(t, 100_000) // check only once
+	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "00"), nil)
 
@@ -117,6 +120,7 @@ func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
 func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 	t.Parallel()
 	lp, lpWrapper, client := setUp(t, 100_000)
+	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "01"), nil)
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 	subscriber := newSubscriber(1)
@@ -144,4 +148,60 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 	oracleRequests, _, err = lpWrapper.LatestEvents()
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(oracleRequests))
+}
+
+func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testing.T) {
+	t.Parallel()
+	_, lpWrapper, _ := setUp(t, 100_000)
+
+	inputLogs := make([]logpoller.Log, maxLogsToProcess+100)
+	for i := 0; i < 1100; i++ {
+		inputLogs[i] = getMockedRequestLog(t)
+	}
+
+	functionsLpWrapper := lpWrapper.(*logPollerWrapper)
+	detectedEvents := detectedEvents{isPreviouslyDetected: make(map[[32]byte]struct{})}
+	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &detectedEvents, "request")
+
+	assert.Equal(t, maxLogsToProcess, len(outputLogs))
+}
+
+func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *testing.T) {
+	t.Parallel()
+	_, lpWrapper, _ := setUp(t, 100_000)
+	inputLogs := []logpoller.Log{getMockedRequestLog(t)}
+	inputLogs[0].Topics = [][]byte{[]byte("invalid topic")}
+	detectedEvents := detectedEvents{isPreviouslyDetected: make(map[[32]byte]struct{})}
+
+	functionsLpWrapper := lpWrapper.(*logPollerWrapper)
+	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &detectedEvents, "request")
+
+	assert.Equal(t, 0, len(outputLogs))
+}
+
+func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetectedEvent(t *testing.T) {
+	t.Parallel()
+	_, lpWrapper, _ := setUp(t, 100_000)
+	mockedRequestLog := getMockedRequestLog(t)
+	inputLogs := []logpoller.Log{mockedRequestLog}
+	var mockedRequestId [32]byte
+	copy(mockedRequestId[:], mockedRequestLog.Topics[1])
+
+	detectedEvents := detectedEvents{
+		isPreviouslyDetected:  make(map[[32]byte]struct{}),
+		detectedEventsOrdered: make([]detectedEvent, 1),
+	}
+	detectedEvents.isPreviouslyDetected[mockedRequestId] = struct{}{}
+	detectedEvents.detectedEventsOrdered[0] = detectedEvent{
+		requestId:    mockedRequestId,
+		timeDetected: time.Now().Add(-time.Second * time.Duration(logPollerCacheDurationSecDefault+1)),
+	}
+
+	functionsLpWrapper := lpWrapper.(*logPollerWrapper)
+	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &detectedEvents, "request")
+
+	assert.Equal(t, 0, len(outputLogs))
+	// Ensure that expired events are removed from the cache
+	assert.Equal(t, 0, len(detectedEvents.detectedEventsOrdered))
+	assert.Equal(t, 0, len(detectedEvents.isPreviouslyDetected))
 }

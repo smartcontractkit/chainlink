@@ -184,7 +184,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 			return nil, nil, err
 		}
 		l.lggr.Debugw("LatestEvents: fetched request logs", "nRequestLogs", len(requestLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", requestEndBlock)
-		requestLogs = l.FilterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests, "requests")
+		requestLogs = l.filterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests, "requests")
 		responseEndBlock := latestBlockNum - l.responseBlockOffset
 		responseLogs, err := l.logPoller.Logs(startBlockNum, responseEndBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
 		if err != nil {
@@ -192,7 +192,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 			return nil, nil, err
 		}
 		l.lggr.Debugw("LatestEvents: fetched request logs", "nResponseLogs", len(responseLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", responseEndBlock)
-		responseLogs = l.FilterPreviouslyDetectedEvents(responseLogs, &l.detectedResponses, "responses")
+		responseLogs = l.filterPreviouslyDetectedEvents(responseLogs, &l.detectedResponses, "responses")
 
 		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator, l.client)
 		if err != nil {
@@ -285,9 +285,9 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	return resultsReq, resultsResp, nil
 }
 
-func (l *logPollerWrapper) FilterPreviouslyDetectedEvents(logs []logpoller.Log, detectedEvents *detectedEvents, filterType string) []logpoller.Log {
+func (l *logPollerWrapper) filterPreviouslyDetectedEvents(logs []logpoller.Log, detectedEvents *detectedEvents, filterType string) []logpoller.Log {
 	if len(logs) > maxLogsToProcess {
-		l.lggr.Warnw("FilterPreviouslyDetectedEvents: too many logs to process, only processing latest maxLogsToProcess logs", "filterType", filterType, "nLogs", len(logs), "maxLogsToProcess", maxLogsToProcess)
+		l.lggr.Errorw("filterPreviouslyDetectedEvents: too many logs to process, only processing latest maxLogsToProcess logs", "filterType", filterType, "nLogs", len(logs), "maxLogsToProcess", maxLogsToProcess)
 		logs = logs[len(logs)-maxLogsToProcess:]
 	}
 	l.mu.Lock()
@@ -296,7 +296,7 @@ func (l *logPollerWrapper) FilterPreviouslyDetectedEvents(logs []logpoller.Log, 
 	for _, log := range logs {
 		var requestId [32]byte
 		if len(log.Topics) < 2 || len(log.Topics[1]) != 32 {
-			l.lggr.Errorw("FilterPreviouslyDetectedEvents: invalid log, skipping", "filterType", filterType, "log", log)
+			l.lggr.Errorw("filterPreviouslyDetectedEvents: invalid log, skipping", "filterType", filterType, "log", log)
 			continue
 		}
 		copy(requestId[:], log.Topics[1]) // requestId is the second topic (1st topic is the event signature)
@@ -317,7 +317,7 @@ func (l *logPollerWrapper) FilterPreviouslyDetectedEvents(logs []logpoller.Log, 
 		}
 	}
 	detectedEvents.detectedEventsOrdered = detectedEvents.detectedEventsOrdered[expiredRequests:]
-	l.lggr.Debugw("FilterPreviouslyDetectedEvents: done", "filterType", filterType, "nLogs", len(logs), "nFilteredLogs", len(filteredLogs), "nExpiredRequests", expiredRequests, "previouslyDetectedCacheSize", len(detectedEvents.detectedEventsOrdered))
+	l.lggr.Debugw("filterPreviouslyDetectedEvents: done", "filterType", filterType, "nLogs", len(logs), "nFilteredLogs", len(filteredLogs), "nExpiredRequests", expiredRequests, "previouslyDetectedCacheSize", len(detectedEvents.detectedEventsOrdered))
 	return filteredLogs
 }
 
