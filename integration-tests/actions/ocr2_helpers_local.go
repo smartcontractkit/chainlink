@@ -13,12 +13,13 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -275,7 +276,8 @@ func GetOracleIdentitiesWithKeyIndexLocal(
 	return S, oracleIdentities, eg.Wait()
 }
 
-func DeleteAllOCR2JobsAndBridges(nodes []*client.ChainlinkClient) error {
+// DeleteJobs will delete ALL jobs from the nodes
+func DeleteJobs(nodes []*client.ChainlinkClient) error {
 	for _, node := range nodes {
 		if node == nil {
 			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", nodes)
@@ -293,6 +295,16 @@ func DeleteAllOCR2JobsAndBridges(nodes []*client.ChainlinkClient) error {
 			if err != nil {
 				return errors.Wrap(err, "error deleting job from chainlink node")
 			}
+		}
+	}
+	return nil
+}
+
+// DeleteBridges will delete ALL bridges from the nodes
+func DeleteBridges(nodes []*client.ChainlinkClient) error {
+	for _, node := range nodes {
+		if node == nil {
+			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", nodes)
 		}
 
 		bridges, _, err := node.GetBridges()

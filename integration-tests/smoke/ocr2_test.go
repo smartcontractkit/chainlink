@@ -177,7 +177,10 @@ func TestOCRv2JobReplacement(t *testing.T) {
 		roundData.Answer.Int64(),
 	)
 
-	err = actions.DeleteAllOCR2JobsAndBridges(nodeClients)
+	err = actions.DeleteJobs(nodeClients)
+	require.NoError(t, err)
+
+	err = actions.DeleteBridges(nodeClients)
 	require.NoError(t, err)
 
 	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 15, env.EVMClient.GetChainID().Uint64(), false)

@@ -108,7 +108,10 @@ func TestOCRJobReplacement(t *testing.T) {
 	require.NoError(t, err, "Error getting latest OCR answer")
 	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
 
-	err = actions.DeleteAllOCRJobsAndBridges(nodeClients)
+	err = actions.DeleteJobs(nodeClients)
+	require.NoError(t, err)
+
+	err = actions.DeleteBridges(nodeClients)
 	require.NoError(t, err)
 
 	//Recreate job

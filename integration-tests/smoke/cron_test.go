@@ -95,7 +95,7 @@ func TestCronJobReplacement(t *testing.T) {
 	})
 	require.NoError(t, err, "Creating Cron Job in chainlink node shouldn't fail")
 
-	gom := gomega.NewGomegaWithT(t)
+	gom := gomega.NewWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
 		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Data.ID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Reading Job run data shouldn't fail")

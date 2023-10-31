@@ -220,39 +220,6 @@ func CreateOCRJobsLocal(
 	return nil
 }
 
-func DeleteAllOCRJobsAndBridges(nodes []*client.ChainlinkClient) error {
-	for _, node := range nodes {
-		if node == nil {
-			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", nodes)
-		}
-		jobs, _, err := node.ReadJobs()
-		if err != nil {
-			return errors.Wrap(err, "error reading jobs from chainlink node")
-		}
-		for _, maps := range jobs.Data {
-			if _, ok := maps["id"]; !ok {
-				return errors.Errorf("error reading job id from chainlink node's jobs %+v", jobs.Data)
-			}
-			id := maps["id"].(string)
-			_, err := node.DeleteJob(id)
-			if err != nil {
-				return errors.Wrap(err, "error deleting job from chainlink node")
-			}
-		}
-		bridges, _, err := node.GetBridges()
-		if err != nil {
-			return err
-		}
-		for _, b := range bridges.Data {
-			_, err = node.DeleteBridge(b.Attributes.Name)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func BuildNodeContractPairIDLocal(node *client.ChainlinkClient, ocrInstance contracts.OffchainAggregator) (string, error) {
 	if node == nil {
 		return "", fmt.Errorf("chainlink node is nil")
