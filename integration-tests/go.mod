@@ -517,7 +517,6 @@ replace (
 	github.com/sercand/kuberesolver v2.4.0+incompatible => github.com/sercand/kuberesolver/v5 v5.1.1
 
 	github.com/smartcontractkit/chainlink-cosmos => github.com/smartcontractkit/chainlink-cosmos v0.0.0-20231018003459-2fa437214ddb
-
 	github.com/smartcontractkit/chainlink-relay => github.com/smartcontractkit/chainlink-relay v0.0.0-20231107215547-ee2e975fb9d9
 	github.com/smartcontractkit/chainlink-solana => github.com/smartcontractkit/chainlink-solana v0.0.0-20231018005728-a71a9ad18cc9
 	github.com/smartcontractkit/chainlink-starknet/relayer => github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20231018010624-0802db9a01a7
