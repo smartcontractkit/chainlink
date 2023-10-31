@@ -166,9 +166,8 @@ func SetChainConfig(
 		if chain.Simulated {
 			chainConfig = evmcfg.Chain{
 				AutoCreateKey:      utils2.Ptr(true),
-				FinalityDepth:      utils2.Ptr[uint32](50),
+				FinalityDepth:      utils2.Ptr[uint32](1),
 				MinContractPayment: assets.NewLinkFromJuels(0),
-				LogPollInterval:    models.MustNewDuration(1 * time.Second),
 			}
 		}
 		cfg.EVM = evmcfg.EVMConfigs{

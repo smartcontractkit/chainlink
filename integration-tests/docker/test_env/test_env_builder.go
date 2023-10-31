@@ -324,7 +324,9 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 			if b.chainOptionsFn != nil && len(b.chainOptionsFn) > 0 {
 				for _, fn := range b.chainOptionsFn {
-					fn(&cfg.EVM[0].Chain)
+					for _, evmCfg := range cfg.EVM {
+						fn(&evmCfg.Chain)
+					}
 				}
 			}
 		}

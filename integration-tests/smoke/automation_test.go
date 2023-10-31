@@ -60,7 +60,6 @@ var (
 		MaxCheckDataSize:     uint32(5000),
 		MaxPerformDataSize:   uint32(5000),
 	}
-
 	automationDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
 		FlatFeeMicroLINK:     uint32(0),
@@ -90,7 +89,7 @@ func TestAutomationBasic(t *testing.T) {
 }
 
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
-	// t.Parallel()
+	t.Parallel()
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0":                                 ethereum.RegistryVersion_2_0,
 		"registry_2_1_conditional":                     ethereum.RegistryVersion_2_1,
@@ -104,7 +103,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 			l := logging.GetTestLogger(t)
 
 			var (
