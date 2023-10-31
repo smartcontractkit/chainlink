@@ -164,6 +164,8 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testin
 	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &detectedEvents, "request")
 
 	assert.Equal(t, maxLogsToProcess, len(outputLogs))
+	assert.Equal(t, 1000, len(detectedEvents.detectedEventsOrdered))
+	assert.Equal(t, 1000, len(detectedEvents.isPreviouslyDetected))
 }
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *testing.T) {
@@ -177,6 +179,8 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *test
 	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &detectedEvents, "request")
 
 	assert.Equal(t, 0, len(outputLogs))
+	assert.Equal(t, 0, len(detectedEvents.detectedEventsOrdered))
+	assert.Equal(t, 0, len(detectedEvents.isPreviouslyDetected))
 }
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetectedEvent(t *testing.T) {
