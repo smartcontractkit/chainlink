@@ -234,7 +234,6 @@ func TestValidateChainReaderConfig(t *testing.T) {
 		largeABI = largeABI[:len(largeABI)-1]
 		manyChainReadingDefinitions = manyChainReadingDefinitions[:len(manyChainReadingDefinitions)-1]
 		formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, strings.Replace(largeABI, `"`, `\"`, -1), manyChainReadingDefinitions)
-		fmt.Println(formattedCfgJsonString)
 		assert.NoError(t, json.Unmarshal([]byte(formattedCfgJsonString), &cfg))
 		assert.NoError(t, evm.ValidateChainReaderConfig(cfg))
 	})
