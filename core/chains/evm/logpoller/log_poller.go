@@ -37,7 +37,7 @@ type LogPoller interface {
 	RegisterFilter(filter Filter, qopts ...pg.QOpt) error
 	UnregisterFilter(name string, qopts ...pg.QOpt) error
 	HasFilter(name string) bool
-	LatestBlock(qopts ...pg.QOpt) (int64, error)
+	LatestBlock(qopts ...pg.QOpt) (LogPollerBlock, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
 	// General querying
@@ -1018,13 +1018,13 @@ func (lp *logPoller) IndexedLogsTopicRange(eventSig common.Hash, address common.
 
 // LatestBlock returns the latest block the log poller is on. It tracks blocks to be able
 // to detect reorgs.
-func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
+func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (LogPollerBlock, error) {
 	b, err := lp.orm.SelectLatestBlock(qopts...)
 	if err != nil {
-		return 0, err
+		return LogPollerBlock{}, err
 	}
 
-	return b.BlockNumber, nil
+	return *b, nil
 }
 
 func (lp *logPoller) BlockByNumber(n int64, qopts ...pg.QOpt) (*LogPollerBlock, error) {
