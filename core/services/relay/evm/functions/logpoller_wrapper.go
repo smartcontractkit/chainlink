@@ -166,7 +166,6 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	if startBlockNum < 0 {
 		startBlockNum = 0
 	}
-	latestBlockNum -= l.blockOffset
 	l.mu.Unlock()
 
 	// outside of the lock
@@ -178,21 +177,21 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	}
 
 	for _, coordinator := range coordinators {
-		requestEndBlock := latest - l.requestBlockOffset
-		requestLogs, err := l.logPoller.Logs(startBlock, requestEndBlock, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
+		requestEndBlock := latestBlockNum - l.requestBlockOffset
+		requestLogs, err := l.logPoller.Logs(startBlockNum, requestEndBlock, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
 		if err != nil {
-			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlock, "endBlock", requestEndBlock)
+			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", requestEndBlock)
 			return nil, nil, err
 		}
-		l.lggr.Debugw("LatestEvents: fetched request logs", "nRequestLogs", len(requestLogs), "latestBlock", latest, "startBlock", startBlock, "endBlock", requestEndBlock)
+		l.lggr.Debugw("LatestEvents: fetched request logs", "nRequestLogs", len(requestLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", requestEndBlock)
 		requestLogs = l.FilterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests, "requests")
-		responseEndBlock := latest - l.responseBlockOffset
-		responseLogs, err := l.logPoller.Logs(startBlock, responseEndBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
+		responseEndBlock := latestBlockNum - l.responseBlockOffset
+		responseLogs, err := l.logPoller.Logs(startBlockNum, responseEndBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
 		if err != nil {
-			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlock, "endBlock", responseEndBlock)
+			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", responseEndBlock)
 			return nil, nil, err
 		}
-		l.lggr.Debugw("LatestEvents: fetched request logs", "nResponseLogs", len(responseLogs), "latestBlock", latest, "startBlock", startBlock, "endBlock", responseEndBlock)
+		l.lggr.Debugw("LatestEvents: fetched request logs", "nResponseLogs", len(responseLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", responseEndBlock)
 		responseLogs = l.FilterPreviouslyDetectedEvents(responseLogs, &l.detectedResponses, "responses")
 
 		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator, l.client)
