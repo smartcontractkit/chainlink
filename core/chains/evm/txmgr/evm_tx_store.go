@@ -639,7 +639,7 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*Tx) (err error) {
 	for _, receipt := range receipts {
 		attempt := attemptHashM[receipt.TxHash]
 		// Although the attempts struct supports multiple receipts, the expectation for EVM is that there is only one receipt
-		// per tx and therefore attempt too. 
+		// per tx and therefore attempt too.
 		attempt.Receipts = append(attempt.Receipts, receipt)
 	}
 	return nil

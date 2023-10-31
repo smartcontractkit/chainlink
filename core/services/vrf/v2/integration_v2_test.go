@@ -33,6 +33,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -1602,8 +1603,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.Zero(t, key.Cmp(keys[0]))
 
 	require.NoError(t, app.Start(testutils.Context(t)))
-
-	chain, err := app.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	var chain evm.Chain
+	chain, err = app.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
 	listenerV2 := v22.MakeTestListenerV2(chain)
 
 	jbs := createVRFJobs(
@@ -2014,6 +2016,7 @@ func TestStartingCountsV1(t *testing.T) {
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	chain, err := legacyChains.Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
 	listenerV1 := &v1.Listener{
 		Chain: chain,
 	}
@@ -2115,8 +2118,9 @@ func TestStartingCountsV1(t *testing.T) {
 			ChainID:            chainID.ToInt(),
 		})
 	}
-	for _, tx := range append(confirmedTxes, unconfirmedTxes...) {
-		err = txStore.InsertTx(&tx)
+	txList := append(confirmedTxes, unconfirmedTxes...)
+	for i := range txList {
+		err = txStore.InsertTx(&txList[i])
 		require.NoError(t, err)
 	}
 
@@ -2150,8 +2154,8 @@ func TestStartingCountsV1(t *testing.T) {
 	for _, txAttempt := range txAttempts {
 		t.Log("tx attempt eth tx id: ", txAttempt.TxID)
 	}
-	for _, attempt := range txAttempts {
-		err = txStore.InsertTxAttempt(&attempt)
+	for i := range txAttempts {
+		err = txStore.InsertTxAttempt(&txAttempts[i])
 		require.NoError(t, err)
 	}
 
@@ -2165,8 +2169,8 @@ func TestStartingCountsV1(t *testing.T) {
 			TransactionIndex: 1,
 		})
 	}
-	for _, r := range receipts {
-		_, err = txStore.InsertReceipt(&r)
+	for i := range receipts {
+		_, err = txStore.InsertReceipt(&receipts[i])
 		require.NoError(t, err)
 	}
 
