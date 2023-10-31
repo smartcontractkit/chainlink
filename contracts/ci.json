@@ -12,13 +12,12 @@
     },
     {
       "dir": "v0.8",
-      "numOfSplits": 8,
+      "numOfSplits": 6,
       "slowTests": [
-        "Keeper",
-        "Cron.test",
-        "CronUpkeep.test",
+        "Cron",
+        "CronUpkeep",
+        "VRFSubscriptionBalanceMonitor",
         "EthBalanceMonitor",
-        "CanaryUpkeep",
         "KeeperRegistrar",
         "KeeperRegistry1_2",
         "KeeperRegistry1_3",
