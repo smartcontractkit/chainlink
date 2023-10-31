@@ -34,10 +34,11 @@ func (r *blockTimeResolver) BlockTime(ctx context.Context, blockSampleSize int64
 	if err != nil {
 		return 0, fmt.Errorf("failed to get latest block from poller: %w", err)
 	}
-	if latest <= blockSampleSize {
+	latestBlockNumber := latest.BlockNumber
+	if latestBlockNumber <= blockSampleSize {
 		return defaultBlockTime, nil
 	}
-	start, end := latest-blockSampleSize, latest
+	start, end := latestBlockNumber-blockSampleSize, latestBlockNumber
 	startTime, endTime, err := r.getSampleTimestamps(ctx, uint64(start), uint64(end))
 	if err != nil {
 		return 0, err

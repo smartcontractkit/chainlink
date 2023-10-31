@@ -181,7 +181,7 @@ func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 		}
 		return 0, err
 	}
-	return uint64(latest), nil
+	return uint64(latest.BlockNumber), nil
 }
 
 // called from LogPollerWrapper in a separate goroutine
