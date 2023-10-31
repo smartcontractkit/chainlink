@@ -87,7 +87,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		client := mocks.NewRPCClient(t)
 		o := gas.NewSuggestedPriceEstimator(logger.TestLogger(t), client)
 		_, _, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), gasLimit, assets.NewWeiI(10), nil)
-		assert.EqualError(t, err, "bump gas is not supported for this l2")
+		assert.EqualError(t, err, "bump gas is not supported for this chain")
 	})
 
 	t.Run("calling GetLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {

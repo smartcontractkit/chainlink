@@ -2,6 +2,7 @@ package gas
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"slices"
 	"sync"
 	"time"
@@ -26,9 +27,9 @@ type rpcClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
-// SuggestedPriceEstimator is an Estimator which uses the L2 suggested gas price from eth_gasPrice.
+// SuggestedPriceEstimator is an Estimator which uses the suggested gas price from eth_gasPrice.
 type SuggestedPriceEstimator struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	client     rpcClient
 	pollPeriod time.Duration
@@ -43,8 +44,7 @@ type SuggestedPriceEstimator struct {
 	chDone         chan struct{}
 }
 
-// NewSuggestedPriceEstimator returns a new Estimator which uses the L2 suggested gas price.
-// Can also be used for non-L2 chains.
+// NewSuggestedPriceEstimator returns a new Estimator which uses the suggested gas price.
 func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator {
 	return &SuggestedPriceEstimator{
 		client:         client,
@@ -177,7 +177,7 @@ func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, Ga
 }
 
 func (o *SuggestedPriceEstimator) BumpLegacyGas(_ context.Context, _ *assets.Wei, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	return nil, 0, errors.New("bump gas is not supported for this l2")
+	return nil, 0, errors.New("bump gas is not supported for this chain")
 }
 
 func (o *SuggestedPriceEstimator) getGasPrice() (GasPrice *assets.Wei) {
