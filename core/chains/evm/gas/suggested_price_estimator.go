@@ -2,7 +2,6 @@ package gas
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"slices"
 	"sync"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
