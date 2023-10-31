@@ -60,7 +60,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundCo
 
 	// TODO: implement GetLatestValue
 
-	return fmt.Errorf("Unimplemented method")
+	return fmt.Errorf("Unimplemented method GetlatestValue called")
 }
 
 func (cr *chainReader) Start(ctx context.Context) error {
