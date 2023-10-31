@@ -160,12 +160,12 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testin
 	}
 
 	functionsLpWrapper := lpWrapper.(*logPollerWrapper)
-	detectedEvents := detectedEvents{isPreviouslyDetected: make(map[[32]byte]struct{})}
-	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &detectedEvents, "request")
+	mockedDetectedEvents := detectedEvents{isPreviouslyDetected: make(map[[32]byte]struct{})}
+	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &mockedDetectedEvents, "request")
 
 	assert.Equal(t, maxLogsToProcess, len(outputLogs))
-	assert.Equal(t, 1000, len(detectedEvents.detectedEventsOrdered))
-	assert.Equal(t, 1000, len(detectedEvents.isPreviouslyDetected))
+	assert.Equal(t, 1000, len(mockedDetectedEvents.detectedEventsOrdered))
+	assert.Equal(t, 1000, len(mockedDetectedEvents.isPreviouslyDetected))
 }
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *testing.T) {
@@ -173,14 +173,14 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *test
 	_, lpWrapper, _ := setUp(t, 100_000)
 	inputLogs := []logpoller.Log{getMockedRequestLog(t)}
 	inputLogs[0].Topics = [][]byte{[]byte("invalid topic")}
-	detectedEvents := detectedEvents{isPreviouslyDetected: make(map[[32]byte]struct{})}
+	mockedDetectedEvents := detectedEvents{isPreviouslyDetected: make(map[[32]byte]struct{})}
 
 	functionsLpWrapper := lpWrapper.(*logPollerWrapper)
-	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &detectedEvents, "request")
+	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &mockedDetectedEvents, "request")
 
 	assert.Equal(t, 0, len(outputLogs))
-	assert.Equal(t, 0, len(detectedEvents.detectedEventsOrdered))
-	assert.Equal(t, 0, len(detectedEvents.isPreviouslyDetected))
+	assert.Equal(t, 0, len(mockedDetectedEvents.detectedEventsOrdered))
+	assert.Equal(t, 0, len(mockedDetectedEvents.isPreviouslyDetected))
 }
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetectedEvent(t *testing.T) {
@@ -191,21 +191,21 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetect
 	var mockedRequestId [32]byte
 	copy(mockedRequestId[:], mockedRequestLog.Topics[1])
 
-	detectedEvents := detectedEvents{
+	mockedDetectedEvents := detectedEvents{
 		isPreviouslyDetected:  make(map[[32]byte]struct{}),
 		detectedEventsOrdered: make([]detectedEvent, 1),
 	}
-	detectedEvents.isPreviouslyDetected[mockedRequestId] = struct{}{}
-	detectedEvents.detectedEventsOrdered[0] = detectedEvent{
+	mockedDetectedEvents.isPreviouslyDetected[mockedRequestId] = struct{}{}
+	mockedDetectedEvents.detectedEventsOrdered[0] = detectedEvent{
 		requestId:    mockedRequestId,
 		timeDetected: time.Now().Add(-time.Second * time.Duration(logPollerCacheDurationSecDefault+1)),
 	}
 
 	functionsLpWrapper := lpWrapper.(*logPollerWrapper)
-	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &detectedEvents, "request")
+	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &mockedDetectedEvents, "request")
 
 	assert.Equal(t, 0, len(outputLogs))
 	// Ensure that expired events are removed from the cache
-	assert.Equal(t, 0, len(detectedEvents.detectedEventsOrdered))
-	assert.Equal(t, 0, len(detectedEvents.isPreviouslyDetected))
+	assert.Equal(t, 0, len(mockedDetectedEvents.detectedEventsOrdered))
+	assert.Equal(t, 0, len(mockedDetectedEvents.isPreviouslyDetected))
 }
