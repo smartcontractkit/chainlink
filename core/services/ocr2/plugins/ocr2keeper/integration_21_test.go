@@ -26,6 +26,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -33,6 +35,7 @@ import (
 	"github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
@@ -52,7 +55,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
-	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -884,7 +886,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 	registry *iregistry21.IKeeperRegistryMaster,
 	registryOwner *bind.TransactOpts,
 ) error {
-	adminBytes, _ := json.Marshal(evm21.UpkeepPrivilegeConfig{
+	adminBytes, _ := json.Marshal(streams.UpkeepPrivilegeConfig{
 		MercuryEnabled: true,
 	})
 
@@ -908,7 +910,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 			return err
 		}
 
-		var checkBytes evm21.UpkeepPrivilegeConfig
+		var checkBytes streams.UpkeepPrivilegeConfig
 		if err := json.Unmarshal(bts, &checkBytes); err != nil {
 			require.NoError(t, err)
 

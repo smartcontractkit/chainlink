@@ -67,7 +67,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		return
 	}
 
-	upkeepResults = r.streamsLookup(ctx, upkeepResults)
+	upkeepResults = r.streams.Lookup(ctx, upkeepResults)
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
@@ -101,7 +101,7 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 }
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
-func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
+func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state uint8, retryable bool) {
 	// verify check block number and hash are valid
 	h, ok := r.bs.queryBlocksMap(checkBlock.Int64())
 	// if this block number/hash combo exists in block subscriber, this check block and hash still exist on chain and are valid
@@ -124,7 +124,7 @@ func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *
 }
 
 // verifyLogExists checks that the log still exists on chain, returns failure reason, pipeline error, and retryable
-func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (encoding.UpkeepFailureReason, encoding.PipelineExecutionState, bool) {
+func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (uint8, uint8, bool) {
 	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
 	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
 	checkBlockHash := common.BytesToHash(p.Trigger.BlockHash[:])
