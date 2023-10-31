@@ -45,7 +45,8 @@ func (k keccakCtx) HashInternal(a, b [32]byte) [32]byte {
 }
 
 // ZeroHash returns the zero hash: 0xFF..FF
-// We use bytes32 0xFF..FF for zeroHash in the spec, this needs to match.
+// We use bytes32 0xFF..FF for zeroHash in the CCIP research spec, this needs to match.
+// This value is chosen since it is unlikely to be the result of a hash, and cannot match any internal node preimage.
 func (k keccakCtx) ZeroHash() [32]byte {
 	var zeroes [32]byte
 	for i := 0; i < 32; i++ {
