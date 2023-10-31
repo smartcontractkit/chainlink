@@ -23,6 +23,7 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -191,7 +192,7 @@ type vrfPipelineResult struct {
 }
 
 type listenerV2 struct {
-	utils.StartStopOnce
+	services.StateMachine
 	cfg            vrfcommon.Config
 	feeCfg         vrfcommon.FeeConfig
 	l              logger.SugaredLogger

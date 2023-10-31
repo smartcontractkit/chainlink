@@ -9,13 +9,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -119,6 +120,7 @@ var (
 )
 
 type listener struct {
+	services.StateMachine
 	logger                   logger.Logger
 	config                   Config
 	logBroadcaster           log.Broadcaster
@@ -135,7 +137,6 @@ type listener struct {
 	requesters               models.AddressCollection
 	minContractPayment       *assets.Link
 	chStop                   chan struct{}
-	utils.StartStopOnce
 }
 
 func (l *listener) HealthReport() map[string]error {

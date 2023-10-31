@@ -69,7 +69,7 @@ type Txm[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
-	utils.StartStopOnce
+	services.StateMachine
 	logger         logger.Logger
 	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	config         txmgrtypes.TransactionManagerChainConfig

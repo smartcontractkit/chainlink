@@ -262,7 +262,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	lp.PollAndSaveLogs(tctx, 4)
 	latest, err := lp.LatestBlock()
 	require.NoError(t, err)
-	require.Equal(t, int64(4), latest)
+	require.Equal(t, int64(4), latest.BlockNumber)
 
 	t.Run("abort before replayStart received", func(t *testing.T) {
 		// Replay() should abort immediately if caller's context is cancelled before request signal is read
