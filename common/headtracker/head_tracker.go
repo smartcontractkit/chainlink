@@ -40,6 +40,7 @@ type HeadTracker[
 	ID types.ID,
 	BLOCK_HASH types.Hashable,
 ] struct {
+	services.StateMachine
 	log             logger.Logger
 	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH]
 	headSaver       types.HeadSaver[HTH, BLOCK_HASH]
@@ -54,8 +55,7 @@ type HeadTracker[
 	headListener types.HeadListener[HTH, BLOCK_HASH]
 	chStop       utils.StopChan
 	wgDone       sync.WaitGroup
-	utils.StartStopOnce
-	getNilHead func() HTH
+	getNilHead   func() HTH
 }
 
 // NewHeadTracker instantiates a new HeadTracker using HeadSaver to persist new block numbers.

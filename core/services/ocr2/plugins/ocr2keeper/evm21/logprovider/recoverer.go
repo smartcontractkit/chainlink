@@ -15,9 +15,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/ocr2keepers/pkg/v3/random"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -63,7 +65,7 @@ type visitedRecord struct {
 }
 
 type logRecoverer struct {
-	utils.StartStopOnce
+	services.StateMachine
 	threadCtrl utils.ThreadControl
 
 	lggr logger.Logger

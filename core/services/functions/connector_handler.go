@@ -8,6 +8,10 @@ import (
 
 	"go.uber.org/multierr"
 
+	ethCommon "github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -16,13 +20,10 @@ import (
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	ethCommon "github.com/ethereum/go-ethereum/common"
 )
 
 type functionsConnectorHandler struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	connector      connector.GatewayConnector
 	signerKey      *ecdsa.PrivateKey

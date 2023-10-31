@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -223,7 +224,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 
 type CosmosFactoryConfig struct {
 	Keystore keystore.Cosmos
-	cosmos.CosmosConfigs
+	coscfg.TOMLConfigs
 	EventBroadcaster pg.EventBroadcaster
 	*sqlx.DB
 	pg.QConfig
@@ -234,7 +235,7 @@ func (c CosmosFactoryConfig) Validate() error {
 	if c.Keystore == nil {
 		err = errors.Join(err, fmt.Errorf("nil Keystore"))
 	}
-	if len(c.CosmosConfigs) == 0 {
+	if len(c.TOMLConfigs) == 0 {
 		err = errors.Join(err, fmt.Errorf("no CosmosConfigs provided"))
 	}
 	if c.EventBroadcaster == nil {
@@ -266,7 +267,7 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 	)
 
 	// create one relayer per chain id
-	for _, chainCfg := range config.CosmosConfigs {
+	for _, chainCfg := range config.TOMLConfigs {
 		relayID := relay.ID{Network: relay.Cosmos, ChainID: *chainCfg.ChainID}
 
 		lggr := cosmosLggr.Named(relayID.ChainID)

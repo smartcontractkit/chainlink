@@ -11,11 +11,11 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -37,18 +37,18 @@ type backupResult struct {
 
 type (
 	DatabaseBackup interface {
-		services.ServiceCtx
+		services.Service
 		RunBackup(version string) error
 	}
 
 	databaseBackup struct {
+		services.StateMachine
 		logger          logger.Logger
 		databaseURL     url.URL
 		mode            config.DatabaseBackupMode
 		frequency       time.Duration
 		outputParentDir string
 		done            chan bool
-		utils.StartStopOnce
 	}
 
 	BackupConfig interface {
@@ -77,13 +77,13 @@ func NewDatabaseBackup(dbUrl url.URL, rootDir string, backupConfig BackupConfig,
 	}
 
 	return &databaseBackup{
+		services.StateMachine{},
 		lggr,
 		dbUrl,
 		backupConfig.Mode(),
 		backupConfig.Frequency(),
 		outputParentDir,
 		make(chan bool),
-		utils.StartStopOnce{},
 	}, nil
 }
 
@@ -129,7 +129,7 @@ func (backup *databaseBackup) Name() string {
 }
 
 func (backup *databaseBackup) HealthReport() map[string]error {
-	return map[string]error{backup.Name(): backup.StartStopOnce.Healthy()}
+	return map[string]error{backup.Name(): backup.Healthy()}
 }
 
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
