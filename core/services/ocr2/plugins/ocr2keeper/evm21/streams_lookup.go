@@ -573,9 +573,9 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			sent = true
 			return nil
 		},
-		// only retry when the error is 404 Not Found or 500 Internal Server Error
+		// only retry when the error is 206 Partial Content or 500 Internal Server Error
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusPartialContent)
+			return err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusPartialContent)
 		}),
 		retry.Context(ctx),
 		retry.Delay(retryDelay),
