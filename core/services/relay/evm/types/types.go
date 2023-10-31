@@ -35,17 +35,16 @@ type ChainReaderConfig struct {
 }
 
 type ChainContractReader struct {
-	ContractName string `json:"contractName""`
-	ContractABI  []byte `json:"contractABI"`
+	ContractABI string `json:"contractABI"`
 	// key is genericName from config
 	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions"`
 }
 
 type ChainReaderDefinition struct {
-	ChainSpecificName string   `json:"chainSpecificName"` // chain specific contract method name or event type.
-	Params            []string `json:"params"`
-	ReturnValues      []string `json:"returnValues"`
-	CacheEnabled      bool     `json:"cacheEnabled"`
+	ChainSpecificName string         `json:"chainSpecificName"` // chain specific contract method name or event type.
+	Params            map[string]any `json:"params"`
+	ReturnValues      []string       `json:"returnValues"`
+	CacheEnabled      bool           `json:"cacheEnabled"`
 	ReadType          `json:"readType"`
 }
 
