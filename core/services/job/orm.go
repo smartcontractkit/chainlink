@@ -805,7 +805,6 @@ func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSp
 		if err != nil {
 			return nil, err
 		}
-		os.EncryptedOCRKeyBundleIDEnv = true
 		os.EncryptedOCRKeyBundleID = &encryptedOCRKeyBundleID
 	}
 

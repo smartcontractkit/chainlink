@@ -234,13 +234,12 @@ func (pr *PipelineRun) SetID(value string) error {
 
 // OCROracleSpec defines the job spec for OCR jobs.
 type OCROracleSpec struct {
-	ID                                     int32               `toml:"-"`
-	ContractAddress                        ethkey.EIP55Address `toml:"contractAddress"`
-	P2PBootstrapPeers                      pq.StringArray      `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
-	P2PV2Bootstrappers                     pq.StringArray      `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
-	IsBootstrapPeer                        bool                `toml:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                *models.Sha256Hash  `toml:"keyBundleID"`
-	EncryptedOCRKeyBundleIDEnv             bool
+	ID                                     int32                `toml:"-"`
+	ContractAddress                        ethkey.EIP55Address  `toml:"contractAddress"`
+	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
+	P2PV2Bootstrappers                     pq.StringArray       `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
+	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                *models.Sha256Hash   `toml:"keyBundleID"`
 	TransmitterAddress                     *ethkey.EIP55Address `toml:"transmitterAddress"`
 	ObservationTimeout                     models.Interval      `toml:"observationTimeout"`
 	BlockchainTimeout                      models.Interval      `toml:"blockchainTimeout"`
@@ -513,7 +512,6 @@ type VRFSpec struct {
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
 	MinIncomingConfirmations uint32                `toml:"minIncomingConfirmations"`
-	ConfirmationsEnv         bool                  `toml:"-"`
 	EVMChainID               *utils.Big            `toml:"evmChainID"`
 	FromAddresses            []ethkey.EIP55Address `toml:"fromAddresses"`
 	PollPeriod               time.Duration         `toml:"pollPeriod"`          // For v2 jobs
