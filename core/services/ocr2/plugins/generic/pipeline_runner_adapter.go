@@ -41,10 +41,7 @@ func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, var
 		},
 	}
 
-	err := merge(defaultVars, vars.Vars)
-	if err != nil {
-		return nil, err
-	}
+	merge(defaultVars, vars.Vars)
 
 	finalVars := pipeline.NewVarsFrom(defaultVars)
 	_, trrs, err := p.runner.ExecuteRun(ctx, s, finalVars, p.logger)
@@ -74,7 +71,7 @@ func NewPipelineRunnerAdapter(logger logger.Logger, job job.Job, runner pipeline
 }
 
 // merge merges mapTwo into mapOne, modifying mapOne in the process.
-func merge(mapOne, mapTwo map[string]interface{}) error {
+func merge(mapOne, mapTwo map[string]interface{}) {
 	for k, v := range mapTwo {
 		// if `mapOne` doesn't have `k`, then nothing to do, just assign v to `mapOne`.
 		if _, ok := mapOne[k]; !ok {
@@ -89,6 +86,4 @@ func merge(mapOne, mapTwo map[string]interface{}) error {
 			}
 		}
 	}
-
-	return nil
 }

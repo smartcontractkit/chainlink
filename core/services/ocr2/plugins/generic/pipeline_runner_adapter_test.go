@@ -131,8 +131,7 @@ func TestMerge(t *testing.T) {
 		"val": 0,
 	}
 
-	err := merge(vars, addedVars)
-	require.NoError(t, err)
+	merge(vars, addedVars)
 
 	assert.True(t, reflect.DeepEqual(vars, map[string]interface{}{
 		"jb": map[string]interface{}{
