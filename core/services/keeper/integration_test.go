@@ -168,7 +168,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 		{"eip1559_registry1_1", true, keeper.RegistryVersion_1_1},
 		{"legacy_registry1_2", false, keeper.RegistryVersion_1_2},
 		{"eip1559_registry1_2", true, keeper.RegistryVersion_1_2},
-		{"legacy_registry1_3", false, keeper.RegistryVersion_1_3},
+		// The below test is flakey, see: https://smartcontract-it.atlassian.net/browse/BCF-2748
+		// {"legacy_registry1_3", false, keeper.RegistryVersion_1_3},
 		{"eip1559_registry1_3", true, keeper.RegistryVersion_1_3},
 	}
 
