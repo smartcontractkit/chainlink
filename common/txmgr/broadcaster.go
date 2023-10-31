@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -123,8 +122,6 @@ type Broadcaster[
 	// when Start is called
 	autoSyncSequence bool
 
-	txInsertListener        pg.Subscription
-	eventBroadcaster        pg.EventBroadcaster
 	processUnstartedTxsImpl ProcessUnstartedTxs[ADDR]
 
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
@@ -142,8 +139,6 @@ type Broadcaster[
 
 	initSync  sync.Mutex
 	isStarted bool
-
-	parseAddr func(string) (ADDR, error)
 
 	sequenceLock         sync.RWMutex
 	nextSequenceMap      map[ADDR]SEQ
@@ -166,13 +161,11 @@ func NewBroadcaster[
 	txConfig txmgrtypes.BroadcasterTransactionsConfig,
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
 	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
-	eventBroadcaster pg.EventBroadcaster,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	sequenceSyncer SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH, SEQ],
 	logger logger.Logger,
 	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	autoSyncSequence bool,
-	parseAddress func(string) (ADDR, error),
 	generateNextSequence types.GenerateNextSequenceFunc[SEQ],
 ) *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	logger = logger.Named("Broadcaster")
@@ -187,11 +180,9 @@ func NewBroadcaster[
 		feeConfig:        feeConfig,
 		txConfig:         txConfig,
 		listenerConfig:   listenerConfig,
-		eventBroadcaster: eventBroadcaster,
 		ks:               keystore,
 		checkerFactory:   checkerFactory,
 		autoSyncSequence: autoSyncSequence,
-		parseAddr:        parseAddress,
 	}
 
 	b.processUnstartedTxsImpl = b.processUnstartedTxs
@@ -215,10 +206,6 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 		return errors.New("Broadcaster is already started")
 	}
 	var err error
-	eb.txInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnTx, "")
-	if err != nil {
-		return errors.Wrap(err, "Broadcaster could not start")
-	}
 	eb.enabledAddresses, err = eb.ks.EnabledAddressesForChain(eb.chainID)
 	if err != nil {
 		return errors.Wrap(err, "Broadcaster: failed to load EnabledAddressesForChain")
@@ -238,9 +225,6 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 		eb.triggers[addr] = triggerCh
 		go eb.monitorTxs(addr, triggerCh)
 	}
-
-	eb.wg.Add(1)
-	go eb.txInsertTriggerer()
 
 	eb.sequenceLock.Lock()
 	defer eb.sequenceLock.Unlock()
@@ -265,9 +249,6 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) clos
 	defer eb.initSync.Unlock()
 	if !eb.isStarted {
 		return errors.Wrap(utils.ErrAlreadyStopped, "Broadcaster is not started")
-	}
-	if eb.txInsertListener != nil {
-		eb.txInsertListener.Close()
 	}
 	close(eb.chStop)
 	eb.wg.Wait()
@@ -302,27 +283,6 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Trig
 		}
 	} else {
 		eb.logger.Debugf("Unstarted; ignoring trigger for %s", addr)
-	}
-}
-
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) txInsertTriggerer() {
-	defer eb.wg.Done()
-	for {
-		select {
-		case ev, ok := <-eb.txInsertListener.Events():
-			if !ok {
-				eb.logger.Debug("txInsertListener channel closed, exiting trigger loop")
-				return
-			}
-			addr, err := eb.parseAddr(ev.Payload)
-			if err != nil {
-				eb.logger.Errorw("failed to parse address in trigger", "err", err)
-				continue
-			}
-			eb.Trigger(addr)
-		case <-eb.chStop:
-			return
-		}
 	}
 }
 
