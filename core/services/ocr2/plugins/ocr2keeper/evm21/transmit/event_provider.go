@@ -141,8 +141,8 @@ func (c *EventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.Tran
 	// always check the last lookback number of blocks and rebroadcast
 	// this allows the plugin to make decisions based on event confirmations
 	logs, err := c.logPoller.LogsWithSigs(
-		end-c.lookbackBlocks,
-		end,
+		end.BlockNumber-c.lookbackBlocks,
+		end.BlockNumber,
 		[]common.Hash{
 			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
 			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
@@ -156,7 +156,7 @@ func (c *EventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.Tran
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
 
-	return c.processLogs(end, logs...)
+	return c.processLogs(end.BlockNumber, logs...)
 }
 
 // processLogs will parse the unseen logs and return the corresponding transmit events.
