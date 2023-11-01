@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -45,7 +47,7 @@ type sendOnlyNode[
 	CHAIN_ID types.ID,
 	RPC sendOnlyClient[CHAIN_ID],
 ] struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	stateMu sync.RWMutex // protects state* fields
 	state   nodeState

@@ -11,6 +11,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -69,7 +71,7 @@ type node[
 	HEAD Head,
 	RPC NodeClient[CHAIN_ID, HEAD],
 ] struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lfcLog              logger.Logger
 	name                string
 	id                  int32

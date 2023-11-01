@@ -51,17 +51,16 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) verifyLoop() {
 			)
 
 			continue
-		} else {
-			ok := s.IfStarted(func() {
-				if changed := s.setState(nodeStateAlive); changed {
-					promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
-				}
-			})
-			if !ok {
-				return
+		}
+		ok := s.IfStarted(func() {
+			if changed := s.setState(nodeStateAlive); changed {
+				promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
 			}
-			s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
+		})
+		if !ok {
 			return
 		}
+		s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
+		return
 	}
 }
