@@ -3,8 +3,9 @@ package txmgr
 import (
 	"context"
 	"fmt"
-	"golang.org/x/exp/slices"
 	"time"
+
+	"golang.org/x/exp/slices"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -141,7 +142,7 @@ func (tracker *AbandonedTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE
 		// TODO handle error
 	}
 
-	// Get abandoned txs from addresses and insert into the tracker
+	// Get abandoned txes from addresses and insert into the tracker
 	for _, addr := range abandonedAddrs {
 		seq, err := (*tracker.client).SequenceAt(ctx, addr, nil)
 		if err != nil {
@@ -156,6 +157,7 @@ func (tracker *AbandonedTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE
 		tracker.insertAbandonedTx(tx)
 	}
 
+	// Check states of all current abandoned transactions and update tracking
 	tracker.handleTransactionStates(ctx)
 }
 
