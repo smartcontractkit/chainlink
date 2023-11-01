@@ -11,16 +11,17 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocrconfigurationstoreevmsimple"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -89,7 +90,7 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 }
 
 type configPoller struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	lggr               logger.Logger
 	filterName         string
@@ -211,7 +212,7 @@ func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 		}
 		return 0, err
 	}
-	return uint64(latest), nil
+	return uint64(latest.BlockNumber), nil
 }
 
 func (cp *configPoller) isConfigStoreAvailable() bool {

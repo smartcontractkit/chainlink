@@ -92,7 +92,6 @@ type Delegate struct {
 	RelayGetter
 	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon           *utils.MailboxMonitor
-	eventBroadcaster  pg.EventBroadcaster
 
 	legacyChains evm.LegacyChainContainer // legacy: use relayers instead
 }
@@ -221,7 +220,6 @@ func NewDelegate(
 		RelayGetter:           relayers,
 		isNewlyCreatedJob:     false,
 		mailMon:               mailMon,
-		eventBroadcaster:      eventBroadcaster,
 	}
 }
 
@@ -553,7 +551,7 @@ func (d *Delegate) newServicesMercury(
 
 	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
 
-	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
+	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.EnhancedEAMercury, rid.Network, rid.ChainID), lggr.Named("EnhancedTelemetryMercury"))
 		mercuryServices = append(mercuryServices, enhancedTelemService)
 	}

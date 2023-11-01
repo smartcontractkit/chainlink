@@ -317,7 +317,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			var minimumBlockCount int64 = 500
 			latestBlock, _ := lp.LatestBlock()
 
-			assert.GreaterOrEqual(t, latestBlock, minimumBlockCount, "to ensure the integrety of the test, the minimum block count before the test should be %d but got %d", minimumBlockCount, latestBlock)
+			assert.GreaterOrEqual(t, latestBlock.BlockNumber, minimumBlockCount, "to ensure the integrety of the test, the minimum block count before the test should be %d but got %d", minimumBlockCount, latestBlock)
 		}
 
 		require.NoError(t, logProvider.ReadLogs(ctx, ids...))
@@ -455,9 +455,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 }
 
 func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
-	t.Skip() // TODO: remove skip after removing constant timeouts
-	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
@@ -515,21 +513,21 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	}()
 	defer recoverer.Close()
 
-	lctx, lcancel := context.WithTimeout(ctx, time.Second*15)
-	defer lcancel()
 	var allProposals []ocr2keepers.UpkeepPayload
-	for lctx.Err() == nil {
+	for {
 		poll(backend.Commit())
 		proposals, err := recoverer.GetRecoveryProposals(ctx)
 		require.NoError(t, err)
 		allProposals = append(allProposals, proposals...)
-		if len(allProposals) < n {
-			time.Sleep(100 * time.Millisecond)
-			continue
+		if len(allProposals) >= n {
+			break // success
 		}
-		break
+		select {
+		case <-ctx.Done():
+			t.Fatalf("could not recover logs before timeout: %s", ctx.Err())
+		case <-time.After(100 * time.Millisecond):
+		}
 	}
-	require.NoError(t, lctx.Err(), "could not recover logs before timeout")
 }
 
 func collectPayloads(ctx context.Context, t *testing.T, logProvider logprovider.LogEventProvider, n, rounds int) []ocr2keepers.UpkeepPayload {
@@ -566,7 +564,7 @@ func waitLogPoller(ctx context.Context, t *testing.T, backend *backends.Simulate
 	for {
 		latestPolled, lberr := lp.LatestBlock(pg.WithParentCtx(ctx))
 		require.NoError(t, lberr)
-		if latestPolled >= latestBlock {
+		if latestPolled.BlockNumber >= latestBlock {
 			break
 		}
 		lp.PollAndSaveLogs(ctx, latestBlock)

@@ -19,7 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -52,16 +52,14 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	// Add the job
-	var uuid uuid.UUID
+	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBody, bridge.Name.String())
+		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBodyTemplate, uuid, bridge.Name.String())
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
-
-		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -70,7 +68,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	// Make the request
 	{
-		client := app.NewHTTPClient(&cltest.User{})
+		client := app.NewHTTPClient(nil)
 		body := strings.NewReader(`{"data":{"result":"123.45"}}`)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", body)
 		defer cleanup()
@@ -113,16 +111,14 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	// Add the job
-	var uuid uuid.UUID
+	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, bridge.Name.String(), submitBridge.Name.String())
+		tomlStr := testspecs.GetWebhookSpecNoBody(uuid, bridge.Name.String(), submitBridge.Name.String())
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
-
-		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -131,7 +127,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	// Make the request (authorized as user)
 	{
-		client := app.NewHTTPClient(&cltest.User{})
+		client := app.NewHTTPClient(nil)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", nil)
 		defer cleanup()
 		cltest.AssertServerResponse(t, response, http.StatusOK)
@@ -244,7 +240,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	response, cleanup := client.Get("/v2/jobs/1/runs/invalid-run-ID")
 	defer cleanup()
@@ -265,14 +261,16 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
+	nameAndExternalJobID := uuid.New()
 	sp := fmt.Sprintf(`
 	type               = "offchainreporting"
 	schemaVersion      = 1
-	externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+	externalJobID       = "%s"
+	name               = "%s"
 	contractAddress    = "%s"
 	evmChainID		   = "0"
 	p2pBootstrapPeers  = [
@@ -299,7 +297,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 		answer [type=median index=0];
 	"""
-	`, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
+	`, nameAndExternalJobID, nameAndExternalJobID, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	require.NoError(t, err)

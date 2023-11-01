@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services"
-
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -14,13 +12,13 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -75,7 +73,7 @@ func (g *relayGetter) Get(id relay.ID) (loop.Relayer, error) {
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	t.Parallel()
 
-	config := configtest2.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config.Database())
 	ethKeyStore := keyStore.Eth()
@@ -266,7 +264,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	})
 
 	t.Run("Unregisters filters on 'DeleteJob()'", func(t *testing.T) {
-		config = configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 		})
 		lp := &mocklp.LogPoller{}
@@ -334,7 +332,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 type noopChecker struct{}
 
-func (n noopChecker) Register(service services.Checkable) error { return nil }
+func (n noopChecker) Register(service services.HealthReporter) error { return nil }
 
 func (n noopChecker) Unregister(name string) error { return nil }
 

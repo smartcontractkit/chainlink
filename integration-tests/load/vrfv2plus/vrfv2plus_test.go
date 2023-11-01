@@ -2,13 +2,15 @@ package loadvrfv2plus
 
 import (
 	"context"
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"math/big"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -20,34 +22,70 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
-func TestVRFV2PlusLoad(t *testing.T) {
+var (
+	env                *test_env.CLClusterTestEnv
+	vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts
+	vrfv2PlusData      *vrfv2plus.VRFV2PlusData
+	subIDs             []*big.Int
+
+	labels = map[string]string{
+		"branch": "vrfv2Plus_healthcheck",
+		"commit": "vrfv2Plus_healthcheck",
+	}
+
+	testType = os.Getenv("TEST_TYPE")
+)
+
+func TestVRFV2PlusPerformance(t *testing.T) {
 	cfg, err := ReadConfig()
 	require.NoError(t, err)
 	var vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
 	err = envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
 	require.NoError(t, err)
 
+	testReporter := &testreporters.VRFV2PlusTestReporter{}
+
+	SetPerformanceTestConfig(testType, &vrfv2PlusConfig, cfg)
+
 	l := logging.GetTestLogger(t)
 	//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
-	vrfv2PlusConfig.ChainlinkNodeFunding = cfg.Common.NodeFunds
-	vrfv2PlusConfig.IsNativePayment = cfg.Common.IsNativePayment
 	vrfv2PlusConfig.MinimumConfirmations = cfg.Common.MinimumConfirmations
-	vrfv2PlusConfig.SubscriptionFundingAmountLink = cfg.Common.Funding.SubFundsLink
-	vrfv2PlusConfig.SubscriptionFundingAmountNative = cfg.Common.Funding.SubFundsNative
 
-	var env *test_env.CLClusterTestEnv
-	var vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts
-	var subID *big.Int
-	var vrfv2PlusData *vrfv2plus.VRFV2PlusData
+	lokiConfig := wasp.NewEnvLokiConfig()
+	lc, err := wasp.NewLokiClient(lokiConfig)
+	if err != nil {
+		l.Error().Err(err).Msg(ErrLokiClient)
+		return
+	}
+
+	updatedLabels := UpdateLabels(labels, t)
+
+	l.Info().
+		Str("Test Type", testType).
+		Str("Test Duration", vrfv2PlusConfig.TestDuration.Truncate(time.Second).String()).
+		Int64("RPS", vrfv2PlusConfig.RPS).
+		Str("RateLimitUnitDuration", vrfv2PlusConfig.RateLimitUnitDuration.String()).
+		Uint16("RandomnessRequestCountPerRequest", vrfv2PlusConfig.RandomnessRequestCountPerRequest).
+		Uint16("RandomnessRequestCountPerRequestDeviation", vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation).
+		Bool("UseExistingEnv", vrfv2PlusConfig.UseExistingEnv).
+		Msg("Performance Test Configuration")
+
 	if vrfv2PlusConfig.UseExistingEnv {
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		vrfv2PlusConfig.CoordinatorAddress = cfg.ExistingEnvConfig.CoordinatorAddress
 		vrfv2PlusConfig.ConsumerAddress = cfg.ExistingEnvConfig.ConsumerAddress
+		vrfv2PlusConfig.LinkAddress = cfg.ExistingEnvConfig.LinkAddress
+		vrfv2PlusConfig.SubscriptionFundingAmountLink = cfg.ExistingEnvConfig.SubFunding.SubFundsLink
+		vrfv2PlusConfig.SubscriptionFundingAmountNative = cfg.ExistingEnvConfig.SubFunding.SubFundsNative
 		vrfv2PlusConfig.SubID = cfg.ExistingEnvConfig.SubID
 		vrfv2PlusConfig.KeyHash = cfg.ExistingEnvConfig.KeyHash
 
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestLogger(t).
+			WithCustomCleanup(
+				func() {
+					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2PlusConfig)
+				}).
 			Build()
 
 		require.NoError(t, err, "error creating test env")
@@ -55,17 +93,29 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2_5(vrfv2PlusConfig.CoordinatorAddress)
 		require.NoError(t, err)
 
-		consumer, err := env.ContractLoader.LoadVRFv2PlusLoadTestConsumer(vrfv2PlusConfig.ConsumerAddress)
-		require.NoError(t, err)
+		var consumers []contracts.VRFv2PlusLoadTestConsumer
+		if cfg.ExistingEnvConfig.CreateFundSubsAndAddConsumers {
+			linkToken, err := env.ContractLoader.LoadLINKToken(vrfv2PlusConfig.LinkAddress)
+			require.NoError(t, err)
+			consumers, err = vrfv2plus.DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, 1)
+			require.NoError(t, err)
+			subIDs, err = vrfv2plus.CreateFundSubsAndAddConsumers(env, &vrfv2PlusConfig, linkToken, coordinator, consumers, vrfv2PlusConfig.NumberOfSubToCreate)
+			require.NoError(t, err)
+		} else {
+			consumer, err := env.ContractLoader.LoadVRFv2PlusLoadTestConsumer(vrfv2PlusConfig.ConsumerAddress)
+			require.NoError(t, err)
+			consumers = append(consumers, consumer)
+			var ok bool
+			subID, ok := new(big.Int).SetString(vrfv2PlusConfig.SubID, 10)
+			require.True(t, ok)
+			subIDs = append(subIDs, subID)
+		}
 
 		vrfv2PlusContracts = &vrfv2plus.VRFV2_5Contracts{
 			Coordinator:       coordinator,
-			LoadTestConsumers: []contracts.VRFv2PlusLoadTestConsumer{consumer},
+			LoadTestConsumers: consumers,
 			BHS:               nil,
 		}
-		var ok bool
-		subID, ok = new(big.Int).SetString(vrfv2PlusConfig.SubID, 10)
-		require.True(t, ok)
 
 		vrfv2PlusData = &vrfv2plus.VRFV2PlusData{
 			VRFV2PlusKeyData: vrfv2plus.VRFV2PlusKeyData{
@@ -77,12 +127,24 @@ func TestVRFV2PlusLoad(t *testing.T) {
 			PrimaryEthAddress: "",
 			ChainID:           nil,
 		}
+
 	} else {
+		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
+		vrfv2PlusConfig.ChainlinkNodeFunding = cfg.NewEnvConfig.NodeFunds
+		vrfv2PlusConfig.SubscriptionFundingAmountLink = cfg.NewEnvConfig.Funding.SubFundsLink
+		vrfv2PlusConfig.SubscriptionFundingAmountNative = cfg.NewEnvConfig.Funding.SubFundsNative
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestLogger(t).
 			WithGeth().
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
+			WithCustomCleanup(
+				func() {
+					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2PlusConfig)
+					if err := env.Cleanup(); err != nil {
+						l.Error().Err(err).Msg("Error cleaning up test environment")
+					}
+				}).
 			WithLogWatcher().
 			Build()
 
@@ -96,33 +158,23 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 		require.NoError(t, err, "error deploying LINK contract")
 
-		vrfv2PlusContracts, subID, vrfv2PlusData, err = vrfv2plus.SetupVRFV2_5Environment(env, vrfv2PlusConfig, linkToken, mockETHLinkFeed, 1)
+		vrfv2PlusContracts, subIDs, vrfv2PlusData, err = vrfv2plus.SetupVRFV2_5Environment(
+			env,
+			&vrfv2PlusConfig,
+			linkToken,
+			mockETHLinkFeed,
+			1,
+			vrfv2PlusConfig.NumberOfSubToCreate,
+			l,
+		)
 		require.NoError(t, err, "error setting up VRF v2_5 env")
 	}
 
-	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
-	require.NoError(t, err, "error getting subscription information")
-
-	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
-
-	labels := map[string]string{
-		"branch": "vrfv2Plus_healthcheck",
-		"commit": "vrfv2Plus_healthcheck",
-	}
-
-	l.Info().
-		Str("Test Duration", vrfv2PlusConfig.TestDuration.Truncate(time.Second).String()).
-		Int64("RPS", vrfv2PlusConfig.RPS).
-		Str("RateLimitUnitDuration", vrfv2PlusConfig.RateLimitUnitDuration.String()).
-		Uint16("RandomnessRequestCountPerRequest", vrfv2PlusConfig.RandomnessRequestCountPerRequest).
-		Bool("UseExistingEnv", vrfv2PlusConfig.UseExistingEnv).
-		Msg("Load Test Configs")
-
-	lokiConfig := wasp.NewEnvLokiConfig()
-	lc, err := wasp.NewLokiClient(lokiConfig)
-	if err != nil {
-		l.Error().Err(err).Msg(ErrLokiClient)
-		return
+	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
+	for _, subID := range subIDs {
+		subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
+		require.NoError(t, err, "error getting subscription information for subscription %s", subID.String())
+		vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 	}
 
 	singleFeedConfig := &wasp.Config{
@@ -133,22 +185,22 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		Gun: NewSingleHashGun(
 			vrfv2PlusContracts,
 			vrfv2PlusData.KeyHash,
-			subID,
-			vrfv2PlusConfig,
+			subIDs,
+			&vrfv2PlusConfig,
 			l,
 		),
 		Labels:      labels,
 		LokiConfig:  lokiConfig,
 		CallTimeout: 2 * time.Minute,
 	}
+	require.Len(t, vrfv2PlusContracts.LoadTestConsumers, 1, "only one consumer should be created for Load Test")
 	consumer := vrfv2PlusContracts.LoadTestConsumers[0]
 	err = consumer.ResetMetrics()
 	require.NoError(t, err)
-	updatedLabels := UpdateLabels(labels, t)
-	MonitorLoadStats(lc, vrfv2PlusContracts, updatedLabels)
+	MonitorLoadStats(lc, consumer, updatedLabels)
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
-	t.Run("vrfv2plus soak test", func(t *testing.T) {
+	t.Run("vrfv2plus performance test", func(t *testing.T) {
 
 		singleFeedConfig.Schedule = wasp.Plain(
 			vrfv2PlusConfig.RPS,
@@ -160,62 +212,45 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		require.NoError(t, err)
 
 		var wg sync.WaitGroup
-
 		wg.Add(1)
-		requestCount, fulfilmentCount, err := WaitForRequestCountEqualToFulfilmentCount(vrfv2PlusContracts.LoadTestConsumers[0], 30*time.Second, &wg)
+		//todo - timeout should be configurable depending on the perf test type
+		requestCount, fulfilmentCount, err := vrfv2plus.WaitForRequestCountEqualToFulfilmentCount(consumer, 2*time.Minute, &wg)
+		require.NoError(t, err)
+		wg.Wait()
+
 		l.Info().
 			Interface("Request Count", requestCount).
 			Interface("Fulfilment Count", fulfilmentCount).
 			Msg("Final Request/Fulfilment Stats")
-		require.NoError(t, err)
-		wg.Wait()
-		//send final results
-		SendLoadTestMetricsToLoki(vrfv2PlusContracts, lc, updatedLabels)
 	})
-
 }
 
-func WaitForRequestCountEqualToFulfilmentCount(consumer contracts.VRFv2PlusLoadTestConsumer, timeout time.Duration, wg *sync.WaitGroup) (*big.Int, *big.Int, error) {
-	metricsChannel := make(chan *contracts.VRFLoadTestMetrics)
-	metricsErrorChannel := make(chan error)
-
-	testContext, testCancel := context.WithTimeout(context.Background(), timeout)
-	defer testCancel()
-
-	ticker := time.NewTicker(time.Second * 1)
-	var metrics *contracts.VRFLoadTestMetrics
-	for {
-		select {
-		case <-testContext.Done():
-			ticker.Stop()
-			wg.Done()
-			return metrics.RequestCount, metrics.FulfilmentCount,
-				fmt.Errorf("timeout waiting for rand request and fulfilments to be equal AFTER performance test was executed. Request Count: %d, Fulfilment Count: %d",
-					metrics.RequestCount.Uint64(), metrics.FulfilmentCount.Uint64())
-		case <-ticker.C:
-			go getLoadTestMetrics(consumer, metricsChannel, metricsErrorChannel)
-		case metrics = <-metricsChannel:
-			if metrics.RequestCount.Cmp(metrics.FulfilmentCount) == 0 {
-				ticker.Stop()
-				wg.Done()
-				return metrics.RequestCount, metrics.FulfilmentCount, nil
-			}
-		case err := <-metricsErrorChannel:
-			ticker.Stop()
-			wg.Done()
-			return nil, nil, err
-		}
-	}
-}
-
-func getLoadTestMetrics(
+func teardown(
+	t *testing.T,
 	consumer contracts.VRFv2PlusLoadTestConsumer,
-	metricsChannel chan *contracts.VRFLoadTestMetrics,
-	metricsErrorChannel chan error,
+	lc *wasp.LokiClient,
+	updatedLabels map[string]string,
+	testReporter *testreporters.VRFV2PlusTestReporter,
+	testType string,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 ) {
-	metrics, err := consumer.GetLoadTestMetrics(context.Background())
+	//send final results to Loki
+	metrics := GetLoadTestMetrics(consumer)
+	SendMetricsToLoki(metrics, lc, updatedLabels)
+	//set report data for Slack notification
+	testReporter.SetReportData(
+		testType,
+		metrics.RequestCount,
+		metrics.FulfilmentCount,
+		metrics.AverageFulfillmentInMillions,
+		metrics.SlowestFulfillment,
+		metrics.FastestFulfillment,
+		vrfv2PlusConfig,
+	)
+
+	// send Slack notification
+	err := testReporter.SendSlackNotification(t, nil)
 	if err != nil {
-		metricsErrorChannel <- err
+		log.Warn().Err(err).Msg("Error sending Slack notification")
 	}
-	metricsChannel <- metrics
 }

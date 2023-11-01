@@ -12,10 +12,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -58,7 +59,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
 	lp := &mocklp.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	lp.On("LatestBlock", mock.Anything, mock.Anything).Return(int64(0), nil)
+	lp.On("LatestBlock", mock.Anything, mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 
 	relayExtenders := evmtest.NewChainRelayExtenders(
 		t,

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -445,28 +445,28 @@ func Test_decryptionQueue_Close(t *testing.T) {
 }
 
 func waitForPendingRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId decryptionPlugin.CiphertextId) {
-	NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		dq.mu.RLock()
 		_, exists := dq.pendingRequests[string(ciphertextId)]
 		dq.mu.RUnlock()
 		return exists
-	}, testutils.WaitTimeout(t), "10ms").Should(BeTrue(), "pending request should be added")
+	}, testutils.WaitTimeout(t), "10ms").Should(gomega.BeTrue(), "pending request should be added")
 }
 
 func waitForPendingRequestToBeRemoved(t *testing.T, dq *decryptionQueue, ciphertextId decryptionPlugin.CiphertextId) {
-	NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		dq.mu.RLock()
 		_, exists := dq.pendingRequests[string(ciphertextId)]
 		dq.mu.RUnlock()
 		return exists
-	}, testutils.WaitTimeout(t), "10ms").Should(BeFalse(), "pending request should be removed")
+	}, testutils.WaitTimeout(t), "10ms").Should(gomega.BeFalse(), "pending request should be removed")
 }
 
 func waitForCompletedRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId decryptionPlugin.CiphertextId) {
-	NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		dq.mu.RLock()
 		_, exists := dq.completedRequests[string(ciphertextId)]
 		dq.mu.RUnlock()
 		return exists
-	}, testutils.WaitTimeout(t), "10ms").Should(BeFalse(), "completed request should be removed")
+	}, testutils.WaitTimeout(t), "10ms").Should(gomega.BeFalse(), "completed request should be removed")
 }

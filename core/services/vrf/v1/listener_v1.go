@@ -13,6 +13,7 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -43,7 +44,7 @@ type request struct {
 }
 
 type Listener struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	Cfg             vrfcommon.Config
 	FeeCfg          vrfcommon.FeeConfig
@@ -111,7 +112,7 @@ func (lsn *Listener) getLatestHead() uint64 {
 // Start complies with job.Service
 func (lsn *Listener) Start(context.Context) error {
 	return lsn.StartOnce("VRFListener", func() error {
-		spec := job.LoadEnvConfigVarsVRF(lsn.Cfg, *lsn.Job.VRFSpec)
+		spec := job.LoadDefaultVRFPollPeriod(*lsn.Job.VRFSpec)
 
 		unsubscribeLogs := lsn.LogBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract: lsn.Coordinator.Address(),

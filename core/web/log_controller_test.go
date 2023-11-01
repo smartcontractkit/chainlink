@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -41,7 +41,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	resp, err := client.HTTPClient.Get("/v2/log")
 	require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			app := cltest.NewApplicationEVMDisabled(t)
 			require.NoError(t, app.Start(testutils.Context(t)))
-			client := app.NewHTTPClient(&cltest.User{})
+			client := app.NewHTTPClient(nil)
 
 			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
 

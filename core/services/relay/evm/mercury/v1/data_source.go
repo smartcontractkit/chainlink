@@ -13,14 +13,14 @@ import (
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -59,7 +59,7 @@ func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec
 	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber}
 }
 
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, err error) {
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, pipelineExecutionErr error) {
 	// setCurrentBlock must come first, along with observationTimestamp, to
 	// avoid front-running
 	ds.setCurrentBlock(ctx, &obs)
@@ -116,9 +116,9 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	go func() {
 		defer wg.Done()
 		var run *pipeline.Run
-		run, trrs, err = ds.executeRun(ctx)
-		if err != nil {
-			err = fmt.Errorf("Observe failed while executing run: %w", err)
+		run, trrs, pipelineExecutionErr = ds.executeRun(ctx)
+		if pipelineExecutionErr != nil {
+			pipelineExecutionErr = fmt.Errorf("Observe failed while executing run: %w", pipelineExecutionErr)
 			return
 		}
 		select {
@@ -137,27 +137,30 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		}
 
 		var parsed parseOutput
-		parsed, err = ds.parse(finaltrrs)
-		if err != nil {
-			err = fmt.Errorf("Observe failed while parsing run results: %w", err)
+		parsed, pipelineExecutionErr = ds.parse(finaltrrs)
+		if pipelineExecutionErr != nil {
+			pipelineExecutionErr = fmt.Errorf("Observe failed while parsing run results: %w", pipelineExecutionErr)
 			return
 		}
 		obs.BenchmarkPrice = parsed.benchmarkPrice
 		obs.Bid = parsed.bid
 		obs.Ask = parsed.ask
 	}()
+
 	wg.Wait()
 
-	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
-		ocrcommon.EnqueueEnhancedTelem(ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
-			TaskRunResults: trrs,
-			Observation:    obs,
-			RepTimestamp:   repts,
-		})
-
+	if pipelineExecutionErr != nil {
+		return
 	}
 
-	return obs, err
+	ocrcommon.MaybeEnqueueEnhancedTelem(ds.jb, ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
+		V1Observation:  &obs,
+		TaskRunResults: trrs,
+		RepTimestamp:   repts,
+		FeedVersion:    mercuryutils.REPORT_V1,
+	})
+
+	return obs, nil
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {

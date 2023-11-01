@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -80,7 +80,7 @@ Nodes = []
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupSolanaChainsControllerTestV2(t, &solana.SolanaConfig{
+			controller := setupSolanaChainsControllerTestV2(t, &solana.TOMLConfig{
 				ChainID: ptr(validId),
 				Chain: config.Chain{
 					SkipPreflight: ptr(false),
@@ -111,13 +111,13 @@ Nodes = []
 func Test_SolanaChainsController_Index(t *testing.T) {
 	t.Parallel()
 
-	chainA := &solana.SolanaConfig{
+	chainA := &solana.TOMLConfig{
 		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
 		Chain: config.Chain{
 			TxTimeout: utils.MustNewDuration(time.Hour),
 		},
 	}
-	chainB := &solana.SolanaConfig{
+	chainB := &solana.TOMLConfig{
 		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
 		Chain: config.Chain{
 			SkipPreflight: ptr(false),
@@ -175,7 +175,7 @@ type TestSolanaChainsController struct {
 	client cltest.HTTPClientCleaner
 }
 
-func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*solana.SolanaConfig) *TestSolanaChainsController {
+func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*solana.TOMLConfig) *TestSolanaChainsController {
 	for i := range cfgs {
 		cfgs[i].SetDefaults()
 	}
@@ -186,7 +186,7 @@ func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*solana.SolanaConfi
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	return &TestSolanaChainsController{
 		app:    app,

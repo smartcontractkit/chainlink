@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -69,12 +69,12 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	db := app.GetSqlxDB()
 	borm := bridges.NewORM(db, logger.TestLogger(t), app.GetConfig().Database())
@@ -135,12 +135,12 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"name":"bitcoin","url":"http://without.a.name"}`),
@@ -163,12 +163,12 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"name":"no-url"}`),
@@ -191,12 +191,12 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
@@ -209,7 +209,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -220,7 +220,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 	err := app.BridgeORM().CreateExternalInitiator(&exi)
 	require.NoError(t, err)
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Delete("/v2/external_initiators/" + exi.Name)
 	t.Cleanup(cleanup)
@@ -231,12 +231,12 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	tests := []struct {
 		Name string

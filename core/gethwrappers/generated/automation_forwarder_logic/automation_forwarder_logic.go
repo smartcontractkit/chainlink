@@ -50,7 +50,7 @@ func DeployAutomationForwarderLogic(auth *bind.TransactOpts, backend bind.Contra
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &AutomationForwarderLogic{AutomationForwarderLogicCaller: AutomationForwarderLogicCaller{contract: contract}, AutomationForwarderLogicTransactor: AutomationForwarderLogicTransactor{contract: contract}, AutomationForwarderLogicFilterer: AutomationForwarderLogicFilterer{contract: contract}}, nil
+	return address, tx, &AutomationForwarderLogic{address: address, abi: *parsed, AutomationForwarderLogicCaller: AutomationForwarderLogicCaller{contract: contract}, AutomationForwarderLogicTransactor: AutomationForwarderLogicTransactor{contract: contract}, AutomationForwarderLogicFilterer: AutomationForwarderLogicFilterer{contract: contract}}, nil
 }
 
 type AutomationForwarderLogic struct {

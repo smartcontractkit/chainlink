@@ -8,7 +8,7 @@ import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {Routable} from "./Routable.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
-import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 /// @title Functions Billing contract
 /// @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).
@@ -208,11 +208,21 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InsufficientBalance();
     }
 
-    bytes32 requestId = _computeRequestId(
-      address(this),
-      request.requestingContract,
-      request.subscriptionId,
-      request.initiatedRequests + 1
+    uint32 timeoutTimestamp = uint32(block.timestamp + config.requestTimeoutSeconds);
+    bytes32 requestId = keccak256(
+      abi.encode(
+        address(this),
+        request.requestingContract,
+        request.subscriptionId,
+        request.initiatedRequests + 1,
+        keccak256(request.data),
+        request.dataVersion,
+        request.callbackGasLimit,
+        estimatedTotalCostJuels,
+        timeoutTimestamp,
+        // solhint-disable-next-line avoid-tx-origin
+        tx.origin
+      )
     );
 
     commitment = FunctionsResponse.Commitment({
@@ -222,7 +232,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       subscriptionId: request.subscriptionId,
       callbackGasLimit: request.callbackGasLimit,
       estimatedTotalCostJuels: estimatedTotalCostJuels,
-      timeoutTimestamp: uint32(block.timestamp + config.requestTimeoutSeconds),
+      timeoutTimestamp: timeoutTimestamp,
       requestId: requestId,
       donFee: donFee,
       gasOverheadBeforeCallback: config.gasOverheadBeforeCallback,
@@ -232,17 +242,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     s_requestCommitments[requestId] = keccak256(abi.encode(commitment));
 
     return commitment;
-  }
-
-  /// @notice Generate a keccak hash request ID
-  /// @dev uses the number of requests that the consumer of a subscription has sent as a nonce
-  function _computeRequestId(
-    address don,
-    address client,
-    uint64 subscriptionId,
-    uint64 nonce
-  ) private pure returns (bytes32) {
-    return keccak256(abi.encode(don, client, subscriptionId, nonce));
   }
 
   /// @notice Finalize billing process for an Functions request by sending a callback to the Client contract and then charging the subscription
@@ -260,14 +259,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     bytes memory /* offchainMetadata TODO: use in getDonFee() for dynamic billing */
   ) internal returns (FunctionsResponse.FulfillResult) {
     FunctionsResponse.Commitment memory commitment = abi.decode(onchainMetadata, (FunctionsResponse.Commitment));
-
-    if (s_requestCommitments[requestId] == bytes32(0)) {
-      return FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
-    }
-
-    if (s_requestCommitments[requestId] != keccak256(abi.encode(commitment))) {
-      return FunctionsResponse.FulfillResult.INVALID_COMMITMENT;
-    }
 
     uint96 juelsPerGas = _getJuelsPerGas(tx.gasprice);
     // Gas overhead without callback

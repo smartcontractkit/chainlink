@@ -128,7 +128,7 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 		// already registered in DB before, no need to backfill
 		return nil
 	}
-	backfillBlock := latest - int64(LogBackfillBuffer)
+	backfillBlock := latest.BlockNumber - int64(LogBackfillBuffer)
 	if backfillBlock < 1 {
 		// New chain, backfill from start
 		backfillBlock = 1

@@ -477,10 +477,9 @@ func verifyBlockhashStored(
 			return true
 		} else if strings.Contains(err.Error(), "execution reverted") {
 			return false
-		} else {
-			t.Fatal(err)
-			return false
 		}
+		t.Fatal(err)
+		return false
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
@@ -503,10 +502,9 @@ func verifyBlockhashStoredTrusted(
 			return true
 		} else if strings.Contains(err.Error(), "execution reverted") {
 			return false
-		} else {
-			t.Fatal(err)
-			return false
 		}
+		t.Fatal(err)
+		return false
 	}, time.Second*300, time.Second).Should(gomega.BeTrue())
 }
 

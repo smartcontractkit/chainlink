@@ -61,7 +61,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
@@ -98,10 +97,6 @@ import (
 )
 
 const (
-	// APIKey of the fixture API user
-	APIKey = "2d25e62eaf9143e993acaf48691564b2"
-	// APISecret of the fixture API user.
-	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
 	// Collection of test fixture DB user emails per role
 	APIEmailAdmin    = "apiuser@chainlink.test"
 	APIEmailEdit     = "apiuser-edit@chainlink.test"
@@ -112,7 +107,7 @@ const (
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 	// DefaultPeerID is the peer ID of the default p2p key
-	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
+	DefaultPeerID = configtest.DefaultPeerID
 	// DefaultOCRKeyBundleID is the ID of the default ocr key bundle
 	DefaultOCRKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 	// DefaultOCR2KeyBundleID is the ID of the fixture ocr2 key bundle
@@ -244,7 +239,7 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
-	c := configtest2.NewGeneralConfig(t, nil)
+	c := configtest.NewGeneralConfig(t, nil)
 
 	return NewApplicationWithConfig(t, c)
 }
@@ -254,7 +249,7 @@ func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	c := configtest2.NewGeneralConfig(t, nil)
+	c := configtest.NewGeneralConfig(t, nil)
 
 	return NewApplicationWithConfig(t, c, flagsAndDeps...)
 }
@@ -264,7 +259,7 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	config := configtest2.NewGeneralConfig(t, nil)
+	config := configtest.NewGeneralConfig(t, nil)
 	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
@@ -382,7 +377,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
-	loopRegistry := plugins.NewLoopRegistry(lggr)
+	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
 
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,
@@ -420,7 +415,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
 			Keystore:         keyStore.Cosmos(),
-			CosmosConfigs:    cfg.CosmosConfigs(),
+			TOMLConfigs:      cfg.CosmosConfigs(),
 			EventBroadcaster: eventBroadcaster,
 			DB:               db,
 			QConfig:          cfg.Database(),
@@ -429,15 +424,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := chainlink.SolanaFactoryConfig{
-			Keystore:      keyStore.Solana(),
-			SolanaConfigs: cfg.SolanaConfigs(),
+			Keystore:    keyStore.Solana(),
+			TOMLConfigs: cfg.SolanaConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitSolana(testCtx, relayerFactory, solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
 		starkCfg := chainlink.StarkNetFactoryConfig{
-			Keystore:        keyStore.StarkNet(),
-			StarknetConfigs: cfg.StarknetConfigs(),
+			Keystore:    keyStore.StarkNet(),
+			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
 
@@ -461,7 +456,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		RestrictedHTTPClient:       c,
 		UnrestrictedHTTPClient:     c,
 		SecretGenerator:            MockSecretGenerator{},
-		LoopRegistry:               plugins.NewLoopRegistry(lggr),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, nil),
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
@@ -619,6 +614,10 @@ type User struct {
 func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	ta.t.Helper()
 
+	if user == nil {
+		user = &User{}
+	}
+
 	if user.Email == "" {
 		user.Email = fmt.Sprintf("%s@chainlink.test", uuid.New())
 	}
@@ -647,7 +646,7 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 
 // NewShellAndRenderer creates a new cmd.Shell for the test application
 func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
-	hc := ta.NewHTTPClient(&User{})
+	hc := ta.NewHTTPClient(nil)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Shell{
@@ -809,7 +808,7 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -823,7 +822,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresenters.JobResource {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -837,7 +836,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusNoContent)
@@ -886,7 +885,7 @@ func CreateJobRunViaUser(
 	t.Helper()
 
 	bodyBuf := bytes.NewBufferString(body)
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
@@ -905,7 +904,7 @@ func CreateExternalInitiatorViaWeb(
 ) *webpresenters.ExternalInitiatorAuthentication {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post(
 		"/v2/external_initiators",
 		bytes.NewBufferString(payload),
@@ -1334,8 +1333,7 @@ func BatchElemMustMatchParams(t *testing.T, req rpc.BatchElem, hash common.Hash,
 // SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
 func SimulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...httypes.HeadTrackable) (done chan struct{}) {
 	// Build the full chain of heads
-	ctx, cancel := context.WithTimeout(context.Background(), testutils.WaitTimeout(t))
-	t.Cleanup(cancel)
+	ctx := testutils.Context(t)
 	done = make(chan struct{})
 	go func(t *testing.T) {
 		defer close(done)
@@ -1618,7 +1616,7 @@ func AssertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
 }
 
 func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
-	cfg := configtest2.NewGeneralConfig(t, nil)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 

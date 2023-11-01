@@ -40,7 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -486,9 +486,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *tes
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
-	// See: https://smartcontract-it.atlassian.net/browse/VRF-589
-	// Temporarily skipping to figure out issue with test
-	t.Skip()
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/VRF-589")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)

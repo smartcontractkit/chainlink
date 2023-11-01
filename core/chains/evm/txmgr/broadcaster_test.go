@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -37,16 +36,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
-	pgmocks "github.com/smartcontractkit/chainlink/v2/core/services/pg/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -61,17 +58,14 @@ func NewTestEthBroadcaster(
 	nonceAutoSync bool,
 ) *txmgr.Broadcaster {
 	t.Helper()
-	eb := cltest.NewEventBroadcaster(t, config.Database().URL())
 	ctx := testutils.Context(t)
-	require.NoError(t, eb.Start(ctx))
-	t.Cleanup(func() { assert.NoError(t, eb.Close()) })
 
 	lggr := logger.TestLogger(t)
 	ge := config.EVM().GasEstimator()
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config.EVM().GasEstimator(), ge.BlockHistory(), lggr), ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, keyStore, estimator)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient)
-	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), config.Database().Listener(), keyStore, eb, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
+	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), config.Database().Listener(), keyStore, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
 
 	// Mark instance as test
 	ethBroadcaster.XXXTestDisableUnstartedTxAutoProcessing()
@@ -82,10 +76,6 @@ func NewTestEthBroadcaster(
 
 func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
-	eventBroadcaster := cltest.NewEventBroadcaster(t, cfg.Database().URL())
-	err := eventBroadcaster.Start(testutils.Context(t))
-	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -102,7 +92,6 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 		evmcfg.EVM().Transactions(),
 		evmcfg.Database().Listener(),
 		ethKeyStore,
-		eventBroadcaster,
 		txBuilder,
 		nil,
 		logger.TestLogger(t),
@@ -111,7 +100,7 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	)
 
 	// Can't close an unstarted instance
-	err = eb.Close()
+	err := eb.Close()
 	require.Error(t, err)
 	ctx := testutils.Context(t)
 
@@ -577,9 +566,6 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
 	// non-transactional DB needed because we deliberately test for FK violation
 	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
-	eventBroadcaster := cltest.NewEventBroadcaster(t, cfg.Database().URL())
-	require.NoError(t, eventBroadcaster.Start(testutils.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 	evmcfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
@@ -605,7 +591,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		ccfg.EVM().Transactions(),
 		cfg.Database().Listener(),
 		ethKeyStore,
-		eventBroadcaster,
 		txBuilder,
 		nil,
 		logger.TestLogger(t),
@@ -1113,17 +1098,12 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 				// same as the parent test, but callback is set by ctor
 				t.Run("callback set by ctor", func(t *testing.T) {
-					eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
-					err := eventBroadcaster.Start(testutils.Context(t))
-					require.NoError(t, err)
-					t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 					lggr := logger.TestLogger(t)
 					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), nil)
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
 					localNextNonce = getLocalNextNonce(t, eb, fromAddress)
 					ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(localNextNonce), nil).Once()
-					eb2 := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), evmcfg.Database().Listener(), ethKeyStore, eventBroadcaster, txBuilder, nil, lggr, &testCheckerFactory{}, false)
-					require.NoError(t, err)
+					eb2 := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), evmcfg.Database().Listener(), ethKeyStore, txBuilder, nil, lggr, &testCheckerFactory{}, false)
 					retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 					assert.NoError(t, err)
 					assert.False(t, retryable)
@@ -1724,29 +1704,6 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	eb.Trigger(testutils.NewAddress())
 }
 
-func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
-	// NOTE: Testing triggers requires committing transactions and does not work with transactional tests
-	cfg, db := heavyweight.FullTestDBV2(t, "eth_tx_triggers", nil)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
-
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	eventBroadcaster := cltest.NewEventBroadcaster(t, evmcfg.Database().URL())
-	require.NoError(t, eventBroadcaster.Start(testutils.Context(t)))
-	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
-
-	ethTxInsertListener, err := eventBroadcaster.Subscribe(pg.ChannelInsertOnTx, "")
-	require.NoError(t, err)
-
-	// Give it some time to start listening
-	time.Sleep(100 * time.Millisecond)
-
-	cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
-	gomega.NewWithT(t).Eventually(ethTxInsertListener.Events()).Should(gomega.Receive())
-}
-
 func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
@@ -1765,11 +1722,6 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 	ethNodeNonce := uint64(22)
 
-	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
-	sub := pgmocks.NewSubscription(t)
-	sub.On("Events").Return(make(<-chan pg.Event))
-	sub.On("Close")
-	eventBroadcaster.On("Subscribe", "evm.insert_on_txes", "").Return(sub, nil)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), nil)
 	checkerFactory := &testCheckerFactory{}
 
@@ -1783,7 +1735,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
-		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, eventBroadcaster, txBuilder, nil, lggr, checkerFactory, false)
+		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, nil, lggr, checkerFactory, false)
 		err := eb.Start(testutils.Context(t))
 		assert.NoError(t, err)
 
@@ -1801,7 +1753,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
-		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
+		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(ethNodeNonce), nil).Once()
 		require.NoError(t, eb.Start(ctx))
@@ -1832,7 +1784,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 
-		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
+		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
 		eb.XXXTestDisableUnstartedTxAutoProcessing()
 
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), errors.New("something exploded")).Once()

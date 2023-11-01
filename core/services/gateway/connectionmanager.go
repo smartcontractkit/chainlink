@@ -15,8 +15,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -41,7 +42,7 @@ type ConnectionManager interface {
 }
 
 type connectionManager struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	config             *config.ConnectionManagerConfig
 	dons               map[string]*donConnectionManager

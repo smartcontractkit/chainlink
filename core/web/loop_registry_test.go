@@ -14,17 +14,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type mockLoopImpl struct {
 	t *testing.T
-	*plugins.PromServer
+	*loop.PromServer
 }
 
 // test prom var to avoid collision with real chainlink metrics
@@ -44,7 +44,7 @@ func configurePromRegistry() {
 func newMockLoopImpl(t *testing.T, port int) *mockLoopImpl {
 	return &mockLoopImpl{
 		t:          t,
-		PromServer: plugins.NewPromServer(port, logger.TestLogger(t).Named("mock-loop"), plugins.WithHandler(testHandler)),
+		PromServer: loop.PromServerOpts{Handler: testHandler}.New(port, logger.TestLogger(t).Named("mock-loop")),
 	}
 }
 
@@ -91,12 +91,12 @@ func TestLoopRegistry(t *testing.T) {
 	// set up a test prometheus registry and test metric that is used by
 	// our mock loop impl and isolated from the default prom register
 	configurePromRegistry()
-	mockLoop := newMockLoopImpl(t, loop.EnvCfg.PrometheusPort())
+	mockLoop := newMockLoopImpl(t, loop.EnvCfg.PrometheusPort)
 	mockLoop.start()
 	defer mockLoop.close()
 	mockLoop.run()
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	t.Run("discovery endpoint", func(t *testing.T) {
 		// under the covers this is routing thru the app into loop registry

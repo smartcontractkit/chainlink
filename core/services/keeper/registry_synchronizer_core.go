@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -36,7 +37,7 @@ type RegistrySynchronizerOptions struct {
 }
 
 type RegistrySynchronizer struct {
-	utils.StartStopOnce
+	services.StateMachine
 	chStop                   chan struct{}
 	registryWrapper          RegistryWrapper
 	interval                 time.Duration

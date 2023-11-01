@@ -52,7 +52,7 @@ func DeployVRFV2OwnerTestConsumer(auth *bind.TransactOpts, backend bind.Contract
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV2OwnerTestConsumer{VRFV2OwnerTestConsumerCaller: VRFV2OwnerTestConsumerCaller{contract: contract}, VRFV2OwnerTestConsumerTransactor: VRFV2OwnerTestConsumerTransactor{contract: contract}, VRFV2OwnerTestConsumerFilterer: VRFV2OwnerTestConsumerFilterer{contract: contract}}, nil
+	return address, tx, &VRFV2OwnerTestConsumer{address: address, abi: *parsed, VRFV2OwnerTestConsumerCaller: VRFV2OwnerTestConsumerCaller{contract: contract}, VRFV2OwnerTestConsumerTransactor: VRFV2OwnerTestConsumerTransactor{contract: contract}, VRFV2OwnerTestConsumerFilterer: VRFV2OwnerTestConsumerFilterer{contract: contract}}, nil
 }
 
 type VRFV2OwnerTestConsumer struct {

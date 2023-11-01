@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
@@ -109,7 +110,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				lp := new(mocks.LogPoller)
 				lp.On("RegisterFilter", mock.Anything).Return(nil)
 				lp.On("UnregisterFilter", mock.Anything).Return(nil)
-				lp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
+				lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 				hasFitlerTimes := 1
 				if tc.unregister {
 					hasFitlerTimes = 2
@@ -149,7 +150,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
 	mp.On("HasFilter", mock.Anything).Return(false)
-	mp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
+	mp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
 	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
