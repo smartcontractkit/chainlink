@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -60,9 +59,6 @@ type InMemoryStore[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
-	// TODO(jtw): Change this to non exported and figure it out via configs or other settings
-	LegacyEnabled bool
-
 	chainID CHAIN_ID
 
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
@@ -92,7 +88,6 @@ func NewInMemoryStore[
 	eventRecorder txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 ) (*InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
 	tm := InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		LegacyEnabled: true,
 		chainID:       chainID,
 		keyStore:      keyStore,
 		eventRecorder: eventRecorder,
@@ -187,47 +182,10 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 // CreateTransaction creates a new transaction for a given txRequest.
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], chainID CHAIN_ID) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	// Persist Transaction to persistent storage
-	if ms.LegacyEnabled {
-		tx, err := ms.eventRecorder.CreateTransaction(ctx, txRequest, chainID)
-		if err != nil {
-			return tx, err
-		}
-		return tx, ms.sendTxToBroadcaster(tx)
-	} else {
-		// HANDLE NEW EVENT RECORDER FOR PERSISTENCE
+	tx, err := ms.eventRecorder.CreateTransaction(ctx, txRequest, chainID)
+	if err != nil {
+		return tx, err
 	}
-
-	// Check if PipelineTaskRunId already exists
-	if txRequest.PipelineTaskRunID != nil {
-		ms.pendingLock.Lock()
-		if tx, ok := ms.pendingPipelineTaskRunIds[txRequest.PipelineTaskRunID.String()]; ok {
-			ms.pendingLock.Unlock()
-			return *tx, ErrExistingPilelineTaskRunId
-		}
-		ms.pendingLock.Unlock()
-	}
-
-	tx := txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
-		CreatedAt:      time.Now().UTC(),
-		State:          TxUnstarted,
-		FromAddress:    txRequest.FromAddress,
-		ToAddress:      txRequest.ToAddress,
-		EncodedPayload: txRequest.EncodedPayload,
-		Value:          txRequest.Value,
-		FeeLimit:       txRequest.FeeLimit,
-		// TODO(jtw): this needs to be implemented
-		// Meta:              txRequest.Meta,
-		// TODO(jtw): this needs to be implemented
-		// Subject: txRequest.Strategy.Subject(),
-		ChainID: chainID,
-		// TODO(jtw): this needs to be implemented
-		// PipelineTaskRunID: txRequest.PipelineTaskRunID,
-		IdempotencyKey: txRequest.IdempotencyKey,
-		// TODO(jtw): this needs to be implemented
-		// TransmitChecker:   txRequest.Checker,
-		MinConfirmations: txRequest.MinConfirmations,
-	}
-
 	return tx, ms.sendTxToBroadcaster(tx)
 }
 

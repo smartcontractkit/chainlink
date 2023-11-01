@@ -33,7 +33,6 @@ func TestInMemoryStore_CreateTransaction(t *testing.T) {
 	ims, err := txmgr.NewInMemoryStore[
 		*big.Int, common.Address, common.Hash, common.Hash, txmgrtypes.ChainReceipt[common.Hash, common.Hash], types.Sequence, feetypes.Fee,
 	](chainID, mockKeyStore, mockEventRecorder)
-	ims.LegacyEnabled = false // TODO(jtw): this is just for initial testing, remove this
 	require.NoError(t, err)
 
 	tts := []struct {
