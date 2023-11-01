@@ -70,13 +70,9 @@ func TestCronJobReplacement(t *testing.T) {
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(1).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
 	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
@@ -86,11 +82,11 @@ func TestCronJobReplacement(t *testing.T) {
 		URL:         fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 		RequestData: "{}",
 	}
-	err = env.CLNodes[0].API.MustCreateBridge(bta)
+	err = env.ClCluster.Nodes[0].API.MustCreateBridge(bta)
 	require.NoError(t, err, "Creating bridge in chainlink node shouldn't fail")
 
 	// CRON job creation and replacement
-	job, err := env.CLNodes[0].API.MustCreateJob(&client.CronJobSpec{
+	job, err := env.ClCluster.Nodes[0].API.MustCreateJob(&client.CronJobSpec{
 		Schedule:          "CRON_TZ=UTC * * * * * *",
 		ObservationSource: client.ObservationSourceSpecBridge(bta),
 	})
@@ -98,7 +94,10 @@ func TestCronJobReplacement(t *testing.T) {
 
 	gom := gomega.NewWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Data.ID)
+		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
+		if err != nil {
+			l.Info().Err(err).Msg("error while waiting for job runs")
+		}
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Reading Job run data shouldn't fail")
 
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))
@@ -108,17 +107,20 @@ func TestCronJobReplacement(t *testing.T) {
 		}
 	}, "3m", "3s").Should(gomega.Succeed())
 
-	err = env.CLNodes[0].API.MustDeleteJob(job.Data.ID)
+	err = env.ClCluster.Nodes[0].API.MustDeleteJob(job.Data.ID)
 	require.NoError(t, err)
 
-	job, err = env.CLNodes[0].API.MustCreateJob(&client.CronJobSpec{
+	job, err = env.ClCluster.Nodes[0].API.MustCreateJob(&client.CronJobSpec{
 		Schedule:          "CRON_TZ=UTC * * * * * *",
 		ObservationSource: client.ObservationSourceSpecBridge(bta),
 	})
 	require.NoError(t, err, "Recreating Cron Job in chainlink node shouldn't fail")
 
 	gom.Eventually(func(g gomega.Gomega) {
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Data.ID)
+		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
+		if err != nil {
+			l.Info().Err(err).Msg("error while waiting for job runs")
+		}
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Reading Job run data shouldn't fail")
 
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))

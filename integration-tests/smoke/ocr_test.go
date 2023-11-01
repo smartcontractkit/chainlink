@@ -69,17 +69,13 @@ func TestOCRJobReplacement(t *testing.T) {
 		WithMockAdapter().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	env.ParallelTransactions(true)
 
-	nodeClients := env.GetAPIs()
+	nodeClients := env.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
 	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
