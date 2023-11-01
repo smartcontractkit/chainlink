@@ -127,13 +127,13 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 
 type coreConfig struct {
 	Command       string `json:"command"`
-	ProviderType  string `json:"provider_type"`
-	PluginName    string `json:"plugin_name"`
-	TelemetryType string `json:"telemetry_type"`
+	ProviderType  string `json:"providerType"`
+	PluginName    string `json:"pluginName"`
+	TelemetryType string `json:"telemetryType"`
 }
 
 type OCR2GenericPluginConfig struct {
-	CoreConfig   coreConfig `json:"core_config"`
+	CoreConfig   coreConfig `json:"coreConfig"`
 	PluginConfig json.RawMessage
 }
 
