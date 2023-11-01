@@ -44,7 +44,7 @@ type serverAdapter func(
 	types.ReportingPluginServiceConfig,
 	grpc.ClientConnInterface,
 	types.PipelineRunnerService,
-	types.TelemetryClient,
+	types.TelemetryService,
 	types.ErrorLog,
 ) (types.ReportingPluginFactory, error)
 
@@ -53,7 +53,7 @@ func (s serverAdapter) NewReportingPluginFactory(
 	config types.ReportingPluginServiceConfig,
 	conn grpc.ClientConnInterface,
 	pr types.PipelineRunnerService,
-	ts types.TelemetryClient,
+	ts types.TelemetryService,
 	errorLog types.ErrorLog,
 ) (types.ReportingPluginFactory, error) {
 	return s(ctx, config, conn, pr, ts, errorLog)
@@ -65,11 +65,12 @@ func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Serv
 		cfg types.ReportingPluginServiceConfig,
 		conn grpc.ClientConnInterface,
 		pr types.PipelineRunnerService,
-		ts types.TelemetryClient,
+		ts types.TelemetryService,
 		el types.ErrorLog,
 	) (types.ReportingPluginFactory, error) {
 		provider := g.PluginServer.ConnToProvider(conn, broker, g.BrokerConfig)
-		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, ts, el)
+		tc := internal.NewTelemetryClient(ts)
+		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, tc, el)
 	}
 	return internal.RegisterReportingPluginServiceServer(server, broker, g.BrokerConfig, serverAdapter(adapter))
 }

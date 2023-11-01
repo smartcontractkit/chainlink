@@ -11,31 +11,27 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
+var _ types.TelemetryService = (*telemetryServiceClient)(nil)
 var _ types.TelemetryClient = (*telemetryClient)(nil)
 
-type TelemetryClient struct {
-	*telemetryClient
-}
-
-type telemetryClient struct {
-	grpc pb.TelemetryClient
-}
-
 type telemetryEndpoint struct {
-	grpc          pb.TelemetryClient
-	relayID       pb.RelayID
-	contractID    string
+	client        types.TelemetryService
+	network       string
+	chainID       string
 	telemetryType string
+	contractID    string
 }
 
 func (t *telemetryEndpoint) SendLog(ctx context.Context, log []byte) error {
-	_, err := t.grpc.Send(ctx, &pb.TelemetryMessage{
-		RelayID:       &t.relayID,
-		ContractID:    t.contractID,
-		TelemetryType: t.telemetryType,
-		Payload:       log,
-	})
-	return err
+	return t.client.Send(ctx, t.network, t.chainID, t.contractID, t.telemetryType, log)
+}
+
+func NewTelemetryClient(client types.TelemetryService) *telemetryClient {
+	return &telemetryClient{TelemetryService: client}
+}
+
+type telemetryClient struct {
+	types.TelemetryService
 }
 
 // NewEndpoint generates a new monitoring endpoint, returns nil if one cannot be generated
@@ -54,18 +50,20 @@ func (t *telemetryClient) NewEndpoint(ctx context.Context, network string, chain
 	}
 
 	return &telemetryEndpoint{
-		grpc: t.grpc,
-		relayID: pb.RelayID{
-			Network: network,
-			ChainId: chainID,
-		},
+		client:        t.TelemetryService,
+		network:       network,
+		chainID:       chainID,
 		contractID:    contractID,
 		telemetryType: telemetryType,
 	}, nil
 }
 
+type telemetryServiceClient struct {
+	grpc pb.TelemetryClient
+}
+
 // Send sends payload to the desired endpoint based on network and chainID
-func (t *telemetryClient) Send(ctx context.Context, network string, chainID string, contractID string, telemetryType string, payload []byte) error {
+func (t *telemetryServiceClient) Send(ctx context.Context, network string, chainID string, contractID string, telemetryType string, payload []byte) error {
 	if contractID == "" {
 		return errors.New("contractID cannot be empty")
 	}
@@ -90,14 +88,11 @@ func (t *telemetryClient) Send(ctx context.Context, network string, chainID stri
 		TelemetryType: telemetryType,
 		Payload:       payload,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
-func NewTelemetryClient(cc grpc.ClientConnInterface) *telemetryClient {
-	return &telemetryClient{grpc: pb.NewTelemetryClient(cc)}
+func NewTelemetryServiceClient(cc grpc.ClientConnInterface) *telemetryServiceClient {
+	return &telemetryServiceClient{grpc: pb.NewTelemetryClient(cc)}
 }
 
 var _ pb.TelemetryServer = (*telemetryServer)(nil)

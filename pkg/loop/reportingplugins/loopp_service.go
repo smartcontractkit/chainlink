@@ -31,7 +31,7 @@ func NewLOOPPService(
 	config types.ReportingPluginServiceConfig,
 	providerConn grpc.ClientConnInterface,
 	pipelineRunner types.PipelineRunnerService,
-	telemetryService types.TelemetryClient,
+	telemetryService types.TelemetryService,
 	errorLog types.ErrorLog,
 ) *LOOPPService {
 	newService := func(ctx context.Context, instance any) (types.ReportingPluginFactory, error) {

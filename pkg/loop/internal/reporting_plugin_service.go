@@ -31,7 +31,7 @@ func (m *ReportingPluginServiceClient) NewReportingPluginFactory(
 	config types.ReportingPluginServiceConfig,
 	grpcProvider grpc.ClientConnInterface,
 	pipelineRunner types.PipelineRunnerService,
-	telemetry types.TelemetryClient,
+	telemetry types.TelemetryService,
 	errorLog types.ErrorLog,
 ) (types.ReportingPluginFactory, error) {
 	cc := m.newClientConn("ReportingPluginServiceFactory", func(ctx context.Context) (id uint32, deps resources, err error) {
@@ -132,7 +132,7 @@ func (m *reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Con
 		return nil, ErrConnDial{Name: "Telemetry", ID: request.TelemetryID, Err: err}
 	}
 	telemetryRes := resource{telemetryConn, "Telemetry"}
-	telemetry := NewTelemetryClient(telemetryConn)
+	telemetry := NewTelemetryServiceClient(telemetryConn)
 
 	config := types.ReportingPluginServiceConfig{
 		ProviderType: request.ReportingPluginServiceConfig.ProviderType,

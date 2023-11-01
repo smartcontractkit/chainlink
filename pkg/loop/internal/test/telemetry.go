@@ -70,8 +70,8 @@ func (m mockClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, me
 }
 
 func Telemetry(t *testing.T) {
-	mcc := mockClientConn{}
-	c := internal.NewTelemetryClient(&mcc)
+	tsc := internal.NewTelemetryServiceClient(mockClientConn{})
+	c := internal.NewTelemetryClient(tsc)
 
 	type sendTest struct {
 		contractID    string

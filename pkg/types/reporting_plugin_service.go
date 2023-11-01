@@ -16,7 +16,7 @@ type ReportingPluginServiceConfig struct {
 // ReportingPluginClient is the client interface to a plugin running
 // as a generic job (job type = GenericPlugin) inside the core node.
 type ReportingPluginClient interface {
-	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, grpcProvider grpc.ClientConnInterface, pipelineRunner PipelineRunnerService, telemetry TelemetryClient, errorLog ErrorLog) (ReportingPluginFactory, error)
+	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, grpcProvider grpc.ClientConnInterface, pipelineRunner PipelineRunnerService, telemetry TelemetryService, errorLog ErrorLog) (ReportingPluginFactory, error)
 }
 
 // ReportingPluginServer is the server interface to a plugin running
