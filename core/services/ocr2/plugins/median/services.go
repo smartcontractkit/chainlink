@@ -130,7 +130,7 @@ func NewMedianServices(ctx context.Context,
 		CreatedAt:    time.Now(),
 	}, lggr)
 
-	if provider.ChainReader() == nil {
+	if medianProvider.ChainReader() != nil {
 		medianProvider = medianProviderWrapper{
 			medianProvider, // attach newer MedianContract which uses ChainReader
 			newMedianContract(provider.ChainReader(), common.HexToAddress(spec.ContractID)),
@@ -220,7 +220,7 @@ func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time
 	return resp.configDigest, resp.epoch, resp.round, err
 }
 
-func newMedianContract(chainReader types.ChainReader, address common.Address) median.MedianContract {
+func newMedianContract(chainReader types.ChainReader, address common.Address) *medianContract {
 	contract := types.BoundContract{Address: address.String(), Name: "median", Pending: true}
 	return &medianContract{chainReader, contract}
 }
