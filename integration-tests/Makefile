@@ -118,7 +118,7 @@ test_chaos_verbose: ## Run all smoke tests with verbose logging
 
 # Performance
 .PHONY: test_perf
-test_perf: test_need_operator_assets ## Run core node performance tests.
+test_perf: ## Run core node performance tests.
 	TEST_LOG_LEVEL="disabled" \
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 1h -count=1 -json $(args) ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt

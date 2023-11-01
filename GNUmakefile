@@ -127,10 +127,6 @@ telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers
 	--go-wsrpc_opt=paths=source_relative \
 	./core/services/synchronization/telem/*.proto
 
-.PHONY: test_need_operator_assets
-test_need_operator_assets: ## Add blank file in web assets if operator ui has not been built
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
-
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
 	go run ./core/config/docs/cmd/generate -o ./docs/
