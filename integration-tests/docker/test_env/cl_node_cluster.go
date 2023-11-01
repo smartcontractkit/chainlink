@@ -3,8 +3,9 @@ package test_env
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
 var (
