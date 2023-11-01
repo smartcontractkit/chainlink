@@ -500,34 +500,6 @@ func GetEVMEffectiveTransmitterID(jb *job.Job, chain evm.Chain, lggr logger.Suga
 	return spec.TransmitterID.String, nil
 }
 
-type coreConfig struct {
-	Command       string `json:"command"`
-	ProviderType  string `json:"provider_type"`
-	PluginName    string `json:"plugin_name"`
-	TelemetryType string `json:"telemetry_type"`
-}
-
-type PluginConfig struct {
-	CoreConfig   coreConfig `json:"core_config"`
-	PluginConfig json.RawMessage
-}
-
-func validateGenericPluginSpec(c coreConfig) error {
-	if c.Command == "" {
-		return errors.New("generic config invalid: must provide command path")
-	}
-
-	if c.PluginName == "" {
-		return errors.New("generic config invalid: must provide plugin name")
-	}
-
-	if c.TelemetryType == "" {
-		return errors.New("generic config invalid: must provide telemetry type")
-	}
-
-	return nil
-}
-
 type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
 }
@@ -544,17 +516,15 @@ func (d *Delegate) newServicesGenericPlugin(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	p := PluginConfig{}
+	p := validate.OCR2GenericPluginConfig{}
 	err = json.Unmarshal(spec.PluginConfig.Bytes(), &p)
 	if err != nil {
 		return nil, err
 	}
 	cconf := p.CoreConfig
 
-	err = validateGenericPluginSpec(cconf)
-	if err != nil {
-		return nil, err
-	}
+	// NOTE: we don't need to validate this config, since that happens as part of creating the job.
+	// See: validate/validate.go's `validateSpec`.
 
 	rid, err := spec.RelayID()
 	if err != nil {

@@ -114,10 +114,47 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		return nil
 	case types.Mercury:
 		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
+	case types.GenericPlugin:
+		return validateOCR2GenericPluginSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
 		return pkgerrors.Errorf("invalid pluginType %s", spec.OCR2OracleSpec.PluginType)
+	}
+
+	return nil
+}
+
+type coreConfig struct {
+	Command       string `json:"command"`
+	ProviderType  string `json:"provider_type"`
+	PluginName    string `json:"plugin_name"`
+	TelemetryType string `json:"telemetry_type"`
+}
+
+type OCR2GenericPluginConfig struct {
+	CoreConfig   coreConfig `json:"core_config"`
+	PluginConfig json.RawMessage
+}
+
+func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {
+	p := OCR2GenericPluginConfig{}
+	err := json.Unmarshal(jsonConfig.Bytes(), &p)
+	if err != nil {
+		return err
+	}
+
+	cc := p.CoreConfig
+	if cc.Command == "" {
+		return errors.New("generic config invalid: must provide command path")
+	}
+
+	if cc.PluginName == "" {
+		return errors.New("generic config invalid: must provide plugin name")
+	}
+
+	if cc.TelemetryType == "" {
+		return errors.New("generic config invalid: must provide telemetry type")
 	}
 
 	return nil
