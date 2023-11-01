@@ -24,6 +24,7 @@ on:
           - OPTIMISM_GOERLI
           - MUMBAI
           - SEPOLIA
+          - BASE_GOERLI
       TestInputs:
         description: TestInputs
         required: false
