@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"golang.org/x/exp/slices"
 	"sort"
 	"strconv"
 	"sync"
@@ -13,8 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
-
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
@@ -24,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"go.uber.org/multierr"
 )
 
 const (
@@ -105,14 +103,14 @@ var (
 // Step 3: See if any transactions have exceeded the gas bumping block threshold and, if so, bump them
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 type Confirmer[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
+CHAIN_ID types.ID,
+HEAD types.Head[BLOCK_HASH],
+ADDR types.Hashable,
+TX_HASH types.Hashable,
+BLOCK_HASH types.Hashable,
+R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+SEQ types.Sequence,
+FEE feetypes.Fee,
 ] struct {
 	services.StateMachine
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
@@ -143,14 +141,14 @@ type Confirmer[
 }
 
 func NewConfirmer[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
+CHAIN_ID types.ID,
+HEAD types.Head[BLOCK_HASH],
+ADDR types.Hashable,
+TX_HASH types.Hashable,
+BLOCK_HASH types.Hashable,
+R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+SEQ types.Sequence,
+FEE feetypes.Fee,
 ](
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
@@ -164,21 +162,24 @@ func NewConfirmer[
 	isReceiptNil func(R) bool,
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = lggr.Named("Confirmer")
+	chainID := client.ConfiguredChainID()
+
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		txStore:          txStore,
 		lggr:             lggr,
 		client:           client,
 		TxAttemptBuilder: txAttemptBuilder,
-		abandonedTracker: NewAbandonedTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](&txStore, lggr),
-		resumeCallback:   nil,
-		chainConfig:      chainConfig,
-		feeConfig:        feeConfig,
-		txConfig:         txConfig,
-		dbConfig:         dbConfig,
-		chainID:          client.ConfiguredChainID(),
-		ks:               keystore,
-		mb:               utils.NewSingleMailbox[HEAD](),
-		isReceiptNil:     isReceiptNil,
+		abandonedTracker: NewAbandonedTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](
+			&txStore, &keystore, &client, chainID, lggr),
+		resumeCallback: nil,
+		chainConfig:    chainConfig,
+		feeConfig:      feeConfig,
+		txConfig:       txConfig,
+		dbConfig:       dbConfig,
+		chainID:        chainID,
+		ks:             keystore,
+		mb:             utils.NewSingleMailbox[HEAD](),
+		isReceiptNil:   isReceiptNil,
 	}
 }
 
@@ -309,6 +310,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	}
 
 	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
+	mark = time.Now()
+
+	ec.abandonedTracker.HandleAbandonedTransactions(ctx, ec.enabledAddresses)
+	ec.lggr.Debugw("Finished HandleAbandonedTransactions", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 
 	if ec.resumeCallback != nil {
 		mark = time.Now()
@@ -322,23 +327,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	ec.lggr.Debugw("processHead finish", "headNum", head.BlockNumber(), "id", "confirmer")
 
 	return nil
-}
-
-// GetAbandonedAddresses retrieves fromAddress’s in evm.txes that are not present in the Confirmer's enabledAddresses list
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandonedAddresses() ([]ADDR, error) {
-	fromAddresses, err := ec.ks.EnabledAddressesForChain(ec.chainID)
-	if err != nil {
-		return nil, err
-	}
-
-	var abandoned []ADDR
-	for _, addr := range fromAddresses {
-		if !slices.Contains(ec.enabledAddresses, addr) {
-			abandoned = append(abandoned, addr)
-		}
-	}
-
-	return abandoned, nil
 }
 
 // CheckConfirmedMissingReceipt will attempt to re-send any transaction in the
@@ -980,11 +968,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 }
 
 func hasReceiptInLongestChain[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
+CHAIN_ID types.ID,
+ADDR types.Hashable,
+TX_HASH, BLOCK_HASH types.Hashable,
+SEQ types.Sequence,
+FEE feetypes.Fee,
 ](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) bool {
 	for {
 		for _, attempt := range etx.TxAttempts {
@@ -1136,12 +1124,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 // observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
 // transaction.
 func observeUntilTxConfirmed[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
+CHAIN_ID types.ID,
+ADDR types.Hashable,
+TX_HASH, BLOCK_HASH types.Hashable,
+R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+SEQ types.Sequence,
+FEE feetypes.Fee,
 ](chainID CHAIN_ID, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], receipts []R) {
 	for _, attempt := range attempts {
 		for _, r := range receipts {
