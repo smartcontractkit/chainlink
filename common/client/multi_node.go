@@ -94,6 +94,7 @@ type multiNode[
 	leaseDuration       time.Duration
 	leaseTicker         *time.Ticker
 	chainFamily         string
+	reportInterval      time.Duration
 
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, HEAD, RPC_CLIENT]
@@ -133,6 +134,9 @@ func NewMultiNode[
 
 	lggr := logger.Named("MultiNode").With("chainID", chainID.String())
 
+	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
+	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
+	const reportInterval = 6500 * time.Millisecond
 	c := &multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]{
 		nodes:               nodes,
 		sendonlys:           sendonlys,
@@ -146,6 +150,7 @@ func NewMultiNode[
 		leaseDuration:       leaseDuration,
 		chainFamily:         chainFamily,
 		sendOnlyErrorParser: sendOnlyErrorParser,
+		reportInterval:      reportInterval,
 	}
 
 	c.logger.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
@@ -310,10 +315,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 
 	c.report()
 
-	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
-	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
-	reportInterval := 6500 * time.Millisecond
-	monitor := time.NewTicker(utils.WithJitter(reportInterval))
+	monitor := time.NewTicker(utils.WithJitter(c.reportInterval))
 	defer monitor.Stop()
 
 	for {

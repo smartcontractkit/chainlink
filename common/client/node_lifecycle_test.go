@@ -153,7 +153,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
 		testutils.WaitForLogMessageCount(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
-		assert.Equal(t, nodeStateUnreachable, node.State())
+		testutils.AssertEventually(t, func() bool {
+			return nodeStateUnreachable == node.State()
+		})
 	})
 	t.Run("stays alive even, when exceeds pollFailureThreshold because it's last node", func(t *testing.T) {
 		t.Parallel()
@@ -205,7 +207,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
-		testutils.WaitForLogMessage(t, observedLogs, "RPC endpoint has fallen behind")
+		testutils.WaitForLogMessage(t, observedLogs, "Failed to dial out-of-sync RPC node")
 	})
 	t.Run("stays alive even when falls behind", func(t *testing.T) {
 		t.Parallel()
@@ -248,7 +250,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		testutils.AssertEventually(t, func() bool {
 			// right after outOfSync we'll transfer to unreachable due to returned error on Dial
-			return node.State() == nodeStateOutOfSync || node.State() == nodeStateUnreachable
+			// we check that we were in out of sync state on first Dial call
+			return node.State() == nodeStateUnreachable
 		})
 	})
 	t.Run("when no new heads received for threshold and no nodes stay alive", func(t *testing.T) {

@@ -212,6 +212,7 @@ func TestMultiNode_Report(t *testing.T) {
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node1, node2},
 			logger:        lggr,
 		})
+		mn.reportInterval = testutils.TestInterval
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Dial(testutils.Context(t))
 		require.NoError(t, err)
@@ -228,6 +229,7 @@ func TestMultiNode_Report(t *testing.T) {
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
 			logger:        lggr,
 		})
+		mn.reportInterval = testutils.TestInterval
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Dial(testutils.Context(t))
 		require.NoError(t, err)
@@ -295,9 +297,12 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		err := mn.Dial(testutils.Context(t))
 		require.NoError(t, err)
 		testutils.WaitForLogMessage(t, observedLogs, fmt.Sprintf("Switching to best node from %q to %q", node.String(), bestNode.String()))
-		mn.activeMu.RLock()
-		assert.Equal(t, bestNode, mn.activeNode)
-		mn.activeMu.RUnlock()
+		testutils.AssertEventually(t, func() bool {
+			mn.activeMu.RLock()
+			active := mn.activeNode
+			mn.activeMu.RUnlock()
+			return bestNode == active
+		})
 	})
 	t.Run("NodeStates returns proper states", func(t *testing.T) {
 		t.Parallel()
@@ -465,7 +470,6 @@ func TestMultiNode_nLiveNodes(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
 			for _, params := range tc.NodeParams {
 				node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 				node.On("StateAndLatest").Return(params.State, params.BlockNumber, params.TotalDifficulty)
