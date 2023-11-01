@@ -73,7 +73,28 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-var ErrJobSpecNoRelayer = errors.New("OCR2 job spec could not get relayer id")
+type ErrJobSpecNoRelayer struct {
+	PluginName string
+	Err        error
+}
+
+func (e ErrJobSpecNoRelayer) Unwrap() error { return e.Err }
+
+func (e ErrJobSpecNoRelayer) Error() string {
+	return fmt.Sprintf("%s services: OCR2 job spec could not get relayer ID: %s", e.PluginName, e.Err)
+}
+
+type ErrRelayNotEnabled struct {
+	PluginName string
+	Relay      string
+	Err        error
+}
+
+func (e ErrRelayNotEnabled) Unwrap() error { return e.Err }
+
+func (e ErrRelayNotEnabled) Error() string {
+	return fmt.Sprintf("%s services: failed to get relay %s, is it enabled? %s", e.PluginName, e.Relay, e.Err)
+}
 
 type RelayGetter interface {
 	Get(id relay.ID) (loop.Relayer, error)
@@ -248,7 +269,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		d.lggr.Errorw("DeleteJob: "+ErrJobSpecNoRelayer.Error(), "err", err)
+		d.lggr.Errorw("DeleteJob", "err", ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)})
 		return nil
 	}
 	// we only have clean to do for the EVM
@@ -340,7 +361,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, fmt.Errorf("ServicesForSpec: %w: %w", ErrJobSpecNoRelayer, err)
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
 	}
 
 	if rid.Network == relay.EVM {
@@ -537,12 +558,12 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, fmt.Errorf("%s services: %w: %w", cconf.PluginName, ErrJobSpecNoRelayer, err)
+		return nil, ErrJobSpecNoRelayer{PluginName: cconf.PluginName, Err: err}
 	}
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, fmt.Errorf("%s services; failed to get relay %s is it enabled?: %w", p.CoreConfig.PluginName, spec.Relay, err)
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: p.CoreConfig.PluginName}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -641,14 +662,14 @@ func (d *Delegate) newServicesMercury(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, fmt.Errorf("mercury services: %w: %w", ErrJobSpecNoRelayer, err)
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "mercury"}
 	}
 	if rid.Network != relay.EVM {
 		return nil, fmt.Errorf("mercury services: expected EVM relayer got %s", rid.Network)
 	}
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
 	}
 	chain, err := d.legacyChains.Get(rid.ChainID)
 	if err != nil {
@@ -717,7 +738,7 @@ func (d *Delegate) newServicesMedian(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, fmt.Errorf("median services: %w: %w", ErrJobSpecNoRelayer, err)
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "median"}
 	}
 
 	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
@@ -736,7 +757,7 @@ func (d *Delegate) newServicesMedian(
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, fmt.Errorf("median services; failed to get relay %s is it enabled?: %w", spec.Relay, err)
+		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
 	}
 
 	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
@@ -761,7 +782,7 @@ func (d *Delegate) newServicesDKG(
 	spec := jb.OCR2OracleSpec
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, fmt.Errorf("DKG services: %w: %w", ErrJobSpecNoRelayer, err)
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "DKG"}
 	}
 	if rid.Network != relay.EVM {
 		return nil, fmt.Errorf("DKG services: expected EVM relayer got %s", rid.Network)
@@ -830,7 +851,7 @@ func (d *Delegate) newServicesOCR2VRF(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, fmt.Errorf("VRF services: %w: %w", ErrJobSpecNoRelayer, err)
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "VRF"}
 	}
 	if rid.Network != relay.EVM {
 		return nil, fmt.Errorf("VRF services: expected EVM relayer got %s", rid.Network)
@@ -1055,7 +1076,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	mc := d.cfg.Mercury().Credentials(credName)
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, fmt.Errorf("keeper2 services: %w: %w", ErrJobSpecNoRelayer, err)
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keeper2"}
 	}
 	if rid.Network != relay.EVM {
 		return nil, fmt.Errorf("keeper2 services: expected EVM relayer got %s", rid.Network)
@@ -1169,7 +1190,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, fmt.Errorf("keepers2.0 services: %w: %w", ErrJobSpecNoRelayer, err)
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keepers2.0"}
 	}
 	if rid.Network != relay.EVM {
 		return nil, fmt.Errorf("keepers2.0 services: expected EVM relayer got %s", rid.Network)
@@ -1304,7 +1325,7 @@ func (d *Delegate) newServicesOCR2Functions(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, fmt.Errorf("functions services: %w: %w", ErrJobSpecNoRelayer, err)
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "functions"}
 	}
 	if rid.Network != relay.EVM {
 		return nil, fmt.Errorf("functions services: expected EVM relayer got %s", rid.Network)
