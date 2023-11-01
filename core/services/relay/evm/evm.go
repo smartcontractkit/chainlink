@@ -514,10 +514,16 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		return nil, err
 	}
 
+	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, lggr)
+	if err != nil {
+		return nil, err
+	}
+
 	medianProvider := medianProvider{
 		configWatcher:       configWatcher,
 		reportCodec:         reportCodec,
 		contractTransmitter: contractTransmitter,
+		medianContract:      medianContract,
 	}
 
 	chainReader, err := newChainReader(lggr, r.chain, relayOpts)
@@ -543,6 +549,7 @@ type medianProvider struct {
 	configWatcher       *configWatcher
 	contractTransmitter ContractTransmitter
 	reportCodec         median.ReportCodec
+	medianContract      *medianContract
 	chainReader         relaytypes.ChainReader
 	ms                  services.MultiStart
 }
@@ -578,7 +585,7 @@ func (p *medianProvider) ReportCodec() median.ReportCodec {
 }
 
 func (p *medianProvider) MedianContract() median.MedianContract {
-	return nil
+	return p.medianContract
 }
 
 func (p *medianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
