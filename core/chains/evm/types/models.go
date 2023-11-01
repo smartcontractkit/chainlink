@@ -76,6 +76,10 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 	return h.Parent
 }
 
+func (h *Head) BlockDifficulty() *utils.Big {
+	return h.Difficulty
+}
+
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() *Head {
 	for h.Parent != nil {
