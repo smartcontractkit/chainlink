@@ -281,7 +281,6 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	for _, n := range c.nodes {
 		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
 		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
-		// TODO: elaborate why do we care about node's health before unsubscription
 		if n.State() == nodeStateAlive && n != bestNode && n.SubscribersCount() > 1 {
 			c.logger.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
 			n.UnsubscribeAllExceptAliveLoop()

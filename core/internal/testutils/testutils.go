@@ -31,10 +31,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/testutils"
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
 	// anything from "github.com/smartcontractkit/chainlink/v2/core"
-
-	"github.com/smartcontractkit/chainlink/v2/core/testutils"
 )
 
 const (
