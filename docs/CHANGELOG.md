@@ -36,6 +36,7 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 - Added bridge_name label to `pipeline_tasks_total_finished` prometheus metric. This should make it easier to see directly what bridge was failing out from the CL NODE perspective.
 
 - LogPoller will now use finality tags to dynamically determine finality on evm chains if `UseFinalityTags=true`, rather than the fixed `FinalityDepth` specified in toml config
+- Mercury v0.2 has improved consensus around current block that uses the most recent 5 blocks instead of only the latest one
 
 ### Changed
 
