@@ -314,7 +314,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		}
 
 		opts := multiNodeOpts{
-			selectionMode: NodeSelectionMode_RoundRobin,
+			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
 		}
 

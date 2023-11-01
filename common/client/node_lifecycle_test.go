@@ -188,7 +188,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			config: testNodeConfig{
 				pollInterval:  testutils.TestInterval,
 				syncThreshold: syncThreshold,
-				selectionMode: NodeSelectionMode_RoundRobin,
+				selectionMode: NodeSelectionModeRoundRobin,
 			},
 			rpc:  rpc,
 			lggr: lggr,
@@ -218,7 +218,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			config: testNodeConfig{
 				pollInterval:  testutils.TestInterval,
 				syncThreshold: syncThreshold,
-				selectionMode: NodeSelectionMode_RoundRobin,
+				selectionMode: NodeSelectionModeRoundRobin,
 			},
 			rpc:  rpc,
 			lggr: lggr,
@@ -939,7 +939,7 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 			},
 		}
 
-		for _, selectionMode := range []string{NodeSelectionMode_HighestHead, NodeSelectionMode_RoundRobin, NodeSelectionMode_PriorityLevel} {
+		for _, selectionMode := range []string{NodeSelectionModeHighestHead, NodeSelectionModeRoundRobin, NodeSelectionModePriorityLevel} {
 			node := newTestNode(t, testNodeOpts{
 				config: testNodeConfig{
 					syncThreshold: syncThreshold,
@@ -996,7 +996,7 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{
 			config: testNodeConfig{
 				syncThreshold: syncThreshold,
-				selectionMode: NodeSelectionMode_TotalDifficulty,
+				selectionMode: NodeSelectionModeTotalDifficulty,
 			},
 		})
 		node.nLiveNodes = func() (int, int64, *utils.Big) {
@@ -1004,7 +1004,7 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 		}
 		for _, hb := range []int64{highestBlock - syncThreshold - 1, highestBlock - syncThreshold, highestBlock, highestBlock + 1} {
 			for _, testCase := range testCases {
-				t.Run(fmt.Sprintf("%s: selectionMode: %s: highest block: %d", testCase.name, NodeSelectionMode_TotalDifficulty, hb), func(t *testing.T) {
+				t.Run(fmt.Sprintf("%s: selectionMode: %s: highest block: %d", testCase.name, NodeSelectionModeTotalDifficulty, hb), func(t *testing.T) {
 					outOfSync, liveNodes := node.syncStatus(hb, utils.NewBigI(testCase.totalDifficulty))
 					assert.Equal(t, nodesNum, liveNodes)
 					assert.Equal(t, testCase.outOfSync, outOfSync)
