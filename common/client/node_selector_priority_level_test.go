@@ -9,7 +9,7 @@ import (
 )
 
 func TestPriorityLevelNodeSelectorName(t *testing.T) {
-	selector := NewPriorityLevelNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](nil)
+	selector := newNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](NodeSelectionModePriorityLevel, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModePriorityLevel)
 }
 
@@ -31,7 +31,7 @@ func TestPriorityLevelNodeSelector(t *testing.T) {
 	n3.On("Order").Return(int32(1))
 
 	nodes = append(nodes, n1, n2, n3)
-	selector := NewPriorityLevelNodeSelector(nodes)
+	selector := newNodeSelector(NodeSelectionModePriorityLevel, nodes)
 	assert.Same(t, nodes[0], selector.Select())
 	assert.Same(t, nodes[1], selector.Select())
 	assert.Same(t, nodes[2], selector.Select())
@@ -60,7 +60,7 @@ func TestPriorityLevelNodeSelector_None(t *testing.T) {
 		nodes = append(nodes, node)
 	}
 
-	selector := NewPriorityLevelNodeSelector(nodes)
+	selector := newNodeSelector(NodeSelectionModePriorityLevel, nodes)
 	assert.Nil(t, selector.Select())
 }
 
@@ -82,7 +82,7 @@ func TestPriorityLevelNodeSelector_DifferentOrder(t *testing.T) {
 	n3.On("Order").Return(int32(3))
 
 	nodes = append(nodes, n1, n2, n3)
-	selector := NewPriorityLevelNodeSelector(nodes)
+	selector := newNodeSelector(NodeSelectionModePriorityLevel, nodes)
 	assert.Same(t, nodes[0], selector.Select())
 	assert.Same(t, nodes[0], selector.Select())
 }

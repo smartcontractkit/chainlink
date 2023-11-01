@@ -770,3 +770,244 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		})
 	})
 }
+
+func TestUnit_NodeLifecycle_start(t *testing.T) {
+	t.Parallel()
+
+	newNode := func(t *testing.T, opts testNodeOpts) testNode {
+		node := newTestNode(t, opts)
+		opts.rpc.On("Close").Return(nil).Once()
+
+		t.Cleanup(func() {
+			assert.NoError(t, node.close())
+		})
+		return node
+	}
+	t.Run("if fails on initial dial, becomes unreachable", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockNodeClient[types.ID, Head](t)
+		nodeChainID := types.RandomID()
+		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		node := newNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+			lggr:    lggr,
+		})
+
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
+		// disconnects all on transfer to unreachable
+		rpc.On("DisconnectAll")
+		err := node.Start(testutils.Context(t))
+		assert.NoError(t, err)
+		testutils.WaitForLogMessage(t, observedLogs, "Dial failed: Node is unreachable")
+		testutils.AssertEventually(t, func() bool {
+			return node.State() == nodeStateUnreachable
+		})
+	})
+	t.Run("if chainID verification fails, becomes unreachable", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockNodeClient[types.ID, Head](t)
+		nodeChainID := types.RandomID()
+		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		node := newNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+			lggr:    lggr,
+		})
+
+		rpc.On("Dial", mock.Anything).Return(nil)
+		rpc.On("ChainID", mock.Anything).Run(func(_ mock.Arguments) {
+			assert.Equal(t, nodeStateDialed, node.State())
+		}).Return(nodeChainID, errors.New("failed to get chain id"))
+		// disconnects all on transfer to unreachable
+		rpc.On("DisconnectAll")
+		err := node.Start(testutils.Context(t))
+		assert.NoError(t, err)
+		testutils.WaitForLogMessage(t, observedLogs, "Verify failed")
+		testutils.AssertEventually(t, func() bool {
+			return node.State() == nodeStateUnreachable
+		})
+	})
+	t.Run("on chain ID mismatch transitions to invalidChainID", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockNodeClient[types.ID, Head](t)
+		nodeChainID := types.NewIDFromInt(10)
+		rpcChainID := types.NewIDFromInt(11)
+		node := newNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+		})
+
+		rpc.On("Dial", mock.Anything).Return(nil)
+		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil)
+		// disconnects all on transfer to unreachable
+		rpc.On("DisconnectAll")
+		err := node.Start(testutils.Context(t))
+		assert.NoError(t, err)
+		testutils.AssertEventually(t, func() bool {
+			return node.State() == nodeStateInvalidChainID
+		})
+	})
+	t.Run("on valid chain ID becomes alive", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockNodeClient[types.ID, Head](t)
+		nodeChainID := types.RandomID()
+		node := newNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+		})
+
+		rpc.On("Dial", mock.Anything).Return(nil)
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
+
+		// setup for aliveLoop
+		rpc.On("Dial", mock.Anything).Return(nil).Maybe()
+		aliveSubscription := mocks.NewSubscription(t)
+		aliveSubscription.On("Err").Return((<-chan error)(nil)).Maybe()
+		aliveSubscription.On("Unsubscribe").Maybe()
+		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(aliveSubscription, nil).Maybe()
+		rpc.On("SetAliveLoopSub", mock.Anything).Maybe()
+
+		err := node.Start(testutils.Context(t))
+		assert.NoError(t, err)
+		testutils.AssertEventually(t, func() bool {
+			return node.State() == nodeStateAlive
+		})
+	})
+}
+
+func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
+	t.Parallel()
+	t.Run("skip if nLiveNodes is not configured", func(t *testing.T) {
+		node := newTestNode(t, testNodeOpts{})
+		outOfSync, liveNodes := node.syncStatus(0, nil)
+		assert.Equal(t, false, outOfSync)
+		assert.Equal(t, 0, liveNodes)
+	})
+	t.Run("skip if syncThreshold is not configured", func(t *testing.T) {
+		node := newTestNode(t, testNodeOpts{})
+		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
+			return
+		}
+		outOfSync, liveNodes := node.syncStatus(0, nil)
+		assert.Equal(t, false, outOfSync)
+		assert.Equal(t, 0, liveNodes)
+	})
+	t.Run("panics on invalid selection mode", func(t *testing.T) {
+		node := newTestNode(t, testNodeOpts{
+			config: testNodeConfig{syncThreshold: 1},
+		})
+		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
+			return
+		}
+		assert.Panics(t, func() {
+			_, _ = node.syncStatus(0, nil)
+		})
+	})
+	t.Run("block height selection mode", func(t *testing.T) {
+		const syncThreshold = 10
+		const highestBlock = 1000
+		const nodesNum = 20
+		const totalDifficulty = 3000
+		testCases := []struct {
+			name        string
+			blockNumber int64
+			outOfSync   bool
+		}{
+			{
+				name:        "below threshold",
+				blockNumber: highestBlock - syncThreshold - 1,
+				outOfSync:   true,
+			},
+			{
+				name:        "equal to threshold",
+				blockNumber: highestBlock - syncThreshold,
+				outOfSync:   false,
+			},
+			{
+				name:        "equal to highest block",
+				blockNumber: highestBlock,
+				outOfSync:   false,
+			},
+			{
+				name:        "higher than highest block",
+				blockNumber: highestBlock,
+				outOfSync:   false,
+			},
+		}
+
+		for _, selectionMode := range []string{NodeSelectionMode_HighestHead, NodeSelectionMode_RoundRobin, NodeSelectionMode_PriorityLevel} {
+			node := newTestNode(t, testNodeOpts{
+				config: testNodeConfig{
+					syncThreshold: syncThreshold,
+					selectionMode: selectionMode,
+				},
+			})
+			node.nLiveNodes = func() (int, int64, *utils.Big) {
+				return nodesNum, highestBlock, utils.NewBigI(totalDifficulty)
+			}
+			for _, td := range []int64{totalDifficulty - syncThreshold - 1, totalDifficulty - syncThreshold, totalDifficulty, totalDifficulty + 1} {
+				for _, testCase := range testCases {
+					t.Run(fmt.Sprintf("%s: selectionMode: %s: total difficulty: %d", testCase.name, selectionMode, td), func(t *testing.T) {
+						outOfSync, liveNodes := node.syncStatus(testCase.blockNumber, utils.NewBigI(td))
+						assert.Equal(t, nodesNum, liveNodes)
+						assert.Equal(t, testCase.outOfSync, outOfSync)
+					})
+				}
+			}
+		}
+
+	})
+	t.Run("total difficulty selection mode", func(t *testing.T) {
+		const syncThreshold = 10
+		const highestBlock = 1000
+		const nodesNum = 20
+		const totalDifficulty = 3000
+		testCases := []struct {
+			name            string
+			totalDifficulty int64
+			outOfSync       bool
+		}{
+			{
+				name:            "below threshold",
+				totalDifficulty: totalDifficulty - syncThreshold - 1,
+				outOfSync:       true,
+			},
+			{
+				name:            "equal to threshold",
+				totalDifficulty: totalDifficulty - syncThreshold,
+				outOfSync:       false,
+			},
+			{
+				name:            "equal to highest block",
+				totalDifficulty: totalDifficulty,
+				outOfSync:       false,
+			},
+			{
+				name:            "higher than highest block",
+				totalDifficulty: totalDifficulty,
+				outOfSync:       false,
+			},
+		}
+
+		node := newTestNode(t, testNodeOpts{
+			config: testNodeConfig{
+				syncThreshold: syncThreshold,
+				selectionMode: NodeSelectionMode_TotalDifficulty,
+			},
+		})
+		node.nLiveNodes = func() (int, int64, *utils.Big) {
+			return nodesNum, highestBlock, utils.NewBigI(totalDifficulty)
+		}
+		for _, hb := range []int64{highestBlock - syncThreshold - 1, highestBlock - syncThreshold, highestBlock, highestBlock + 1} {
+			for _, testCase := range testCases {
+				t.Run(fmt.Sprintf("%s: selectionMode: %s: highest block: %d", testCase.name, NodeSelectionMode_TotalDifficulty, hb), func(t *testing.T) {
+					outOfSync, liveNodes := node.syncStatus(hb, utils.NewBigI(testCase.totalDifficulty))
+					assert.Equal(t, nodesNum, liveNodes)
+					assert.Equal(t, testCase.outOfSync, outOfSync)
+				})
+			}
+		}
+
+	})
+}

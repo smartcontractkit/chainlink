@@ -170,7 +170,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			_, num, td := n.StateAndLatest()
 			if outOfSync, liveNodes := n.syncStatus(num, td); outOfSync {
 				// note: there must be another live node for us to be out of sync
-				lggr.Errorw("RPC endpoint has fallen behind", "blockNumber", num, "totalDifficulty", td, "nodeState", n.State())
+				lggr.Errorw("RPC endpoint has fallen behind", "totalDifficulty", num, "totalDifficulty", td, "nodeState", n.State())
 				if liveNodes < 2 {
 					lggr.Criticalf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
 					continue
@@ -188,10 +188,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			lggr.Tracew("Got head", "head", bh)
 			if bh.BlockNumber() > highestReceivedBlockNumber {
 				promPoolRPCNodeHighestSeenBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(bh.BlockNumber()))
-				lggr.Tracew("Got higher block number, resetting timer", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.BlockNumber(), "nodeState", n.State())
+				lggr.Tracew("Got higher block number, resetting timer", "latestReceivedBlockNumber", highestReceivedBlockNumber, "totalDifficulty", bh.BlockNumber(), "nodeState", n.State())
 				highestReceivedBlockNumber = bh.BlockNumber()
 			} else {
-				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.BlockNumber(), "nodeState", n.State())
+				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", highestReceivedBlockNumber, "totalDifficulty", bh.BlockNumber(), "nodeState", n.State())
 			}
 			if outOfSyncT != nil {
 				outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
@@ -228,7 +228,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSync(num int64, td *utils.Big) (outOf
 // syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
 // Always returns outOfSync false for SyncThreshold 0.
 // liveNodes is only included when outOfSync is true.
-// TODO: cover with tests
 func (n *node[CHAIN_ID, HEAD, RPC]) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
 	if n.nLiveNodes == nil {
 		return // skip for tests
@@ -315,11 +314,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 			n.setLatestReceived(head.BlockNumber(), head.BlockDifficulty())
 			if !isOutOfSync(head.BlockNumber(), head.BlockDifficulty()) {
 				// back in-sync! flip back into alive loop
-				lggr.Infow(fmt.Sprintf("%s: %s. Node was out-of-sync for %s", msgInSync, n.String(), time.Since(outOfSyncAt)), "blockNumber", head.BlockNumber(), "totalDifficulty", "nodeState", n.State())
+				lggr.Infow(fmt.Sprintf("%s: %s. Node was out-of-sync for %s", msgInSync, n.String(), time.Since(outOfSyncAt)), "totalDifficulty", head.BlockNumber(), "totalDifficulty", "nodeState", n.State())
 				n.declareInSync()
 				return
 			}
-			lggr.Debugw(msgReceivedBlock, "blockNumber", head.BlockNumber(), "totalDifficulty", "nodeState", n.State())
+			lggr.Debugw(msgReceivedBlock, "totalDifficulty", head.BlockNumber(), "totalDifficulty", "nodeState", n.State())
 		case <-time.After(zombieNodeCheckInterval(n.noNewHeadsThreshold)):
 			if n.nLiveNodes != nil {
 				if l, _, _ := n.nLiveNodes(); l < 1 {

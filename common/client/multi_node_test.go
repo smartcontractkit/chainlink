@@ -162,16 +162,20 @@ func TestMultiNode_Dial(t *testing.T) {
 		t.Parallel()
 		chainID := types.NewIDFromInt(10)
 		node := newHealthyNode(t, chainID)
-		sendOnly := newMockSendOnlyNode(t)
-		sendOnly.On("ConfiguredChainID").Return(chainID).Once()
+		sendOnly1 := newMockSendOnlyNode(t)
+		sendOnly1.On("ConfiguredChainID").Return(chainID).Once()
+		sendOnly1.On("Start", mock.Anything).Return(nil).Once()
+		sendOnly1.On("Close").Return(nil).Once()
+		sendOnly2 := newMockSendOnlyNode(t)
+		sendOnly2.On("ConfiguredChainID").Return(chainID).Once()
 		expectedError := errors.New("failed to start send only node")
-		sendOnly.On("Start", mock.Anything).Return(expectedError).Once()
+		sendOnly2.On("Start", mock.Anything).Return(expectedError).Once()
 
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
-			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{sendOnly},
+			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{sendOnly1, sendOnly2},
 		})
 		err := mn.Dial(testutils.Context(t))
 		assert.EqualError(t, err, expectedError.Error())
@@ -294,6 +298,41 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		mn.activeMu.RLock()
 		assert.Equal(t, bestNode, mn.activeNode)
 		mn.activeMu.RUnlock()
+	})
+	t.Run("NodeStates returns proper states", func(t *testing.T) {
+		t.Parallel()
+		chainID := types.NewIDFromInt(10)
+		nodes := map[string]nodeState{
+			"node_1": nodeStateAlive,
+			"node_2": nodeStateUnreachable,
+			"node_3": nodeStateDialed,
+		}
+
+		opts := multiNodeOpts{
+			selectionMode: NodeSelectionMode_RoundRobin,
+			chainID:       chainID,
+		}
+
+		expectedResult := map[string]string{}
+		for name, state := range nodes {
+			node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
+			node.On("Name").Return(name).Once()
+			node.On("State").Return(state).Once()
+			opts.nodes = append(opts.nodes, node)
+
+			sendOnly := newMockSendOnlyNode[types.ID, multiNodeRPCClient](t)
+			sendOnlyName := "send_only_" + name
+			sendOnly.On("Name").Return(sendOnlyName).Once()
+			sendOnly.On("State").Return(state).Once()
+			opts.sendonlys = append(opts.sendonlys, sendOnly)
+
+			expectedResult[name] = state.String()
+			expectedResult[sendOnlyName] = state.String()
+		}
+
+		mn := newTestMultiNode(t, opts)
+		states := mn.NodeStates()
+		assert.Equal(t, expectedResult, states)
 	})
 }
 

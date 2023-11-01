@@ -9,7 +9,7 @@ import (
 )
 
 func TestRoundRobinNodeSelectorName(t *testing.T) {
-	selector := NewRoundRobinSelector[types.ID, Head, NodeClient[types.ID, Head]](nil)
+	selector := newNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](NodeSelectionModeRoundRobin, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModeRoundRobin)
 }
 
@@ -31,7 +31,7 @@ func TestRoundRobinNodeSelector(t *testing.T) {
 		nodes = append(nodes, node)
 	}
 
-	selector := NewRoundRobinSelector(nodes)
+	selector := newNodeSelector(NodeSelectionModeRoundRobin, nodes)
 	assert.Same(t, nodes[1], selector.Select())
 	assert.Same(t, nodes[2], selector.Select())
 	assert.Same(t, nodes[1], selector.Select())
@@ -56,6 +56,6 @@ func TestRoundRobinNodeSelector_None(t *testing.T) {
 		nodes = append(nodes, node)
 	}
 
-	selector := NewRoundRobinSelector(nodes)
+	selector := newNodeSelector(NodeSelectionModeRoundRobin, nodes)
 	assert.Nil(t, selector.Select())
 }

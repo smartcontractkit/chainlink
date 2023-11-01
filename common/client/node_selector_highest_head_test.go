@@ -9,7 +9,7 @@ import (
 )
 
 func TestHighestHeadNodeSelectorName(t *testing.T) {
-	selector := NewHighestHeadNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](nil)
+	selector := newNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](NodeSelectionModeHighestHead, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModeHighestHead)
 }
 
@@ -36,7 +36,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		nodes = append(nodes, node)
 	}
 
-	selector := NewHighestHeadNodeSelector[types.ID, Head, nodeClient](nodes)
+	selector := newNodeSelector[types.ID, Head, nodeClient](NodeSelectionModeHighestHead, nodes)
 	assert.Same(t, nodes[2], selector.Select())
 
 	t.Run("stick to the same node", func(t *testing.T) {
@@ -46,7 +46,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		node.On("Order").Return(int32(1))
 		nodes = append(nodes, node)
 
-		selector := NewHighestHeadNodeSelector(nodes)
+		selector := newNodeSelector(NodeSelectionModeHighestHead, nodes)
 		assert.Same(t, nodes[2], selector.Select())
 	})
 
@@ -57,7 +57,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		node.On("Order").Return(int32(1))
 		nodes = append(nodes, node)
 
-		selector := NewHighestHeadNodeSelector(nodes)
+		selector := newNodeSelector(NodeSelectionModeHighestHead, nodes)
 		assert.Same(t, nodes[4], selector.Select())
 	})
 
@@ -68,7 +68,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
 		node2.On("StateAndLatest").Return(nodeStateAlive, int64(-1), nil)
 		node2.On("Order").Return(int32(1))
-		selector := NewHighestHeadNodeSelector([]Node[types.ID, Head, nodeClient]{node1, node2})
+		selector := newNodeSelector(NodeSelectionModeHighestHead, []Node[types.ID, Head, nodeClient]{node1, node2})
 		assert.Same(t, node1, selector.Select())
 	})
 }
@@ -91,7 +91,7 @@ func TestHighestHeadNodeSelector_None(t *testing.T) {
 		nodes = append(nodes, node)
 	}
 
-	selector := NewHighestHeadNodeSelector(nodes)
+	selector := newNodeSelector(NodeSelectionModeHighestHead, nodes)
 	assert.Nil(t, selector.Select())
 }
 
@@ -108,7 +108,7 @@ func TestHighestHeadNodeSelectorWithOrder(t *testing.T) {
 			node.On("Order").Return(int32(2))
 			nodes = append(nodes, node)
 		}
-		selector := NewHighestHeadNodeSelector(nodes)
+		selector := newNodeSelector(NodeSelectionModeHighestHead, nodes)
 		//Should select the first node because all things are equal
 		assert.Same(t, nodes[0], selector.Select())
 	})
@@ -127,7 +127,7 @@ func TestHighestHeadNodeSelectorWithOrder(t *testing.T) {
 		node3.On("Order").Return(int32(2))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3}
-		selector := NewHighestHeadNodeSelector(nodes)
+		selector := newNodeSelector(NodeSelectionModeHighestHead, nodes)
 		//Should select the second node as it has the highest priority
 		assert.Same(t, nodes[1], selector.Select())
 	})
@@ -146,7 +146,7 @@ func TestHighestHeadNodeSelectorWithOrder(t *testing.T) {
 		node3.On("Order").Return(int32(3))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3}
-		selector := NewHighestHeadNodeSelector(nodes)
+		selector := newNodeSelector(NodeSelectionModeHighestHead, nodes)
 		//Should select the third node as it has the highest head
 		assert.Same(t, nodes[2], selector.Select())
 	})
@@ -169,7 +169,7 @@ func TestHighestHeadNodeSelectorWithOrder(t *testing.T) {
 		node4.On("Order").Maybe().Return(int32(1))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3, node4}
-		selector := NewHighestHeadNodeSelector(nodes)
+		selector := newNodeSelector(NodeSelectionModeHighestHead, nodes)
 		//Should select the third node as it has the highest head and will win the priority tie-breaker
 		assert.Same(t, nodes[2], selector.Select())
 	})
