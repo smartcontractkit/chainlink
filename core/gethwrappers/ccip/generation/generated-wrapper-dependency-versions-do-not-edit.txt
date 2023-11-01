@@ -11,8 +11,9 @@ evm_2_evm_onramp: ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp.abi ../../../con
 lock_release_token_pool: ../../../contracts/solc/v0.8.19/LockReleaseTokenPool.abi ../../../contracts/solc/v0.8.19/LockReleaseTokenPool.bin 5a60f3e6d803cbd7581f6a9a1e34934ba6bce065454265d1039d92af5592a2e8
 maybe_revert_message_receiver: ../../../contracts/solc/v0.8.19/MaybeRevertMessageReceiver.abi ../../../contracts/solc/v0.8.19/MaybeRevertMessageReceiver.bin aaa90eac8cc555ee4b0fbe57d1fb8d72d6689b29510b238177c97ab9b7979ac5
 mock_arm_contract: ../../../contracts/solc/v0.8.19/MockARM.abi ../../../contracts/solc/v0.8.19/MockARM.bin efcf4cb260a2b6a6e189639f62bb50ab650a135715c1fcd42c92dfa9d04aa0e3
-ping_pong_demo: ../../../contracts/solc/v0.8.19/PingPongDemo.abi ../../../contracts/solc/v0.8.19/PingPongDemo.bin f2972aa082cee8b461122f79773ce247d23b551ddc2ca9926ae90624134cfb23
+ping_pong_demo: ../../../contracts/solc/v0.8.19/PingPongDemo.abi ../../../contracts/solc/v0.8.19/PingPongDemo.bin 61e6f809128174e884559a2015f6a60b29b56ffde1a1a380912f631a48508a6e
 price_registry: ../../../contracts/solc/v0.8.19/PriceRegistry.abi ../../../contracts/solc/v0.8.19/PriceRegistry.bin 36e8d2c44a16fefb5258557cb1eae25eca1cc12efcd3c3270f91a90a5f81e7ea
 router: ../../../contracts/solc/v0.8.19/Router.abi ../../../contracts/solc/v0.8.19/Router.bin 78a5f557cb3925da28aa755c8c69742b936e2db3c524bdff34a9f5ce024b8b0e
+self_funded_ping_pong: ../../../contracts/solc/v0.8.19/SelfFundedPingPong.abi ../../../contracts/solc/v0.8.19/SelfFundedPingPong.bin fc2f9ac93f49f4a2a0a0008c2a660444cc5c127688f64beeb63e5f96a10c995e
 usdc_token_pool: ../../../contracts/solc/v0.8.19/USDCTokenPool.abi ../../../contracts/solc/v0.8.19/USDCTokenPool.bin 1b96c5a03654d5c9167b21678b0f41dbd3ff4713dffeb255bdaa840ea80570e1
 weth9: ../../../contracts/solc/v0.8.19/WETH9.abi ../../../contracts/solc/v0.8.19/WETH9.bin 5a7d64fb19b62ec523c7667ce4c2983295c05f74935b5f994c06a6f70d440f8b
