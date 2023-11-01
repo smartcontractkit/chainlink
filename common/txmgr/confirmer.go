@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"golang.org/x/exp/slices"
 	"sort"
 	"strconv"
 	"sync"
@@ -128,6 +129,8 @@ type Confirmer[
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
+	abandonedTracker AbandonedTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+
 	mb        *utils.Mailbox[HEAD]
 	ctx       context.Context
 	ctxCancel context.CancelFunc
@@ -166,6 +169,7 @@ func NewConfirmer[
 		lggr:             lggr,
 		client:           client,
 		TxAttemptBuilder: txAttemptBuilder,
+		abandonedTracker: NewAbandonedTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](&txStore, lggr),
 		resumeCallback:   nil,
 		chainConfig:      chainConfig,
 		feeConfig:        feeConfig,
@@ -318,6 +322,23 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	ec.lggr.Debugw("processHead finish", "headNum", head.BlockNumber(), "id", "confirmer")
 
 	return nil
+}
+
+// GetAbandonedAddresses retrieves fromAddress’s in evm.txes that are not present in the Confirmer's enabledAddresses list
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandonedAddresses() ([]ADDR, error) {
+	fromAddresses, err := ec.ks.EnabledAddressesForChain(ec.chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	var abandoned []ADDR
+	for _, addr := range fromAddresses {
+		if !slices.Contains(ec.enabledAddresses, addr) {
+			abandoned = append(abandoned, addr)
+		}
+	}
+
+	return abandoned, nil
 }
 
 // CheckConfirmedMissingReceipt will attempt to re-send any transaction in the
