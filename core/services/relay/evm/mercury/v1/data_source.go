@@ -25,6 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+// nBlocksObservation controls how many blocks are included in the LatestBlocks observation
+// TODO: Should this be configurable somehow?
+const nBlocksObservation int = 5
+
 type Runner interface {
 	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
 }
@@ -60,9 +64,9 @@ func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, pipelineExecutionErr error) {
-	// setCurrentBlock must come first, along with observationTimestamp, to
-	// avoid front-running
-	ds.setCurrentBlock(ctx, &obs)
+	// setLatestBlocks must come chronologically before observations, along
+	// with observationTimestamp, to avoid front-running
+	ds.setLatestBlocks(ctx, &obs)
 
 	var wg sync.WaitGroup
 	if fetchMaxFinalizedBlockNum {
@@ -258,37 +262,41 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 	return run, trrs, err
 }
 
-func (ds *datasource) setCurrentBlock(ctx context.Context, obs *relaymercuryv1.Observation) {
-	latestHead, err := ds.getCurrentBlock(ctx)
-	if err != nil {
+func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.Observation) {
+	latestBlocks := ds.getLatestBlocks(ctx, nBlocksObservation)
+	if len(latestBlocks) < nBlocksObservation {
+		// TODO: prom metric
+		ds.lggr.Warn("TODO")
+	}
+	fmt.Println("TRASH latestBlocks", latestBlocks)
+
+	// TODO: remove with https://smartcontract-it.atlassian.net/browse/BCF-2209
+	if len(latestBlocks) == 0 {
+		err := errors.New("no blocks available")
 		obs.CurrentBlockNum.Err = err
 		obs.CurrentBlockHash.Err = err
 		obs.CurrentBlockTimestamp.Err = err
-		return
-	}
-	obs.CurrentBlockNum.Val = latestHead.Number
-	obs.CurrentBlockHash.Val = latestHead.Hash.Bytes()
-
-	if latestHead.Timestamp.IsZero() {
-		obs.CurrentBlockTimestamp.Val = 0
 	} else {
-		obs.CurrentBlockTimestamp.Val = uint64(latestHead.Timestamp.Unix())
+		obs.CurrentBlockNum.Val = latestBlocks[0].Number
+		obs.CurrentBlockHash.Val = latestBlocks[0].Hash.Bytes()
+		if latestBlocks[0].Timestamp.IsZero() {
+			obs.CurrentBlockTimestamp.Val = 0
+		} else {
+			obs.CurrentBlockTimestamp.Val = uint64(latestBlocks[0].Timestamp.Unix())
+		}
+	}
+
+	for _, block := range latestBlocks {
+		obs.LatestBlocks = append(obs.LatestBlocks, relaymercuryv1.NewBlock(block.Number, block.Hash.Bytes(), uint64(block.Timestamp.Unix())))
 	}
 }
 
-func (ds *datasource) getCurrentBlock(ctx context.Context) (*evmtypes.Head, error) {
-	// Use the headtracker's view of the latest block, this is very fast since
+func (ds *datasource) getLatestBlocks(ctx context.Context, k int) (blocks []*evmtypes.Head) {
+	// Use the headtracker's view of the chain, this is very fast since
 	// it doesn't make any external network requests, and it is the
 	// headtracker's job to ensure it has an up-to-date view of the chain based
 	// on responses from all available RPC nodes
 	latestHead := ds.chainHeadTracker.HeadTracker().LatestChain()
-	if latestHead == nil {
-		logger.Sugared(ds.lggr).AssumptionViolation("HeadTracker unexpectedly returned nil head, falling back to RPC call")
-		var err error
-		latestHead, err = ds.chainHeadTracker.Client().HeadByNumber(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return latestHead, nil
+	fmt.Println("TRASH latestHead", latestHead)
+	return latestHead.AsSlice(k)
 }
