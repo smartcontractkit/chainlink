@@ -428,6 +428,44 @@ answer1      [type=median index=0];
 		}
 	})
 
+	t.Run("minimal bootstrap", func(t *testing.T) {
+		s := `
+		type               = "offchainreporting"
+		schemaVersion      = 1
+		contractAddress    = "%s"
+		isBootstrapPeer    = true
+		evmChainID		   = "0"
+`
+		s = fmt.Sprintf(s, cltest.NewEIP55Address())
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+		require.NoError(t, err)
+		err = toml.Unmarshal([]byte(s), &jb)
+		require.NoError(t, err)
+		jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
+		err = jobORM.CreateJob(&jb)
+		require.NoError(t, err)
+
+		lggr := logger.TestLogger(t)
+		_, err = keyStore.P2P().Create()
+		assert.NoError(t, err)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+		require.NoError(t, pw.Start(testutils.Context(t)))
+		sd := ocr.NewDelegate(
+			db,
+			jobORM,
+			keyStore,
+			nil,
+			pw,
+			monitoringEndpoint,
+			legacyChains,
+			lggr,
+			config.Database(),
+			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+		)
+		_, err = sd.ServicesForSpec(jb)
+		require.NoError(t, err)
+	})
+
 	t.Run("test min non-bootstrap", func(t *testing.T) {
 		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
