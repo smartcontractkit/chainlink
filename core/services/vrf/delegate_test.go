@@ -58,7 +58,7 @@ type vrfUniverse struct {
 	ks           keystore.Master
 	vrfkey       vrfkey.KeyV2
 	submitter    common.Address
-	txm          *txmgr.Txm
+	txm          *txmgr.TxManager
 	hb           httypes.HeadBroadcaster
 	legacyChains evm.LegacyChainContainer
 	cid          big.Int
@@ -79,12 +79,8 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
-	_, _, evmConfig := txmgr.MakeTestConfigs(t)
-	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
-	qcfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), qcfg)
-	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), ks.Eth(), logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil)
+	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
+	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)
 	orm := headtracker.NewORM(db, lggr, cfg.Database(), *testutils.FixtureChainID)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr, cfg.Database())
@@ -93,12 +89,12 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
-	k, err := ks.Eth().Create(testutils.FixtureChainID)
-	require.NoError(t, err)
+	k, err2 := ks.Eth().Create(testutils.FixtureChainID)
+	require.NoError(t, err2)
 	submitter := k.Address
 	require.NoError(t, err)
-	vrfkey, err := ks.VRF().Create()
-	require.NoError(t, err)
+	vrfkey, err3 := ks.VRF().Create()
+	require.NoError(t, err3)
 
 	return vrfUniverse{
 		jrm:          jrm,
@@ -109,7 +105,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 		ks:           ks,
 		vrfkey:       vrfkey,
 		submitter:    submitter,
-		txm:          txm,
+		txm:          &txm,
 		hb:           hb,
 		legacyChains: legacyChains,
 		cid:          *ec.ConfiguredChainID(),
