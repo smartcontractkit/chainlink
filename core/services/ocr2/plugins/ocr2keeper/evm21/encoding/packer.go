@@ -150,12 +150,14 @@ func (p *abiPacker) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistr
 		GasLimits:    make([]*big.Int, len(converted.GasLimits)),
 		Triggers:     make([][]byte, len(converted.Triggers)),
 		PerformDatas: make([][]byte, len(converted.PerformDatas)),
+		// Cfgs: make([]ChainConfig, len(converted.Cfgs)),
 	}
 	if len(report.UpkeepIds) > 0 {
 		copy(report.UpkeepIds, converted.UpkeepIds)
 		copy(report.GasLimits, converted.GasLimits)
 		copy(report.Triggers, converted.Triggers)
 		copy(report.PerformDatas, converted.PerformDatas)
+		//copy(report.Cfgs, converted.Cfgs)
 	}
 
 	return report, nil

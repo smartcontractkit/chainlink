@@ -90,11 +90,12 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
       upkeepTransmitInfo[i].triggerType = _getTriggerType(report.upkeepIds[i]);
       upkeepTransmitInfo[i].maxLinkPayment = _getMaxLinkPayment(
         hotVars,
+        report.cfgs[i],
         upkeepTransmitInfo[i].triggerType,
         uint32(report.gasLimits[i]),
         uint32(report.performDatas[i].length),
-        report.fastGasWei,
-        report.linkNative,
+//        report.fastGasWei,
+//        report.linkNative,
         true
       );
       (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
@@ -152,10 +153,9 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
 
           (reimbursement, premium) = _postPerformPayment(
             hotVars,
+            report.cfgs[i],
             report.upkeepIds[i],
             upkeepTransmitInfo[i],
-            report.fastGasWei,
-            report.linkNative,
             numUpkeepsPassedChecks
           );
           totalPremium += premium;

@@ -46,7 +46,8 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
    */
   function checkUpkeep(
     uint256 id,
-    bytes memory triggerData
+    bytes memory triggerData,
+    ChainConfig memory cfg
   )
     public
     cannotExecute
@@ -72,11 +73,12 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
     (fastGasWei, linkNative) = _getFeedData(hotVars);
     uint96 maxLinkPayment = _getMaxLinkPayment(
       hotVars,
+      cfg,
       triggerType,
       upkeep.performGas,
       s_storage.maxPerformDataSize,
-      fastGasWei,
-      linkNative,
+      //fastGasWei,
+      //linkNative,
       false
     );
     if (upkeep.balance < maxLinkPayment) {
@@ -144,7 +146,8 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
    * @dev this function may be deprecated in a future version of chainlink automation
    */
   function checkUpkeep(
-    uint256 id
+    uint256 id,
+    ChainConfig memory cfg
   )
     external
     returns (
@@ -157,7 +160,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       uint256 linkNative
     )
   {
-    return checkUpkeep(id, bytes(""));
+    return checkUpkeep(id, bytes(""), cfg);
   }
 
   /**

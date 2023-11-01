@@ -187,6 +187,14 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			continue
 		}
 
+		// call gas estimator (ge) component to get L2 gas cost
+		// l1GasCost = ge.getL1GasCost(chain_id, block_id, block_hash, tx_call_data)
+		// fast_gas = ...
+		// link_native = ...
+		// results[i].l1GasCost = l1GasCost
+		// results[i].fastGas = fastGas
+		// results[i].linkNative = linkNative
+
 		opts := r.buildCallOpts(ctx, block)
 		var payload []byte
 		var err error
@@ -201,7 +209,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			}
 
 			// check data will include the log trigger config
-			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData)
+			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData /* ChainConfig(l1GasCost, fast_gas, link_native) */)
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack log trigger checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
@@ -211,7 +219,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		default:
 			// checkUpkeep is overloaded on the contract for conditionals and log upkeeps
 			// Need to use the first function (checkUpkeep0) for conditionals
-			payload, err = r.abi.Pack("checkUpkeep0", upkeepId)
+			payload, err = r.abi.Pack("checkUpkeep0", upkeepId /* ChainConfig(l1GasCost, fast_gas, link_native) */)
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack conditional checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)

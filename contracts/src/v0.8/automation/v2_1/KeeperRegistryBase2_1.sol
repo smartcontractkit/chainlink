@@ -341,8 +341,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   /// @dev Report transmitted by OCR to transmit function
   struct Report {
-    uint256 fastGasWei;
-    uint256 linkNative;
+    ChainConfig[] cfgs;
     uint256[] upkeepIds;
     uint256[] gasLimits;
     bytes[] triggers;
@@ -403,6 +402,12 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint32 logIndex;
     uint32 blockNum;
     bytes32 blockHash;
+  }
+
+  struct ChainConfig {
+    uint256 fastGas;
+    uint256 linkNative;
+    uint256 l1GasCost; // 0 for L1
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
@@ -555,48 +560,24 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
    * @param gasOverhead the amount of gas overhead
-   * @param fastGasWei the fast gas price
-   * @param linkNative the exchange ratio between LINK and Native token
    * @param numBatchedUpkeeps the number of upkeeps in this batch. Used to divide the L1 cost
    * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
     HotVars memory hotVars,
+    ChainConfig memory cfg,
     uint256 gasLimit,
     uint256 gasOverhead,
-    uint256 fastGasWei,
-    uint256 linkNative,
     uint16 numBatchedUpkeeps,
     bool isExecution
   ) internal view returns (uint96, uint96) {
-    uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
+    uint256 gasWei = cfg.fastGas * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
 
-    uint256 l1CostWei = 0;
-    if (i_mode == Mode.OPTIMISM) {
-      bytes memory txCallData = new bytes(0);
-      if (isExecution) {
-        txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
-      } else {
-        // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
-        // s_storage.maxPerformDataSize non zero-bytes. Instead of setting bytes to non-zero
-        // we initialize 'new bytes' of length 4*maxPerformDataSize to cover for zero bytes.
-        txCallData = new bytes(4 * s_storage.maxPerformDataSize);
-      }
-      l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
-    } else if (i_mode == Mode.ARBITRUM) {
-      if (isExecution) {
-        l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
-      } else {
-        // fee is 4 per 0 byte, 16 per non-zero byte - we assume all non-zero and
-        // max data size to calculate max payment
-        (, uint256 perL1CalldataUnit, , , , ) = ARB_NITRO_ORACLE.getPricesInWei();
-        l1CostWei = perL1CalldataUnit * s_storage.maxPerformDataSize * 16;
-      }
-    }
+    uint256 l1CostWei = cfg.l1GasCost;
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
       l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
@@ -604,9 +585,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
     l1CostWei = l1CostWei / numBatchedUpkeeps;
 
-    uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / linkNative;
+    uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / cfg.linkNative;
     uint256 premium = (((gasWei * gasLimit) + l1CostWei) * 1e9 * hotVars.paymentPremiumPPB) /
-      linkNative +
+      cfg.linkNative +
       uint256(hotVars.flatFeeMicroLink) *
       1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
@@ -619,20 +600,18 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    */
   function _getMaxLinkPayment(
     HotVars memory hotVars,
+    ChainConfig memory cfg,
     Trigger triggerType,
     uint32 performGas,
     uint32 performDataLength,
-    uint256 fastGasWei,
-    uint256 linkNative,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (uint96) {
     uint256 gasOverhead = _getMaxGasOverhead(triggerType, performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
+      cfg,
       performGas,
       gasOverhead,
-      fastGasWei,
-      linkNative,
       1, // Consider only 1 upkeep in batch to get maxPayment
       isExecution
     );
@@ -871,18 +850,16 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    */
   function _postPerformPayment(
     HotVars memory hotVars,
+    ChainConfig memory cfg,
     uint256 upkeepId,
     UpkeepTransmitInfo memory upkeepTransmitInfo,
-    uint256 fastGasWei,
-    uint256 linkNative,
     uint16 numBatchedUpkeeps
   ) internal returns (uint96 gasReimbursement, uint96 premium) {
     (gasReimbursement, premium) = _calculatePaymentAmount(
       hotVars,
+      cfg,
       upkeepTransmitInfo.gasUsed,
       upkeepTransmitInfo.gasOverhead,
-      fastGasWei,
-      linkNative,
       numBatchedUpkeeps,
       true
     );
