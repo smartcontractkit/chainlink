@@ -40,14 +40,12 @@ library ChainSpecificUtil {
 
   // ------------ End Optimism Constants ------------
 
-  /**
-   * @notice Returns the L1 fees that will be paid for the current transaction, given any calldata
-   * @notice for the current transaction.
-   * @notice When on a known Arbitrum chain, it uses ArbGas.getCurrentTxL1GasFees to get the fees.
-   * @notice On Arbitrum, the provided calldata is not used to calculate the fees.
-   * @notice On Optimism, the provided calldata is passed to the OVM_GasPriceOracle predeploy
-   * @notice and getL1Fee is called to get the fees.
-   */
+  /// @notice Returns the L1 fees that will be paid for the current transaction, given any calldata
+  /// @notice for the current transaction.
+  /// @notice When on a known Arbitrum chain, it uses ArbGas.getCurrentTxL1GasFees to get the fees.
+  /// @notice On Arbitrum, the provided calldata is not used to calculate the fees.
+  /// @notice On Optimism, the provided calldata is passed to the OVM_GasPriceOracle predeploy
+  /// @notice and getL1Fee is called to get the fees.
   function _getCurrentTxL1GasFees(bytes memory txCallData) internal view returns (uint256) {
     uint256 chainid = block.chainid;
     if (_isArbitrumChainId(chainid)) {
@@ -58,9 +56,7 @@ library ChainSpecificUtil {
     return 0;
   }
 
-  /**
-   * @notice Return true if and only if the provided chain ID is an Arbitrum chain ID.
-   */
+  /// @notice Return true if and only if the provided chain ID is an Arbitrum chain ID.
   function _isArbitrumChainId(uint256 chainId) internal pure returns (bool) {
     return
       chainId == ARB_MAINNET_CHAIN_ID ||
@@ -68,10 +64,8 @@ library ChainSpecificUtil {
       chainId == ARB_SEPOLIA_TESTNET_CHAIN_ID;
   }
 
-  /**
-   * @notice Return true if and only if the provided chain ID is an Optimism (or Base) chain ID.
-   * @notice Note that optimism chain id's are also OP stack chain id's.
-   */
+  /// @notice Return true if and only if the provided chain ID is an Optimism (or Base) chain ID.
+  /// @notice Note that optimism chain id's are also OP stack chain id's.
   function _isOptimismChainId(uint256 chainId) internal pure returns (bool) {
     return
       chainId == OP_MAINNET_CHAIN_ID ||
