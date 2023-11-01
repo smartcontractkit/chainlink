@@ -71,7 +71,11 @@ const maxObservationLength = 4 + // timestamp
 	1 + // currentBlockValid
 	8 + // maxFinalizedBlockNumber
 	1 + // maxFinalizedBlockNumberValid
-	32 // [> overapprox. of protobuf overhead <]
+	32 + // [> overapprox. of protobuf overhead <]
+	10*(8+ // num
+		32+ // hash
+		8+ // ts
+		32) // [> overapprox. of protobuf overhead <]
 
 type Factory struct {
 	dataSource         DataSource
