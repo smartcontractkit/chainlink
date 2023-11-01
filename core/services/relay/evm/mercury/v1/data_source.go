@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -25,8 +27,22 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+var (
+	insufficientBlocksCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_insufficient_blocks_count",
+		Help: fmt.Sprintf("Count of times that there were not enough blocks in the chain during observation (need: %d)", nBlocksObservation),
+	},
+		[]string{"feedID"},
+	)
+	zeroBlocksCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_zero_blocks_count",
+		Help: "Count of times that there were zero blocks in the chain during observation",
+	},
+		[]string{"feedID"},
+	)
+)
+
 // nBlocksObservation controls how many blocks are included in the LatestBlocks observation
-// TODO: Should this be configurable somehow?
 const nBlocksObservation int = 5
 
 type Runner interface {
@@ -55,12 +71,15 @@ type datasource struct {
 	chainHeadTracker   types.ChainHeadTracker
 	fetcher            Fetcher
 	initialBlockNumber *int64
+
+	insufficientBlocksCounter prometheus.Counter
+	zeroBlocksCounter         prometheus.Counter
 }
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID [32]byte) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber}
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID mercuryutils.FeedID) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, pipelineExecutionErr error) {
@@ -265,12 +284,13 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.Observation) {
 	latestBlocks := ds.getLatestBlocks(ctx, nBlocksObservation)
 	if len(latestBlocks) < nBlocksObservation {
-		// TODO: prom metric
-		ds.lggr.Warn("TODO")
+		ds.insufficientBlocksCounter.Inc()
+		ds.lggr.Warnw("Insufficient blocks", "latestBlocks", latestBlocks, "lenLatestBlocks", len(latestBlocks), "nBlocksObservation", nBlocksObservation)
 	}
 
 	// TODO: remove with https://smartcontract-it.atlassian.net/browse/BCF-2209
 	if len(latestBlocks) == 0 {
+		ds.zeroBlocksCounter.Inc()
 		err := errors.New("no blocks available")
 		obs.CurrentBlockNum.Err = err
 		obs.CurrentBlockHash.Err = err
