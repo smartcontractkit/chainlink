@@ -103,14 +103,14 @@ var (
 // Step 3: See if any transactions have exceeded the gas bumping block threshold and, if so, bump them
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 type Confirmer[
-CHAIN_ID types.ID,
-HEAD types.Head[BLOCK_HASH],
-ADDR types.Hashable,
-TX_HASH types.Hashable,
-BLOCK_HASH types.Hashable,
-R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-SEQ types.Sequence,
-FEE feetypes.Fee,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
 ] struct {
 	services.StateMachine
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
@@ -141,14 +141,14 @@ FEE feetypes.Fee,
 }
 
 func NewConfirmer[
-CHAIN_ID types.ID,
-HEAD types.Head[BLOCK_HASH],
-ADDR types.Hashable,
-TX_HASH types.Hashable,
-BLOCK_HASH types.Hashable,
-R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-SEQ types.Sequence,
-FEE feetypes.Fee,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
 ](
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
@@ -968,11 +968,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 }
 
 func hasReceiptInLongestChain[
-CHAIN_ID types.ID,
-ADDR types.Hashable,
-TX_HASH, BLOCK_HASH types.Hashable,
-SEQ types.Sequence,
-FEE feetypes.Fee,
+	CHAIN_ID types.ID,
+	ADDR types.Hashable,
+	TX_HASH, BLOCK_HASH types.Hashable,
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
 ](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) bool {
 	for {
 		for _, attempt := range etx.TxAttempts {
@@ -1124,12 +1124,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 // observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
 // transaction.
 func observeUntilTxConfirmed[
-CHAIN_ID types.ID,
-ADDR types.Hashable,
-TX_HASH, BLOCK_HASH types.Hashable,
-R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-SEQ types.Sequence,
-FEE feetypes.Fee,
+	CHAIN_ID types.ID,
+	ADDR types.Hashable,
+	TX_HASH, BLOCK_HASH types.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
 ](chainID CHAIN_ID, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], receipts []R) {
 	for _, attempt := range attempts {
 		for _, r := range receipts {
