@@ -161,6 +161,7 @@ func TestAutomationBenchmark(t *testing.T) {
 			RegistryVersions: registryVersions,
 			KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 				PaymentPremiumPPB:    uint32(0),
+				FlatFeeMicroLINK:     uint32(40000),
 				BlockCountPerTurn:    big.NewInt(100),
 				CheckGasLimit:        uint32(45_000_000), //45M
 				StalenessSeconds:     big.NewInt(90_000),
@@ -280,6 +281,12 @@ var networkConfig = map[string]NetworkConfig{
 		upkeepSLA:  int64(4),
 		blockTime:  12 * time.Second,
 		deltaStage: time.Duration(0),
+		funding:    big.NewFloat(ChainlinkNodeFunding),
+	},
+	"BaseGoerli": {
+		upkeepSLA:  int64(60),
+		blockTime:  2 * time.Second,
+		deltaStage: 20 * time.Second,
 		funding:    big.NewFloat(ChainlinkNodeFunding),
 	},
 }
