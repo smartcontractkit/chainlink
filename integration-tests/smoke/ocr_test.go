@@ -22,7 +22,7 @@ func TestOCRBasic(t *testing.T) {
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(.1)).
+		WithFunding(big.NewFloat(.01)).
 		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
