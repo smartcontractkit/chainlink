@@ -21,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -85,35 +83,25 @@ type ORMConfig interface {
 }
 
 type orm struct {
-	q            pg.Q
-	legacyChains evm.LegacyChainContainer
-	keyStore     keystore.Master
-	pipelineORM  pipeline.ORM
-	lggr         logger.SugaredLogger
-	cfg          pg.QConfig
-	bridgeORM    bridges.ORM
+	q           pg.Q
+	keyStore    keystore.Master
+	pipelineORM pipeline.ORM
+	lggr        logger.SugaredLogger
+	cfg         pg.QConfig
+	bridgeORM   bridges.ORM
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(
-	db *sqlx.DB,
-	legacyChains evm.LegacyChainContainer,
-	pipelineORM pipeline.ORM,
-	bridgeORM bridges.ORM,
-	keyStore keystore.Master, // needed to validation key properties on new job creation
-	lggr logger.Logger,
-	cfg pg.QConfig,
-) *orm {
+func NewORM(db *sqlx.DB, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, lggr logger.Logger, cfg pg.QConfig) *orm {
 	namedLogger := logger.Sugared(lggr.Named("JobORM"))
 	return &orm{
-		q:            pg.NewQ(db, namedLogger, cfg),
-		legacyChains: legacyChains,
-		keyStore:     keyStore,
-		pipelineORM:  pipelineORM,
-		bridgeORM:    bridgeORM,
-		lggr:         namedLogger,
-		cfg:          cfg,
+		q:           pg.NewQ(db, namedLogger, cfg),
+		keyStore:    keyStore,
+		pipelineORM: pipelineORM,
+		bridgeORM:   bridgeORM,
+		lggr:        namedLogger,
+		cfg:         cfg,
 	}
 }
 func (o *orm) Close() error {
@@ -704,27 +692,10 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 		if err != nil {
 			return err
 		}
-		for i := range jobs {
-			err = multierr.Combine(err, o.LoadConfigVars(&jobs[i]))
-		}
+
 		return nil
 	})
 	return jobs, int(count), err
-}
-
-func (o *orm) LoadConfigVars(jb *Job) error {
-	if jb.OCROracleSpec != nil {
-		ch, err := o.legacyChains.Get(jb.OCROracleSpec.EVMChainID.String())
-		if err != nil {
-			return err
-		}
-		newSpec, err := LoadConfigVarsOCR(ch.Config().EVM().OCR(), ch.Config().OCR(), *jb.OCROracleSpec)
-		if err != nil {
-			return err
-		}
-		jb.OCROracleSpec = newSpec
-	}
-	return nil
 }
 
 func LoadDefaultVRFPollPeriod(vrfs VRFSpec) *VRFSpec {
@@ -842,7 +813,7 @@ func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
 		return jb, errors.Wrap(err, "FindJobWithoutSpecErrors failed")
 	}
 
-	return jb, o.LoadConfigVars(&jb)
+	return jb, nil
 }
 
 // FindSpecErrorsByJobIDs returns all jobs spec errors by jobs IDs
@@ -931,7 +902,7 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) er
 	if err != nil {
 		return errors.Wrap(err, "findJob failed")
 	}
-	return o.LoadConfigVars(jb)
+	return nil
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
@@ -1173,13 +1144,6 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 		err := LoadAllJobsTypes(tx, jbs)
 		if err != nil {
 			return err
-		}
-		for i := range jbs {
-			err = o.LoadConfigVars(&jbs[i])
-			//We must return the jobs even if the chainID is disabled
-			if err != nil && !errors.Is(err, chains.ErrNoSuchChainID) {
-				return err
-			}
 		}
 
 		return nil
