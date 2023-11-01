@@ -37,9 +37,10 @@ interface ILinkAvailable {
 contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationCompatibleInterface {
   event BalanceUpdated(address indexed addr, uint256 oldBalance, uint256 newBalance);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
-  event MaxCheckUpdated(uint256 oldMaxCheck, uint256 newMaxCheck);
-  event MaxPerformUpdated(uint256 oldMaxPerform, uint256 newMaxPerform);
-  event MinWaitPeriodUpdated(uint256 s_minWaitPeriodSeconds, uint256 minWaitPeriodSeconds);
+  event UpkeepIntervalSet(uint256 oldUpkeepInterval, uint256 newUpkeepInterval);
+  event MaxCheckSet(uint256 oldMaxCheck, uint256 newMaxCheck);
+  event MaxPerformSet(uint256 oldMaxPerform, uint256 newMaxPerform);
+  event MinWaitPeriodSet(uint256 s_minWaitPeriodSeconds, uint256 minWaitPeriodSeconds);
   event TopUpBlocked(address indexed topUpAddress);
   event TopUpFailed(address indexed recipient);
   event TopUpSucceeded(address indexed topUpAddress);
@@ -56,25 +57,29 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     bool isActive;
   }
 
-  IERC20 private immutable i_linkToken;
+  IERC20 private immutable LINK_TOKEN;
   uint256 private s_minWaitPeriodSeconds;
   uint16 private s_maxPerform;
   uint16 private s_maxCheck;
+  uint8 private s_upkeepInterval;
   address[] private s_watchList;
   mapping(address targetAddress => MonitoredAddress targetProperties) internal s_targets;
 
   /// @param linkTokenAddress the LINK token address
   constructor(
     address linkTokenAddress,
+    uint256 minWaitPeriodSeconds,
     uint16 maxPerform,
     uint16 maxCheck,
-    uint256 minWaitPeriodSeconds
+    uint8 upkeepInterval
   ) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0), "LinkAvailableBalanceMonitor: invalid linkTokenAddress");
-    i_linkToken = IERC20(linkTokenAddress);
+    require(upkeepInterval <= 255, "LinkAvailableBalanceMonitor: invalid upkeepInterval");
+    LINK_TOKEN = IERC20(linkTokenAddress);
+    setMinWaitPeriodSeconds(minWaitPeriodSeconds);
     setMaxPerform(maxPerform);
     setMaxCheck(maxCheck);
-    setMinWaitPeriodSeconds(minWaitPeriodSeconds);
+    setUpkeepInterval(upkeepInterval);
   }
 
   /// @notice Sets the list of subscriptions to watch and their funding parameters
@@ -100,6 +105,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
       if (addresses[idx] == address(0)) {
         revert InvalidWatchList();
       }
+      if (!(topUpAmounts[idx] > 0)) revert InvalidWatchList();
       s_targets[targetAddress] = MonitoredAddress({
         isActive: true,
         minBalance: minBalances[idx],
@@ -121,7 +127,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     uint16 maxPerform = s_maxPerform;
     uint16 maxCheck = s_maxCheck;
     uint256 numTargets = s_watchList.length;
-    uint256 idx = uint256(blockhash(block.number - 1)) % numTargets;
+    uint256 idx = uint256(blockhash(block.number - (block.number % s_upkeepInterval) - 1)) % numTargets;
     uint256 numToCheck = numTargets < maxCheck ? numTargets : maxCheck;
     uint256 numFound = 0;
     address[] memory targetsToFund = new address[](maxPerform);
@@ -133,8 +139,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     ) {
       address targetAddress = s_watchList[idx];
       target = s_targets[targetAddress];
-      (bool needsFunding, ) = _needsFunding(targetAddress, target.minBalance);
-      if (needsFunding) {
+      if (_needsFunding(targetAddress, target.minBalance)) {
         targetsToFund[numFound] = targetAddress;
         numFound++;
         if (numFound == maxPerform) {
@@ -152,15 +157,12 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
 
   function topUp(address[] memory targetAddresses) public whenNotPaused {
     MonitoredAddress memory target;
-    uint256 localBalance = i_linkToken.balanceOf(address(this));
+    uint256 localBalance = LINK_TOKEN.balanceOf(address(this));
     address[] memory targetsTopUp = new address[](targetAddresses.length);
     for (uint256 idx = 0; idx < targetAddresses.length; idx++) {
       address targetAddress = targetAddresses[idx];
       target = s_targets[targetAddress];
-      (bool needsFunding, ) = _needsFunding(targetAddress, target.minBalance);
-      if (
-        target.topUpAmount > 0 && localBalance >= target.topUpAmount && !(targetAddress == address(0)) && needsFunding
-      ) {
+      if (localBalance >= target.topUpAmount && _needsFunding(targetAddress, target.minBalance)) {
         targetsTopUp[idx] = targetAddress;
         localBalance -= target.topUpAmount;
       } else {
@@ -173,7 +175,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
         continue;
       }
       target = s_targets[targetAddress];
-      bool success = i_linkToken.transfer(targetAddress, target.topUpAmount);
+      bool success = LINK_TOKEN.transfer(targetAddress, target.topUpAmount);
       if (success) {
         target.lastTopUpTimestamp = uint56(block.timestamp);
         emit TopUpSucceeded(targetAddress);
@@ -188,9 +190,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @param targetAddress the target to check
   /// @param minBalance minimum balance required for the target
   /// @return bool whether the target needs funding or not
-  /// @return address the address of the contract needing funding
-  function _needsFunding(address targetAddress, uint256 minBalance) private view returns (bool, address) {
-    uint256 minWaitPeriodSeconds = s_minWaitPeriodSeconds;
+  function _needsFunding(address targetAddress, uint256 minBalance) private view returns (bool) {
     MonitoredAddress memory addressToCheck = s_targets[targetAddress];
     ILinkAvailable target;
     IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
@@ -199,11 +199,11 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     // to prevent target.linkAvailableForPayment from running,
     // which would revert the operation.
     if (targetAddress == address(0) || !(targetAddress.code.length > 0)) {
-      return (false, address(0));
+      return false;
     }
     try proxy.aggregator() returns (address aggregatorAddress) {
       if (aggregatorAddress == address(0)) {
-        return (false, address(0));
+        return false;
       }
       target = ILinkAvailable(aggregatorAddress);
     } catch {
@@ -211,13 +211,12 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     }
     try target.linkAvailableForPayment() returns (int256 balance) {
       if (
-        balance < 0 ||
-        (uint256(balance) < minBalance && addressToCheck.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp)
+        balance < int256(minBalance) && addressToCheck.lastTopUpTimestamp + s_minWaitPeriodSeconds <= block.timestamp
       ) {
-        return (true, address(target));
+        return true;
       }
     } catch {}
-    return (false, address(0));
+    return false;
   }
 
   /// @notice Gets list of subscription ids that are underfunded and returns a keeper-compatible payload.
@@ -234,7 +233,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
 
   /// @notice Called by the keeper to send funds to underfunded addresses.
   /// @param performData the abi encoded list of addresses to fund
-  function performUpkeep(bytes calldata performData) external override whenNotPaused {
+  function performUpkeep(bytes calldata performData) external override {
     address[] memory needsFunding = abi.decode(performData, (address[]));
     topUp(needsFunding);
   }
@@ -244,7 +243,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @param payee the address to pay
   function withdraw(uint256 amount, address payable payee) external onlyOwner {
     require(payee != address(0), "LinkAvailableBalanceMonitor: invalid payee address");
-    i_linkToken.transfer(payee, amount);
+    LINK_TOKEN.transfer(payee, amount);
     emit FundsWithdrawn(amount, payee);
   }
 
@@ -275,19 +274,25 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @notice Update s_maxPerform
   function setMaxPerform(uint16 maxPerform) public onlyOwner {
     s_maxPerform = maxPerform;
-    emit MaxPerformUpdated(s_maxPerform, maxPerform);
+    emit MaxPerformSet(s_maxPerform, maxPerform);
   }
 
   /// @notice Update s_maxCheck
   function setMaxCheck(uint16 maxCheck) public onlyOwner {
     s_maxCheck = maxCheck;
-    emit MaxCheckUpdated(s_maxCheck, maxCheck);
+    emit MaxCheckSet(s_maxCheck, maxCheck);
   }
 
   /// @notice Sets the minimum wait period (in seconds) for addresses between funding
   function setMinWaitPeriodSeconds(uint256 minWaitPeriodSeconds) public onlyOwner {
     s_minWaitPeriodSeconds = minWaitPeriodSeconds;
-    emit MinWaitPeriodUpdated(s_minWaitPeriodSeconds, minWaitPeriodSeconds);
+    emit MinWaitPeriodSet(s_minWaitPeriodSeconds, minWaitPeriodSeconds);
+  }
+
+  /// @notice Update s_upkeepInterval
+  function setUpkeepInterval(uint8 upkeepInterval) public onlyOwner {
+    s_upkeepInterval = upkeepInterval;
+    emit MaxCheckSet(s_upkeepInterval, upkeepInterval);
   }
 
   /// @notice Gets maxPerform
@@ -303,6 +308,11 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @notice Gets the minimum wait period
   function getMinWaitPeriodSeconds() external view returns (uint256) {
     return s_minWaitPeriodSeconds;
+  }
+
+  /// @notice Gets upkeepInterval
+  function getUpkeepInterval() external view returns (uint8) {
+    return s_upkeepInterval;
   }
 
   /// @notice Gets the list of subscription ids being watched

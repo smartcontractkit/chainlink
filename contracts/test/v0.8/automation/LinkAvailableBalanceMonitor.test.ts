@@ -148,13 +148,15 @@ const setup = async () => {
   const maxPerform = 5
   const maxCheck = 20
   const minWaitPeriodSeconds = 0
+  const upkeepInterval = 10
 
   lt = (await ltFactory.deploy()) as LinkToken
   labm = await labmFactory.deploy(
     lt.address,
+    minWaitPeriodSeconds,
     maxPerform,
     maxCheck,
-    minWaitPeriodSeconds,
+    upkeepInterval,
   )
   await labm.deployed()
 
@@ -605,6 +607,11 @@ describe('LinkAvailableBalanceMonitor', () => {
   })
 
   describe('topUp()', () => {
+    it('Should revert topUp address(0)', async () => {
+      const tx = await labm.connect(owner).topUp([ethers.constants.AddressZero])
+      await expect(tx).to.emit(labm, 'TopUpBlocked')
+    })
+
     context('when not paused', () => {
       it('Should be callable by anyone', async () => {
         const users = [owner, keeperRegistry, stranger]
