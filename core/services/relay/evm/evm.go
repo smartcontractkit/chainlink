@@ -514,28 +514,27 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		return nil, err
 	}
 
-	if err != nil {
-		return nil, err
+	medianProvider := medianProvider{
+		configWatcher:       configWatcher,
+		reportCodec:         reportCodec,
+		contractTransmitter: contractTransmitter,
 	}
 
 	chainReader, err := newChainReader(lggr, r.chain, relayOpts)
 	if err != nil {
-		logMsg := "Falling back to legacy MedianContract impl from Provider: %w"
+		logMsg := "Falling back to legacy MedianContract impl from Provider"
 		if errors.Is(err, relaytypes.ErrorChainReaderUnsupported{}) || errors.Is(err, relaytypes.ErrorNoChainReaderInJobSpec{}) {
 			// Until we remove the MedianContract from all relays, and require using ChainReader, these should not be treated as errors
-			lggr.Debugf(logMsg, err)
+			lggr.Debugw(logMsg, "err", err)
 		} else {
-			lggr.Errorf(logMsg, err)
+			lggr.Errorw(logMsg, "err", err)
 		}
-		chainReader = nil
+		medianProvider.chainReader = nil
+	} else {
+		medianProvider.chainReader = chainReader
 	}
 
-	return &medianProvider{
-		configWatcher:       configWatcher,
-		reportCodec:         reportCodec,
-		contractTransmitter: contractTransmitter,
-		chainReader:         chainReader,
-	}, nil
+	return &medianProvider, nil
 }
 
 var _ relaytypes.MedianProvider = (*medianProvider)(nil)
