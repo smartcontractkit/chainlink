@@ -22,7 +22,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -41,6 +43,33 @@ func mustNewClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, send
 	c, err := evmclient.NewClientWithTestNode(t, cfg, time.Second*0, wsURL, nil, sendonlys, 42, chainID)
 	require.NoError(t, err)
 	return c
+}
+
+func mustNewChainClient(t *testing.T, wsURL string, sendonlys ...url.URL) evmclient.Client {
+	return mustNewChainClientWithChainID(t, wsURL, testutils.FixtureChainID, sendonlys...)
+}
+
+func mustNewChainClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) evmclient.Client {
+	cfg := evmclient.TestNodePoolConfig{
+		NodeSelectionMode: evmclient.NodeSelectionMode_RoundRobin,
+	}
+	c, err := evmclient.NewChainClientWithTestNode(t, cfg, time.Second*0, cfg.NodeLeaseDuration, wsURL, nil, sendonlys, 42, chainID)
+	require.NoError(t, err)
+	return c
+}
+
+func mustNewClients(t *testing.T, wsURL string, sendonlys ...url.URL) []evmclient.Client {
+	var clients []evmclient.Client
+	clients = append(clients, mustNewClient(t, wsURL, sendonlys...))
+	clients = append(clients, mustNewChainClient(t, wsURL, sendonlys...))
+	return clients
+}
+
+func mustNewClientsWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) []evmclient.Client {
+	var clients []evmclient.Client
+	clients = append(clients, mustNewClientWithChainID(t, wsURL, chainID, sendonlys...))
+	clients = append(clients, mustNewChainClientWithChainID(t, wsURL, chainID, sendonlys...))
+	return clients
 }
 
 func TestEthClient_TransactionReceipt(t *testing.T) {
@@ -78,15 +107,17 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		hash := common.HexToHash(txHash)
-		receipt, err := ethClient.TransactionReceipt(testutils.Context(t), hash)
-		require.NoError(t, err)
-		assert.Equal(t, hash, receipt.TxHash)
-		assert.Equal(t, big.NewInt(11), receipt.BlockNumber)
+			hash := common.HexToHash(txHash)
+			receipt, err := ethClient.TransactionReceipt(testutils.Context(t), hash)
+			require.NoError(t, err)
+			assert.Equal(t, hash, receipt.TxHash)
+			assert.Equal(t, big.NewInt(11), receipt.BlockNumber)
+		}
 	})
 
 	t.Run("no tx hash, returns ethereum.NotFound", func(t *testing.T) {
@@ -108,13 +139,15 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		hash := common.HexToHash(txHash)
-		_, err = ethClient.TransactionReceipt(testutils.Context(t), hash)
-		require.Equal(t, ethereum.NotFound, errors.Cause(err))
+			hash := common.HexToHash(txHash)
+			_, err = ethClient.TransactionReceipt(testutils.Context(t), hash)
+			require.Equal(t, ethereum.NotFound, errors.Cause(err))
+		}
 	})
 }
 
@@ -144,15 +177,17 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 		return
 	})
 
-	ethClient := mustNewClient(t, wsURL)
-	err := ethClient.Dial(testutils.Context(t))
-	require.NoError(t, err)
+	clients := mustNewClients(t, wsURL)
+	for _, ethClient := range clients {
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
 
-	result, err := ethClient.PendingNonceAt(testutils.Context(t), address)
-	require.NoError(t, err)
+		result, err := ethClient.PendingNonceAt(testutils.Context(t), address)
+		require.NoError(t, err)
 
-	var expected uint64 = 256
-	require.Equal(t, result, expected)
+		var expected uint64 = 256
+		require.Equal(t, result, expected)
+	}
 }
 
 func TestEthClient_BalanceAt(t *testing.T) {
@@ -189,13 +224,15 @@ func TestEthClient_BalanceAt(t *testing.T) {
 				return
 			})
 
-			ethClient := mustNewClient(t, wsURL)
-			err := ethClient.Dial(testutils.Context(t))
-			require.NoError(t, err)
+			clients := mustNewClients(t, wsURL)
+			for _, ethClient := range clients {
+				err := ethClient.Dial(testutils.Context(t))
+				require.NoError(t, err)
 
-			result, err := ethClient.BalanceAt(testutils.Context(t), address, nil)
-			require.NoError(t, err)
-			assert.Equal(t, test.balance, result)
+				result, err := ethClient.BalanceAt(testutils.Context(t), address, nil)
+				require.NoError(t, err)
+				assert.Equal(t, test.balance, result)
+			}
 		})
 	}
 }
@@ -220,13 +257,15 @@ func TestEthClient_LatestBlockHeight(t *testing.T) {
 		return
 	})
 
-	ethClient := mustNewClient(t, wsURL)
-	err := ethClient.Dial(testutils.Context(t))
-	require.NoError(t, err)
+	clients := mustNewClients(t, wsURL)
+	for _, ethClient := range clients {
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
 
-	result, err := ethClient.LatestBlockHeight(testutils.Context(t))
-	require.NoError(t, err)
-	require.Equal(t, big.NewInt(256), result)
+		result, err := ethClient.LatestBlockHeight(testutils.Context(t))
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(256), result)
+	}
 }
 
 func TestEthClient_GetERC20Balance(t *testing.T) {
@@ -277,13 +316,15 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 
 			})
 
-			ethClient := mustNewClient(t, wsURL)
-			err := ethClient.Dial(testutils.Context(t))
-			require.NoError(t, err)
+			clients := mustNewClients(t, wsURL)
+			for _, ethClient := range clients {
+				err := ethClient.Dial(testutils.Context(t))
+				require.NoError(t, err)
 
-			result, err := ethClient.TokenBalance(ctx, userAddress, contractAddress)
-			require.NoError(t, err)
-			assert.Equal(t, test.balance, result)
+				result, err := ethClient.TokenBalance(ctx, userAddress, contractAddress)
+				require.NoError(t, err)
+				assert.Equal(t, test.balance, result)
+			}
 		})
 	}
 }
@@ -354,20 +395,22 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 				return
 			})
 
-			ethClient := mustNewClient(t, wsURL)
-			err := ethClient.Dial(testutils.Context(t))
-			require.NoError(t, err)
-
-			ctx, cancel := context.WithTimeout(testutils.Context(t), 5*time.Second)
-			defer cancel()
-			result, err := ethClient.HeadByNumber(ctx, expectedBlockNum)
-			if test.error != nil {
-				require.Error(t, err, test.error)
-			} else {
+			clients := mustNewClients(t, wsURL)
+			for _, ethClient := range clients {
+				err := ethClient.Dial(testutils.Context(t))
 				require.NoError(t, err)
-				require.Equal(t, expectedBlockHash, result.Hash.Hex())
-				require.Equal(t, test.expectedResponseBlock, result.Number)
-				require.Zero(t, cltest.FixtureChainID.Cmp(result.EVMChainID.ToInt()))
+
+				ctx, cancel := context.WithTimeout(testutils.Context(t), 5*time.Second)
+				result, err := ethClient.HeadByNumber(ctx, expectedBlockNum)
+				if test.error != nil {
+					require.Error(t, err, test.error)
+				} else {
+					require.NoError(t, err)
+					require.Equal(t, expectedBlockHash, result.Hash.Hex())
+					require.Equal(t, test.expectedResponseBlock, result.Number)
+					require.Zero(t, cltest.FixtureChainID.Cmp(result.EVMChainID.ToInt()))
+				}
+				cancel()
 			}
 		})
 	}
@@ -395,12 +438,14 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 		return
 	})
 
-	ethClient := mustNewClient(t, wsURL)
-	err := ethClient.Dial(testutils.Context(t))
-	require.NoError(t, err)
+	clients := mustNewClients(t, wsURL)
+	for _, ethClient := range clients {
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
 
-	err = ethClient.SendTransaction(testutils.Context(t), tx)
-	assert.NoError(t, err)
+		err = ethClient.SendTransaction(testutils.Context(t), tx)
+		assert.NoError(t, err)
+	}
 }
 
 func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
@@ -432,16 +477,19 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	t.Cleanup(ts.Close)
 
 	sendonlyURL := *cltest.MustParseURL(t, ts.URL)
-	ethClient := mustNewClient(t, wsURL, sendonlyURL, sendonlyURL)
-	err = ethClient.Dial(testutils.Context(t))
-	require.NoError(t, err)
 
-	err = ethClient.SendTransaction(testutils.Context(t), tx)
-	require.NoError(t, err)
+	clients := mustNewClients(t, wsURL, sendonlyURL, sendonlyURL)
+	for _, ethClient := range clients {
+		err = ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		err = ethClient.SendTransaction(testutils.Context(t), tx)
+		require.NoError(t, err)
+	}
 
 	// Unfortunately it's a bit tricky to test this, since there is no
 	// synchronization. We have to rely on timing instead.
-	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(2) }, testutils.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(len(clients)*2) }, testutils.WaitTimeout(t), 500*time.Millisecond)
 }
 
 func TestEthClient_SendTransactionReturnCode(t *testing.T) {
@@ -467,13 +515,15 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
-		assert.Error(t, err)
-		assert.Equal(t, errType, clienttypes.Fatal)
+			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			assert.Error(t, err)
+			assert.Equal(t, errType, commontypes.Fatal)
+		}
 	})
 
 	t.Run("returns TransactionAlreadyKnown error type when error message is nonce too low", func(t *testing.T) {
@@ -493,13 +543,15 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
-		assert.Error(t, err)
-		assert.Equal(t, errType, clienttypes.TransactionAlreadyKnown)
+			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			assert.Error(t, err)
+			assert.Equal(t, errType, commontypes.TransactionAlreadyKnown)
+		}
 	})
 
 	t.Run("returns Successful error type when there is no error message", func(t *testing.T) {
@@ -518,13 +570,15 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
-		assert.NoError(t, err)
-		assert.Equal(t, errType, clienttypes.Successful)
+			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			assert.NoError(t, err)
+			assert.Equal(t, errType, commontypes.Successful)
+		}
 	})
 
 	t.Run("returns Underpriced error type when transaction is terminally underpriced", func(t *testing.T) {
@@ -544,13 +598,15 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
-		assert.Error(t, err)
-		assert.Equal(t, errType, clienttypes.Underpriced)
+			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			assert.Error(t, err)
+			assert.Equal(t, errType, commontypes.Underpriced)
+		}
 	})
 
 	t.Run("returns Unsupported error type when error message is queue full", func(t *testing.T) {
@@ -570,13 +626,15 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
-		assert.Error(t, err)
-		assert.Equal(t, errType, clienttypes.Unsupported)
+			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			assert.Error(t, err)
+			assert.Equal(t, errType, commontypes.Unsupported)
+		}
 	})
 
 	t.Run("returns Retryable error type when there is a transaction gap", func(t *testing.T) {
@@ -596,13 +654,15 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
-		assert.Error(t, err)
-		assert.Equal(t, errType, clienttypes.Retryable)
+			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			assert.Error(t, err)
+			assert.Equal(t, errType, commontypes.Retryable)
+		}
 	})
 
 	t.Run("returns InsufficientFunds error type when the sender address doesn't have enough funds", func(t *testing.T) {
@@ -622,13 +682,15 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
-		assert.Error(t, err)
-		assert.Equal(t, errType, clienttypes.InsufficientFunds)
+			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			assert.Error(t, err)
+			assert.Equal(t, errType, commontypes.InsufficientFunds)
+		}
 	})
 
 	t.Run("returns ExceedsFeeCap error type when gas price is too high for the node", func(t *testing.T) {
@@ -648,13 +710,15 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
-		assert.Error(t, err)
-		assert.Equal(t, errType, clienttypes.ExceedsMaxFee)
+			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			assert.Error(t, err)
+			assert.Equal(t, errType, commontypes.ExceedsMaxFee)
+		}
 	})
 
 	t.Run("returns Unknown error type when the error can't be categorized", func(t *testing.T) {
@@ -674,13 +738,15 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 			return
 		})
 
-		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
-		require.NoError(t, err)
+		clients := mustNewClients(t, wsURL)
+		for _, ethClient := range clients {
+			err := ethClient.Dial(testutils.Context(t))
+			require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
-		assert.Error(t, err)
-		assert.Equal(t, errType, clienttypes.Unknown)
+			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			assert.Error(t, err)
+			assert.Equal(t, errType, commontypes.Unknown)
+		}
 	})
 }
 
@@ -718,24 +784,132 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 		return
 	})
 
-	ethClient := mustNewClientWithChainID(t, wsURL, chainId)
-	err := ethClient.Dial(testutils.Context(t))
-	require.NoError(t, err)
+	clients := mustNewClientsWithChainID(t, wsURL, chainId)
+	for _, ethClient := range clients {
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
 
-	headCh := make(chan *evmtypes.Head)
-	sub, err := ethClient.SubscribeNewHead(ctx, headCh)
-	require.NoError(t, err)
-	defer sub.Unsubscribe()
+		headCh := make(chan *evmtypes.Head)
+		sub, err := ethClient.SubscribeNewHead(ctx, headCh)
+		require.NoError(t, err)
 
-	select {
-	case err := <-sub.Err():
-		t.Fatal(err)
-	case <-ctx.Done():
-		t.Fatal(ctx.Err())
-	case h := <-headCh:
-		require.NotNil(t, h.EVMChainID)
-		require.Zero(t, chainId.Cmp(h.EVMChainID.ToInt()))
+		select {
+		case err := <-sub.Err():
+			t.Fatal(err)
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case h := <-headCh:
+			require.NotNil(t, h.EVMChainID)
+			require.Zero(t, chainId.Cmp(h.EVMChainID.ToInt()))
+		}
+		sub.Unsubscribe()
 	}
+}
+
+func TestEthClient_ErroringClient(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	// Empty node means there are no active nodes to select from, causing client to always return error.
+	erroringClient := evmclient.NewChainClientWithEmptyNode(t, commonclient.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID)
+
+	_, err := erroringClient.BalanceAt(ctx, common.Address{}, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	err = erroringClient.BatchCallContext(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	err = erroringClient.BatchCallContextAll(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.BlockByHash(ctx, common.Hash{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.BlockByNumber(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	err = erroringClient.CallContext(ctx, nil, "")
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.CallContract(ctx, ethereum.CallMsg{}, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	// TODO-1663: test actual ChainID() call once client.go is deprecated.
+	id, err := erroringClient.ChainID()
+	require.Equal(t, id, testutils.FixtureChainID)
+	//require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, err, nil)
+
+	_, err = erroringClient.CodeAt(ctx, common.Address{}, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	id = erroringClient.ConfiguredChainID()
+	require.Equal(t, id, testutils.FixtureChainID)
+
+	err = erroringClient.Dial(ctx)
+	require.ErrorContains(t, err, "no available nodes for chain")
+
+	_, err = erroringClient.EstimateGas(ctx, ethereum.CallMsg{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.FilterLogs(ctx, ethereum.FilterQuery{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.HeaderByHash(ctx, common.Hash{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.HeaderByNumber(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.HeadByHash(ctx, common.Hash{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.HeadByNumber(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.LINKBalance(ctx, common.Address{}, common.Address{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.LatestBlockHeight(ctx)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.PendingCodeAt(ctx, common.Address{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.PendingNonceAt(ctx, common.Address{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	err = erroringClient.SendTransaction(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	code, err := erroringClient.SendTransactionReturnCode(ctx, nil, common.Address{})
+	require.Equal(t, code, commontypes.Unknown)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.SequenceAt(ctx, common.Address{}, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.SubscribeNewHead(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.SuggestGasPrice(ctx)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.SuggestGasTipCap(ctx)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.TokenBalance(ctx, common.Address{}, common.Address{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.TransactionByHash(ctx, common.Hash{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.TransactionReceipt(ctx, common.Hash{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
 }
 
 const headResult = evmclient.HeadResult
