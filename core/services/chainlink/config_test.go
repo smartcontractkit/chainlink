@@ -468,7 +468,7 @@ func TestConfig_Marshal(t *testing.T) {
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
 				GasEstimator: evmcfg.GasEstimator{
-					Mode:               ptr("L2Suggested"),
+					Mode:               ptr("SuggestedPrice"),
 					EIP1559DynamicFees: ptr(true),
 					BumpPercent:        ptr[uint16](10),
 					BumpThreshold:      ptr[uint32](6),
@@ -912,7 +912,7 @@ ResendAfterThreshold = '1h0m0s'
 Enabled = true
 
 [EVM.GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '9.223372036854775807 ether'
 PriceMax = '281.474976710655 micro'
 PriceMin = '13 wei'
