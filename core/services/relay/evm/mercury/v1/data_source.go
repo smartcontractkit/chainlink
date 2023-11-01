@@ -268,7 +268,6 @@ func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.O
 		// TODO: prom metric
 		ds.lggr.Warn("TODO")
 	}
-	fmt.Println("TRASH latestBlocks", latestBlocks)
 
 	// TODO: remove with https://smartcontract-it.atlassian.net/browse/BCF-2209
 	if len(latestBlocks) == 0 {
@@ -297,6 +296,5 @@ func (ds *datasource) getLatestBlocks(ctx context.Context, k int) (blocks []*evm
 	// headtracker's job to ensure it has an up-to-date view of the chain based
 	// on responses from all available RPC nodes
 	latestHead := ds.chainHeadTracker.HeadTracker().LatestChain()
-	fmt.Println("TRASH latestHead", latestHead)
 	return latestHead.AsSlice(k)
 }
