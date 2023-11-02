@@ -13,15 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/logging"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/onsi/gomega"
@@ -125,11 +125,12 @@ func TestDirectRequestReorg(t *testing.T) {
 	time.Sleep(90 * time.Second)
 	activeEVMNetwork = networks.SimulatedEVMNonDev
 	netCfg := fmt.Sprintf(networkDRTOML, EVMFinalityDepth, EVMTrackerHistoryDepth)
-	chainlinkDeployment, err := chainlink.NewDeployment(1, map[string]interface{}{
-		"toml": client.AddNetworkDetailedConfig(baseDRTOML, netCfg, activeEVMNetwork),
+	chainlinkDeployment := chainlink.New(0, map[string]interface{}{
+		"replicas": 1,
+		"toml":     client.AddNetworkDetailedConfig(baseDRTOML, netCfg, activeEVMNetwork),
 	})
-	require.NoError(t, err, "Error building Chainlink deployment")
-	err = testEnvironment.AddHelmCharts(chainlinkDeployment).Run()
+
+	err = testEnvironment.AddHelm(chainlinkDeployment).Run()
 	require.NoError(t, err, "Error adding to test environment")
 
 	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment, l)

@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -53,6 +54,7 @@ type UpkeepExecuterConfig interface {
 
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
+	services.StateMachine
 	chStop                 utils.StopChan
 	ethClient              evmclient.Client
 	config                 UpkeepExecuterConfig
@@ -66,7 +68,6 @@ type UpkeepExecuter struct {
 	logger                 logger.Logger
 	wgDone                 sync.WaitGroup
 	effectiveKeeperAddress common.Address
-	utils.StartStopOnce
 }
 
 // NewUpkeepExecuter is the constructor of UpkeepExecuter
@@ -223,7 +224,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	ex.job.PipelineSpec.DotDagSource = pipeline.KeepersObservationSource
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
 
-	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
+	if _, err := ex.pr.Run(ctxService, run, svcLogger, true, nil); err != nil {
 		svcLogger.Error(errors.Wrap(err, "failed executing run"))
 		return
 	}

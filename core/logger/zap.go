@@ -13,7 +13,6 @@ var _ Logger = &zapLogger{}
 type zapLogger struct {
 	*zap.SugaredLogger
 	level      zap.AtomicLevel
-	name       string
 	fields     []interface{}
 	callerSkip int
 }
@@ -49,16 +48,8 @@ func copyFields(fields []interface{}, add ...interface{}) []interface{} {
 	return f
 }
 
-func joinName(old, new string) string {
-	if old == "" {
-		return new
-	}
-	return old + "." + new
-}
-
 func (l *zapLogger) Named(name string) Logger {
 	newLogger := *l
-	newLogger.name = joinName(l.name, name)
 	newLogger.SugaredLogger = l.SugaredLogger.Named(name)
 	newLogger.Trace("Named logger created")
 	return &newLogger
@@ -72,7 +63,7 @@ func (l *zapLogger) Helper(skip int) Logger {
 }
 
 func (l *zapLogger) Name() string {
-	return l.name
+	return l.Desugar().Name()
 }
 
 func (l *zapLogger) sugaredHelper(skip int) *zap.SugaredLogger {

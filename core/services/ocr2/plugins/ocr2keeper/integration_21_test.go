@@ -20,15 +20,17 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/umbracle/ethgo/abi"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/umbracle/ethgo/abi"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -476,7 +478,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 	mServer.Start()
 
 	// Setup bootstrap + oracle nodes
-	bootstrapNodePort := int64(19599)
+	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_keeper_ocr", nodeKeys[0], backend, nil, mServer)
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
@@ -486,8 +488,9 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		nodes   []Node
 	)
 	// Set up the minimum 4 oracles all funded
-	for i := int64(0); i < 4; i++ {
-		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
+	ports := freeport.GetN(t, 4)
+	for i := 0; i < 4; i++ {
+		app, peerID, transmitter, kb := setupNode(t, ports[i], fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		}, mServer)
@@ -945,7 +948,7 @@ func (c *feedLookupUpkeepController) VerifyEnv(
 	for _, contract := range c.contracts {
 		_, err := contract.CheckLog(c.contractsOwner, log_triggered_streams_lookup_wrapper.Log{
 			Index:       big.NewInt(0),
-			TxIndex:     big.NewInt(0),
+			Timestamp:   big.NewInt(123),
 			TxHash:      common.HexToHash("0x1"),
 			BlockNumber: big.NewInt(0),
 			BlockHash:   common.HexToHash("0x14"),

@@ -3,7 +3,6 @@ pragma solidity 0.8.16;
 
 import {BaseTestWithConfiguredVerifierAndFeeManager, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
-import {VerifierProxy} from "../../VerifierProxy.sol";
 
 contract VerifierActivateFeedTest is BaseTestWithConfiguredVerifierAndFeeManager {
   function test_revertsIfNotOwnerActivateFeed() public {
@@ -59,7 +58,7 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
     s_verifier.activateFeed(FEED_ID);
     changePrank(address(s_verifierProxy));
 
-    bytes memory signedReport = _generateEncodedBlob(
+    bytes memory signedReport = _generateV1EncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -72,7 +71,7 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
     changePrank(address(s_verifierProxy));
 
     s_reportContext[0] = s_configDigestTwo;
-    bytes memory signedReport = _generateEncodedBlob(
+    bytes memory signedReport = _generateV1EncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE_TWO + 1)
@@ -83,7 +82,7 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
   function test_currentReportFailsVerification() public {
     changePrank(address(s_verifierProxy));
 
-    bytes memory signedReport = _generateEncodedBlob(
+    bytes memory signedReport = _generateV1EncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -97,7 +96,7 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
     changePrank(address(s_verifierProxy));
 
     s_reportContext[0] = s_configDigestTwo;
-    bytes memory signedReport = _generateEncodedBlob(
+    bytes memory signedReport = _generateV1EncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE_TWO + 1)

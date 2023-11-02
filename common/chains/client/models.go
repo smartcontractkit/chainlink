@@ -1,5 +1,9 @@
 package client
 
+import (
+	"fmt"
+)
+
 type SendTxReturnCode int
 
 // SendTxReturnCode is a generalized client error that dictates what should be the next action, depending on the RPC error response.
@@ -15,3 +19,21 @@ const (
 	ExceedsMaxFee                            // Attempt's fee was higher than the node's limit and got rejected.
 	FeeOutOfValidRange                       // This error is returned when we use a fee price suggested from an RPC, but the network rejects the attempt due to an invalid range(mostly used by L2 chains). Retry by requesting a new suggested fee price.
 )
+
+type NodeTier int
+
+const (
+	Primary = NodeTier(iota)
+	Secondary
+)
+
+func (n NodeTier) String() string {
+	switch n {
+	case Primary:
+		return "primary"
+	case Secondary:
+		return "secondary"
+	default:
+		return fmt.Sprintf("NodeTier(%d)", n)
+	}
+}

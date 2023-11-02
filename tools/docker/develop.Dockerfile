@@ -29,8 +29,6 @@ RUN echo "listen_addresses='*'" >> /etc/postgresql/10/main/postgresql.conf
 RUN /etc/init.d/postgresql start &&\
   createdb chainlink_test &&\
   createdb node_dev &&\
-  createdb explorer_dev &&\
-  createdb explorer_test &&\
   createuser --superuser --no-password root &&\
   psql -c "ALTER USER postgres PASSWORD 'node';"
 
@@ -56,7 +54,7 @@ EXPOSE 8546
 
 # Default env setup for testing
 ENV CHAINLINK_DB_NAME chainlink_test
-ENV CHAINLINK_PGPASSWORD=node
+ENV CHAINLINK_PGPASSWORD=thispasswordislongenough
 ENV CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@localhost:5432/$CHAINLINK_DB_NAME?sslmode=disable
 ENV TYPEORM_USERNAME=postgres
 ENV TYPEORM_PASSWORD=node

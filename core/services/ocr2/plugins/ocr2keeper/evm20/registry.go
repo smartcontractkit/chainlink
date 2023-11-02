@@ -15,9 +15,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
 	"go.uber.org/multierr"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -25,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -52,7 +53,7 @@ var (
 	ErrContextCancelled              = fmt.Errorf("context was cancelled")
 	ErrABINotParsable                = fmt.Errorf("error parsing abi")
 	ActiveUpkeepIDBatchSize    int64 = 1000
-	FetchUpkeepConfigBatchSize       = 10
+	FetchUpkeepConfigBatchSize       = 50
 	separator                        = "|"
 	reInitializationDelay            = 15 * time.Minute
 	logEventLookback           int64 = 250
@@ -87,7 +88,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, lggr logger.Lo
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan ocr2keepers.BlockKey, 1),
 		},
-		lggr:     lggr,
+		lggr:     lggr.Named("AutomationRegistry"),
 		poller:   client.LogPoller(),
 		addr:     addr,
 		client:   client.Client(),
@@ -135,7 +136,7 @@ type activeUpkeep struct {
 
 type EvmRegistry struct {
 	HeadProvider
-	sync          utils.StartStopOnce
+	sync          services.StateMachine
 	lggr          logger.Logger
 	poller        logpoller.LogPoller
 	addr          common.Address
@@ -332,6 +333,9 @@ func (r *EvmRegistry) initialize() error {
 		}
 
 		offset += batch
+
+		// Do not bombard RPC will calls, wait a bit
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	r.mu.Lock()
@@ -343,7 +347,7 @@ func (r *EvmRegistry) initialize() error {
 
 func (r *EvmRegistry) pollLogs() error {
 	var latest int64
-	var end int64
+	var end logpoller.LogPollerBlock
 	var err error
 
 	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
@@ -352,11 +356,11 @@ func (r *EvmRegistry) pollLogs() error {
 
 	r.mu.Lock()
 	latest = r.lastPollBlock
-	r.lastPollBlock = end
+	r.lastPollBlock = end.BlockNumber
 	r.mu.Unlock()
 
 	// if start and end are the same, no polling needs to be done
-	if latest == 0 || latest == end {
+	if latest == 0 || latest == end.BlockNumber {
 		return nil
 	}
 
@@ -364,8 +368,8 @@ func (r *EvmRegistry) pollLogs() error {
 		var logs []logpoller.Log
 
 		if logs, err = r.poller.LogsWithSigs(
-			end-logEventLookback,
-			end,
+			end.BlockNumber-logEventLookback,
+			end.BlockNumber,
 			upkeepStateEvents,
 			r.addr,
 			pg.WithParentCtx(r.ctx),

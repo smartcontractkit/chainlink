@@ -45,18 +45,24 @@ var (
 
 type ClNode struct {
 	test_env.EnvComponent
-	API                   *client.ChainlinkClient
-	NodeConfig            *chainlink.Config
-	NodeSecretsConfigTOML string
-	PostgresDb            *test_env.PostgresDb
-	lw                    *logwatch.LogWatch
-	ContainerImage        string
-	ContainerVersion      string
+	API                   *client.ChainlinkClient `json:"-"`
+	NodeConfig            *chainlink.Config       `json:"-"`
+	NodeSecretsConfigTOML string                  `json:"-"`
+	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
+	UserEmail             string                  `json:"userEmail"`
+	UserPassword          string                  `json:"userPassword"`
 	t                     *testing.T
 	l                     zerolog.Logger
+	lw                    *logwatch.LogWatch
 }
 
 type ClNodeOption = func(c *ClNode)
+
+func WithSecrets(secretsTOML string) ClNodeOption {
+	return func(c *ClNode) {
+		c.NodeSecretsConfigTOML = secretsTOML
+	}
+}
 
 // Sets custom node container name if name is not empty
 func WithNodeContainerName(name string) ClNodeOption {
@@ -82,18 +88,22 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
 	n := &ClNode{
 		EnvComponent: test_env.EnvComponent{
-			ContainerName: nodeDefaultCName,
-			Networks:      networks,
+			ContainerName:    nodeDefaultCName,
+			ContainerImage:   imageName,
+			ContainerVersion: imageVersion,
+			Networks:         networks,
 		},
-		NodeConfig: nodeConfig,
-		PostgresDb: pgDb,
-		l:          log.Logger,
+		UserEmail:    "local@local.com",
+		UserPassword: "localdevpassword",
+		NodeConfig:   nodeConfig,
+		PostgresDb:   pgDb,
+		l:            log.Logger,
 	}
 	for _, opt := range opts {
 		opt(n)
@@ -101,11 +111,10 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOp
 	return n
 }
 
-func (n *ClNode) WithTestLogger(t *testing.T) *ClNode {
+func (n *ClNode) SetTestLogger(t *testing.T) {
 	n.l = logging.GetTestLogger(t)
 	n.t = t
 	n.PostgresDb.WithTestLogger(t)
-	return n
 }
 
 // Restart restarts only CL node, DB container is reused
@@ -123,7 +132,7 @@ func (n *ClNode) UpgradeVersion(cfg *chainlink.Config, newImage, newVersion stri
 		return fmt.Errorf("new version is empty")
 	}
 	if newImage == "" {
-		newImage = os.Getenv("CHAINLINK_IMAGE")
+		return fmt.Errorf("new image name is empty")
 	}
 	n.ContainerImage = newImage
 	n.ContainerVersion = newVersion
@@ -226,28 +235,35 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	if err != nil {
 		return err
 	}
-	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{})
+	toAddr := common.HexToAddress(toAddress)
+	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
+		To: &toAddr,
+	})
 	if err != nil {
 		return err
 	}
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
+
 func (n *ClNode) StartContainer() error {
 	err := n.PostgresDb.StartContainer()
 	if err != nil {
 		return err
 	}
+
+	// If the node secrets TOML is not set, generate it with the default template
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
-		PgDbName:   n.PostgresDb.DbName,
-		PgHost:     n.PostgresDb.ContainerName,
-		PgPort:     n.PostgresDb.Port,
-		PgPassword: n.PostgresDb.Password,
+		PgDbName:      n.PostgresDb.DbName,
+		PgHost:        n.PostgresDb.ContainerName,
+		PgPort:        n.PostgresDb.InternalPort,
+		PgPassword:    n.PostgresDb.Password,
+		CustomSecrets: n.NodeSecretsConfigTOML,
 	}.String()
 	if err != nil {
 		return err
 	}
-	n.NodeSecretsConfigTOML = nodeSecretsToml
-	cReq, err := n.getContainerRequest()
+
+	cReq, err := n.getContainerRequest(nodeSecretsToml)
 	if err != nil {
 		return err
 	}
@@ -273,7 +289,7 @@ func (n *ClNode) StartContainer() error {
 			return err
 		}
 	}
-	clEndpoint, err := container.Endpoint(context.Background(), "http")
+	clEndpoint, err := test_env.GetEndpoint(context.Background(), container, "http")
 	if err != nil {
 		return err
 	}
@@ -281,14 +297,19 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
-	n.l.Info().Str("containerName", n.ContainerName).
+	n.l.Info().
+		Str("containerName", n.ContainerName).
+		Str("containerImage", n.ContainerImage).
+		Str("containerVersion", n.ContainerVersion).
 		Str("clEndpoint", clEndpoint).
 		Str("clInternalIP", ip).
+		Str("userEmail", n.UserEmail).
+		Str("userPassword", n.UserPassword).
 		Msg("Started Chainlink Node container")
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
 		URL:        clEndpoint,
-		Email:      "local@local.com",
-		Password:   "localdevpassword",
+		Email:      n.UserEmail,
+		Password:   n.UserPassword,
 		InternalIP: ip,
 	},
 		n.l)
@@ -302,7 +323,7 @@ func (n *ClNode) StartContainer() error {
 	return nil
 }
 
-func (n *ClNode) getContainerRequest() (
+func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
@@ -320,7 +341,7 @@ func (n *ClNode) getContainerRequest() (
 	if err != nil {
 		return nil, err
 	}
-	_, err = secretsFile.WriteString(n.NodeSecretsConfigTOML)
+	_, err = secretsFile.WriteString(secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -350,21 +371,6 @@ func (n *ClNode) getContainerRequest() (
 	adminCredsPath := "/home/admin-credentials.txt"
 	apiCredsPath := "/home/api-credentials.txt"
 
-	if n.ContainerImage == "" {
-		image, ok := os.LookupEnv("CHAINLINK_IMAGE")
-		if !ok {
-			return nil, errors.New("CHAINLINK_IMAGE env must be set")
-		}
-		n.ContainerImage = image
-	}
-	if n.ContainerVersion == "" {
-		version, ok := os.LookupEnv("CHAINLINK_VERSION")
-		if !ok {
-			return nil, errors.New("CHAINLINK_VERSION env must be set")
-		}
-		n.ContainerVersion = version
-	}
-
 	return &tc.ContainerRequest{
 		Name:         n.ContainerName,
 		Image:        fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
@@ -376,7 +382,7 @@ func (n *ClNode) getContainerRequest() (
 			"-p", adminCredsPath,
 			"-a", apiCredsPath,
 		},
-		Networks: n.Networks,
+		Networks: append(n.Networks, "tracing"),
 		WaitingFor: tcwait.ForHTTP("/health").
 			WithPort("6688/tcp").
 			WithStartupTimeout(90 * time.Second).

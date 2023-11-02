@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 
 	"github.com/ethereum/go-ethereum/common"
 

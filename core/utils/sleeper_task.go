@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 )
 
 // SleeperTask represents a task that waits in the background to process some work.
@@ -19,11 +21,12 @@ type Worker interface {
 }
 
 type sleeperTask struct {
-	worker  Worker
-	chQueue chan struct{}
-	chStop  chan struct{}
-	chDone  chan struct{}
-	StartStopOnce
+	services.StateMachine
+	worker     Worker
+	chQueue    chan struct{}
+	chStop     chan struct{}
+	chDone     chan struct{}
+	chWorkDone chan struct{}
 }
 
 // NewSleeperTask takes a worker and returns a SleeperTask.
@@ -36,10 +39,11 @@ type sleeperTask struct {
 // WakeUp does not block.
 func NewSleeperTask(worker Worker) SleeperTask {
 	s := &sleeperTask{
-		worker:  worker,
-		chQueue: make(chan struct{}, 1),
-		chStop:  make(chan struct{}),
-		chDone:  make(chan struct{}),
+		worker:     worker,
+		chQueue:    make(chan struct{}, 1),
+		chStop:     make(chan struct{}),
+		chDone:     make(chan struct{}),
+		chWorkDone: make(chan struct{}, 10),
 	}
 
 	_ = s.StartOnce("SleeperTask-"+worker.Name(), func() error {
@@ -74,13 +78,27 @@ func (s *sleeperTask) WakeUpIfStarted() {
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.
 func (s *sleeperTask) WakeUp() {
-	if s.StartStopOnce.State() == StartStopOnce_Stopped {
+	if !s.IfStarted(func() {
+		select {
+		case s.chQueue <- struct{}{}:
+		default:
+		}
+	}) {
 		panic("cannot wake up stopped sleeper task")
 	}
+}
+
+func (s *sleeperTask) workDone() {
 	select {
-	case s.chQueue <- struct{}{}:
+	case s.chWorkDone <- struct{}{}:
 	default:
 	}
+}
+
+// WorkDone isn't part of the SleeperTask interface, but can be
+// useful in tests to assert that the work has been done.
+func (s *sleeperTask) WorkDone() <-chan struct{} {
+	return s.chWorkDone
 }
 
 func (s *sleeperTask) workerLoop() {
@@ -90,6 +108,7 @@ func (s *sleeperTask) workerLoop() {
 		select {
 		case <-s.chQueue:
 			s.worker.Work()
+			s.workDone()
 		case <-s.chStop:
 			return
 		}

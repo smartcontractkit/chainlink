@@ -7,9 +7,8 @@ import {IERC677} from "../../../token/ERC677/IERC677.sol";
 import {BaseTest} from "../../BaseTest.t.sol";
 import {BurnMintERC677} from "../../../token/ERC677/BurnMintERC677.sol";
 
-import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
-import {Strings} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Strings.sol";
-import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/IERC165.sol";
+import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
 contract BurnMintERC677Setup is BaseTest {
   event Transfer(address indexed from, address indexed to, uint256 value);

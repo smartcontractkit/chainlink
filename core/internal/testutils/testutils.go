@@ -24,9 +24,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -449,4 +450,8 @@ func MustDecodeBase64(s string) (b []byte) {
 		panic(err)
 	}
 	return
+}
+
+func SkipFlakey(t *testing.T, ticketURL string) {
+	t.Skip("Flakey", ticketURL)
 }

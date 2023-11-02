@@ -28,6 +28,7 @@ tools/clroot/db.sqlite3-wal
 .idea
 .vscode/
 *.iml
+debug.env
 
 # codeship
 *.aes
@@ -45,7 +46,7 @@ core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
 output.txt
 race.*
 golangci-lint-output.txt
-golangci-lint/
+/golangci-lint/
 
 # DB state
 ./db/

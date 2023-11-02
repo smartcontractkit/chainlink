@@ -32,7 +32,7 @@ func TestLogRecoverer_GetRecoverables(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	lp := &lpmocks.LogPoller{}
-	lp.On("LatestBlock", mock.Anything).Return(int64(100), nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
 	r := NewLogRecoverer(logger.TestLogger(t), lp, nil, nil, nil, nil, NewOptions(200))
 
 	tests := []struct {
@@ -182,7 +182,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 			start, _ := r.getRecoveryWindow(0)
 			block24h := int64(math.Abs(float64(start)))
 
-			lp.On("LatestBlock", mock.Anything).Return(block24h+oldLogsOffset, nil)
+			lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: block24h + oldLogsOffset}, nil)
 			statesReader.On("SelectByWorkIDs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, nil)
 
 			r.lock.Lock()
@@ -423,7 +423,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			recoverer, filterStore, lp, statesReader := setupTestRecoverer(t, time.Millisecond*50, lookbackBlocks)
 
 			filterStore.AddActiveUpkeeps(tc.active...)
-			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, tc.latestBlockErr)
+			lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: tc.latestBlock}, tc.latestBlockErr)
 			lp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, tc.logsErr)
 			statesReader.On("SelectByWorkIDs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, tc.statesErr)
 
@@ -1093,40 +1093,75 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 
 func TestLogRecoverer_pending(t *testing.T) {
 	tests := []struct {
-		name  string
-		exist []ocr2keepers.UpkeepPayload
-		new   []ocr2keepers.UpkeepPayload
-		want  []ocr2keepers.UpkeepPayload
+		name         string
+		maxPerUpkeep int
+		exist        []ocr2keepers.UpkeepPayload
+		new          []ocr2keepers.UpkeepPayload
+		errored      []bool
+		want         []ocr2keepers.UpkeepPayload
 	}{
 		{
-			"empty",
-			[]ocr2keepers.UpkeepPayload{},
-			[]ocr2keepers.UpkeepPayload{},
-			[]ocr2keepers.UpkeepPayload{},
+			name:         "empty",
+			maxPerUpkeep: 10,
+			exist:        []ocr2keepers.UpkeepPayload{},
+			new:          []ocr2keepers.UpkeepPayload{},
+			errored:      []bool{},
+			want:         []ocr2keepers.UpkeepPayload{},
 		},
 		{
-			"add new and existing",
-			[]ocr2keepers.UpkeepPayload{
+			name:         "add new and existing",
+			maxPerUpkeep: 10,
+			exist: []ocr2keepers.UpkeepPayload{
 				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
 			},
-			[]ocr2keepers.UpkeepPayload{
+			new: []ocr2keepers.UpkeepPayload{
 				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
 				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
 			},
-			[]ocr2keepers.UpkeepPayload{
+			errored: []bool{false, false},
+			want: []ocr2keepers.UpkeepPayload{
 				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
 				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+		},
+		{
+			name:         "exceed limits for upkeep",
+			maxPerUpkeep: 3,
+			exist: []ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+			},
+			new: []ocr2keepers.UpkeepPayload{
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+			},
+			errored: []bool{true},
+			want: []ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
 			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			origMaxPendingPayloadsPerUpkeep := maxPendingPayloadsPerUpkeep
+			maxPendingPayloadsPerUpkeep = tc.maxPerUpkeep
+			defer func() {
+				maxPendingPayloadsPerUpkeep = origMaxPendingPayloadsPerUpkeep
+			}()
+
 			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200))
 			r.lock.Lock()
 			r.pending = tc.exist
-			for _, p := range tc.new {
-				r.addPending(p)
+			for i, p := range tc.new {
+				err := r.addPending(p)
+				if tc.errored[i] {
+					require.Error(t, err)
+					continue
+				}
+				require.NoError(t, err)
 			}
 			pending := r.pending
 			require.GreaterOrEqual(t, len(pending), len(tc.new))
@@ -1171,8 +1206,9 @@ type mockLogPoller struct {
 func (p *mockLogPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	return p.LogsWithSigsFn(start, end, eventSigs, address, qopts...)
 }
-func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
-	return p.LatestBlockFn(qopts...)
+func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (logpoller.LogPollerBlock, error) {
+	block, err := p.LatestBlockFn(qopts...)
+	return logpoller.LogPollerBlock{BlockNumber: block}, err
 }
 
 type mockClient struct {

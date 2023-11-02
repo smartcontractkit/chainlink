@@ -6,6 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"go.uber.org/multierr"
+
+	ethCommon "github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -14,13 +20,10 @@ import (
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	ethCommon "github.com/ethereum/go-ethereum/common"
 )
 
 type functionsConnectorHandler struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	connector      connector.GatewayConnector
 	signerKey      *ecdsa.PrivateKey
@@ -92,13 +95,18 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 
 func (h *functionsConnectorHandler) Start(ctx context.Context) error {
 	return h.StartOnce("FunctionsConnectorHandler", func() error {
-		return h.allowlist.Start(ctx)
+		if err := h.allowlist.Start(ctx); err != nil {
+			return err
+		}
+		return h.subscriptions.Start(ctx)
 	})
 }
 
 func (h *functionsConnectorHandler) Close() error {
-	return h.StopOnce("FunctionsConnectorHandler", func() error {
-		return h.allowlist.Close()
+	return h.StopOnce("FunctionsConnectorHandler", func() (err error) {
+		err = multierr.Combine(err, h.allowlist.Close())
+		err = multierr.Combine(err, h.subscriptions.Close())
+		return
 	})
 }
 

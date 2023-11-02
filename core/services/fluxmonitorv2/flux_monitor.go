@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -55,6 +56,7 @@ const DefaultHibernationPollPeriod = 24 * time.Hour
 
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
 type FluxMonitor struct {
+	services.StateMachine
 	contractAddress   common.Address
 	oracleAddress     common.Address
 	jobSpec           job.Job
@@ -80,7 +82,6 @@ type FluxMonitor struct {
 	backlog       *utils.BoundedPriorityQueue[log.Broadcast]
 	chProcessLogs chan struct{}
 
-	utils.StartStopOnce
 	chStop     chan struct{}
 	waitOnStop chan struct{}
 }
@@ -134,7 +135,6 @@ func NewFluxMonitor(
 			PriorityAnswerUpdatedLog: 1,
 			PriorityFlagChangedLog:   2,
 		}),
-		StartStopOnce: utils.StartStopOnce{},
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
 		waitOnStop:    make(chan struct{}),
@@ -587,6 +587,8 @@ func (fm *FluxMonitor) respondToAnswerUpdatedLog(log flux_aggregator_wrapper.Flu
 // need to poll and submit an answer to the contract regardless of the deviation.
 func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggregatorNewRound, lb log.Broadcast) {
 	started := time.Now()
+	ctx, cancel := utils.StopChan(fm.chStop).NewCtx()
+	defer cancel()
 
 	newRoundLogger := fm.logger.With(
 		"round", log.RoundId,
@@ -743,7 +745,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	})
 
 	// Call the v2 pipeline to execute a new job run
-	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, vars, fm.logger)
+	run, results, err := fm.runner.ExecuteRun(ctx, fm.spec, vars, fm.logger)
 	if err != nil {
 		newRoundLogger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
@@ -769,10 +771,10 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	}
 
 	err = fm.q.Transaction(func(tx pg.Queryer) error {
-		if err2 := fm.runner.InsertFinishedRun(&run, false, pg.WithQueryer(tx)); err2 != nil {
+		if err2 := fm.runner.InsertFinishedRun(run, false, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
-		if err2 := fm.queueTransactionForTxm(tx, run.ID, answer, roundState.RoundId, &log); err2 != nil {
+		if err2 := fm.queueTransactionForTxm(ctx, tx, run.ID, answer, roundState.RoundId, &log); err2 != nil {
 			return err2
 		}
 		return fm.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx))
@@ -811,6 +813,8 @@ func (fm *FluxMonitor) checkEligibilityAndAggregatorFunding(roundState flux_aggr
 
 func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker *DeviationChecker, broadcast log.Broadcast) {
 	started := time.Now()
+	ctx, cancel := utils.StopChan(fm.chStop).NewCtx()
+	defer cancel()
 
 	l := fm.logger.With(
 		"threshold", deviationChecker.Thresholds.Rel,
@@ -946,7 +950,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		},
 	})
 
-	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, vars, fm.logger)
+	run, results, err := fm.runner.ExecuteRun(ctx, fm.spec, vars, fm.logger)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		fm.jobORM.TryRecordError(fm.spec.JobID, "Error polling")
@@ -993,10 +997,10 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	}
 
 	err = fm.q.Transaction(func(tx pg.Queryer) error {
-		if err2 := fm.runner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err2 != nil {
+		if err2 := fm.runner.InsertFinishedRun(run, true, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
-		if err2 := fm.queueTransactionForTxm(tx, run.ID, answer, roundState.RoundId, nil); err2 != nil {
+		if err2 := fm.queueTransactionForTxm(ctx, tx, run.ID, answer, roundState.RoundId, nil); err2 != nil {
 			return err2
 		}
 		if broadcast != nil {
@@ -1036,7 +1040,7 @@ func (fm *FluxMonitor) isValidSubmission(l logger.Logger, answer decimal.Decimal
 	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", jobId), jobName, "", job.FluxMonitor.String()).Set(float64(elapsed))
 	pipeline.PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", jobId), jobName).Inc()
 	pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", jobId), jobName).Set(float64(elapsed))
-	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", jobId), jobName, "", job.FluxMonitor.String(), "error").Inc()
+	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", jobId), jobName, "", job.FluxMonitor.String(), "", "error").Inc()
 	return false
 }
 
@@ -1072,14 +1076,18 @@ func (fm *FluxMonitor) initialRoundState() flux_aggregator_wrapper.OracleRoundSt
 	return latestRoundState
 }
 
-func (fm *FluxMonitor) queueTransactionForTxm(tx pg.Queryer, runID int64, answer decimal.Decimal, roundID uint32, log *flux_aggregator_wrapper.FluxAggregatorNewRound) error {
+func (fm *FluxMonitor) queueTransactionForTxm(ctx context.Context, tx pg.Queryer, runID int64, answer decimal.Decimal, roundID uint32, log *flux_aggregator_wrapper.FluxAggregatorNewRound) error {
+	// Use pipeline run ID to generate globally unique key that can correlate this run to a Tx
+	idempotencyKey := fmt.Sprintf("fluxmonitor-%d", runID)
 	// Submit the Eth Tx
 	err := fm.contractSubmitter.Submit(
+		ctx,
 		new(big.Int).SetInt64(int64(roundID)),
 		answer.BigInt(),
-		pg.WithQueryer(tx),
+		&idempotencyKey,
 	)
 	if err != nil {
+		fm.logger.Errorw("failed to submit Tx to TXM", "err", err)
 		return err
 	}
 

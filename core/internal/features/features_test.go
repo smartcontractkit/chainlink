@@ -3,6 +3,7 @@ package features_test
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -54,15 +56,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -81,7 +83,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
 	})
@@ -235,8 +237,7 @@ observationSource   = """
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
-		legacyChains := app.GetRelayers().LegacyEVMChains()
-		jobORM := job.NewORM(app.GetSqlxDB(), legacyChains, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
+		jobORM := job.NewORM(app.GetSqlxDB(), pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -263,15 +264,16 @@ func TestIntegration_AuthToken(t *testing.T) {
 
 	// set up user
 	mockUser := cltest.MustRandomUser(t)
-	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
+	key, secret := uuid.New().String(), uuid.New().String()
+	apiToken := auth.Token{AccessKey: key, Secret: secret}
 	orm := app.SessionORM()
 	require.NoError(t, orm.CreateUser(&mockUser))
 	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
 
 	url := app.Server.URL + "/users"
 	headers := make(map[string]string)
-	headers[webauth.APIKey] = cltest.APIKey
-	headers[webauth.APISecret] = cltest.APISecret
+	headers[webauth.APIKey] = key
+	headers[webauth.APISecret] = secret
 
 	resp, cleanup := cltest.UnauthenticatedGet(t, url, headers)
 	defer cleanup()
@@ -336,6 +338,12 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	}
 }
 
+//go:embed singleword-spec-template.yml
+var singleWordSpecTemplate string
+
+//go:embed multiword-spec-template.yml
+var multiWordSpecTemplate string
+
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
@@ -351,10 +359,9 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 			// in a single callback.
-			config := configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			config := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 			})
@@ -387,9 +394,9 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			mockServerEUR := cltest.NewHTTPMockServer(t, 200, "GET", `{"EUR": 507.07}`)
 			mockServerJPY := cltest.NewHTTPMockServer(t, 200, "GET", `{"JPY": 63818.86}`)
 
-			spec := string(cltest.MustReadFile(t, "../../testdata/tomlspecs/multiword-response-spec.toml"))
-			spec = strings.ReplaceAll(spec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
-			spec = strings.ReplaceAll(spec, "example", "example 1") // make the name unique
+			nameAndExternalJobID := uuid.New()
+			addr := operatorContracts.operatorAddress.Hex()
+			spec := fmt.Sprintf(multiWordSpecTemplate, nameAndExternalJobID, addr, nameAndExternalJobID, addr)
 			j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
 			cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
 
@@ -425,10 +432,8 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
 
-			// Do a single word request
-			singleWordSpec := string(cltest.MustReadFile(t, "../../testdata/tomlspecs/direct-request-spec-cbor.toml"))
-			singleWordSpec = strings.ReplaceAll(singleWordSpec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
-			singleWordSpec = strings.ReplaceAll(singleWordSpec, "example", "example 2") // make the name unique
+			nameAndExternalJobID = uuid.New()
+			singleWordSpec := fmt.Sprintf(singleWordSpecTemplate, nameAndExternalJobID, addr, nameAndExternalJobID, addr)
 			jobSingleWord := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: singleWordSpec})))
 			cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
 
@@ -461,7 +466,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	b := operatorContracts.sim
 	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
-	cfg := configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
 	})
 	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
@@ -673,9 +678,8 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string,
 	b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
-	p2pKey, err := p2pkey.NewV2()
-	require.NoError(t, err)
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, portV1), func(c *chainlink.Config, s *chainlink.Secrets) {
+	p2pKey := keystest.NewP2PKeyV2(t)
+	config, _ := heavyweight.FullTestDBV2(t, dbName, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.OCR.Enabled = ptr(true)
@@ -755,9 +759,8 @@ func setupForwarderEnabledNode(
 	common.Address,
 	ocrkey.KeyV2,
 ) {
-	p2pKey, err := p2pkey.NewV2()
-	require.NoError(t, err)
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, portV1), func(c *chainlink.Config, s *chainlink.Secrets) {
+	p2pKey := keystest.NewP2PKeyV2(t)
+	config, _ := heavyweight.FullTestDBV2(t, dbName, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.OCR.Enabled = ptr(true)
@@ -856,8 +859,9 @@ func TestIntegration_OCR(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			bootstrapNodePortV1 := test.portStart
-			bootstrapNodePortV2 := test.portStart + numOracles + 1
+			t.Parallel()
+			bootstrapNodePortV1 := freeport.GetOne(t)
+			bootstrapNodePortV2 := freeport.GetOne(t)
 			g := gomega.NewWithT(t)
 			owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
@@ -870,9 +874,10 @@ func TestIntegration_OCR(t *testing.T) {
 				keys         []ocrkey.KeyV2
 				apps         []*cltest.TestApplication
 			)
+			ports := freeport.GetN(t, 2*numOracles)
 			for i := 0; i < numOracles; i++ {
-				portV1 := bootstrapNodePortV1 + i + 1
-				portV2 := bootstrapNodePortV2 + i + 1
+				portV1 := ports[2*i]
+				portV2 := ports[2*i+1]
 				app, peerID, transmitter, key := setupNode(t, owner, portV1, portV2, fmt.Sprintf("o%d_%d", i, test.id), b, test.ns, func(c *chainlink.Config, s *chainlink.Secrets) {
 					c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
 					c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(test.eip1559)
@@ -891,10 +896,10 @@ func TestIntegration_OCR(t *testing.T) {
 					OracleIdentity: confighelper.OracleIdentity{
 						OnChainSigningAddress: ocrtypes.OnChainSigningAddress(key.OnChainSigning.Address()),
 						TransmitAddress:       transmitter,
-						OffchainPublicKey:     ocrtypes.OffchainPublicKey(key.PublicKeyOffChain()),
+						OffchainPublicKey:     key.PublicKeyOffChain(),
 						PeerID:                peerID,
 					},
-					SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(key.PublicKeyConfig()),
+					SharedSecretEncryptionPublicKey: key.PublicKeyConfig(),
 				})
 			}
 
@@ -1080,8 +1085,8 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 	t.Parallel()
 	numOracles := 4
 	t.Run("ocr_forwarder_flow", func(t *testing.T) {
-		bootstrapNodePortV1 := 20000
-		bootstrapNodePortV2 := 20000 + numOracles + 1
+		bootstrapNodePortV1 := freeport.GetOne(t)
+		bootstrapNodePortV2 := freeport.GetOne(t)
 		g := gomega.NewWithT(t)
 		owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
@@ -1096,9 +1101,10 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 			keys                []ocrkey.KeyV2
 			apps                []*cltest.TestApplication
 		)
+		ports := freeport.GetN(t, 2*numOracles)
 		for i := 0; i < numOracles; i++ {
-			portV1 := bootstrapNodePortV1 + i + 1
-			portV2 := bootstrapNodePortV2 + i + 1
+			portV1 := ports[2*i]
+			portV2 := ports[2*i+1]
 			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, portV1, portV2, fmt.Sprintf("o%d_%d", i, 1), b, ocrnetworking.NetworkingStackV2, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Feature.LogPoller = ptr(true)
 				c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
@@ -1117,10 +1123,10 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 				OracleIdentity: confighelper.OracleIdentity{
 					OnChainSigningAddress: ocrtypes.OnChainSigningAddress(key.OnChainSigning.Address()),
 					TransmitAddress:       forwarder,
-					OffchainPublicKey:     ocrtypes.OffchainPublicKey(key.PublicKeyOffChain()),
+					OffchainPublicKey:     key.PublicKeyOffChain(),
 					PeerID:                peerID,
 				},
-				SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(key.PublicKeyConfig()),
+				SharedSecretEncryptionPublicKey: key.PublicKeyConfig(),
 			})
 		}
 
@@ -1313,7 +1319,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	var initialDefaultGasPrice int64 = 5_000_000_000
 	maxGasPrice := assets.NewWeiI(10 * initialDefaultGasPrice)
 
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 		c.EVM[0].GasEstimator.BlockHistory.CheckInclusionBlocks = ptr[uint16](0)
 		c.EVM[0].GasEstimator.PriceDefault = assets.NewWeiI(initialDefaultGasPrice)

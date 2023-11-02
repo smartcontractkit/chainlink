@@ -12,12 +12,12 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	eth "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
@@ -134,7 +134,7 @@ func setupKeeperTest(
 	contracts.ContractDeployer,
 	contracts.LinkToken,
 ) {
-	network := networks.SelectedNetwork
+	network := networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConfig := eth.New(nil)
 	if !network.Simulated {
 		evmConfig = eth.New(&eth.Props{
@@ -153,21 +153,23 @@ TurnLookBack = 0
 SyncInterval = '5s'
 PerformGasOverhead = 150_000`
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
-	cd, err := chainlink.NewDeployment(5, map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, network),
+	cd := chainlink.New(0, map[string]interface{}{
+		"replicas": 5,
+		"toml":     client.AddNetworksConfig(baseTOML, network),
 	})
-	require.NoError(t, err, "Error creating chainlink deployment")
+
 	testEnvironment := environment.New(
 		&environment.Config{
-			NamespacePrefix: fmt.Sprintf("performance-keeper-%s-%s", testName, networkName),
-			Test:            t,
+			NamespacePrefix:    fmt.Sprintf("performance-keeper-%s-%s", testName, networkName),
+			Test:               t,
+			PreventPodEviction: true,
 		},
 	).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(cd)
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
 	if testEnvironment.WillUseRemoteRunner() {
 		return testEnvironment, nil, nil, nil, nil

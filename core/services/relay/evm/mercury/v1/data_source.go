@@ -13,20 +13,20 @@ import (
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Runner interface {
-	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
 }
 
 // Fetcher fetcher data from Mercury server
@@ -40,7 +40,7 @@ type datasource struct {
 	jb             job.Job
 	spec           pipeline.Spec
 	lggr           logger.Logger
-	runResults     chan<- pipeline.Run
+	runResults     chan<- *pipeline.Run
 	orm            types.DataSourceORM
 	codec          reportcodec.ReportCodec
 	feedID         [32]byte
@@ -55,11 +55,11 @@ type datasource struct {
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID [32]byte) *datasource {
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID [32]byte) *datasource {
 	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber}
 }
 
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, err error) {
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, pipelineExecutionErr error) {
 	// setCurrentBlock must come first, along with observationTimestamp, to
 	// avoid front-running
 	ds.setCurrentBlock(ctx, &obs)
@@ -115,10 +115,10 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var run pipeline.Run
-		run, trrs, err = ds.executeRun(ctx)
-		if err != nil {
-			err = fmt.Errorf("Observe failed while executing run: %w", err)
+		var run *pipeline.Run
+		run, trrs, pipelineExecutionErr = ds.executeRun(ctx)
+		if pipelineExecutionErr != nil {
+			pipelineExecutionErr = fmt.Errorf("Observe failed while executing run: %w", pipelineExecutionErr)
 			return
 		}
 		select {
@@ -137,27 +137,30 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		}
 
 		var parsed parseOutput
-		parsed, err = ds.parse(finaltrrs)
-		if err != nil {
-			err = fmt.Errorf("Observe failed while parsing run results: %w", err)
+		parsed, pipelineExecutionErr = ds.parse(finaltrrs)
+		if pipelineExecutionErr != nil {
+			pipelineExecutionErr = fmt.Errorf("Observe failed while parsing run results: %w", pipelineExecutionErr)
 			return
 		}
 		obs.BenchmarkPrice = parsed.benchmarkPrice
 		obs.Bid = parsed.bid
 		obs.Ask = parsed.ask
 	}()
+
 	wg.Wait()
 
-	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
-		ocrcommon.EnqueueEnhancedTelem(ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
-			TaskRunResults: trrs,
-			Observation:    obs,
-			RepTimestamp:   repts,
-		})
-
+	if pipelineExecutionErr != nil {
+		return
 	}
 
-	return obs, err
+	ocrcommon.MaybeEnqueueEnhancedTelem(ds.jb, ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
+		V1Observation:  &obs,
+		TaskRunResults: trrs,
+		RepTimestamp:   repts,
+		FeedVersion:    mercuryutils.REPORT_V1,
+	})
+
+	return obs, nil
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -238,7 +241,7 @@ func setAsk(o *parseOutput, res pipeline.Result) error {
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.TaskRunResults, error) {
+func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jb": map[string]interface{}{
 			"databaseID":    ds.jb.ID,
@@ -249,7 +252,7 @@ func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.Ta
 
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
-		return pipeline.Run{}, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
+		return nil, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 
 	return run, trrs, err

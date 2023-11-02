@@ -103,7 +103,7 @@ func setupDKGEncryptKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner,
 	require.NoError(t, app.Start(testutils.Context(t)))
 	require.NoError(t, app.KeyStore.DKGEncrypt().Add(cltest.DefaultDKGEncryptKey))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	return client, app.GetKeyStore()
 }

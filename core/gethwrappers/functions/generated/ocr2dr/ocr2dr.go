@@ -50,7 +50,7 @@ func DeployOCR2DR(auth *bind.TransactOpts, backend bind.ContractBackend) (common
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &OCR2DR{OCR2DRCaller: OCR2DRCaller{contract: contract}, OCR2DRTransactor: OCR2DRTransactor{contract: contract}, OCR2DRFilterer: OCR2DRFilterer{contract: contract}}, nil
+	return address, tx, &OCR2DR{address: address, abi: *parsed, OCR2DRCaller: OCR2DRCaller{contract: contract}, OCR2DRTransactor: OCR2DRTransactor{contract: contract}, OCR2DRFilterer: OCR2DRFilterer{contract: contract}}, nil
 }
 
 type OCR2DR struct {

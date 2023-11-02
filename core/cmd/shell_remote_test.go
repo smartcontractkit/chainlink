@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -57,7 +58,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 		fn(sopts)
 	}
 
-	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
 		f := false
 		c.EVM[0].Enabled = &f
@@ -220,7 +221,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 
 	token := auth.NewToken()
 	exi, err := bridges.NewExternalInitiator(token,
-		&bridges.ExternalInitiatorRequest{Name: "name"},
+		&bridges.ExternalInitiatorRequest{Name: uuid.New().String()},
 	)
 	require.NoError(t, err)
 	err = app.BridgeORM().CreateExternalInitiator(exi)
@@ -257,17 +258,20 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 func TestShell_RemoteLogin(t *testing.T) {
 
 	app := startNewApplicationV2(t, nil)
+	orm := app.SessionORM()
+
+	u := cltest.NewUserWithSession(t, orm)
 
 	tests := []struct {
 		name, file string
 		email, pwd string
 		wantError  bool
 	}{
-		{"success prompt", "", cltest.APIEmailAdmin, cltest.Password, false},
+		{"success prompt", "", u.Email, cltest.Password, false},
 		{"success file", "../internal/fixtures/apicredentials", "", "", false},
 		{"failure prompt", "", "wrong@email.com", "wrongpwd", true},
 		{"failure file", "/tmp/doesntexist", "", "", true},
-		{"failure file w correct prompt", "/tmp/doesntexist", cltest.APIEmailAdmin, cltest.Password, true},
+		{"failure file w correct prompt", "/tmp/doesntexist", u.Email, cltest.Password, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -297,7 +301,8 @@ func TestShell_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+	u := cltest.NewUserWithSession(t, app.SessionORM())
+	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: append(enteredStrings, enteredStrings...)}
 	client := app.NewAuthenticatingShell(prompter)
 
@@ -335,6 +340,7 @@ func TestShell_CheckRemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
+	u := cltest.NewUserWithSession(t, app.SessionORM())
 	tests := []struct {
 		name                         string
 		remoteVersion, remoteSha     string
@@ -349,7 +355,7 @@ func TestShell_CheckRemoteBuildCompatibility(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+			enteredStrings := []string{u.Email, cltest.Password}
 			prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 			client := app.NewAuthenticatingShell(prompter)
 
@@ -410,8 +416,9 @@ func TestShell_ChangePassword(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
+	u := cltest.NewUserWithSession(t, app.SessionORM())
 
-	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingShell(prompter)
@@ -459,7 +466,8 @@ func TestShell_Profile_InvalidSecondsParam(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+	u := cltest.NewUserWithSession(t, app.SessionORM())
+	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingShell(prompter)
@@ -489,7 +497,8 @@ func TestShell_Profile(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+	u := cltest.NewUserWithSession(t, app.SessionORM())
+	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingShell(prompter)
@@ -656,7 +665,7 @@ func TestShell_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 
 	// Expire the session and then try again
-	pgtest.MustExec(t, app.GetSqlxDB(), "TRUNCATE sessions")
+	pgtest.MustExec(t, app.GetSqlxDB(), "delete from sessions where email = $1", user.Email)
 	err = client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }

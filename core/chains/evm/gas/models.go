@@ -8,7 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -21,8 +22,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
@@ -30,7 +29,7 @@ import (
 //
 //go:generate mockery --quiet --name EvmFeeEstimator --output ./mocks/ --case=underscore
 type EvmFeeEstimator interface {
-	services.ServiceCtx
+	services.Service
 	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
 
 	// L1Oracle returns the L1 gas price oracle only if the chain has one, e.g. OP stack L2s and Arbitrum.
@@ -79,8 +78,8 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df, l1Oracle)
 	case "FixedPrice":
 		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, l1Oracle)
-	case "Optimism2", "L2Suggested":
-		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient), df, l1Oracle)
+	case "L2Suggested", "SuggestedPrice":
+		return NewWrappedEvmEstimator(NewSuggestedPriceEstimator(lggr, ethClient), df, l1Oracle)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, l1Oracle)
@@ -107,7 +106,7 @@ type EvmPriorAttempt struct {
 //go:generate mockery --quiet --name EvmEstimator --output ./mocks/ --case=underscore
 type EvmEstimator interface {
 	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
-	services.ServiceCtx
+	services.Service
 
 	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
@@ -150,10 +149,10 @@ func (fee EvmFee) ValidDynamic() bool {
 
 // WrappedEvmEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
 type WrappedEvmEstimator struct {
+	services.StateMachine
 	EvmEstimator
 	EIP1559Enabled bool
 	l1Oracle       rollups.L1Oracle
-	utils.StartStopOnce
 }
 
 var _ EvmFeeEstimator = (*WrappedEvmEstimator)(nil)
@@ -214,10 +213,10 @@ func (e *WrappedEvmEstimator) Ready() error {
 }
 
 func (e *WrappedEvmEstimator) HealthReport() map[string]error {
-	report := map[string]error{e.Name(): e.StartStopOnce.Healthy()}
-	maps.Copy(report, e.EvmEstimator.HealthReport())
+	report := map[string]error{e.Name(): e.Healthy()}
+	services.CopyHealth(report, e.EvmEstimator.HealthReport())
 	if e.l1Oracle != nil {
-		maps.Copy(report, e.l1Oracle.HealthReport())
+		services.CopyHealth(report, e.l1Oracle.HealthReport())
 	}
 
 	return report

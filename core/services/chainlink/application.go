@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	relayservices "github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -47,7 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -69,7 +69,6 @@ type Application interface {
 	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
-	GetEventBroadcaster() pg.EventBroadcaster
 	WakeSessionReaper()
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
@@ -178,13 +177,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	// LOOPs can be be created as options, in the  case of LOOP relayers, or
+	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
 	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
 	// we need to initialize in case we serve OCR2 LOOPs
 	loopRegistry := opts.LoopRegistry
 	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger)
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing())
 	}
 
 	// If the audit logger is enabled
@@ -217,26 +216,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	healthChecker := services.NewChecker()
-
-	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
-	telemetryIngressBatchClient := synchronization.TelemetryIngressBatchClient(&synchronization.NoopTelemetryIngressBatchClient{})
-	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
-
-	ticfg := cfg.TelemetryIngress()
-	if ticfg.URL() != nil {
-		if ticfg.UseBatchSend() {
-			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg.URL(),
-				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.MaxBatchSize(), ticfg.SendInterval(), ticfg.SendTimeout(), ticfg.UniConn())
-			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
-
-		} else {
-			telemetryIngressClient = synchronization.NewTelemetryIngressClient(ticfg.URL(),
-				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize())
-			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
-		}
-	}
-	srvcs = append(srvcs, telemetryIngressClient, telemetryIngressBatchClient)
+	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), keyStore.CSA(), globalLogger)
+	srvcs = append(srvcs, telemetryManager)
 
 	backupCfg := cfg.Database().Backup()
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
@@ -270,7 +251,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		sessionORM     = sessions.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, legacyEVMChains, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
+		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
 	)
 
@@ -361,7 +342,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore,
 			pipelineRunner,
 			peerWrapper,
-			monitoringEndpointGen,
+			telemetryManager,
 			legacyEVMChains,
 			globalLogger,
 			cfg.Database(),
@@ -381,7 +362,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			mercuryORM,
 			pipelineRunner,
 			peerWrapper,
-			monitoringEndpointGen,
+			telemetryManager,
 			legacyEVMChains,
 			globalLogger,
 			ocr2DelegateConfig,
@@ -406,11 +387,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
+	healthChecker := relayservices.NewChecker()
+
 	var lbs []utils.DependentAwaiter
 	for _, c := range legacyEVMChains.Slice() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), delegates, db, globalLogger, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, db, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
@@ -443,7 +426,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		feedsService = &feeds.NullService{}
 	}
 
-	app := &ChainlinkApplication{
+	for _, s := range srvcs {
+		if err := healthChecker.Register(s); err != nil {
+			return nil, err
+		}
+	}
+
+	return &ChainlinkApplication{
 		relayers:                 opts.RelayerChainInteroperators,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
@@ -472,27 +461,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
-	}
-
-	for _, service := range app.srvcs {
-		checkable := service.(services.Checkable)
-		if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
-			return nil, err
-		}
-	}
-
-	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
-	// If it's enabled, they are going to be registered with relayers by default.
-	if !cfg.OCR2().Enabled() {
-		for _, service := range app.relayers.Services() {
-			checkable := service.(services.Checkable)
-			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return app, nil
+	}, nil
 }
 
 func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {

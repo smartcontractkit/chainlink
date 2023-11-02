@@ -26,16 +26,11 @@ func TestVRFBasic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 	env.ParallelTransactions(true)
 
 	lt, err := actions.DeployLINKToken(env.ContractDeployer)
@@ -50,7 +45,7 @@ func TestVRFBasic(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 
-	for _, n := range env.CLNodes {
+	for _, n := range env.ClCluster.Nodes {
 		nodeKey, err := n.API.MustCreateVRFKey()
 		require.NoError(t, err, "Creating VRF key shouldn't fail")
 		l.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
@@ -94,7 +89,7 @@ func TestVRFBasic(t *testing.T) {
 		gom := gomega.NewGomegaWithT(t)
 		timeout := time.Minute * 2
 		gom.Eventually(func(g gomega.Gomega) {
-			jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Data.ID)
+			jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Job execution shouldn't fail")
 
 			out, err := contracts.Consumer.RandomnessOutput(context.Background())

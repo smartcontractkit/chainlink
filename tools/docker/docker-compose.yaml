@@ -10,7 +10,7 @@ services:
     # Note that the keystore import allows us to submit transactions
     # immediately because addresses are specified when starting the
     # parity/geth node to be prefunded with eth.
-    entrypoint: /bin/sh -c "chainlink -c /run/secrets/config -s /run/secrets/secrets node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+    entrypoint: /bin/sh -c "chainlink -c /run/secrets/config node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     environment:
       - CL_DATABASE_URL
@@ -23,9 +23,6 @@ services:
       - apicredentials
       - keystore
       - config
-      - secrets
-    depends_on:
-      - explorer
 
   node-2:
     container_name: chainlink-node-2
@@ -33,7 +30,7 @@ services:
     build:
       context: ../../
       dockerfile: core/chainlink.Dockerfile
-    entrypoint: /bin/sh -c "chainlink -c /run/secrets/config -s /run/secrets/secrets node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+    entrypoint: /bin/sh -c "chainlink -c /run/secrets/config node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     environment:
       - CL_DATABASE_URL
@@ -46,22 +43,10 @@ services:
       - apicredentials
       - keystore
       - config
-      - secrets
-
-  explorer-db:
-    container_name: chainlink-explorer-db
-    image: postgres:11.6
-    volumes:
-      - explorer-db-data:/var/lib/postgresql/data
-    ports:
-      - 5433:5432
-    environment:
-      POSTGRES_DB: $EXPLORER_DB_NAME
-      POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
 
 # TODO
 # - replace clroot with secrets
-# - extract explorer and tools into separate docker-compose files
+# - extract tools into separate docker-compose files
 
 secrets:
   node_password:
@@ -72,8 +57,4 @@ secrets:
     file: ../secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
   config:
     file: config.toml
-  secrets:
-    file: dev-secrets.toml
 
-volumes:
-  explorer-db-data:

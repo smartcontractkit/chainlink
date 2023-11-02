@@ -11,12 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
@@ -29,6 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
@@ -43,14 +45,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
+
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
@@ -60,6 +74,7 @@ type ContractDeployer interface {
 	DeployFlags(rac string) (Flags, error)
 	DeployFluxAggregatorContract(linkAddr string, fluxOptions FluxAggregatorOptions) (FluxAggregator, error)
 	DeployLinkTokenContract() (LinkToken, error)
+	DeployWERC20Mock() (WERC20Mock, error)
 	LoadLinkToken(address common.Address) (LinkToken, error)
 	DeployOffChainAggregator(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregator, error)
 	LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error)
@@ -75,6 +90,8 @@ type ContractDeployer interface {
 	LoadKeeperRegistry(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
+	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error)
+	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error)
 	DeployKeeperConsumerPerformance(
 		testBlockRange,
 		averageCadence,
@@ -91,10 +108,12 @@ type ContractDeployer interface {
 	DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error)
 	DeployVRFv2LoadTestConsumer(coordinatorAddr string) (VRFv2LoadTestConsumer, error)
 	DeployVRFv2PlusLoadTestConsumer(coordinatorAddr string) (VRFv2PlusLoadTestConsumer, error)
+	DeployVRFV2PlusWrapperLoadTestConsumer(linkAddr string, vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error)
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
-	DeployVRFCoordinatorV2Plus(bhsAddr string) (VRFCoordinatorV2Plus, error)
+	DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error)
 	DeployVRFCoordinatorV2PlusUpgradedVersion(bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error)
+	DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2PlusWrapper, error)
 	DeployDKG() (DKG, error)
 	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string) (VRFCoordinatorV3, error)
 	DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error)
@@ -115,6 +134,10 @@ type ContractDeployer interface {
 	DeployKeeperRegistry11Mock() (KeeperRegistry11Mock, error)
 	DeployKeeperRegistrar12Mock() (KeeperRegistrar12Mock, error)
 	DeployKeeperGasWrapperMock() (KeeperGasWrapperMock, error)
+	DeployMercuryVerifierContract(verifierProxyAddr common.Address) (MercuryVerifier, error)
+	DeployMercuryVerifierProxyContract(accessControllerAddr common.Address) (MercuryVerifierProxy, error)
+	DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error)
+	DeployMercuryRewardManager(linkAddress common.Address) (MercuryRewardManager, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -142,6 +165,12 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 		return &BSCContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.ScrollClient:
 		return &ScrollContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.PolygonZkEvmClient:
+		return &PolygonZkEvmContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.LineaClient:
+		return &LineaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.FantomClient:
+		return &FantomContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -194,6 +223,18 @@ type BSCContractDeployer struct {
 }
 
 type ScrollContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type PolygonZkEvmContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type LineaContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type FantomContractDeployer struct {
 	*EthereumContractDeployer
 }
 
@@ -735,8 +776,10 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 		) (common.Address, *types.Transaction, interface{}, error) {
 			// set default TriggerType to 0(conditional), AutoApproveConfigType to 2(auto approve enabled), AutoApproveMaxAllowed to 1000
 			triggerConfigs := []registrar21.AutomationRegistrar21InitialTriggerConfig{
-				{TriggerType: 0, AutoApproveType: 2, AutoApproveMaxAllowed: 1000},
-				{TriggerType: 1, AutoApproveType: 2, AutoApproveMaxAllowed: 1000},
+				{TriggerType: 0, AutoApproveType: registrarSettings.AutoApproveConfigType,
+					AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
+				{TriggerType: 1, AutoApproveType: registrarSettings.AutoApproveConfigType,
+					AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
 			}
 
 			return registrar21.DeployAutomationRegistrar(
@@ -833,12 +876,20 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	opts *KeeperRegistryOpts,
 ) (KeeperRegistry, error) {
 	var mode uint8
-	switch e.client.GetChainID() {
+	switch e.client.GetChainID().Int64() {
 	//Arbitrum payment model
-	case big.NewInt(421613):
+	//Goerli Arbitrum
+	case 421613:
+		mode = uint8(1)
+	//Sepolia Arbitrum
+	case 421614:
 		mode = uint8(1)
 	//Optimism payment model
-	case big.NewInt(420):
+	//Goerli Optimism
+	case 420:
+		mode = uint8(2)
+	//Goerli Base
+	case 84531:
 		mode = uint8(2)
 	default:
 		mode = uint8(0)
@@ -1196,14 +1247,14 @@ func (e *EthereumContractDeployer) DeployKeeperConsumer(updateInterval *big.Int)
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployKeeperConsumer(auth, backend, updateInterval)
+		return keeper_consumer_wrapper.DeployKeeperConsumer(auth, backend, updateInterval)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumKeeperConsumer{
 		client:   e.client,
-		consumer: instance.(*eth_contracts.KeeperConsumer),
+		consumer: instance.(*keeper_consumer_wrapper.KeeperConsumer),
 		address:  address,
 	}, err
 }
@@ -1227,19 +1278,57 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterv
 	}, err
 }
 
+func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
+	address, _, instance, err := e.client.DeployContract("StreamsLookupUpkeep", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return streams_lookup_upkeep_wrapper.DeployStreamsLookupUpkeep(
+			auth, backend, testRange, interval, useArbBlock, staging, verify,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumAutomationStreamsLookupUpkeepConsumer{
+		client:   e.client,
+		consumer: instance.(*streams_lookup_upkeep_wrapper.StreamsLookupUpkeep),
+		address:  address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error) {
+	address, _, instance, err := e.client.DeployContract("LogTriggeredStreamsLookupUpkeep", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return log_triggered_streams_lookup_wrapper.DeployLogTriggeredStreamsLookup(
+			auth, backend, false, false,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer{
+		client:   e.client,
+		consumer: instance.(*log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookup),
+		address:  address,
+	}, err
+}
+
 func (e *EthereumContractDeployer) DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error) {
 	address, _, instance, err := e.client.DeployContract("UpkeepCounter", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployUpkeepCounter(auth, backend, testRange, interval)
+		return upkeep_counter_wrapper.DeployUpkeepCounter(auth, backend, testRange, interval)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumUpkeepCounter{
 		client:   e.client,
-		consumer: instance.(*eth_contracts.UpkeepCounter),
+		consumer: instance.(*upkeep_counter_wrapper.UpkeepCounter),
 		address:  address,
 	}, err
 }
@@ -1249,14 +1338,14 @@ func (e *EthereumContractDeployer) DeployUpkeepPerformCounterRestrictive(testRan
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployUpkeepPerformCounterRestrictive(auth, backend, testRange, averageEligibilityCadence)
+		return upkeep_perform_counter_restrictive_wrapper.DeployUpkeepPerformCounterRestrictive(auth, backend, testRange, averageEligibilityCadence)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumUpkeepPerformCounterRestrictive{
 		client:   e.client,
-		consumer: instance.(*eth_contracts.UpkeepPerformCounterRestrictive),
+		consumer: instance.(*upkeep_perform_counter_restrictive_wrapper.UpkeepPerformCounterRestrictive),
 		address:  address,
 	}, err
 }
@@ -1271,7 +1360,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerPerformance(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployKeeperConsumerPerformance(
+		return keeper_consumer_performance_wrapper.DeployKeeperConsumerPerformance(
 			auth,
 			backend,
 			testBlockRange,
@@ -1285,7 +1374,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerPerformance(
 	}
 	return &EthereumKeeperConsumerPerformance{
 		client:   e.client,
-		consumer: instance.(*eth_contracts.KeeperConsumerPerformance),
+		consumer: instance.(*keeper_consumer_performance_wrapper.KeeperConsumerPerformance),
 		address:  address,
 	}, err
 }
@@ -1333,7 +1422,7 @@ func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData [
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployPerformDataChecker(
+		return perform_data_checker_wrapper.DeployPerformDataChecker(
 			auth,
 			backend,
 			expectedData,
@@ -1344,7 +1433,7 @@ func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData [
 	}
 	return &EthereumKeeperPerformDataCheckerConsumer{
 		client:             e.client,
-		performDataChecker: instance.(*eth_contracts.PerformDataChecker),
+		performDataChecker: instance.(*perform_data_checker_wrapper.PerformDataChecker),
 		address:            address,
 	}, err
 }
@@ -1431,6 +1520,96 @@ func (e *EthereumContractDeployer) DeployOffchainAggregatorV2(
 		client:   e.client,
 		contract: instance.(*ocr2aggregator.OCR2Aggregator),
 		address:  address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMercuryVerifierContract(verifierProxyAddr common.Address) (MercuryVerifier, error) {
+	address, _, instance, err := e.client.DeployContract("Mercury Verifier", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return verifier.DeployVerifier(auth, backend, verifierProxyAddr)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryVerifier{
+		client:   e.client,
+		instance: instance.(*verifier.Verifier),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMercuryVerifierProxyContract(accessControllerAddr common.Address) (MercuryVerifierProxy, error) {
+	address, _, instance, err := e.client.DeployContract("Mercury Verifier Proxy", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return verifier_proxy.DeployVerifierProxy(auth, backend, accessControllerAddr)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryVerifierProxy{
+		client:   e.client,
+		instance: instance.(*verifier_proxy.VerifierProxy),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error) {
+	address, _, instance, err := e.client.DeployContract("Mercury Fee Manager", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return fee_manager.DeployFeeManager(auth, backend, linkAddress, nativeAddress, proxyAddress, rewardManagerAddress)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryFeeManager{
+		client:   e.client,
+		instance: instance.(*fee_manager.FeeManager),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMercuryRewardManager(linkAddress common.Address) (MercuryRewardManager, error) {
+	address, _, instance, err := e.client.DeployContract("Mercury Reward Manager", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return reward_manager.DeployRewardManager(auth, backend, linkAddress)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryRewardManager{
+		client:   e.client,
+		instance: instance.(*reward_manager.RewardManager),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployWERC20Mock() (WERC20Mock, error) {
+	address, _, instance, err := e.client.DeployContract("WERC20 Mock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return werc20_mock.DeployWERC20Mock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumWERC20Mock{
+		client:   e.client,
+		instance: instance.(*werc20_mock.WERC20Mock),
+		address:  *address,
 		l:        e.l,
 	}, err
 }

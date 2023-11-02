@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,7 +60,8 @@ func (u userFindSuccesser) FindUserByAPIToken(token string) (sessions.User, erro
 
 func TestAuthenticateByToken_Success(t *testing.T) {
 	user := cltest.MustRandomUser(t)
-	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
+	key, secret := uuid.New().String(), uuid.New().String()
+	apiToken := auth.Token{AccessKey: key, Secret: secret}
 	err := user.SetAuthToken(&apiToken)
 	require.NoError(t, err)
 	authr := userFindSuccesser{user: user}
@@ -74,8 +76,8 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
-	req.Header.Set(webauth.APIKey, cltest.APIKey)
-	req.Header.Set(webauth.APISecret, cltest.APISecret)
+	req.Header.Set(webauth.APIKey, key)
+	req.Header.Set(webauth.APISecret, secret)
 	router.ServeHTTP(w, req)
 
 	assert.True(t, called)
@@ -95,8 +97,34 @@ func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
-	req.Header.Set(webauth.APIKey, cltest.APIKey)
+	req.Header.Set(webauth.APIKey, "bad-key")
 	req.Header.Set(webauth.APISecret, "bad-secret")
+	router.ServeHTTP(w, req)
+
+	assert.False(t, called)
+	assert.Equal(t, http.StatusText(http.StatusUnauthorized), http.StatusText(w.Code))
+}
+
+func TestAuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
+	user := cltest.MustRandomUser(t)
+	key, secret := "", uuid.New().String()
+	apiToken := auth.Token{AccessKey: key, Secret: secret}
+	err := user.SetAuthToken(&apiToken)
+	require.NoError(t, err)
+	authr := userFindSuccesser{user: user}
+
+	called := false
+	router := gin.New()
+	router.Use(webauth.Authenticate(authr, webauth.AuthenticateByToken))
+	router.GET("/", func(c *gin.Context) {
+		called = true
+		c.String(http.StatusOK, "")
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.Header.Set(webauth.APIKey, key)
+	req.Header.Set(webauth.APISecret, secret)
 	router.ServeHTTP(w, req)
 
 	assert.False(t, called)
@@ -307,7 +335,7 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 
 	// Assert all admin routes
 	// no endpoint should return StatusUnauthorized
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	for _, route := range routesRolesMap {
 		func() {
 			var resp *http.Response
@@ -344,9 +372,8 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 	defer ts.Close()
 
 	// Create a test edit user to work with
-	testUser := cltest.CreateUserWithRole(t, sessions.UserRoleEdit)
-	require.NoError(t, app.SessionORM().CreateUser(&testUser))
-	client := app.NewHTTPClient(testUser.Email)
+	u := &cltest.User{Role: sessions.UserRoleEdit}
+	client := app.NewHTTPClient(u)
 
 	// Assert all edit routes
 	for _, route := range routesRolesMap {
@@ -392,9 +419,8 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 	defer ts.Close()
 
 	// Create a test run user to work with
-	testUser := cltest.CreateUserWithRole(t, sessions.UserRoleRun)
-	require.NoError(t, app.SessionORM().CreateUser(&testUser))
-	client := app.NewHTTPClient(testUser.Email)
+	u := &cltest.User{Role: sessions.UserRoleRun}
+	client := app.NewHTTPClient(u)
 
 	// Assert all run routes
 	for _, route := range routesRolesMap {
@@ -440,9 +466,8 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 	defer ts.Close()
 
 	// Create a test run user to work with
-	testUser := cltest.CreateUserWithRole(t, sessions.UserRoleView)
-	require.NoError(t, app.SessionORM().CreateUser(&testUser))
-	client := app.NewHTTPClient(testUser.Email)
+	u := &cltest.User{Role: sessions.UserRoleView}
+	client := app.NewHTTPClient(u)
 
 	// Assert all view only routes
 	for i, route := range routesRolesMap {

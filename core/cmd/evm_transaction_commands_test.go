@@ -29,7 +29,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
 
-	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
+	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
 	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
@@ -70,7 +70,7 @@ func TestShell_ShowTransaction(t *testing.T) {
 	client, r := app.NewShellAndRenderer()
 
 	db := app.GetSqlxDB()
-	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
+	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
 	txStore := cltest.NewTestTxStore(t, db, app.GetConfig().Database())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
@@ -94,7 +94,7 @@ func TestShell_IndexTxAttempts(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
 
-	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
+	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
 	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
@@ -140,6 +140,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 
 	ethMock.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 	ethMock.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Maybe()
+	ethMock.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -181,7 +182,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
 	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
 
-	dbEvmTxAttempt := txmgr.DbEthTxAttempt{}
+	var dbEvmTxAttempt txmgr.DbEthTxAttempt
 	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM evm.tx_attempts`))
 	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
 }
@@ -199,6 +200,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 
 	ethMock.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 	ethMock.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Maybe()
+	ethMock.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -246,7 +248,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
 	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
 
-	dbEvmTxAttempt := txmgr.DbEthTxAttempt{}
+	var dbEvmTxAttempt txmgr.DbEthTxAttempt
 	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM evm.tx_attempts`))
 	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
 }

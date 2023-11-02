@@ -5,10 +5,12 @@ import (
 	"errors"
 	"sync/atomic"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/gorilla/websocket"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // WSConnectionWrapper is a websocket connection abstraction that supports re-connects.
@@ -26,7 +28,8 @@ import (
 // The concept of "pumps" is borrowed from https://github.com/smartcontractkit/wsrpc
 // All methods are thread-safe.
 type WSConnectionWrapper interface {
-	job.Service
+	job.ServiceCtx
+	services.HealthReporter
 
 	// Update underlying connection object. Return a channel that gets an error on connection close.
 	// Cannot be called after Close().
@@ -38,7 +41,8 @@ type WSConnectionWrapper interface {
 }
 
 type wsConnectionWrapper struct {
-	utils.StartStopOnce
+	services.StateMachine
+	lggr logger.Logger
 
 	conn atomic.Pointer[websocket.Conn]
 
@@ -46,6 +50,12 @@ type wsConnectionWrapper struct {
 	readCh     chan ReadItem
 	shutdownCh chan struct{}
 }
+
+func (c *wsConnectionWrapper) HealthReport() map[string]error {
+	return map[string]error{c.Name(): c.Healthy()}
+}
+
+func (c *wsConnectionWrapper) Name() string { return c.lggr.Name() }
 
 type ReadItem struct {
 	MsgType int
@@ -65,8 +75,9 @@ var (
 	ErrWrapperShutdown    = errors.New("wrapper shutting down")
 )
 
-func NewWSConnectionWrapper() WSConnectionWrapper {
+func NewWSConnectionWrapper(lggr logger.Logger) WSConnectionWrapper {
 	cw := &wsConnectionWrapper{
+		lggr:       lggr.Named("WSConnectionWrapper"),
 		writeCh:    make(chan writeItem),
 		readCh:     make(chan ReadItem),
 		shutdownCh: make(chan struct{}),
@@ -74,7 +85,7 @@ func NewWSConnectionWrapper() WSConnectionWrapper {
 	return cw
 }
 
-func (c *wsConnectionWrapper) Start() error {
+func (c *wsConnectionWrapper) Start(_ context.Context) error {
 	return c.StartOnce("WSConnectionWrapper", func() error {
 		// write pump runs until Shutdown() is called
 		go c.writePump()

@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -96,7 +97,7 @@ type estimatorGasEstimatorConfig interface {
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
 	BlockHistoryEstimator struct {
-		utils.StartStopOnce
+		services.StateMachine
 		ethClient evmclient.Client
 		chainID   big.Int
 		config    chainConfig
@@ -243,7 +244,7 @@ func (b *BlockHistoryEstimator) Name() string {
 	return b.logger.Name()
 }
 func (b *BlockHistoryEstimator) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
+	return map[string]error{b.Name(): b.Healthy()}
 }
 
 func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {

@@ -9,7 +9,11 @@ import (
 
 	"github.com/pkg/errors"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -19,12 +23,16 @@ type TestNodePoolConfig struct {
 	NodePollInterval         time.Duration
 	NodeSelectionMode        string
 	NodeSyncThreshold        uint32
+	NodeLeaseDuration        time.Duration
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
 func (tc TestNodePoolConfig) PollInterval() time.Duration  { return tc.NodePollInterval }
 func (tc TestNodePoolConfig) SelectionMode() string        { return tc.NodeSelectionMode }
 func (tc TestNodePoolConfig) SyncThreshold() uint32        { return tc.NodeSyncThreshold }
+func (tc TestNodePoolConfig) LeaseDuration() time.Duration {
+	return tc.NodeLeaseDuration
+}
 
 func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeadsThreshold time.Duration, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
@@ -50,7 +58,7 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 		sendonlys = append(sendonlys, s)
 	}
 
-	pool := NewPool(lggr, nodePoolCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, "")
+	pool := NewPool(lggr, nodePoolCfg.SelectionMode(), nodePoolCfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, "")
 	c := &client{logger: lggr, pool: pool}
 	t.Cleanup(c.Close)
 	return c, nil
@@ -58,6 +66,67 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 
 func Wrap(err error, s string) error {
 	return wrap(err, s)
+}
+
+func NewChainClientWithTestNode(
+	t *testing.T,
+	nodeCfg commonclient.NodeConfig,
+	noNewHeadsThreshold time.Duration,
+	leaseDuration time.Duration,
+	rpcUrl string,
+	rpcHTTPURL *url.URL,
+	sendonlyRPCURLs []url.URL,
+	id int32,
+	chainID *big.Int,
+) (Client, error) {
+	parsed, err := url.ParseRequestURI(rpcUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
+		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
+	}
+
+	lggr := logger.TestLogger(t)
+	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, clienttypes.Primary)
+
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCCLient](
+		nodeCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient]{n}
+
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCCLient]
+	for i, u := range sendonlyRPCURLs {
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
+		}
+		var empty url.URL
+		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, clienttypes.Secondary)
+		s := commonclient.NewSendOnlyNode[*big.Int, RPCCLient](
+			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
+		sendonlys = append(sendonlys, s)
+	}
+
+	var chainType commonconfig.ChainType
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
+	t.Cleanup(c.Close)
+	return c, nil
+}
+
+func NewChainClientWithEmptyNode(
+	t *testing.T,
+	selectionMode string,
+	leaseDuration time.Duration,
+	noNewHeadsThreshold time.Duration,
+	chainID *big.Int,
+) Client {
+
+	lggr := logger.TestLogger(t)
+
+	var chainType commonconfig.ChainType
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType)
+	t.Cleanup(c.Close)
+	return c
 }
 
 type TestableSendOnlyNode interface {

@@ -1,6 +1,7 @@
 package logprovider
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -14,9 +15,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/ocr2keepers/pkg/v3/random"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -43,6 +46,9 @@ var (
 	recoveryLogsBurst  = int64(500)
 	// blockTimeUpdateCadence is the cadence at which the chain's blocktime is re-calculated
 	blockTimeUpdateCadence = 10 * time.Minute
+	// maxPendingPayloadsPerUpkeep is the number of logs we can have pending for a single upkeep
+	// at any given time
+	maxPendingPayloadsPerUpkeep = 500
 )
 
 type LogRecoverer interface {
@@ -59,7 +65,7 @@ type visitedRecord struct {
 }
 
 type logRecoverer struct {
-	utils.StartStopOnce
+	services.StateMachine
 	threadCtrl utils.ThreadControl
 
 	lggr logger.Logger
@@ -202,7 +208,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 		return nil, err
 	}
 
-	start, offsetBlock := r.getRecoveryWindow(latest)
+	start, offsetBlock := r.getRecoveryWindow(latest.BlockNumber)
 	if proposal.Trigger.LogTriggerExtension == nil {
 		return nil, errors.New("missing log trigger extension")
 	}
@@ -291,7 +297,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	allLogsCounter := 0
 	logsCount := map[string]int{}
 
-	r.sortPending(uint64(latestBlock))
+	r.sortPending(uint64(latestBlock.BlockNumber))
 
 	var results, pending []ocr2keepers.UpkeepPayload
 	for _, payload := range r.pending {
@@ -324,7 +330,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
-	start, offsetBlock := r.getRecoveryWindow(latest)
+	start, offsetBlock := r.getRecoveryWindow(latest.BlockNumber)
 	if offsetBlock < 0 {
 		// too soon to recover, we don't have enough blocks
 		return nil
@@ -371,7 +377,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		// If recoverer is lagging by a lot (more than 100x recoveryLogsBuffer), allow
 		// a range of recoveryLogsBurst
 		// Exploratory: Store lastRePollBlock in DB to prevent bursts during restarts
-		// (while also taking into account exisitng pending payloads)
+		// (while also taking into account existing pending payloads)
 		end = start + recoveryLogsBurst
 	}
 	if end > offsetBlock {
@@ -405,9 +411,13 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	}
 	filteredLogs := r.filterFinalizedStates(f, logs, states)
 
-	added, alreadyPending := r.populatePending(f, filteredLogs)
+	added, alreadyPending, ok := r.populatePending(f, filteredLogs)
 	if added > 0 {
 		r.lggr.Debugw("found missed logs", "added", added, "alreadyPending", alreadyPending, "upkeepID", f.upkeepID)
+	}
+	if !ok {
+		r.lggr.Debugw("failed to add all logs to pending", "upkeepID", f.upkeepID)
+		return nil
 	}
 	r.filterStore.UpdateFilters(func(uf1, uf2 upkeepFilter) upkeepFilter {
 		uf1.lastRePollBlock = end
@@ -419,13 +429,15 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 }
 
 // populatePending adds the logs to the pending list if they are not already pending.
-// returns the number of logs added and the number of logs that were already pending.
-func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.Log) (int, int) {
+// returns the number of logs added, the number of logs that were already pending,
+// and a flag that indicates whether some errors happened while we are trying to add to pending q.
+func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.Log) (int, int, bool) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
 	pendingSizeBefore := len(r.pending)
 	alreadyPending := 0
+	errs := make([]error, 0)
 	for _, log := range filteredLogs {
 		trigger := logToTrigger(log)
 		// Set the checkBlock and Hash to zero so that the checkPipeline uses the latest block
@@ -453,13 +465,16 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 			continue
 		}
 		// r.lggr.Debugw("adding a payload to pending", "payload", payload)
-		r.visited[wid] = visitedRecord{
-			visitedAt: time.Now(),
-			payload:   payload,
+		if err := r.addPending(payload); err != nil {
+			errs = append(errs, err)
+		} else {
+			r.visited[wid] = visitedRecord{
+				visitedAt: time.Now(),
+				payload:   payload,
+			}
 		}
-		r.addPending(payload)
 	}
-	return len(r.pending) - pendingSizeBefore, alreadyPending
+	return len(r.pending) - pendingSizeBefore, alreadyPending, len(errs) == 0
 }
 
 // filterFinalizedStates filters out the log upkeeps that have already been completed (performed or ineligible).
@@ -596,7 +611,7 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 		return fmt.Errorf("failed to get states: %w", err)
 	}
 	lggr := r.lggr.With("where", "clean")
-	start, _ := r.getRecoveryWindow(latestBlock)
+	start, _ := r.getRecoveryWindow(latestBlock.BlockNumber)
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	var removed int
@@ -619,9 +634,10 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 				removed++
 				continue
 			}
-			r.addPending(rec.payload)
-			rec.visitedAt = time.Now()
-			r.visited[ids[i]] = rec
+			if err := r.addPending(rec.payload); err == nil {
+				rec.visitedAt = time.Now()
+				r.visited[ids[i]] = rec
+			}
 		default:
 			delete(r.visited, ids[i])
 			removed++
@@ -637,17 +653,25 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 
 // addPending adds a payload to the pending list if it's not already there.
 // NOTE: the lock must be held before calling this function.
-func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) {
+func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) error {
 	var exist bool
 	pending := r.pending
+	upkeepPayloads := 0
 	for _, p := range pending {
+		if bytes.Equal(p.UpkeepID[:], payload.UpkeepID[:]) {
+			upkeepPayloads++
+		}
 		if p.WorkID == payload.WorkID {
 			exist = true
 		}
 	}
+	if upkeepPayloads >= maxPendingPayloadsPerUpkeep {
+		return fmt.Errorf("upkeep %v has too many payloads in pending queue", payload.UpkeepID)
+	}
 	if !exist {
 		r.pending = append(pending, payload)
 	}
+	return nil
 }
 
 // removePending removes a payload from the pending list.

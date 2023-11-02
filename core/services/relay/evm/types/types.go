@@ -13,6 +13,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
@@ -20,9 +21,10 @@ import (
 )
 
 type RelayConfig struct {
-	ChainID                *utils.Big  `json:"chainID"`
-	FromBlock              uint64      `json:"fromBlock"`
-	EffectiveTransmitterID null.String `json:"effectiveTransmitterID"`
+	ChainID                *utils.Big      `json:"chainID"`
+	FromBlock              uint64          `json:"fromBlock"`
+	EffectiveTransmitterID null.String     `json:"effectiveTransmitterID"`
+	ConfigContractAddress  *common.Address `json:"configContractAddress"`
 
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`
@@ -102,7 +104,7 @@ type RouteUpdateSubscriber interface {
 //
 //go:generate mockery --quiet --name LogPollerWrapper --output ./mocks/ --case=underscore
 type LogPollerWrapper interface {
-	relaytypes.Service
+	services.Service
 	LatestEvents() ([]OracleRequest, []OracleResponse, error)
 
 	// TODO (FUN-668): Remove from the LOOP interface and only use internally within the EVM relayer

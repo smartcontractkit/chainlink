@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -29,11 +31,12 @@ type ethClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 }
 
-// arbitrumEstimator is an Estimator which extends l2SuggestedPriceEstimator to use getPricesInArbGas() for gas limit estimation.
+// arbitrumEstimator is an Estimator which extends SuggestedPriceEstimator to use getPricesInArbGas() for gas limit estimation.
 type arbitrumEstimator struct {
+	services.StateMachine
 	cfg ArbConfig
 
-	EvmEstimator // *l2SuggestedPriceEstimator
+	EvmEstimator // *SuggestedPriceEstimator
 
 	client     ethClient
 	pollPeriod time.Duration
@@ -47,15 +50,13 @@ type arbitrumEstimator struct {
 	chInitialised  chan struct{}
 	chStop         utils.StopChan
 	chDone         chan struct{}
-
-	utils.StartStopOnce
 }
 
 func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) EvmEstimator {
 	lggr = lggr.Named("ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		EvmEstimator:   NewL2SuggestedPriceEstimator(lggr, rpcClient),
+		EvmEstimator:   NewSuggestedPriceEstimator(lggr, rpcClient),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
@@ -89,14 +90,16 @@ func (a *arbitrumEstimator) Close() error {
 	})
 }
 
-func (a *arbitrumEstimator) Ready() error { return a.StartStopOnce.Ready() }
+func (a *arbitrumEstimator) Ready() error { return a.StateMachine.Ready() }
 
 func (a *arbitrumEstimator) HealthReport() map[string]error {
-	return map[string]error{a.Name(): a.StartStopOnce.Healthy()}
+	hp := map[string]error{a.Name(): a.Healthy()}
+	services.CopyHealth(hp, a.EvmEstimator.HealthReport())
+	return hp
 }
 
 // GetLegacyGas estimates both the gas price and the gas limit.
-//   - Price is delegated to the embedded l2SuggestedPriceEstimator.
+//   - Price is delegated to the embedded SuggestedPriceEstimator.
 //   - Limit is computed from the dynamic values perL2Tx and perL1CalldataUnit, provided by the getPricesInArbGas() method
 //     of the precompilie contract at ArbGasInfoAddress. perL2Tx is a constant amount of gas, and perL1CalldataUnit is
 //     multiplied by the length of the tx calldata. The sum of these two values plus the original l2GasLimit is returned.

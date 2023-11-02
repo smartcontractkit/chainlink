@@ -33,8 +33,10 @@ type numFlakes struct {
 }
 
 type Context struct {
-	CommitSHA      string `json:"commit_sha,omitempty"`
+	CommitSHA      string `json:"commit_sha"`
 	PullRequestURL string `json:"pull_request_url,omitempty"`
+	Repository     string `json:"repository"`
+	Type           string `json:"event_type"`
 }
 
 type LokiReporter struct {
@@ -45,12 +47,12 @@ type LokiReporter struct {
 	ctx     Context
 }
 
-func (l *LokiReporter) createRequest(flakeyTests map[string][]string) (pushRequest, error) {
+func (l *LokiReporter) createRequest(flakeyTests map[string]map[string]struct{}) (pushRequest, error) {
 	vs := [][]string{}
 	now := l.now()
 	nows := fmt.Sprintf("%d", now.UnixNano())
 	for pkg, tests := range flakeyTests {
-		for _, t := range tests {
+		for t := range tests {
 			d, err := json.Marshal(flakeyTest{
 				Package:    pkg,
 				TestName:   t,
@@ -117,7 +119,7 @@ func (l *LokiReporter) makeRequest(pushReq pushRequest) error {
 	return err
 }
 
-func (l *LokiReporter) Report(flakeyTests map[string][]string) error {
+func (l *LokiReporter) Report(flakeyTests map[string]map[string]struct{}) error {
 	pushReq, err := l.createRequest(flakeyTests)
 	if err != nil {
 		return err

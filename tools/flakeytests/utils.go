@@ -29,7 +29,7 @@ func DigString(mp map[string]interface{}, path []string) (string, error) {
 	return vs, nil
 }
 
-func GetGithubMetadata(sha string, path string) Context {
+func GetGithubMetadata(repo string, eventName string, sha string, path string) Context {
 	event := map[string]interface{}{}
 	if path != "" {
 		r, err := os.Open(path)
@@ -48,14 +48,18 @@ func GetGithubMetadata(sha string, path string) Context {
 		}
 	}
 
-	prURL := ""
-	url, err := DigString(event, []string{"pull_request", "_links", "html", "href"})
-	if err == nil {
-		prURL = url
+	basicCtx := &Context{Repository: repo, CommitSHA: sha, Type: eventName}
+	switch eventName {
+	case "pull_request":
+		prURL := ""
+		url, err := DigString(event, []string{"pull_request", "_links", "html", "href"})
+		if err == nil {
+			prURL = url
+		}
+
+		basicCtx.PullRequestURL = prURL
+		return *basicCtx
+	default:
+		return *basicCtx
 	}
-	ctx := Context{
-		CommitSHA:      sha,
-		PullRequestURL: prURL,
-	}
-	return ctx
 }

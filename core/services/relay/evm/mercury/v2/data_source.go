@@ -25,7 +25,7 @@ import (
 )
 
 type Runner interface {
-	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
 }
 
 type LatestReportFetcher interface {
@@ -39,7 +39,7 @@ type datasource struct {
 	spec           pipeline.Spec
 	feedID         mercuryutils.FeedID
 	lggr           logger.Logger
-	runResults     chan<- pipeline.Run
+	runResults     chan<- *pipeline.Run
 	orm            types.DataSourceORM
 	codec          reportcodec.ReportCodec
 
@@ -54,11 +54,11 @@ type datasource struct {
 
 var _ relaymercuryv2.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
 	return &datasource{pr, jb, spec, feedID, lggr, rr, orm, reportcodec.ReportCodec{}, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv2.Observation, err error) {
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv2.Observation, pipelineExecutionErr error) {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -80,15 +80,15 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		}()
 	}
 
+	var trrs pipeline.TaskRunResults
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var trrs pipeline.TaskRunResults
-		var run pipeline.Run
-		run, trrs, err = ds.executeRun(ctx)
-		if err != nil {
+		var run *pipeline.Run
+		run, trrs, pipelineExecutionErr = ds.executeRun(ctx)
+		if pipelineExecutionErr != nil {
 			cancel()
-			err = fmt.Errorf("Observe failed while executing run: %w", err)
+			pipelineExecutionErr = fmt.Errorf("Observe failed while executing run: %w", pipelineExecutionErr)
 			return
 		}
 		select {
@@ -98,12 +98,12 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		}
 
 		var parsed parseOutput
-		parsed, err = ds.parse(trrs)
-		if err != nil {
+		parsed, pipelineExecutionErr = ds.parse(trrs)
+		if pipelineExecutionErr != nil {
 			cancel()
 			// This is not expected under normal circumstances
-			ds.lggr.Errorw("Observe failed while parsing run results", "err", err)
-			err = fmt.Errorf("Observe failed while parsing run results: %w", err)
+			ds.lggr.Errorw("Observe failed while parsing run results", "err", pipelineExecutionErr)
+			pipelineExecutionErr = fmt.Errorf("Observe failed while parsing run results: %w", pipelineExecutionErr)
 			return
 		}
 		obs.BenchmarkPrice = parsed.benchmarkPrice
@@ -149,11 +149,12 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	wg.Wait()
 	cancel()
 
+	if pipelineExecutionErr != nil {
+		return
+	}
+
 	if isLink || isNative {
-		// run has now completed so it is safe to use err or benchmark price
-		if err != nil {
-			return
-		}
+		// run has now completed so it is safe to use benchmark price
 		if isLink {
 			// This IS the LINK feed, use our observed price
 			obs.LinkPrice.Val, obs.LinkPrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
@@ -164,16 +165,17 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		}
 	}
 
-	// todo: implement telemetry - https://smartcontract-it.atlassian.net/browse/MERC-1388
-	// if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
-	// 	ocrcommon.EnqueueEnhancedTelem(ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
-	// 		TaskRunResults: trrs,
-	// 		Observation:    obs,
-	// 		RepTimestamp:   repts,
-	// 	})
-	// }
+	ocrcommon.MaybeEnqueueEnhancedTelem(ds.jb, ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
+		V2Observation:              &obs,
+		TaskRunResults:             trrs,
+		RepTimestamp:               repts,
+		FeedVersion:                mercuryutils.REPORT_V2,
+		FetchMaxFinalizedTimestamp: fetchMaxFinalizedTimestamp,
+		IsLinkFeed:                 isLink,
+		IsNativeFeed:               isNative,
+	})
 
-	return obs, err
+	return obs, nil
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -208,17 +210,18 @@ func setBenchmarkPrice(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
 		o.benchmarkPrice.Err = res.Error
 		return res.Error
-	} else if val, err := toBigInt(res.Value); err != nil {
-		return fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
-	} else {
-		o.benchmarkPrice.Val = val
 	}
+	val, err := toBigInt(res.Value)
+	if err != nil {
+		return fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
+	}
+	o.benchmarkPrice.Val = val
 	return nil
 }
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.TaskRunResults, error) {
+func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jb": map[string]interface{}{
 			"databaseID":    ds.jb.ID,
@@ -229,7 +232,7 @@ func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.Ta
 
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
-		return pipeline.Run{}, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
+		return nil, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 
 	return run, trrs, err

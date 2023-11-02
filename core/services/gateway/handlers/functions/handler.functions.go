@@ -10,7 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -67,7 +69,7 @@ type FunctionsHandlerConfig struct {
 }
 
 type functionsHandler struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	handlerConfig   FunctionsHandlerConfig
 	donConfig       *config.DONConfig
@@ -229,10 +231,10 @@ func (h *functionsHandler) processSecretsResponse(response *api.Message, respons
 	if _, exists := responseData.responses[response.Body.Sender]; exists {
 		return nil, nil, errors.New("duplicate response")
 	}
-	responseData.responses[response.Body.Sender] = response
 	if response.Body.Method != responseData.request.Body.Method {
 		return nil, responseData, errors.New("invalid method")
 	}
+	responseData.responses[response.Body.Sender] = response
 	var responsePayload SecretsResponseBase
 	err := json.Unmarshal(response.Body.Payload, &responsePayload)
 	if err != nil {
@@ -290,7 +292,14 @@ func (h *functionsHandler) Start(ctx context.Context) error {
 	return h.StartOnce("FunctionsHandler", func() error {
 		h.lggr.Info("starting FunctionsHandler")
 		if h.allowlist != nil {
-			return h.allowlist.Start(ctx)
+			if err := h.allowlist.Start(ctx); err != nil {
+				return err
+			}
+		}
+		if h.subscriptions != nil {
+			if err := h.subscriptions.Start(ctx); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -300,8 +309,11 @@ func (h *functionsHandler) Close() error {
 	return h.StopOnce("FunctionsHandler", func() (err error) {
 		close(h.chStop)
 		if h.allowlist != nil {
-			return h.allowlist.Close()
+			err = multierr.Combine(err, h.allowlist.Close())
 		}
-		return nil
+		if h.subscriptions != nil {
+			err = multierr.Combine(err, h.subscriptions.Close())
+		}
+		return
 	})
 }

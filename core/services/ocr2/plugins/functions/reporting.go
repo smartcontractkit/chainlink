@@ -62,6 +62,11 @@ var (
 		Help: "Metric to track number of reporting plugin Report calls",
 	}, []string{"jobID"})
 
+	promReportingPluginsReportNumObservations = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_reporting_plugin_report_num_observations",
+		Help: "Metric to track number of observations available in the report phase",
+	}, []string{"jobID"})
+
 	promReportingAcceptReports = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "functions_reporting_plugin_accept",
 		Help: "Metric to track number of accepting reports",
@@ -152,17 +157,15 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 	var reportCoordinator *common.Address
 	for _, result := range results {
 		result := result
-		if r.contractVersion == 1 {
-			reportCoordinator, err = ShouldIncludeCoordinator(result.CoordinatorContractAddress, reportCoordinator)
-			if err != nil {
-				r.logger.Debug("FunctionsReporting Query: skipping request with mismatched coordinator contract address", commontypes.LogFields{
-					"requestID":          formatRequestId(result.RequestID[:]),
-					"requestCoordinator": result.CoordinatorContractAddress,
-					"reportCoordinator":  reportCoordinator,
-					"error":              err,
-				})
-				continue
-			}
+		reportCoordinator, err = ShouldIncludeCoordinator(result.CoordinatorContractAddress, reportCoordinator)
+		if err != nil {
+			r.logger.Debug("FunctionsReporting Query: skipping request with mismatched coordinator contract address", commontypes.LogFields{
+				"requestID":          formatRequestId(result.RequestID[:]),
+				"requestCoordinator": result.CoordinatorContractAddress,
+				"reportCoordinator":  reportCoordinator,
+				"error":              err,
+			})
+			continue
 		}
 		queryProto.RequestIDs = append(queryProto.RequestIDs, result.RequestID[:])
 		idStrs = append(idStrs, formatRequestId(result.RequestID[:]))
@@ -231,16 +234,14 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 				Error:           localResult.Error,
 				OnchainMetadata: localResult.OnchainMetadata,
 			}
-			if r.contractVersion == 1 {
-				if localResult.CallbackGasLimit == nil || localResult.CoordinatorContractAddress == nil {
-					r.logger.Error("FunctionsReporting Observation missing required v1 fields", commontypes.LogFields{
-						"requestID": formatRequestId(id[:]),
-					})
-					continue
-				}
-				resultProto.CallbackGasLimit = *localResult.CallbackGasLimit
-				resultProto.CoordinatorContract = localResult.CoordinatorContractAddress[:]
+			if localResult.CallbackGasLimit == nil || localResult.CoordinatorContractAddress == nil {
+				r.logger.Error("FunctionsReporting Observation missing required v1 fields", commontypes.LogFields{
+					"requestID": formatRequestId(id[:]),
+				})
+				continue
 			}
+			resultProto.CallbackGasLimit = *localResult.CallbackGasLimit
+			resultProto.CoordinatorContract = localResult.CoordinatorContractAddress[:]
 			observationProto.ProcessedRequests = append(observationProto.ProcessedRequests, &resultProto)
 			idStrs = append(idStrs, formatRequestId(localResult.RequestID[:]))
 		}
@@ -265,6 +266,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		"oracleID":      r.genericConfig.OracleID,
 		"nObservations": len(obs),
 	})
+	promReportingPluginsReportNumObservations.WithLabelValues(r.jobID.String()).Set(float64(len(obs)))
 
 	queryProto := &encoding.Query{}
 	err := proto.Unmarshal(query, queryProto)
@@ -361,19 +363,17 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			"requestID":     reqId,
 			"nObservations": len(observations),
 		})
-		if r.contractVersion == 1 {
-			var requestCoordinator common.Address
-			requestCoordinator.SetBytes(aggregated.CoordinatorContract)
-			reportCoordinator, err = ShouldIncludeCoordinator(&requestCoordinator, reportCoordinator)
-			if err != nil {
-				r.logger.Error("FunctionsReporting Report: skipping request with mismatched coordinator contract address", commontypes.LogFields{
-					"requestID":          reqId,
-					"requestCoordinator": requestCoordinator,
-					"reportCoordinator":  reportCoordinator,
-					"error":              err,
-				})
-				continue
-			}
+		var requestCoordinator common.Address
+		requestCoordinator.SetBytes(aggregated.CoordinatorContract)
+		reportCoordinator, err = ShouldIncludeCoordinator(&requestCoordinator, reportCoordinator)
+		if err != nil {
+			r.logger.Error("FunctionsReporting Report: skipping request with mismatched coordinator contract address", commontypes.LogFields{
+				"requestID":          reqId,
+				"requestCoordinator": requestCoordinator,
+				"reportCoordinator":  reportCoordinator,
+				"error":              err,
+			})
+			continue
 		}
 		allAggregated = append(allAggregated, aggregated)
 		allIdStrs = append(allIdStrs, reqId)

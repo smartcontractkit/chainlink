@@ -162,3 +162,4 @@ CREATE TRIGGER notify_eth_tx_insertion AFTER INSERT ON public.eth_txes FOR EACH 
 -- +goose StatementEnd
 
 DROP SCHEMA evm;
+SET search_path TO public;

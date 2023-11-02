@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -42,7 +43,7 @@ type HandlerFactory interface {
 }
 
 type gateway struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	codec      api.Codec
 	httpServer gw_net.HttpServer
@@ -131,6 +132,9 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	msg, err := g.codec.DecodeRequest(rawRequest)
 	if err != nil {
 		return newError(g.codec, "", api.UserMessageParseError, err.Error())
+	}
+	if msg == nil {
+		return newError(g.codec, "", api.UserMessageParseError, "nil message")
 	}
 	if err = msg.Validate(); err != nil {
 		return newError(g.codec, msg.Body.MessageId, api.UserMessageParseError, err.Error())

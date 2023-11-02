@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 )
 
 type FluxAggregatorOptions struct {
@@ -369,12 +370,33 @@ type FunctionsLoadTestClient interface {
 }
 
 type MercuryVerifier interface {
-	Address() string
+	Address() common.Address
 	Verify(signedReport []byte, sender common.Address) error
+	SetConfig(feedId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte, recipientAddressesAndWeights []verifier.CommonAddressAndWeight) (*types.Transaction, error)
+	LatestConfigDetails(ctx context.Context, feedId [32]byte) (verifier.LatestConfigDetails, error)
 }
 
 type MercuryVerifierProxy interface {
-	Address() string
-	Verify(signedReport []byte, value *big.Int) (*types.Transaction, error)
-	VerifyBulk(signedReports [][]byte, value *big.Int) (*types.Transaction, error)
+	Address() common.Address
+	InitializeVerifier(verifierAddress common.Address) (*types.Transaction, error)
+	Verify(signedReport []byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error)
+	VerifyBulk(signedReports [][]byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error)
+	SetFeeManager(feeManager common.Address) (*types.Transaction, error)
+}
+
+type MercuryFeeManager interface {
+	Address() common.Address
+}
+
+type MercuryRewardManager interface {
+	Address() common.Address
+	SetFeeManager(feeManager common.Address) (*types.Transaction, error)
+}
+
+type WERC20Mock interface {
+	Address() common.Address
+	BalanceOf(ctx context.Context, addr string) (*big.Int, error)
+	Approve(to string, amount *big.Int) error
+	Transfer(to string, amount *big.Int) error
+	Mint(account common.Address, amount *big.Int) (*types.Transaction, error)
 }

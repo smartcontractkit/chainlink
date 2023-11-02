@@ -15,9 +15,11 @@ import (
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"go.uber.org/multierr"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -62,7 +64,7 @@ type Registry interface {
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
-	CheckCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*coreTypes.Transaction, error)
+	CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error)
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
 }
 
@@ -75,7 +77,6 @@ func NewEvmRegistry(
 	lggr logger.Logger,
 	addr common.Address,
 	client evm.Chain,
-	streamsLookupCompatibleABI, keeperRegistryABI abi.ABI,
 	registry *iregistry21.IKeeperRegistryMaster,
 	mc *models.MercuryCredentials,
 	al ActiveUpkeepList,
@@ -87,20 +88,20 @@ func NewEvmRegistry(
 	return &EvmRegistry{
 		ctx:          context.Background(),
 		threadCtrl:   utils.NewThreadControl(),
-		lggr:         lggr.Named("EvmRegistry"),
+		lggr:         lggr.Named(RegistryServiceName),
 		poller:       client.LogPoller(),
 		addr:         addr,
 		client:       client.Client(),
 		logProcessed: make(map[string]bool),
 		registry:     registry,
-		abi:          keeperRegistryABI,
+		abi:          core.RegistryABI,
 		active:       al,
 		packer:       packer,
 		headFunc:     func(ocr2keepers.BlockKey) {},
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred:           mc,
-			abi:            streamsLookupCompatibleABI,
+			abi:            core.StreamsCompatibleABI,
 			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
 		},
 		hc:               http.DefaultClient,
@@ -128,7 +129,7 @@ type MercuryConfig struct {
 }
 
 type EvmRegistry struct {
-	utils.StartStopOnce
+	services.StateMachine
 	threadCtrl       utils.ThreadControl
 	lggr             logger.Logger
 	poller           logpoller.LogPoller
@@ -145,8 +146,6 @@ type EvmRegistry struct {
 	lastPollBlock    int64
 	ctx              context.Context
 	headFunc         func(ocr2keepers.BlockKey)
-	runState         int
-	runError         error
 	mercury          *MercuryConfig
 	hc               HttpClient
 	bs               *BlockSubscriber
@@ -299,11 +298,11 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 		logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
 	}
 
-	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, int(r.finalityDepth), pg.WithParentCtx(r.ctx))
+	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth), pg.WithParentCtx(r.ctx))
 	if err != nil {
 		return err
 	}
-	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, int(r.finalityDepth), pg.WithParentCtx(r.ctx))
+	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth), pg.WithParentCtx(r.ctx))
 	if err != nil {
 		return err
 	}
@@ -363,7 +362,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 
 func (r *EvmRegistry) pollUpkeepStateLogs() error {
 	var latest int64
-	var end int64
+	var end logpoller.LogPollerBlock
 	var err error
 
 	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
@@ -372,18 +371,18 @@ func (r *EvmRegistry) pollUpkeepStateLogs() error {
 
 	r.mu.Lock()
 	latest = r.lastPollBlock
-	r.lastPollBlock = end
+	r.lastPollBlock = end.BlockNumber
 	r.mu.Unlock()
 
 	// if start and end are the same, no polling needs to be done
-	if latest == 0 || latest == end {
+	if latest == 0 || latest == end.BlockNumber {
 		return nil
 	}
 
 	var logs []logpoller.Log
 	if logs, err = r.poller.LogsWithSigs(
-		end-logEventLookback,
-		end,
+		end.BlockNumber-logEventLookback,
+		end.BlockNumber,
 		upkeepStateEvents,
 		r.addr,
 		pg.WithParentCtx(r.ctx),

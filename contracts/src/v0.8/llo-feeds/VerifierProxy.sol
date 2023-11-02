@@ -6,8 +6,8 @@ import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {AccessControllerInterface} from "../shared/interfaces/AccessControllerInterface.sol";
-import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
-import {IVerifierFeeManager} from "./dev/interfaces/IVerifierFeeManager.sol";
+import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
+import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
 import {Common} from "../libraries/Common.sol";
 
 /**
@@ -117,28 +117,34 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "VerifierProxy 1.1.0";
+    return "VerifierProxy 2.0.0";
   }
 
   /// @inheritdoc IVerifierProxy
-  function verify(bytes calldata payload) external payable checkAccess returns (bytes memory) {
+  function verify(
+    bytes calldata payload,
+    bytes calldata parameterPayload
+  ) external payable checkAccess returns (bytes memory) {
     IVerifierFeeManager feeManager = s_feeManager;
 
     // Bill the verifier
     if (address(feeManager) != address(0)) {
-      feeManager.processFee{value: msg.value}(payload, msg.sender);
+      feeManager.processFee{value: msg.value}(payload, parameterPayload, msg.sender);
     }
 
     return _verify(payload);
   }
 
   /// @inheritdoc IVerifierProxy
-  function verifyBulk(bytes[] calldata payloads) external payable checkAccess returns (bytes[] memory verifiedReports) {
+  function verifyBulk(
+    bytes[] calldata payloads,
+    bytes calldata parameterPayload
+  ) external payable checkAccess returns (bytes[] memory verifiedReports) {
     IVerifierFeeManager feeManager = s_feeManager;
 
     // Bill the verifier
     if (address(feeManager) != address(0)) {
-      feeManager.processFeeBulk{value: msg.value}(payloads, msg.sender);
+      feeManager.processFeeBulk{value: msg.value}(payloads, parameterPayload, msg.sender);
     }
 
     //verify the reports

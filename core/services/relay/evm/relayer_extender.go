@@ -8,19 +8,19 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmchain "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 // ErrNoChains indicates that no EVM chains have been started
 var ErrNoChains = errors.New("no EVM chains loaded")
 
 type EVMChainRelayerExtender interface {
-	relay.RelayerExt
+	loop.RelayerExt
 	Chain() evmchain.Chain
 }
 
@@ -118,7 +118,7 @@ func (s *ChainRelayerExt) Ready() (err error) {
 }
 
 func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {
-	if err := opts.Check(); err != nil {
+	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -143,16 +143,15 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 
 		cid := enabled[i].ChainID.String()
 		privOpts := evmchain.ChainRelayExtenderConfig{
-			Logger:        opts.Logger.Named(cid),
-			RelayerConfig: opts.RelayerConfig,
-			DB:            opts.DB,
-			KeyStore:      opts.KeyStore,
+			Logger:    opts.Logger.Named(cid),
+			ChainOpts: opts.ChainOpts,
+			KeyStore:  opts.KeyStore,
 		}
 
 		privOpts.Logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := evmchain.NewTOMLChain(ctx, enabled[i], privOpts)
 		if err2 != nil {
-			err = multierr.Combine(err, err2)
+			err = multierr.Combine(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
 			continue
 		}
 
@@ -161,5 +160,6 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 		}
 		result = append(result, s)
 	}
-	return newChainRelayerExtsFromSlice(result, opts.AppConfig), nil
+	// always return because it's accumulating errors
+	return newChainRelayerExtsFromSlice(result, opts.AppConfig), err
 }

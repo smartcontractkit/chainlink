@@ -227,7 +227,7 @@ func (c *coordinator) CurrentChainHeight(ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return uint64(head), nil
+	return uint64(head.BlockNumber), nil
 }
 
 // ReportIsOnchain returns true iff a report for the given OCR epoch/round is
@@ -911,7 +911,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	latestVRF, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
 		c.beaconAddress,
-		int(c.finalityDepth),
+		logpoller.Confirmations(c.finalityDepth),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
@@ -922,7 +922,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	latestDKG, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
 		c.dkgAddress,
-		int(c.finalityDepth),
+		logpoller.Confirmations(c.finalityDepth),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {

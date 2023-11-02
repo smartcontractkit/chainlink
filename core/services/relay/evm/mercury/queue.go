@@ -13,8 +13,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -24,7 +25,7 @@ type asyncDeleter interface {
 	AsyncDelete(req *pb.TransmitRequest)
 }
 
-var _ services.ServiceCtx = (*TransmitQueue)(nil)
+var _ services.Service = (*TransmitQueue)(nil)
 
 var transmitQueueLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "mercury_transmit_queue_load",
@@ -40,7 +41,7 @@ const promInterval = 6500 * time.Millisecond
 // TransmitQueue is the high-level package that everything outside of this file should be using
 // It stores pending transmissions, yielding the latest (highest priority) first to the caller
 type TransmitQueue struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	cond         sync.Cond
 	lggr         logger.Logger
@@ -68,7 +69,7 @@ func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int, transmissio
 	heap.Init(&pq) // ensure the heap is ordered
 	mu := new(sync.RWMutex)
 	return &TransmitQueue{
-		utils.StartStopOnce{},
+		services.StateMachine{},
 		sync.Cond{L: mu},
 		lggr.Named("TransmitQueue"),
 		asyncDeleter,

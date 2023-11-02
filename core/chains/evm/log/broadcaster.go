@@ -12,13 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -44,7 +45,7 @@ type (
 	// Of course, these backfilled logs + any new logs will only be sent after the NumConfirmations for given subscriber.
 	Broadcaster interface {
 		utils.DependentAwaiter
-		services.ServiceCtx
+		services.Service
 		httypes.HeadTrackable
 
 		// ReplayFromBlock enqueues a replay from the provided block number. If forceBroadcast is
@@ -88,6 +89,7 @@ type (
 	}
 
 	broadcaster struct {
+		services.StateMachine
 		orm        ORM
 		config     Config
 		connected  atomic.Bool
@@ -106,7 +108,6 @@ type (
 		changeSubscriberStatus *utils.Mailbox[changeSubscriberStatus]
 		newHeads               *utils.Mailbox[*evmtypes.Head]
 
-		utils.StartStopOnce
 		utils.DependentAwaiter
 
 		chStop                utils.StopChan
@@ -188,7 +189,7 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 
 func (b *broadcaster) Start(context.Context) error {
 	return b.StartOnce("LogBroadcaster", func() error {
-		b.wgDone.Add(2)
+		b.wgDone.Add(1)
 		go b.awaitInitialSubscribers()
 		b.mailMon.Monitor(b.changeSubscriberStatus, "LogBroadcaster", "ChangeSubscriber", b.evmChainID.String())
 		return nil
@@ -220,7 +221,7 @@ func (b *broadcaster) Name() string {
 }
 
 func (b *broadcaster) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
+	return map[string]error{b.Name(): b.Healthy()}
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {
@@ -234,11 +235,11 @@ func (b *broadcaster) awaitInitialSubscribers() {
 		case <-b.DependentAwaiter.AwaitDependents():
 			// ensure that any queued dependent subscriptions are registered first
 			b.onChangeSubscriberStatus()
+			b.wgDone.Add(1)
 			go b.startResubscribeLoop()
 			return
 
 		case <-b.chStop:
-			b.wgDone.Done() // because startResubscribeLoop won't be called
 			return
 		}
 	}

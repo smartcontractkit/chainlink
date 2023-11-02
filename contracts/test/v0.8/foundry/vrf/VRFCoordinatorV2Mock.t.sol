@@ -4,9 +4,8 @@ import "../BaseTest.t.sol";
 import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import {VRFCoordinatorV2Mock} from "../../../../src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
+import {VRFCoordinatorV2Mock} from "../../../../src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
 import {VRFConsumerV2} from "../../../../src/v0.8/vrf/testhelpers/VRFConsumerV2.sol";
-import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2Plus.sol";
 
 contract VRFCoordinatorV2MockTest is BaseTest {
   MockLinkToken internal s_linkToken;
