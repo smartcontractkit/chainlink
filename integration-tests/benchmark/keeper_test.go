@@ -37,6 +37,7 @@ Enabled = true
 
 [P2P]
 [P2P.V2]
+Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]
 [Keeper]
