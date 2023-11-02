@@ -96,7 +96,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 	}
 	// Root level root user auth with credentials provided from config
 	bindStr := ldSync.config.BaseUserAttr() + "=" + ldSync.config.ReadOnlyUserLogin() + "," + ldSync.config.BaseDN()
-	if err := conn.Bind(bindStr, ldSync.config.ReadOnlyUserPass()); err != nil {
+	if err = conn.Bind(bindStr, ldSync.config.ReadOnlyUserPass()); err != nil {
 		ldSync.lggr.Errorf("Unable to login as initial root LDAP user", err)
 	}
 	defer conn.Close()
@@ -160,11 +160,11 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 			UserRole  sessions.UserRole
 		}
 		var existingSessions []LDAPSession
-		if err := tx.Select(&existingSessions, "SELECT user_email, user_role FROM ldap_sessions WHERE localauth_user = false"); err != nil {
+		if err = tx.Select(&existingSessions, "SELECT user_email, user_role FROM ldap_sessions WHERE localauth_user = false"); err != nil {
 			return fmt.Errorf("unable to query ldap_sessions table: %w", err)
 		}
 		var existingAPITokens []LDAPSession
-		if err := tx.Select(&existingAPITokens, "SELECT user_email, user_role FROM ldap_user_api_tokens WHERE localauth_user = false"); err != nil {
+		if err = tx.Select(&existingAPITokens, "SELECT user_email, user_role FROM ldap_user_api_tokens WHERE localauth_user = false"); err != nil {
 			return fmt.Errorf("unable to query ldap_user_api_tokens table: %w", err)
 		}
 
@@ -195,7 +195,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 		// Remove any active sessions this user may have
 		if len(emailsToPurge) > 0 {
-			_, err := ldSync.q.Exec("DELETE FROM ldap_sessions WHERE user_email = ANY($1)", pq.Array(emailsToPurge))
+			_, err = ldSync.q.Exec("DELETE FROM ldap_sessions WHERE user_email = ANY($1)", pq.Array(emailsToPurge))
 			if err != nil {
 				return err
 			}
@@ -203,7 +203,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 		// Remove any active API tokens this user may have
 		if len(apiTokenEmailsToPurge) > 0 {
-			_, err := ldSync.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = ANY($1)", pq.Array(apiTokenEmailsToPurge))
+			_, err = ldSync.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = ANY($1)", pq.Array(apiTokenEmailsToPurge))
 			if err != nil {
 				return err
 			}
@@ -228,7 +228,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 		if len(emailValues) != 0 {
 			// Set new role state for all rows in single Exec
 			query := fmt.Sprintf("UPDATE ldap_sessions SET user_role = CASE %s ELSE user_role END", queryWhenClause)
-			_, err := ldSync.q.Exec(query, emailValues...)
+			_, err = ldSync.q.Exec(query, emailValues...)
 			if err != nil {
 				return err
 			}

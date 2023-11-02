@@ -175,9 +175,9 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	if len(result.Entries) == 0 {
 		// Provided email is not present in upstream LDAP server, local admin CLI auth is supported
 		// So query and check the users table as well before failing
-		if err := l.q.Transaction(func(tx pg.Queryer) error {
+		if err = l.q.Transaction(func(tx pg.Queryer) error {
 			var localUserRole sessions.UserRole
-			if err := tx.Get(&localUserRole, "SELECT role FROM users WHERE email = $1", email); err != nil {
+			if err = tx.Get(&localUserRole, "SELECT role FROM users WHERE email = $1", email); err != nil {
 				return err
 			}
 			foundUser = sessions.User{
@@ -245,7 +245,7 @@ func (l *ldapAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User, 
 	if err != nil {
 		if errors.Is(err, sessions.ErrUserSessionExpired) {
 			// API Token expired, purge
-			if _, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE token_key = $1", apiToken); err != nil {
+			if _, err = l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE token_key = $1", apiToken); err != nil {
 				l.lggr.Errorf("error purging stale ldap API token session: %v", err)
 			}
 		}
@@ -395,7 +395,7 @@ func (l *ldapAuthenticator) AuthorizedUserWithSession(sessionID string) (session
 	})
 	if err != nil {
 		if errors.Is(err, sessions.ErrUserSessionExpired) {
-			if _, err := l.q.Exec("DELETE FROM ldap_sessions WHERE id = $1", sessionID); err != nil {
+			if _, err = l.q.Exec("DELETE FROM ldap_sessions WHERE id = $1", sessionID); err != nil {
 				l.lggr.Errorf("error purging stale ldap session: %v", err)
 			}
 		}
@@ -438,7 +438,7 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	// Attempt to LDAP Bind with user provided credentials
 	escapedEmail := ldap.EscapeFilter(strings.ToLower(sr.Email))
 	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
-	if err := conn.Bind(searchBaseDN, sr.Password); err != nil {
+	if err = conn.Bind(searchBaseDN, sr.Password); err != nil {
 		l.lggr.Infof("Error binding user authentication request in LDAP Bind: %v", err)
 		returnErr = errors.New("unable to log in with LDAP server. Check credentials")
 	}
@@ -593,13 +593,13 @@ func (l *ldapAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token)
 		// Check presence in local users table. Set localauth_user column true if present.
 		// This flag omits the session/token from being purged by the sync daemon/reaper.go
 		isLocalCLIAdmin := false
-		err := l.q.QueryRow("SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", user.Email).Scan(&isLocalCLIAdmin)
+		err = l.q.QueryRow("SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", user.Email).Scan(&isLocalCLIAdmin)
 		if err != nil {
 			return fmt.Errorf("error checking user presence in users table: %w", err)
 		}
 
 		// Remove any existing API tokens
-		if _, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
+		if _, err = l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
 			return fmt.Errorf("error executing DELETE FROM ldap_user_api_tokens: %w", err)
 		}
 		// Create new API token for user
