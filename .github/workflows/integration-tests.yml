@@ -62,11 +62,6 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Check Paths That Require Tests To Run
         continue-on-error: true
-      - name: Debug Workflow Inputs
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: |
-          echo "liveNetwork: ${{ github.event.inputs.liveNetwork }}"
-          echo "simulatedNetwork: ${{ github.event.inputs.simulatedNetwork }}"
 
     outputs:
       src: ${{ steps.changes.outputs.src }}
@@ -186,7 +181,7 @@ jobs:
           echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
 
   eth-smoke-tests-matrix-automation:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || (github.event_name == 'workflow_dispatch' && inputs.simulatedNetwork)) }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || (github.event_name == 'workflow_dispatch' && !inputs.simulatedNetwork)) }}
     environment: integration
     permissions:
       checks: write
@@ -254,7 +249,7 @@ jobs:
         continue-on-error: true
 
   eth-smoke-tests-matrix:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || (github.event_name == 'workflow_dispatch' && inputs.simulatedNetwork)) }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || (github.event_name == 'workflow_dispatch' && !inputs.simulatedNetwork)) }}
     environment: integration
     permissions:
       checks: write
