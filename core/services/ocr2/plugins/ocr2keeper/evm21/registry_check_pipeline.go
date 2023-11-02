@@ -366,6 +366,9 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			r.lggr.Warnf("upkeepId %s is not eligible after simulation of perform", checkResults[idx].UpkeepID.String())
 			checkResults[performToKeyIdx[i]].Eligible = false
 			checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
+		} else {
+			// actualL1GasCost = GE.getL1GasCost(checkResults[performToKeyIdx[i]].PerformData + bytes padding);
+			// checkResults[performToKeyIdx[i]].executionL1GasCost = actualL1GasCost
 		}
 	}
 

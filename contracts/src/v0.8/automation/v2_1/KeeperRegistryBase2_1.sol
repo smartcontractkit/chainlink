@@ -408,6 +408,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 fastGas;
     uint256 linkNative;
     uint256 l1GasCost; // 0 for L1
+    uint256 executionL1GasCost;
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
@@ -577,10 +578,12 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       gasWei = tx.gasprice;
     }
 
-    uint256 l1CostWei = cfg.l1GasCost;
+    uint256 l1CostWei;
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
-      l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
+      l1CostWei = hotVars.gasCeilingMultiplier * cfg.l1CostWei;
+    } else {
+      l1CostWei = cfg.executionL1GasCost;
     }
     // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
     l1CostWei = l1CostWei / numBatchedUpkeeps;
