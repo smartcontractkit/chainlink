@@ -5,73 +5,81 @@ import (
 	"sort"
 )
 
-type block struct {
-	hash string
-	num  int64
-	ts   uint64
-}
-
-func (b1 block) less(b2 block) bool {
-	if b1.num == b2.num && b1.ts == b2.ts {
-		// tie-break on hash, all else being equal
-		return b1.hash < b2.hash
-	} else if b1.num == b2.num {
-		// if block number is equal and timestamps differ, take the latest timestamp
-		return b1.ts > b2.ts
-	} else {
-		// if block number is different, take the higher block number
-		return b1.num > b2.num
-	}
-}
-
-// GetConsensusCurrentBlock gets the most common (mode) block hash/number/timestamps.
-// In the event of a tie, use the lowest numerical value
-func GetConsensusCurrentBlock(paos []PAO, f int) (hash []byte, num int64, ts uint64, err error) {
-	m := map[block]int{}
-	maxCnt := 0
-	var validObsCnt int
+// GetConsensusLatestBlock gets the latest block that has at least f+1 votes
+// Assumes that LatestBlocks are ordered by block number desc
+func GetConsensusLatestBlock(paos []PAO, f int) (hash []byte, num int64, ts uint64, err error) {
+	// observed blocks grouped by their block number
+	groupingsM := make(map[int64][]Block)
 	for _, pao := range paos {
-		blockHash, valid := pao.GetCurrentBlockHash()
-		if !valid {
-			continue
+		if blocks := pao.GetLatestBlocks(); len(blocks) > 0 {
+			for _, block := range blocks {
+				groupingsM[block.Num] = append(groupingsM[block.Num], block)
+			}
+		} else { // DEPRECATED
+			// TODO: Remove this handling after deployment (https://smartcontract-it.atlassian.net/browse/MERC-2272)
+			blockHash, valid := pao.GetCurrentBlockHash()
+			if !valid {
+				continue
+			}
+			blockNum, valid := pao.GetCurrentBlockNum()
+			if !valid {
+				continue
+			}
+			blockTs, valid := pao.GetCurrentBlockTimestamp()
+			if !valid {
+				continue
+			}
+			groupingsM[blockNum] = append(groupingsM[blockNum], NewBlock(blockNum, blockHash, blockTs))
 		}
-		blockNum, valid := pao.GetCurrentBlockNum()
-		if !valid {
-			continue
+	}
+
+	// sort by latest block number desc
+	groupings := make([][]Block, len(groupingsM))
+	{
+		i := 0
+		for _, blocks := range groupingsM {
+			groupings[i] = blocks
+			i++
 		}
-		blockTs, valid := pao.GetCurrentBlockTimestamp()
-		if !valid {
-			continue
-		}
-		if valid {
-			validObsCnt++
-			b := block{string(blockHash), blockNum, blockTs}
+	}
+
+	// each grouping will have all blocks with the same block number, sorted desc
+	sort.Slice(groupings, func(i, j int) bool {
+		return groupings[i][0].Num > groupings[j][0].Num
+	})
+
+	// take highest block number with at least f+1 in agreement on everything
+	for _, blocks := range groupings {
+		m := map[Block]int{}
+		maxCnt := 0
+		// count unique blocks
+		for _, b := range blocks {
 			m[b]++
 			if cnt := m[b]; cnt > maxCnt {
 				maxCnt = cnt
 			}
 		}
-	}
+		if maxCnt >= f+1 {
+			// at least one set of blocks has f+1 in agreement
 
-	if validObsCnt < f+1 {
-		return nil, 0, 0, fmt.Errorf("fewer than f+1 observations have a valid current block (got: %d/%d, f=%d)", validObsCnt, len(paos), f)
-	}
+			// take the blocks with highest count
+			var usableBlocks []Block
+			for b, cnt := range m {
+				if cnt == maxCnt {
+					usableBlocks = append(usableBlocks, b)
+				}
+			}
+			sort.Slice(usableBlocks, func(i, j int) bool {
+				return usableBlocks[j].less(usableBlocks[i])
+			})
 
-	if maxCnt < f+1 {
-		return nil, 0, 0, fmt.Errorf("no unique valid block observation with at least f+1 votes (got %d/%d, f=%d)", maxCnt, len(paos), f)
-	}
+			return usableBlocks[0].HashBytes(), usableBlocks[0].Num, usableBlocks[0].Ts, nil
 
-	var blocks []block
-	for b, cnt := range m {
-		if cnt == maxCnt {
-			blocks = append(blocks, b)
 		}
+		// this grouping does not have any identical blocks with at least f+1 in agreement, try next block number down
 	}
-	sort.Slice(blocks, func(i, j int) bool {
-		return blocks[i].less(blocks[j])
-	})
 
-	return []byte(blocks[0].hash), blocks[0].num, blocks[0].ts, nil
+	return nil, 0, 0, fmt.Errorf("cannot come to consensus on latest block number, got observations: %#v", paos)
 }
 
 // GetConsensusMaxFinalizedBlockNum gets the most common (mode)

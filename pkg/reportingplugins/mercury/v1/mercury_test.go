@@ -3,10 +3,12 @@ package mercury_v1
 import (
 	"context"
 	crand "crypto/rand"
+	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -436,19 +438,34 @@ func newUnparseableAttributedObservation() ocrtypes.AttributedObservation {
 	}
 }
 
-var blockHash = randBytes(32)
+func genRandHash(seed int64) []byte {
+	r := rand.New(rand.NewSource(seed))
+
+	b := make([]byte, 32)
+	_, err := r.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
 
 func newValidMercuryObservationProto() *MercuryObservationProto {
+	var latestBlocks []*BlockProto
+	for i := 0; i < MaxAllowedBlocks; i++ {
+		latestBlocks = append(latestBlocks, &BlockProto{Num: int64(49 - i), Hash: genRandHash(int64(i)), Ts: uint64(46 - i)})
+	}
+
 	return &MercuryObservationProto{
 		Timestamp:                    42,
 		BenchmarkPrice:               mercury.MustEncodeValueInt192(big.NewInt(43)),
 		Bid:                          mercury.MustEncodeValueInt192(big.NewInt(44)),
 		Ask:                          mercury.MustEncodeValueInt192(big.NewInt(45)),
 		PricesValid:                  true,
-		CurrentBlockNum:              49,
-		CurrentBlockHash:             blockHash,
-		CurrentBlockTimestamp:        46,
+		CurrentBlockNum:              latestBlocks[0].Num,
+		CurrentBlockHash:             latestBlocks[0].Hash,
+		CurrentBlockTimestamp:        latestBlocks[0].Ts,
 		CurrentBlockValid:            true,
+		LatestBlocks:                 latestBlocks,
 		MaxFinalizedBlockNumber:      47,
 		MaxFinalizedBlockNumberValid: true,
 	}
@@ -463,12 +480,16 @@ func newInvalidMercuryObservationProto() *MercuryObservationProto {
 }
 
 func Test_Plugin_parseAttributedObservation(t *testing.T) {
-	t.Run("with all valid values", func(t *testing.T) {
+	t.Run("with all valid values, and > 0 LatestBlocks", func(t *testing.T) {
 		obs := newValidMercuryObservationProto()
 		ao := newAttributedObservation(t, obs)
+		expectedLatestBlocks := make([]Block, len(obs.LatestBlocks))
+		for i, b := range obs.LatestBlocks {
+			expectedLatestBlocks[i] = NewBlock(b.Num, b.Hash, b.Ts)
+		}
 
 		pao, err := parseAttributedObservation(ao)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assert.Equal(t,
 			parsedAttributedObservation{
@@ -478,15 +499,38 @@ func Test_Plugin_parseAttributedObservation(t *testing.T) {
 				Bid:                          big.NewInt(44),
 				Ask:                          big.NewInt(45),
 				PricesValid:                  true,
-				CurrentBlockNum:              49,
-				CurrentBlockHash:             obs.CurrentBlockHash,
-				CurrentBlockTimestamp:        46,
-				CurrentBlockValid:            true,
 				MaxFinalizedBlockNumber:      47,
 				MaxFinalizedBlockNumberValid: true,
+				LatestBlocks:                 expectedLatestBlocks,
 			},
 			pao,
 		)
+		t.Run("with 0 LatestBlocks", func(t *testing.T) {
+			obs := newValidMercuryObservationProto()
+			obs.LatestBlocks = nil
+			ao := newAttributedObservation(t, obs)
+
+			pao, err := parseAttributedObservation(ao)
+			require.NoError(t, err)
+
+			assert.Equal(t,
+				parsedAttributedObservation{
+					Timestamp:                    0x2a,
+					Observer:                     0x2a,
+					BenchmarkPrice:               big.NewInt(43),
+					Bid:                          big.NewInt(44),
+					Ask:                          big.NewInt(45),
+					PricesValid:                  true,
+					CurrentBlockNum:              49,
+					CurrentBlockHash:             obs.CurrentBlockHash,
+					CurrentBlockTimestamp:        46,
+					CurrentBlockValid:            true,
+					MaxFinalizedBlockNumber:      47,
+					MaxFinalizedBlockNumberValid: true,
+				},
+				pao,
+			)
+		})
 	})
 
 	t.Run("with all invalid values", func(t *testing.T) {
@@ -502,9 +546,57 @@ func Test_Plugin_parseAttributedObservation(t *testing.T) {
 				PricesValid:                  false,
 				CurrentBlockValid:            false,
 				MaxFinalizedBlockNumberValid: false,
+				LatestBlocks:                 ([]Block)(nil),
 			},
 			pao,
 		)
+	})
+
+	t.Run("when LatestBlocks is valid", func(t *testing.T) {
+		t.Run("sorts blocks if they are out of order", func(t *testing.T) {
+			obs := newValidMercuryObservationProto()
+			slices.Reverse(obs.LatestBlocks)
+
+			ao := newAttributedObservation(t, obs)
+
+			pao, err := parseAttributedObservation(ao)
+			assert.NoError(t, err)
+
+			assert.Equal(t, 49, int(pao.GetLatestBlocks()[0].Num))
+			assert.Equal(t, 40, int(pao.GetLatestBlocks()[9].Num))
+		})
+	})
+
+	t.Run("when LatestBlocks is invalid", func(t *testing.T) {
+		t.Run("contains duplicate block numbers", func(t *testing.T) {
+			obs := newValidMercuryObservationProto()
+			obs.LatestBlocks = []*BlockProto{&BlockProto{Num: 32, Hash: randBytes(32)}, &BlockProto{Num: 32, Hash: randBytes(32)}}
+			ao := newAttributedObservation(t, obs)
+
+			_, err := parseAttributedObservation(ao)
+			assert.EqualError(t, err, "observation invalid for observer 42; got duplicate block number: 32")
+		})
+		t.Run("contains duplicate block hashes", func(t *testing.T) {
+			obs := newValidMercuryObservationProto()
+			h := randBytes(32)
+			obs.LatestBlocks = []*BlockProto{&BlockProto{Num: 1, Hash: h}, &BlockProto{Num: 2, Hash: h}}
+			ao := newAttributedObservation(t, obs)
+
+			_, err := parseAttributedObservation(ao)
+			assert.EqualError(t, err, fmt.Sprintf("observation invalid for observer 42; got duplicate block hash: 0x%x", h))
+		})
+		t.Run("contains too many blocks", func(t *testing.T) {
+			obs := newValidMercuryObservationProto()
+			obs.LatestBlocks = nil
+			for i := 0; i < MaxAllowedBlocks+1; i++ {
+				obs.LatestBlocks = append(obs.LatestBlocks, &BlockProto{Num: int64(i)})
+			}
+
+			ao := newAttributedObservation(t, obs)
+
+			_, err := parseAttributedObservation(ao)
+			assert.EqualError(t, err, "LatestBlocks too large; got: 11, max: 10")
+		})
 	})
 
 	t.Run("with unparseable values", func(t *testing.T) {
@@ -540,20 +632,43 @@ func Test_Plugin_parseAttributedObservation(t *testing.T) {
 			assert.EqualError(t, err, "ask cannot be converted to big.Int: expected b to have length 24, but got length 1")
 		})
 		t.Run("bad block hash", func(t *testing.T) {
-			obs := newValidMercuryObservationProto()
-			obs.CurrentBlockHash = []byte{1}
-			ao := newAttributedObservation(t, obs)
+			t.Run("CurrentBlockHash", func(t *testing.T) {
+				obs := newValidMercuryObservationProto()
+				obs.LatestBlocks = nil
+				obs.CurrentBlockHash = []byte{1}
+				ao := newAttributedObservation(t, obs)
 
-			_, err := parseAttributedObservation(ao)
-			assert.EqualError(t, err, "wrong len for hash: 1 (expected: 32)")
+				_, err := parseAttributedObservation(ao)
+				assert.EqualError(t, err, "wrong len for hash: 1 (expected: 32)")
+			})
+
+			t.Run("LatestBlocks", func(t *testing.T) {
+				obs := newValidMercuryObservationProto()
+				obs.LatestBlocks[0].Hash = []byte{1}
+				ao := newAttributedObservation(t, obs)
+
+				_, err := parseAttributedObservation(ao)
+				assert.EqualError(t, err, "wrong len for hash: 1 (expected: 32)")
+			})
 		})
 		t.Run("negative block number", func(t *testing.T) {
-			obs := newValidMercuryObservationProto()
-			obs.CurrentBlockNum = -1
-			ao := newAttributedObservation(t, obs)
+			t.Run("CurrentBlockNum", func(t *testing.T) {
+				obs := newValidMercuryObservationProto()
+				obs.LatestBlocks = nil
+				obs.CurrentBlockNum = -1
+				ao := newAttributedObservation(t, obs)
 
-			_, err := parseAttributedObservation(ao)
-			assert.EqualError(t, err, "negative block number: -1")
+				_, err := parseAttributedObservation(ao)
+				assert.EqualError(t, err, "negative block number: -1")
+			})
+			t.Run("LatestBlocks", func(t *testing.T) {
+				obs := newValidMercuryObservationProto()
+				obs.LatestBlocks[0].Num = -1
+				ao := newAttributedObservation(t, obs)
+
+				_, err := parseAttributedObservation(ao)
+				assert.EqualError(t, err, "negative block number: -1")
+			})
 		})
 	})
 }
@@ -631,6 +746,7 @@ func Test_Plugin_Report(t *testing.T) {
 				newValidMercuryObservationProto(),
 			}
 			for i := range obs {
+				obs[i].LatestBlocks = nil
 				obs[i].CurrentBlockNum = int64(i)
 			}
 			aos := []types.AttributedObservation{
@@ -641,7 +757,31 @@ func Test_Plugin_Report(t *testing.T) {
 			}
 			_, _, err := rp.Report(repts, nil, aos)
 
-			assert.EqualError(t, err, "GetConsensusCurrentBlock failed: no unique valid block observation with at least f+1 votes (got 1/4, f=1)")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "GetConsensusCurrentBlock failed: cannot come to consensus on latest block number")
+		})
+		t.Run("errors if it cannot come to consensus on LatestBlocks", func(t *testing.T) {
+			obs := []*MercuryObservationProto{
+				newValidMercuryObservationProto(),
+				newValidMercuryObservationProto(),
+				newValidMercuryObservationProto(),
+				newValidMercuryObservationProto(),
+			}
+			for i := range obs {
+				for j := range obs[i].LatestBlocks {
+					obs[i].LatestBlocks[j].Hash = randBytes(32)
+				}
+			}
+			aos := []types.AttributedObservation{
+				newAttributedObservation(t, obs[0]),
+				newAttributedObservation(t, obs[1]),
+				newAttributedObservation(t, obs[2]),
+				newAttributedObservation(t, obs[3]),
+			}
+			_, _, err := rp.Report(repts, nil, aos)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "GetConsensusCurrentBlock failed: cannot come to consensus on latest block number")
 		})
 		t.Run("errors if price is invalid", func(t *testing.T) {
 			obs := []*MercuryObservationProto{
@@ -776,6 +916,10 @@ func Test_MaxObservationLength(t *testing.T) {
 		for i := 0; i < 32; i++ {
 			maxHash[i] = 255
 		}
+		maxLatestBlocks := []*BlockProto{}
+		for i := 0; i < MaxAllowedBlocks; i++ {
+			maxLatestBlocks = append(maxLatestBlocks, &BlockProto{Num: math.MaxInt64, Hash: maxHash, Ts: math.MaxUint64})
+		}
 		obs := MercuryObservationProto{
 			Timestamp:                    math.MaxUint32,
 			BenchmarkPrice:               maxInt192Bytes,
@@ -788,6 +932,7 @@ func Test_MaxObservationLength(t *testing.T) {
 			CurrentBlockValid:            true,
 			MaxFinalizedBlockNumber:      math.MaxInt64,
 			MaxFinalizedBlockNumberValid: true,
+			LatestBlocks:                 maxLatestBlocks,
 		}
 		// This assertion is here to force this test to fail if a new field is
 		// added to the protobuf. In this case, you must add the max value of
@@ -795,7 +940,7 @@ func Test_MaxObservationLength(t *testing.T) {
 		// that increment the count below
 		numFields := reflect.TypeOf(obs).NumField() //nolint:all
 		// 3 fields internal to pbuf struct
-		require.Equal(t, 11, numFields-3)
+		require.Equal(t, 12, numFields-3)
 
 		// the actual test
 		b, err := proto.Marshal(&obs)

@@ -18,11 +18,15 @@ type parsedAttributedObservation struct {
 	// All three prices must be valid, or none are (they all should come from one API query and hold invariant bid <= bm <= ask)
 	PricesValid bool
 
+	// DEPRECATED
+	// TODO: Remove this handling after deployment (https://smartcontract-it.atlassian.net/browse/MERC-2272)
 	CurrentBlockNum       int64 // inclusive; current block
 	CurrentBlockHash      []byte
 	CurrentBlockTimestamp uint64
 	// All three block observations must be valid, or none are (they all come from the same block)
 	CurrentBlockValid bool
+
+	LatestBlocks []Block
 
 	// MaxFinalizedBlockNumber comes from previous report when present and is
 	// only observed from mercury server when previous report is nil
@@ -84,6 +88,10 @@ func (pao parsedAttributedObservation) GetCurrentBlockHash() ([]byte, bool) {
 
 func (pao parsedAttributedObservation) GetCurrentBlockTimestamp() (uint64, bool) {
 	return pao.CurrentBlockTimestamp, pao.CurrentBlockValid
+}
+
+func (pao parsedAttributedObservation) GetLatestBlocks() []Block {
+	return pao.LatestBlocks
 }
 
 func (pao parsedAttributedObservation) GetMaxFinalizedBlockNumber() (int64, bool) {

@@ -3,7 +3,6 @@ syntax="proto3";
 package mercury_v1;
 option go_package = ".;mercury_v1";
 
-// TODO: what about different report formats for different clients?
 message MercuryObservationProto {
     uint32 timestamp = 1;
 
@@ -14,6 +13,8 @@ message MercuryObservationProto {
     // All three prices must be valid, or none are (they all should come from one API query and hold invariant bid <= bm <= ask)
     bool pricesValid = 5;
 
+    // DEPRECATED: replaced by "latestBlocks"
+    // https://smartcontract-it.atlassian.net/browse/MERC-2272
     // Current block
     int64 currentBlockNum = 6;
     bytes currentBlockHash = 7;
@@ -25,4 +26,13 @@ message MercuryObservationProto {
     // only observed from mercury server when previous report is nil
     int64 maxFinalizedBlockNumber = 10;
     bool maxFinalizedBlockNumberValid = 11;
+
+    // Latest blocks
+    repeated BlockProto latestBlocks = 12;
+}
+
+message BlockProto {
+    int64 num = 1;
+    bytes hash = 2;
+    uint64 ts = 3;
 }

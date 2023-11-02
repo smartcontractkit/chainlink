@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
@@ -19,16 +20,24 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
+// MaxAllowedBlocks indicates the maximum len of LatestBlocks in any given observation.
+// observations that violate this will be discarded
+const MaxAllowedBlocks = 10
+
 // Mercury-specific reporting plugin, based off of median:
 // https://github.com/smartcontractkit/offchain-reporting/blob/master/lib/offchainreporting2/reportingplugin/median/median.go
 
 type Observation struct {
-	BenchmarkPrice        mercury.ObsResult[*big.Int]
-	Bid                   mercury.ObsResult[*big.Int]
-	Ask                   mercury.ObsResult[*big.Int]
+	BenchmarkPrice mercury.ObsResult[*big.Int]
+	Bid            mercury.ObsResult[*big.Int]
+	Ask            mercury.ObsResult[*big.Int]
+
 	CurrentBlockNum       mercury.ObsResult[int64]
 	CurrentBlockHash      mercury.ObsResult[[]byte]
 	CurrentBlockTimestamp mercury.ObsResult[uint64]
+
+	LatestBlocks []Block
+
 	// MaxFinalizedBlockNumber comes from previous report when present and is
 	// only observed from mercury server when previous report is nil
 	MaxFinalizedBlockNumber mercury.ObsResult[int64]
@@ -72,7 +81,7 @@ const maxObservationLength = 4 + // timestamp
 	8 + // maxFinalizedBlockNumber
 	1 + // maxFinalizedBlockNumberValid
 	32 + // [> overapprox. of protobuf overhead <]
-	10*(8+ // num
+	MaxAllowedBlocks*(8+ // num
 		32+ // hash
 		8+ // ts
 		32) // [> overapprox. of protobuf overhead <]
@@ -252,7 +261,47 @@ func parseAttributedObservation(ao ocrtypes.AttributedObservation) (PAO, error) 
 		pao.PricesValid = true
 	}
 
-	if obs.CurrentBlockValid {
+	if len(obs.LatestBlocks) > 0 {
+		if len(obs.LatestBlocks) > MaxAllowedBlocks {
+			return parsedAttributedObservation{}, pkgerrors.Errorf("LatestBlocks too large; got: %d, max: %d", len(obs.LatestBlocks), MaxAllowedBlocks)
+		}
+		for _, b := range obs.LatestBlocks {
+			pao.LatestBlocks = append(pao.LatestBlocks, NewBlock(b.Num, b.Hash, b.Ts))
+
+			// Ignore observation if it has duplicate blocks by number or hash
+			// for security to avoid the case where one node can "throw" block
+			// numbers by including a bunch of duplicates
+			nums := make(map[int64]struct{}, len(pao.LatestBlocks))
+			hashes := make(map[string]struct{}, len(pao.LatestBlocks))
+			for _, block := range pao.LatestBlocks {
+				if _, exists := nums[block.Num]; exists {
+					return parsedAttributedObservation{}, pkgerrors.Errorf("observation invalid for observer %d; got duplicate block number: %d", ao.Observer, block.Num)
+				}
+				if _, exists := hashes[block.Hash]; exists {
+					return parsedAttributedObservation{}, pkgerrors.Errorf("observation invalid for observer %d; got duplicate block hash: 0x%x", ao.Observer, block.HashBytes())
+				}
+				nums[block.Num] = struct{}{}
+				hashes[block.Hash] = struct{}{}
+
+				if len(block.Hash) != mercury.EvmHashLen {
+					return parsedAttributedObservation{}, pkgerrors.Errorf("wrong len for hash: %d (expected: %d)", len(block.Hash), mercury.EvmHashLen)
+				}
+				if block.Num < 0 {
+					return parsedAttributedObservation{}, pkgerrors.Errorf("negative block number: %d", block.Num)
+				}
+			}
+
+			// sort desc
+			sort.SliceStable(pao.LatestBlocks, func(i, j int) bool {
+				// NOTE: This ought to be redundant since observing nodes
+				// should give us the blocks pre-sorted, but is included here
+				// for safety
+				return pao.LatestBlocks[j].less(pao.LatestBlocks[i])
+			})
+		}
+	} else if obs.CurrentBlockValid {
+		// DEPRECATED
+		// TODO: Remove this handling after deployment (https://smartcontract-it.atlassian.net/browse/MERC-2272)
 		if len(obs.CurrentBlockHash) != mercury.EvmHashLen {
 			return parsedAttributedObservation{}, pkgerrors.Errorf("wrong len for hash: %d (expected: %d)", len(obs.CurrentBlockHash), mercury.EvmHashLen)
 		}
@@ -368,7 +417,7 @@ func (rp *reportingPlugin) buildReportFields(previousReport types.Report, paos [
 	rf.Ask, err = mercury.GetConsensusAsk(convertAsk(paos), rp.f)
 	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusAsk failed"))
 
-	rf.CurrentBlockHash, rf.CurrentBlockNum, rf.CurrentBlockTimestamp, err = GetConsensusCurrentBlock(paos, rp.f)
+	rf.CurrentBlockHash, rf.CurrentBlockNum, rf.CurrentBlockTimestamp, err = GetConsensusLatestBlock(paos, rp.f)
 	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusCurrentBlock failed"))
 
 	return rf, merr
