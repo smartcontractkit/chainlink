@@ -11,20 +11,19 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 /// @title The UpkeepBalanceMonitor contract.
 /// @notice A keeper-compatible contract that monitors and funds Chainlink Automation upkeeps.
 contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
-  LinkTokenInterface public LINK_TOKEN;
-  IKeeperRegistryMaster public REGISTRY;
+  LinkTokenInterface public immutable LINK_TOKEN;
 
   uint256 private constant MIN_GAS_FOR_TRANSFER = 55_000;
-  bytes4 private fundSig = REGISTRY.addFunds.selector;
+  bytes4 private fundSig = s_registry.addFunds.selector;
 
   event FundsAdded(uint256 amountAdded, uint256 newBalance, address sender);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
-  event TopUpSucceeded(uint256 indexed upkeepId);
-  event TopUpFailed(uint256 indexed upkeepId);
-  event KeeperRegistryAddressUpdated(address oldAddress, address newAddress);
+  event KeeperRegistryAddressUpdated(IKeeperRegistryMaster oldAddress, IKeeperRegistryMaster newAddress);
   event LinkTokenAddressUpdated(address oldAddress, address newAddress);
   event MinWaitPeriodUpdated(uint256 oldMinWaitPeriod, uint256 newMinWaitPeriod);
   event OutOfGas(uint256 lastId);
+  event TopUpFailed(uint256 indexed upkeepId);
+  event TopUpSucceeded(uint256 indexed upkeepId);
 
   error DuplicateSubcriptionId(uint256 duplicate);
   error InvalidKeeperRegistryVersion();
@@ -38,7 +37,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     uint56 lastTopUpTimestamp;
   }
 
-  address private s_keeperRegistryAddress; // the address of the keeper registry
+  IKeeperRegistryMaster private s_registry;
   uint256 private s_minWaitPeriodSeconds; // minimum time to wait between top-ups
   uint256[] private s_watchList; // the watchlist on which subscriptions are stored
   mapping(uint256 => Target) private s_targets;
@@ -48,20 +47,17 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @param minWaitPeriodSeconds the minimum wait period for addresses between funding
   constructor(
     address linkTokenAddress,
-    address keeperRegistryAddress,
+    IKeeperRegistryMaster keeperRegistryAddress,
     uint256 minWaitPeriodSeconds
   ) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0));
-    LINK_TOKEN = LinkTokenInterface(linkTokenAddress);
-    setKeeperRegistryAddress(keeperRegistryAddress); // 0xE16Df59B887e3Caa439E0b29B42bA2e7976FD8b2
-    setMinWaitPeriodSeconds(minWaitPeriodSeconds); //0
-    LINK_TOKEN.approve(keeperRegistryAddress, type(uint256).max);
-    if (
-      keccak256(bytes(ITypeAndVersion(keeperRegistryAddress).typeAndVersion())) !=
-      keccak256(bytes("KeeperRegistry 2.1.0"))
-    ) {
+    if (keccak256(bytes(keeperRegistryAddress.typeAndVersion())) != keccak256(bytes("KeeperRegistry 2.1.0"))) {
       revert InvalidKeeperRegistryVersion();
     }
+    LINK_TOKEN = LinkTokenInterface(linkTokenAddress);
+    setKeeperRegistryAddress(keeperRegistryAddress);
+    setMinWaitPeriodSeconds(minWaitPeriodSeconds);
+    LinkTokenInterface(linkTokenAddress).approve(address(keeperRegistryAddress), type(uint256).max);
   }
 
   /// @notice Sets the list of upkeeps to watch and their funding parameters.
@@ -109,8 +105,8 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
 
     for (uint256 idx = 0; idx < watchList.length; idx++) {
       target = s_targets[watchList[idx]];
-      uint96 upkeepBalance = REGISTRY.getBalance(watchList[idx]);
-      uint96 minUpkeepBalance = REGISTRY.getMinBalance(watchList[idx]);
+      uint96 upkeepBalance = s_registry.getBalance(watchList[idx]);
+      uint96 minUpkeepBalance = s_registry.getMinBalance(watchList[idx]);
       uint96 minBalanceWithBuffer = getBalanceWithBuffer(minUpkeepBalance);
       if (
         target.lastTopUpTimestamp + minWaitPeriod <= block.timestamp &&
@@ -140,8 +136,8 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     Target memory target;
     for (uint256 idx = 0; idx < needsFunding.length; idx++) {
       target = s_targets[needsFunding[idx]];
-      uint96 upkeepBalance = REGISTRY.getBalance(needsFunding[idx]);
-      uint96 minUpkeepBalance = REGISTRY.getMinBalanceForUpkeep(needsFunding[idx]);
+      uint96 upkeepBalance = s_registry.getBalance(needsFunding[idx]);
+      uint96 minUpkeepBalance = s_registry.getMinBalanceForUpkeep(needsFunding[idx]);
       uint96 minBalanceWithBuffer = getBalanceWithBuffer(minUpkeepBalance);
       if (
         target.isActive &&
@@ -151,7 +147,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
           upkeepBalance < minBalanceWithBuffer) &&
         contractBalance >= target.topUpAmountJuels
       ) {
-        REGISTRY.addFunds(needsFunding[idx], target.topUpAmountJuels);
+        s_registry.addFunds(needsFunding[idx], target.topUpAmountJuels);
         s_targets[needsFunding[idx]].lastTopUpTimestamp = uint56(block.timestamp);
         contractBalance -= target.topUpAmountJuels;
         emit TopUpSucceeded(needsFunding[idx]);
@@ -177,7 +173,8 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @notice Called by the keeper to send funds to underfunded addresses.
   /// @param performData the abi encoded list of addresses to fund
   function performUpkeep(bytes calldata performData) external whenNotPaused {
-    if (msg.sender != s_keeperRegistryAddress) revert OnlyKeeperRegistry();
+    // if (msg.sender != address(s_registry)) revert OnlyKeeperRegistry();
+    // TODO - forwarder contract
     uint256[] memory needsFunding = abi.decode(performData, (uint256[]));
     topUp(needsFunding);
   }
@@ -185,24 +182,23 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @notice Withdraws the contract balance in LINK.
   /// @param amount the amount of LINK (in juels) to withdraw
   /// @param payee the address to pay
-  function withdraw(uint256 amount, address payable payee) external onlyOwner {
+  function withdraw(uint256 amount, address payee) external onlyOwner {
     require(payee != address(0));
-    emit FundsWithdrawn(amount, payee);
     LINK_TOKEN.transfer(payee, amount);
+    emit FundsWithdrawn(amount, payee);
   }
 
   /// @notice Sets the keeper registry address.
-  function setKeeperRegistryAddress(address keeperRegistryAddress) public onlyOwner {
-    require(keeperRegistryAddress != address(0));
-    emit KeeperRegistryAddressUpdated(s_keeperRegistryAddress, keeperRegistryAddress);
-    s_keeperRegistryAddress = keeperRegistryAddress;
-    REGISTRY = IKeeperRegistryMaster(keeperRegistryAddress);
+  function setKeeperRegistryAddress(IKeeperRegistryMaster keeperRegistryAddress) public onlyOwner {
+    require(address(keeperRegistryAddress) != address(0));
+    s_registry = keeperRegistryAddress;
+    emit KeeperRegistryAddressUpdated(s_registry, keeperRegistryAddress);
   }
 
   /// @notice Sets the minimum wait period (in seconds) for upkeep ids between funding.
   function setMinWaitPeriodSeconds(uint256 period) public onlyOwner {
-    emit MinWaitPeriodUpdated(s_minWaitPeriodSeconds, period);
     s_minWaitPeriodSeconds = period;
+    emit MinWaitPeriodUpdated(s_minWaitPeriodSeconds, period);
   }
 
   /// @notice Gets configuration information for a upkeep on the watchlist.
@@ -215,7 +211,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
 
   /// @notice Gets the keeper registry address
   function getKeeperRegistryAddress() external view returns (address) {
-    return s_keeperRegistryAddress;
+    return address(s_registry);
   }
 
   /// @notice Gets the minimum wait period (in seconds) for upkeep ids between funding.
