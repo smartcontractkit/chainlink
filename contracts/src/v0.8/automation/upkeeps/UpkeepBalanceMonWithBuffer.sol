@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 /// @title The UpkeepBalanceMonitor contract.
 /// @notice A keeper-compatible contract that monitors and funds Chainlink Automation upkeeps.
 contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
-  LinkTokenInterface public LINKTOKEN;
+  LinkTokenInterface public LINK_TOKEN;
   IKeeperRegistryMaster public REGISTRY;
 
   uint256 private constant MIN_GAS_FOR_TRANSFER = 55_000;
@@ -38,10 +38,10 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     uint56 lastTopUpTimestamp;
   }
 
-  address public s_keeperRegistryAddress; // the address of the keeper registry
-  uint256 public s_minWaitPeriodSeconds; // minimum time to wait between top-ups
-  uint256[] public s_watchList; // the watchlist on which subscriptions are stored
-  mapping(uint256 => Target) internal s_targets;
+  address private s_keeperRegistryAddress; // the address of the keeper registry
+  uint256 private s_minWaitPeriodSeconds; // minimum time to wait between top-ups
+  uint256[] private s_watchList; // the watchlist on which subscriptions are stored
+  mapping(uint256 => Target) private s_targets;
 
   /// @param linkTokenAddress the Link token address
   /// @param keeperRegistryAddress the address of the keeper registry contract
@@ -52,10 +52,10 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     uint256 minWaitPeriodSeconds
   ) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0));
-    LINKTOKEN = LinkTokenInterface(linkTokenAddress);
+    LINK_TOKEN = LinkTokenInterface(linkTokenAddress);
     setKeeperRegistryAddress(keeperRegistryAddress); // 0xE16Df59B887e3Caa439E0b29B42bA2e7976FD8b2
     setMinWaitPeriodSeconds(minWaitPeriodSeconds); //0
-    LINKTOKEN.approve(keeperRegistryAddress, type(uint256).max);
+    LINK_TOKEN.approve(keeperRegistryAddress, type(uint256).max);
     if (
       keccak256(bytes(ITypeAndVersion(keeperRegistryAddress).typeAndVersion())) !=
       keccak256(bytes("KeeperRegistry 2.1.0"))
@@ -104,7 +104,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     uint256[] memory needsFunding = new uint256[](watchList.length);
     uint256 count = 0;
     uint256 minWaitPeriod = s_minWaitPeriodSeconds;
-    uint256 contractBalance = LINKTOKEN.balanceOf(address(this));
+    uint256 contractBalance = LINK_TOKEN.balanceOf(address(this));
     Target memory target;
 
     for (uint256 idx = 0; idx < watchList.length; idx++) {
@@ -136,7 +136,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @param needsFunding the list of upkeeps to fund
   function topUp(uint256[] memory needsFunding) public whenNotPaused {
     uint256 minWaitPeriodSeconds = s_minWaitPeriodSeconds;
-    uint256 contractBalance = LINKTOKEN.balanceOf(address(this));
+    uint256 contractBalance = LINK_TOKEN.balanceOf(address(this));
     Target memory target;
     for (uint256 idx = 0; idx < needsFunding.length; idx++) {
       target = s_targets[needsFunding[idx]];
@@ -188,7 +188,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   function withdraw(uint256 amount, address payable payee) external onlyOwner {
     require(payee != address(0));
     emit FundsWithdrawn(amount, payee);
-    LINKTOKEN.transfer(payee, amount);
+    LINK_TOKEN.transfer(payee, amount);
   }
 
   /// @notice Sets the keeper registry address.
@@ -218,6 +218,11 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     return s_keeperRegistryAddress;
   }
 
+  /// @notice Gets the minimum wait period (in seconds) for upkeep ids between funding.
+  function getMinWaitPeriodSeconds() external view returns (uint256) {
+    return s_minWaitPeriodSeconds;
+  }
+
   /// @notice Gets the list of upkeeps ids being watched.
   function getWatchList() external view returns (uint256[] memory) {
     return s_watchList;
@@ -235,7 +240,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
 
   /// @notice Called to add buffer to minimum balance of upkeeps
   /// @param num the current minimum balance
-  function getBalanceWithBuffer(uint96 num) internal pure returns (uint96) {
+  function getBalanceWithBuffer(uint96 num) private pure returns (uint96) {
     uint96 buffer = 20;
     uint96 result = uint96((uint256(num) * (100 + buffer)) / 100); // convert to uint256 to prevent overflow
     return result;
