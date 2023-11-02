@@ -88,16 +88,6 @@ func (o *FakeOffRamp) GetSupportedTokens(opts *bind.CallOpts) ([]common.Address,
 	})
 }
 
-func (o *FakeOffRamp) GetDestinationToken(opts *bind.CallOpts, sourceToken common.Address) (common.Address, error) {
-	return getOffRampVal(o, func(o *FakeOffRamp) (common.Address, error) {
-		addr, exists := o.sourceToDestTokens[sourceToken]
-		if !exists {
-			return common.Address{}, errors.New("token does not exist")
-		}
-		return addr, nil
-	})
-}
-
 func (o *FakeOffRamp) GetDestinationTokens(opts *bind.CallOpts) ([]common.Address, error) {
 	return getOffRampVal(o, func(o *FakeOffRamp) ([]common.Address, error) {
 		tokens := make([]common.Address, 0, len(o.sourceToDestTokens))
