@@ -541,7 +541,7 @@ func OffChainAggregatorV2ConfigWithNodes(numberNodes int, inflightExpiry time.Du
 	}
 	faultyNodes := 0
 	if numberNodes > 1 {
-		faultyNodes = numberNodes / 3
+		faultyNodes = (numberNodes - 1) / 3
 	}
 	if faultyNodes == 0 {
 		faultyNodes = 1

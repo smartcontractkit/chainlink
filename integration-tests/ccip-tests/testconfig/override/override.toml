@@ -1,116 +1,24 @@
 [CCIP]
-
 [CCIP.Env]
-Networks = ['AVALANCHE_FUJI', 'OPTIMISM_GOERLI']
-
-[CCIP.Deployments]
-Data = """
-{
-  "lane_configs": {
-    "Arbitrum Goerli": {
-      "is_mock_arm": true,
-      "fee_token": "0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28",
-      "bridge_tokens": [
-        "0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28",
-        "0xfd064A18f3BF249cf1f87FC203E90D8f650f2d63"
-      ],
-      "bridge_tokens_pools": [
-        "0xC274570C956B840b71eDe9771e2d3B7Ad1A8C164",
-        "0xA2A7E89A684784dd73e80bdCF2F2368Ef7C7A690"
-      ],
-      "arm": "0xa763a65f7697be1d9a890c2ad006386ad0a16fcb",
-      "router": "0x2798d664bad9dd2ec6588447715664857b7a8743",
-      "price_registry": "0xaa0090ab7944648c7d3a950f714b6acd3338774b",
-      "wrapped_native": "0x32d5D5978905d9c6c2D4C417F0E06Fe768a4FB5a",
-      "src_contracts": {
-        "Avalanche Fuji": {
-          "on_ramp": "0x5922E1b06FaB45BB31a4AB8b8922a9b9763A2795",
-          "deployed_at": 48392911
-        }
-      },
-      "dest_contracts": {
-        "Avalanche Fuji": {
-          "off_ramp": "0x1D3e13D896031Aed6C047A96C9879a05DA5F5913",
-          "commit_store": "0x701ccF1c98Bd3284649Dc6cf08c69410d90c8590",
-          "receiver_dapp": "0x8Ed27Ab67aea9BC50628fba25ab52D23ae8d0eae"
-        }
-      }
-    },
-    "Avalanche Fuji": {
-      "is_mock_arm": true,
-      "fee_token": "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846",
-      "bridge_tokens": [
-        "0x2Ca7afAC86D0b28d9f7e512b969cEaD9E3048303",
-        "0x4e51e0a8a5e31Acb0a0B5EB9E5301a21DeBFAbbe",
-        "0x14f7b60b3234aCF3321198fE6d9792dE130a502c",
-        "0x5425890298aed601595a70AB815c96711a31Bc65",
-        "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
-      ],
-      "bridge_tokens_pools": [
-        "0xd8D45Dd3278c62214160Db39AfbC709a1a758764",
-        "0x00D857FA8603968A41D8f61684A565021aA3D4A4",
-        "0x45227357466953b84338Dc9Df4841a37BEE43a23",
-        "0x2dec3577e37336cd57C40E207C74A3189aCc839d",
-        "0x30d1594322EbBA3b6Bf78239F72a857A39c897dD"
-      ],
-      "arm": "0xD4A51dC0F5C680A8A18eA4Ec3A2f25C6db9424B7",
-      "router": "0xFAf82271A26e85A12f447Dc535a7e516b0657401",
-      "price_registry": "0xdbeA1a10AC6a2B729bF128aE9281Ed420dbE7113",
-      "wrapped_native": "0xd00ae08403B9bbb9124bB305C09058E32C39A48c",
-      "src_contracts": {
-        "Optimism Goerli": {
-          "on_ramp": "0xa27054c76f64335f5a583a797aecf35d5ce3da79",
-          "deployed_at": 27066483
-        }
-      },
-      "dest_contracts": {
-        "Optimism Goerli": {
-          "off_ramp": "0xc7e336c9db98dce3c3bc99ce87498ee646b7e37c",
-          "commit_store": "0x52a927ed15fced4bf0875b26c2add12ded868910",
-          "receiver_dapp": "0x8Ed27Ab67aea9BC50628fba25ab52D23ae8d0eae"
-        }
-      }
-    },
-    "Optimism Goerli": {
-      "is_mock_arm": true,
-      "fee_token": "0xdc2CC710e42857672E7907CF474a69B63B93089f",
-      "bridge_tokens": [
-        "0xdc2CC710e42857672E7907CF474a69B63B93089f",
-        "0xe05606174bac4A6364B31bd0eCA4bf4dD368f8C6"
-      ],
-      "bridge_tokens_pools": [
-        "0x7d3baccb582f1F40DD366f47bb70d495bFA71100",
-        "0xb4A7854bA68FfB9bfDd84b80691b36a3bC28A4a7"
-      ],
-      "arm": "0xC1b9bcdC6bE9f4D6224672F18fC46ff330F487e1",
-      "router": "0xa9ec8d47df64003367a1fc3ae2a0f28858438370",
-      "price_registry": "0x89143a4AC2aB3472b41687FDd7A58efFbA3461DA",
-      "wrapped_native": "0x4200000000000000000000000000000000000006",
-      "src_contracts": {
-        "Avalanche Fuji": {
-          "on_ramp": "0xf6c909ee2a3a24665abe30fc2e00d22279c5ab4f",
-          "deployed_at": 16360032
-        }
-      },
-      "dest_contracts": {
-        "Avalanche Fuji": {
-          "off_ramp": "0x1c5caecdbcc88c02d11fc47737e214aa22f1aadd",
-          "commit_store": "0xbebc239a4ede352f97cf61ddb1aa46a1bf0d0de4",
-          "receiver_dapp": "0x8Ed27Ab67aea9BC50628fba25ab52D23ae8d0eae"
-        }
-      }
-    }
-  }
-}
-"""
+[CCIP.Env.Chainlink]
+NoOfNodes = 16
+NodeMemory = '8Gi'
+NodeCPU = '4'
+DBMemory = '6Gi'
+DBCPU = '2'
+DBCapacity = '10Gi'
+IsStateful = true
+DBArgs = ['shared_buffers=1536MB', 'effective_cache_size=4096MB', 'work_mem=64MB']
 
 [CCIP.Groups]
-[CCIP.Groups.smoke]
-MsgType = 'WithToken'
+[CCIP.Groups.load]
+KeepEnvAlive = true
+NumberOfCommitNodes = 16
+MsgType = 'WithoutToken'
 PhaseTimeout = '50m'
-LocalCluster = false
-ExistingDeployment = true
-ReuseContracts = true
-NoOfTokensPerChain = 2
-NoOfTokensInMsg = 2
-AmountPerToken = 1
+TestDuration = '1h'
+NodeFunding = 1000.0
+RequestPerUnitTime = [1]
+TimeUnit = '10s'
+NoOfRoutersPerPair = 2
+NoOfNetworks = 10

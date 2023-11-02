@@ -627,19 +627,6 @@ func CCIPDefaultTestSetUp(
 		JobAddGrp:      &errgroup.Group{},
 		laneMutex:      &sync.Mutex{},
 	}
-	_, err = os.Stat(setUpArgs.LaneConfigFile)
-	if err == nil {
-		// remove the existing lane config file
-		err = os.Remove(setUpArgs.LaneConfigFile)
-		require.NoError(t, err, "error while removing existing lane config file - %s", setUpArgs.LaneConfigFile)
-	}
-
-	setUpArgs.LaneConfig, err = laneconfig.ReadLanesFromExistingDeployment(setUpArgs.Cfg.ContractsInput.ContractsData())
-	require.NoError(t, err)
-
-	if setUpArgs.LaneConfig == nil {
-		setUpArgs.LaneConfig = &laneconfig.Lanes{LaneConfigs: make(map[string]*laneconfig.LaneConfig)}
-	}
 
 	parent, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -654,6 +641,13 @@ func CCIPDefaultTestSetUp(
 	if inputs.EnvInput.TTL != nil {
 		envConfig.TTL = inputs.EnvInput.TTL.Duration()
 	}
+	if inputs.TestGroupInput.TestDuration != nil {
+		approxDur := inputs.TestGroupInput.TestDuration.Duration() + 3*time.Hour
+		if envConfig.TTL < approxDur {
+			envConfig.TTL = approxDur
+		}
+	}
+
 	if configureCLNode {
 		if pointer.GetBool(inputs.TestGroupInput.LocalCluster) {
 			local, deployCL = DeployLocalCluster(t, inputs)
@@ -661,21 +655,7 @@ func CCIPDefaultTestSetUp(
 				LocalCluster: local,
 			}
 		} else {
-			envConfig := &environment.Config{
-				NamespacePrefix: envName,
-				Test:            t,
-			}
-			if inputs.EnvInput.TTL != nil {
-				envConfig.TTL = inputs.EnvInput.TTL.Duration()
-			}
-
-			if inputs.TestGroupInput.TestDuration != nil {
-				approxDur := inputs.TestGroupInput.TestDuration.Duration() + 1*time.Hour
-				if envConfig.TTL < approxDur {
-					envConfig.TTL = approxDur
-				}
-			}
-
+			lggr.Info().Msg("Deploying test environment")
 			// deploy the env if configureCLNode is true
 			k8Env = DeployEnvironments(t, envConfig, inputs)
 			ccipEnv = &actions.CCIPTestEnv{K8Env: k8Env}
@@ -697,6 +677,20 @@ func CCIPDefaultTestSetUp(
 				return setUpArgs
 			}
 		}
+	}
+
+	_, err = os.Stat(setUpArgs.LaneConfigFile)
+	if err == nil {
+		// remove the existing lane config file
+		err = os.Remove(setUpArgs.LaneConfigFile)
+		require.NoError(t, err, "error while removing existing lane config file - %s", setUpArgs.LaneConfigFile)
+	}
+
+	setUpArgs.LaneConfig, err = laneconfig.ReadLanesFromExistingDeployment(setUpArgs.Cfg.ContractsInput.ContractsData())
+	require.NoError(t, err)
+
+	if setUpArgs.LaneConfig == nil {
+		setUpArgs.LaneConfig = &laneconfig.Lanes{LaneConfigs: make(map[string]*laneconfig.LaneConfig)}
 	}
 
 	chainByChainID := make(map[int64]blockchain.EVMClient)

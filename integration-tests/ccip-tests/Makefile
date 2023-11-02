@@ -7,7 +7,7 @@ override_config:
 	cd ../..
 
 
-# example usage: make test_load_ccip_simulated_k8 image=chainlink-ccip tag=latest testimage=chainlink-ccip-tests:latest testname=TestLoadCCIPStableRequestTriggeringWithNetworkChaos
+# example usage: make test_load_ccip image=chainlink-ccip tag=latest testimage=chainlink-ccip-tests:latest testname=TestLoadCCIPStableRequestTriggeringWithNetworkChaos
 .PHONY: test_load_ccip
 include test-config.env
 test_load_ccip: override_config
@@ -22,8 +22,6 @@ test_load_ccip: override_config
 
 
 # example usage: make test_smoke_ccip image=chainlink-ccip tag=latest testimage=chainlink-ccip-tests:latest testname=TestSmokeCCIPForBidirectionalLane override_toml=../config/config.toml env=test-config.env
-# To run the test in besu simulated network, use the following command:
-# example usage: make test_smoke_ccip image=chainlink-ccip tag=latest testimage="" testname=TestSmokeCCIPForBidirectionalLane override_toml="" env=test-config.env
 .PHONY: test_smoke_ccip
 include test-config.env
 test_smoke_ccip: override_config
@@ -34,6 +32,21 @@ test_smoke_ccip: override_config
     TEST_SUITE=smoke \
     TEST_ARGS="-test.timeout 900h" \
     DETACH_RUNNER=true \
+	go test -timeout 24h -count=1 -v -run ^$(testname)$$ ./smoke
+
+# run ccip smoke tests with default config; explicitly sets the override config to empty
+# example usage: make test_smoke_ccip_default image=chainlink-ccip tag=latest testname=TestSmokeCCIPForBidirectionalLane
+.PHONY: test_smoke_ccip_default
+include test-config.env
+test_smoke_ccip_default:
+	BASE64_TEST_CONFIG_OVERRIDE=""	\
+	TEST_BASE64_TEST_CONFIG_OVERRIDE=""	\
+	CHAINLINK_IMAGE=$(image)  \
+	CHAINLINK_VERSION=$(tag)  \
+	ENV_JOB_IMAGE=""  \
+	TEST_SUITE=smoke \
+	TEST_ARGS="-test.timeout 900h" \
+	DETACH_RUNNER=true \
 	go test -timeout 24h -count=1 -v -run ^$(testname)$$ ./smoke
 
 

@@ -88,7 +88,7 @@ func NewConfig() (*Config, error) {
 	if override != nil {
 		// apply overrides for all products
 		if override.CCIP != nil {
-			log.Debug().Interface("override", override).Msg("Applying overrides for CCIP")
+			log.Info().Interface("override", override).Msg("Applying overrides for CCIP")
 			if cfg.CCIP == nil {
 				cfg.CCIP = override.CCIP
 			} else {

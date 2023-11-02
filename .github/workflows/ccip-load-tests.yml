@@ -126,7 +126,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ${{ inputs.networks }} CCIP Load Test
+          this-job-name: CCIP Load Test
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
@@ -135,7 +135,7 @@ jobs:
       - name: Sets env vars
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" != "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "BASE64_TEST_CONFIG_OVERRIDE= ${{ inputs.base64_test_input }}" >> $GITHUB_ENV
             echo "TEST_BASE64_TEST_CONFIG_OVERRIDE= ${{ inputs.base64_test_input }}" >> $GITHUB_ENV
           fi
@@ -166,6 +166,7 @@ jobs:
           TEST_LOKI_URL: ${{ secrets.TEST_LOKI_URL }}
           RR_MEM: 8Gi
           RR_CPU: 4
+          TEST_TRIGGERED_BY: ccip-load-test-ci
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests/ccip-tests && go test -v -timeout 900h -count=1 -json -run ^TestLoadCCIPStableRPS$ ./load  2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -176,7 +177,9 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
           artifacts_location: ./integration-tests/load/logs/payload_ccip.json
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           cache_key_id: ccip-load-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
+          should_cleanup: "true"

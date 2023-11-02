@@ -61,6 +61,8 @@ You can use the following command to run the tests locally with your specific ch
 ```bash
 # mark the testimage as empty for running the tests in local docker containers
 make test_smoke_ccip image=chainlink-ccip tag=latest-dev testimage="" testname=TestSmokeCCIPForBidirectionalLane override_toml="<the toml file with overridden config string>" env="<.env file with BASE64_TEST_CONFIG_OVERRIDE value>"
+# to run the tests with default test inputs
+make test_smoke_ccip_default image=chainlink-ccip tag=latest testname=TestSmokeCCIPForBidirectionalLane
 ```
 Currently other types of tests like load and chaos can only be run using remote kubernetes cluster.
 
