@@ -79,7 +79,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	txm := txmmocks.NewMockEvmTxManager(t)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 	jrm := job.NewORM(db, prm, btORM, ks, lggr, cfg.Database())
-	t.Cleanup(func() { jrm.Close() })
+	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
