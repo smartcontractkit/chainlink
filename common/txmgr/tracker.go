@@ -129,6 +129,7 @@ func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) finali
 	ctx context.Context, atx AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 	switch atx.tx.State {
 	case TxConfirmed, TxConfirmedMissingReceipt, TxFatalError:
+		// TODO: Query db again to see if this was updated?
 		return true
 	case TxInProgress:
 		if time.Now().After(atx.fatalTime) {

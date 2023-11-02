@@ -167,7 +167,7 @@ func NewConfirmer[
 		lggr:             lggr,
 		client:           client,
 		TxAttemptBuilder: txAttemptBuilder,
-		tracker: NewTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](
+		abandonedTracker: NewTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](
 			&txStore, lggr),
 		resumeCallback: nil,
 		chainConfig:    chainConfig,
