@@ -83,10 +83,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
       if (s_targets[upkeepIDs[idx]].isActive) {
         revert DuplicateSubcriptionId(upkeepIDs[idx]);
       }
-      if (upkeepIDs[idx] == 0) {
-        revert InvalidWatchList();
-      }
-      if (topUpAmountsJuels[idx] <= minBalancesJuels[idx]) {
+      if (upkeepIDs[idx] == 0 || topUpAmountsJuels[idx] == 0) {
         revert InvalidWatchList();
       }
       s_targets[upkeepIDs[idx]] = Target({
@@ -110,13 +107,11 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     uint256 minWaitPeriod = s_minWaitPeriodSeconds;
     uint256 contractBalance = LINKTOKEN.balanceOf(address(this));
     Target memory target;
+
     for (uint256 idx = 0; idx < watchList.length; idx++) {
       target = s_targets[watchList[idx]];
-      //( , , , uint96 upkeepBalance, , , ,) = REGISTRY.getUpkeep(watchList[idx]); <- for 1.2
-      UpkeepInfo memory upkeepInfo; //2.0
-      upkeepInfo = REGISTRY.getUpkeep(watchList[idx]); //2.0
-      uint96 upkeepBalance = upkeepInfo.balance; //2.0
-      uint96 minUpkeepBalance = REGISTRY.getMinBalanceForUpkeep(watchList[idx]);
+      uint96 balance = REGISTRY.getBalance(watchList[idx]);
+      uint96 minUpkeepBalance = REGISTRY.getMinBalance(watchList[idx]);
       uint96 minBalanceWithBuffer = getBalanceWithBuffer(minUpkeepBalance);
       if (
         target.lastTopUpTimestamp + minWaitPeriod <= block.timestamp &&
@@ -149,9 +144,9 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     for (uint256 idx = 0; idx < needsFunding.length; idx++) {
       target = s_targets[needsFunding[idx]];
       //( , , , uint96 upkeepBalance, , , ,) = REGISTRY.getUpkeep(needsFunding[idx]); <- for 1.2
-      UpkeepInfo memory upkeepInfo; //2.0
-      upkeepInfo = REGISTRY.getUpkeep(needsFunding[idx]); //2.0
-      uint96 upkeepBalance = upkeepInfo.balance; //2.0
+      UpkeepInfo memory upkeepInfo;
+      upkeepInfo = REGISTRY.getUpkeep(needsFunding[idx]);
+      uint96 upkeepBalance = upkeepInfo.balance;
       uint96 minUpkeepBalance = REGISTRY.getMinBalanceForUpkeep(needsFunding[idx]);
       uint96 minBalanceWithBuffer = getBalanceWithBuffer(minUpkeepBalance);
       if (
@@ -192,6 +187,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
    * @param performData the abi encoded list of addresses to fund
    */
   function performUpkeep(bytes calldata performData) external onlyKeeperRegistry whenNotPaused {
+    if (msg.sender != s_keeperRegistryAddress) revert OnlyKeeperRegistry();
     uint256[] memory needsFunding = abi.decode(performData, (uint256[]));
     topUp(needsFunding);
   }
@@ -264,12 +260,5 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     uint96 buffer = 20;
     uint96 result = uint96((uint256(num) * (100 + buffer)) / 100); // convert to uint256 to prevent overflow
     return result;
-  }
-
-  modifier onlyKeeperRegistry() {
-    if (msg.sender != s_keeperRegistryAddress) {
-      revert OnlyKeeperRegistry();
-    }
-    _;
   }
 }
