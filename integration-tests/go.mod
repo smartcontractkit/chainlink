@@ -23,7 +23,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework v1.18.2
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20231020123319-d255366a6545
-	github.com/smartcontractkit/ocr2keepers v0.7.27
+	github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.0.0.20231101184624-c6059adfa550
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/wasp v0.3.0
