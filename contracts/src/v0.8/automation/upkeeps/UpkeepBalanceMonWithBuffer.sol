@@ -11,10 +11,8 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 /// @title The UpkeepBalanceMonitor contract.
 /// @notice A keeper-compatible contract that monitors and funds Chainlink Automation upkeeps.
 contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
-  LinkTokenInterface public immutable LINK_TOKEN;
-
   uint256 private constant MIN_GAS_FOR_TRANSFER = 55_000;
-  bytes4 private fundSig = s_registry.addFunds.selector;
+  LinkTokenInterface public immutable LINK_TOKEN;
 
   event FundsAdded(uint256 amountAdded, uint256 newBalance, address sender);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
@@ -96,17 +94,18 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @notice Gets a list of upkeeps that are underfunded.
   /// @return list of upkeeps that are underfunded
   function getUnderfundedUpkeeps() public view returns (uint256[] memory) {
-    uint256[] memory watchList = s_watchList;
-    uint256[] memory needsFunding = new uint256[](watchList.length);
+    uint256 numUpkeeps = s_watchList.length;
+    uint256[] memory needsFunding = new uint256[](numUpkeeps);
     uint256 count = 0;
     uint256 minWaitPeriod = s_minWaitPeriodSeconds;
     uint256 contractBalance = LINK_TOKEN.balanceOf(address(this));
     Target memory target;
-
-    for (uint256 idx = 0; idx < watchList.length; idx++) {
-      target = s_targets[watchList[idx]];
-      uint96 upkeepBalance = s_registry.getBalance(watchList[idx]);
-      uint96 minUpkeepBalance = s_registry.getMinBalance(watchList[idx]);
+    uint256 upkeepID;
+    for (uint256 idx = 0; idx < numUpkeeps; idx++) {
+      upkeepID = s_watchList[idx];
+      target = s_targets[upkeepID];
+      uint96 upkeepBalance = s_registry.getBalance(upkeepID);
+      uint96 minUpkeepBalance = s_registry.getMinBalance(upkeepID);
       uint96 minBalanceWithBuffer = getBalanceWithBuffer(minUpkeepBalance);
       if (
         target.lastTopUpTimestamp + minWaitPeriod <= block.timestamp &&
@@ -115,12 +114,12 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
           //upkeepBalance < minUpkeepBalance)
           upkeepBalance < minBalanceWithBuffer)
       ) {
-        needsFunding[count] = watchList[idx];
+        needsFunding[count] = upkeepID;
         count++;
         contractBalance -= target.topUpAmountJuels;
       }
     }
-    if (count < watchList.length) {
+    if (count < numUpkeeps) {
       assembly {
         mstore(needsFunding, count)
       }
