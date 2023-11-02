@@ -24,7 +24,7 @@ func (m *mockEndpoint) SendLog(payload []byte) { m.payload = payload }
 
 type mockGenerator struct{}
 
-func (m *mockGenerator) GenMonitoringEndpoint(contractID string, telemetryType synchronization.TelemetryType, network string, chainID string) commontypes.MonitoringEndpoint {
+func (m *mockGenerator) GenMonitoringEndpoint(network string, chainID string, contractID string, telemetryType synchronization.TelemetryType) commontypes.MonitoringEndpoint {
 	return &mockEndpoint{
 		network:       network,
 		chainID:       chainID,
