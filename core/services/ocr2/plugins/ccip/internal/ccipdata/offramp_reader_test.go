@@ -379,4 +379,8 @@ func testOffRampReader(t *testing.T, th offRampReaderTH) {
 	events, err := th.reader.GetExecutionStateChangesBetweenSeqNums(ctx, 0, 10, 0)
 	require.NoError(t, err)
 	require.Equal(t, []ccipdata.Event[ccipdata.ExecutionStateChanged]{}, events)
+
+	destTokens, err := th.reader.GetDestinationTokensFromSourceTokens(ctx, tokens)
+	require.NoError(t, err)
+	require.Empty(t, destTokens)
 }

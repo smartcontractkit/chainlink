@@ -56,9 +56,9 @@ func (o *ObservedOffRampReader) GetPoolByDestToken(ctx context.Context, address 
 	})
 }
 
-func (o *ObservedOffRampReader) GetDestinationToken(ctx context.Context, address common.Address) (common.Address, error) {
-	return withObservedContract(o.metric, "GetDestinationToken", func() (common.Address, error) {
-		return o.OffRampReader.GetDestinationToken(ctx, address)
+func (o *ObservedOffRampReader) GetDestinationTokensFromSourceTokens(ctx context.Context, tokenAddresses []common.Address) ([]common.Address, error) {
+	return withObservedContract(o.metric, "GetDestinationTokensFromSourceTokens", func() ([]common.Address, error) {
+		return o.OffRampReader.GetDestinationTokensFromSourceTokens(ctx, tokenAddresses)
 	})
 }
 

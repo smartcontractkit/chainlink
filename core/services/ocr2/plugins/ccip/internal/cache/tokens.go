@@ -99,26 +99,19 @@ func (t *supportedTokensOrigin) Copy(value map[common.Address]common.Address) ma
 // CallOrigin Generates the source to dest token mapping based on the offRamp.
 // NOTE: this queries the offRamp n+1 times, where n is the number of enabled tokens.
 func (t *supportedTokensOrigin) CallOrigin(ctx context.Context) (map[common.Address]common.Address, error) {
-	srcToDstTokenMapping := make(map[common.Address]common.Address)
 	sourceTokens, err := t.offRamp.GetSupportedTokens(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	seenDestinationTokens := make(map[common.Address]struct{})
+	destTokens, err := t.offRamp.GetDestinationTokensFromSourceTokens(ctx, sourceTokens)
+	if err != nil {
+		return nil, fmt.Errorf("get destination tokens from source tokens: %w", err)
+	}
 
-	for _, sourceToken := range sourceTokens {
-		dst, err1 := t.offRamp.GetDestinationToken(ctx, sourceToken)
-		if err1 != nil {
-			return nil, err1
-		}
-
-		if _, exists := seenDestinationTokens[dst]; exists {
-			return nil, fmt.Errorf("offRamp misconfig, destination token %s already exists", dst)
-		}
-
-		seenDestinationTokens[dst] = struct{}{}
-		srcToDstTokenMapping[sourceToken] = dst
+	srcToDstTokenMapping := make(map[common.Address]common.Address, len(sourceTokens))
+	for i, sourceToken := range sourceTokens {
+		srcToDstTokenMapping[sourceToken] = destTokens[i]
 	}
 	return srcToDstTokenMapping, nil
 }

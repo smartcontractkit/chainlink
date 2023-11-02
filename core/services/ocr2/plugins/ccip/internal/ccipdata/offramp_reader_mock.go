@@ -183,32 +183,6 @@ func (_m *MockOffRampReader) GasPriceEstimator() prices.GasPriceEstimatorExec {
 	return r0
 }
 
-// GetDestinationToken provides a mock function with given fields: ctx, address
-func (_m *MockOffRampReader) GetDestinationToken(ctx context.Context, address common.Address) (common.Address, error) {
-	ret := _m.Called(ctx, address)
-
-	var r0 common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address) (common.Address, error)); ok {
-		return rf(ctx, address)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address) common.Address); ok {
-		r0 = rf(ctx, address)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address) error); ok {
-		r1 = rf(ctx, address)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetDestinationTokens provides a mock function with given fields: ctx
 func (_m *MockOffRampReader) GetDestinationTokens(ctx context.Context) ([]common.Address, error) {
 	ret := _m.Called(ctx)
@@ -228,6 +202,32 @@ func (_m *MockOffRampReader) GetDestinationTokens(ctx context.Context) ([]common
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
 		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetDestinationTokensFromSourceTokens provides a mock function with given fields: ctx, tokenAddresses
+func (_m *MockOffRampReader) GetDestinationTokensFromSourceTokens(ctx context.Context, tokenAddresses []common.Address) ([]common.Address, error) {
+	ret := _m.Called(ctx, tokenAddresses)
+
+	var r0 []common.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) ([]common.Address, error)); ok {
+		return rf(ctx, tokenAddresses)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) []common.Address); ok {
+		r0 = rf(ctx, tokenAddresses)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]common.Address)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []common.Address) error); ok {
+		r1 = rf(ctx, tokenAddresses)
 	} else {
 		r1 = ret.Error(1)
 	}
