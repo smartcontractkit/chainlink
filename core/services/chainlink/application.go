@@ -251,8 +251,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// LocalAdminUsersORM is initialized and required regardless of separate Authentication Provider
-	var localAdminUsersORM sessions.LocalAdminUsersORM
-	localAdminUsersORM = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+	localAdminUsersORM := localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 
 	// Initialize Sessions ORM based on environment configured authenticator
 	// localDB auth or remote LDAP auth

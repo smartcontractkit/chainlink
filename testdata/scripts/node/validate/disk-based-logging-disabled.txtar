@@ -146,7 +146,7 @@ RunUserGroupCN = 'NodeRunners'
 ReadUserGroupCN = 'NodeReadOnly'
 UserApiTokenEnabled = false
 UserAPITokenDuration = '240h0m0s'
-UpstreamSyncRateLimit = '0s'
+UpstreamSyncInterval = '0s'
 UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]

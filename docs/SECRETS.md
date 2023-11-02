@@ -78,7 +78,6 @@ ReadOnlyUserPass = 'password' # Example
 ```
 ReadOnlyUserPass is the password for the above account
 
-
 ## Password
 ```toml
 [Password]

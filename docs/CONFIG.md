@@ -671,7 +671,7 @@ UserAPITokenDuration is the duration of time an API token is active for before e
 ```toml
 UpstreamSyncInterval = '0s' # Default
 ```
-UpstreamSyncInterval is the interval at which the background sync task will be called, in addition to reacting to auth events, validating that all sessions and API tokens stored in the local ldap tables are still valid with the upstream state of the ldap server
+UpstreamSyncInterval is the interval at which the background LDAP sync task will be called. A '0s' value disables the background sync being run on an interval. This check is already performed during login/logout actions, all sessions and API tokens stored in the local ldap tables are updated to match the remote server
 
 ### UpstreamSyncRateLimit
 ```toml

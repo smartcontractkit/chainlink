@@ -211,8 +211,8 @@ func (l *ldapConfig) ServerTLS() bool {
 	return *l.c.ServerTLS
 }
 
-func (r *ldapConfig) SessionTimeout() models.Duration {
-	return *r.c.SessionTimeout
+func (l *ldapConfig) SessionTimeout() models.Duration {
+	return *l.c.SessionTimeout
 }
 
 func (l *ldapConfig) QueryTimeout() time.Duration {
