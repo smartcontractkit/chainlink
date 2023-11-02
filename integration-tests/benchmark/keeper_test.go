@@ -37,6 +37,7 @@ Enabled = true
 
 [P2P]
 [P2P.V2]
+Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]
 [Keeper]
@@ -242,13 +243,13 @@ func repeatRegistries(registryVersion eth_contracts.KeeperRegistryVersion, numbe
 
 var networkConfig = map[string]NetworkConfig{
 	"SimulatedGeth": {
-		upkeepSLA:  int64(20),
+		upkeepSLA:  int64(120), //2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
 	"geth": {
-		upkeepSLA:  int64(20),
+		upkeepSLA:  int64(120), //2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
@@ -286,6 +287,12 @@ var networkConfig = map[string]NetworkConfig{
 	"BaseGoerli": {
 		upkeepSLA:  int64(60),
 		blockTime:  2 * time.Second,
+		deltaStage: 20 * time.Second,
+		funding:    big.NewFloat(ChainlinkNodeFunding),
+	},
+	"ArbitrumSepolia": {
+		upkeepSLA:  int64(120),
+		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
 		funding:    big.NewFloat(ChainlinkNodeFunding),
 	},

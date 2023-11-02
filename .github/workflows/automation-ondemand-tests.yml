@@ -172,7 +172,7 @@ jobs:
             echo "version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
           fi
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         env:
           PYROSCOPE_SERVER: ${{ matrix.tests.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}

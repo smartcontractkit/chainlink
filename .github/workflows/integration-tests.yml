@@ -217,7 +217,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         env:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
@@ -228,6 +228,8 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           artifacts_location: ./integration-tests/smoke/logs/
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -236,7 +238,7 @@ jobs:
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          QA_KUBECONFIG: ""
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -416,7 +418,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         env:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
@@ -427,6 +429,8 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}${{ matrix.product.tag_suffix }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           artifacts_name: ${{ matrix.product.name }}-test-logs
           artifacts_location: ./integration-tests/smoke/logs/
           publish_check_name: ${{ matrix.product.name }}
@@ -436,11 +440,11 @@ jobs:
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          QA_KUBECONFIG: ""
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
@@ -577,7 +581,7 @@ jobs:
         run: |
           echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ github.sha }}'"
       - name: Run Migration Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -822,12 +826,14 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Run Setup
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         with:
           go_mod_path: ./integration-tests/go.mod
           cache_restore_only: true
           cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
@@ -849,7 +855,7 @@ jobs:
           docker rm "$CONTAINER_ID"
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
@@ -862,7 +868,7 @@ jobs:
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          QA_KUBECONFIG: ""
           run_setup: false
       - name: Upload test log
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
@@ -934,7 +940,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       ## Only run OCR smoke test for now
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-ocr-evm-${{ matrix.testnet }} # TODO: Only for OCR for now
@@ -945,6 +951,8 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           artifacts_location: ./integration-tests/smoke/logs
           publish_check_name: ${{ matrix.testnet }} OCR Smoke Test Results
           token: ${{ secrets.GITHUB_TOKEN }}

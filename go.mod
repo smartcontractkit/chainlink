@@ -66,7 +66,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231101160906-7acebcc1b353
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231031114820-e9826d481111
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231101203911-c686b4d48672
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231023133638-72f4e799ab05
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231024133459-1ef3a11319eb
 	github.com/smartcontractkit/libocr v0.0.0-20231020123319-d255366a6545
@@ -97,6 +97,7 @@ require (
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.14.0
 	gonum.org/v1/gonum v0.13.0
+	google.golang.org/grpc v1.58.3
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/guregu/null.v2 v2.1.2
 	gopkg.in/guregu/null.v4 v4.0.0
@@ -364,7 +365,6 @@ require (
 	google.golang.org/genproto v0.0.0-20230717213848-3f92550aa753 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230717213848-3f92550aa753 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230717213848-3f92550aa753 // indirect
-	google.golang.org/grpc v1.58.3 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
