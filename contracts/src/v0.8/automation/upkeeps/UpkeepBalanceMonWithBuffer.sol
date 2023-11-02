@@ -8,17 +8,14 @@ import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-/**
- * @title The UpkeepBalanceMonitor contract.
- * @notice A keeper-compatible contract that monitors and funds Chainlink Automation upkeeps.
- */
+/// @title The UpkeepBalanceMonitor contract.
+/// @notice A keeper-compatible contract that monitors and funds Chainlink Automation upkeeps.
 contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   LinkTokenInterface public LINKTOKEN;
   IKeeperRegistryMaster public REGISTRY;
 
   uint256 private constant MIN_GAS_FOR_TRANSFER = 55_000;
-
-  bytes4 fundSig = REGISTRY.addFunds.selector;
+  bytes4 private fundSig = REGISTRY.addFunds.selector;
 
   event FundsAdded(uint256 amountAdded, uint256 newBalance, address sender);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
@@ -46,11 +43,9 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   uint256[] public s_watchList; // the watchlist on which subscriptions are stored
   mapping(uint256 => Target) internal s_targets;
 
-  /**
-   * @param linkTokenAddress the Link token address
-   * @param keeperRegistryAddress the address of the keeper registry contract
-   * @param minWaitPeriodSeconds the minimum wait period for addresses between funding
-   */
+  /// @param linkTokenAddress the Link token address
+  /// @param keeperRegistryAddress the address of the keeper registry contract
+  /// @param minWaitPeriodSeconds the minimum wait period for addresses between funding
   constructor(
     address linkTokenAddress,
     address keeperRegistryAddress,
@@ -69,12 +64,10 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     }
   }
 
-  /**
-   * @notice Sets the list of upkeeps to watch and their funding parameters.
-   * @param upkeepIDs the list of subscription ids to watch
-   * @param minBalancesJuels the minimum balances for each upkeep
-   * @param topUpAmountsJuels the amount to top up each upkeep
-   */
+  /// @notice Sets the list of upkeeps to watch and their funding parameters.
+  /// @param upkeepIDs the list of subscription ids to watch
+  /// @param minBalancesJuels the minimum balances for each upkeep
+  /// @param topUpAmountsJuels the amount to top up each upkeep
   function setWatchList(
     uint256[] calldata upkeepIDs,
     uint96[] calldata minBalancesJuels,
@@ -104,10 +97,8 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     s_watchList = upkeepIDs;
   }
 
-  /**
-   * @notice Gets a list of upkeeps that are underfunded.
-   * @return list of upkeeps that are underfunded
-   */
+  /// @notice Gets a list of upkeeps that are underfunded.
+  /// @return list of upkeeps that are underfunded
   function getUnderfundedUpkeeps() public view returns (uint256[] memory) {
     uint256[] memory watchList = s_watchList;
     uint256[] memory needsFunding = new uint256[](watchList.length);
@@ -141,10 +132,8 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     return needsFunding;
   }
 
-  /**
-   * @notice Send funds to the upkeeps provided.
-   * @param needsFunding the list of upkeeps to fund
-   */
+  /// @notice Send funds to the upkeeps provided.
+  /// @param needsFunding the list of upkeeps to fund
   function topUp(uint256[] memory needsFunding) public whenNotPaused {
     uint256 minWaitPeriodSeconds = s_minWaitPeriodSeconds;
     uint256 contractBalance = LINKTOKEN.balanceOf(address(this));
@@ -174,10 +163,8 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     }
   }
 
-  /**
-   * @notice Gets list of upkeeps ids that are underfunded and returns a keeper-compatible payload.
-   * @return upkeepNeeded signals if upkeep is needed, performData is an abi encoded list of subscription ids that need funds
-   */
+  /// @notice Gets list of upkeeps ids that are underfunded and returns a keeper-compatible payload.
+  /// @return upkeepNeeded signals if upkeep is needed, performData is an abi encoded list of subscription ids that need funds
   function checkUpkeep(
     bytes calldata
   ) external view whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
@@ -187,30 +174,24 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     return (upkeepNeeded, performData);
   }
 
-  /**
-   * @notice Called by the keeper to send funds to underfunded addresses.
-   * @param performData the abi encoded list of addresses to fund
-   */
+  /// @notice Called by the keeper to send funds to underfunded addresses.
+  /// @param performData the abi encoded list of addresses to fund
   function performUpkeep(bytes calldata performData) external whenNotPaused {
     if (msg.sender != s_keeperRegistryAddress) revert OnlyKeeperRegistry();
     uint256[] memory needsFunding = abi.decode(performData, (uint256[]));
     topUp(needsFunding);
   }
 
-  /**
-   * @notice Withdraws the contract balance in LINK.
-   * @param amount the amount of LINK (in juels) to withdraw
-   * @param payee the address to pay
-   */
+  /// @notice Withdraws the contract balance in LINK.
+  /// @param amount the amount of LINK (in juels) to withdraw
+  /// @param payee the address to pay
   function withdraw(uint256 amount, address payable payee) external onlyOwner {
     require(payee != address(0));
     emit FundsWithdrawn(amount, payee);
     LINKTOKEN.transfer(payee, amount);
   }
 
-  /**
-   * @notice Sets the keeper registry address.
-   */
+  /// @notice Sets the keeper registry address.
   function setKeeperRegistryAddress(address keeperRegistryAddress) public onlyOwner {
     require(keeperRegistryAddress != address(0));
     emit KeeperRegistryAddressUpdated(s_keeperRegistryAddress, keeperRegistryAddress);
@@ -218,17 +199,13 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     REGISTRY = IKeeperRegistryMaster(keeperRegistryAddress);
   }
 
-  /**
-   * @notice Sets the minimum wait period (in seconds) for upkeep ids between funding.
-   */
+  /// @notice Sets the minimum wait period (in seconds) for upkeep ids between funding.
   function setMinWaitPeriodSeconds(uint256 period) public onlyOwner {
     emit MinWaitPeriodUpdated(s_minWaitPeriodSeconds, period);
     s_minWaitPeriodSeconds = period;
   }
 
-  /**
-   * @notice Gets configuration information for a upkeep on the watchlist.
-   */
+  /// @notice Gets configuration information for a upkeep on the watchlist.
   function getUpkeepInfo(
     uint256 upkeepId
   ) external view returns (bool isActive, uint96 minBalanceJuels, uint96 topUpAmountJuels, uint56 lastTopUpTimestamp) {
@@ -236,31 +213,28 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     return (target.isActive, target.minBalanceJuels, target.topUpAmountJuels, target.lastTopUpTimestamp);
   }
 
-  /**
-   * @notice Gets the list of upkeeps ids being watched.
-   */
+  /// @notice Gets the keeper registry address
+  function getKeeperRegistryAddress() external view returns (address) {
+    return s_keeperRegistryAddress;
+  }
+
+  /// @notice Gets the list of upkeeps ids being watched.
   function getWatchList() external view returns (uint256[] memory) {
     return s_watchList;
   }
 
-  /**
-   * @notice Pause the contract, which prevents executing performUpkeep.
-   */
+  /// @notice Pause the contract, which prevents executing performUpkeep.
   function pause() external onlyOwner {
     _pause();
   }
 
-  /**
-   * @notice Unpause the contract.
-   */
+  /// @notice Unpause the contract.
   function unpause() external onlyOwner {
     _unpause();
   }
 
-  /**
-   * @notice Called to add buffer to minimum balance of upkeeps
-   * @param num the current minimum balance
-   */
+  /// @notice Called to add buffer to minimum balance of upkeeps
+  /// @param num the current minimum balance
   function getBalanceWithBuffer(uint96 num) internal pure returns (uint96) {
     uint96 buffer = 20;
     uint96 result = uint96((uint256(num) * (100 + buffer)) / 100); // convert to uint256 to prevent overflow
