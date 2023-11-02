@@ -1195,6 +1195,16 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 	return nil
 }
 
+func (o *evmTxStore) GetNonFinalizedTransactions(ctx context.Context, limit int) (txes []*Tx, err error) {
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	queryStr := fmt.Sprintf(`
+SELECT * FROM evm.txes 
+WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress' 
+LIMIT %d`, limit)
+	err = qq.Get(txes, queryStr)
+	return txes, err
+}
+
 // FindTxsRequiringGasBump returns transactions that have all
 // attempts which are unconfirmed for at least gasBumpThreshold blocks,
 // limited by limit pending transactions

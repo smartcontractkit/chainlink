@@ -127,7 +127,7 @@ type Confirmer[
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
-	abandonedTracker AbandonedTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	abandonedTracker Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
 	mb        *utils.Mailbox[HEAD]
 	ctx       context.Context
@@ -162,21 +162,19 @@ func NewConfirmer[
 	isReceiptNil func(R) bool,
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = lggr.Named("Confirmer")
-	chainID := client.ConfiguredChainID()
-
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		txStore:          txStore,
 		lggr:             lggr,
 		client:           client,
 		TxAttemptBuilder: txAttemptBuilder,
-		abandonedTracker: NewAbandonedTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](
-			&txStore, &keystore, &client, chainID, lggr),
+		tracker: NewTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](
+			&txStore, lggr),
 		resumeCallback: nil,
 		chainConfig:    chainConfig,
 		feeConfig:      feeConfig,
 		txConfig:       txConfig,
 		dbConfig:       dbConfig,
-		chainID:        chainID,
+		chainID:        client.ConfiguredChainID(),
 		ks:             keystore,
 		mb:             utils.NewSingleMailbox[HEAD](),
 		isReceiptNil:   isReceiptNil,
@@ -312,8 +310,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
-	ec.abandonedTracker.HandleAbandonedTransactions(ctx, ec.enabledAddresses)
-	ec.lggr.Debugw("Finished HandleAbandonedTransactions", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
+	ec.abandonedTracker.HandleAbandonedTxes(ctx, ec.enabledAddresses)
+	ec.lggr.Debugw("Finished HandleAbandonedTxes", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 
 	if ec.resumeCallback != nil {
 		mark = time.Now()
