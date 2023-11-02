@@ -318,7 +318,8 @@ func (c *SimulatedBackendClient) BlockByHash(ctx context.Context, hash common.Ha
 }
 
 func (c *SimulatedBackendClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
-	panic("not implemented")
+	header, err := c.b.HeaderByNumber(ctx, nil)
+	return header.Number, err
 }
 
 // ChainID returns the ethereum ChainID.
