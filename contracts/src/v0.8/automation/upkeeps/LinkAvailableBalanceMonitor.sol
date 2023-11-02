@@ -47,6 +47,13 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   event TopUpUpdated(address indexed addr, uint256 oldTopUpAmount, uint256 newTopUpAmount);
   event WatchlistUpdated();
 
+  error InvalidAddress(address target);
+  error InvalidMaxCheck(uint16 maxCheck);
+  error InvalixMaxPerform(uint16 maxPerform);
+  error InvalidMinBalance(uint96 minBalance);
+  error InvalidTopUpAmount(uint96 topUpAmount);
+  error InvalidUpkeepInterval(uint8 upkeepInterval);
+  error InvalidLinkTokenAddress(address lt);
   error InvalidWatchList();
   error DuplicateAddress(address duplicate);
 
@@ -73,7 +80,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     uint16 maxCheck,
     uint8 upkeepInterval
   ) ConfirmedOwner(msg.sender) {
-    require(linkTokenAddress != address(0), "LinkAvailableBalanceMonitor: invalid linkTokenAddress");
+    if (linkTokenAddress == address(0)) revert InvalidLinkTokenAddress(linkTokenAddress);
     LINK_TOKEN = IERC20(linkTokenAddress);
     setMinWaitPeriodSeconds(minWaitPeriodSeconds);
     setMaxPerform(maxPerform);
@@ -98,12 +105,8 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     }
     for (uint256 idx = 0; idx < addresses.length; idx++) {
       address targetAddress = addresses[idx];
-      if (s_targets[targetAddress].isActive) {
-        revert DuplicateAddress(addresses[idx]);
-      }
-      if (addresses[idx] == address(0)) {
-        revert InvalidWatchList();
-      }
+      if (s_targets[targetAddress].isActive) revert DuplicateAddress(addresses[idx]);
+      if (addresses[idx] == address(0)) revert InvalidWatchList();
       if (topUpAmounts[idx] == 0) revert InvalidWatchList();
       s_targets[targetAddress] = MonitoredAddress({
         isActive: true,
@@ -181,20 +184,18 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @param minBalance minimum balance required for the target
   /// @return bool whether the target needs funding or not
   function _needsFunding(address targetAddress, uint256 minBalance) private view returns (bool) {
-    MonitoredAddress memory addressToCheck = s_targets[targetAddress];
-    ILinkAvailable target;
-    IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
     // Explicitly check if the targetAddress is the zero address
     // or if it's not a contract. In both cases return with false,
     // to prevent target.linkAvailableForPayment from running,
     // which would revert the operation.
-    if (targetAddress == address(0) || !(targetAddress.code.length > 0)) {
+    if (targetAddress == address(0) || targetAddress.code.length == 0) {
       return false;
     }
+    MonitoredAddress memory addressToCheck = s_targets[targetAddress];
+    ILinkAvailable target;
+    IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
     try proxy.aggregator() returns (address aggregatorAddress) {
-      if (aggregatorAddress == address(0)) {
-        return false;
-      }
+      if (aggregatorAddress == address(0)) return false;
       target = ILinkAvailable(aggregatorAddress);
     } catch {
       target = ILinkAvailable(targetAddress);
@@ -232,18 +233,16 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @param amount the amount of the LINK to withdraw
   /// @param payee the address to pay
   function withdraw(uint256 amount, address payable payee) external onlyOwner {
-    require(payee != address(0), "LinkAvailableBalanceMonitor: invalid payee address");
+    if (payee == address(0)) revert InvalidAddress(payee);
     LINK_TOKEN.transfer(payee, amount);
     emit FundsWithdrawn(amount, payee);
   }
 
   /// @notice Sets the minimum balance for the given target address
   function setMinBalance(address target, uint96 minBalance) external onlyOwner {
-    require(target != address(0), "LinkAvailableBalanceMonitor: invalid target address");
-    require(minBalance > 0, "LinkAvailableBalanceMonitor: invalid minBalance");
-    if (!s_targets[target].isActive) {
-      revert InvalidWatchList();
-    }
+    if (target == address(0)) revert InvalidAddress(target);
+    if (minBalance == 0) revert InvalidMinBalance(minBalance);
+    if (!s_targets[target].isActive) revert InvalidWatchList();
     uint256 oldBalance = s_targets[target].minBalance;
     s_targets[target].minBalance = minBalance;
     emit BalanceUpdated(target, oldBalance, minBalance);
@@ -251,11 +250,9 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
 
   /// @notice Sets the minimum balance for the given target address
   function setTopUpAmount(address target, uint96 topUpAmount) external onlyOwner {
-    require(target != address(0), "LinkAvailableBalanceMonitor: invalid target address");
-    require(topUpAmount > 0, "LinkAvailableBalanceMonitor: invalid topUpAmount");
-    if (!s_targets[target].isActive) {
-      revert InvalidWatchList();
-    }
+    if (target == address(0)) revert InvalidLinkTokenAddress(target);
+    if (topUpAmount == 0) revert InvalidTopUpAmount(topUpAmount);
+    if (!s_targets[target].isActive) revert InvalidWatchList();
     uint256 oldTopUpAmount = s_targets[target].topUpAmount;
     s_targets[target].topUpAmount = topUpAmount;
     emit BalanceUpdated(target, oldTopUpAmount, topUpAmount);
@@ -281,7 +278,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
 
   /// @notice Update s_upkeepInterval
   function setUpkeepInterval(uint8 upkeepInterval) public onlyOwner {
-    require(upkeepInterval <= 255, "LinkAvailableBalanceMonitor: invalid upkeepInterval");
+    if (upkeepInterval > 255) revert InvalidUpkeepInterval(upkeepInterval);
     s_upkeepInterval = upkeepInterval;
     emit MaxCheckSet(s_upkeepInterval, upkeepInterval);
   }
