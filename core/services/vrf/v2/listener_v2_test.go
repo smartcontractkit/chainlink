@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"encoding/json"
 	"math/big"
 	"sync"
 	"testing"
@@ -13,39 +14,44 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/theodesp/go-heaps/pairing"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const (
-	addEthTxQuery = `INSERT INTO evm.txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
-		VALUES (
-		$1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11
-		)
-		RETURNING "txes".*`
+func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Master) txmgrcommon.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee] {
+	_, _, evmConfig := txmgr.MakeTestConfigs(t)
+	ec := evmtest.NewEthClientMockWithDefaultChain(t)
+	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
+	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
+		nil, txStore, nil, nil, nil, nil)
 
-	addConfirmedEthTxQuery = `INSERT INTO evm.txes (nonce, broadcast_at, initial_broadcast_at, error, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
-		VALUES (
-		$1, NOW(), NOW(), NULL, $2, $3, $4, $5, $6, 'confirmed', NOW(), $7, $8, $9, $10, $11
-		)
-		RETURNING "txes".*`
-)
+	return txm
+}
+
+func MakeTestListenerV2(chain evm.Chain) *listenerV2 {
+	return &listenerV2{chainID: chain.Client().ConfiguredChainID(), chain: chain}
+}
 
 func txMetaSubIDs(t *testing.T, vrfVersion vrfcommon.Version, subID *big.Int) (*uint64, *string) {
 	var (
@@ -62,89 +68,118 @@ func txMetaSubIDs(t *testing.T, vrfVersion vrfcommon.Version, subID *big.Int) (*
 	return txMetaSubID, txMetaGlobalSubID
 }
 
-func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state txmgrtypes.TxState, maxLink string, subID *big.Int, reqTxHash common.Hash, vrfVersion vrfcommon.Version) {
+func addEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.Address, state txmgrtypes.TxState, maxLink string, subID *big.Int, reqTxHash common.Hash, vrfVersion vrfcommon.Version) {
 	txMetaSubID, txMetaGlobalSubID := txMetaSubIDs(t, vrfVersion, subID)
-	_, err := db.Exec(addEthTxQuery,
-		from,           // from
-		from,           // to
-		[]byte(`blah`), // payload
-		0,              // value
-		0,              // limit
-		state,
-		txmgr.TxMeta{
-			MaxLink:       &maxLink,
-			SubID:         txMetaSubID,
-			GlobalSubID:   txMetaGlobalSubID,
-			RequestTxHash: &reqTxHash,
-		},
-		uuid.NullUUID{},
-		1337,
-		0, // confs
-		nil)
+	b, err := json.Marshal(txmgr.TxMeta{
+		MaxLink:       &maxLink,
+		SubID:         txMetaSubID,
+		GlobalSubID:   txMetaGlobalSubID,
+		RequestTxHash: &reqTxHash,
+	})
+	require.NoError(t, err)
+	meta := datatypes.JSON(b)
+	tx := &txmgr.Tx{
+		FromAddress:       from,
+		ToAddress:         from,
+		EncodedPayload:    []byte(`blah`),
+		Value:             *big.NewInt(0),
+		FeeLimit:          0,
+		State:             state,
+		Meta:              &meta,
+		Subject:           uuid.NullUUID{},
+		ChainID:           testutils.SimulatedChainID,
+		MinConfirmations:  clnull.Uint32{Uint32: 0},
+		PipelineTaskRunID: uuid.NullUUID{},
+	}
+	err = txStore.InsertTx(tx)
 	require.NoError(t, err)
 }
 
-func addConfirmedEthTx(t *testing.T, db *sqlx.DB, from common.Address, maxLink string, subID *big.Int, nonce uint64, vrfVersion vrfcommon.Version) {
+func addConfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.Address, maxLink string, subID *big.Int, nonce evmtypes.Nonce, vrfVersion vrfcommon.Version) {
 	txMetaSubID, txMetaGlobalSubID := txMetaSubIDs(t, vrfVersion, subID)
-	_, err := db.Exec(addConfirmedEthTxQuery,
-		nonce,          // nonce
-		from,           // from
-		from,           // to
-		[]byte(`blah`), // payload
-		0,              // value
-		0,              // limit
-		txmgr.TxMeta{
-			MaxLink:     &maxLink,
-			SubID:       txMetaSubID,
-			GlobalSubID: txMetaGlobalSubID,
-		},
-		uuid.NullUUID{},
-		1337,
-		0, // confs
-		nil)
+	b, err := json.Marshal(txmgr.TxMeta{
+		MaxLink:     &maxLink,
+		SubID:       txMetaSubID,
+		GlobalSubID: txMetaGlobalSubID,
+	})
+	require.NoError(t, err)
+	meta := datatypes.JSON(b)
+	now := time.Now()
+
+	tx := &txmgr.Tx{
+		Sequence:           &nonce,
+		FromAddress:        from,
+		ToAddress:          from,
+		EncodedPayload:     []byte(`blah`),
+		Value:              *big.NewInt(0),
+		FeeLimit:           0,
+		State:              txmgrcommon.TxConfirmed,
+		Meta:               &meta,
+		Subject:            uuid.NullUUID{},
+		ChainID:            testutils.SimulatedChainID,
+		MinConfirmations:   clnull.Uint32{Uint32: 0},
+		PipelineTaskRunID:  uuid.NullUUID{},
+		BroadcastAt:        &now,
+		InitialBroadcastAt: &now,
+	}
+	err = txStore.InsertTx(tx)
 	require.NoError(t, err)
 }
 
-func addEthTxNativePayment(t *testing.T, db *sqlx.DB, from common.Address, state txmgrtypes.TxState, maxNative string, subID *big.Int, reqTxHash common.Hash, vrfVersion vrfcommon.Version) {
+func addEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, from common.Address, state txmgrtypes.TxState, maxNative string, subID *big.Int, reqTxHash common.Hash, vrfVersion vrfcommon.Version) {
 	txMetaSubID, txMetaGlobalSubID := txMetaSubIDs(t, vrfVersion, subID)
-	_, err := db.Exec(addEthTxQuery,
-		from,           // from
-		from,           // to
-		[]byte(`blah`), // payload
-		0,              // value
-		0,              // limit
-		state,
-		txmgr.TxMeta{
-			MaxEth:        &maxNative,
-			SubID:         txMetaSubID,
-			GlobalSubID:   txMetaGlobalSubID,
-			RequestTxHash: &reqTxHash,
-		},
-		uuid.NullUUID{},
-		1337,
-		0, // confs
-		nil)
+	b, err := json.Marshal(txmgr.TxMeta{
+		MaxEth:        &maxNative,
+		SubID:         txMetaSubID,
+		GlobalSubID:   txMetaGlobalSubID,
+		RequestTxHash: &reqTxHash,
+	})
+	require.NoError(t, err)
+	meta := datatypes.JSON(b)
+	tx := &txmgr.Tx{
+		FromAddress:       from,
+		ToAddress:         from,
+		EncodedPayload:    []byte(`blah`),
+		Value:             *big.NewInt(0),
+		FeeLimit:          0,
+		State:             state,
+		Meta:              &meta,
+		Subject:           uuid.NullUUID{},
+		ChainID:           testutils.SimulatedChainID,
+		MinConfirmations:  clnull.Uint32{Uint32: 0},
+		PipelineTaskRunID: uuid.NullUUID{},
+	}
+	err = txStore.InsertTx(tx)
 	require.NoError(t, err)
 }
 
-func addConfirmedEthTxNativePayment(t *testing.T, db *sqlx.DB, from common.Address, maxNative string, subID *big.Int, nonce uint64, vrfVersion vrfcommon.Version) {
+func addConfirmedEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, from common.Address, maxNative string, subID *big.Int, nonce evmtypes.Nonce, vrfVersion vrfcommon.Version) {
 	txMetaSubID, txMetaGlobalSubID := txMetaSubIDs(t, vrfVersion, subID)
-	_, err := db.Exec(addConfirmedEthTxQuery,
-		nonce,          // nonce
-		from,           // from
-		from,           // to
-		[]byte(`blah`), // payload
-		0,              // value
-		0,              // limit
-		txmgr.TxMeta{
-			MaxEth:      &maxNative,
-			SubID:       txMetaSubID,
-			GlobalSubID: txMetaGlobalSubID,
-		},
-		uuid.NullUUID{},
-		1337,
-		0, // confs
-		nil)
+	b, err := json.Marshal(txmgr.TxMeta{
+		MaxEth:      &maxNative,
+		SubID:       txMetaSubID,
+		GlobalSubID: txMetaGlobalSubID,
+	})
+	require.NoError(t, err)
+	meta := datatypes.JSON(b)
+	now := time.Now()
+	tx := &txmgr.Tx{
+		Sequence:           &nonce,
+		FromAddress:        from,
+		ToAddress:          from,
+		EncodedPayload:     []byte(`blah`),
+		Value:              *big.NewInt(0),
+		FeeLimit:           0,
+		State:              txmgrcommon.TxConfirmed,
+		Meta:               &meta,
+		Subject:            uuid.NullUUID{},
+		ChainID:            testutils.SimulatedChainID,
+		MinConfirmations:   clnull.Uint32{Uint32: 0},
+		PipelineTaskRunID:  uuid.NullUUID{},
+		BroadcastAt:        &now,
+		InitialBroadcastAt: &now,
+	}
+	err = txStore.InsertTx(tx)
 	require.NoError(t, err)
 }
 
@@ -152,57 +187,72 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	cfg := pgtest.NewQConfig(false)
-	q := pg.NewQ(db, lggr, cfg)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
-	chainID := uint64(1337)
-	k, err := ks.Eth().Create(big.NewInt(int64(chainID)))
+	chainID := testutils.SimulatedChainID
+	k, err := ks.Eth().Create(chainID)
 	require.NoError(t, err)
 
 	subID := new(big.Int).SetUint64(1)
 	reqTxHash := common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")
 
+	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		RequestedConfsDelay: 10,
+	}).Toml())
+	require.NoError(t, err)
+	txstore := txmgr.NewTxStore(db, lggr, cfg)
+	txm := makeTestTxm(t, txstore, ks)
+	chain := evmmocks.NewChain(t)
+	chain.On("TxManager").Return(txm)
+	listener := &listenerV2{
+		respCount: map[string]uint64{},
+		job:       j,
+		chain:     chain,
+	}
+
+	ctx := testutils.Context(t)
+
 	// Insert an unstarted eth tx with link metadata
-	addEthTx(t, db, k.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
-	start, err := MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addEthTx(t, txstore, k.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
+	start, err := listener.MaybeSubtractReservedLink(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// A confirmed tx should not affect the starting balance
-	addConfirmedEthTx(t, db, k.Address, "10000", subID, 1, vrfVersion)
-	start, err = MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addConfirmedEthTx(t, txstore, k.Address, "10000", subID, 1, vrfVersion)
+	start, err = listener.MaybeSubtractReservedLink(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// An unconfirmed tx _should_ affect the starting balance.
-	addEthTx(t, db, k.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
-	start, err = MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addEthTx(t, txstore, k.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
+	start, err = listener.MaybeSubtractReservedLink(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 	require.NoError(t, err)
 	assert.Equal(t, "80000", start.String())
 
 	// One subscriber's reserved link should not affect other subscribers prospective balance.
 	otherSubID := new(big.Int).SetUint64(2)
 	require.NoError(t, err)
-	addEthTx(t, db, k.Address, txmgrcommon.TxUnstarted, "10000", otherSubID, reqTxHash, vrfVersion)
-	start, err = MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addEthTx(t, txstore, k.Address, txmgrcommon.TxUnstarted, "10000", otherSubID, reqTxHash, vrfVersion)
+	start, err = listener.MaybeSubtractReservedLink(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
 
 	// One key's data should not affect other keys' data in the case of different subscribers.
-	k2, err := ks.Eth().Create(big.NewInt(1337))
+	k2, err := ks.Eth().Create(testutils.SimulatedChainID)
 	require.NoError(t, err)
 
 	anotherSubID := new(big.Int).SetUint64(3)
-	addEthTx(t, db, k2.Address, txmgrcommon.TxUnstarted, "10000", anotherSubID, reqTxHash, vrfVersion)
-	start, err = MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addEthTx(t, txstore, k2.Address, txmgrcommon.TxUnstarted, "10000", anotherSubID, reqTxHash, vrfVersion)
+	start, err = listener.MaybeSubtractReservedLink(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
 
 	// A subscriber's balance is deducted with the link reserved across multiple keys,
 	// i.e, gas lanes.
-	addEthTx(t, db, k2.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
-	start, err = MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addEthTx(t, txstore, k2.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
+	start, err = listener.MaybeSubtractReservedLink(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 	require.NoError(t, err)
 	require.Equal(t, "70000", start.String())
 }
@@ -219,57 +269,73 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	cfg := pgtest.NewQConfig(false)
-	q := pg.NewQ(db, lggr, cfg)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
-	chainID := uint64(1337)
-	k, err := ks.Eth().Create(big.NewInt(int64(chainID)))
+	chainID := testutils.SimulatedChainID
+	k, err := ks.Eth().Create(chainID)
 	require.NoError(t, err)
 
 	subID := new(big.Int).SetUint64(1)
 	reqTxHash := common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")
 
+	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		RequestedConfsDelay: 10,
+	}).Toml())
+	require.NoError(t, err)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txm := makeTestTxm(t, txstore, ks)
+	require.NoError(t, err)
+	chain := evmmocks.NewChain(t)
+	chain.On("TxManager").Return(txm)
+	listener := &listenerV2{
+		respCount: map[string]uint64{},
+		job:       j,
+		chain:     chain,
+	}
+
+	ctx := testutils.Context(t)
+
 	// Insert an unstarted eth tx with native metadata
-	addEthTxNativePayment(t, db, k.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
-	start, err := MaybeSubtractReservedEth(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addEthTxNativePayment(t, txstore, k.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
+	start, err := listener.MaybeSubtractReservedEth(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// A confirmed tx should not affect the starting balance
-	addConfirmedEthTxNativePayment(t, db, k.Address, "10000", subID, 1, vrfVersion)
-	start, err = MaybeSubtractReservedEth(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addConfirmedEthTxNativePayment(t, txstore, k.Address, "10000", subID, 1, vrfVersion)
+	start, err = listener.MaybeSubtractReservedEth(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// An unconfirmed tx _should_ affect the starting balance.
-	addEthTxNativePayment(t, db, k.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
-	start, err = MaybeSubtractReservedEth(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addEthTxNativePayment(t, txstore, k.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
+	start, err = listener.MaybeSubtractReservedEth(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 	require.NoError(t, err)
 	assert.Equal(t, "80000", start.String())
 
 	// One subscriber's reserved native should not affect other subscribers prospective balance.
 	otherSubID := new(big.Int).SetUint64(2)
 	require.NoError(t, err)
-	addEthTxNativePayment(t, db, k.Address, txmgrcommon.TxUnstarted, "10000", otherSubID, reqTxHash, vrfVersion)
-	start, err = MaybeSubtractReservedEth(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addEthTxNativePayment(t, txstore, k.Address, txmgrcommon.TxUnstarted, "10000", otherSubID, reqTxHash, vrfVersion)
+	start, err = listener.MaybeSubtractReservedEth(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
 
 	// One key's data should not affect other keys' data in the case of different subscribers.
-	k2, err := ks.Eth().Create(big.NewInt(1337))
+	k2, err := ks.Eth().Create(testutils.SimulatedChainID)
 	require.NoError(t, err)
 
 	anotherSubID := new(big.Int).SetUint64(3)
-	addEthTxNativePayment(t, db, k2.Address, txmgrcommon.TxUnstarted, "10000", anotherSubID, reqTxHash, vrfVersion)
-	start, err = MaybeSubtractReservedEth(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addEthTxNativePayment(t, txstore, k2.Address, txmgrcommon.TxUnstarted, "10000", anotherSubID, reqTxHash, vrfVersion)
+	start, err = listener.MaybeSubtractReservedEth(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
 
 	// A subscriber's balance is deducted with the native reserved across multiple keys,
 	// i.e, gas lanes.
-	addEthTxNativePayment(t, db, k2.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
-	start, err = MaybeSubtractReservedEth(q, big.NewInt(100_000), chainID, subID, vrfVersion)
+	addEthTxNativePayment(t, txstore, k2.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
+	start, err = listener.MaybeSubtractReservedEth(ctx, big.NewInt(100_000), chainID, subID, vrfVersion)
 	require.NoError(t, err)
 	require.Equal(t, "70000", start.String())
 }
@@ -282,13 +348,26 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	cfg := pgtest.NewQConfig(false)
-	q := pg.NewQ(db, lggr, cfg)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
-	chainID := uint64(1337)
+	chainID := testutils.SimulatedChainID
 	subID := new(big.Int).SetUint64(1)
+
+	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		RequestedConfsDelay: 10,
+	}).Toml())
+	require.NoError(t, err)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txm := makeTestTxm(t, txstore, ks)
+	chain := evmmocks.NewChain(t)
+	chain.On("TxManager").Return(txm).Maybe()
+	listener := &listenerV2{
+		respCount: map[string]uint64{},
+		job:       j,
+		chain:     chain,
+	}
 	// returns error because native payment is not supported for V2
-	start, err := MaybeSubtractReservedEth(q, big.NewInt(100_000), chainID, subID, vrfcommon.V2)
+	start, err := listener.MaybeSubtractReservedEth(testutils.Context(t), big.NewInt(100_000), chainID, subID, vrfcommon.V2)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), start)
 }
@@ -445,12 +524,14 @@ func TestListener_handleLog(tt *testing.T) {
 		lb.On("WasAlreadyConsumed", log).Return(false, nil).Once()
 		lb.On("MarkConsumed", log).Return(nil).Once()
 		defer lb.AssertExpectations(t)
+		chain := evmmocks.NewChain(t)
+		chain.On("LogBroadcaster").Return(lb)
 		listener := &listenerV2{
 			respCount:          map[string]uint64{},
 			job:                j,
 			blockNumberToReqID: pairing.New(),
 			latestHeadMu:       sync.RWMutex{},
-			logBroadcaster:     lb,
+			chain:              chain,
 			l:                  logger.TestLogger(t),
 		}
 		listener.handleLog(log, minConfs)
@@ -476,12 +557,14 @@ func TestListener_handleLog(tt *testing.T) {
 		lb.On("WasAlreadyConsumed", log).Return(false, nil).Once()
 		lb.On("MarkConsumed", log).Return(nil).Once()
 		defer lb.AssertExpectations(t)
+		chain := evmmocks.NewChain(t)
+		chain.On("LogBroadcaster").Return(lb)
 		listener := &listenerV2{
 			respCount:          map[string]uint64{},
 			job:                j,
 			blockNumberToReqID: pairing.New(),
 			latestHeadMu:       sync.RWMutex{},
-			logBroadcaster:     lb,
+			chain:              chain,
 			l:                  logger.TestLogger(t),
 		}
 		listener.handleLog(log, minConfs)
