@@ -11,10 +11,14 @@ on:
   workflow_dispatch:
     inputs:
       liveNetwork:
-        description: "Run Live Testnet Tests"
+        description: "Run Live Network Tests"
         required: false
         type: boolean
-
+      simulatedNetwork:
+        description: "Run Simulated Network Tests"
+        required: false
+        type: boolean
+        default: true
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
@@ -244,7 +248,7 @@ jobs:
         continue-on-error: true
 
   eth-smoke-tests-matrix:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || (github.event_name == 'workflow_dispatch' && inputs.simulatedNetwork)) }}
     environment: integration
     permissions:
       checks: write
