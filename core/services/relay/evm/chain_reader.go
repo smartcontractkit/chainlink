@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
+
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -48,7 +49,7 @@ func ValidateChainReaderConfig(cfg types.ChainReaderConfig) error {
 			case types.Event:
 				err = validateEvents(abi, chainReaderDefinition)
 			default:
-				return fmt.Errorf("invalid chain reader defintion read type: %d", chainReaderDefinition.ReadType)
+				return fmt.Errorf("invalid chain reader definition read type: %d", chainReaderDefinition.ReadType)
 			}
 			if err != nil {
 				return errors.Wrap(err, fmt.Sprintf("invalid chain reader config for contract: %q chain reading definition: %q", contractName, chainReadingDefinitionName))
