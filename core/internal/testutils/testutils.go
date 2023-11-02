@@ -117,13 +117,17 @@ func RandomizeName(n string) string {
 }
 
 // DefaultWaitTimeout is the default wait timeout. If you have a *testing.T, use WaitTimeout instead.
-const DefaultWaitTimeout = testutils.DefaultWaitTimeout
+const DefaultWaitTimeout = 30 * time.Second
 
 // WaitTimeout returns a timeout based on the test's Deadline, if available.
 // Especially important to use in parallel tests, as their individual execution
 // can get paused for arbitrary amounts of time.
 func WaitTimeout(t *testing.T) time.Duration {
-	return testutils.WaitTimeout(t)
+	if d, ok := t.Deadline(); ok {
+		// 10% buffer for cleanup and scheduling delay
+		return time.Until(d) * 9 / 10
+	}
+	return DefaultWaitTimeout
 }
 
 // AfterWaitTimeout returns a channel that will send a time value when the
@@ -134,7 +138,19 @@ func AfterWaitTimeout(t *testing.T) <-chan time.Time {
 
 // Context returns a context with the test's deadline, if available.
 func Context(tb testing.TB) context.Context {
-	return testutils.Context(tb)
+	ctx := context.Background()
+	var cancel func()
+	switch t := tb.(type) {
+	case *testing.T:
+		if d, ok := t.Deadline(); ok {
+			ctx, cancel = context.WithDeadline(ctx, d)
+		}
+	}
+	if cancel == nil {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+	tb.Cleanup(cancel)
+	return ctx
 }
 
 // MustParseURL parses the URL or fails the test

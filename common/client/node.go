@@ -178,9 +178,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) UnsubscribeAllExceptAliveLoop() {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Close() error {
-	return n.StopOnce(n.name, func() error {
-		return n.close()
-	})
+	return n.StopOnce(n.name, n.close)
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) close() error {

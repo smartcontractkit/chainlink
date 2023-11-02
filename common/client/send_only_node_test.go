@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/testutils"
@@ -49,7 +50,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), types.RandomID(), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
-		err := s.Start(testutils.Context(t))
+		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
 		assert.Equal(t, nodeStateUnusable, s.State())
@@ -64,7 +65,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), types.NewIDFromInt(0), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
-		err := s.Start(testutils.Context(t))
+		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
 		assert.Equal(t, nodeStateAlive, s.State())
@@ -85,7 +86,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), chainID, client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
-		err := s.Start(testutils.Context(t))
+		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
 		assert.Equal(t, nodeStateUnreachable, s.State())
@@ -108,7 +109,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), configuredChainID, client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
-		err := s.Start(testutils.Context(t))
+		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
 		assert.Equal(t, nodeStateInvalidChainID, s.State())

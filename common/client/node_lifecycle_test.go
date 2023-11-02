@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -307,7 +309,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub.On("Unsubscribe").Once()
 		expectedBlockNumber := rand.Int64()
 		expectedDiff := utils.NewBigI(rand.Int64())
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(tests.Context(t))
 		defer cancel()
 		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
@@ -507,7 +509,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		const highestBlock = 1000
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(tests.Context(t))
 		defer cancel()
 		writeHeads := func(ch chan<- Head) {
 			newHead := func(height int64) Head {
@@ -800,7 +802,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
 		// disconnects all on transfer to unreachable
 		rpc.On("DisconnectAll")
-		err := node.Start(testutils.Context(t))
+		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		testutils.WaitForLogMessage(t, observedLogs, "Dial failed: Node is unreachable")
 		testutils.AssertEventually(t, func() bool {
@@ -824,7 +826,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		}).Return(nodeChainID, errors.New("failed to get chain id"))
 		// disconnects all on transfer to unreachable
 		rpc.On("DisconnectAll")
-		err := node.Start(testutils.Context(t))
+		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		testutils.WaitForLogMessage(t, observedLogs, "Verify failed")
 		testutils.AssertEventually(t, func() bool {
@@ -845,7 +847,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil)
 		// disconnects all on transfer to unreachable
 		rpc.On("DisconnectAll")
-		err := node.Start(testutils.Context(t))
+		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		testutils.AssertEventually(t, func() bool {
 			return node.State() == nodeStateInvalidChainID
@@ -871,7 +873,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(aliveSubscription, nil).Maybe()
 		rpc.On("SetAliveLoopSub", mock.Anything).Maybe()
 
-		err := node.Start(testutils.Context(t))
+		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		testutils.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive

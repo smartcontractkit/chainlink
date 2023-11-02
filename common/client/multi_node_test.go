@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -87,7 +89,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       types.RandomID(),
 		})
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		assert.EqualError(t, err, fmt.Sprintf("no available nodes for chain %s", mn.chainID.String()))
 	})
 	t.Run("Fails with wrong node's chainID", func(t *testing.T) {
@@ -103,7 +105,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			chainID:       multiNodeChainID,
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
 		})
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		assert.EqualError(t, err, fmt.Sprintf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", nodeName, nodeChainID, mn.chainID))
 	})
 	t.Run("Fails if node fails", func(t *testing.T) {
@@ -118,7 +120,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			chainID:       chainID,
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
 		})
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		assert.EqualError(t, err, expectedError.Error())
 	})
 
@@ -136,7 +138,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			chainID:       chainID,
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node1, node2},
 		})
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		assert.EqualError(t, err, expectedError.Error())
 	})
 	t.Run("Fails with wrong send only node's chainID", func(t *testing.T) {
@@ -155,7 +157,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
 			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{sendOnly},
 		})
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		assert.EqualError(t, err, fmt.Sprintf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", sendOnlyName, sendOnlyChainID, mn.chainID))
 	})
 	t.Run("Fails on send only node failure", func(t *testing.T) {
@@ -177,7 +179,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
 			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{sendOnly1, sendOnly2},
 		})
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		assert.EqualError(t, err, expectedError.Error())
 	})
 	t.Run("Starts successfully with health nodes", func(t *testing.T) {
@@ -190,7 +192,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
 		})
 		defer func() { assert.NoError(t, mn.Close()) }()
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
 		selectedNode, err := mn.selectNode()
 		require.NoError(t, err)
@@ -214,7 +216,7 @@ func TestMultiNode_Report(t *testing.T) {
 		})
 		mn.reportInterval = testutils.TestInterval
 		defer func() { assert.NoError(t, mn.Close()) }()
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
 		testutils.WaitForLogMessageCount(t, observedLogs, "At least one primary node is dead: 1/2 nodes are alive", 2)
 	})
@@ -231,7 +233,7 @@ func TestMultiNode_Report(t *testing.T) {
 		})
 		mn.reportInterval = testutils.TestInterval
 		defer func() { assert.NoError(t, mn.Close()) }()
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
 		testutils.WaitForLogMessageCount(t, observedLogs, "no primary nodes available: 0/1 nodes are alive", 2)
 		err = mn.Healthy()
@@ -254,7 +256,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
 		})
 		defer func() { assert.NoError(t, mn.Close()) }()
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
 		testutils.RequireLogMessage(t, observedLogs, "Best node switching is disabled")
 	})
@@ -271,7 +273,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 			leaseDuration: 0,
 		})
 		defer func() { assert.NoError(t, mn.Close()) }()
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
 		testutils.RequireLogMessage(t, observedLogs, "Best node switching is disabled")
 	})
@@ -294,7 +296,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, mn.Close()) }()
 		mn.nodeSelector = nodeSelector
-		err := mn.Dial(testutils.Context(t))
+		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
 		testutils.WaitForLogMessage(t, observedLogs, fmt.Sprintf("Switching to best node from %q to %q", node.String(), bestNode.String()))
 		testutils.AssertEventually(t, func() bool {
@@ -496,7 +498,7 @@ func TestMultiNode_BatchCallContextAll(t *testing.T) {
 		nodeSelector.On("Select").Return(nil).Once()
 		nodeSelector.On("Name").Return("MockedNodeSelector").Once()
 		mn.nodeSelector = nodeSelector
-		err := mn.BatchCallContextAll(testutils.Context(t), nil)
+		err := mn.BatchCallContextAll(tests.Context(t), nil)
 		require.EqualError(t, err, ErroringNodeError.Error())
 	})
 	t.Run("Returns response of active node", func(t *testing.T) {
@@ -513,7 +515,7 @@ func TestMultiNode_BatchCallContextAll(t *testing.T) {
 			chainID:       chainID,
 		})
 		mn.nodeSelector = nodeSelector
-		err := mn.BatchCallContextAll(testutils.Context(t), nil)
+		err := mn.BatchCallContextAll(tests.Context(t), nil)
 		require.EqualError(t, err, expectedError.Error())
 	})
 	t.Run("Waits for all nodes to complete the call and logs results", func(t *testing.T) {
@@ -545,7 +547,7 @@ func TestMultiNode_BatchCallContextAll(t *testing.T) {
 		})
 		mn.nodeSelector = nodeSelector
 
-		err := mn.BatchCallContextAll(testutils.Context(t), nil)
+		err := mn.BatchCallContextAll(tests.Context(t), nil)
 		require.NoError(t, err)
 		testutils.RequireLogMessage(t, observedLogs, "Secondary node BatchCallContext failed")
 	})
@@ -563,7 +565,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		nodeSelector.On("Select").Return(nil).Once()
 		nodeSelector.On("Name").Return("MockedNodeSelector").Once()
 		mn.nodeSelector = nodeSelector
-		err := mn.SendTransaction(testutils.Context(t), nil)
+		err := mn.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, err, ErroringNodeError.Error())
 	})
 	t.Run("Returns response of active node", func(t *testing.T) {
@@ -580,7 +582,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 			chainID:       chainID,
 		})
 		mn.nodeSelector = nodeSelector
-		err := mn.SendTransaction(testutils.Context(t), nil)
+		err := mn.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, err, expectedError.Error())
 	})
 	t.Run("Returns result of main node and logs secondary nodes results", func(t *testing.T) {
@@ -621,7 +623,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		})
 		mn.nodeSelector = nodeSelector
 
-		err := mn.SendTransaction(testutils.Context(t), nil)
+		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
 		testutils.WaitForLogMessage(t, observedLogs, "Sendonly node sent transaction")
 		testutils.WaitForLogMessage(t, observedLogs, "RPC returned error")
