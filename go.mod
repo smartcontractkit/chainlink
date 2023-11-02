@@ -79,7 +79,7 @@ require (
 	github.com/spf13/cast v1.5.1
 	github.com/stretchr/testify v1.8.4
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
-	github.com/tidwall/gjson v1.16.0
+	github.com/tidwall/gjson v1.17.0
 	github.com/ugorji/go/codec v1.2.11
 	github.com/ulule/limiter/v3 v3.11.2
 	github.com/umbracle/ethgo v0.1.3
