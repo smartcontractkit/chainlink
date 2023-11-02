@@ -74,7 +74,6 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     uint8 upkeepInterval
   ) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0), "LinkAvailableBalanceMonitor: invalid linkTokenAddress");
-    require(upkeepInterval <= 255, "LinkAvailableBalanceMonitor: invalid upkeepInterval");
     LINK_TOKEN = IERC20(linkTokenAddress);
     setMinWaitPeriodSeconds(minWaitPeriodSeconds);
     setMaxPerform(maxPerform);
@@ -105,7 +104,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
       if (addresses[idx] == address(0)) {
         revert InvalidWatchList();
       }
-      if (!(topUpAmounts[idx] > 0)) revert InvalidWatchList();
+      if (topUpAmounts[idx] == 0) revert InvalidWatchList();
       s_targets[targetAddress] = MonitoredAddress({
         isActive: true,
         minBalance: minBalances[idx],
@@ -158,29 +157,20 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   function topUp(address[] memory targetAddresses) public whenNotPaused {
     MonitoredAddress memory target;
     uint256 localBalance = LINK_TOKEN.balanceOf(address(this));
-    address[] memory targetsTopUp = new address[](targetAddresses.length);
     for (uint256 idx = 0; idx < targetAddresses.length; idx++) {
       address targetAddress = targetAddresses[idx];
       target = s_targets[targetAddress];
       if (localBalance >= target.topUpAmount && _needsFunding(targetAddress, target.minBalance)) {
-        targetsTopUp[idx] = targetAddress;
-        localBalance -= target.topUpAmount;
+        bool success = LINK_TOKEN.transfer(targetAddress, target.topUpAmount);
+        if (success) {
+          localBalance -= target.topUpAmount;
+          target.lastTopUpTimestamp = uint56(block.timestamp);
+          emit TopUpSucceeded(targetAddress);
+        } else {
+          emit TopUpFailed(targetAddress);
+        }
       } else {
         emit TopUpBlocked(targetAddress);
-      }
-    }
-    for (uint256 idx = 0; idx < targetsTopUp.length; idx++) {
-      address targetAddress = targetsTopUp[idx];
-      if (targetAddress == address(0)) {
-        continue;
-      }
-      target = s_targets[targetAddress];
-      bool success = LINK_TOKEN.transfer(targetAddress, target.topUpAmount);
-      if (success) {
-        target.lastTopUpTimestamp = uint56(block.timestamp);
-        emit TopUpSucceeded(targetAddress);
-      } else {
-        emit TopUpFailed(targetAddress);
       }
     }
   }
@@ -291,6 +281,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
 
   /// @notice Update s_upkeepInterval
   function setUpkeepInterval(uint8 upkeepInterval) public onlyOwner {
+    require(upkeepInterval <= 255, "LinkAvailableBalanceMonitor: invalid upkeepInterval");
     s_upkeepInterval = upkeepInterval;
     emit MaxCheckSet(s_upkeepInterval, upkeepInterval);
   }

@@ -797,7 +797,7 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
 
     context('when partially funded', () => {
-      it('Should fund as many addresses as possible', async () => {
+      it('Should fund as many addresses as possible T', async () => {
         await lt.connect(owner).transfer(
           labm.address,
           fourLINK, // only enough LINK to fund 2 addresses
