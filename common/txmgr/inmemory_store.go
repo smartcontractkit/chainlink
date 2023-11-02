@@ -62,9 +62,7 @@ type InMemoryStore[
 	chainID CHAIN_ID
 
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
-	// EventRecorder is used to persist events which can be replayed later to restore the state of the system
-	// rename to txStore
-	eventRecorder txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	txStore  txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
 	pendingLock sync.Mutex
 	// NOTE(jtw): we might need to watch out for txns that finish and are removed from the pending map
@@ -85,12 +83,12 @@ func NewInMemoryStore[
 ](
 	chainID CHAIN_ID,
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
-	eventRecorder txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 ) (*InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
 	tm := InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		chainID:       chainID,
-		keyStore:      keyStore,
-		eventRecorder: eventRecorder,
+		chainID:  chainID,
+		keyStore: keyStore,
+		txStore:  txStore,
 
 		pendingIdempotencyKeys:    map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 		pendingPipelineTaskRunIds: map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
@@ -114,7 +112,7 @@ func NewInMemoryStore[
 // Close closes the InMemoryStore
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() {
 	// Close the event recorder
-	ms.eventRecorder.Close()
+	ms.txStore.Close()
 
 	// Close all channels
 	for _, ch := range ms.unstarted {
@@ -135,7 +133,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 	}
 
 	// Mark all persisted transactions as abandoned
-	if err := ms.eventRecorder.Abandon(ctx, chainID, addr); err != nil {
+	if err := ms.txStore.Abandon(ctx, chainID, addr); err != nil {
 		return err
 	}
 
@@ -182,7 +180,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 // CreateTransaction creates a new transaction for a given txRequest.
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], chainID CHAIN_ID) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	// Persist Transaction to persistent storage
-	tx, err := ms.eventRecorder.CreateTransaction(ctx, txRequest, chainID)
+	tx, err := ms.txStore.CreateTransaction(ctx, txRequest, chainID)
 	if err != nil {
 		return tx, err
 	}
