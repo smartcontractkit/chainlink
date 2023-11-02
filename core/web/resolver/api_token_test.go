@@ -39,6 +39,11 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 			"password": defaultPassword,
 		},
 	}
+	variablesIncorrect := map[string]interface{}{
+		"input": map[string]interface{}{
+			"password": "wrong-password",
+		},
+	}
 	gError := errors.New("error")
 
 	testCases := []GQLTestCase{
@@ -57,6 +62,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				session.User.HashedPassword = pwd
 
 				f.Mocks.authProvider.On("FindUser", session.User.Email).Return(*session.User, nil)
+				f.Mocks.authProvider.On("TestPassword", session.User.Email, defaultPassword).Return(nil)
 				f.Mocks.authProvider.On("CreateAndSetAuthToken", session.User).Return(&auth.Token{
 					Secret:    "new-secret",
 					AccessKey: "new-access-key",
@@ -83,13 +89,12 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				require.True(t, ok)
 				require.NotNil(t, session)
 
-				session.User.HashedPassword = "wrong-password"
-
 				f.Mocks.authProvider.On("FindUser", session.User.Email).Return(*session.User, nil)
+				f.Mocks.authProvider.On("TestPassword", session.User.Email, "wrong-password").Return(gError)
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
 			},
 			query:     mutation,
-			variables: variables,
+			variables: variablesIncorrect,
 			result: `
 				{
 					"createAPIToken": {
@@ -190,6 +195,11 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 			"password": defaultPassword,
 		},
 	}
+	variablesIncorrect := map[string]interface{}{
+		"input": map[string]interface{}{
+			"password": "wrong-password",
+		},
+	}
 	gError := errors.New("error")
 
 	testCases := []GQLTestCase{
@@ -210,8 +220,8 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				require.NoError(t, err)
 
 				f.Mocks.authProvider.On("FindUser", session.User.Email).Return(*session.User, nil)
+				f.Mocks.authProvider.On("TestPassword", session.User.Email, defaultPassword).Return(nil)
 				f.Mocks.authProvider.On("DeleteAuthToken", session.User).Return(nil)
-				f.Mocks.authProvider.On("TestPassword", session.User.Email, pwd).Return(nil)
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
 			},
 			query:     mutation,
@@ -233,13 +243,12 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				require.True(t, ok)
 				require.NotNil(t, session)
 
-				session.User.HashedPassword = "wrong-password"
-
 				f.Mocks.authProvider.On("FindUser", session.User.Email).Return(*session.User, nil)
+				f.Mocks.authProvider.On("TestPassword", session.User.Email, "wrong-password").Return(gError)
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
 			},
 			query:     mutation,
-			variables: variables,
+			variables: variablesIncorrect,
 			result: `
 				{
 					"deleteAPIToken": {
@@ -293,6 +302,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				session.User.HashedPassword = pwd
 
 				f.Mocks.authProvider.On("FindUser", session.User.Email).Return(*session.User, nil)
+				f.Mocks.authProvider.On("TestPassword", session.User.Email, defaultPassword).Return(nil)
 				f.Mocks.authProvider.On("DeleteAuthToken", session.User).Return(gError)
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
 			},

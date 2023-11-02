@@ -65,40 +65,40 @@ func (o *orm) ListUsers() (users []sessions.User, err error) {
 	return
 }
 
+// findValidSession finds an unexpired session by its ID and returns the associated email.
+func (o *orm) findValidSession(sessionID string) (email string, err error) {
+	if err := o.q.Get(&email, "SELECT email FROM sessions WHERE id = $1 AND last_used + $2 >= now() FOR UPDATE", sessionID, o.sessionDuration); err != nil {
+		o.lggr.Infof("query result: %v", email)
+		return email, errors.Wrap(err, "no matching user for provided session token")
+	}
+	return email, nil
+}
+
+// updateSessionLastUsed updates a session by its ID and sets the LastUsed field to now().
+func (o *orm) updateSessionLastUsed(sessionID string) error {
+	return o.q.ExecQ("UPDATE sessions SET last_used = now() WHERE id = $1", sessionID)
+}
+
 // AuthorizedUserWithSession will return the API user associated with the Session ID if it
 // exists and hasn't expired, and update session's LastUsed field.
-func (o *orm) AuthorizedUserWithSession(sessionID string) (sessions.User, error) {
+// AuthorizedUserWithSession will return the API user associated with the Session ID if it
+// exists and hasn't expired, and update session's LastUsed field.
+func (o *orm) AuthorizedUserWithSession(sessionID string) (user sessions.User, err error) {
 	if len(sessionID) == 0 {
-		return sessions.User{}, errors.New("Session ID cannot be empty")
+		return sessions.User{}, sessions.ErrEmptySessionID
 	}
 
-	var user sessions.User
-	err := o.q.Transaction(func(tx pg.Queryer) error {
-		// First find user based on session token
-		var foundSession struct {
-			Email string
-			Valid bool
-		}
-		if err := tx.Get(&foundSession, "SELECT email, last_used + $2 >= now() as valid FROM sessions WHERE id = $1 FOR UPDATE", sessionID, o.sessionDuration); err != nil {
-			return errors.Wrap(err, "no matching user for provided session token")
-		}
-
-		if !foundSession.Valid {
-			return sessions.ErrUserSessionExpired
-		}
-
-		if err := tx.Get(&user, "SELECT * FROM users WHERE lower(email) = lower($1)", foundSession.Email); err != nil {
-			return errors.Wrap(err, "no matching user for provided session email")
-		}
-		// Session valid and tied to user, update last_used
-		_, err := tx.Exec("UPDATE sessions SET last_used = now() WHERE id = $1 AND last_used + $2 >= now()", sessionID, o.sessionDuration)
-		if err != nil {
-			return errors.Wrap(err, "unable to update sessions table")
-		}
-		return nil
-	})
-
+	email, err := o.findValidSession(sessionID)
 	if err != nil {
+		return sessions.User{}, sessions.ErrUserSessionExpired
+	}
+
+	user, err = o.findUser(email)
+	if err != nil {
+		return sessions.User{}, sessions.ErrUserSessionExpired
+	}
+
+	if err := o.updateSessionLastUsed(sessionID); err != nil {
 		return sessions.User{}, err
 	}
 

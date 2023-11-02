@@ -101,6 +101,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 
 			app := mocks.NewApplication(t)
 			app.On("AuthenticationProvider").Return(authProviderORM).Maybe()
+			app.On("LocalAdminUsersORM").Return(authProviderORM).Maybe()
 			app.On("GetKeyStore").Return(keyStore).Maybe()
 			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)

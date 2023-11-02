@@ -166,7 +166,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		jsonAPIError(ctx, http.StatusBadRequest, errors.Errorf("Unable to find user: %s, %s", email, err))
+		jsonAPIError(ctx, http.StatusBadRequest, errors.Errorf("specified user not found: %s", email))
 		return
 	}
 
