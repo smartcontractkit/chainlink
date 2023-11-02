@@ -2,10 +2,10 @@
 
 pragma solidity 0.8.6;
 
-import "../../../ConfirmedOwner.sol";
-import {IKeeperRegistryMaster} from "../2_1/interfaces/IKeeperRegistryMaster.sol";
-import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
-import {ITypeAndVersion} from "../../../interfaces/ITypeAndVersion.sol";
+import "../../shared/access/ConfirmedOwner.sol";
+import {IKeeperRegistryMaster} from "../interfaces/v2_1/IKeeperRegistryMaster.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
