@@ -275,13 +275,21 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			if err != nil {
 				failUnknown("failed to execute mercury callback ", err)
 			}
+			if callbackResult.UpkeepFailureReason != 0 {
+				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
+			}
 			upkeepNeeded, performData = callbackResult.UpkeepNeeded, callbackResult.PerformData
-			// do tenderly simulation
+			// do tenderly simulations
 			rawCall, err := core.RegistryABI.Pack("checkCallback", upkeepID, values, streamsLookup.extraData)
 			if err != nil {
-				failUnknown("failed to pack raw checkUpkeep call", err)
+				failUnknown("failed to pack raw checkCallback call", err)
 			}
 			addLink("checkCallback simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+			rawCall, err = core.StreamsCompatibleABI.Pack("checkCallback", values, streamsLookup.extraData)
+			if err != nil {
+				failUnknown("failed to pack raw checkCallback (direct) call", err)
+			}
+			addLink("checkCallback (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
 		} else {
 			message("did not revert with StreamsLookup error")
 		}
