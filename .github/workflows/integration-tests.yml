@@ -10,15 +10,15 @@ on:
       - "*"
   workflow_dispatch:
     inputs:
-      liveNetwork:
-        description: "Run Live Network Tests"
-        required: false
-        type: boolean
       simulatedNetwork:
         description: "Run Simulated Network Tests"
         required: false
         type: boolean
         default: true
+      liveNetwork:
+        description: "Run Live Network Tests"
+        required: false
+        type: boolean
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
@@ -62,6 +62,12 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Check Paths That Require Tests To Run
         continue-on-error: true
+      - name: Debug Workflow Inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "liveNetwork: ${{ github.event.inputs.liveNetwork }}"
+          echo "simulatedNetwork: ${{ github.event.inputs.simulatedNetwork }}"
+
     outputs:
       src: ${{ steps.changes.outputs.src }}
   build-chainlink:
@@ -180,7 +186,7 @@ jobs:
           echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
 
   eth-smoke-tests-matrix-automation:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || (github.event_name == 'workflow_dispatch' && inputs.simulatedNetwork)) }}
     environment: integration
     permissions:
       checks: write
