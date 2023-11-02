@@ -85,6 +85,23 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2PlusConfig)
+					if env.EVMClient.NetworkSimulated() {
+						l.Info().
+							Str("Network Name", env.EVMClient.GetNetworkName()).
+							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+					} else {
+						//cancel subs and return funds to sub owner
+						for _, subID := range subIDs {
+							l.Info().
+								Str("Returning funds from SubID", subID.String()).
+								Str("Returning funds to", env.EVMClient.GetDefaultWallet().Address()).
+								Msg("Canceling subscription and returning funds to subscription owner")
+							err := vrfv2PlusContracts.Coordinator.OwnerCancelSubscription(subID)
+							if err != nil {
+								l.Error().Err(err).Msg("Error canceling subscription")
+							}
+						}
+					}
 				}).
 			Build()
 
@@ -141,6 +158,25 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2PlusConfig)
+
+					if env.EVMClient.NetworkSimulated() {
+						l.Info().
+							Str("Network Name", env.EVMClient.GetNetworkName()).
+							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+					} else {
+						for _, subID := range subIDs {
+							l.Info().
+								Str("Returning funds from SubID", subID.String()).
+								Str("Returning funds to", env.EVMClient.GetDefaultWallet().Address()).
+								Msg("Canceling subscription and returning funds to subscription owner")
+							err := vrfv2PlusContracts.Coordinator.OwnerCancelSubscription(subID)
+							if err != nil {
+								l.Error().Err(err).Msg("Error canceling subscription")
+							}
+						}
+						err = vrfv2plus.ReturnFundsForFulfilledRequests(env.EVMClient, vrfv2PlusContracts.Coordinator, l)
+						l.Error().Err(err).Msg("Error returning funds for fulfilled requests")
+					}
 					if err := env.Cleanup(); err != nil {
 						l.Error().Err(err).Msg("Error cleaning up test environment")
 					}
@@ -163,6 +199,8 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			&vrfv2PlusConfig,
 			linkToken,
 			mockETHLinkFeed,
+			//register proving key against EOA address in order to return funds to this address
+			env.EVMClient.GetDefaultWallet().Address(),
 			1,
 			vrfv2PlusConfig.NumberOfSubToCreate,
 			l,

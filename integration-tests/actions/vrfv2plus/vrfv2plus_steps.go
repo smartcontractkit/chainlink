@@ -239,6 +239,7 @@ func SetupVRFV2_5Environment(
 	vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
+	registerProvingKeyAgainstAddress string,
 	numberOfConsumers int,
 	numberOfSubToCreate int,
 	l zerolog.Logger,
@@ -275,7 +276,7 @@ func SetupVRFV2_5Environment(
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
-	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Creating and funding subscriptions, adding consumers")
+	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Int("Number of Subs to create", numberOfSubToCreate).Msg("Creating and funding subscriptions, adding consumers")
 	subIDs, err := CreateFundSubsAndAddConsumers(env, vrfv2PlusConfig, linkToken, vrfv2_5Contracts.Coordinator, vrfv2_5Contracts.LoadTestConsumers, numberOfSubToCreate)
 	if err != nil {
 		return nil, nil, nil, err
@@ -287,12 +288,8 @@ func SetupVRFV2_5Environment(
 	}
 	pubKeyCompressed := vrfKey.Data.ID
 
-	nativeTokenPrimaryKeyAddress, err := env.ClCluster.NodeAPIs()[0].PrimaryEthAddress()
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, ErrNodePrimaryKey)
-	}
 	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Registering Proving Key")
-	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, nativeTokenPrimaryKeyAddress, vrfv2_5Contracts.Coordinator)
+	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, registerProvingKeyAgainstAddress, vrfv2_5Contracts.Coordinator)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrRegisteringProvingKey)
 	}
@@ -302,6 +299,11 @@ func SetupVRFV2_5Environment(
 	}
 
 	chainID := env.EVMClient.GetChainID()
+
+	nativeTokenPrimaryKeyAddress, err := env.ClCluster.NodeAPIs()[0].PrimaryEthAddress()
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, ErrNodePrimaryKey)
+	}
 
 	l.Info().Msg("Creating VRFV2 Plus Job")
 	job, err := CreateVRFV2PlusJob(
@@ -775,6 +777,41 @@ func WaitForRequestCountEqualToFulfilmentCount(consumer contracts.VRFv2PlusLoadT
 			return nil, nil, err
 		}
 	}
+}
+
+func ReturnFundsForFulfilledRequests(client blockchain.EVMClient, coordinator contracts.VRFCoordinatorV2_5, l zerolog.Logger) error {
+	linkTotalBalance, err := coordinator.GetLinkTotalBalance(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "Error getting LINK total balance")
+	}
+	defaultWallet := client.GetDefaultWallet().Address()
+	l.Info().
+		Str("LINK amount", linkTotalBalance.String()).
+		Str("Returning to", defaultWallet).
+		Msg("Returning LINK for fulfilled requests")
+	_, err = coordinator.OracleWithdraw(
+		common.HexToAddress(defaultWallet),
+		linkTotalBalance,
+	)
+	if err != nil {
+		return errors.Wrap(err, "Error withdrawing LINK from coordinator to default wallet")
+	}
+	nativeTotalBalance, err := coordinator.GetNativeTokenTotalBalance(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "Error getting NATIVE total balance")
+	}
+	l.Info().
+		Str("Native Token amount", linkTotalBalance.String()).
+		Str("Returning to", defaultWallet).
+		Msg("Returning Native Token for fulfilled requests")
+	_, err = coordinator.OracleWithdrawNative(
+		common.HexToAddress(defaultWallet),
+		nativeTotalBalance,
+	)
+	if err != nil {
+		return errors.Wrap(err, "Error withdrawing NATIVE from coordinator to default wallet")
+	}
+	return nil
 }
 
 func getLoadTestMetrics(

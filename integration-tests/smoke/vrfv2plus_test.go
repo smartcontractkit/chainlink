@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"math/big"
 	"testing"
 	"time"
@@ -45,7 +46,10 @@ func TestVRFv2Plus(t *testing.T) {
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, &vrfv2PlusConfig, linkToken, mockETHLinkFeed, 1, 1, l)
+	// register proving key against oracle address (sending key) in order to test oracleWithdraw
+	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
+
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, &vrfv2PlusConfig, linkToken, mockETHLinkFeed, defaultWalletAddress, 1, 1, l)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
 
 	subID := subIDs[0]
@@ -55,7 +59,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
-	t.Run("VRFV2 Plus With Link Billing", func(t *testing.T) {
+	t.Run("Link Billing", func(t *testing.T) {
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
@@ -96,8 +100,7 @@ func TestVRFv2Plus(t *testing.T) {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
 	})
-
-	t.Run("VRFV2 Plus With Native Billing", func(t *testing.T) {
+	t.Run("Native Billing", func(t *testing.T) {
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
@@ -137,112 +140,258 @@ func TestVRFv2Plus(t *testing.T) {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
 	})
-
-	wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
-		env,
-		&vrfv2PlusConfig,
-		linkToken,
-		mockETHLinkFeed,
-		vrfv2PlusContracts.Coordinator,
-		vrfv2PlusData.KeyHash,
-		1,
-	)
-	require.NoError(t, err)
-
-	t.Run("VRFV2 Plus With Direct Funding (VRFV2PlusWrapper) - Link Billing", func(t *testing.T) {
-		var isNativeBilling = false
-
-		wrapperConsumerJuelsBalanceBeforeRequest, err := linkToken.BalanceOf(context.Background(), wrapperContracts.LoadTestConsumers[0].Address())
-		require.NoError(t, err, "error getting wrapper consumer balance")
-
-		wrapperSubscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
-		require.NoError(t, err, "error getting subscription information")
-		subBalanceBeforeRequest := wrapperSubscription.Balance
-
-		randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
-			wrapperContracts.LoadTestConsumers[0],
-			vrfv2PlusContracts.Coordinator,
-			vrfv2PlusData,
-			wrapperSubID,
-			isNativeBilling,
+	t.Run("Direct Funding (VRFV2PlusWrapper)", func(t *testing.T) {
+		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
+			env,
 			&vrfv2PlusConfig,
-			l,
+			linkToken,
+			mockETHLinkFeed,
+			vrfv2PlusContracts.Coordinator,
+			vrfv2PlusData.KeyHash,
+			1,
 		)
-		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+		require.NoError(t, err)
 
-		expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
-		wrapperSubscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
-		require.NoError(t, err, "error getting subscription information")
-		subBalanceAfterRequest := wrapperSubscription.Balance
-		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
+		t.Run("Link Billing", func(t *testing.T) {
+			var isNativeBilling = false
 
-		consumerStatus, err := wrapperContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
-		require.NoError(t, err, "error getting rand request status")
-		require.True(t, consumerStatus.Fulfilled)
+			wrapperConsumerJuelsBalanceBeforeRequest, err := linkToken.BalanceOf(context.Background(), wrapperContracts.LoadTestConsumers[0].Address())
+			require.NoError(t, err, "error getting wrapper consumer balance")
 
-		expectedWrapperConsumerJuelsBalance := new(big.Int).Sub(wrapperConsumerJuelsBalanceBeforeRequest, consumerStatus.Paid)
+			wrapperSubscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
+			require.NoError(t, err, "error getting subscription information")
+			subBalanceBeforeRequest := wrapperSubscription.Balance
 
-		wrapperConsumerJuelsBalanceAfterRequest, err := linkToken.BalanceOf(context.Background(), wrapperContracts.LoadTestConsumers[0].Address())
-		require.NoError(t, err, "error getting wrapper consumer balance")
-		require.Equal(t, expectedWrapperConsumerJuelsBalance, wrapperConsumerJuelsBalanceAfterRequest)
+			randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
+				wrapperContracts.LoadTestConsumers[0],
+				vrfv2PlusContracts.Coordinator,
+				vrfv2PlusData,
+				wrapperSubID,
+				isNativeBilling,
+				&vrfv2PlusConfig,
+				l,
+			)
+			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-		//todo: uncomment when VRF-651 will be fixed
-		//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
-		vrfv2plus.LogFulfillmentDetailsLinkBilling(l, wrapperConsumerJuelsBalanceBeforeRequest, wrapperConsumerJuelsBalanceAfterRequest, consumerStatus, randomWordsFulfilledEvent)
+			expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
+			wrapperSubscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
+			require.NoError(t, err, "error getting subscription information")
+			subBalanceAfterRequest := wrapperSubscription.Balance
+			require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
 
-		require.Equal(t, vrfv2PlusConfig.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
-		for _, w := range consumerStatus.RandomWords {
-			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
-			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
-		}
+			consumerStatus, err := wrapperContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
+			require.NoError(t, err, "error getting rand request status")
+			require.True(t, consumerStatus.Fulfilled)
+
+			expectedWrapperConsumerJuelsBalance := new(big.Int).Sub(wrapperConsumerJuelsBalanceBeforeRequest, consumerStatus.Paid)
+
+			wrapperConsumerJuelsBalanceAfterRequest, err := linkToken.BalanceOf(context.Background(), wrapperContracts.LoadTestConsumers[0].Address())
+			require.NoError(t, err, "error getting wrapper consumer balance")
+			require.Equal(t, expectedWrapperConsumerJuelsBalance, wrapperConsumerJuelsBalanceAfterRequest)
+
+			//todo: uncomment when VRF-651 will be fixed
+			//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
+			vrfv2plus.LogFulfillmentDetailsLinkBilling(l, wrapperConsumerJuelsBalanceBeforeRequest, wrapperConsumerJuelsBalanceAfterRequest, consumerStatus, randomWordsFulfilledEvent)
+
+			require.Equal(t, vrfv2PlusConfig.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
+			for _, w := range consumerStatus.RandomWords {
+				l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
+				require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
+			}
+		})
+		t.Run("Native Billing", func(t *testing.T) {
+			var isNativeBilling = true
+
+			wrapperConsumerBalanceBeforeRequestWei, err := env.EVMClient.BalanceAt(context.Background(), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()))
+			require.NoError(t, err, "error getting wrapper consumer balance")
+
+			wrapperSubscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
+			require.NoError(t, err, "error getting subscription information")
+			subBalanceBeforeRequest := wrapperSubscription.NativeBalance
+
+			randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
+				wrapperContracts.LoadTestConsumers[0],
+				vrfv2PlusContracts.Coordinator,
+				vrfv2PlusData,
+				wrapperSubID,
+				isNativeBilling,
+				&vrfv2PlusConfig,
+				l,
+			)
+			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+			expectedSubBalanceWei := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
+			wrapperSubscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
+			require.NoError(t, err, "error getting subscription information")
+			subBalanceAfterRequest := wrapperSubscription.NativeBalance
+			require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
+
+			consumerStatus, err := wrapperContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
+			require.NoError(t, err, "error getting rand request status")
+			require.True(t, consumerStatus.Fulfilled)
+
+			expectedWrapperConsumerWeiBalance := new(big.Int).Sub(wrapperConsumerBalanceBeforeRequestWei, consumerStatus.Paid)
+
+			wrapperConsumerBalanceAfterRequestWei, err := env.EVMClient.BalanceAt(context.Background(), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()))
+			require.NoError(t, err, "error getting wrapper consumer balance")
+			require.Equal(t, expectedWrapperConsumerWeiBalance, wrapperConsumerBalanceAfterRequestWei)
+
+			//todo: uncomment when VRF-651 will be fixed
+			//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
+			vrfv2plus.LogFulfillmentDetailsNativeBilling(l, wrapperConsumerBalanceBeforeRequestWei, wrapperConsumerBalanceAfterRequestWei, consumerStatus, randomWordsFulfilledEvent)
+
+			require.Equal(t, vrfv2PlusConfig.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
+			for _, w := range consumerStatus.RandomWords {
+				l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
+				require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
+			}
+		})
 	})
+	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
+		subIDsForCancelling, err := vrfv2plus.CreateFundSubsAndAddConsumers(env, &vrfv2PlusConfig, linkToken, vrfv2PlusContracts.Coordinator, vrfv2PlusContracts.LoadTestConsumers, 1)
+		require.NoError(t, err)
+		subIDForCancelling := subIDsForCancelling[0]
 
-	t.Run("VRFV2 Plus With Direct Funding (VRFV2PlusWrapper) - Native Billing", func(t *testing.T) {
-		var isNativeBilling = true
+		defaultWalletBalanceNativeBeforeSubCancelling, err := env.EVMClient.BalanceAt(context.Background(), common.HexToAddress(defaultWalletAddress))
+		require.NoError(t, err)
 
-		wrapperConsumerBalanceBeforeRequestWei, err := env.EVMClient.BalanceAt(context.Background(), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()))
-		require.NoError(t, err, "error getting wrapper consumer balance")
+		defaultWalletBalanceLinkBeforeSubCancelling, err := linkToken.BalanceOf(context.Background(), defaultWalletAddress)
+		require.NoError(t, err)
 
-		wrapperSubscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
+		subscriptionForCancelling, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subIDForCancelling)
 		require.NoError(t, err, "error getting subscription information")
-		subBalanceBeforeRequest := wrapperSubscription.NativeBalance
 
-		randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
-			wrapperContracts.LoadTestConsumers[0],
+		l.Info().
+			Str("Subscription Amount Native", subscriptionForCancelling.NativeBalance.String()).
+			Str("Subscription Amount Link", subscriptionForCancelling.Balance.String()).
+			Str("Returning funds from SubID", subIDForCancelling.String()).
+			Str("Returning funds to", defaultWalletAddress).
+			Msg("Canceling subscription and returning funds to subscription owner")
+		tx, err := vrfv2PlusContracts.Coordinator.CancelSubscription(subIDForCancelling, common.HexToAddress(defaultWalletAddress))
+		require.NoError(t, err, "Error canceling subscription")
+
+		subscriptionCanceledEvent, err := vrfv2PlusContracts.Coordinator.WaitForSubscriptionCanceledEvent(subIDForCancelling, time.Second*30)
+		require.NoError(t, err, "error waiting for subscription canceled event")
+
+		cancellationTxReceipt, err := env.EVMClient.GetTxReceipt(tx.Hash())
+		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
+
+		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
+
+		l.Info().
+			Str("Cancellation Tx Fee Wei", cancellationTxFeeWei.String()).
+			Str("Effective Gas Price", cancellationTxReceipt.EffectiveGasPrice.String()).
+			Uint64("Gas Used", cancellationTxReceipt.GasUsed).
+			Msg("Cancellation TX Receipt")
+
+		l.Info().
+			Str("Returned Subscription Amount Native", subscriptionCanceledEvent.AmountNative.String()).
+			Str("Returned Subscription Amount Link", subscriptionCanceledEvent.AmountLink.String()).
+			Str("SubID", subscriptionCanceledEvent.SubId.String()).
+			Str("Returned to", subscriptionCanceledEvent.To.String()).
+			Msg("Subscription Canceled Event")
+
+		require.Equal(t, subscriptionForCancelling.NativeBalance, subscriptionCanceledEvent.AmountNative, "")
+		require.Equal(t, subscriptionForCancelling.Balance, subscriptionCanceledEvent.AmountLink, "")
+
+		defaultWalletBalanceNativeAfterSubCancelling, err := env.EVMClient.BalanceAt(context.Background(), common.HexToAddress(defaultWalletAddress))
+		require.NoError(t, err)
+
+		defaultWalletBalanceLinkAfterSubCancelling, err := linkToken.BalanceOf(context.Background(), defaultWalletAddress)
+		require.NoError(t, err)
+
+		//Verify that sub was deleted from Coordinator
+		_, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subIDForCancelling)
+		require.Error(t, err, "error not occurred when trying to get deleted subscription from old Coordinator after sub migration")
+
+		subFundsReturnedNativeActual := new(big.Int).Sub(defaultWalletBalanceNativeAfterSubCancelling, defaultWalletBalanceNativeBeforeSubCancelling)
+		subFundsReturnedLinkActual := new(big.Int).Sub(defaultWalletBalanceLinkAfterSubCancelling, defaultWalletBalanceLinkBeforeSubCancelling)
+
+		subFundsReturnedNativeExpected := new(big.Int).Sub(subscriptionForCancelling.NativeBalance, cancellationTxFeeWei)
+		deltaSpentOnCancellationTxFee := new(big.Int).Sub(subscriptionForCancelling.NativeBalance, subFundsReturnedNativeActual)
+		l.Info().
+			Str("Sub Balance - Native", subscriptionForCancelling.NativeBalance.String()).
+			Str("Delta Spent On Cancellation Tx Fee - `NativeBalance - subFundsReturnedNativeActual`", deltaSpentOnCancellationTxFee.String()).
+			Str("Cancellation Tx Fee Wei", cancellationTxFeeWei.String()).
+			Str("Sub Funds Returned Actual - Native", subFundsReturnedNativeActual.String()).
+			Str("Sub Funds Returned Expected - `NativeBalance - cancellationTxFeeWei`", subFundsReturnedNativeExpected.String()).
+			Str("Sub Funds Returned Actual - Link", subFundsReturnedLinkActual.String()).
+			Str("Sub Balance - Link", subscriptionForCancelling.Balance.String()).
+			Msg("Sub funds returned")
+
+		//todo - this fails on SIMULATED env as tx cost is calculated different as for testnets and it's not receipt.EffectiveGasPrice*receipt.GasUsed
+		//require.Equal(t, subFundsReturnedNativeExpected, subFundsReturnedNativeActual, "Returned funds are not equal to sub balance that was cancelled")
+		require.Equal(t, subscriptionForCancelling.Balance, subFundsReturnedLinkActual, "Returned funds are not equal to sub balance that was cancelled")
+
+	})
+	t.Run("Oracle Withdraw", func(t *testing.T) {
+		subIDs, err := vrfv2plus.CreateFundSubsAndAddConsumers(env, &vrfv2PlusConfig, linkToken, vrfv2PlusContracts.Coordinator, vrfv2PlusContracts.LoadTestConsumers, 1)
+		require.NoError(t, err)
+		subIDForOracleWithdraw := subIDs[0]
+
+		fulfilledEventLink, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+			vrfv2PlusContracts.LoadTestConsumers[0],
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusData,
-			wrapperSubID,
-			isNativeBilling,
+			subIDForOracleWithdraw,
+			false,
+			vrfv2PlusConfig.RandomnessRequestCountPerRequest,
 			&vrfv2PlusConfig,
 			l,
 		)
-		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-		expectedSubBalanceWei := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
-		wrapperSubscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
-		require.NoError(t, err, "error getting subscription information")
-		subBalanceAfterRequest := wrapperSubscription.NativeBalance
-		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
+		fulfilledEventNative, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+			vrfv2PlusContracts.LoadTestConsumers[0],
+			vrfv2PlusContracts.Coordinator,
+			vrfv2PlusData,
+			subIDForOracleWithdraw,
+			true,
+			vrfv2PlusConfig.RandomnessRequestCountPerRequest,
+			&vrfv2PlusConfig,
+			l,
+		)
+		amountToWithdrawLink := fulfilledEventLink.Payment
 
-		consumerStatus, err := wrapperContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
-		require.NoError(t, err, "error getting rand request status")
-		require.True(t, consumerStatus.Fulfilled)
+		l.Info().
+			Str("Returning to", defaultWalletAddress).
+			Str("Amount", amountToWithdrawLink.String()).
+			Msg("Invoking Oracle Withdraw for LINK")
 
-		expectedWrapperConsumerWeiBalance := new(big.Int).Sub(wrapperConsumerBalanceBeforeRequestWei, consumerStatus.Paid)
+		txWithdrawLink, err := vrfv2PlusContracts.Coordinator.OracleWithdraw(
+			common.HexToAddress(defaultWalletAddress),
+			amountToWithdrawLink,
+		)
+		require.NoError(t, err, "error withdrawing LINK from coordinator to default wallet")
+		amountToWithdrawNative := fulfilledEventNative.Payment
 
-		wrapperConsumerBalanceAfterRequestWei, err := env.EVMClient.BalanceAt(context.Background(), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()))
-		require.NoError(t, err, "error getting wrapper consumer balance")
-		require.Equal(t, expectedWrapperConsumerWeiBalance, wrapperConsumerBalanceAfterRequestWei)
+		l.Info().
+			Str("Returning to", defaultWalletAddress).
+			Str("Amount", amountToWithdrawNative.String()).
+			Msg("Invoking Oracle Withdraw for Native")
 
-		//todo: uncomment when VRF-651 will be fixed
-		//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
-		vrfv2plus.LogFulfillmentDetailsNativeBilling(l, wrapperConsumerBalanceBeforeRequestWei, wrapperConsumerBalanceAfterRequestWei, consumerStatus, randomWordsFulfilledEvent)
+		txWithdrawNative, err := vrfv2PlusContracts.Coordinator.OracleWithdrawNative(
+			common.HexToAddress(defaultWalletAddress),
+			amountToWithdrawNative,
+		)
+		require.NoError(t, err, "error withdrawing NATIVE TOKEN from coordinator to default wallet")
 
-		require.Equal(t, vrfv2PlusConfig.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
-		for _, w := range consumerStatus.RandomWords {
-			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
-			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
-		}
+		err = env.EVMClient.WaitForEvents()
+		require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+
+		oracleWithdrawNativeInputsDataMap, err := actions.DecodeTxInputData(vrf_coordinator_v2_5.VRFCoordinatorV25ABI, txWithdrawNative.Data())
+		require.NoError(t, err)
+
+		oracleWithdrawInputsDataMap, err := actions.DecodeTxInputData(vrf_coordinator_v2_5.VRFCoordinatorV25ABI, txWithdrawLink.Data())
+		require.NoError(t, err)
+
+		oracleWithdrawAmountNativeActual, ok := oracleWithdrawNativeInputsDataMap["amount"].(*big.Int)
+		require.True(t, ok)
+		oracleWithdrawAmountLinkActual, ok := oracleWithdrawInputsDataMap["amount"].(*big.Int)
+		require.True(t, ok)
+
+		require.Equal(t, amountToWithdrawLink.String(), oracleWithdrawAmountLinkActual.String(), "Oracle withdraw LINK amount is not equal to fulfilled request payment")
+		require.Equal(t, amountToWithdrawNative.String(), oracleWithdrawAmountNativeActual.String(), "Oracle withdraw NATIVE amount is not equal to fulfilled request payment")
 	})
 
 }
@@ -270,7 +419,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, &vrfv2PlusConfig, linkAddress, mockETHLinkFeedAddress, 2, 1, l)
+	nativeTokenPrimaryKeyAddress, err := env.ClCluster.NodeAPIs()[0].PrimaryEthAddress()
+	require.NoError(t, err, "error getting primary eth address")
+
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, &vrfv2PlusConfig, linkAddress, mockETHLinkFeedAddress, nativeTokenPrimaryKeyAddress, 2, 1, l)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
 
 	subID := subIDs[0]

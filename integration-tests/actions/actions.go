@@ -4,6 +4,7 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"math/big"
 	"strings"
 	"testing"
@@ -442,4 +443,20 @@ func DeployMockETHLinkFeed(cd contracts.ContractDeployer, answer *big.Int) (cont
 		return nil, err
 	}
 	return mockETHLINKFeed, err
+}
+
+// todo - move to CTF
+func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, error) {
+	jsonABI, err := abi.JSON(strings.NewReader(abiString))
+	if err != nil {
+		return nil, err
+	}
+	methodSigData := data[:4]
+	inputsSigData := data[4:]
+	method, err := jsonABI.MethodById(methodSigData)
+	inputsMap := make(map[string]interface{})
+	if err := method.Inputs.UnpackIntoMap(inputsMap, inputsSigData); err != nil {
+		return nil, err
+	}
+	return inputsMap, nil
 }
