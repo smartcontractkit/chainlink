@@ -6,17 +6,20 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 var _ types.TelemetryService = (*TelemetryAdapter)(nil)
 
 type TelemetryAdapter struct {
-	endpointGenerator types.MonitoringEndpointGenerator
+	endpointGenerator telemetry.MonitoringEndpointGenerator
 	endpoints         map[[4]string]commontypes.MonitoringEndpoint
 }
 
-func NewTelemetryAdapter(endpointGen types.MonitoringEndpointGenerator) *TelemetryAdapter {
+func NewTelemetryAdapter(endpointGen telemetry.MonitoringEndpointGenerator) *TelemetryAdapter {
 	return &TelemetryAdapter{
 		endpoints:         make(map[[4]string]commontypes.MonitoringEndpoint),
 		endpointGenerator: endpointGen,
@@ -24,7 +27,7 @@ func NewTelemetryAdapter(endpointGen types.MonitoringEndpointGenerator) *Telemet
 }
 
 func (t *TelemetryAdapter) Send(ctx context.Context, network string, chainID string, contractID string, telemetryType string, payload []byte) error {
-	e, err := t.getOrCreateEndpoint(contractID, telemetryType, network, chainID)
+	e, err := t.getOrCreateEndpoint(network, chainID, contractID, telemetryType)
 	if err != nil {
 		return err
 	}
@@ -32,7 +35,7 @@ func (t *TelemetryAdapter) Send(ctx context.Context, network string, chainID str
 	return nil
 }
 
-func (t *TelemetryAdapter) getOrCreateEndpoint(contractID string, telemetryType string, network string, chainID string) (commontypes.MonitoringEndpoint, error) {
+func (t *TelemetryAdapter) getOrCreateEndpoint(network string, chainID string, contractID string, telemetryType string) (commontypes.MonitoringEndpoint, error) {
 	if contractID == "" {
 		return nil, errors.New("contractID cannot be empty")
 	}
@@ -49,7 +52,7 @@ func (t *TelemetryAdapter) getOrCreateEndpoint(contractID string, telemetryType 
 	key := [4]string{network, chainID, contractID, telemetryType}
 	e, ok := t.endpoints[key]
 	if !ok {
-		e = t.endpointGenerator.GenMonitoringEndpoint(network, chainID, contractID, telemetryType)
+		e = t.endpointGenerator.GenMonitoringEndpoint(contractID, synchronization.TelemetryType(telemetryType), network, chainID)
 		t.endpoints[key] = e
 	}
 	return e, nil
