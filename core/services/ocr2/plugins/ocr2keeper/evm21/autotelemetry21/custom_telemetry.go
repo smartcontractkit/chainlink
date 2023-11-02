@@ -47,18 +47,18 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 		_, configDetails, err := e.contractConfigTracker.LatestConfigDetails(ctx)
 		if err != nil {
 			e.lggr.Errorf("Error occurred while getting newestConfigDetails for initialization %s", err)
-			// if send to atlas, then return. Else just log and move on because it would be sent on an interval basis
-			// return err
 		} else {
 			e.configDigest = configDetails
 			e.sendNodeVersionMsg()
 		}
 		e.threadCtrl.Go(func(ctx context.Context) {
-			ticker := time.NewTicker(1 * time.Minute)
-			defer ticker.Stop()
+			minuteTicker := time.NewTicker(1 * time.Minute)
+			hourTicker := time.NewTicker(1 * time.Hour)
+			defer minuteTicker.Stop()
+			defer hourTicker.Stop()
 			for {
 				select {
-				case <-ticker.C:
+				case <-minuteTicker.C:
 					_, newConfigDigest, err := e.contractConfigTracker.LatestConfigDetails(ctx)
 					if err != nil {
 						e.lggr.Errorf("Error occurred while getting newestConfigDetails in configDigest loop %s", err)
@@ -67,6 +67,8 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 						e.configDigest = newConfigDigest
 						e.sendNodeVersionMsg()
 					}
+				case <-hourTicker.C:
+					e.sendNodeVersionMsg()
 				case <-ctx.Done():
 					return
 				}
