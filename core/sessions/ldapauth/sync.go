@@ -7,13 +7,13 @@ import (
 
 	"github.com/go-ldap/ldap/v3"
 	"github.com/lib/pq"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 type LDAPServerStateSyncer struct {
