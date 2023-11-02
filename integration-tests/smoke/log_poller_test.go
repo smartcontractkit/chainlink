@@ -9,12 +9,13 @@ import (
 
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
-func TestLogPoller(t *testing.T) {
+func TestLogPollerFewFilters(t *testing.T) {
 	cfg := logpoller.Config{
 		General: &logpoller.General{
-			Generator:   logpoller.GeneratorType_Looped,
-			Contracts:   2,
-			EventsPerTx: 300,
+			Generator:      logpoller.GeneratorType_Looped,
+			Contracts:      2,
+			EventsPerTx:    4,
+			UseFinalityTag: false,
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
@@ -42,9 +43,10 @@ func TestLogPoller(t *testing.T) {
 func TestLogManyFiltersPoller(t *testing.T) {
 	cfg := logpoller.Config{
 		General: &logpoller.General{
-			Generator:   logpoller.GeneratorType_Looped,
-			Contracts:   300,
-			EventsPerTx: 3,
+			Generator:      logpoller.GeneratorType_Looped,
+			Contracts:      300,
+			EventsPerTx:    3,
+			UseFinalityTag: false,
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
@@ -73,9 +75,10 @@ func TestLogManyFiltersPoller(t *testing.T) {
 func TestLogPollerWithChaos(t *testing.T) {
 	cfg := logpoller.Config{
 		General: &logpoller.General{
-			Generator:   logpoller.GeneratorType_Looped,
-			Contracts:   2,
-			EventsPerTx: 100,
+			Generator:      logpoller.GeneratorType_Looped,
+			Contracts:      2,
+			EventsPerTx:    100,
+			UseFinalityTag: false,
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
@@ -109,9 +112,10 @@ func TestLogPollerWithChaos(t *testing.T) {
 func TestLogPollerReplay(t *testing.T) {
 	cfg := logpoller.Config{
 		General: &logpoller.General{
-			Generator:   logpoller.GeneratorType_Looped,
-			Contracts:   2,
-			EventsPerTx: 4,
+			Generator:      logpoller.GeneratorType_Looped,
+			Contracts:      2,
+			EventsPerTx:    4,
+			UseFinalityTag: false,
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{

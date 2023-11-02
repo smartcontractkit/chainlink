@@ -269,11 +269,9 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if !b.isNonEVM {
-		if networkConfig.Simulated {
-			if b.evmClientNetworkOption != nil && len(b.evmClientNetworkOption) > 0 {
-				for _, fn := range b.evmClientNetworkOption {
-					fn(&networkConfig)
-				}
+		if b.evmClientNetworkOption != nil && len(b.evmClientNetworkOption) > 0 {
+			for _, fn := range b.evmClientNetworkOption {
+				fn(&networkConfig)
 			}
 		}
 		bc, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)

@@ -298,13 +298,16 @@ var waitForEndBlockInLogPoller = func(endBlock int64, chainID *big.Int, l zerolo
 	return true, nil
 }
 
-var chainHasAdvancedBeyondFinality = func(evmClint ctf_blockchain.EVMClient, endBlock int64) (bool, error) {
+var chainHasAdvancedBeyondFinality = func(l zerolog.Logger, evmClint ctf_blockchain.EVMClient, endBlock int64) (bool, error) {
+	effectiveEndBlock := endBlock + 1
 	lastFinalisedBlockHeader, err := evmClint.GetLatestFinalizedBlockHeader(context.Background())
 	if err != nil {
 		return false, err
 	}
 
-	return lastFinalisedBlockHeader.Number.Int64() > endBlock+1, nil
+	l.Info().Int64("Last finalised block header", lastFinalisedBlockHeader.Number.Int64()).Int64("End block", effectiveEndBlock).Int64("Blocks left till end block", effectiveEndBlock-lastFinalisedBlockHeader.Number.Int64()).Msg("Waiting for the finalized block to move beyond end block")
+
+	return lastFinalisedBlockHeader.Number.Int64() > effectiveEndBlock, nil
 }
 
 var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.Int, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
@@ -514,31 +517,10 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 		return nil, dbError
 	}
 
-	allLogsInEVMNode := make([]geth_types.Log, 0)
-	for j := 0; j < len(logEmitters); j++ {
-		address := (*logEmitters[j]).Address()
-		for _, event := range cfg.General.EventsToEmit {
-			l.Debug().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching logs from EVM node")
-			logsInEVMNode, err := evmClient.FilterLogs(context.Background(), geth.FilterQuery{
-				Addresses: []common.Address{(address)},
-				Topics:    [][]common.Hash{{event.ID}},
-				FromBlock: big.NewInt(startBlock),
-				ToBlock:   big.NewInt(endBlock),
-			})
-			if err != nil {
-				return nil, err
-			}
-
-			sort.Slice(logsInEVMNode, func(i, j int) bool {
-				return logsInEVMNode[i].BlockNumber < logsInEVMNode[j].BlockNumber
-			})
-
-			allLogsInEVMNode = append(allLogsInEVMNode, logsInEVMNode...)
-			l.Debug().Str("Event name", event.Name).Str("Emitter address", address.String()).Int("Log count", len(logsInEVMNode)).Msg("Logs found in EVM node")
-		}
+	allLogsInEVMNode, err := getEVMLogs(startBlock, endBlock, logEmitters, evmClient, l, cfg)
+	if err != nil {
+		return nil, err
 	}
-
-	l.Warn().Int("Count", len(allLogsInEVMNode)).Msg("Logs in EVM node")
 
 	wg = &sync.WaitGroup{}
 
@@ -634,6 +616,36 @@ var printMissingLogsByType = func(missingLogs map[string][]geth_types.Log, l zer
 	for k, v := range missingByType {
 		l.Warn().Str("Event name", k).Int("Missing count", v).Msg("Missing logs by type")
 	}
+}
+
+var getEVMLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient ctf_blockchain.EVMClient, l zerolog.Logger, cfg *Config) ([]geth_types.Log, error) {
+	allLogsInEVMNode := make([]geth_types.Log, 0)
+	for j := 0; j < len(logEmitters); j++ {
+		address := (*logEmitters[j]).Address()
+		for _, event := range cfg.General.EventsToEmit {
+			l.Debug().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching logs from EVM node")
+			logsInEVMNode, err := evmClient.FilterLogs(context.Background(), geth.FilterQuery{
+				Addresses: []common.Address{(address)},
+				Topics:    [][]common.Hash{{event.ID}},
+				FromBlock: big.NewInt(startBlock),
+				ToBlock:   big.NewInt(endBlock),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			sort.Slice(logsInEVMNode, func(i, j int) bool {
+				return logsInEVMNode[i].BlockNumber < logsInEVMNode[j].BlockNumber
+			})
+
+			allLogsInEVMNode = append(allLogsInEVMNode, logsInEVMNode...)
+			l.Debug().Str("Event name", event.Name).Str("Emitter address", address.String()).Int("Log count", len(logsInEVMNode)).Msg("Logs found in EVM node")
+		}
+	}
+
+	l.Warn().Int("Count", len(allLogsInEVMNode)).Msg("Logs in EVM node")
+
+	return allLogsInEVMNode, nil
 }
 
 func executeGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
@@ -837,6 +849,25 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 	}()
 }
 
+var GetFinalityDepth = func(chainId int64) (int64, error) {
+	var finalityDepth int64
+	switch chainId {
+	// Ethereum Sepolia
+	case 11155111:
+		finalityDepth = 100
+	// Polygon Mumbai
+	case 80001:
+		finalityDepth = 550
+	// Simulated network
+	case 1337:
+		finalityDepth = 10
+	default:
+		return 0, fmt.Errorf("No known finality depth for chain %d", chainId)
+	}
+
+	return finalityDepth, nil
+}
+
 const (
 	automationDefaultUpkeepGasLimit  = uint32(2500000)
 	automationDefaultLinkFunds       = int64(9e18)
@@ -884,7 +915,6 @@ func setupLogPollerTestDocker(
 	registryConfig contracts.KeeperRegistrySettings,
 	statefulDb bool,
 	lpPollingInterval time.Duration,
-	finalityDepth uint32,
 	finalityTagEnabled bool,
 ) (
 	blockchain.EVMClient,
@@ -895,11 +925,13 @@ func setupLogPollerTestDocker(
 	contracts.KeeperRegistrar,
 	*test_env.CLClusterTestEnv,
 ) {
-	require.False(t, finalityTagEnabled && finalityDepth > 0, "Cannot use finality tag and finality depth at the same time")
 	l := logging.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.MustGetSelectedNetworksFromEnv()[0]
+
+	finalityDepth, err := GetFinalityDepth(network.ChainID)
+	require.NoError(t, err, "Error getting finality depth")
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
@@ -915,14 +947,13 @@ func setupLogPollerTestDocker(
 
 	//launch the environment
 	var env *test_env.CLClusterTestEnv
-	var err error
-	chainlinkNodeFunding := 1.0
+	chainlinkNodeFunding := 0.5
 	l.Debug().Msgf("Funding amount: %f", chainlinkNodeFunding)
 	clNodesCount := 5
 
 	var logPolllerSettingsFn = func(chain *evmcfg.Chain) *evmcfg.Chain {
 		chain.LogPollInterval = models.MustNewDuration(lpPollingInterval)
-		chain.FinalityDepth = utils2.Ptr[uint32](finalityDepth)
+		chain.FinalityDepth = utils2.Ptr[uint32](uint32(finalityDepth))
 		chain.FinalityTagEnabled = utils2.Ptr[bool](finalityTagEnabled)
 		return chain
 	}
@@ -949,8 +980,32 @@ func setupLogPollerTestDocker(
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
 
-	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
-	require.NoError(t, err, "Error deploying LINK token")
+	var linkToken contracts.LinkToken
+
+	switch network.ChainID {
+	// Simulated
+	case 1337:
+		linkToken, err = env.ContractDeployer.DeployLinkTokenContract()
+	// Ethereum Sepolia
+	case 11155111:
+		linkToken, err = env.ContractLoader.LoadLINKToken("0x779877A7B0D9E8603169DdbD7836e478b4624789")
+	// Polygon Mumbai
+	case 80001:
+		linkToken, err = env.ContractLoader.LoadLINKToken("0x326C977E6efc84E512bB9C30f76E30c160eD06FB")
+	default:
+		panic("Not implemented")
+	}
+	require.NoError(t, err, "Error loading/deploying LINK token")
+
+	linkBalance, err := env.EVMClient.BalanceAt(context.Background(), common.HexToAddress(linkToken.Address()))
+	require.NoError(t, err, "Error getting LINK balance")
+
+	l.Info().Str("Balance", linkBalance.String()).Msg("LINK balance")
+	minLinkBalanceSingleNode := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(9))
+	minLinkBalance := big.NewInt(0).Mul(minLinkBalanceSingleNode, big.NewInt(5))
+	if minLinkBalance.Cmp(linkBalance) < 0 {
+		require.FailNowf(t, "Not enough LINK", "Not enough LINK to run the test. Need at least %s", big.NewInt(0).Div(minLinkBalance, big.NewInt(1e18)).String())
+	}
 
 	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 		t,

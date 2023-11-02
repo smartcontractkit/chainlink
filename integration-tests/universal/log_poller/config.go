@@ -47,10 +47,11 @@ type FuzzConfig struct {
 }
 
 type General struct {
-	Generator    string      `toml:"generator"`
-	EventsToEmit []abi.Event `toml:"-"`
-	Contracts    int         `toml:"contracts"`
-	EventsPerTx  int         `toml:"events_per_tx"`
+	Generator      string      `toml:"generator"`
+	EventsToEmit   []abi.Event `toml:"-"`
+	Contracts      int         `toml:"contracts"`
+	EventsPerTx    int         `toml:"events_per_tx"`
+	UseFinalityTag bool        `toml:"use_finality_tag"`
 }
 
 type ChaosConfig struct {
