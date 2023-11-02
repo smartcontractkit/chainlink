@@ -25,7 +25,7 @@ type ORM interface {
 	DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error
 	GetTransmitRequests(jobID int32, qopts ...pg.QOpt) ([]*Transmission, error)
 	PruneTransmitRequests(jobID int32, maxSize int, qopts ...pg.QOpt) error
-	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
+	LatestTransmittedReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
 }
 
 func FeedIDFromReport(report ocrtypes.Report) (feedID utils.FeedID, err error) {
@@ -162,7 +162,7 @@ func (o *orm) PruneTransmitRequests(jobID int32, maxSize int, qopts ...pg.QOpt) 
 	`, jobID, maxSize)
 }
 
-func (o *orm) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
+func (o *orm) LatestTransmittedReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
 	q := o.q.WithOpts(qopts...)
 	err = q.GetContext(ctx, &report, `SELECT report FROM feed_latest_reports WHERE feed_id = $1`, feedID[:])
 	if errors.Is(err, sql.ErrNoRows) {

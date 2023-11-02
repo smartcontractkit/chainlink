@@ -103,3 +103,7 @@ func (p *mercuryProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 func (p *mercuryProvider) MercuryServerFetcher() relaymercury.MercuryServerFetcher {
 	return p.transmitter
 }
+
+func (p *mercuryProvider) LatestTransmittedReport(ctx context.Context, feedID [32]byte) (report []byte, err error) {
+	return p.transmitter.LatestTransmittedReport(ctx, feedID)
+}

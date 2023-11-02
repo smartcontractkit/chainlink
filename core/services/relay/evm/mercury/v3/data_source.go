@@ -41,7 +41,7 @@ type datasource struct {
 	feedID         mercuryutils.FeedID
 	lggr           logger.Logger
 	runResults     chan<- *pipeline.Run
-	orm            types.DataSourceORM
+	reportCache    types.ReportCacher
 	codec          reportcodec.ReportCodec
 
 	fetcher      LatestReportFetcher
@@ -55,8 +55,8 @@ type datasource struct {
 
 var _ relaymercuryv3.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
-	return &datasource{pr, jb, spec, feedID, lggr, rr, orm, reportcodec.ReportCodec{}, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
+func NewDataSource(reportCache types.ReportCacher, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
+	return &datasource{pr, jb, spec, feedID, lggr, rr, reportCache, reportcodec.ReportCodec{}, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv3.Observation, pipelineExecutionErr error) {
@@ -67,7 +67,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			latest, dbErr := ds.orm.LatestReport(ctx, ds.feedID)
+			latest, dbErr := ds.reportCache.LatestTransmittedReport(ctx, ds.feedID)
 			if dbErr != nil {
 				obs.MaxFinalizedTimestamp.Err = dbErr
 				return

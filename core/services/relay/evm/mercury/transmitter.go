@@ -397,3 +397,7 @@ func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte)
 
 	return resp.Report, nil
 }
+
+func (mt *mercuryTransmitter) LatestTransmittedReport(ctx context.Context, feedID [32]byte) ([]byte, error) {
+	return mt.persistenceManager.LatestTransmittedReport(ctx, feedID)
+}

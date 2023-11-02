@@ -25,7 +25,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
@@ -68,13 +67,13 @@ type mockORM struct {
 	err    error
 }
 
-func (m *mockORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
+func (m *mockORM) LatestTransmittedReport(ctx context.Context, feedID [32]byte) (report []byte, err error) {
 	return m.report, m.err
 }
 
 func TestMercury_Observe(t *testing.T) {
 	orm := &mockORM{}
-	ds := &datasource{lggr: logger.TestLogger(t), orm: orm, codec: (reportcodecv1.ReportCodec{})}
+	ds := &datasource{lggr: logger.TestLogger(t), reportCache: orm, codec: (reportcodecv1.ReportCodec{})}
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
 

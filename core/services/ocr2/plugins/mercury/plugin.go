@@ -38,7 +38,6 @@ func NewServices(
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	chainHeadTracker types.ChainHeadTracker,
-	orm types.DataSourceORM,
 	feedID utils.FeedID,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
@@ -59,7 +58,7 @@ func NewServices(
 	switch feedID.Version() {
 	case 1:
 		ds := mercuryv1.NewDataSource(
-			orm,
+			ocr2Provider,
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
@@ -79,7 +78,7 @@ func NewServices(
 		)
 	case 2:
 		ds := mercuryv2.NewDataSource(
-			orm,
+			ocr2Provider,
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
@@ -99,7 +98,7 @@ func NewServices(
 		)
 	case 3:
 		ds := mercuryv3.NewDataSource(
-			orm,
+			ocr2Provider,
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,

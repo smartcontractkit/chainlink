@@ -41,7 +41,7 @@ type datasource struct {
 	spec           pipeline.Spec
 	lggr           logger.Logger
 	runResults     chan<- *pipeline.Run
-	orm            types.DataSourceORM
+	reportCache    types.ReportCacher
 	codec          reportcodec.ReportCodec
 	feedID         [32]byte
 
@@ -55,8 +55,8 @@ type datasource struct {
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID [32]byte) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber}
+func NewDataSource(reportCache types.ReportCacher, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID [32]byte) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, reportCache, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber}
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, pipelineExecutionErr error) {
@@ -69,7 +69,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			latest, dbErr := ds.orm.LatestReport(ctx, ds.feedID)
+			latest, dbErr := ds.reportCache.LatestTransmittedReport(ctx, ds.feedID)
 			if dbErr != nil {
 				obs.MaxFinalizedBlockNumber.Err = dbErr
 				return

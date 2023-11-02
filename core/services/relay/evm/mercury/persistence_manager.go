@@ -82,6 +82,10 @@ func (pm *PersistenceManager) Load(ctx context.Context) ([]*Transmission, error)
 	return pm.orm.GetTransmitRequests(pm.jobID, pg.WithParentCtx(ctx))
 }
 
+func (pm *PersistenceManager) LatestTransmittedReport(ctx context.Context, feedID [32]byte) ([]byte, error) {
+	return pm.orm.LatestTransmittedReport(ctx, feedID)
+}
+
 func (pm *PersistenceManager) runFlushDeletesLoop() {
 	defer pm.wg.Done()
 
