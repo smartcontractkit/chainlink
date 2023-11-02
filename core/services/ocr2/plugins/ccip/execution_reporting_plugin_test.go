@@ -24,7 +24,6 @@ import (
 
 	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/custom_token_pool"
-	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -109,10 +108,6 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 				Return(tc.unexpiredReports, nil).Maybe()
 			p.config.commitStoreReader = commitStoreReader
 
-			offRamp, _ := testhelpers.NewFakeOffRamp(t)
-			offRamp.SetRateLimiterState(tc.rateLimiterState)
-			p.config.offRamp = offRamp
-
 			destReader := ccipdata.NewMockReader(t)
 			destReader.On("LatestBlock", ctx).Return(int64(1234), nil).Maybe()
 			p.config.destReader = destReader
@@ -123,15 +118,22 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 					Data: ccipdata.ExecutionStateChanged{SequenceNumber: seqNum},
 				})
 			}
-			offRampReader := ccipdata.NewMockOffRampReader(t)
-			offRampReader.On("GetExecutionStateChangesBetweenSeqNums", ctx, mock.Anything, mock.Anything, 0).
-				Return(executionEvents, nil).Maybe()
-			p.config.offRampReader = offRampReader
 
-			sourceReader := ccipdata.NewMockOnRampReader(t)
-			sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, mock.Anything, mock.Anything, 0).
+			offRamp, _ := testhelpers.NewFakeOffRamp(t)
+			offRamp.SetRateLimiterState(tc.rateLimiterState)
+
+			mockOffRampReader := ccipdata.NewMockOffRampReader(t)
+			mockOffRampReader.On("GetExecutionStateChangesBetweenSeqNums", ctx, mock.Anything, mock.Anything, 0).
+				Return(executionEvents, nil).Maybe()
+			mockOffRampReader.On("CurrentRateLimiterState", mock.Anything).Return(tc.rateLimiterState, nil).Maybe()
+			mockOffRampReader.On("Address").Return(offRamp.Address()).Maybe()
+			mockOffRampReader.On("GetSenderNonce", mock.Anything, mock.Anything).Return(offRamp.GetSenderNonce(nil, utils.RandomAddress())).Maybe()
+			p.config.offRampReader = mockOffRampReader
+
+			mockOnRampReader := ccipdata.NewMockOnRampReader(t)
+			mockOnRampReader.On("GetSendRequestsBetweenSeqNums", ctx, mock.Anything, mock.Anything, 0).
 				Return(tc.sendRequests, nil).Maybe()
-			p.config.onRampReader = sourceReader
+			p.config.onRampReader = mockOnRampReader
 
 			cachedDestTokens := cache.NewMockAutoSync[cache.CachedTokens](t)
 			cachedDestTokens.On("Get", ctx).Return(cache.CachedTokens{
@@ -255,20 +257,18 @@ func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	encodedReport, err := ccipdata.EncodeExecutionReport(report)
 	require.NoError(t, err)
 
-	mockOffRamp, _ := testhelpers.NewFakeOffRamp(t)
+	mockOffRampReader := ccipdata.NewMockOffRampReader(t)
+	mockOffRampReader.On("DecodeExecutionReport", encodedReport).Return(report, nil)
+
 	plugin := ExecutionReportingPlugin{
 		config: ExecutionPluginStaticConfig{
-			offRamp: mockOffRamp,
+			offRampReader: mockOffRampReader,
 		},
 		lggr:            logger.TestLogger(t),
 		inflightReports: newInflightExecReportsContainer(models.MustMakeDuration(1 * time.Hour).Duration()),
 	}
 
-	mockedExecState := mockOffRamp.On("GetExecutionState", mock.Anything, uint64(12)).Return(uint8(ccipdata.ExecutionStateUntouched), nil).Once()
-
-	offRampReader := ccipdata.NewMockOffRampReader(t)
-	plugin.config.offRampReader = offRampReader
-	offRampReader.On("DecodeExecutionReport", encodedReport).Return(report, nil)
+	mockedExecState := mockOffRampReader.On("GetExecutionState", mock.Anything, uint64(12)).Return(uint8(ccipdata.ExecutionStateUntouched), nil).Once()
 
 	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), ocrtypes.ReportTimestamp{}, encodedReport)
 	require.NoError(t, err)
@@ -304,23 +304,20 @@ func TestExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	encodedReport, err := ccipdata.EncodeExecutionReport(report)
 	require.NoError(t, err)
 
-	mockOffRamp := &mock_contracts.EVM2EVMOffRampInterface{}
-	mockCommitStore := ccipdata.NewMockCommitStoreReader(t)
+	mockCommitStoreReader := ccipdata.NewMockCommitStoreReader(t)
+
+	mockOffRampReader := ccipdata.NewMockOffRampReader(t)
+	mockOffRampReader.On("DecodeExecutionReport", encodedReport).Return(report, nil)
+	mockedExecState := mockOffRampReader.On("GetExecutionState", mock.Anything, uint64(12)).Return(uint8(ccipdata.ExecutionStateUntouched), nil).Once()
 
 	plugin := ExecutionReportingPlugin{
 		config: ExecutionPluginStaticConfig{
-			offRamp:           mockOffRamp,
-			commitStoreReader: mockCommitStore,
+			commitStoreReader: mockCommitStoreReader,
+			offRampReader:     mockOffRampReader,
 		},
 		lggr:            logger.TestLogger(t),
 		inflightReports: newInflightExecReportsContainer(models.MustMakeDuration(1 * time.Hour).Duration()),
 	}
-
-	mockedExecState := mockOffRamp.On("GetExecutionState", mock.Anything, uint64(12)).Return(uint8(ccipdata.ExecutionStateUntouched), nil).Once()
-
-	offRampReader := ccipdata.NewMockOffRampReader(t)
-	plugin.config.offRampReader = offRampReader
-	offRampReader.On("DecodeExecutionReport", encodedReport).Return(report, nil)
 
 	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), ocrtypes.ReportTimestamp{}, encodedReport)
 	require.NoError(t, err)
@@ -628,9 +625,13 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 				gasPriceEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), nil)
 			}
 
+			// Mock calls to reader.
+			mockOffRampReader := ccipdata.NewMockOffRampReader(t)
+			mockOffRampReader.On("GetSenderNonce", mock.Anything, sender1).Return(uint64(0), nil).Maybe()
+
 			plugin := ExecutionReportingPlugin{
 				config: ExecutionPluginStaticConfig{
-					offRamp: offRamp,
+					offRampReader: mockOffRampReader,
 				},
 				destWrappedNative: destNative,
 				offchainConfig: ccipdata.ExecOffchainConfig{
@@ -872,7 +873,10 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 
 			offRamp, offRampAddr := testhelpers.NewFakeOffRamp(t)
 			offRamp.SetTokenPools(tc.destPools)
-			p.config.offRamp = offRamp
+
+			mockOffRampReader := ccipdata.NewMockOffRampReader(t)
+			mockOffRampReader.On("Address").Return(offRampAddr, nil).Maybe()
+			p.config.offRampReader = mockOffRampReader
 
 			p.customTokenPoolFactory = func(ctx context.Context, poolAddress common.Address, _ bind.ContractBackend) (custom_token_pool.CustomTokenPoolInterface, error) {
 				mp := &mockPool{}

@@ -3,8 +3,10 @@ package observability
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
@@ -63,5 +65,23 @@ func (o *ObservedOffRampReader) GetDestinationToken(ctx context.Context, address
 func (o *ObservedOffRampReader) GetSupportedTokens(ctx context.Context) ([]common.Address, error) {
 	return withObservedContract(o.metric, "GetSupportedTokens", func() ([]common.Address, error) {
 		return o.OffRampReader.GetSupportedTokens(ctx)
+	})
+}
+
+func (o *ObservedOffRampReader) GetSenderNonce(opts *bind.CallOpts, sender common.Address) (uint64, error) {
+	return withObservedContract(o.metric, "GetSenderNonce", func() (uint64, error) {
+		return o.OffRampReader.GetSenderNonce(opts, sender)
+	})
+}
+
+func (o *ObservedOffRampReader) CurrentRateLimiterState(opts *bind.CallOpts) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
+	return withObservedContract(o.metric, "CurrentRateLimiterState", func() (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
+		return o.OffRampReader.CurrentRateLimiterState(opts)
+	})
+}
+
+func (o *ObservedOffRampReader) GetExecutionState(opts *bind.CallOpts, sequenceNumber uint64) (uint8, error) {
+	return withObservedContract(o.metric, "GetExecutionState", func() (uint8, error) {
+		return o.OffRampReader.GetExecutionState(opts, sequenceNumber)
 	})
 }
