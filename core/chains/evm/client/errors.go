@@ -207,7 +207,23 @@ var harmony = ClientErrors{
 	Fatal:                   harmonyFatal,
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo}
+var zkSync = ClientErrors{
+	NonceTooLow:           regexp.MustCompile(`(?:: |^)nonce too low\..+actual: \d*$`),
+	NonceTooHigh:          regexp.MustCompile(`(?:: |^)nonce too high\..+actual: \d*$`),
+	TerminallyUnderpriced: regexp.MustCompile(`(?:: |^)max fee per gas less than block base fee$`),
+	InsufficientEth:       regexp.MustCompile(`(?:: |^)(?:insufficient balance for transfer$|insufficient funds for gas + value)`),
+	TxFeeExceedsCap:       regexp.MustCompile(`(?:: |^)max priority fee per gas higher than max fee per gas$`),
+	// intrinsic gas too low 						- gas limit less than 14700
+	// Not enough gas for transaction validation 	- gas limit less than L2 fee
+	// Failed to pay the fee to the operator 		- gas limit less than L2+L1 fee
+	// Error function_selector = 0x, data = 0x 		- contract call with gas limit of 0
+	// can't start a transaction from a non-account - trying to send from an invalid address, e.g. estimating a contract -> contract tx
+	// max fee per gas higher than 2^64-1 			- uint64 overflow
+	// oversized data 								- data too large
+	Fatal: regexp.MustCompile(`(?:: |^)(?:exceeds block gas limit|intrinsic gas too low|Not enough gas for transaction validation|Failed to pay the fee to the operator|Error function_selector = 0x, data = 0x|invalid sender. can't start a transaction from a non-account|max(?: priority)? fee per (?:gas|pubdata byte) higher than 2\^64-1|oversized data. max: \d+; actual: \d+)$`),
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
