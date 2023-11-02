@@ -104,8 +104,9 @@ func TestLogPollerWithChaos(t *testing.T) {
 // consistency test that registers filters after events were emitted and then triggers replay via API
 // unfortunately there is no way to make sure that logs that are indexed are only picked up by replay
 // and not by backup poller
+// with approximate emission of 24 logs per second for ~110 seconds
+// 6 filters are registered
 func TestLogPollerReplay(t *testing.T) {
-	t.Skip()
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:   logpoller.GeneratorType_Looped,

@@ -96,6 +96,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 		}
 	}, "30s", "1s").Should(gomega.Succeed())
 	l.Info().Msg("All nodes have expected filters registered")
+	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
@@ -277,6 +278,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 		}
 	}, "30s", "1s").Should(gomega.Succeed())
 	l.Info().Msg("All nodes have expected filters registered")
+	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
 	// Trigger replay
 	l.Info().Msg("Triggering log poller's replay")
