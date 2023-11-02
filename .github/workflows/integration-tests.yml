@@ -455,7 +455,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
+          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
       - name: Keep action running to view traces
