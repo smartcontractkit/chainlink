@@ -504,6 +504,12 @@ type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
 }
 
+func defaultPathFromPluginName(pluginName string) string {
+	// By default we install the command on the system path, in the
+	// form: `chainlink-<plugin name>`
+	return fmt.Sprintf("chainlink-%s", pluginName)
+}
+
 func (d *Delegate) newServicesGenericPlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
@@ -522,6 +528,11 @@ func (d *Delegate) newServicesGenericPlugin(
 		return nil, err
 	}
 	cconf := p.CoreConfig
+
+	command := cconf.Command
+	if command == "" {
+		command = defaultPathFromPluginName(cconf.PluginName)
+	}
 
 	// NOTE: we don't need to validate this config, since that happens as part of creating the job.
 	// See: validate/validate.go's `validateSpec`.
@@ -573,7 +584,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	}
 
 	pluginLggr := lggr.Named(cconf.PluginName).Named(spec.ContractID).Named(spec.GetID())
-	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(fmt.Sprintf("%s-%s-%s", cconf.PluginName, spec.ContractID, spec.GetID()), cconf.Command)
+	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(fmt.Sprintf("%s-%s-%s", cconf.PluginName, spec.ContractID, spec.GetID()), command)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register loop: %w", err)
 	}
@@ -586,7 +597,7 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	pluginConfig := types.ReportingPluginServiceConfig{
 		PluginName:   cconf.PluginName,
-		Command:      cconf.Command,
+		Command:      command,
 		ProviderType: cconf.ProviderType,
 		PluginConfig: string(p.PluginConfig),
 	}

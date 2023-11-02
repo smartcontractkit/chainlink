@@ -145,10 +145,6 @@ func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {
 	}
 
 	cc := p.CoreConfig
-	if cc.Command == "" {
-		return errors.New("generic config invalid: must provide command path")
-	}
-
 	if cc.PluginName == "" {
 		return errors.New("generic config invalid: must provide plugin name")
 	}

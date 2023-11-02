@@ -581,34 +581,7 @@ KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c
 			},
 		},
 		{
-			name: "Generic plugin config validation - empty config",
-			toml: `
-type = "offchainreporting2"
-schemaVersion = 1
-name = "dkg"
-externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
-maxTaskDuration = "1s"
-contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
-ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
-p2pv2Bootstrappers = [
-	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
-]
-relay = "evm"
-pluginType = "plugin"
-transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
-
-[relayConfig]
-chainID = 4
-
-[pluginConfig]
-`,
-			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Error(t, err)
-				require.ErrorContains(t, err, "must provide command path")
-			},
-		},
-		{
-			name: "Generic plugin config validation - command provided",
+			name: "Generic plugin config validation - nothing provided",
 			toml: `
 type = "offchainreporting2"
 schemaVersion = 1
@@ -628,7 +601,6 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 chainID = 4
 
 [pluginConfig.coreConfig]
-command = "./bin/median"
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -656,7 +628,6 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 chainID = 4
 
 [pluginConfig.coreConfig]
-command = "./bin/median"
 pluginName = "median"
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -685,7 +656,6 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 chainID = 4
 
 [pluginConfig.coreConfig]
-command = "./bin/median"
 pluginName = "median"
 telemetryType = "median"
 `,
