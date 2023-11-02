@@ -25,6 +25,7 @@ on:
           - MUMBAI
           - SEPOLIA
           - BASE_GOERLI
+          - ARBITRUM_SEPOLIA
       TestInputs:
         description: TestInputs
         required: false
