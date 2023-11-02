@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	_ EvmEstimator = &l2SuggestedPriceEstimator{}
+	_ EvmEstimator = &SuggestedPriceEstimator{}
 )
 
 //go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
@@ -27,8 +27,8 @@ type rpcClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
-// l2SuggestedPriceEstimator is an Estimator which uses the L2 suggested gas price from eth_gasPrice.
-type l2SuggestedPriceEstimator struct {
+// SuggestedPriceEstimator is an Estimator which uses the suggested gas price from eth_gasPrice.
+type SuggestedPriceEstimator struct {
 	services.StateMachine
 
 	client     rpcClient
@@ -36,7 +36,7 @@ type l2SuggestedPriceEstimator struct {
 	logger     logger.Logger
 
 	gasPriceMu sync.RWMutex
-	l2GasPrice *assets.Wei
+	GasPrice   *assets.Wei
 
 	chForceRefetch chan (chan struct{})
 	chInitialised  chan struct{}
@@ -44,12 +44,12 @@ type l2SuggestedPriceEstimator struct {
 	chDone         chan struct{}
 }
 
-// NewL2SuggestedPriceEstimator returns a new Estimator which uses the L2 suggested gas price.
-func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator {
-	return &l2SuggestedPriceEstimator{
+// NewSuggestedPriceEstimator returns a new Estimator which uses the suggested gas price.
+func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator {
+	return &SuggestedPriceEstimator{
 		client:         client,
 		pollPeriod:     10 * time.Second,
-		logger:         lggr.Named("L2SuggestedEstimator"),
+		logger:         lggr.Named("SuggestedPriceEstimator"),
 		chForceRefetch: make(chan (chan struct{})),
 		chInitialised:  make(chan struct{}),
 		chStop:         make(chan struct{}),
@@ -57,30 +57,30 @@ func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstim
 	}
 }
 
-func (o *l2SuggestedPriceEstimator) Name() string {
+func (o *SuggestedPriceEstimator) Name() string {
 	return o.logger.Name()
 }
 
-func (o *l2SuggestedPriceEstimator) Start(context.Context) error {
-	return o.StartOnce("L2SuggestedEstimator", func() error {
+func (o *SuggestedPriceEstimator) Start(context.Context) error {
+	return o.StartOnce("SuggestedPriceEstimator", func() error {
 		go o.run()
 		<-o.chInitialised
 		return nil
 	})
 }
-func (o *l2SuggestedPriceEstimator) Close() error {
-	return o.StopOnce("L2SuggestedEstimator", func() error {
+func (o *SuggestedPriceEstimator) Close() error {
+	return o.StopOnce("SuggestedPriceEstimator", func() error {
 		close(o.chStop)
 		<-o.chDone
 		return nil
 	})
 }
 
-func (o *l2SuggestedPriceEstimator) HealthReport() map[string]error {
+func (o *SuggestedPriceEstimator) HealthReport() map[string]error {
 	return map[string]error{o.Name(): o.Healthy()}
 }
 
-func (o *l2SuggestedPriceEstimator) run() {
+func (o *SuggestedPriceEstimator) run() {
 	defer close(o.chDone)
 
 	t := o.refreshPrice()
@@ -100,7 +100,7 @@ func (o *l2SuggestedPriceEstimator) run() {
 	}
 }
 
-func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
+func (o *SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	var res hexutil.Big
@@ -113,28 +113,28 @@ func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	}
 	bi := (*assets.Wei)(&res)
 
-	o.logger.Debugw("refreshPrice", "l2GasPrice", bi)
+	o.logger.Debugw("refreshPrice", "GasPrice", bi)
 
 	o.gasPriceMu.Lock()
 	defer o.gasPriceMu.Unlock()
-	o.l2GasPrice = bi
+	o.GasPrice = bi
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
+func (o *SuggestedPriceEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 
-func (*l2SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (*SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (*l2SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	chainSpecificGasLimit = l2GasLimit
+func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+	chainSpecificGasLimit = GasLimit
 
 	ok := o.IfStarted(func() {
 		if slices.Contains(opts, feetypes.OptForceRefetch) {
@@ -159,10 +159,10 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, 
 			}
 		}
 		if gasPrice = o.getGasPrice(); gasPrice == nil {
-			err = errors.New("failed to estimate l2 gas; gas price not set")
+			err = errors.New("failed to estimate gas; gas price not set")
 			return
 		}
-		o.logger.Debugw("GetLegacyGas", "l2GasPrice", gasPrice, "l2GasLimit", l2GasLimit)
+		o.logger.Debugw("GetLegacyGas", "GasPrice", gasPrice, "GasLimit", GasLimit)
 	})
 	if !ok {
 		return nil, 0, errors.New("estimator is not started")
@@ -176,12 +176,12 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, 
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) BumpLegacyGas(_ context.Context, _ *assets.Wei, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	return nil, 0, errors.New("bump gas is not supported for this l2")
+func (o *SuggestedPriceEstimator) BumpLegacyGas(_ context.Context, _ *assets.Wei, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+	return nil, 0, errors.New("bump gas is not supported for this chain")
 }
 
-func (o *l2SuggestedPriceEstimator) getGasPrice() (l2GasPrice *assets.Wei) {
+func (o *SuggestedPriceEstimator) getGasPrice() (GasPrice *assets.Wei) {
 	o.gasPriceMu.RLock()
 	defer o.gasPriceMu.RUnlock()
-	return o.l2GasPrice
+	return o.GasPrice
 }
