@@ -58,7 +58,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.44.0
-	github.com/prometheus/prometheus v0.46.0
+	github.com/prometheus/prometheus v0.47.2
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-internal v1.11.0
 	github.com/scylladb/go-reflectx v1.0.1
