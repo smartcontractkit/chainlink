@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-ldap/ldap/v3"
 	"github.com/lib/pq"
+
+	"github.com/go-ldap/ldap/v3"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
