@@ -6,7 +6,7 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "test": "hardhat test",
+    "test": "hardhat test --parallel",
     "lint": "eslint --ext js,ts .",
     "prettier:check": "prettier '**/*' --check --ignore-unknown",
     "prettier:write": "prettier '**/*' --write --ignore-unknown",

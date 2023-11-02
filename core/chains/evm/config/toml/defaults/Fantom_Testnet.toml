@@ -7,7 +7,7 @@ NoNewHeadsThreshold = '0'
 RPCBlockQueryDelay = 2
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 
 [OCR2.Automation]
 GasLimit = 3800000

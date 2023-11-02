@@ -22,7 +22,6 @@ type DirectRequestSpec {
     createdAt: Time!
     evmChainID: String
     minIncomingConfirmations: Int!
-    minIncomingConfirmationsEnv: Boolean!
     minContractPaymentLinkJuels: String!
     requesters: [String!]
 }
@@ -52,29 +51,21 @@ type KeeperSpec {
 
 type OCRSpec {
     blockchainTimeout: String
-    blockchainTimeoutEnv: Boolean!
     contractAddress: String!
     contractConfigConfirmations: Int
-    contractConfigConfirmationsEnv: Boolean!
     contractConfigTrackerPollInterval: String
-    contractConfigTrackerPollIntervalEnv: Boolean!
     contractConfigTrackerSubscribeInterval: String
-    contractConfigTrackerSubscribeIntervalEnv: Boolean!
     createdAt: Time!
     evmChainID: String
     isBootstrapPeer: Boolean!
     keyBundleID: String
     observationTimeout: String
-    observationTimeoutEnv: Boolean!
     p2pBootstrapPeers: [String!]
     p2pv2Bootstrappers: [String!]
     transmitterAddress: String
     databaseTimeout: String!
-    databaseTimeoutEnv: Boolean!
     observationGracePeriod: String!
-    observationGracePeriodEnv: Boolean!
     contractTransmitterTransmitTimeout: String!
-    contractTransmitterTransmitTimeoutEnv: Boolean!
 }
 
 type OCR2Spec {
@@ -100,7 +91,6 @@ type VRFSpec {
     evmChainID: String
     fromAddresses: [String!]
     minIncomingConfirmations: Int!
-    minIncomingConfirmationsEnv: Boolean!
     pollPeriod: String!
     publicKey: String!
     requestedConfsDelay: Int!

@@ -317,7 +317,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			var minimumBlockCount int64 = 500
 			latestBlock, _ := lp.LatestBlock()
 
-			assert.GreaterOrEqual(t, latestBlock, minimumBlockCount, "to ensure the integrety of the test, the minimum block count before the test should be %d but got %d", minimumBlockCount, latestBlock)
+			assert.GreaterOrEqual(t, latestBlock.BlockNumber, minimumBlockCount, "to ensure the integrety of the test, the minimum block count before the test should be %d but got %d", minimumBlockCount, latestBlock)
 		}
 
 		require.NoError(t, logProvider.ReadLogs(ctx, ids...))
@@ -564,7 +564,7 @@ func waitLogPoller(ctx context.Context, t *testing.T, backend *backends.Simulate
 	for {
 		latestPolled, lberr := lp.LatestBlock(pg.WithParentCtx(ctx))
 		require.NoError(t, lberr)
-		if latestPolled >= latestBlock {
+		if latestPolled.BlockNumber >= latestBlock {
 			break
 		}
 		lp.PollAndSaveLogs(ctx, latestBlock)

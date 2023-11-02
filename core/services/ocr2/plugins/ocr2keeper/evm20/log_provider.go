@@ -151,8 +151,8 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 	// always check the last lookback number of blocks and rebroadcast
 	// this allows the plugin to make decisions based on event confirmations
 	logs, err := c.logPoller.LogsWithSigs(
-		end-c.lookbackBlocks,
-		end,
+		end.BlockNumber-c.lookbackBlocks,
+		end.BlockNumber,
 		[]common.Hash{
 			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
 		},
@@ -175,7 +175,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 			Key:             UpkeepKeyHelper[uint32]{}.MakeUpkeepKey(p.CheckBlockNumber, p.Id),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
 			TransactionHash: p.TxHash.Hex(),
-			Confirmations:   end - p.BlockNumber,
+			Confirmations:   end.BlockNumber - p.BlockNumber,
 		}
 		vals = append(vals, l)
 	}
@@ -194,8 +194,8 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	// ReorgedUpkeepReportLogs
 	logs, err := c.logPoller.LogsWithSigs(
-		end-c.lookbackBlocks,
-		end,
+		end.BlockNumber-c.lookbackBlocks,
+		end.BlockNumber,
 		[]common.Hash{
 			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
 		},
@@ -212,8 +212,8 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	// StaleUpkeepReportLogs
 	logs, err = c.logPoller.LogsWithSigs(
-		end-c.lookbackBlocks,
-		end,
+		end.BlockNumber-c.lookbackBlocks,
+		end.BlockNumber,
 		[]common.Hash{
 			registry.KeeperRegistryStaleUpkeepReport{}.Topic(),
 		},
@@ -230,8 +230,8 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	// InsufficientFundsUpkeepReportLogs
 	logs, err = c.logPoller.LogsWithSigs(
-		end-c.lookbackBlocks,
-		end,
+		end.BlockNumber-c.lookbackBlocks,
+		end.BlockNumber,
 		[]common.Hash{
 			registry.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
 		},
@@ -258,7 +258,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
-			Confirmations:   end - r.BlockNumber,
+			Confirmations:   end.BlockNumber - r.BlockNumber,
 		}
 		vals = append(vals, l)
 	}
@@ -273,7 +273,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
-			Confirmations:   end - r.BlockNumber,
+			Confirmations:   end.BlockNumber - r.BlockNumber,
 		}
 		vals = append(vals, l)
 	}
@@ -288,7 +288,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
-			Confirmations:   end - r.BlockNumber,
+			Confirmations:   end.BlockNumber - r.BlockNumber,
 		}
 		vals = append(vals, l)
 	}
