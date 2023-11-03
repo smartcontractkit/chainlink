@@ -2,9 +2,10 @@
 package actions
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"strings"
 	"testing"
@@ -446,17 +447,15 @@ func DeployMockETHLinkFeed(cd contracts.ContractDeployer, answer *big.Int) (cont
 }
 
 // todo - move to CTF
-func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, error) {
-	jsonABI, err := abi.JSON(strings.NewReader(abiString))
+func GenerateWallet() (common.Address, error) {
+	privateKey, err := crypto.GenerateKey()
 	if err != nil {
-		return nil, err
+		return common.Address{}, err
 	}
-	methodSigData := data[:4]
-	inputsSigData := data[4:]
-	method, err := jsonABI.MethodById(methodSigData)
-	inputsMap := make(map[string]interface{})
-	if err := method.Inputs.UnpackIntoMap(inputsMap, inputsSigData); err != nil {
-		return nil, err
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return common.Address{}, errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
 	}
-	return inputsMap, nil
+	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
 }

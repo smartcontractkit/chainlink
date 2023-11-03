@@ -83,8 +83,8 @@ type VRFCoordinatorV2_5 interface {
 	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2_5.GetSubscription, error)
 	OwnerCancelSubscription(subID *big.Int) error
 	CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error)
-	OracleWithdraw(recipient common.Address, amount *big.Int) (*types.Transaction, error)
-	OracleWithdrawNative(recipient common.Address, amount *big.Int) (*types.Transaction, error)
+	OracleWithdraw(recipient common.Address, amount *big.Int) error
+	OracleWithdrawNative(recipient common.Address, amount *big.Int) error
 	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)
 	GetLinkTotalBalance(ctx context.Context) (*big.Int, error)
 	FindSubscriptionID(subID *big.Int) (*big.Int, error)

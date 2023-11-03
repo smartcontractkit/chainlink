@@ -789,7 +789,7 @@ func ReturnFundsForFulfilledRequests(client blockchain.EVMClient, coordinator co
 		Str("LINK amount", linkTotalBalance.String()).
 		Str("Returning to", defaultWallet).
 		Msg("Returning LINK for fulfilled requests")
-	_, err = coordinator.OracleWithdraw(
+	err = coordinator.OracleWithdraw(
 		common.HexToAddress(defaultWallet),
 		linkTotalBalance,
 	)
@@ -804,7 +804,7 @@ func ReturnFundsForFulfilledRequests(client blockchain.EVMClient, coordinator co
 		Str("Native Token amount", linkTotalBalance.String()).
 		Str("Returning to", defaultWallet).
 		Msg("Returning Native Token for fulfilled requests")
-	_, err = coordinator.OracleWithdrawNative(
+	err = coordinator.OracleWithdrawNative(
 		common.HexToAddress(defaultWallet),
 		nativeTotalBalance,
 	)

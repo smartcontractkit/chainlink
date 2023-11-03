@@ -298,7 +298,7 @@ jobs:
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
             nodes: 1

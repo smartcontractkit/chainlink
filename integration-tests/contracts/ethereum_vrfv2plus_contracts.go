@@ -168,10 +168,10 @@ func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to commo
 	return tx, v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) OracleWithdraw(recipient common.Address, amount *big.Int) (*types.Transaction, error) {
+func (v *EthereumVRFCoordinatorV2_5) OracleWithdraw(recipient common.Address, amount *big.Int) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	tx, err := v.coordinator.OracleWithdraw(
 		opts,
@@ -179,15 +179,15 @@ func (v *EthereumVRFCoordinatorV2_5) OracleWithdraw(recipient common.Address, am
 		amount,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return tx, v.client.ProcessTransaction(tx)
+	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) OracleWithdrawNative(recipient common.Address, amount *big.Int) (*types.Transaction, error) {
+func (v *EthereumVRFCoordinatorV2_5) OracleWithdrawNative(recipient common.Address, amount *big.Int) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	tx, err := v.coordinator.OracleWithdrawNative(
 		opts,
@@ -195,9 +195,9 @@ func (v *EthereumVRFCoordinatorV2_5) OracleWithdrawNative(recipient common.Addre
 		amount,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return tx, v.client.ProcessTransaction(tx)
+	return v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFCoordinatorV2_5) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig) error {
