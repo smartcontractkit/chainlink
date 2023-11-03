@@ -2,11 +2,13 @@
 
 pragma solidity 0.8.6;
 
-import "../../shared/access/ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IKeeperRegistryMaster} from "../interfaces/v2_1/IKeeperRegistryMaster.sol";
+import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
+import {IAutomationRegistryConsumer} from "../interfaces/IAutomationRegistryConsumer.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
 /// @title The UpkeepBalanceMonitor contract.
 /// @notice A keeper-compatible contract that monitors and funds Chainlink Automation upkeeps.
@@ -21,12 +23,12 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   event ConfigSet(uint96 minPercentage, uint96 targetPercentage);
   event OutOfGas(uint256 lastId);
   event TopUpFailed(uint256 indexed upkeepId);
-  event TopUpSucceeded(uint256 indexed upkeepId);
+  event TopUpSucceeded(uint256 indexed upkeepId, uint96 amount);
 
   error DuplicateSubcriptionId(uint256 duplicate);
   error InvalidKeeperRegistryVersion();
-  error InvalidWatchList();
   error MinPercentageTooLow();
+  error LengthMismatch();
   error OnlyKeeperRegistry();
 
   struct Config {
@@ -53,10 +55,75 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
       revert InvalidKeeperRegistryVersion();
     }
     LINK_TOKEN = LinkTokenInterface(linkTokenAddress);
-    setKeeperRegistryAddress(keeperRegistryAddress);
     setConfig(minPercentage, targetPercentage);
     LinkTokenInterface(linkTokenAddress).approve(address(keeperRegistryAddress), type(uint256).max);
   }
+
+  // ================================================================
+  // |                    AUTOMATION COMPATIBLE                     |
+  // ================================================================
+
+  /// @notice Gets list of upkeeps ids that are underfunded and returns a keeper-compatible payload.
+  /// @return upkeepNeeded signals if upkeep is needed, performData is an abi encoded list of subscription ids that need funds
+  function checkUpkeep(
+    bytes calldata
+  ) external view whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
+    (uint256[] memory needsFunding, uint256[] memory topUpAmounts) = getUnderfundedUpkeeps();
+    upkeepNeeded = needsFunding.length > 0;
+    performData = abi.encode(needsFunding, topUpAmounts);
+    return (upkeepNeeded, performData);
+  }
+
+  /// @notice Called by the keeper to send funds to underfunded addresses.
+  /// @param performData the abi encoded list of addresses to fund
+  function performUpkeep(bytes calldata performData) external whenNotPaused {
+    // if (msg.sender != address(s_registry)) revert OnlyKeeperRegistry();
+    // TODO - forwarder contract
+    (uint256[] memory needsFunding, uint96[] memory topUpAmounts) = abi.decode(performData, (uint256[], uint96[]));
+    if (needsFunding.length != topUpAmounts.length) revert LengthMismatch();
+    IAutomationForwarder forwarder = IAutomationForwarder(msg.sender);
+    IAutomationRegistryConsumer registry = forwarder.getRegistry();
+    uint256 contractBalance = LINK_TOKEN.balanceOf(address(this));
+    for (uint256 i = 0; i < needsFunding.length; i++) {
+      try registry.addFunds(needsFunding[i], topUpAmounts[i]) {
+        emit TopUpSucceeded(needsFunding[i], topUpAmounts[i]);
+      } catch {
+        emit TopUpFailed(needsFunding[i]);
+      }
+      if (gasleft() < MIN_GAS_FOR_TRANSFER) {
+        // TODO - test
+        emit OutOfGas(i);
+        return;
+      }
+    }
+  }
+
+  // ================================================================
+  // |                            ADMIN                             |
+  // ================================================================
+
+  /// @notice Withdraws the contract balance in LINK.
+  /// @param amount the amount of LINK (in juels) to withdraw
+  /// @param payee the address to pay
+  function withdraw(uint256 amount, address payee) external onlyOwner {
+    require(payee != address(0));
+    LINK_TOKEN.transfer(payee, amount);
+    emit FundsWithdrawn(amount, payee);
+  }
+
+  /// @notice Pause the contract, which prevents executing performUpkeep.
+  function pause() external onlyOwner {
+    _pause();
+  }
+
+  /// @notice Unpause the contract.
+  function unpause() external onlyOwner {
+    _unpause();
+  }
+
+  // ================================================================
+  // |                           SETTERS                            |
+  // ================================================================
 
   /// @notice Sets the list of upkeeps to watch and their funding parameters.
   /// @param watchlist the list of subscription ids to watch
@@ -64,8 +131,20 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     s_watchList = watchlist;
   }
 
+  /// @notice Sets the contract config
+  function setConfig(uint96 minPercentage, uint96 targetPercentage) public onlyOwner {
+    if (minPercentage < 100) revert MinPercentageTooLow();
+    s_config = Config({minPercentage: minPercentage, targetPercentage: targetPercentage});
+    emit ConfigSet(minPercentage, targetPercentage);
+  }
+
+  // ================================================================
+  // |                           GETTERS                            |
+  // ================================================================
+
   /// @notice Gets a list of upkeeps that are underfunded.
-  /// @return list of upkeeps that are underfunded
+  /// @return needsFunding list of underfunded upkeepIDs
+  /// @return topUpAmounts amount to top up each upkeep
   function getUnderfundedUpkeeps() public view returns (uint256[] memory, uint256[] memory) {
     uint256 numUpkeeps = s_watchList.length;
     uint256[] memory needsFunding = new uint256[](numUpkeeps);
@@ -96,84 +175,6 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     return (needsFunding, topUpAmounts);
   }
 
-  /// @notice Send funds to the upkeeps provided.
-  /// @param needsFunding the list of upkeeps to fund
-  function topUp(uint256[] memory needsFunding) public whenNotPaused {
-    uint256 contractBalance = LINK_TOKEN.balanceOf(address(this));
-    // Target memory target;
-    // for (uint256 i = 0; i < needsFunding.length; i++) {
-    //   target = s_targets[needsFunding[i]];
-    //   uint96 upkeepBalance = s_registry.getBalance(needsFunding[i]);
-    //   uint96 minUpkeepBalance = s_registry.getMinBalanceForUpkeep(needsFunding[i]);
-    //   uint96 minBalanceWithBuffer = addBuffer(minUpkeepBalance, buffer);
-    //   if (
-    //     target.isActive &&
-    //     target.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp &&
-    //     (upkeepBalance < target.minBalanceJuels ||
-    //       //upkeepBalance < minUpkeepBalance) &&
-    //       upkeepBalance < minBalanceWithBuffer) &&
-    //     contractBalance >= target.topUpAmountJuels
-    //   ) {
-    //     s_registry.addFunds(needsFunding[i], target.topUpAmountJuels);
-    //     s_targets[needsFunding[i]].lastTopUpTimestamp = uint56(block.timestamp);
-    //     contractBalance -= target.topUpAmountJuels;
-    //     emit TopUpSucceeded(needsFunding[i]);
-    //   }
-    //   if (gasleft() < MIN_GAS_FOR_TRANSFER) {
-    //     emit OutOfGas(i);
-    //     return;
-    //   }
-    // }
-  }
-
-  /// @notice Gets list of upkeeps ids that are underfunded and returns a keeper-compatible payload.
-  /// @return upkeepNeeded signals if upkeep is needed, performData is an abi encoded list of subscription ids that need funds
-  function checkUpkeep(
-    bytes calldata
-  ) external view whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
-    (uint256[] memory needsFunding, uint256[] memory topUpAmounts) = getUnderfundedUpkeeps();
-    upkeepNeeded = needsFunding.length > 0;
-    performData = abi.encode(needsFunding, topUpAmounts);
-    return (upkeepNeeded, performData);
-  }
-
-  /// @notice Called by the keeper to send funds to underfunded addresses.
-  /// @param performData the abi encoded list of addresses to fund
-  function performUpkeep(bytes calldata performData) external whenNotPaused {
-    // if (msg.sender != address(s_registry)) revert OnlyKeeperRegistry();
-    // TODO - forwarder contract
-    uint256[] memory needsFunding = abi.decode(performData, (uint256[]));
-    topUp(needsFunding);
-  }
-
-  /// @notice Withdraws the contract balance in LINK.
-  /// @param amount the amount of LINK (in juels) to withdraw
-  /// @param payee the address to pay
-  function withdraw(uint256 amount, address payee) external onlyOwner {
-    require(payee != address(0));
-    LINK_TOKEN.transfer(payee, amount);
-    emit FundsWithdrawn(amount, payee);
-  }
-
-  /// @notice Sets the keeper registry address.
-  function setKeeperRegistryAddress(IKeeperRegistryMaster keeperRegistryAddress) public onlyOwner {
-    require(address(keeperRegistryAddress) != address(0));
-    s_registry = keeperRegistryAddress;
-    emit KeeperRegistryAddressUpdated(s_registry, keeperRegistryAddress);
-  }
-
-  /// @notice Sets the contract config
-  function setConfig(uint96 minPercentage, uint96 targetPercentage) public onlyOwner {
-    if (minPercentage < 100) revert MinPercentageTooLow();
-    s_config = Config({minPercentage: minPercentage, targetPercentage: targetPercentage});
-    emit ConfigSet(minPercentage, targetPercentage);
-  }
-
-  /// @notice Gets the keeper registry address
-  function getKeeperRegistryAddress() external view returns (address) {
-    return address(s_registry);
-  }
-
   /// @notice Gets the list of upkeeps ids being watched.
   function getWatchList() external view returns (uint256[] memory) {
     return s_watchList;
@@ -182,15 +183,5 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @notice Gets the contract config
   function getConfig() external view returns (Config memory) {
     return s_config;
-  }
-
-  /// @notice Pause the contract, which prevents executing performUpkeep.
-  function pause() external onlyOwner {
-    _pause();
-  }
-
-  /// @notice Unpause the contract.
-  function unpause() external onlyOwner {
-    _unpause();
   }
 }
