@@ -675,6 +675,6 @@ func interfaceToAddress(value interface{}) (common.Address, error) {
 	case *big.Int:
 		return common.BigToAddress(v), nil
 	default:
-		return common.HexToAddress("0x"), fmt.Errorf("unrecognized value type for converting value to common.Address; try string, *big.Int, or common.Address")
+		return common.Address{}, fmt.Errorf("unrecognized value type for converting value to common.Address; try string, *big.Int, or common.Address")
 	}
 }
