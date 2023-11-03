@@ -1227,7 +1227,7 @@ func Test_calculateObservedMessagesConsensus(t *testing.T) {
 				f: 1,
 			},
 			want: []ObservedMessage{
-				{SeqNr: 1, MsgData: MsgData{TokenData: [][]byte{{0x1}}}},
+				{SeqNr: 1, MsgData: MsgData{TokenData: [][]byte{{0x3}}}},
 			},
 		},
 	}
