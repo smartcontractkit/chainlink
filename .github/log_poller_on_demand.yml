@@ -1,6 +1,5 @@
-name: On Demand Log Poller Consistenct Test
+name: On Demand Log Poller Consistency Test
 on:
-  push:
   workflow_dispatch:
     inputs:
       contracts:
