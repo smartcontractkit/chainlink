@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed `Optimism2` as a supported gas estimator mode
 
+### Added
+
+- Mercury v0.2 has improved consensus around current block that uses the most recent 5 blocks instead of only the latest one
+- Two new prom metrics for mercury, nops should consider adding alerting on these:
+    - `mercury_insufficient_blocks_count`
+    - `mercury_zero_blocks_count`
+
 ...
 
 ## 2.7.0 - UNRELEASED
@@ -36,10 +43,6 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 - Added bridge_name label to `pipeline_tasks_total_finished` prometheus metric. This should make it easier to see directly what bridge was failing out from the CL NODE perspective.
 
 - LogPoller will now use finality tags to dynamically determine finality on evm chains if `UseFinalityTags=true`, rather than the fixed `FinalityDepth` specified in toml config
-- Mercury v0.2 has improved consensus around current block that uses the most recent 5 blocks instead of only the latest one
-- Two new prom metrics for mercury, nops should consider adding alerting on these:
-    - `mercury_insufficient_blocks_count`
-    - `mercury_zero_blocks_count`
 
 ### Changed
 

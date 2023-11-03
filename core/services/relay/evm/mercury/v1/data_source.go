@@ -82,6 +82,16 @@ func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec
 	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
 }
 
+type ErrEmptyLatestReport struct {
+	Err error
+}
+
+func (e ErrEmptyLatestReport) UnWrap() error { return e.Err }
+
+func (e ErrEmptyLatestReport) Error() string {
+	return fmt.Sprintf("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed. No initialBlockNumber was set, tried to use current block number to determine maxFinalizedBlockNumber but got error: %v", e.Err)
+}
+
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, pipelineExecutionErr error) {
 	// setLatestBlocks must come chronologically before observations, along
 	// with observationTimestamp, to avoid front-running
@@ -112,7 +122,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			}
 			if ds.initialBlockNumber == nil {
 				if obs.CurrentBlockNum.Err != nil {
-					obs.MaxFinalizedBlockNumber.Err = fmt.Errorf("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed. No initialBlockNumber was set, tried to use current block number to determine maxFinalizedBlockNumber but got error: %w", obs.CurrentBlockNum.Err)
+					obs.MaxFinalizedBlockNumber.Err = ErrEmptyLatestReport{Err: obs.CurrentBlockNum.Err}
 				} else {
 					// Subract 1 here because we will later add 1 to the
 					// maxFinalizedBlockNumber to get the first validFromBlockNum, which

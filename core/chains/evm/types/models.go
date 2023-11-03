@@ -235,16 +235,9 @@ func (h *Head) AsSlice(k int) (heads []*Head) {
 	}
 	heads = make([]*Head, 1)
 	heads[0] = h
-	for {
-		if len(heads) == k {
-			break
-		}
-		if h.Parent != nil {
-			h = h.Parent
-			heads = append(heads, h)
-		} else {
-			break
-		}
+	for len(heads) < k && h.Parent != nil {
+		h = h.Parent
+		heads = append(heads, h)
 	}
 	return
 }
