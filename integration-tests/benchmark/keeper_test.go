@@ -131,6 +131,7 @@ var (
 	LinkTokenAddress        = getEnv("LINKTOKENADDRESS", "")
 	EthFeedAddress          = getEnv("ETHFEEDADDRESS", "")
 	GasFeedAddress          = getEnv("GASFEEDADDRESS", "")
+	DeltaStageSeconds, _    = strconv.ParseInt(getEnv("DELTASTAGESECONDS", "0"), 0, 64)
 )
 
 type NetworkConfig struct {
@@ -150,6 +151,10 @@ func TestAutomationBenchmark(t *testing.T) {
 	testName := fmt.Sprintf("%s%s", networkName, RegistryToTest)
 	l.Info().Str("Test Name", testName).Str("Test Inputs", os.Getenv("TEST_INPUTS")).Msg("Running Benchmark Test")
 	benchmarkTestNetwork := networkConfig[networkName]
+
+	if DeltaStageSeconds > 0 {
+		benchmarkTestNetwork.deltaStage = time.Duration(DeltaStageSeconds) * time.Second
+	}
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 
@@ -261,7 +266,7 @@ var networkConfig = map[string]NetworkConfig{
 		funding:    big.NewFloat(ChainlinkNodeFunding),
 	},
 	"ArbitrumGoerli": {
-		upkeepSLA:  int64(20),
+		upkeepSLA:  int64(120),
 		blockTime:  time.Second,
 		deltaStage: time.Duration(0),
 		funding:    big.NewFloat(ChainlinkNodeFunding),

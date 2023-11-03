@@ -125,6 +125,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	k.keeperConsumerContracts = make([]contracts.AutomationConsumerBenchmark, len(inputs.RegistryVersions))
 	k.upkeepIDs = make([][]*big.Int, len(inputs.RegistryVersions))
 	k.log.Debug().Interface("TestInputs", inputs).Msg("Setting up benchmark test")
+	k.log.Info().Str("Network", inputs.BlockchainClient.GetNetworkName()).Dur("DeltaStage", inputs.DeltaStage).Msg("Starting Keeper Benchmark Test Setup")
 
 	var err error
 	// Connect to networks and prepare for contract deployment
