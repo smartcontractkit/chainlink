@@ -28,8 +28,9 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
 
   struct Config {
     uint8 maxBatchSize;
-    uint96 minPercentage;
-    uint96 targetPercentage;
+    uint24 minPercentage;
+    uint24 targetPercentage; // max target is 160K times the min balance
+    uint96 maxTopUpAmount;
   }
 
   IKeeperRegistryMaster private s_registry;
@@ -41,18 +42,21 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @param maxBatchSize the maximum number of upkeeps to fund in a single transaction
   /// @param minPercentage the percentage of the min balance at which to trigger top ups
   /// @param targetPercentage the percentage of the min balance to target during top ups
+  /// @param maxTopUpAmount the maximum amount to top up an upkeep
   constructor(
     address linkTokenAddress,
     IKeeperRegistryMaster keeperRegistryAddress,
-    uint96 minPercentage,
-    uint96 targetPercentage
+    uint8 maxBatchSize,
+    uint24 minPercentage,
+    uint24 targetPercentage,
+    uint96 maxTopUpAmount
   ) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0));
     if (keccak256(bytes(keeperRegistryAddress.typeAndVersion())) != keccak256(bytes("KeeperRegistry 2.1.0"))) {
       revert InvalidKeeperRegistryVersion();
     }
     LINK_TOKEN = LinkTokenInterface(linkTokenAddress);
-    setConfig(maxBatchSize, minPercentage, targetPercentage);
+    setConfig(maxBatchSize, minPercentage, targetPercentage, maxTopUpAmount);
     LinkTokenInterface(linkTokenAddress).approve(address(keeperRegistryAddress), type(uint256).max);
   }
 
@@ -124,9 +128,23 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   }
 
   /// @notice Sets the contract config
-  function setConfig(uint8 maxBatchSize, uint96 minPercentage, uint96 targetPercentage) public onlyOwner {
+  /// @param maxBatchSize the maximum number of upkeeps to fund in a single transaction
+  /// @param minPercentage the percentage of the min balance at which to trigger top ups
+  /// @param targetPercentage the percentage of the min balance to target during top ups
+  /// @param maxTopUpAmount the maximum amount to top up an upkeep
+  function setConfig(
+    uint8 maxBatchSize,
+    uint24 minPercentage,
+    uint24 targetPercentage,
+    uint96 maxTopUpAmount
+  ) public onlyOwner {
     if (minPercentage < 100) revert MinPercentageTooLow();
-    s_config = Config({maxBatchSize: maxBatchSize, minPercentage: minPercentage, targetPercentage: targetPercentage});
+    s_config = Config({
+      maxBatchSize: maxBatchSize,
+      minPercentage: minPercentage,
+      targetPercentage: targetPercentage,
+      maxTopUpAmount: maxTopUpAmount
+    });
     emit ConfigSet(minPercentage, targetPercentage);
   }
 
