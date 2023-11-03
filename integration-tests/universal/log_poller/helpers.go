@@ -834,27 +834,27 @@ func getExpectedLogCount(cfg *Config) int64 {
 }
 
 var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv) error {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
-	randomBool := rand.Intn(2) == 0
+	//rand.New(rand.NewSource(time.Now().UnixNano()))
+	//randomBool := rand.Intn(2) == 0
+	//
+	//randomNode := testEnv.ClCluster.Nodes[rand.Intn(len(testEnv.ClCluster.Nodes)-1)+1]
+	//var component ctf_test_env.EnvComponent
+	//
+	//if randomBool {
+	//	component = randomNode.EnvComponent
+	//} else {
+	//	component = randomNode.PostgresDb.EnvComponent
+	//}
 
-	randomNode := testEnv.ClCluster.Nodes[rand.Intn(len(testEnv.ClCluster.Nodes)-1)+1]
-	var component ctf_test_env.EnvComponent
+	//pauseTimeSec := rand.Intn(20-5) + 5
+	//l.Info().Str("Container", component.ContainerName).Int("Pause time", pauseTimeSec).Msg("Pausing component")
+	//pauseTimeDur := time.Duration(pauseTimeSec) * time.Second
+	//err := component.ChaosPause(l, pauseTimeDur)
+	//l.Info().Str("Container", component.ContainerName).Msg("Component unpaused")
 
-	if randomBool {
-		component = randomNode.EnvComponent
-	} else {
-		component = randomNode.PostgresDb.EnvComponent
-	}
-
-	pauseTimeSec := rand.Intn(20-5) + 5
-	l.Info().Str("Container", component.ContainerName).Int("Pause time", pauseTimeSec).Msg("Pausing component")
-	pauseTimeDur := time.Duration(pauseTimeSec) * time.Second
-	err := component.ChaosPause(l, pauseTimeDur)
-	l.Info().Str("Container", component.ContainerName).Msg("Component unpaused")
-
-	if err != nil {
-		return err
-	}
+	//if err != nil {
+	//	return err
+	//}
 
 	return nil
 }

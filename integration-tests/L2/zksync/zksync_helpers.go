@@ -3,11 +3,11 @@ package zksync
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
@@ -20,8 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	helmEth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	helmEth "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -313,7 +313,7 @@ func SetupOCRTest(t *testing.T) (
 	err error,
 ) {
 	var ocrEnvVars = map[string]any{}
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConfig := helmEth.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = helmEth.New(&helmEth.Props{
@@ -321,10 +321,6 @@ func SetupOCRTest(t *testing.T) (
 			Simulated:   testNetwork.Simulated,
 			WsURLs:      testNetwork.URLs,
 		})
-		// For if we end up using env vars
-		ocrEnvVars["ETH_URL"] = testNetwork.URLs[0]
-		ocrEnvVars["ETH_HTTP_URL"] = testNetwork.HTTPURLs[0]
-		ocrEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(testNetwork.ChainID)
 	}
 	chainlinkChart := chainlink.New(0, map[string]interface{}{
 		"toml":     client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, config.DefaultOCRNetworkDetailTomlConfig, testNetwork),
@@ -340,8 +336,9 @@ func SetupOCRTest(t *testing.T) (
 	}
 
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
+		NamespacePrefix:    fmt.Sprintf("performance-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:               t,
+		PreventPodEviction: true,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
