@@ -59,6 +59,13 @@ type MercuryV02Response struct {
 // MercuryV03Response represents a JSON structure used by Mercury v0.3
 type MercuryV03Response struct {
 	Reports []MercuryV03Report `json:"reports"`
+	Errors  []ErrorItem        `json:"errors"`
+}
+
+type ErrorItem struct {
+	FeedID      string `json:"feedID"` // feed id in hex encoded
+	ErrorCode   string `json:"errorCode"`
+	ErrorDetail string `json:"errorDetail"`
 }
 
 type MercuryV03Report struct {
@@ -507,14 +514,26 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				retryable = false
 				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3 with message: %s", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode, string(body))
-			} else if resp.StatusCode == http.StatusInternalServerError {
+			} else if resp.StatusCode == http.StatusInternalServerError || resp.StatusCode == http.StatusBadGateway {
 				retryable = true
 				state = encoding.MercuryFlakyFailure
-				return fmt.Errorf("%d", http.StatusInternalServerError)
-			} else if resp.StatusCode == http.StatusBadGateway {
+				return fmt.Errorf("%d", resp.StatusCode)
+			} else if resp.StatusCode == http.StatusPartialContent {
+				var response MercuryV03Response
+				err1 = json.Unmarshal(body, &response)
+				if err1 != nil {
+					lggr.Warnf("at timestamp %s upkeep %s failed to unmarshal body to MercuryV03Response from mercury v0.3: %v", sl.Time.String(), sl.upkeepId.String(), err1)
+					retryable = false
+					state = encoding.MercuryUnmarshalError
+					return err1
+				}
+
+				for _, e := range response.Errors {
+					lggr.Debugf("at timestamp %s upkeep %s feed ID %s, mercury v0.3 server returns 206 with %s", sl.Time.String(), sl.upkeepId.String(), e.FeedID, e.ErrorDetail)
+				}
 				retryable = true
 				state = encoding.MercuryFlakyFailure
-				return fmt.Errorf("%d", http.StatusBadGateway)
+				return fmt.Errorf("%d", http.StatusPartialContent)
 			} else if resp.StatusCode != http.StatusOK {
 				retryable = false
 				state = encoding.InvalidMercuryRequest
@@ -531,11 +550,11 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				state = encoding.MercuryUnmarshalError
 				return err1
 			}
-			// in v0.3, if some feeds are not available, the server will only return available feeds, but we need to make sure ALL feeds are retrieved before calling user contract
-			// hence, retry in this case. retry will help when we send a very new timestamp and reports are not yet generated
+
+			// this case will only exist in response 206 but mercury has not fully implemented the solution and put it in production
+			// hence, in both 200 and 206 cases, we are checking for reports not available issue due to mercury server not ready
 			if len(response.Reports) != len(sl.Feeds) {
-				// TODO: AUTO-5044: calculate what reports are missing and log a warning
-				lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server retruned 200 status with %d reports while we requested %d feeds, treating as 404 (not found) and retrying", sl.Time.String(), sl.upkeepId.String(), len(response.Reports), len(sl.Feeds))
+				lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server returned 200 status with %d reports while we requested %d feeds, treating as 404 (not found) and retrying", sl.Time.String(), sl.upkeepId.String(), len(response.Reports), len(sl.Feeds))
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", http.StatusNotFound)
@@ -560,9 +579,9 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			sent = true
 			return nil
 		},
-		// only retry when the error is 404 Not Found, 500 Internal Server Error, or 502 Bad Gateway
+		// only retry when the error is 206 Partial Content, 404 Not Found, 500 Internal Server Error, or 502 Bad Gateway
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway)
+			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway) || err.Error() == fmt.Sprintf("%d", http.StatusPartialContent)
 		}),
 		retry.Context(ctx),
 		retry.Delay(retryDelay),

@@ -1071,6 +1071,54 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			errorMessage: "All attempts fail:\n#1: at timestamp 123456 upkeep 123456789 received status code 422 from mercury v0.3",
 		},
 		{
+			name: "success - retry 206",
+			lookup: &StreamsLookup{
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
+			},
+			firstResponse: &MercuryV03Response{
+				Errors: []ErrorItem{
+					{
+						FeedID:      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ErrorCode:   "Report_Not_Found",
+						ErrorDetail: "mercury server not ready",
+					},
+				},
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
+					},
+				},
+			},
+			response: &MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
+					},
+					{
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            "0xab2123dc00000019",
+					},
+				},
+			},
+			retryNumber:    1,
+			statusCode:     http.StatusPartialContent,
+			lastStatusCode: http.StatusOK,
+		},
+		{
 			name: "success - retry when reports length does not match feeds length",
 			lookup: &StreamsLookup{
 				StreamsLookupError: &encoding.StreamsLookupError{
@@ -1107,8 +1155,9 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					},
 				},
 			},
-			retryNumber: 1,
-			statusCode:  http.StatusOK,
+			retryNumber:    1,
+			statusCode:     http.StatusOK,
+			lastStatusCode: http.StatusOK,
 		},
 	}
 
@@ -1140,7 +1189,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					b1, err := json.Marshal(tt.response)
 					assert.Nil(t, err)
 					resp1 := &http.Response{
-						StatusCode: tt.statusCode,
+						StatusCode: tt.lastStatusCode,
 						Body:       io.NopCloser(bytes.NewReader(b1)),
 					}
 					hc.On("Do", mock.Anything).Return(resp0, nil).Once().On("Do", mock.Anything).Return(resp1, nil).Once()
