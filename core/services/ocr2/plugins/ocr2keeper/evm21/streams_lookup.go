@@ -429,23 +429,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 
 	if !sent {
 		var ri time.Duration
-		if retryable {
-			var retries uint
-			totalAttempts, ok := r.mercury.pluginRetryCache.Get(workID)
-			if ok {
-				retries = totalAttempts.(uint)
-				if retries > totalPluginRetries {
-					retryable = false
-				} else if retries > 5 {
-					ri = 5 * time.Second
-				} else {
-					ri = 1 * time.Second
-				}
-			} else {
-				ri = 1 * time.Second
-			}
-			r.mercury.pluginRetryCache.Set(workID, retries+1, cache.DefaultExpiration)
-		}
+		retryable, ri = r.calculateRetryConfig(retryable, workID)
 		md := MercuryData{
 			Index:         index,
 			Bytes:         [][]byte{},
@@ -590,23 +574,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 
 	if !sent {
 		var ri time.Duration
-		if retryable {
-			var retries uint
-			totalAttempts, ok := r.mercury.pluginRetryCache.Get(workID)
-			if ok {
-				retries = totalAttempts.(uint)
-				if retries > totalPluginRetries {
-					retryable = false
-				} else if retries > 5 {
-					ri = 5 * time.Second
-				} else {
-					ri = 1 * time.Second
-				}
-			} else {
-				ri = 1 * time.Second
-			}
-			r.mercury.pluginRetryCache.Set(workID, retries+1, cache.DefaultExpiration)
-		}
+		retryable, ri = r.calculateRetryConfig(retryable, workID)
 		md := MercuryData{
 			Index:         0,
 			Bytes:         [][]byte{},
@@ -633,4 +601,27 @@ func (r *EvmRegistry) generateHMAC(method string, path string, body []byte, clie
 	signedMessage.Write([]byte(hashString))
 	userHmac := hex.EncodeToString(signedMessage.Sum(nil))
 	return userHmac
+}
+
+// calculateRetryConfig returns retryable and plugin retry interval based on how many times plugin has retried this work
+func (r *EvmRegistry) calculateRetryConfig(retryable bool, workID string) (bool, time.Duration) {
+	var ri time.Duration
+	if retryable {
+		var retries int
+		totalAttempts, ok := r.mercury.pluginRetryCache.Get(workID)
+		if ok {
+			retries = totalAttempts.(int)
+			if retries >= totalPluginRetries {
+				retryable = false
+			} else if retries > 4 {
+				ri = 5 * time.Second
+			} else {
+				ri = 1 * time.Second
+			}
+		} else {
+			ri = 1 * time.Second
+		}
+		r.mercury.pluginRetryCache.Set(workID, retries+1, cache.DefaultExpiration)
+	}
+	return retryable, ri
 }
