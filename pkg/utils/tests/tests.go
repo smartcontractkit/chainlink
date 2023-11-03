@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Context(t *testing.T) context.Context {
@@ -32,4 +34,23 @@ func WaitTimeout(t *testing.T) time.Duration {
 		return time.Until(d) * 9 / 10
 	}
 	return DefaultWaitTimeout
+}
+
+// TestInterval is just a sensible poll interval that gives fast tests without
+// risk of spamming
+const TestInterval = 100 * time.Millisecond
+
+// AssertEventually waits for f to return true
+func AssertEventually(t *testing.T, f func() bool) {
+	assert.Eventually(t, f, WaitTimeout(t), TestInterval/2)
+}
+
+// RequireSignal waits for the channel to close (or receive anything) and
+// fatals the test if the default wait timeout is exceeded
+func RequireSignal(t *testing.T, ch <-chan struct{}, failMsg string) {
+	select {
+	case <-ch:
+	case <-time.After(WaitTimeout(t)):
+		t.Fatal(failMsg)
+	}
 }
