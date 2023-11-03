@@ -163,7 +163,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *StreamsLookup, i int, checkResults []ocr2keepers.CheckResult, lggr logger.Logger) {
 	defer wg.Done()
 
-	state, reason, values, retryable, ri, err := r.doMercuryRequest(ctx, lookup, lggr)
+	state, reason, values, retryable, ri, err := r.doMercuryRequest(ctx, lookup, checkResults[i].WorkID, lggr)
 	if err != nil {
 		lggr.Errorf("upkeep %s retryable %v retryInterval %s doMercuryRequest: %s", lookup.upkeepId, retryable, ri, err.Error())
 		checkResults[i].Retryable = retryable
@@ -280,7 +280,7 @@ func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup
 }
 
 // doMercuryRequest sends requests to Mercury API to retrieve mercury data.
-func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, lggr logger.Logger) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, error) {
+func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, workID string, lggr logger.Logger) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, error) {
 	var isMercuryV03 bool
 	resultLen := len(sl.Feeds)
 	ch := make(chan MercuryData, resultLen)
@@ -290,14 +290,14 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, l
 	if sl.FeedParamKey == feedIdHex && sl.TimeParamKey == blockNumber {
 		// only mercury v0.2
 		for i := range sl.Feeds {
-			go r.singleFeedRequest(ctx, ch, i, sl, lggr)
+			go r.singleFeedRequest(ctx, ch, i, sl, workID, lggr)
 		}
 	} else if sl.FeedParamKey == feedIDs {
 		// only mercury v0.3
 		resultLen = 1
 		isMercuryV03 = true
 		ch = make(chan MercuryData, resultLen)
-		go r.multiFeedsRequest(ctx, ch, sl, lggr)
+		go r.multiFeedsRequest(ctx, ch, sl, workID, lggr)
 	} else {
 		return encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0 * time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", sl.FeedParamKey, sl.TimeParamKey, sl.Feeds)
 	}
@@ -332,7 +332,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, l
 }
 
 // singleFeedRequest sends a v0.2 Mercury request for a single feed report.
-func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryData, index int, sl *StreamsLookup, lggr logger.Logger) {
+func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryData, index int, sl *StreamsLookup, workID string, lggr logger.Logger) {
 	q := url.Values{
 		sl.FeedParamKey: {sl.Feeds[index]},
 		sl.TimeParamKey: {sl.Time.String()},
@@ -358,7 +358,6 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 	state := encoding.NoPipelineError
 	retryable := false
 	sent := false
-	var ri time.Duration
 	retryErr := retry.Do(
 		func() error {
 			retryable = false
@@ -366,7 +365,6 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 			if err1 != nil {
 				lggr.Warnf("at block %s upkeep %s GET request fails for feed %s: %v", sl.Time.String(), sl.upkeepId.String(), sl.Feeds[index], err1)
 				retryable = true
-				ri = 30 * time.Second
 				state = encoding.MercuryFlakyFailure
 				return err1
 			}
@@ -384,10 +382,9 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 				return err1
 			}
 
-			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
+			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError || resp.StatusCode == http.StatusBadGateway {
 				lggr.Warnf("at block %s upkeep %s received status code %d for feed %s", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode, sl.Feeds[index])
 				retryable = true
-				ri = 1 * time.Second
 				state = encoding.MercuryFlakyFailure
 				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
@@ -422,15 +419,33 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 			sent = true
 			return nil
 		},
-		// only retry when the error is 404 Not Found or 500 Internal Server Error
+		// only retry when the error is 404 Not Found, 500 Internal Server Error, or 502 Bad Gateway
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError)
+			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway)
 		}),
 		retry.Context(ctx),
 		retry.Delay(retryDelay),
 		retry.Attempts(totalAttempt))
 
 	if !sent {
+		var ri time.Duration
+		if retryable {
+			var retries uint
+			totalAttempts, ok := r.mercury.pluginRetryCache.Get(workID)
+			if ok {
+				retries = totalAttempts.(uint)
+				if retries > totalPluginRetries {
+					retryable = false
+				} else if retries > 5 {
+					ri = 5 * time.Second
+				} else {
+					ri = 1 * time.Second
+				}
+			} else {
+				ri = 1 * time.Second
+			}
+			r.mercury.pluginRetryCache.Set(workID, retries+1, cache.DefaultExpiration)
+		}
 		md := MercuryData{
 			Index:         index,
 			Bytes:         [][]byte{},
@@ -444,7 +459,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 }
 
 // multiFeedsRequest sends a Mercury v0.3 request for a multi-feed report
-func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, lggr logger.Logger) {
+func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, workID string, lggr logger.Logger) {
 	// this won't work bc q.Encode() will encode commas as '%2C' but the server is strictly expecting a comma separated list
 	//q := url.Values{
 	//	feedIDs:   {strings.Join(sl.Feeds, ",")},
@@ -479,7 +494,6 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	state := encoding.NoPipelineError
 	retryable := false
 	sent := false
-	var ri time.Duration
 	retryErr := retry.Do(
 		func() error {
 			retryable = false
@@ -515,14 +529,12 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3 with message: %s", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode, string(body))
 			} else if resp.StatusCode == http.StatusInternalServerError {
 				retryable = true
-				ri = 1 * time.Second
 				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", http.StatusInternalServerError)
-			} else if resp.StatusCode == 420 {
-				// in 0.3, this will happen when missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds
-				retryable = false
-				state = encoding.InvalidMercuryRequest
-				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode)
+			} else if resp.StatusCode == http.StatusBadGateway {
+				retryable = true
+				state = encoding.MercuryFlakyFailure
+				return fmt.Errorf("%d", http.StatusBadGateway)
 			} else if resp.StatusCode != http.StatusOK {
 				retryable = false
 				state = encoding.InvalidMercuryRequest
@@ -545,7 +557,6 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				// TODO: AUTO-5044: calculate what reports are missing and log a warning
 				lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server retruned 200 status with %d reports while we requested %d feeds, treating as 404 (not found) and retrying", sl.Time.String(), sl.upkeepId.String(), len(response.Reports), len(sl.Feeds))
 				retryable = true
-				ri = 1 * time.Second
 				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", http.StatusNotFound)
 			}
@@ -569,15 +580,33 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			sent = true
 			return nil
 		},
-		// only retry when the error is 404 Not Found or 500 Internal Server Error
+		// only retry when the error is 404 Not Found, 500 Internal Server Error, or 502 Bad Gateway
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError)
+			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway)
 		}),
 		retry.Context(ctx),
 		retry.Delay(retryDelay),
 		retry.Attempts(totalAttempt))
 
 	if !sent {
+		var ri time.Duration
+		if retryable {
+			var retries uint
+			totalAttempts, ok := r.mercury.pluginRetryCache.Get(workID)
+			if ok {
+				retries = totalAttempts.(uint)
+				if retries > totalPluginRetries {
+					retryable = false
+				} else if retries > 5 {
+					ri = 5 * time.Second
+				} else {
+					ri = 1 * time.Second
+				}
+			} else {
+				ri = 1 * time.Second
+			}
+			r.mercury.pluginRetryCache.Set(workID, retries+1, cache.DefaultExpiration)
+		}
 		md := MercuryData{
 			Index:         0,
 			Bytes:         [][]byte{},
