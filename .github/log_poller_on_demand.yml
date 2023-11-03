@@ -1,4 +1,4 @@
-name: Log poller on demand test
+name: On Demand Log Poller Consistenct Test
 on:
   push:
   workflow_dispatch:
