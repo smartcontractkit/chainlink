@@ -564,10 +564,10 @@ func (d *Delegate) newServicesGenericPlugin(
 	srvs = append(srvs, provider)
 
 	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
-		spec.ContractID,
-		synchronization.TelemetryType(cconf.TelemetryType),
 		rid.Network,
 		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType(cconf.TelemetryType),
 	)
 	oracleArgs := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
@@ -686,7 +686,7 @@ func (d *Delegate) newServicesMercury(
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.OCR3Mercury, rid.Network, rid.ChainID),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.OCR3Mercury),
 		OffchainConfigDigester:       mercuryProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
@@ -697,7 +697,7 @@ func (d *Delegate) newServicesMercury(
 	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
-		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.EnhancedEAMercury, rid.Network, rid.ChainID), lggr.Named("EnhancedTelemetryMercury"))
+		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("EnhancedTelemetryMercury"))
 		mercuryServices = append(mercuryServices, enhancedTelemService)
 	}
 
@@ -728,7 +728,7 @@ func (d *Delegate) newServicesMedian(
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Median, rid.Network, rid.ChainID),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Median),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
 	}
@@ -744,7 +744,7 @@ func (d *Delegate) newServicesMedian(
 	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
-		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA, rid.Network, rid.ChainID), lggr.Named("EnhancedTelemetry"))
+		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
 		medianServices = append(medianServices, enhancedTelemService)
 	}
 
@@ -965,7 +965,7 @@ func (d *Delegate) newServicesOCR2VRF(
 		VRFContractTransmitter:       vrfProvider.ContractTransmitter(),
 		VRFDatabase:                  ocrDB,
 		VRFLocalConfig:               lc,
-		VRFMonitoringEndpoint:        d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2VRF, rid.Network, rid.ChainID),
+		VRFMonitoringEndpoint:        d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2VRF),
 		DKGContractConfigTracker:     dkgProvider.ContractConfigTracker(),
 		DKGOffchainConfigDigester:    dkgProvider.OffchainConfigDigester(),
 		DKGContract:                  dkgpkg.NewOnchainContract(dkgContract, &altbn_128.G2{}),
@@ -1104,7 +1104,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
 		KeepersDatabase:              ocrDB,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation, rid.Network, rid.ChainID),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Automation),
 		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               services.Keyring(),
@@ -1249,7 +1249,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		KeepersDatabase:              ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation, rid.Network, rid.ChainID),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Automation),
 		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
@@ -1358,7 +1358,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		Database:                     functionsOcrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions, rid.Network, rid.ChainID),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Functions),
 		OffchainConfigDigester:       functionsProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
@@ -1422,7 +1422,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		ContractID:        spec.ContractID,
 		Logger:            lggr,
 		MailMon:           d.mailMon,
-		URLsMonEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests, rid.Network, rid.ChainID),
+		URLsMonEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.FunctionsRequests),
 		EthKeystore:       d.ethKs,
 		ThresholdKeyShare: thresholdKeyShare,
 		LogPollerWrapper:  functionsProvider.LogPollerWrapper(),
