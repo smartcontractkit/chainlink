@@ -80,7 +80,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
-		tests.WaitForLogMessage(t, observedLogs, "Subscription was terminated")
+		tests.AssertLogEventually(t, observedLogs, "Subscription was terminated")
 		assert.Equal(t, nodeStateUnreachable, node.State())
 	})
 
@@ -128,8 +128,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		// redundant call to stay in alive state
 		rpc.On("ClientVersion", mock.Anything).Return("client_version", nil)
 		node.declareAlive()
-		tests.WaitForLogMessageCount(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
-		tests.WaitForLogMessageCount(t, observedLogs, "Version poll successful", 2)
+		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
+		tests.AssertLogCountEventually(t, observedLogs, "Version poll successful", 2)
 		assert.True(t, ensuredAlive.Load(), "expected to ensure that node was alive")
 
 	})
@@ -153,7 +153,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
-		tests.WaitForLogMessageCount(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
+		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
 		tests.AssertEventually(t, func() bool {
 			return nodeStateUnreachable == node.State()
 		})
@@ -177,7 +177,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		pollError := errors.New("failed to get ClientVersion")
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
 		node.declareAlive()
-		tests.WaitForLogMessage(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
+		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
 		assert.Equal(t, nodeStateAlive, node.State())
 	})
 	t.Run("outOfSync when falls behind", func(t *testing.T) {
@@ -208,7 +208,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
-		tests.WaitForLogMessage(t, observedLogs, "Failed to dial out-of-sync RPC node")
+		tests.AssertLogEventually(t, observedLogs, "Failed to dial out-of-sync RPC node")
 	})
 	t.Run("stays alive even when falls behind", func(t *testing.T) {
 		t.Parallel()
@@ -230,7 +230,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		}
 		rpc.On("ClientVersion", mock.Anything).Return("", nil)
 		node.declareAlive()
-		tests.WaitForLogMessage(t, observedLogs, fmt.Sprintf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState))
+		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState))
 	})
 	t.Run("when no new heads received for threshold, transitions to out of sync", func(t *testing.T) {
 		t.Parallel()
@@ -269,7 +269,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return 1, 20, utils.NewBigI(10)
 		}
 		node.declareAlive()
-		tests.WaitForLogMessage(t, observedLogs, fmt.Sprintf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState))
+		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState))
 		assert.Equal(t, nodeStateAlive, node.State())
 	})
 
@@ -296,7 +296,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
-		tests.WaitForLogMessage(t, observedLogs, "Subscription channel unexpectedly closed")
+		tests.AssertLogEventually(t, observedLogs, "Subscription channel unexpectedly closed")
 		assert.Equal(t, nodeStateUnreachable, node.State())
 
 	})
@@ -455,7 +455,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 		node.declareOutOfSync(stubIsOutOfSync)
-		tests.WaitForLogMessage(t, observedLogs, "Subscription was terminated")
+		tests.AssertLogEventually(t, observedLogs, "Subscription was terminated")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
@@ -484,7 +484,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		}).Return(sub, nil).Once()
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 		node.declareOutOfSync(stubIsOutOfSync)
-		tests.WaitForLogMessage(t, observedLogs, "Subscription channel unexpectedly closed")
+		tests.AssertLogEventually(t, observedLogs, "Subscription channel unexpectedly closed")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
@@ -542,8 +542,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		node.declareOutOfSync(func(num int64, td *utils.Big) bool {
 			return num < highestBlock
 		})
-		tests.WaitForLogMessage(t, observedLogs, msgReceivedBlock)
-		tests.WaitForLogMessage(t, observedLogs, msgInSync)
+		tests.AssertLogEventually(t, observedLogs, msgReceivedBlock)
+		tests.AssertLogEventually(t, observedLogs, msgInSync)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
 		})
@@ -582,7 +582,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("SetAliveLoopSub", mock.Anything).Maybe()
 
 		node.declareOutOfSync(stubIsOutOfSync)
-		tests.WaitForLogMessage(t, observedLogs, "RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
+		tests.AssertLogEventually(t, observedLogs, "RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
 		})
@@ -625,7 +625,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
 		node.declareUnreachable()
-		tests.WaitForLogMessageCount(t, observedLogs, "Failed to redial RPC node; still unreachable", 2)
+		tests.AssertLogCountEventually(t, observedLogs, "Failed to redial RPC node; still unreachable", 2)
 	})
 	t.Run("on failed chainID verification, keep trying", func(t *testing.T) {
 		t.Parallel()
@@ -643,7 +643,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 			assert.Equal(t, nodeStateDialed, node.State())
 		}).Return(nodeChainID, errors.New("failed to get chain id"))
 		node.declareUnreachable()
-		tests.WaitForLogMessageCount(t, observedLogs, "Failed to redial RPC node; verify failed", 2)
+		tests.AssertLogCountEventually(t, observedLogs, "Failed to redial RPC node; verify failed", 2)
 	})
 	t.Run("on chain ID mismatch transitions to invalidChainID", func(t *testing.T) {
 		t.Parallel()
@@ -725,7 +725,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		// for unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareInvalidChainID()
-		tests.WaitForLogMessage(t, observedLogs, "Unexpected error while verifying RPC node chain ID")
+		tests.AssertLogEventually(t, observedLogs, "Unexpected error while verifying RPC node chain ID")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
@@ -744,7 +744,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil)
 		node.declareInvalidChainID()
-		tests.WaitForLogMessage(t, observedLogs, "Failed to verify RPC node; remote endpoint returned the wrong chain ID")
+		tests.AssertLogEventually(t, observedLogs, "Failed to verify RPC node; remote endpoint returned the wrong chain ID")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateInvalidChainID
 		})
@@ -803,7 +803,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("DisconnectAll")
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
-		tests.WaitForLogMessage(t, observedLogs, "Dial failed: Node is unreachable")
+		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
@@ -827,7 +827,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("DisconnectAll")
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
-		tests.WaitForLogMessage(t, observedLogs, "Verify failed")
+		tests.AssertLogEventually(t, observedLogs, "Verify failed")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})

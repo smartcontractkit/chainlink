@@ -216,7 +216,7 @@ func TestMultiNode_Report(t *testing.T) {
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
-		tests.WaitForLogMessageCount(t, observedLogs, "At least one primary node is dead: 1/2 nodes are alive", 2)
+		tests.AssertLogCountEventually(t, observedLogs, "At least one primary node is dead: 1/2 nodes are alive", 2)
 	})
 	t.Run("Report critical error on all node failure", func(t *testing.T) {
 		t.Parallel()
@@ -233,7 +233,7 @@ func TestMultiNode_Report(t *testing.T) {
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
-		tests.WaitForLogMessageCount(t, observedLogs, "no primary nodes available: 0/1 nodes are alive", 2)
+		tests.AssertLogCountEventually(t, observedLogs, "no primary nodes available: 0/1 nodes are alive", 2)
 		err = mn.Healthy()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no primary nodes available: 0/1 nodes are alive")
@@ -296,7 +296,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		mn.nodeSelector = nodeSelector
 		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
-		tests.WaitForLogMessage(t, observedLogs, fmt.Sprintf("Switching to best node from %q to %q", node.String(), bestNode.String()))
+		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("Switching to best node from %q to %q", node.String(), bestNode.String()))
 		tests.AssertEventually(t, func() bool {
 			mn.activeMu.RLock()
 			active := mn.activeNode
@@ -623,7 +623,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
-		tests.WaitForLogMessage(t, observedLogs, "Sendonly node sent transaction")
-		tests.WaitForLogMessage(t, observedLogs, "RPC returned error")
+		tests.AssertLogEventually(t, observedLogs, "Sendonly node sent transaction")
+		tests.AssertLogEventually(t, observedLogs, "RPC returned error")
 	})
 }

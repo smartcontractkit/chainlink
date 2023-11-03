@@ -90,7 +90,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, nodeStateUnreachable, s.State())
-		tests.WaitForLogMessageCount(t, observedLogs, fmt.Sprintf("Verify failed: %v", expectedError), failuresCount)
+		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Verify failed: %v", expectedError), failuresCount)
 		tests.AssertEventually(t, func() bool {
 			return s.State() == nodeStateAlive
 		})
@@ -113,7 +113,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, nodeStateInvalidChainID, s.State())
-		tests.WaitForLogMessageCount(t, observedLogs, "sendonly rpc ChainID doesn't match local chain ID", failuresCount)
+		tests.AssertLogCountEventually(t, observedLogs, "sendonly rpc ChainID doesn't match local chain ID", failuresCount)
 		tests.AssertEventually(t, func() bool {
 			return s.State() == nodeStateAlive
 		})
