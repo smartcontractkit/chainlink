@@ -79,6 +79,22 @@ func (_m *Application) AuthenticationProvider() sessions.AuthenticationProvider 
 	return r0
 }
 
+// BasicAdminUsersORM provides a mock function with given fields:
+func (_m *Application) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
+	ret := _m.Called()
+
+	var r0 sessions.BasicAdminUsersORM
+	if rf, ok := ret.Get(0).(func() sessions.BasicAdminUsersORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(sessions.BasicAdminUsersORM)
+		}
+	}
+
+	return r0
+}
+
 // BridgeORM provides a mock function with given fields:
 func (_m *Application) BridgeORM() bridges.ORM {
 	ret := _m.Called()
@@ -341,22 +357,6 @@ func (_m *Application) JobSpawner() job.Spawner {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(job.Spawner)
-		}
-	}
-
-	return r0
-}
-
-// BasicAdminUsersORM provides a mock function with given fields:
-func (_m *Application) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
-	ret := _m.Called()
-
-	var r0 sessions.BasicAdminUsersORM
-	if rf, ok := ret.Get(0).(func() sessions.BasicAdminUsersORM); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sessions.BasicAdminUsersORM)
 		}
 	}
 
