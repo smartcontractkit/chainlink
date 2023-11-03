@@ -1083,10 +1083,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sen
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ResumePendingTaskRuns(ctx context.Context, head types.Head[BLOCK_HASH]) error {
 
-	receiptsPlus, err := ec.txStore.FindReceiptsPendingConfirmation(ctx, head.BlockNumber(), ec.chainID)
+	receiptsPlus, err := ec.txStore.FindTxesPendingCallback(ctx, head.BlockNumber(), ec.chainID)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
 	}
 
 	if len(receiptsPlus) > 0 {
@@ -1105,7 +1105,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 
 		ec.lggr.Debugw("Callback: resuming tx with receipt", "output", output, "taskErr", taskErr, "pipelineTaskRunID", data.ID)
 		if err := ec.resumeCallback(data.ID, output, taskErr); err != nil {
-			return err
+			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
+		}
+		// Mark tx as having completed callback
+		if err := ec.txStore.UpdateTxCallbackCompleted(ctx, data.ID, ec.chainID); err != nil {
+			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
 		}
 	}
 
