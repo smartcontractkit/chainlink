@@ -878,14 +878,20 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	opts *KeeperRegistryOpts,
 ) (KeeperRegistry, error) {
 	var mode uint8
-	switch e.client.GetChainID() {
+	switch e.client.GetChainID().Int64() {
 	//Arbitrum payment model
-	case big.NewInt(421613):
+	//Goerli Arbitrum
+	case 421613:
+		mode = uint8(1)
+	//Sepolia Arbitrum
+	case 421614:
 		mode = uint8(1)
 	//Optimism payment model
-	case big.NewInt(420):
+	//Goerli Optimism
+	case 420:
 		mode = uint8(2)
-	case big.NewInt(84531):
+	//Goerli Base
+	case 84531:
 		mode = uint8(2)
 	default:
 		mode = uint8(0)

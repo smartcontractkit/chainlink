@@ -302,8 +302,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
-	mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
-	mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+	mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 	app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
@@ -385,8 +384,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
-			mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
-			mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+			mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 
 			client := cmd.Shell{
@@ -465,8 +463,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
-			mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
-			mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+			mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
 

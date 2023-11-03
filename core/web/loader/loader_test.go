@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	jobORMMocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -69,9 +68,6 @@ func TestLoader_Nodes(t *testing.T) {
 	ctx := InjectDataloader(testutils.Context(t), app)
 
 	chainID1, chainID2, notAnID := big.NewInt(1), big.NewInt(2), big.NewInt(3)
-	relayID1 := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(chainID1.String())}
-	relayID2 := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(chainID2.String())}
-	notARelayID := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(notAnID.String())}
 
 	genNodeStat := func(id string) relaytypes.NodeStatus {
 		return relaytypes.NodeStatus{
@@ -79,11 +75,9 @@ func TestLoader_Nodes(t *testing.T) {
 			ChainID: id,
 		}
 	}
-	rcInterops := chainlinkmocks.NewRelayerChainInteroperators(t)
-	rcInterops.On("NodeStatuses", mock.Anything, 0, -1,
-		relayID2, relayID1, notARelayID).Return([]relaytypes.NodeStatus{
+	rcInterops := &chainlinkmocks.FakeRelayerChainInteroperators{Nodes: []relaytypes.NodeStatus{
 		genNodeStat(chainID2.String()), genNodeStat(chainID1.String()),
-	}, 2, nil)
+	}}
 
 	app.On("GetRelayers").Return(rcInterops)
 	batcher := nodeBatcher{app}
