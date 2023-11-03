@@ -700,7 +700,6 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		lastStatusCode int
 		retryNumber    int
 		retryable      bool
-		retryInterval  time.Duration
 		errorMessage   string
 	}{
 		{
@@ -763,12 +762,11 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				},
 				upkeepId: upkeepId,
 			},
-			blob:          "0xab2123dc",
-			retryNumber:   totalAttempt,
-			statusCode:    http.StatusNotFound,
-			retryable:     true,
-			retryInterval: 1 * time.Second,
-			errorMessage:  "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
+			blob:         "0xab2123dc",
+			retryNumber:  totalAttempt,
+			statusCode:   http.StatusNotFound,
+			retryable:    true,
+			errorMessage: "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
 		},
 		{
 			name:  "failure - returns retryable and then non-retryable",
@@ -851,12 +849,11 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			r.hc = hc
 
 			ch := make(chan MercuryData, 1)
-			r.singleFeedRequest(context.Background(), ch, tt.index, tt.lookup, tt.pluginRetryKey, r.lggr)
+			r.singleFeedRequest(context.Background(), ch, tt.index, tt.lookup, r.lggr)
 
 			m := <-ch
 			assert.Equal(t, tt.index, m.Index)
 			assert.Equal(t, tt.retryable, m.Retryable)
-			assert.Equal(t, tt.retryInterval, m.RetryInterval)
 			if tt.retryNumber >= totalAttempt || tt.errorMessage != "" {
 				assert.Equal(t, tt.errorMessage, m.Error.Error())
 				assert.Equal(t, [][]byte{}, m.Bytes)
@@ -881,7 +878,6 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		pluginRetryKey string
 		retryNumber    int
 		retryable      bool
-		retryInterval  time.Duration
 		errorMessage   string
 		firstResponse  *MercuryV03Response
 		response       *MercuryV03Response
@@ -1017,11 +1013,10 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				},
 				upkeepId: upkeepId,
 			},
-			retryNumber:   totalAttempt,
-			statusCode:    http.StatusInternalServerError,
-			retryable:     true,
-			retryInterval: 1 * time.Second,
-			errorMessage:  "All attempts fail:\n#1: 500\n#2: 500\n#3: 500",
+			retryNumber:  totalAttempt,
+			statusCode:   http.StatusInternalServerError,
+			retryable:    true,
+			errorMessage: "All attempts fail:\n#1: 500\n#2: 500\n#3: 500",
 		},
 		{
 			name: "failure - returns retryable with 5s plugin retry interval",
@@ -1038,24 +1033,6 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			retryNumber:   totalAttempt,
 			statusCode:    http.StatusInternalServerError,
 			retryable:     true,
-			retryInterval: 5 * time.Second,
-			errorMessage:  "All attempts fail:\n#1: 500\n#2: 500\n#3: 500",
-		},
-		{
-			name: "failure - returns not retryable because there are too many plugin retries already",
-			lookup: &StreamsLookup{
-				StreamsLookupError: &encoding.StreamsLookupError{
-					FeedParamKey: feedIDs,
-					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-					TimeParamKey: timestamp,
-					Time:         big.NewInt(123456),
-				},
-				upkeepId: upkeepId,
-			},
-			pluginRetries: 10,
-			retryNumber:   totalAttempt,
-			statusCode:    http.StatusInternalServerError,
-			retryable:     false,
 			errorMessage:  "All attempts fail:\n#1: 500\n#2: 500\n#3: 500",
 		},
 		{
@@ -1185,12 +1162,11 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			r.hc = hc
 
 			ch := make(chan MercuryData, 1)
-			r.multiFeedsRequest(context.Background(), ch, tt.lookup, tt.pluginRetryKey, r.lggr)
+			r.multiFeedsRequest(context.Background(), ch, tt.lookup, r.lggr)
 
 			m := <-ch
 			assert.Equal(t, 0, m.Index)
 			assert.Equal(t, tt.retryable, m.Retryable)
-			assert.Equal(t, tt.retryInterval, m.RetryInterval)
 			if tt.retryNumber >= totalAttempt || tt.errorMessage != "" {
 				assert.Equal(t, tt.errorMessage, m.Error.Error())
 				assert.Equal(t, [][]byte{}, m.Bytes)

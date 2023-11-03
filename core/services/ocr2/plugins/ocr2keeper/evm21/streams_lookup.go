@@ -69,12 +69,11 @@ type MercuryV03Report struct {
 }
 
 type MercuryData struct {
-	Index         int
-	Error         error
-	Retryable     bool
-	RetryInterval time.Duration // RetryInterval controls how long the plugin retry queue will wait before retrying failed upkeeps
-	Bytes         [][]byte
-	State         encoding.PipelineExecutionState
+	Index     int
+	Error     error
+	Retryable bool
+	Bytes     [][]byte
+	State     encoding.PipelineExecutionState
 }
 
 // UpkeepPrivilegeConfig represents the administrative offchain config for each upkeep. It can be set by s_upkeepPrivilegeManager
@@ -290,14 +289,14 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, p
 	if sl.FeedParamKey == feedIdHex && sl.TimeParamKey == blockNumber {
 		// only mercury v0.2
 		for i := range sl.Feeds {
-			go r.singleFeedRequest(ctx, ch, i, sl, prk, lggr)
+			go r.singleFeedRequest(ctx, ch, i, sl, lggr)
 		}
 	} else if sl.FeedParamKey == feedIDs {
 		// only mercury v0.3
 		resultLen = 1
 		isMercuryV03 = true
 		ch = make(chan MercuryData, resultLen)
-		go r.multiFeedsRequest(ctx, ch, sl, prk, lggr)
+		go r.multiFeedsRequest(ctx, ch, sl, lggr)
 	} else {
 		return encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0 * time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", sl.FeedParamKey, sl.TimeParamKey, sl.Feeds)
 	}
@@ -311,7 +310,6 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, p
 	state := encoding.NoPipelineError
 	for i := 0; i < resultLen; i++ {
 		m := <-ch
-		ri = m.RetryInterval
 		if m.Error != nil {
 			reqErr = errors.Join(reqErr, m.Error)
 			retryable = retryable && m.Retryable
@@ -327,12 +325,13 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, p
 			results[m.Index] = m.Bytes[0]
 		}
 	}
+	retryable, ri = r.calculateRetryConfig(retryable && !allSuccess, prk)
 	// only retry when not all successful AND none are not retryable
-	return state, encoding.UpkeepFailureReasonNone, results, retryable && !allSuccess, ri, reqErr
+	return state, encoding.UpkeepFailureReasonNone, results, retryable, ri, reqErr
 }
 
 // singleFeedRequest sends a v0.2 Mercury request for a single feed report.
-func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryData, index int, sl *StreamsLookup, prk string, lggr logger.Logger) {
+func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryData, index int, sl *StreamsLookup, lggr logger.Logger) {
 	q := url.Values{
 		sl.FeedParamKey: {sl.Feeds[index]},
 		sl.TimeParamKey: {sl.Time.String()},
@@ -428,22 +427,19 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 		retry.Attempts(totalAttempt))
 
 	if !sent {
-		var ri time.Duration
-		retryable, ri = r.calculateRetryConfig(retryable, prk)
 		md := MercuryData{
-			Index:         index,
-			Bytes:         [][]byte{},
-			Retryable:     retryable,
-			RetryInterval: ri,
-			Error:         fmt.Errorf("failed to request feed for %s: %w", sl.Feeds[index], retryErr),
-			State:         state,
+			Index:     index,
+			Bytes:     [][]byte{},
+			Retryable: retryable,
+			Error:     fmt.Errorf("failed to request feed for %s: %w", sl.Feeds[index], retryErr),
+			State:     state,
 		}
 		ch <- md
 	}
 }
 
 // multiFeedsRequest sends a Mercury v0.3 request for a multi-feed report
-func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, prk string, lggr logger.Logger) {
+func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, lggr logger.Logger) {
 	// this won't work bc q.Encode() will encode commas as '%2C' but the server is strictly expecting a comma separated list
 	//q := url.Values{
 	//	feedIDs:   {strings.Join(sl.Feeds, ",")},
@@ -573,15 +569,12 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 		retry.Attempts(totalAttempt))
 
 	if !sent {
-		var ri time.Duration
-		retryable, ri = r.calculateRetryConfig(retryable, prk)
 		md := MercuryData{
-			Index:         0,
-			Bytes:         [][]byte{},
-			Retryable:     retryable,
-			RetryInterval: ri,
-			Error:         retryErr,
-			State:         state,
+			Index:     0,
+			Bytes:     [][]byte{},
+			Retryable: retryable,
+			Error:     retryErr,
+			State:     state,
 		}
 		ch <- md
 	}
