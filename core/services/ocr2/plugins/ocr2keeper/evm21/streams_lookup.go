@@ -163,7 +163,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *StreamsLookup, i int, checkResults []ocr2keepers.CheckResult, lggr logger.Logger) {
 	defer wg.Done()
 
-	state, reason, values, retryable, ri, err := r.doMercuryRequest(ctx, lookup, checkResults[i].WorkID, lggr)
+	state, reason, values, retryable, ri, err := r.doMercuryRequest(ctx, lookup, checkResults[i].WorkID+"|"+fmt.Sprintf("%d", lookup.block), lggr)
 	if err != nil {
 		lggr.Errorf("upkeep %s retryable %v retryInterval %s doMercuryRequest: %s", lookup.upkeepId, retryable, ri, err.Error())
 		checkResults[i].Retryable = retryable
@@ -280,7 +280,7 @@ func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup
 }
 
 // doMercuryRequest sends requests to Mercury API to retrieve mercury data.
-func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, workID string, lggr logger.Logger) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, error) {
+func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, prk string, lggr logger.Logger) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, error) {
 	var isMercuryV03 bool
 	resultLen := len(sl.Feeds)
 	ch := make(chan MercuryData, resultLen)
@@ -290,14 +290,14 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, w
 	if sl.FeedParamKey == feedIdHex && sl.TimeParamKey == blockNumber {
 		// only mercury v0.2
 		for i := range sl.Feeds {
-			go r.singleFeedRequest(ctx, ch, i, sl, workID, lggr)
+			go r.singleFeedRequest(ctx, ch, i, sl, prk, lggr)
 		}
 	} else if sl.FeedParamKey == feedIDs {
 		// only mercury v0.3
 		resultLen = 1
 		isMercuryV03 = true
 		ch = make(chan MercuryData, resultLen)
-		go r.multiFeedsRequest(ctx, ch, sl, workID, lggr)
+		go r.multiFeedsRequest(ctx, ch, sl, prk, lggr)
 	} else {
 		return encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0 * time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", sl.FeedParamKey, sl.TimeParamKey, sl.Feeds)
 	}
@@ -332,7 +332,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, w
 }
 
 // singleFeedRequest sends a v0.2 Mercury request for a single feed report.
-func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryData, index int, sl *StreamsLookup, workID string, lggr logger.Logger) {
+func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryData, index int, sl *StreamsLookup, prk string, lggr logger.Logger) {
 	q := url.Values{
 		sl.FeedParamKey: {sl.Feeds[index]},
 		sl.TimeParamKey: {sl.Time.String()},
@@ -429,7 +429,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 
 	if !sent {
 		var ri time.Duration
-		retryable, ri = r.calculateRetryConfig(retryable, workID)
+		retryable, ri = r.calculateRetryConfig(retryable, prk)
 		md := MercuryData{
 			Index:         index,
 			Bytes:         [][]byte{},
@@ -443,7 +443,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 }
 
 // multiFeedsRequest sends a Mercury v0.3 request for a multi-feed report
-func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, workID string, lggr logger.Logger) {
+func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, prk string, lggr logger.Logger) {
 	// this won't work bc q.Encode() will encode commas as '%2C' but the server is strictly expecting a comma separated list
 	//q := url.Values{
 	//	feedIDs:   {strings.Join(sl.Feeds, ",")},
@@ -574,7 +574,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 
 	if !sent {
 		var ri time.Duration
-		retryable, ri = r.calculateRetryConfig(retryable, workID)
+		retryable, ri = r.calculateRetryConfig(retryable, prk)
 		md := MercuryData{
 			Index:         0,
 			Bytes:         [][]byte{},
@@ -604,11 +604,11 @@ func (r *EvmRegistry) generateHMAC(method string, path string, body []byte, clie
 }
 
 // calculateRetryConfig returns retryable and plugin retry interval based on how many times plugin has retried this work
-func (r *EvmRegistry) calculateRetryConfig(retryable bool, workID string) (bool, time.Duration) {
+func (r *EvmRegistry) calculateRetryConfig(retryable bool, prk string) (bool, time.Duration) {
 	var ri time.Duration
 	if retryable {
 		var retries int
-		totalAttempts, ok := r.mercury.pluginRetryCache.Get(workID)
+		totalAttempts, ok := r.mercury.pluginRetryCache.Get(prk)
 		if ok {
 			retries = totalAttempts.(int)
 			if retries >= totalPluginRetries {
@@ -621,7 +621,7 @@ func (r *EvmRegistry) calculateRetryConfig(retryable bool, workID string) (bool,
 		} else {
 			ri = 1 * time.Second
 		}
-		r.mercury.pluginRetryCache.Set(workID, retries+1, cache.DefaultExpiration)
+		r.mercury.pluginRetryCache.Set(prk, retries+1, cache.DefaultExpiration)
 	}
 	return retryable, ri
 }

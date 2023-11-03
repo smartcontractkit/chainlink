@@ -434,7 +434,7 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 		mockHttpStatusCode    int
 		mockChainlinkBlobs    []string
 		pluginRetries         int
-		workID                string
+		pluginRetryKey        string
 		expectedValues        [][]byte
 		expectedRetryable     bool
 		expectedRetryInterval time.Duration
@@ -576,7 +576,7 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
 			if tt.pluginRetries != 0 {
-				r.mercury.pluginRetryCache.Set(tt.workID, tt.pluginRetries, cache.DefaultExpiration)
+				r.mercury.pluginRetryCache.Set(tt.pluginRetryKey, tt.pluginRetries, cache.DefaultExpiration)
 			}
 			hc := mocks.NewHttpClient(t)
 
@@ -597,7 +597,7 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 			}
 			r.hc = hc
 
-			state, reason, values, retryable, ri, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, tt.workID, r.lggr)
+			state, reason, values, retryable, ri, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, tt.pluginRetryKey, r.lggr)
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
 			assert.Equal(t, tt.expectedRetryInterval, ri)
@@ -618,7 +618,7 @@ func TestEvmRegistry_DoMercuryRequestV03(t *testing.T) {
 		lookup                *StreamsLookup
 		mockHttpStatusCode    int
 		mockChainlinkBlobs    []string
-		workID                string
+		pluginRetryKey        string
 		expectedValues        [][]byte
 		expectedRetryable     bool
 		expectedRetryInterval time.Duration
@@ -675,7 +675,7 @@ func TestEvmRegistry_DoMercuryRequestV03(t *testing.T) {
 			}
 			r.hc = hc
 
-			state, reason, values, retryable, ri, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, tt.workID, r.lggr)
+			state, reason, values, retryable, ri, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, tt.pluginRetryKey, r.lggr)
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
 			assert.Equal(t, tt.expectedRetryInterval, ri)
@@ -694,7 +694,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		name           string
 		index          int
 		lookup         *StreamsLookup
-		workID         string
+		pluginRetryKey string
 		blob           string
 		statusCode     int
 		lastStatusCode int
@@ -851,7 +851,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			r.hc = hc
 
 			ch := make(chan MercuryData, 1)
-			r.singleFeedRequest(context.Background(), ch, tt.index, tt.lookup, tt.workID, r.lggr)
+			r.singleFeedRequest(context.Background(), ch, tt.index, tt.lookup, tt.pluginRetryKey, r.lggr)
 
 			m := <-ch
 			assert.Equal(t, tt.index, m.Index)
@@ -878,7 +878,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		statusCode     int
 		lastStatusCode int
 		pluginRetries  int
-		workID         string
+		pluginRetryKey string
 		retryNumber    int
 		retryable      bool
 		retryInterval  time.Duration
@@ -1134,7 +1134,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
 			if tt.pluginRetries != 0 {
-				r.mercury.pluginRetryCache.Set(tt.workID, tt.pluginRetries, cache.DefaultExpiration)
+				r.mercury.pluginRetryCache.Set(tt.pluginRetryKey, tt.pluginRetries, cache.DefaultExpiration)
 			}
 
 			hc := mocks.NewHttpClient(t)
@@ -1185,7 +1185,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			r.hc = hc
 
 			ch := make(chan MercuryData, 1)
-			r.multiFeedsRequest(context.Background(), ch, tt.lookup, tt.workID, r.lggr)
+			r.multiFeedsRequest(context.Background(), ch, tt.lookup, tt.pluginRetryKey, r.lggr)
 
 			m := <-ch
 			assert.Equal(t, 0, m.Index)
