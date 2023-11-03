@@ -51,8 +51,8 @@ const (
 	LDAPUniqueMemberAttribute = "uniqueMember"
 )
 
-var UserNotInUpstream = errors.New("LDAP query returned no matching users")
-var UserNoLDAPGroups = errors.New("user present in directory, but matching no role groups assigned")
+var ErrUserNotInUpstream = errors.New("LDAP query returned no matching users")
+var ErrUserNoLDAPGroups = errors.New("user present in directory, but matching no role groups assigned")
 
 // implements sessions.AuthenticationProvider interface
 type ldapAuthenticator struct {
@@ -141,8 +141,8 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	// First query for user "is active" property if defined
 	usersActive, err := l.validateUsersActive([]string{email})
 	if err != nil {
-		if errors.Is(err, UserNotInUpstream) {
-			return foundUser, UserNotInUpstream
+		if errors.Is(err, ErrUserNotInUpstream) {
+			return foundUser, ErrUserNotInUpstream
 		}
 		l.lggr.Errorf("error in validateUsers call: %v", err)
 		return foundUser, errors.New("error running query to validate user active")
@@ -254,8 +254,8 @@ func (l *ldapAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User, 
 	if err != nil {
 		if errors.Is(err, sessions.ErrUserSessionExpired) {
 			// API Token expired, purge
-			if _, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE token_key = $1", apiToken); err != nil {
-				l.lggr.Errorf("error purging stale ldap API token session: %v", err)
+			if _, execErr := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE token_key = $1", apiToken); err != nil {
+				l.lggr.Errorf("error purging stale ldap API token session: %v", execErr)
 			}
 		}
 		return sessions.User{}, err
@@ -404,8 +404,8 @@ func (l *ldapAuthenticator) AuthorizedUserWithSession(sessionID string) (session
 	})
 	if err != nil {
 		if errors.Is(err, sessions.ErrUserSessionExpired) {
-			if _, err := l.q.Exec("DELETE FROM ldap_sessions WHERE id = $1", sessionID); err != nil {
-				l.lggr.Errorf("error purging stale ldap session: %v", err)
+			if _, execErr := l.q.Exec("DELETE FROM ldap_sessions WHERE id = $1", sessionID); err != nil {
+				l.lggr.Errorf("error purging stale ldap session: %v", execErr)
 			}
 		}
 		return sessions.User{}, err
@@ -731,7 +731,7 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error)
 
 	// Ensure user response entries
 	if len(results.Entries) == 0 {
-		return validUsers, UserNotInUpstream
+		return validUsers, ErrUserNotInUpstream
 	}
 
 	// Pull expected ActiveAttribute value from list of string possible values
@@ -852,7 +852,7 @@ func GroupSearchResultsToUserRole(ldapGroups []*ldap.Entry, adminCN string, edit
 		}
 	}
 	// No role group found, error
-	return sessions.UserRoleView, UserNoLDAPGroups
+	return sessions.UserRoleView, ErrUserNoLDAPGroups
 }
 
 const constantTimeEmailLength = 256

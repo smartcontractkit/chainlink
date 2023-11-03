@@ -591,7 +591,7 @@ func TestORM_MapSearchGroups(t *testing.T) {
 			"user in none",
 			[]*ldap.Entry{},
 			sessions.UserRole(""), // ignored, error case
-			ldapauth.UserNoLDAPGroups,
+			ldapauth.ErrUserNoLDAPGroups,
 		},
 		{
 			"user in run and view",
