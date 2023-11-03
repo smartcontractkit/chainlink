@@ -59,7 +59,6 @@ func TestVRFv2Plus(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
 	t.Run("Link Billing", func(t *testing.T) {
-		t.Skip()
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
@@ -101,7 +100,6 @@ func TestVRFv2Plus(t *testing.T) {
 		}
 	})
 	t.Run("Native Billing", func(t *testing.T) {
-		t.Skip()
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
@@ -142,7 +140,6 @@ func TestVRFv2Plus(t *testing.T) {
 		}
 	})
 	t.Run("Direct Funding (VRFV2PlusWrapper)", func(t *testing.T) {
-		t.Skip()
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			env,
 			&vrfv2PlusConfig,
@@ -328,12 +325,11 @@ func TestVRFv2Plus(t *testing.T) {
 
 		//todo - this fails on SIMULATED env as tx cost is calculated different as for testnets and it's not receipt.EffectiveGasPrice*receipt.GasUsed
 		//require.Equal(t, subFundsReturnedNativeExpected, subFundsReturnedNativeActual, "Returned funds are not equal to sub balance that was cancelled")
-		require.Greater(t, testWalletBalanceNativeAfterSubCancelling, testWalletBalanceNativeBeforeSubCancelling, "Native funds were not returned after sub cancellation")
-		require.Equal(t, subBalanceLink, subFundsReturnedLinkActual, "Returned LINK funds are not equal to sub balance that was cancelled")
+		require.Greater(t, 1, testWalletBalanceNativeAfterSubCancelling.Cmp(testWalletBalanceNativeBeforeSubCancelling), "Native funds were not returned after sub cancellation")
+		require.Equal(t, 0, subBalanceLink.Cmp(subFundsReturnedLinkActual), "Returned LINK funds are not equal to sub balance that was cancelled")
 
 	})
 	t.Run("Oracle Withdraw", func(t *testing.T) {
-		t.Skip()
 		subIDs, err := vrfv2plus.CreateFundSubsAndAddConsumers(env, &vrfv2PlusConfig, linkToken, vrfv2PlusContracts.Coordinator, vrfv2PlusContracts.LoadTestConsumers, 1)
 		require.NoError(t, err)
 		subIDForOracleWithdraw := subIDs[0]
@@ -400,15 +396,14 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 
 		//not possible to verify exact amount of Native/LINK returned as defaultWallet is used in other tests in parallel which might affect the balance
-		require.Greater(t, defaultWalletBalanceNativeAfterOracleWithdraw, defaultWalletBalanceNativeBeforeOracleWithdraw, "Native funds were not returned after oracle withdraw native")
-		require.Greater(t, defaultWalletBalanceLinkAfterOracleWithdraw, defaultWalletBalanceLinkBeforeOracleWithdraw, "LINK funds were not returned after oracle withdraw")
+		require.Greater(t, 1, defaultWalletBalanceNativeAfterOracleWithdraw.Cmp(defaultWalletBalanceNativeBeforeOracleWithdraw), "Native funds were not returned after oracle withdraw native")
+		require.Greater(t, 1, defaultWalletBalanceLinkAfterOracleWithdraw.Cmp(defaultWalletBalanceLinkBeforeOracleWithdraw), "LINK funds were not returned after oracle withdraw")
 
 	})
 
 }
 
 func TestVRFv2PlusMigration(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 	var vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
@@ -559,10 +554,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	expectedLinkTotalBalanceForOldCoordinator := new(big.Int).Sub(oldCoordinatorLinkTotalBalanceBeforeMigration, oldSubscriptionBeforeMigration.Balance)
 	expectedEthTotalBalanceForOldCoordinator := new(big.Int).Sub(oldCoordinatorEthTotalBalanceBeforeMigration, oldSubscriptionBeforeMigration.NativeBalance)
-	require.Equal(t, expectedLinkTotalBalanceForMigratedCoordinator, migratedCoordinatorLinkTotalBalanceAfterMigration)
-	require.Equal(t, expectedEthTotalBalanceForMigratedCoordinator, migratedCoordinatorEthTotalBalanceAfterMigration)
-	require.Equal(t, expectedLinkTotalBalanceForOldCoordinator, oldCoordinatorLinkTotalBalanceAfterMigration)
-	require.Equal(t, expectedEthTotalBalanceForOldCoordinator, oldCoordinatorEthTotalBalanceAfterMigration)
+	require.Equal(t, 0, expectedLinkTotalBalanceForMigratedCoordinator.Cmp(migratedCoordinatorLinkTotalBalanceAfterMigration))
+	require.Equal(t, 0, expectedEthTotalBalanceForMigratedCoordinator.Cmp(migratedCoordinatorEthTotalBalanceAfterMigration))
+	require.Equal(t, 0, expectedLinkTotalBalanceForOldCoordinator.Cmp(oldCoordinatorLinkTotalBalanceAfterMigration))
+	require.Equal(t, 0, expectedEthTotalBalanceForOldCoordinator.Cmp(oldCoordinatorEthTotalBalanceAfterMigration))
 
 	//Verify rand requests fulfills with Link Token billing
 	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillmentUpgraded(
