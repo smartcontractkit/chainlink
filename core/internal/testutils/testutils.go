@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -30,8 +31,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/testutils"
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
 	// anything from "github.com/smartcontractkit/chainlink/v2/core"
 )
@@ -351,16 +350,22 @@ func IntToHex(n int) string {
 
 // TestInterval is just a sensible poll interval that gives fast tests without
 // risk of spamming
-const TestInterval = testutils.TestInterval
+const TestInterval = 100 * time.Millisecond
 
 // AssertEventually waits for f to return true
 func AssertEventually(t *testing.T, f func() bool) {
-	testutils.AssertEventually(t, f)
+	assert.Eventually(t, f, WaitTimeout(t), TestInterval/2)
 }
 
 // RequireLogMessage fails the test if emitted logs don't contain the given message
 func RequireLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) {
-	testutils.RequireLogMessage(t, observedLogs, msg)
+	for _, l := range observedLogs.All() {
+		if strings.Contains(l.Message, msg) {
+			return
+		}
+	}
+	t.Log("observed logs", observedLogs.All())
+	t.Fatalf("expected observed logs to contain msg %q, but it didn't", msg)
 }
 
 // WaitForLogMessage waits until at least one log message containing the
@@ -373,13 +378,31 @@ func RequireLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 //	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 //	lggr := logger.TestLogger(t, observedZapCore)
 func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) {
-	testutils.WaitForLogMessage(t, observedLogs, msg)
+	AssertEventually(t, func() bool {
+		for _, l := range observedLogs.All() {
+			if strings.Contains(l.Message, msg) {
+				return true
+			}
+		}
+		return false
+	})
 }
 
 // WaitForLogMessageCount waits until at least count log message containing the
 // specified msg is emitted
 func WaitForLogMessageCount(t *testing.T, observedLogs *observer.ObservedLogs, msg string, count int) {
-	testutils.WaitForLogMessageCount(t, observedLogs, msg, count)
+	AssertEventually(t, func() bool {
+		i := 0
+		for _, l := range observedLogs.All() {
+			if strings.Contains(l.Message, msg) {
+				i++
+				if i >= count {
+					return true
+				}
+			}
+		}
+		return false
+	})
 }
 
 // SkipShort skips tb during -short runs, and notes why.

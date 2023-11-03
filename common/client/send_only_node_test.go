@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/testutils"
 )
 
 func TestNewSendOnlyNode(t *testing.T) {
@@ -54,7 +54,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, nodeStateUnusable, s.State())
-		testutils.RequireLogMessage(t, observedLogs, "Dial failed: SendOnly Node is unusable")
+		tests.RequireLogMessage(t, observedLogs, "Dial failed: SendOnly Node is unusable")
 	})
 	t.Run("Default ChainID produces warn and skips checks", func(t *testing.T) {
 		t.Parallel()
@@ -69,7 +69,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, nodeStateAlive, s.State())
-		testutils.RequireLogMessage(t, observedLogs, "sendonly rpc ChainID verification skipped")
+		tests.RequireLogMessage(t, observedLogs, "sendonly rpc ChainID verification skipped")
 	})
 	t.Run("Can recover from chainID verification failure", func(t *testing.T) {
 		t.Parallel()
@@ -90,8 +90,8 @@ func TestStartSendOnlyNode(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, nodeStateUnreachable, s.State())
-		testutils.WaitForLogMessageCount(t, observedLogs, fmt.Sprintf("Verify failed: %v", expectedError), failuresCount)
-		testutils.AssertEventually(t, func() bool {
+		tests.WaitForLogMessageCount(t, observedLogs, fmt.Sprintf("Verify failed: %v", expectedError), failuresCount)
+		tests.AssertEventually(t, func() bool {
 			return s.State() == nodeStateAlive
 		})
 	})
@@ -113,8 +113,8 @@ func TestStartSendOnlyNode(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, nodeStateInvalidChainID, s.State())
-		testutils.WaitForLogMessageCount(t, observedLogs, "sendonly rpc ChainID doesn't match local chain ID", failuresCount)
-		testutils.AssertEventually(t, func() bool {
+		tests.WaitForLogMessageCount(t, observedLogs, "sendonly rpc ChainID doesn't match local chain ID", failuresCount)
+		tests.AssertEventually(t, func() bool {
 			return s.State() == nodeStateAlive
 		})
 	})
