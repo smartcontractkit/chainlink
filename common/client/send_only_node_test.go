@@ -56,7 +56,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		assert.Equal(t, nodeStateUnusable, s.State())
 		tests.RequireLogMessage(t, observedLogs, "Dial failed: SendOnly Node is unusable")
 	})
-	t.Run("Default ChainID produces warn and skips checks", func(t *testing.T) {
+	t.Run("Default ChainID(0) produces warn and skips checks", func(t *testing.T) {
 		t.Parallel()
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
