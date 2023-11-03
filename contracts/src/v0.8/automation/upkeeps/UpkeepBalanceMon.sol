@@ -13,15 +13,10 @@ import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 /// @title The UpkeepBalanceMonitor contract.
 /// @notice A keeper-compatible contract that monitors and funds Chainlink Automation upkeeps.
 contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
-  uint256 private constant MIN_GAS_FOR_TRANSFER = 55_000;
   LinkTokenInterface public immutable LINK_TOKEN;
 
-  event FundsAdded(uint256 amountAdded, uint256 newBalance, address sender);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
-  event KeeperRegistryAddressUpdated(IKeeperRegistryMaster oldAddress, IKeeperRegistryMaster newAddress);
-  event LinkTokenAddressUpdated(address oldAddress, address newAddress);
   event ConfigSet(uint96 minPercentage, uint96 targetPercentage);
-  event OutOfGas(uint256 lastId);
   event TopUpFailed(uint256 indexed upkeepId);
   event TopUpSucceeded(uint256 indexed upkeepId, uint96 amount);
 
@@ -32,6 +27,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   error OnlyKeeperRegistry();
 
   struct Config {
+    uint8 maxBatchSize;
     uint96 minPercentage;
     uint96 targetPercentage;
   }
@@ -42,6 +38,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
 
   /// @param linkTokenAddress the Link token address
   /// @param keeperRegistryAddress the address of the keeper registry contract
+  /// @param maxBatchSize the maximum number of upkeeps to fund in a single transaction
   /// @param minPercentage the percentage of the min balance at which to trigger top ups
   /// @param targetPercentage the percentage of the min balance to target during top ups
   constructor(
@@ -55,7 +52,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
       revert InvalidKeeperRegistryVersion();
     }
     LINK_TOKEN = LinkTokenInterface(linkTokenAddress);
-    setConfig(minPercentage, targetPercentage);
+    setConfig(maxBatchSize, minPercentage, targetPercentage);
     LinkTokenInterface(linkTokenAddress).approve(address(keeperRegistryAddress), type(uint256).max);
   }
 
@@ -89,11 +86,6 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
         emit TopUpSucceeded(needsFunding[i], topUpAmounts[i]);
       } catch {
         emit TopUpFailed(needsFunding[i]);
-      }
-      if (gasleft() < MIN_GAS_FOR_TRANSFER) {
-        // TODO - test
-        emit OutOfGas(i);
-        return;
       }
     }
   }
@@ -132,9 +124,9 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   }
 
   /// @notice Sets the contract config
-  function setConfig(uint96 minPercentage, uint96 targetPercentage) public onlyOwner {
+  function setConfig(uint8 maxBatchSize, uint96 minPercentage, uint96 targetPercentage) public onlyOwner {
     if (minPercentage < 100) revert MinPercentageTooLow();
-    s_config = Config({minPercentage: minPercentage, targetPercentage: targetPercentage});
+    s_config = Config({maxBatchSize: maxBatchSize, minPercentage: minPercentage, targetPercentage: targetPercentage});
     emit ConfigSet(minPercentage, targetPercentage);
   }
 
