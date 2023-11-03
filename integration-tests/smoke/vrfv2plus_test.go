@@ -388,7 +388,7 @@ func TestVRFv2Plus(t *testing.T) {
 			common.HexToAddress(defaultWalletAddress),
 			amountToWithdrawNative,
 		)
-		require.NoError(t, err, "error withdrawing NATIVE TOKEN from coordinator to default wallet")
+		require.NoError(t, err, "error withdrawing Native tokens from coordinator to default wallet")
 
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
@@ -400,7 +400,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 
 		//not possible to verify exact amount of Native/LINK returned as defaultWallet is used in other tests in parallel which might affect the balance
-		require.Greater(t, defaultWalletBalanceNativeAfterOracleWithdraw, defaultWalletBalanceNativeBeforeOracleWithdraw, "Native funds were not returned after oracle withdraw")
+		require.Greater(t, defaultWalletBalanceNativeAfterOracleWithdraw, defaultWalletBalanceNativeBeforeOracleWithdraw, "Native funds were not returned after oracle withdraw native")
 		require.Greater(t, defaultWalletBalanceLinkAfterOracleWithdraw, defaultWalletBalanceLinkBeforeOracleWithdraw, "LINK funds were not returned after oracle withdraw")
 
 	})
