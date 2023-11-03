@@ -18,7 +18,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event KeeperRegistryAddressUpdated(IKeeperRegistryMaster oldAddress, IKeeperRegistryMaster newAddress);
   event LinkTokenAddressUpdated(address oldAddress, address newAddress);
-  event MinWaitPeriodUpdated(uint256 oldMinWaitPeriod, uint256 newMinWaitPeriod);
+  event ConfigSet(uint96 minPercentage, uint96 targetPercentage);
   event OutOfGas(uint256 lastId);
   event TopUpFailed(uint256 indexed upkeepId);
   event TopUpSucceeded(uint256 indexed upkeepId);
@@ -26,27 +26,27 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   error DuplicateSubcriptionId(uint256 duplicate);
   error InvalidKeeperRegistryVersion();
   error InvalidWatchList();
+  error MinPercentageTooLow();
   error OnlyKeeperRegistry();
 
-  struct Target {
-    bool isActive;
-    uint96 minBalanceJuels;
-    uint96 topUpAmountJuels;
-    uint56 lastTopUpTimestamp;
+  struct Config {
+    uint96 minPercentage;
+    uint96 targetPercentage;
   }
 
   IKeeperRegistryMaster private s_registry;
-  uint256 private s_minWaitPeriodSeconds; // minimum time to wait between top-ups
   uint256[] private s_watchList; // the watchlist on which subscriptions are stored
-  mapping(uint256 => Target) private s_targets;
+  Config private s_config;
 
   /// @param linkTokenAddress the Link token address
   /// @param keeperRegistryAddress the address of the keeper registry contract
-  /// @param minWaitPeriodSeconds the minimum wait period for addresses between funding
+  /// @param minPercentage the percentage of the min balance at which to trigger top ups
+  /// @param targetPercentage the percentage of the min balance to target during top ups
   constructor(
     address linkTokenAddress,
     IKeeperRegistryMaster keeperRegistryAddress,
-    uint256 minWaitPeriodSeconds
+    uint96 minPercentage,
+    uint96 targetPercentage
   ) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0));
     if (keccak256(bytes(keeperRegistryAddress.typeAndVersion())) != keccak256(bytes("KeeperRegistry 2.1.0"))) {
@@ -54,41 +54,14 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     }
     LINK_TOKEN = LinkTokenInterface(linkTokenAddress);
     setKeeperRegistryAddress(keeperRegistryAddress);
-    setMinWaitPeriodSeconds(minWaitPeriodSeconds);
+    setConfig(minPercentage, targetPercentage);
     LinkTokenInterface(linkTokenAddress).approve(address(keeperRegistryAddress), type(uint256).max);
   }
 
   /// @notice Sets the list of upkeeps to watch and their funding parameters.
-  /// @param upkeepIDs the list of subscription ids to watch
-  /// @param minBalancesJuels the minimum balances for each upkeep
-  /// @param topUpAmountsJuels the amount to top up each upkeep
-  function setWatchList(
-    uint256[] calldata upkeepIDs,
-    uint96[] calldata minBalancesJuels,
-    uint96[] calldata topUpAmountsJuels
-  ) external onlyOwner {
-    if (upkeepIDs.length != minBalancesJuels.length || upkeepIDs.length != topUpAmountsJuels.length) {
-      revert InvalidWatchList();
-    }
-    uint256[] memory oldWatchList = s_watchList;
-    for (uint256 i = 0; i < oldWatchList.length; i++) {
-      s_targets[oldWatchList[i]].isActive = false;
-    }
-    for (uint256 i = 0; i < upkeepIDs.length; i++) {
-      if (s_targets[upkeepIDs[i]].isActive) {
-        revert DuplicateSubcriptionId(upkeepIDs[i]);
-      }
-      if (upkeepIDs[i] == 0 || topUpAmountsJuels[i] == 0) {
-        revert InvalidWatchList();
-      }
-      s_targets[upkeepIDs[i]] = Target({
-        isActive: true,
-        minBalanceJuels: minBalancesJuels[i],
-        topUpAmountJuels: topUpAmountsJuels[i],
-        lastTopUpTimestamp: 0
-      });
-    }
-    s_watchList = upkeepIDs;
+  /// @param watchlist the list of subscription ids to watch
+  function setWatchList(uint256[] calldata watchlist) external onlyOwner {
+    s_watchList = watchlist;
   }
 
   /// @notice Gets a list of upkeeps that are underfunded.
@@ -96,27 +69,20 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   function getUnderfundedUpkeeps() public view returns (uint256[] memory) {
     uint256 numUpkeeps = s_watchList.length;
     uint256[] memory needsFunding = new uint256[](numUpkeeps);
-    uint256 minWaitPeriod = s_minWaitPeriodSeconds;
-    uint256 contractBalance = LINK_TOKEN.balanceOf(address(this));
+    Config memory config = s_config;
+    uint256 availableFunds = LINK_TOKEN.balanceOf(address(this));
     uint256 count;
-    Target memory target;
     uint256 upkeepID;
     for (uint256 i = 0; i < numUpkeeps; i++) {
       upkeepID = s_watchList[i];
-      target = s_targets[upkeepID];
       uint96 upkeepBalance = s_registry.getBalance(upkeepID);
-      uint96 minUpkeepBalance = s_registry.getMinBalance(upkeepID);
-      uint96 minBalanceWithBuffer = getBalanceWithBuffer(minUpkeepBalance);
-      if (
-        target.lastTopUpTimestamp + minWaitPeriod <= block.timestamp &&
-        contractBalance >= target.topUpAmountJuels &&
-        (upkeepBalance < target.minBalanceJuels ||
-          //upkeepBalance < minUpkeepBalance)
-          upkeepBalance < minBalanceWithBuffer)
-      ) {
+      uint96 minBalance = s_registry.getMinBalance(upkeepID);
+      uint96 topUpThreshold = (minBalance * config.minPercentage) / 100; // TODO - uint96?
+      uint96 topUpAmount = (minBalance * config.targetPercentage) / 100;
+      if (upkeepBalance <= topUpThreshold && availableFunds >= topUpAmount) {
         needsFunding[count] = upkeepID;
         count++;
-        contractBalance -= target.topUpAmountJuels;
+        availableFunds -= topUpAmount;
       }
     }
     if (count < numUpkeeps) {
@@ -130,32 +96,31 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @notice Send funds to the upkeeps provided.
   /// @param needsFunding the list of upkeeps to fund
   function topUp(uint256[] memory needsFunding) public whenNotPaused {
-    uint256 minWaitPeriodSeconds = s_minWaitPeriodSeconds;
     uint256 contractBalance = LINK_TOKEN.balanceOf(address(this));
-    Target memory target;
-    for (uint256 i = 0; i < needsFunding.length; i++) {
-      target = s_targets[needsFunding[i]];
-      uint96 upkeepBalance = s_registry.getBalance(needsFunding[i]);
-      uint96 minUpkeepBalance = s_registry.getMinBalanceForUpkeep(needsFunding[i]);
-      uint96 minBalanceWithBuffer = getBalanceWithBuffer(minUpkeepBalance);
-      if (
-        target.isActive &&
-        target.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp &&
-        (upkeepBalance < target.minBalanceJuels ||
-          //upkeepBalance < minUpkeepBalance) &&
-          upkeepBalance < minBalanceWithBuffer) &&
-        contractBalance >= target.topUpAmountJuels
-      ) {
-        s_registry.addFunds(needsFunding[i], target.topUpAmountJuels);
-        s_targets[needsFunding[i]].lastTopUpTimestamp = uint56(block.timestamp);
-        contractBalance -= target.topUpAmountJuels;
-        emit TopUpSucceeded(needsFunding[i]);
-      }
-      if (gasleft() < MIN_GAS_FOR_TRANSFER) {
-        emit OutOfGas(i);
-        return;
-      }
-    }
+    // Target memory target;
+    // for (uint256 i = 0; i < needsFunding.length; i++) {
+    //   target = s_targets[needsFunding[i]];
+    //   uint96 upkeepBalance = s_registry.getBalance(needsFunding[i]);
+    //   uint96 minUpkeepBalance = s_registry.getMinBalanceForUpkeep(needsFunding[i]);
+    //   uint96 minBalanceWithBuffer = addBuffer(minUpkeepBalance, buffer);
+    //   if (
+    //     target.isActive &&
+    //     target.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp &&
+    //     (upkeepBalance < target.minBalanceJuels ||
+    //       //upkeepBalance < minUpkeepBalance) &&
+    //       upkeepBalance < minBalanceWithBuffer) &&
+    //     contractBalance >= target.topUpAmountJuels
+    //   ) {
+    //     s_registry.addFunds(needsFunding[i], target.topUpAmountJuels);
+    //     s_targets[needsFunding[i]].lastTopUpTimestamp = uint56(block.timestamp);
+    //     contractBalance -= target.topUpAmountJuels;
+    //     emit TopUpSucceeded(needsFunding[i]);
+    //   }
+    //   if (gasleft() < MIN_GAS_FOR_TRANSFER) {
+    //     emit OutOfGas(i);
+    //     return;
+    //   }
+    // }
   }
 
   /// @notice Gets list of upkeeps ids that are underfunded and returns a keeper-compatible payload.
@@ -194,18 +159,11 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     emit KeeperRegistryAddressUpdated(s_registry, keeperRegistryAddress);
   }
 
-  /// @notice Sets the minimum wait period (in seconds) for upkeep ids between funding.
-  function setMinWaitPeriodSeconds(uint256 period) public onlyOwner {
-    s_minWaitPeriodSeconds = period;
-    emit MinWaitPeriodUpdated(s_minWaitPeriodSeconds, period);
-  }
-
-  /// @notice Gets configuration information for a upkeep on the watchlist.
-  function getUpkeepInfo(
-    uint256 upkeepId
-  ) external view returns (bool isActive, uint96 minBalanceJuels, uint96 topUpAmountJuels, uint56 lastTopUpTimestamp) {
-    Target memory target = s_targets[upkeepId];
-    return (target.isActive, target.minBalanceJuels, target.topUpAmountJuels, target.lastTopUpTimestamp);
+  /// @notice Sets the contract config
+  function setConfig(uint96 minPercentage, uint96 targetPercentage) public onlyOwner {
+    if (minPercentage < 100) revert MinPercentageTooLow();
+    s_config = Config({minPercentage: minPercentage, targetPercentage: targetPercentage});
+    emit ConfigSet(minPercentage, targetPercentage);
   }
 
   /// @notice Gets the keeper registry address
@@ -213,14 +171,14 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     return address(s_registry);
   }
 
-  /// @notice Gets the minimum wait period (in seconds) for upkeep ids between funding.
-  function getMinWaitPeriodSeconds() external view returns (uint256) {
-    return s_minWaitPeriodSeconds;
-  }
-
   /// @notice Gets the list of upkeeps ids being watched.
   function getWatchList() external view returns (uint256[] memory) {
     return s_watchList;
+  }
+
+  /// @notice Gets the contract config
+  function getConfig() external view returns (Config memory) {
+    return s_config;
   }
 
   /// @notice Pause the contract, which prevents executing performUpkeep.
@@ -231,13 +189,5 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @notice Unpause the contract.
   function unpause() external onlyOwner {
     _unpause();
-  }
-
-  /// @notice Called to add buffer to minimum balance of upkeeps
-  /// @param num the current minimum balance
-  function getBalanceWithBuffer(uint96 num) private pure returns (uint96) {
-    uint96 buffer = 20;
-    uint96 result = uint96((uint256(num) * (100 + buffer)) / 100); // convert to uint256 to prevent overflow
-    return result;
   }
 }
