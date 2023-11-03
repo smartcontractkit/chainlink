@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
@@ -306,7 +306,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
-	client := cmd.Shell{
+	c := cmd.Shell{
 		Config:                 config,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
@@ -317,7 +317,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	beginningNonce := uint64(7)
 	endingNonce := uint64(10)
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+	cltest.FlagSetApplyFromAction(c.RebroadcastTransactions, set, "")
 
 	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(beginningNonce, 10)))
@@ -327,16 +327,16 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	require.NoError(t, set.Set("address", fromAddress.Hex()))
 	require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 
-	c := cli.NewContext(nil, set, nil)
+	ctx := cli.NewContext(nil, set, nil)
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == n
-		}), mock.Anything).Once().Return(commonclient.Successful, nil)
+		}), mock.Anything).Once().Return(client.Successful, nil)
 	}
 
-	assert.NoError(t, client.RebroadcastTransactions(c))
+	assert.NoError(t, c.RebroadcastTransactions(ctx))
 }
 
 func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
@@ -387,7 +387,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 
-			client := cmd.Shell{
+			c := cmd.Shell{
 				Config:                 config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
@@ -396,7 +396,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+			cltest.FlagSetApplyFromAction(c.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
@@ -406,16 +406,16 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
 
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
-			c := cli.NewContext(nil, set, nil)
+			ctx := cli.NewContext(nil, set, nil)
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i
 				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 					return uint(tx.Nonce()) == n
-				}), mock.Anything).Once().Return(commonclient.Successful, nil)
+				}), mock.Anything).Once().Return(client.Successful, nil)
 			}
 
-			assert.NoError(t, client.RebroadcastTransactions(c))
+			assert.NoError(t, c.RebroadcastTransactions(ctx))
 
 			cltest.AssertEthTxAttemptCountStays(t, app.GetSqlxDB(), 1)
 		})
@@ -465,7 +465,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 			mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
-			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(commonclient.Successful, nil)
+			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(client.Successful, nil)
 
 			client := cmd.Shell{
 				Config:                 config,
