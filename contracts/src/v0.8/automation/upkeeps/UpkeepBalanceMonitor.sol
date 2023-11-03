@@ -21,8 +21,8 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   event WatchListSet();
 
   error InvalidConfig();
-  error InvalidPerformData();
-  error OnlyKeeperRegistry();
+  error InvalidTopUpData();
+  error OnlyForwarderOrOwner();
 
   /// @member maxBatchSize is the maximum number of upkeeps to fund in a single transaction
   /// @member minPercentage is the percentage of the upkeep's minBalance at which top-up occurs
@@ -66,33 +66,31 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   function checkUpkeep(
     bytes calldata
   ) external view whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
-    IAutomationRegistryConsumer registry = getRegistry();
-    bool needsApproval = LINK_TOKEN.allowance(address(this), address(registry)) == 0;
     (uint256[] memory needsFunding, uint256[] memory topUpAmounts) = getUnderfundedUpkeeps();
     upkeepNeeded = needsFunding.length > 0;
-    performData = abi.encode(needsApproval, needsFunding, topUpAmounts);
+    performData = abi.encode(needsFunding, topUpAmounts);
     return (upkeepNeeded, performData);
   }
 
   /// @notice Called by the keeper to send funds to underfunded addresses.
   /// @param performData the abi encoded list of addresses to fund
   function performUpkeep(bytes calldata performData) external whenNotPaused {
-    if (msg.sender != address(s_forwarder)) revert OnlyKeeperRegistry();
-    (bool needsApproval, uint256[] memory needsFunding, uint96[] memory topUpAmounts) = abi.decode(
-      performData,
-      (bool, uint256[], uint96[])
-    );
-    if (needsFunding.length != topUpAmounts.length) revert InvalidPerformData();
-    IAutomationForwarder forwarder = IAutomationForwarder(msg.sender);
-    IAutomationRegistryConsumer registry = forwarder.getRegistry();
-    if (needsApproval) {
-      LINK_TOKEN.approve(address(registry), type(uint256).max);
-    }
-    for (uint256 i = 0; i < needsFunding.length; i++) {
-      try registry.addFunds(needsFunding[i], topUpAmounts[i]) {
-        emit TopUpSucceeded(needsFunding[i], topUpAmounts[i]);
+    (uint256[] memory needsFunding, uint96[] memory topUpAmounts) = abi.decode(performData, (uint256[], uint96[]));
+  }
+
+  /// @notice Called by the keeper/owner to send funds to underfunded upkeeps
+  /// @param upkeepIDs the list of upkeep ids to fund
+  /// @param topUpAmounts the list of amounts to fund each upkeep with
+  function topUp(uint256[] memory upkeepIDs, uint96[] memory topUpAmounts) public {
+    IAutomationForwarder forwarder = s_forwarder;
+    if (msg.sender != address(s_forwarder) && msg.sender != owner()) revert OnlyForwarderOrOwner();
+    if (upkeepIDs.length != topUpAmounts.length) revert InvalidTopUpData();
+    address registryAddress = address(forwarder.getRegistry());
+    for (uint256 i = 0; i < upkeepIDs.length; i++) {
+      try LINK_TOKEN.transferAndCall(registryAddress, topUpAmounts[i], abi.encode(upkeepIDs[i])) {
+        emit TopUpSucceeded(upkeepIDs[i], topUpAmounts[i]);
       } catch {
-        emit TopUpFailed(needsFunding[i]);
+        emit TopUpFailed(upkeepIDs[i]);
       }
     }
   }
