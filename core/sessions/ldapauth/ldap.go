@@ -552,12 +552,10 @@ func (l *ldapAuthenticator) TestPassword(email string, password string) error {
 	escapedEmail := ldap.EscapeFilter(strings.ToLower(email))
 	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
 	err = conn.Bind(searchBaseDN, password)
-	if err != nil {
-		l.lggr.Infof("Error binding user authentication request in TestPassword call LDAP Bind: %v", err)
-	} else {
-		// LDAP Bind/login was successful, return success case
+	if err == nil {
 		return nil
 	}
+	l.lggr.Infof("Error binding user authentication request in TestPassword call LDAP Bind: %v", err)
 
 	// Fall back to test local users table in case of supported local CLI users as well
 	var hashedPassword string

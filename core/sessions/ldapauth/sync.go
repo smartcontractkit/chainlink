@@ -96,6 +96,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 	conn, err := ldSync.ldapClient.CreateEphemeralClient()
 	if err != nil {
 		ldSync.lggr.Errorf("Failed to Dial LDAP Server", err)
+		return
 	}
 	// Root level root user auth with credentials provided from config
 	bindStr := ldSync.config.BaseUserAttr() + "=" + ldSync.config.ReadOnlyUserLogin() + "," + ldSync.config.BaseDN()
@@ -108,21 +109,25 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 	adminUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.AdminUserGroupCN(), sessions.UserRoleAdmin)
 	if err != nil {
 		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	editUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.EditUserGroupCN(), sessions.UserRoleEdit)
 	if err != nil {
 		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	runUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.RunUserGroupCN(), sessions.UserRoleRun)
 	if err != nil {
 		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	readUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.ReadUserGroupCN(), sessions.UserRoleView)
 	if err != nil {
 		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		return
 	}
 
 	users = append(users, adminUsers...)
