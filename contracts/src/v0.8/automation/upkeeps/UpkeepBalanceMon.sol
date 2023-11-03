@@ -15,8 +15,9 @@ import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   LinkTokenInterface public immutable LINK_TOKEN;
 
+  event ConfigSet(Config config);
+  event ForwarderSet(IAutomationForwarder forwarder);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
-  event ConfigSet(uint96 minPercentage, uint96 targetPercentage);
   event TopUpFailed(uint256 indexed upkeepId);
   event TopUpSucceeded(uint256 indexed upkeepId, uint96 amount);
 
@@ -32,28 +33,16 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     uint96 maxTopUpAmount;
   }
 
-  IKeeperRegistryMaster private s_registry;
   uint256[] private s_watchList; // the watchlist on which subscriptions are stored
   Config private s_config;
+  IAutomationForwarder s_forwarder;
 
-  /// @param linkTokenAddress the Link token address
-  /// @param keeperRegistryAddress the address of the keeper registry contract
-  /// @param maxBatchSize the maximum number of upkeeps to fund in a single transaction
-  /// @param minPercentage the percentage of the min balance at which to trigger top ups
-  /// @param targetPercentage the percentage of the min balance to target during top ups
-  /// @param maxTopUpAmount the maximum amount to top up an upkeep
-  constructor(
-    address linkTokenAddress,
-    IKeeperRegistryMaster keeperRegistryAddress,
-    uint8 maxBatchSize,
-    uint24 minPercentage,
-    uint24 targetPercentage,
-    uint96 maxTopUpAmount
-  ) ConfirmedOwner(msg.sender) {
-    require(linkTokenAddress != address(0));
-    LINK_TOKEN = LinkTokenInterface(linkTokenAddress);
-    setConfig(maxBatchSize, minPercentage, targetPercentage, maxTopUpAmount);
-    LinkTokenInterface(linkTokenAddress).approve(address(keeperRegistryAddress), type(uint256).max);
+  /// @param linkToken the Link token address
+  /// @param config the initial config for the contract
+  constructor(LinkTokenInterface linkToken, Config memory config) ConfirmedOwner(msg.sender) {
+    require(address(linkToken) != address(0));
+    LINK_TOKEN = linkToken;
+    setConfig(config);
   }
 
   // ================================================================
@@ -65,21 +54,28 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   function checkUpkeep(
     bytes calldata
   ) external view whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
+    IAutomationRegistryConsumer registry = getRegistry();
+    bool needsApproval = LINK_TOKEN.allowance(address(this), address(registry)) == 0;
     (uint256[] memory needsFunding, uint256[] memory topUpAmounts) = getUnderfundedUpkeeps();
     upkeepNeeded = needsFunding.length > 0;
-    performData = abi.encode(needsFunding, topUpAmounts);
+    performData = abi.encode(needsApproval, needsFunding, topUpAmounts);
     return (upkeepNeeded, performData);
   }
 
   /// @notice Called by the keeper to send funds to underfunded addresses.
   /// @param performData the abi encoded list of addresses to fund
   function performUpkeep(bytes calldata performData) external whenNotPaused {
-    // if (msg.sender != address(s_registry)) revert OnlyKeeperRegistry();
-    // TODO - forwarder contract
-    (uint256[] memory needsFunding, uint96[] memory topUpAmounts) = abi.decode(performData, (uint256[], uint96[]));
+    if (msg.sender != address(s_forwarder)) revert OnlyKeeperRegistry();
+    (bool needsApproval, uint256[] memory needsFunding, uint96[] memory topUpAmounts) = abi.decode(
+      performData,
+      (bool, uint256[], uint96[])
+    );
     if (needsFunding.length != topUpAmounts.length) revert LengthMismatch();
     IAutomationForwarder forwarder = IAutomationForwarder(msg.sender);
     IAutomationRegistryConsumer registry = forwarder.getRegistry();
+    if (needsApproval) {
+      LINK_TOKEN.approve(address(registry), type(uint256).max);
+    }
     uint256 contractBalance = LINK_TOKEN.balanceOf(address(this));
     for (uint256 i = 0; i < needsFunding.length; i++) {
       try registry.addFunds(needsFunding[i], topUpAmounts[i]) {
@@ -124,25 +120,25 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   }
 
   /// @notice Sets the contract config
-  /// @param maxBatchSize the maximum number of upkeeps to fund in a single transaction
-  /// @param minPercentage the percentage of the min balance at which to trigger top ups
-  /// @param targetPercentage the percentage of the min balance to target during top ups
-  /// @param maxTopUpAmount the maximum amount to top up an upkeep
-  function setConfig(
-    uint8 maxBatchSize,
-    uint24 minPercentage,
-    uint24 targetPercentage,
-    uint96 maxTopUpAmount
-  ) public onlyOwner {
-    if (maxBatchSize == 0 || minPercentage < 100 || targetPercentage <= minPercentage || maxTopUpAmount == 0)
+  /// @param config the new config
+  function setConfig(Config memory config) public onlyOwner {
+    if (
+      config.maxBatchSize == 0 ||
+      config.minPercentage < 100 ||
+      config.targetPercentage <= config.minPercentage ||
+      config.maxTopUpAmount == 0
+    ) {
       revert InvalidConfig();
-    s_config = Config({
-      maxBatchSize: maxBatchSize,
-      minPercentage: minPercentage,
-      targetPercentage: targetPercentage,
-      maxTopUpAmount: maxTopUpAmount
-    });
-    emit ConfigSet(minPercentage, targetPercentage);
+    }
+    s_config = config;
+    emit ConfigSet(config);
+  }
+
+  /// @notice Sets the upkeep's forwarder contract
+  /// @param forwarder the new forwarder
+  function setForwarder(IAutomationForwarder forwarder) external onlyOwner {
+    s_forwarder = forwarder;
+    emit ForwarderSet(forwarder);
   }
 
   // ================================================================
@@ -157,13 +153,14 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     uint256[] memory needsFunding = new uint256[](numUpkeeps);
     uint256[] memory topUpAmounts = new uint256[](numUpkeeps);
     Config memory config = s_config;
+    IAutomationRegistryConsumer registry = getRegistry();
     uint256 availableFunds = LINK_TOKEN.balanceOf(address(this));
     uint256 count;
     uint256 upkeepID;
     for (uint256 i = 0; i < numUpkeeps; i++) {
       upkeepID = s_watchList[i];
-      uint96 upkeepBalance = s_registry.getBalance(upkeepID);
-      uint256 minBalance = uint256(s_registry.getMinBalance(upkeepID));
+      uint96 upkeepBalance = registry.getBalance(upkeepID);
+      uint256 minBalance = uint256(registry.getMinBalance(upkeepID));
       uint256 topUpThreshold = (minBalance * config.minPercentage) / 100;
       uint256 topUpAmount = (minBalance * config.targetPercentage) / 100;
       if (topUpAmount > config.maxTopUpAmount) {
@@ -193,5 +190,15 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @notice Gets the contract config
   function getConfig() external view returns (Config memory) {
     return s_config;
+  }
+
+  /// @notice Gets the upkeep's forwarder contract
+  function getForwarder() external view returns (IAutomationForwarder) {
+    return s_forwarder;
+  }
+
+  /// @notice Gets the registry contract
+  function getRegistry() public view returns (IAutomationRegistryConsumer) {
+    return s_forwarder.getRegistry();
   }
 }
