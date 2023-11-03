@@ -21,7 +21,11 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Arbitrum is FunctionsFulfillme
   uint256 private constant L1_FEE_GASUNITS = 10000;
 
   function setUp() public virtual override {
-    vm.mockCall(ARBGAS_ADDR, abi.encodeWithSelector(ArbGasInfo.getCurrentTxL1GasFees.selector), abi.encode(L1_FEE_GASUNITS));
+    vm.mockCall(
+      ARBGAS_ADDR,
+      abi.encodeWithSelector(ArbGasInfo.getCurrentTxL1GasFees.selector),
+      abi.encode(L1_FEE_GASUNITS)
+    );
   }
 
   function test__getCurrentTxL1GasFees_SuccessWhenArbitrumMainnet() public {

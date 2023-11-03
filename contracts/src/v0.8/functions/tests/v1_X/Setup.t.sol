@@ -279,7 +279,8 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
       ((gasPrice * getCoordinatorConfig().fulfillmentGasPriceOverEstimationBP) / 10_000);
     uint96 juelsPerGas = uint96((1e18 * gasPriceWithOverestimation) / uint256(LINK_ETH_RATE));
     uint96 gasOverheadJuels = juelsPerGas *
-      ((getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback) + uint96(l1Fee));
+      ((getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback) +
+        uint96(l1Fee));
     uint96 callbackGasCostJuels = uint96(juelsPerGas * callbackGas);
     return gasOverheadJuels + s_donFee + s_adminFee + callbackGasCostJuels;
   }
