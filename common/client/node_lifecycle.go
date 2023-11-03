@@ -314,11 +314,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 			n.setLatestReceived(head.BlockNumber(), head.BlockDifficulty())
 			if !isOutOfSync(head.BlockNumber(), head.BlockDifficulty()) {
 				// back in-sync! flip back into alive loop
-				lggr.Infow(fmt.Sprintf("%s: %s. Node was out-of-sync for %s", msgInSync, n.String(), time.Since(outOfSyncAt)), "blockNumber", head.BlockNumber(), "totalDifficulty", head.BlockDifficulty(), "nodeState", n.State())
+				lggr.Infow(fmt.Sprintf("%s: %s. Node was out-of-sync for %s", msgInSync, n.String(), time.Since(outOfSyncAt)), "blockNumber", head.BlockNumber(), "blockDifficulty", head.BlockDifficulty(), "nodeState", n.State())
 				n.declareInSync()
 				return
 			}
-			lggr.Debugw(msgReceivedBlock, "blockNumber", head.BlockNumber(), "totalDifficulty", head.BlockDifficulty(), "nodeState", n.State())
+			lggr.Debugw(msgReceivedBlock, "blockNumber", head.BlockNumber(), "blockDifficulty", head.BlockDifficulty(), "nodeState", n.State())
 		case <-time.After(zombieNodeCheckInterval(n.noNewHeadsThreshold)):
 			if n.nLiveNodes != nil {
 				if l, _, _ := n.nLiveNodes(); l < 1 {

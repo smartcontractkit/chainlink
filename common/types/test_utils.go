@@ -3,11 +3,11 @@ package types
 import (
 	"math"
 	"math/big"
-	mrand "math/rand"
+	"math/rand"
 )
 
 func RandomID() ID {
-	id := mrand.Int63n(math.MaxInt32) + 10000
+	id := rand.Int63n(math.MaxInt32) + 10000
 	return big.NewInt(id)
 }
 

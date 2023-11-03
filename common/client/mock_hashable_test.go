@@ -4,13 +4,8 @@ package client
 type Hashable string
 
 func (h Hashable) Cmp(c Hashable) int {
-	if h == c {
-		return 0
-	} else if h > c {
-		return 1
-	}
-
-	return -1
+	return cmp.Compare(h, c)
+}
 }
 
 func (h Hashable) String() string {
