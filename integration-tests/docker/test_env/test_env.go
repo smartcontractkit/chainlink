@@ -166,6 +166,7 @@ func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 		if err := cl.Fund(te.EVMClient, amount); err != nil {
 			return errors.Wrap(err, ErrFundCLNode)
 		}
+		time.Sleep(5 * time.Second)
 	}
 	return te.EVMClient.WaitForEvents()
 }
