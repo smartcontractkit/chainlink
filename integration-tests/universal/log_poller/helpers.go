@@ -298,9 +298,9 @@ var waitForEndBlockInLogPoller = func(endBlock int64, chainID *big.Int, l zerolo
 	return true, nil
 }
 
-var chainHasAdvancedBeyondFinality = func(l zerolog.Logger, evmClint ctf_blockchain.EVMClient, endBlock int64) (bool, error) {
+var chainHasFinalisedEndBlock = func(l zerolog.Logger, evmClient ctf_blockchain.EVMClient, endBlock int64) (bool, error) {
 	effectiveEndBlock := endBlock + 1
-	lastFinalisedBlockHeader, err := evmClint.GetLatestFinalizedBlockHeader(context.Background())
+	lastFinalisedBlockHeader, err := evmClient.GetLatestFinalizedBlockHeader(context.Background())
 	if err != nil {
 		return false, err
 	}
@@ -308,6 +308,97 @@ var chainHasAdvancedBeyondFinality = func(l zerolog.Logger, evmClint ctf_blockch
 	l.Info().Int64("Last finalised block header", lastFinalisedBlockHeader.Number.Int64()).Int64("End block", effectiveEndBlock).Int64("Blocks left till end block", effectiveEndBlock-lastFinalisedBlockHeader.Number.Int64()).Msg("Waiting for the finalized block to move beyond end block")
 
 	return lastFinalisedBlockHeader.Number.Int64() > effectiveEndBlock, nil
+}
+
+var logPollerHasFinalisedEndBlock = func(endBlock int64, chainID *big.Int, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
+	wg := &sync.WaitGroup{}
+
+	type boolQueryResult struct {
+		nodeName     string
+		hasFinalised bool
+		err          error
+	}
+
+	endBlockCh := make(chan boolQueryResult, len(nodes.Nodes)-1)
+	ctx, cancelFn := context.WithCancel(context.Background())
+
+	for i := 1; i < len(nodes.Nodes); i++ {
+		wg.Add(1)
+
+		go func(clNode *test_env.ClNode, r chan boolQueryResult) {
+			defer wg.Done()
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				orm, db, err := NewOrm(coreLogger, chainID, clNode.PostgresDb)
+				if err != nil {
+					r <- boolQueryResult{
+						nodeName:     clNode.ContainerName,
+						hasFinalised: false,
+						err:          err,
+					}
+				}
+
+				defer db.Close()
+
+				latestBlock, err := orm.SelectLatestBlock()
+				if err != nil {
+					r <- boolQueryResult{
+						nodeName:     clNode.ContainerName,
+						hasFinalised: false,
+						err:          err,
+					}
+				}
+
+				r <- boolQueryResult{
+					nodeName:     clNode.ContainerName,
+					hasFinalised: latestBlock.FinalizedBlockNumber > endBlock,
+					err:          nil,
+				}
+
+			}
+		}(nodes.Nodes[i], endBlockCh)
+	}
+
+	var err error
+	allFinalisedCh := make(chan bool, 1)
+
+	go func() {
+		foundMap := make(map[string]bool, 0)
+		for r := range endBlockCh {
+			if r.err != nil {
+				err = r.err
+				cancelFn()
+				return
+			}
+
+			foundMap[r.nodeName] = r.hasFinalised
+			if r.hasFinalised {
+				l.Info().Str("Node name", r.nodeName).Msg("CL node has finalised end block")
+			} else {
+				l.Warn().Str("Node name", r.nodeName).Msg("CL node has not finalised end block yet")
+			}
+
+			if len(foundMap) == len(nodes.Nodes)-1 {
+				allFinalised := true
+				for _, v := range foundMap {
+					if !v {
+						allFinalised = false
+						break
+					}
+				}
+
+				allFinalisedCh <- allFinalised
+				return
+			}
+		}
+	}()
+
+	wg.Wait()
+	close(endBlockCh)
+
+	return <-allFinalisedCh, err
 }
 
 var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.Int, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
@@ -854,10 +945,10 @@ var GetFinalityDepth = func(chainId int64) (int64, error) {
 	switch chainId {
 	// Ethereum Sepolia
 	case 11155111:
-		finalityDepth = 100
+		finalityDepth = 50
 	// Polygon Mumbai
 	case 80001:
-		finalityDepth = 550
+		finalityDepth = 500
 	// Simulated network
 	case 1337:
 		finalityDepth = 10
@@ -866,6 +957,19 @@ var GetFinalityDepth = func(chainId int64) (int64, error) {
 	}
 
 	return finalityDepth, nil
+}
+
+var GetEndBlockToWaitFor = func(endBlock, chainId int64, cfg *Config) (int64, error) {
+	if cfg.General.UseFinalityTag {
+		return endBlock + 1, nil
+	}
+
+	finalityDepth, err := GetFinalityDepth(chainId)
+	if err != nil {
+		return 0, err
+	}
+
+	return endBlock + finalityDepth, nil
 }
 
 const (
@@ -913,7 +1017,7 @@ func setupLogPollerTestDocker(
 	testName string,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
-	statefulDb bool,
+	upkeepsNeeded int,
 	lpPollingInterval time.Duration,
 	finalityTagEnabled bool,
 ) (
@@ -1000,9 +1104,9 @@ func setupLogPollerTestDocker(
 	linkBalance, err := env.EVMClient.BalanceAt(context.Background(), common.HexToAddress(linkToken.Address()))
 	require.NoError(t, err, "Error getting LINK balance")
 
-	l.Info().Str("Balance", linkBalance.String()).Msg("LINK balance")
+	l.Info().Str("Balance", big.NewInt(0).Div(linkBalance, big.NewInt(1e18)).String()).Msg("LINK balance")
 	minLinkBalanceSingleNode := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(9))
-	minLinkBalance := big.NewInt(0).Mul(minLinkBalanceSingleNode, big.NewInt(5))
+	minLinkBalance := big.NewInt(0).Mul(minLinkBalanceSingleNode, big.NewInt(int64(upkeepsNeeded)))
 	if minLinkBalance.Cmp(linkBalance) < 0 {
 		require.FailNowf(t, "Not enough LINK", "Not enough LINK to run the test. Need at least %s", big.NewInt(0).Div(minLinkBalance, big.NewInt(1e18)).String())
 	}

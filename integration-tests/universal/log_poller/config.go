@@ -3,6 +3,7 @@ package logpoller
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -87,6 +88,39 @@ func ReadConfig(configName string) (*Config, error) {
 
 	log.Debug().Interface("Config", cfg).Msg("Parsed config")
 	return cfg, nil
+}
+
+func (c *Config) OverrideFromEnv() error {
+	if contr := os.Getenv("CONTRACTS"); contr != "" {
+		c.General.Contracts = mustParseInt(contr)
+	}
+
+	if eventsPerTx := os.Getenv("EVENTS_PER_TX"); eventsPerTx != "" {
+		c.General.EventsPerTx = mustParseInt(eventsPerTx)
+	}
+
+	if useFinalityTag := os.Getenv("USE_FINALITY_TAG"); useFinalityTag != "" {
+		c.General.UseFinalityTag = mustParseBool(useFinalityTag)
+	}
+
+	if duration := os.Getenv("LOAD_DURATION"); duration != "" {
+		d, err := models.ParseDuration(duration)
+		if err != nil {
+			return err
+		}
+
+		if c.General.Generator == GeneratorType_WASP {
+			c.Wasp.Load.Duration = &d
+		} else {
+			// make the looped generator approximately run for desired duration
+			// on average we will emit 1 event per second
+			c.LoopedConfig.FuzzConfig.MinEmitWaitTimeMs = 900
+			c.LoopedConfig.FuzzConfig.MaxEmitWaitTimeMs = 1100
+			c.LoopedConfig.ContractConfig.ExecutionCount = int(d.Duration().Seconds())
+		}
+	}
+
+	return nil
 }
 
 func (c *Config) validate() error {
@@ -194,4 +228,20 @@ func (l *LoopedConfig) validate() error {
 	}
 
 	return nil
+}
+
+func mustParseInt(s string) int {
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		panic(err)
+	}
+	return i
+}
+
+func mustParseBool(s string) bool {
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

@@ -30,15 +30,15 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	l.Info().Msg("Starting basic log poller test")
 
 	var (
-		err      error
-		testName = "basic-log-poller"
+		err           error
+		testName      = "basic-log-poller"
+		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, time.Duration(500*time.Millisecond), cfg.General.UseFinalityTag,
+		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(500*time.Millisecond), cfg.General.UseFinalityTag,
 	)
 
-	upKeepsNeeded := cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	_, upkeepIDs := actions.DeployConsumers(
 		t,
 		registry,
@@ -60,6 +60,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 		logEmitters = append(logEmitters, &logEmitter)
 		require.NoError(t, err, "Error deploying log emitter contract")
 		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
@@ -123,9 +124,9 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
 	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err, "Error getting latest block number")
-	// +10 to be safe, but this should be done fluently, but in such a way that can handle reorgs, so making sure that each trx is included in finalised block might not suffice
-	// as some trx might be included in a block that was pruned
-	endBlock := int64(eb) + 10
+
+	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
+	require.NoError(t, err, "Error getting end block to wait for")
 
 	l.Info().Msg("Waiting before proceeding with test until all chaos experiments finish")
 	chaosError := <-chaosDoneCh
@@ -137,39 +138,26 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	l.Warn().Str("Duration", waitDuration).Msg("Waiting for logs to be processed by all nodes and for chain to advance beyond finality")
 
 	gom.Eventually(func(g gomega.Gomega) {
-		hasAdvanced, err := chainHasAdvancedBeyondFinality(l, testEnv.EVMClient, endBlock)
+		hasAdvanced, err := chainHasFinalisedEndBlock(l, testEnv.EVMClient, endBlock)
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if chain has advanced beyond finality. Retrying...")
 		}
 		g.Expect(hasAdvanced).To(gomega.BeTrue(), "Chain has not advanced beyond finality")
 	}, waitDuration, "30s").Should(gomega.Succeed())
 
-	var fibonacciBackoff = func(attempt int) int64 {
-		if attempt <= 0 {
-			return 0
+	l.Warn().Str("Duration", "1m").Msg("Waiting for all CL nodes to have end block finalised")
+	gom.Eventually(func(g gomega.Gomega) {
+		hasFinalised, err := logPollerHasFinalisedEndBlock(endBlock, testEnv.EVMClient.GetChainID(), l, coreLogger, testEnv.ClCluster)
+		if err != nil {
+			l.Warn().Err(err).Msg("Error checking if nodes have finalised end block. Retrying...")
 		}
-		a, b := 0, 1
-		for i := 2; i <= attempt; i++ {
-			a, b = b, a+b
-		}
-
-		return int64(b)
-	}
-
-	attempt := 0
-	currentBackoff := int64(0)
-	maxBackoff := int64(100)
+		g.Expect(hasFinalised).To(gomega.BeTrue(), "Some nodes have not finalised end block")
+	}, "1m", "30s").Should(gomega.Succeed())
 
 	gom.Eventually(func(g gomega.Gomega) {
 		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
-		}
-		if !logCountMatches && currentBackoff < maxBackoff {
-			currentBackoff = fibonacciBackoff(attempt)
-			endBlock += currentBackoff
-			attempt += 1
-			l.Info().Int64("New end block", endBlock).Msg("Increasing end block")
 		}
 		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
 	}, waitDuration, "5s").Should(gomega.Succeed())
@@ -205,16 +193,15 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	l.Info().Msg("Starting replay log poller test")
 
 	var (
-		err      error
-		testName = "replay-log-poller"
+		err           error
+		testName      = "replay-log-poller"
+		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	// we set blockBackfillDepth to 0, to make sure nothing will be backfilled and won't interfere with our test
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag,
-	)
+		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag)
 
-	upKeepsNeeded := cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	_, upkeepIDs := actions.DeployConsumers(
 		t,
 		registry,
@@ -236,9 +223,11 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 		logEmitters = append(logEmitters, &logEmitter)
 		require.NoError(t, err, "Error deploying log emitter contract")
 		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
+		time.Sleep(200 * time.Millisecond)
 	}
 
-	time.Sleep(5 * time.Second) //wait for contracts to be uploaded to chain, TODO: could make this wait fluent
+	//wait for contracts to be uploaded to chain, TODO: could make this wait fluent
+	time.Sleep(5 * time.Second)
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
@@ -257,9 +246,9 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
 	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err, "Error getting latest block number")
-	// +10 to be safe, but this should be done fluently, but in such a way that can handle reorgs, so making sure that each trx is included in finalised block might not suffice
-	// as some trx might be included in a block that was pruned
-	endBlock := int64(eb) + 10
+
+	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
+	require.NoError(t, err, "Error getting end block to wait for")
 
 	// Lets make sure no logs are in DB yet
 	expectedFilters := getExpectedFilters(logEmitters, cfg)
@@ -302,6 +291,15 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	l.Info().Msg("All nodes have expected filters registered")
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
+	l.Warn().Str("Duration", "1m").Msg("Waiting for all CL nodes to have end block finalised")
+	gom.Eventually(func(g gomega.Gomega) {
+		hasFinalised, err := logPollerHasFinalisedEndBlock(endBlock, testEnv.EVMClient.GetChainID(), l, coreLogger, testEnv.ClCluster)
+		if err != nil {
+			l.Warn().Err(err).Msg("Error checking if nodes have finalised end block. Retrying...")
+		}
+		g.Expect(hasFinalised).To(gomega.BeTrue(), "Some nodes have not finalised end block")
+	}, "1m", "30s").Should(gomega.Succeed())
+
 	// Trigger replay
 	l.Info().Msg("Triggering log poller's replay")
 	for i := 1; i < len(testEnv.ClCluster.Nodes); i++ {
@@ -339,7 +337,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 type FinalityBlockFn = func(chainId int64, endBlock int64) (int64, error)
 
-func ExecuteCILogPollerTest(t *testing.T, cfg *Config, getFinalBlockFn FinalityBlockFn) {
+func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 	l := logging.GetTestLogger(t)
 	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
 
@@ -353,15 +351,15 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config, getFinalBlockFn FinalityB
 	l.Info().Msg("Starting CI log poller test")
 
 	var (
-		err      error
-		testName = "ci-log-poller"
+		err           error
+		testName      = "ci-log-poller"
+		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag,
+		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag,
 	)
 
-	upKeepsNeeded := cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	_, upkeepIDs := actions.DeployConsumers(
 		t,
 		registry,
@@ -383,6 +381,7 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config, getFinalBlockFn FinalityB
 		logEmitters = append(logEmitters, &logEmitter)
 		require.NoError(t, err, "Error deploying log emitter contract")
 		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
@@ -417,7 +416,7 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config, getFinalBlockFn FinalityB
 
 			g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 		}
-	}, "30s", "1s").Should(gomega.Succeed())
+	}, "1m", "1s").Should(gomega.Succeed())
 	l.Info().Msg("All nodes have expected filters registered")
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
@@ -447,8 +446,8 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config, getFinalBlockFn FinalityB
 	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err, "Error getting latest block number")
 
-	endBlock, err := getFinalBlockFn(testEnv.EVMClient.GetChainID().Int64(), int64(eb))
-	require.NoError(t, err, "Error getting final block")
+	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
+	require.NoError(t, err, "Error getting end block to wait for")
 
 	l.Info().Msg("Waiting before proceeding with test until all chaos experiments finish")
 	chaosError := <-chaosDoneCh
@@ -459,15 +458,24 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config, getFinalBlockFn FinalityB
 	l.Warn().Str("Duration", waitDuration).Msg("Waiting for chain to advance beyond finality")
 
 	gom.Eventually(func(g gomega.Gomega) {
-		hasAdvanced, err := chainHasAdvancedBeyondFinality(l, testEnv.EVMClient, endBlock)
+		hasAdvanced, err := chainHasFinalisedEndBlock(l, testEnv.EVMClient, endBlock)
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if chain has advanced beyond finality. Retrying...")
 		}
 		g.Expect(hasAdvanced).To(gomega.BeTrue(), "Chain has not advanced beyond finality")
 	}, waitDuration, "30s").Should(gomega.Succeed())
 
+	l.Warn().Str("Duration", waitDuration).Msg("Waiting for all CL nodes to have end block finalised")
+	gom.Eventually(func(g gomega.Gomega) {
+		hasFinalised, err := logPollerHasFinalisedEndBlock(endBlock, testEnv.EVMClient.GetChainID(), l, coreLogger, testEnv.ClCluster)
+		if err != nil {
+			l.Warn().Err(err).Msg("Error checking if nodes have finalised end block. Retrying...")
+		}
+		g.Expect(hasFinalised).To(gomega.BeTrue(), "Some nodes have not finalised end block")
+	}, waitDuration, "30s").Should(gomega.Succeed())
+
 	// Wait until all CL nodes have exactly the same logs emitted by test contracts as the EVM node has
-	logConsistencyWaitDuration := "5m"
+	logConsistencyWaitDuration := "10m"
 	l.Warn().Str("Duration", logConsistencyWaitDuration).Msg("Waiting for CL nodes to have all the logs that EVM node has")
 
 	gom.Eventually(func(g gomega.Gomega) {
