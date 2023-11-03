@@ -3,20 +3,22 @@ package v1
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -46,24 +48,22 @@ type request struct {
 type Listener struct {
 	services.StateMachine
 
-	Cfg             vrfcommon.Config
-	FeeCfg          vrfcommon.FeeConfig
-	L               logger.SugaredLogger
-	LogBroadcaster  log.Broadcaster
-	Coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
-	PipelineRunner  pipeline.Runner
-	Job             job.Job
-	Q               pg.Q
-	HeadBroadcaster httypes.HeadBroadcasterRegistry
-	Txm             txmgr.TxManager
-	GethKs          vrfcommon.GethKeyStore
-	MailMon         *utils.MailboxMonitor
-	ReqLogs         *utils.Mailbox[log.Broadcast]
-	ChStop          utils.StopChan
-	WaitOnStop      chan struct{}
-	NewHead         chan struct{}
-	LatestHead      uint64
-	LatestHeadMu    sync.RWMutex
+	Cfg            vrfcommon.Config
+	FeeCfg         vrfcommon.FeeConfig
+	L              logger.SugaredLogger
+	Coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
+	PipelineRunner pipeline.Runner
+	Job            job.Job
+	Q              pg.Q
+	GethKs         vrfcommon.GethKeyStore
+	MailMon        *utils.MailboxMonitor
+	ReqLogs        *utils.Mailbox[log.Broadcast]
+	ChStop         utils.StopChan
+	WaitOnStop     chan struct{}
+	NewHead        chan struct{}
+	LatestHead     uint64
+	LatestHeadMu   sync.RWMutex
+	Chain          evm.Chain
 
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
@@ -110,11 +110,11 @@ func (lsn *Listener) getLatestHead() uint64 {
 }
 
 // Start complies with job.Service
-func (lsn *Listener) Start(context.Context) error {
+func (lsn *Listener) Start(ctx context.Context) error {
 	return lsn.StartOnce("VRFListener", func() error {
 		spec := job.LoadDefaultVRFPollPeriod(*lsn.Job.VRFSpec)
 
-		unsubscribeLogs := lsn.LogBroadcaster.Register(lsn, log.ListenerOpts{
+		unsubscribeLogs := lsn.Chain.LogBroadcaster().Register(lsn, log.ListenerOpts{
 			Contract: lsn.Coordinator.Address(),
 			ParseLog: lsn.Coordinator.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
@@ -136,16 +136,67 @@ func (lsn *Listener) Start(context.Context) error {
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
-		latestHead, unsubscribeHeadBroadcaster := lsn.HeadBroadcaster.Subscribe(lsn)
+		latestHead, unsubscribeHeadBroadcaster := lsn.Chain.HeadBroadcaster().Subscribe(lsn)
 		if latestHead != nil {
 			lsn.setLatestHead(latestHead)
 		}
+
+		// Populate the response count map
+		lsn.RespCountMu.Lock()
+		defer lsn.RespCountMu.Unlock()
+		respCount, err := lsn.GetStartingResponseCountsV1(ctx)
+		if err != nil {
+			return err
+		}
+		lsn.ResponseCount = respCount
 		go lsn.RunLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		go lsn.RunHeadListener(unsubscribeHeadBroadcaster)
 
 		lsn.MailMon.Monitor(lsn.ReqLogs, "VRFListener", "RequestLogs", fmt.Sprint(lsn.Job.ID))
 		return nil
 	})
+}
+
+func (lsn *Listener) GetStartingResponseCountsV1(ctx context.Context) (respCount map[[32]byte]uint64, err error) {
+	respCounts := make(map[[32]byte]uint64)
+	var latestBlockNum *big.Int
+	// Retry client call for LatestBlockHeight if fails
+	// Want to avoid failing startup due to potential faulty RPC call
+	err = retry.Do(func() error {
+		latestBlockNum, err = lsn.Chain.Client().LatestBlockHeight(ctx)
+		return err
+	}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
+	if err != nil {
+		return nil, err
+	}
+	if latestBlockNum == nil {
+		return nil, errors.New("LatestBlockHeight return nil block num")
+	}
+	confirmedBlockNum := latestBlockNum.Int64() - int64(lsn.Chain.Config().EVM().FinalityDepth())
+	// Only check as far back as the evm finality depth for completed transactions.
+	var counts []vrfcommon.RespCountEntry
+	counts, err = vrfcommon.GetRespCounts(ctx, lsn.Chain.TxManager(), lsn.Chain.Client().ConfiguredChainID(), confirmedBlockNum)
+	if err != nil {
+		// Continue with an empty map, do not block job on this.
+		lsn.L.Errorw("Unable to read previous confirmed fulfillments", "err", err)
+		return respCounts, nil
+	}
+
+	for _, c := range counts {
+		// Remove the quotes from the json
+		req := strings.Replace(c.RequestID, `"`, ``, 2)
+		// Remove the 0x prefix
+		b, err := hex.DecodeString(req[2:])
+		if err != nil {
+			lsn.L.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			continue
+		}
+		var reqID [32]byte
+		copy(reqID[:], b)
+		respCounts[reqID] = uint64(c.Count)
+	}
+
+	return respCounts, nil
 }
 
 // Removes and returns all the confirmed logs from
@@ -314,7 +365,7 @@ func (lsn *Listener) handleLog(lb log.Broadcast, minConfs uint32) {
 }
 
 func (lsn *Listener) shouldProcessLog(lb log.Broadcast) bool {
-	consumed, err := lsn.LogBroadcaster.WasAlreadyConsumed(lb)
+	consumed, err := lsn.Chain.LogBroadcaster().WasAlreadyConsumed(lb)
 	if err != nil {
 		lsn.L.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
@@ -324,7 +375,7 @@ func (lsn *Listener) shouldProcessLog(lb log.Broadcast) bool {
 }
 
 func (lsn *Listener) markLogAsConsumed(lb log.Broadcast) {
-	err := lsn.LogBroadcaster.MarkConsumed(lb)
+	err := lsn.Chain.LogBroadcaster().MarkConsumed(lb)
 	lsn.L.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 
@@ -432,7 +483,7 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
 	if _, err = lsn.PipelineRunner.Run(ctx, run, lggr, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		if err = lsn.LogBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
+		if err = lsn.Chain.LogBroadcaster().MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
 			lggr.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil
