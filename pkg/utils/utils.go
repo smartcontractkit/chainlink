@@ -5,6 +5,8 @@ import (
 	"math"
 	mrand "math/rand"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 )
 
 // WithJitter adds +/- 10% to a duration
@@ -27,15 +29,7 @@ func WithJitter(d time.Duration) time.Duration {
 // NOTE: Spins up a goroutine that exits on cancellation.
 // REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
 func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		select {
-		case <-chStop:
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-	return ctx, cancel
+	return services.StopRChan(chStop).NewCtx()
 }
 
 // ContextWithDeadlineFn returns a copy of the parent context with the deadline modified by deadlineFn.
