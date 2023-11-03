@@ -75,7 +75,8 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @notice Called by the keeper to send funds to underfunded addresses.
   /// @param performData the abi encoded list of addresses to fund
   function performUpkeep(bytes calldata performData) external whenNotPaused {
-    (uint256[] memory needsFunding, uint96[] memory topUpAmounts) = abi.decode(performData, (uint256[], uint96[]));
+    (uint256[] memory upkeepIDs, uint96[] memory topUpAmounts) = abi.decode(performData, (uint256[], uint96[]));
+    topUp(upkeepIDs, topUpAmounts);
   }
 
   /// @notice Called by the keeper/owner to send funds to underfunded upkeeps
@@ -173,7 +174,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
       uint96 upkeepBalance = registry.getBalance(upkeepID);
       uint256 minBalance = uint256(registry.getMinBalance(upkeepID));
       uint256 topUpThreshold = (minBalance * config.minPercentage) / 100;
-      uint256 topUpAmount = (minBalance * config.targetPercentage) / 100;
+      uint256 topUpAmount = ((minBalance * config.targetPercentage) / 100) - upkeepBalance;
       if (topUpAmount > config.maxTopUpAmount) {
         topUpAmount = config.maxTopUpAmount;
       }
@@ -182,6 +183,9 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
         topUpAmounts[count] = topUpAmount;
         count++;
         availableFunds -= topUpAmount;
+      }
+      if (count == config.maxBatchSize) {
+        break;
       }
     }
     if (count < numUpkeeps) {
