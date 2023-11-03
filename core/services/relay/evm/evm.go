@@ -342,7 +342,6 @@ func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpt
 			chain.LogPoller(),
 			aggregatorAddress,
 			*relayConfig.FeedID,
-			eventBroadcaster,
 			// TODO: Does mercury need to support config contract? DF-19182
 		)
 	} else {

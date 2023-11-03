@@ -1,10 +1,12 @@
 package mercury
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -92,7 +94,7 @@ type ConfigPoller struct {
 	addr               common.Address
 	feedId             common.Hash
 	notifyCh           chan struct{}
-	subscription       pg.Subscription
+	shutdown           chan struct{}
 }
 
 func FilterName(addr common.Address, feedID common.Hash) string {
@@ -100,13 +102,8 @@ func FilterName(addr common.Address, feedID common.Hash) string {
 }
 
 // NewConfigPoller creates a new Mercury ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash, eventBroadcaster pg.EventBroadcaster) (*ConfigPoller, error) {
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash) (*ConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: FilterName(addr, feedId), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
-	if err != nil {
-		return nil, err
-	}
-
-	subscription, err := eventBroadcaster.Subscribe(pg.ChannelInsertOnEVMLogs, "")
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +114,7 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		addr:               addr,
 		feedId:             feedId,
 		notifyCh:           make(chan struct{}, 1),
-		subscription:       subscription,
+		shutdown:           make(chan struct{}),
 	}
 
 	return cp, nil
@@ -125,12 +122,13 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 
 // Start the subscription to Postgres' notify events.
 func (cp *ConfigPoller) Start() {
-	go cp.startLogSubscription()
+	// todo: why doesn't start have a ctx?
+	go cp.trackConfig(context.Background())
 }
 
 // Close the subscription to Postgres' notify events.
 func (cp *ConfigPoller) Close() error {
-	cp.subscription.Close()
+	cp.shutdown <- struct{}{}
 	return nil
 }
 
@@ -191,41 +189,30 @@ func (cp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 	return uint64(latest.BlockNumber), nil
 }
 
-func (cp *ConfigPoller) startLogSubscription() {
-	// trim the leading 0x to make it comparable to pg's hex encoding.
-	addressPgHex := cp.addr.Hex()[2:]
-	feedIdPgHex := cp.feedId.Hex()[2:]
+func (cp *ConfigPoller) trackConfig(ctx context.Context) {
+
+	lastConfig := ocrtypes.ConfigDigest{}
+
+	// poll at half the logpoller frequency to avoid aliasing
+	ticker := time.NewTicker(time.Duration(cp.destChainLogPoller.PollInterval().Milliseconds() / 2))
 
 	for {
-		event, ok := <-cp.subscription.Events()
-		if !ok {
-			cp.lggr.Debug("eventBroadcaster subscription closed, exiting notify loop")
-			return
-		}
-
-		// Event payload should look like: "<address>:<topicVal1>,<topicVal2>"
-		addressTopicValues := strings.Split(event.Payload, ":")
-		if len(addressTopicValues) < 2 {
-			cp.lggr.Warnf("invalid event from %s channel: %s", pg.ChannelInsertOnEVMLogs, event.Payload)
-			continue
-		}
-
-		address := addressTopicValues[0]
-		if address != addressPgHex {
-			continue
-		}
-
-		topicValues := strings.Split(addressTopicValues[1], ",")
-		if len(topicValues) <= feedIdTopicIndex {
-			continue
-		}
-		if topicValues[feedIdTopicIndex] != feedIdPgHex {
-			continue
-		}
-
 		select {
-		case cp.notifyCh <- struct{}{}:
-		default:
+		case <-ctx.Done():
+			return
+		case <-cp.shutdown:
+			return
+		case <-ticker.C:
+			// todo: under the cover this is calling LogPoller. logpoller must be able to satisfy tight polling loops like this for mercury and therefore may need some caching layer to
+			// prevent hammering the database. this will be a concern when there are many mercury concurrent providers i.e. many concurrent mercury jobs on a single node
+			block, config, err := cp.LatestConfigDetails(ctx)
+			if err != nil {
+				continue
+			}
+			if block > 0 && bytes.Compare(lastConfig[:], config[:]) != 0 {
+				lastConfig = config
+				cp.notifyCh <- struct{}{}
+			}
 		}
 	}
 }
