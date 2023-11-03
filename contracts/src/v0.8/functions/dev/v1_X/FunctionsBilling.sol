@@ -131,19 +131,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return SafeCast.toUint96((1e18 * gasPriceWei) / getWeiPerUnitLink());
   }
 
-  function _getL1FeeJuels() private view returns (uint96) {
-    // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
-
-    if (l1CostWei == 0) {
-      return 0;
-    }
-
-    // (1e18 juels/link) / (wei/link) = juels per wei
-    uint256 juelsPerWei = (1e18 / getWeiPerUnitLink());
-    return SafeCast.toUint96(l1CostWei * juelsPerWei);
-  }
-
   // ================================================================
   // |                       Cost Estimation                        |
   // ================================================================
@@ -174,7 +161,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint72 donFee,
     uint72 adminFee
   ) internal view returns (uint96) {
-    uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
+    uint256 executionGas = s_config.gasOverheadBeforeCallback +
+      s_config.gasOverheadAfterCallback +
+      callbackGasLimit +
+      ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
 
     // If gas price is less than the minimum fulfillment gas price, override to using the minimum
     if (gasPriceWei < s_config.minimumEstimateGasPriceWei) {
@@ -189,10 +179,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint256 estimatedGasReimbursement = juelsPerGas * executionGas;
     uint96 fees = uint96(donFee) + uint96(adminFee);
 
-    // Used by L2 chains, if not on L2 this will be 0.
-    uint96 l1FeeJuels = _getL1FeeJuels();
-
-    return SafeCast.toUint96(estimatedGasReimbursement + fees + l1FeeJuels);
+    return SafeCast.toUint96(estimatedGasReimbursement + fees);
   }
 
   // ================================================================
@@ -282,16 +269,16 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
     uint96 juelsPerGas = _getJuelsPerGas(tx.gasprice);
     // Gas overhead without callback
+    uint96 l1FeeShare = SafeCast.toUint96(ChainSpecificUtil._getCurrentTxL1GasFees(msg.data)) / reportBatchSize;
     uint96 gasOverheadJuels = juelsPerGas *
-      (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback);
-    uint96 l1FeeShare = _getL1FeeJuels() / reportBatchSize;
+      (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback + l1FeeShare);
 
     // The Functions Router will perform the callback to the client contract
     (FunctionsResponse.FulfillResult resultCode, uint96 callbackCostJuels) = _getRouter().fulfill(
       response,
       err,
       juelsPerGas,
-      gasOverheadJuels + commitment.donFee + l1FeeShare, // costWithoutFulfillment
+      gasOverheadJuels + commitment.donFee, // costWithoutFulfillment
       msg.sender,
       commitment
     );
