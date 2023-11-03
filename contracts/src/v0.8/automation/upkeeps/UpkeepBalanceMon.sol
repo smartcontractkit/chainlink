@@ -21,8 +21,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   event TopUpSucceeded(uint256 indexed upkeepId, uint96 amount);
 
   error DuplicateSubcriptionId(uint256 duplicate);
-  error InvalidKeeperRegistryVersion();
-  error MinPercentageTooLow();
+  error InvalidConfig();
   error LengthMismatch();
   error OnlyKeeperRegistry();
 
@@ -52,9 +51,6 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     uint96 maxTopUpAmount
   ) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0));
-    if (keccak256(bytes(keeperRegistryAddress.typeAndVersion())) != keccak256(bytes("KeeperRegistry 2.1.0"))) {
-      revert InvalidKeeperRegistryVersion();
-    }
     LINK_TOKEN = LinkTokenInterface(linkTokenAddress);
     setConfig(maxBatchSize, minPercentage, targetPercentage, maxTopUpAmount);
     LinkTokenInterface(linkTokenAddress).approve(address(keeperRegistryAddress), type(uint256).max);
@@ -138,7 +134,8 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     uint24 targetPercentage,
     uint96 maxTopUpAmount
   ) public onlyOwner {
-    if (minPercentage < 100) revert MinPercentageTooLow();
+    if (maxBatchSize == 0 || minPercentage < 100 || targetPercentage <= minPercentage || maxTopUpAmount == 0)
+      revert InvalidConfig();
     s_config = Config({
       maxBatchSize: maxBatchSize,
       minPercentage: minPercentage,
@@ -169,6 +166,9 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
       uint256 minBalance = uint256(s_registry.getMinBalance(upkeepID));
       uint256 topUpThreshold = (minBalance * config.minPercentage) / 100;
       uint256 topUpAmount = (minBalance * config.targetPercentage) / 100;
+      if (topUpAmount > config.maxTopUpAmount) {
+        topUpAmount = config.maxTopUpAmount;
+      }
       if (upkeepBalance <= topUpThreshold && availableFunds >= topUpAmount) {
         needsFunding[count] = upkeepID;
         topUpAmounts[count] = topUpAmount;
