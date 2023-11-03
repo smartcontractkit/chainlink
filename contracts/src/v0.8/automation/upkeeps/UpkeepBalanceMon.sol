@@ -10,32 +10,44 @@ import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
-/// @title The UpkeepBalanceMonitor contract.
+/// @title The UpkeepBalanceMonitor contract
 /// @notice A keeper-compatible contract that monitors and funds Chainlink Automation upkeeps.
 contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
-  LinkTokenInterface public immutable LINK_TOKEN;
-
   event ConfigSet(Config config);
   event ForwarderSet(IAutomationForwarder forwarder);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event TopUpFailed(uint256 indexed upkeepId);
   event TopUpSucceeded(uint256 indexed upkeepId, uint96 amount);
+  event WatchListSet();
 
-  error DuplicateSubcriptionId(uint256 duplicate);
   error InvalidConfig();
-  error LengthMismatch();
+  error InvalidPerformData();
   error OnlyKeeperRegistry();
 
+  /// @member maxBatchSize is the maximum number of upkeeps to fund in a single transaction
+  /// @member minPercentage is the percentage of the upkeep's minBalance at which top-up occurs
+  /// @member targetPercentage is the percentage of the upkeep's minBalance to top-up to
+  /// @member maxTopUpAmount is the maximum amount of LINK to top-up an upkeep with
   struct Config {
     uint8 maxBatchSize;
     uint24 minPercentage;
-    uint24 targetPercentage; // max target is 160K times the min balance
+    uint24 targetPercentage;
     uint96 maxTopUpAmount;
   }
 
-  uint256[] private s_watchList; // the watchlist on which subscriptions are stored
+  // ================================================================
+  // |                           STORAGE                            |
+  // ================================================================
+
+  LinkTokenInterface private immutable LINK_TOKEN;
+
+  uint256[] private s_watchList;
   Config private s_config;
-  IAutomationForwarder s_forwarder;
+  IAutomationForwarder private s_forwarder;
+
+  // ================================================================
+  // |                         CONSTRUCTOR                          |
+  // ================================================================
 
   /// @param linkToken the Link token address
   /// @param config the initial config for the contract
@@ -70,13 +82,12 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
       performData,
       (bool, uint256[], uint96[])
     );
-    if (needsFunding.length != topUpAmounts.length) revert LengthMismatch();
+    if (needsFunding.length != topUpAmounts.length) revert InvalidPerformData();
     IAutomationForwarder forwarder = IAutomationForwarder(msg.sender);
     IAutomationRegistryConsumer registry = forwarder.getRegistry();
     if (needsApproval) {
       LINK_TOKEN.approve(address(registry), type(uint256).max);
     }
-    uint256 contractBalance = LINK_TOKEN.balanceOf(address(this));
     for (uint256 i = 0; i < needsFunding.length; i++) {
       try registry.addFunds(needsFunding[i], topUpAmounts[i]) {
         emit TopUpSucceeded(needsFunding[i], topUpAmounts[i]);
@@ -117,6 +128,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @param watchlist the list of subscription ids to watch
   function setWatchList(uint256[] calldata watchlist) external onlyOwner {
     s_watchList = watchlist;
+    emit WatchListSet();
   }
 
   /// @notice Sets the contract config
@@ -136,6 +148,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
 
   /// @notice Sets the upkeep's forwarder contract
   /// @param forwarder the new forwarder
+  /// @dev this should only need to be called once, after registering the contract with the registry
   function setForwarder(IAutomationForwarder forwarder) external onlyOwner {
     s_forwarder = forwarder;
     emit ForwarderSet(forwarder);
@@ -182,7 +195,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     return (needsFunding, topUpAmounts);
   }
 
-  /// @notice Gets the list of upkeeps ids being watched.
+  /// @notice Gets the list of upkeeps ids being monitored
   function getWatchList() external view returns (uint256[] memory) {
     return s_watchList;
   }
