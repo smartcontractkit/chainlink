@@ -271,7 +271,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 				DN: "cn=NodeAdmins,ou=Groups,dc=example,dc=com",
 				Attributes: []*ldap.EntryAttribute{
 					{
-						Name: ldapauth.LDAPUniqueMemberAttribute,
+						Name: ldapauth.UniqueMemberAttribute,
 						Values: []string{
 							fmt.Sprintf("uid=%s,ou=users,dc=example,dc=com", user1.Email),
 							fmt.Sprintf("uid=%s,ou=users,dc=example,dc=com", user2.Email),
@@ -288,7 +288,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 				DN: "cn=NodeEditors,ou=Groups,dc=example,dc=com",
 				Attributes: []*ldap.EntryAttribute{
 					{
-						Name: ldapauth.LDAPUniqueMemberAttribute,
+						Name: ldapauth.UniqueMemberAttribute,
 						Values: []string{
 							fmt.Sprintf("uid=%s,ou=users,dc=example,dc=com", user3.Email),
 						},
@@ -304,7 +304,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 				DN: "cn=NodeRunners,ou=Groups,dc=example,dc=com",
 				Attributes: []*ldap.EntryAttribute{
 					{
-						Name: ldapauth.LDAPUniqueMemberAttribute,
+						Name: ldapauth.UniqueMemberAttribute,
 						Values: []string{
 							fmt.Sprintf("uid=%s,ou=users,dc=example,dc=com", user4.Email),
 							fmt.Sprintf("uid=%s,ou=users,dc=example,dc=com", user4.Email), // Test deduped
@@ -322,7 +322,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 				DN: "cn=NodeReadOnly,ou=Groups,dc=example,dc=com",
 				Attributes: []*ldap.EntryAttribute{
 					{
-						Name: ldapauth.LDAPUniqueMemberAttribute,
+						Name: ldapauth.UniqueMemberAttribute,
 						Values: []string{
 							fmt.Sprintf("uid=%s,ou=users,dc=example,dc=com", user6.Email),
 						},

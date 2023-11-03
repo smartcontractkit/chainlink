@@ -1,19 +1,17 @@
-package ldapauth
-
 /*
-
-The LDAP authentication module forwards the credentials in the user session request
+The LDAP authentication package forwards the credentials in the user session request
 for authentication with a configured upstream LDAP server
 
-This module relies on the two following local database tables:
-	ldap_sessions: 	Upon successful LDAP response, creates a keyed local copy of the user
-					email
+This package relies on the two following local database tables:
+
+	ldap_sessions: 	Upon successful LDAP response, creates a keyed local copy of the user email
 	ldap_user_api_tokens: User created API tokens, tied to the node, storing user email.
-						  Note: user can have only one API token at a time, and token
-						  expiration is enforced
+
+Note: user can have only one API token at a time, and token expiration is enforced
 
 User session and roles are cached and revalidated with the upstream service at the interval defined in
 the local LDAP config through the Application.sessionReaper implementation in reaper.go.
+
 Changes to the upstream identity server will propagate through and update local tables (web sessions, API tokens)
 by either removing the entries or updating the roles. This sync happens for every auth endpoint hit, and
 via the defined sync interval. One goroutine is created to coordinate the sync timing in the New function
@@ -22,8 +20,8 @@ This implementation is read only; user mutation actions such as Delete are not s
 
 MFA is supported via the remote LDAP server implementation. Sufficient request time out should accommodate
 for a blocking auth call while the user responds to a potential push notification callback.
-
 */
+package ldapauth
 
 import (
 	"crypto/subtle"
@@ -48,7 +46,7 @@ import (
 )
 
 const (
-	LDAPUniqueMemberAttribute = "uniqueMember"
+	UniqueMemberAttribute = "uniqueMember"
 )
 
 var ErrUserNotInUpstream = errors.New("LDAP query returned no matching users")
@@ -771,7 +769,7 @@ func ldapGroupMembersListToUser(
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases,
 		0, int(queryTimeout.Seconds()), false,
 		filterQuery,
-		[]string{LDAPUniqueMemberAttribute},
+		[]string{UniqueMemberAttribute},
 		nil,
 	)
 	result, err := conn.Search(searchRequest)
@@ -790,7 +788,7 @@ func ldapGroupMembersListToUser(
 	}
 
 	// Get string list of members from 'uniqueMember' attribute
-	uniqueMemberValues := result.Entries[0].GetAttributeValues(LDAPUniqueMemberAttribute)
+	uniqueMemberValues := result.Entries[0].GetAttributeValues(UniqueMemberAttribute)
 	for _, uniqueMemberEntry := range uniqueMemberValues {
 		parts := strings.Split(uniqueMemberEntry, ",") // Split attribute value on comma (uid, ou, dc parts)
 		uidComponent := ""
