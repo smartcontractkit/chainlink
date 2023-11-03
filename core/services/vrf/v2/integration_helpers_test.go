@@ -113,7 +113,7 @@ func testSingleConsumerHappyPath(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID1, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID1, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In particular:
@@ -133,7 +133,7 @@ func testSingleConsumerHappyPath(
 		t.Log("runs", len(runs))
 		return len(runs) == 2
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-	mine(t, requestID2, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID2, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In particular:
@@ -285,7 +285,7 @@ func testMultipleConsumersNeedBHS(
 			return len(runs) == 1
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-		mine(t, requestID, subID, uni.backend, db, vrfVersion)
+		mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
 		if len(assertions) > 0 {
@@ -446,7 +446,7 @@ func testMultipleConsumersNeedTrustedBHS(
 			return len(runs) == 1
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-		mine(t, requestID, subID, uni.backend, db, vrfVersion)
+		mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
 		if len(assertions) > 0 {
@@ -592,7 +592,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		return len(runs) == numRequests
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-	mineBatch(t, reqIDs, subID, uni.backend, db, vrfVersion)
+	mineBatch(t, reqIDs, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	for i, requestID := range reqIDs {
 		// Assert correct state of RandomWordsFulfilled event.
@@ -694,7 +694,7 @@ func testSingleConsumerNeedsTopUp(
 
 	// Mine the fulfillment. Need to wait for Txm to mark the tx as confirmed
 	// so that we can actually see the event on the simulated chain.
-	mine(t, requestID, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert the state of the RandomWordsFulfilled event.
 	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
@@ -818,7 +818,7 @@ func testBlockHeaderFeeder(
 			return len(runs) == 1
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-		mine(t, requestID, subID, uni.backend, db, vrfVersion)
+		mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
 		if len(assertions) > 0 {
@@ -1021,7 +1021,7 @@ func testSingleConsumerForcedFulfillment(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In this particular case:
@@ -1264,7 +1264,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	}, 3*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, reqIDs[1], subID, uni.backend, db, vrfVersion)
+	mine(t, reqIDs[1], subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert the random word was fulfilled
 	assertRandomWordsFulfilled(t, reqIDs[1], false, uni.rootContract, nativePayment)
@@ -1365,7 +1365,7 @@ func testSingleConsumerMultipleGasLanes(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, cheapRequestID, subID, uni.backend, db, vrfVersion)
+	mine(t, cheapRequestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, cheapRequestID, true, uni.rootContract, nativePayment)
@@ -1397,7 +1397,7 @@ func testSingleConsumerMultipleGasLanes(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, expensiveRequestID, subID, uni.backend, db, vrfVersion)
+	mine(t, expensiveRequestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, expensiveRequestID, true, uni.rootContract, nativePayment)
@@ -1477,7 +1477,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, false, uni.rootContract, nativePayment)
@@ -1552,7 +1552,7 @@ func testConsumerProxyHappyPath(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID1, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID1, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID1, true, uni.rootContract, nativePayment)
@@ -1576,7 +1576,7 @@ func testConsumerProxyHappyPath(
 		t.Log("runs", len(runs))
 		return len(runs) == 2
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-	mine(t, requestID2, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID2, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 	assertRandomWordsFulfilled(t, requestID2, true, uni.rootContract, nativePayment)
 
 	// Assert correct number of random words sent by coordinator.

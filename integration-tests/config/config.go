@@ -8,7 +8,6 @@ Enabled = true
 [P2P.V2]
 Enabled = false
 
-[P2P]
 [P2P.V1]
 Enabled = true
 ListenIP = '0.0.0.0'

@@ -1,0 +1,66 @@
+name: On Demand Log Poller Consistency Test
+on:
+  workflow_dispatch:
+    inputs:
+      contracts:
+        description: Number of test contracts
+        default: "2"
+        required: true
+      eventsPerTx:
+        description: Number of events to emit per transaction
+        default: "10"
+        required: true
+      useFinalityTag:
+        description: Use finality tag
+        default: "false"
+        required: true
+      loadDuration:
+        description: Load duration (e.g. 10s, 10m, 1h)
+        default: "10m"
+        required: true
+      chainlinkImage:
+        description: Chainlink image to use
+        default: "public.ecr.aws/chainlink/chainlink"
+        required: true
+      chainlinkVersion:
+        description: Chainlink version to use
+        default: "v2.7.0-beta0"
+        required: true
+      selectedNetworks:
+        description: Network to use (only Sepolia or Mumbai)
+        default: "Sepolia"
+        required: true
+      fundingKey:
+        description: Private key used to fund the contracts
+        required: true
+      rpcURL:
+        description: RPC URL to use
+        required: true
+      wsURL:
+        description: WS URL to use
+        required: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "integration-tests/go.mod"
+          cache: true
+      - name: Show overrides
+        env:
+          CONTRACTS: ${{ inputs.contracts }}
+          EVENTS_PER_TX: ${{ inputs.eventsPerTx }}
+          LOAD_DURATION: ${{ inputs.loadDuration }}
+          USE_FINALITY_TAG: ${{ inputs.useFinalityTag }}
+          CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
+          CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+          SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
+          EVM_KEYS: ${{ inputs.fundingKey }}
+          EVM_HTTP_URLS: ${{ inputs.rpcURL }}
+          EVM_URLS: ${{ inputs.wsURL }}
+        run: |
+          go test -v -timeout 5h -run=TestLogPollerFromEnv integration-tests/reorg/log_poller_maybe_reorg_test.go

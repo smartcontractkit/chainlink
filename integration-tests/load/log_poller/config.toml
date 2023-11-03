@@ -1,0 +1,22 @@
+[general]
+generator = "looped"
+contracts = 10
+events_per_tx = 10
+
+[chaos]
+experiment_count = 10
+
+[looped]
+[looped.contract]
+execution_count = 300
+
+[looped.fuzz]
+min_emit_wait_time_ms = 100
+max_emit_wait_time_ms = 500
+
+[wasp]
+[wasp.load]
+call_timeout = "3m"
+rate_limit_unit_duration = "2s"
+LPS = 30
+duration = "1m"
