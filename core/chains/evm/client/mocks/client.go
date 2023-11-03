@@ -7,9 +7,9 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
 
-	chainsclient "github.com/smartcontractkit/chainlink/v2/common/chains/client"
-
 	common "github.com/ethereum/go-ethereum/common"
+
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 
 	context "context"
 
@@ -566,18 +566,18 @@ func (_m *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 }
 
 // SendTransactionReturnCode provides a mock function with given fields: ctx, tx, fromAddress
-func (_m *Client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (chainsclient.SendTxReturnCode, error) {
+func (_m *Client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	ret := _m.Called(ctx, tx, fromAddress)
 
-	var r0 chainsclient.SendTxReturnCode
+	var r0 commonclient.SendTxReturnCode
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (chainsclient.SendTxReturnCode, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (commonclient.SendTxReturnCode, error)); ok {
 		return rf(ctx, tx, fromAddress)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) chainsclient.SendTxReturnCode); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) commonclient.SendTxReturnCode); ok {
 		r0 = rf(ctx, tx, fromAddress)
 	} else {
-		r0 = ret.Get(0).(chainsclient.SendTxReturnCode)
+		r0 = ret.Get(0).(commonclient.SendTxReturnCode)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, *types.Transaction, common.Address) error); ok {
@@ -795,12 +795,13 @@ func (_m *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*
 	return r0, r1
 }
 
-// NewClient creates a new instance of Client. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
-// The first argument is typically a *testing.T value.
-func NewClient(t interface {
+type mockConstructorTestingTNewClient interface {
 	mock.TestingT
 	Cleanup(func())
-}) *Client {
+}
+
+// NewClient creates a new instance of Client. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+func NewClient(t mockConstructorTestingTNewClient) *Client {
 	mock := &Client{}
 	mock.Mock.Test(t)
 

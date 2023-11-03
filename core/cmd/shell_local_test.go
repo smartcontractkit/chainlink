@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
@@ -333,7 +333,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 		n := i
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == n
-		}), mock.Anything).Once().Return(clienttypes.Successful, nil)
+		}), mock.Anything).Once().Return(commonclient.Successful, nil)
 	}
 
 	assert.NoError(t, client.RebroadcastTransactions(c))
@@ -412,7 +412,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				n := i
 				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 					return uint(tx.Nonce()) == n
-				}), mock.Anything).Once().Return(clienttypes.Successful, nil)
+				}), mock.Anything).Once().Return(commonclient.Successful, nil)
 			}
 
 			assert.NoError(t, client.RebroadcastTransactions(c))
@@ -465,7 +465,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 			mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
-			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
+			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(commonclient.Successful, nil)
 
 			client := cmd.Shell{
 				Config:                 config,

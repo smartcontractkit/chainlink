@@ -24,7 +24,6 @@ import (
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -522,7 +521,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.Fatal)
+			assert.Equal(t, errType, commonclient.Fatal)
 		}
 	})
 
@@ -550,7 +549,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.TransactionAlreadyKnown)
+			assert.Equal(t, errType, commonclient.TransactionAlreadyKnown)
 		}
 	})
 
@@ -577,7 +576,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.NoError(t, err)
-			assert.Equal(t, errType, commontypes.Successful)
+			assert.Equal(t, errType, commonclient.Successful)
 		}
 	})
 
@@ -605,7 +604,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.Underpriced)
+			assert.Equal(t, errType, commonclient.Underpriced)
 		}
 	})
 
@@ -633,7 +632,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.Unsupported)
+			assert.Equal(t, errType, commonclient.Unsupported)
 		}
 	})
 
@@ -661,7 +660,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.Retryable)
+			assert.Equal(t, errType, commonclient.Retryable)
 		}
 	})
 
@@ -689,7 +688,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.InsufficientFunds)
+			assert.Equal(t, errType, commonclient.InsufficientFunds)
 		}
 	})
 
@@ -717,7 +716,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.ExceedsMaxFee)
+			assert.Equal(t, errType, commonclient.ExceedsMaxFee)
 		}
 	})
 
@@ -745,7 +744,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.Unknown)
+			assert.Equal(t, errType, commonclient.Unknown)
 		}
 	})
 }
@@ -883,7 +882,7 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	code, err := erroringClient.SendTransactionReturnCode(ctx, nil, common.Address{})
-	require.Equal(t, code, commontypes.Unknown)
+	require.Equal(t, code, commonclient.Unknown)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	_, err = erroringClient.SequenceAt(ctx, common.Address{}, nil)
