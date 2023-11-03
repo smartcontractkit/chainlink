@@ -14,14 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
-	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
 func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	t.Parallel()
 
-	sessionORM := mocks.NewORM(t)
+	sessionORM := mocks.NewAuthenticationProvider(t)
 	sessionStore := cookie.NewStore([]byte("secret"))
 
 	r := gin.Default()
@@ -44,7 +44,7 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	t.Parallel()
 
-	sessionORM := mocks.NewORM(t)
+	sessionORM := mocks.NewAuthenticationProvider(t)
 	sessionStore := cookie.NewStore([]byte(cltest.SessionSecret))
 	sessionID := "sessionID"
 

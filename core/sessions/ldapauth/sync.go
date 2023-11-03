@@ -18,6 +18,7 @@ import (
 
 type LDAPServerStateSyncer struct {
 	q            pg.Q
+	ldapClient   LDAPClient
 	config       config.LDAP
 	lggr         logger.Logger
 	nextSyncTime time.Time
@@ -33,6 +34,7 @@ func NewLDAPServerStateSync(
 	namedLogger := lggr.Named("LDAPServerStateSync")
 	serverSync := LDAPServerStateSyncer{
 		q:            pg.NewQ(db, namedLogger, pgCfg),
+		ldapClient:   newLDAPClient(config),
 		config:       config,
 		lggr:         namedLogger,
 		nextSyncTime: time.Time{},
@@ -91,7 +93,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 	users := []sessions.User{}
 
 	// Establish ephemeral connection
-	conn, err := ldap.DialURL(ldSync.config.ServerAddress())
+	conn, err := ldSync.ldapClient.CreateEphemeralClient()
 	if err != nil {
 		ldSync.lggr.Errorf("Failed to Dial LDAP Server", err)
 	}
@@ -264,7 +266,7 @@ func (ldSync *LDAPServerStateSyncer) deleteStaleAPITokens(before time.Time) erro
 }
 
 // ldapGroupMembersListToUser queries the LDAP server given a conn for a list of uniqueMember who are part of the parameterized group
-func (ldSync *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn *ldap.Conn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
+func (ldSync *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn LDAPConn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
 	users, err := ldapGroupMembersListToUser(
 		conn, groupNameCN, roleToAssign, ldSync.config.GroupsDN(),
 		ldSync.config.BaseDN(), ldSync.config.QueryTimeout(),
@@ -280,7 +282,7 @@ func (ldSync *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn *ldap.Conn,
 // validateUsersActive performs an additional LDAP server query for the supplied emails, checking the
 // returned user data for an 'active' property defined optionally in the config.
 // Returns same length bool 'valid' array, order preserved
-func (ldSync *LDAPServerStateSyncer) validateUsersActive(emails []string, conn *ldap.Conn) ([]bool, error) {
+func (ldSync *LDAPServerStateSyncer) validateUsersActive(emails []string, conn LDAPConn) ([]bool, error) {
 	validUsers := make([]bool, len(emails))
 	// If active attribute to check is not defined in config, skip
 	if ldSync.config.ActiveAttribute() == "" {
