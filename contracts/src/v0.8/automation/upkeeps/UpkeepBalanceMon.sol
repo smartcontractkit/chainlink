@@ -66,9 +66,10 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
 
   /// @notice Gets a list of upkeeps that are underfunded.
   /// @return list of upkeeps that are underfunded
-  function getUnderfundedUpkeeps() public view returns (uint256[] memory) {
+  function getUnderfundedUpkeeps() public view returns (uint256[] memory, uint256[] memory) {
     uint256 numUpkeeps = s_watchList.length;
     uint256[] memory needsFunding = new uint256[](numUpkeeps);
+    uint256[] memory topUpAmounts = new uint256[](numUpkeeps);
     Config memory config = s_config;
     uint256 availableFunds = LINK_TOKEN.balanceOf(address(this));
     uint256 count;
@@ -76,11 +77,12 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     for (uint256 i = 0; i < numUpkeeps; i++) {
       upkeepID = s_watchList[i];
       uint96 upkeepBalance = s_registry.getBalance(upkeepID);
-      uint96 minBalance = s_registry.getMinBalance(upkeepID);
-      uint96 topUpThreshold = (minBalance * config.minPercentage) / 100; // TODO - uint96?
-      uint96 topUpAmount = (minBalance * config.targetPercentage) / 100;
+      uint256 minBalance = uint256(s_registry.getMinBalance(upkeepID));
+      uint256 topUpThreshold = (minBalance * config.minPercentage) / 100;
+      uint256 topUpAmount = (minBalance * config.targetPercentage) / 100;
       if (upkeepBalance <= topUpThreshold && availableFunds >= topUpAmount) {
         needsFunding[count] = upkeepID;
+        topUpAmounts[count] = topUpAmount;
         count++;
         availableFunds -= topUpAmount;
       }
@@ -88,9 +90,10 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     if (count < numUpkeeps) {
       assembly {
         mstore(needsFunding, count)
+        mstore(topUpAmounts, count)
       }
     }
-    return needsFunding;
+    return (needsFunding, topUpAmounts);
   }
 
   /// @notice Send funds to the upkeeps provided.
@@ -128,9 +131,9 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   function checkUpkeep(
     bytes calldata
   ) external view whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
-    uint256[] memory needsFunding = getUnderfundedUpkeeps();
+    (uint256[] memory needsFunding, uint256[] memory topUpAmounts) = getUnderfundedUpkeeps();
     upkeepNeeded = needsFunding.length > 0;
-    performData = abi.encode(needsFunding);
+    performData = abi.encode(needsFunding, topUpAmounts);
     return (upkeepNeeded, performData);
   }
 
