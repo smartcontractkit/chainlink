@@ -92,8 +92,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 	// For each defined role/group, query for the list of group members to gather the full list of possible users
 	users := []sessions.User{}
 
-	// Establish ephemeral connection
-	conn, err := ldSync.ldapClient.CreateEphemeralClient()
+	conn, err := ldSync.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		ldSync.lggr.Errorf("Failed to Dial LDAP Server", err)
 		return

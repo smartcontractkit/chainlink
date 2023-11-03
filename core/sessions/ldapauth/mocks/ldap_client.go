@@ -12,8 +12,8 @@ type LDAPClient struct {
 	mock.Mock
 }
 
-// CreateEphemeralClient provides a mock function with given fields:
-func (_m *LDAPClient) CreateEphemeralClient() (ldapauth.LDAPConn, error) {
+// CreateEphemeralConnection provides a mock function with given fields:
+func (_m *LDAPClient) CreateEphemeralConnection() (ldapauth.LDAPConn, error) {
 	ret := _m.Called()
 
 	var r0 ldapauth.LDAPConn

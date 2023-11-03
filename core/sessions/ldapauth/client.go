@@ -16,7 +16,7 @@ type ldapClient struct {
 
 // Wrapper for creating a handle to a *ldap.Conn/LDAPConn interface
 type LDAPClient interface {
-	CreateEphemeralClient() (LDAPConn, error)
+	CreateEphemeralConnection() (LDAPConn, error)
 }
 
 //go:generate mockery --quiet --name LDAPConn --output ./mocks/ --case=underscore
@@ -32,8 +32,8 @@ func newLDAPClient(config config.LDAP) LDAPClient {
 	return &ldapClient{config}
 }
 
-// dialAndConnect returns a valid, active LDAP connection for querying
-func (l *ldapClient) CreateEphemeralClient() (LDAPConn, error) {
+// CreateEphemeralConnection returns a valid, active LDAP connection for upstream Search and Bind queries
+func (l *ldapClient) CreateEphemeralConnection() (LDAPConn, error) {
 	conn, err := ldap.DialURL(l.config.ServerAddress())
 	if err != nil {
 		return nil, fmt.Errorf("failed to Dial LDAP Server: %w", err)

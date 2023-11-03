@@ -648,7 +648,7 @@ func TestShell_AutoLogin(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.LocalAdminUsersORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
 
 	sr := sessions.SessionRequest{
 		Email:    user.Email,
@@ -676,7 +676,7 @@ func TestShell_AutoLogin_AuthFails(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.LocalAdminUsersORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
 
 	sr := sessions.SessionRequest{
 		Email:    user.Email,

@@ -363,7 +363,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	// Local shell initialization always uses local auth users table for admin auth
-	authProviderORM := app.LocalAdminUsersORM()
+	authProviderORM := app.BasicAdminUsersORM()
 	keyStore := app.GetKeyStore()
 	err = s.KeyStoreAuthenticator.authenticate(keyStore, s.Config.Password())
 	if err != nil {

@@ -52,7 +52,6 @@ const (
 var ErrUserNotInUpstream = errors.New("LDAP query returned no matching users")
 var ErrUserNoLDAPGroups = errors.New("user present in directory, but matching no role groups assigned")
 
-// implements sessions.AuthenticationProvider interface
 type ldapAuthenticator struct {
 	q           pg.Q
 	ldapClient  LDAPClient
@@ -61,6 +60,7 @@ type ldapAuthenticator struct {
 	auditLogger audit.AuditLogger
 }
 
+// ldapAuthenticator implements sessions.AuthenticationProvider interface
 var _ sessions.AuthenticationProvider = (*ldapAuthenticator)(nil)
 
 func NewLDAPAuthenticator(
@@ -103,7 +103,7 @@ func NewLDAPAuthenticator(
 
 	// Test initial connection and credentials
 	lggr.Infof("Attempting initial connection to configured LDAP server with bind as API user")
-	conn, err := ldapAuth.ldapClient.CreateEphemeralClient()
+	conn, err := ldapAuth.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection to LDAP server with provided URL and credentials: %w", err)
 	}
@@ -149,8 +149,7 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 		return foundUser, errors.New("user not active")
 	}
 
-	// Establish ephemeral connection
-	conn, err := l.ldapClient.CreateEphemeralClient()
+	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		l.lggr.Errorf("error in LDAP dial: ", err)
 		return foundUser, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
@@ -267,8 +266,7 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 	users := []sessions.User{}
 	var err error
 
-	// Establish ephemeral connection
-	conn, err := l.ldapClient.CreateEphemeralClient()
+	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		l.lggr.Errorf("error in LDAP dial: ", err)
 		return users, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
@@ -433,8 +431,7 @@ func (l *ldapAuthenticator) GetUserWebAuthn(email string) ([]sessions.WebAuthn, 
 // password match. The API call is blocking with timeout, so a sufficient timeout
 // should allow the user to respond to potential MFA push notifications
 func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, error) {
-	// Establish ephemeral connection
-	conn, err := l.ldapClient.CreateEphemeralClient()
+	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		return "", errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
@@ -541,8 +538,7 @@ func (l *ldapAuthenticator) SetPassword(user *sessions.User, newPassword string)
 
 // TestPassword tests if an LDAP login bind can be performed with provided credentials, returns nil if success
 func (l *ldapAuthenticator) TestPassword(email string, password string) error {
-	// Establish ephemeral connection
-	conn, err := l.ldapClient.CreateEphemeralClient()
+	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		return errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
@@ -694,8 +690,7 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error)
 		return validUsers, nil
 	}
 
-	// Establish ephemeral connection
-	conn, err := l.ldapClient.CreateEphemeralClient()
+	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		l.lggr.Errorf("error in LDAP dial: ", err)
 		return validUsers, errors.New("unable to establish connection to LDAP server with provided URL and credentials")

@@ -84,7 +84,7 @@ type Application interface {
 	EVMORM() evmtypes.Configs
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
-	LocalAdminUsersORM() sessions.LocalAdminUsersORM
+	BasicAdminUsersORM() sessions.BasicAdminUsersORM
 	AuthenticationProvider() sessions.AuthenticationProvider
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
@@ -118,7 +118,7 @@ type ChainlinkApplication struct {
 	pipelineORM              pipeline.ORM
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
-	localAdminUsersORM       sessions.LocalAdminUsersORM
+	localAdminUsersORM       sessions.BasicAdminUsersORM
 	authenticationProvider   sessions.AuthenticationProvider
 	txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
@@ -250,7 +250,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
-	// LocalAdminUsersORM is initialized and required regardless of separate Authentication Provider
+	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
 	localAdminUsersORM := localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 
 	// Initialize Sessions ORM based on environment configured authenticator
@@ -643,7 +643,7 @@ func (app *ChainlinkApplication) BridgeORM() bridges.ORM {
 	return app.bridgeORM
 }
 
-func (app *ChainlinkApplication) LocalAdminUsersORM() sessions.LocalAdminUsersORM {
+func (app *ChainlinkApplication) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
 	return app.localAdminUsersORM
 }
 

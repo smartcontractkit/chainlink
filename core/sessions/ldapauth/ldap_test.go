@@ -43,7 +43,7 @@ func TestORM_FindUser_Empty(t *testing.T) {
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
-	mockLdapClient.On("CreateEphemeralClient").Return(mockLdapConnProvider, nil)
+	mockLdapClient.On("CreateEphemeralConnection").Return(mockLdapConnProvider, nil)
 	mockLdapConnProvider.On("Close").Return(nil)
 
 	// Initilaize LDAP Authentication Provider with mock client
@@ -65,7 +65,7 @@ func TestORM_FindUser_NoGroups(t *testing.T) {
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
-	mockLdapClient.On("CreateEphemeralClient").Return(mockLdapConnProvider, nil)
+	mockLdapClient.On("CreateEphemeralConnection").Return(mockLdapConnProvider, nil)
 	mockLdapConnProvider.On("Close").Return(nil)
 
 	// Initilaize LDAP Authentication Provider with mock client
@@ -104,7 +104,7 @@ func TestORM_FindUser_NotActive(t *testing.T) {
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
-	mockLdapClient.On("CreateEphemeralClient").Return(mockLdapConnProvider, nil)
+	mockLdapClient.On("CreateEphemeralConnection").Return(mockLdapConnProvider, nil)
 	mockLdapConnProvider.On("Close").Return(nil)
 
 	// Initilaize LDAP Authentication Provider with mock client
@@ -143,7 +143,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
-	mockLdapClient.On("CreateEphemeralClient").Return(mockLdapConnProvider, nil)
+	mockLdapClient.On("CreateEphemeralConnection").Return(mockLdapConnProvider, nil)
 	mockLdapConnProvider.On("Close").Return(nil)
 
 	// Initilaize LDAP Authentication Provider with mock client
@@ -251,7 +251,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
-	mockLdapClient.On("CreateEphemeralClient").Return(mockLdapConnProvider, nil)
+	mockLdapClient.On("CreateEphemeralConnection").Return(mockLdapConnProvider, nil)
 	mockLdapConnProvider.On("Close").Return(nil)
 
 	// Initilaize LDAP Authentication Provider with mock client
@@ -384,7 +384,7 @@ func TestORM_CreateSession_UpstreamBind(t *testing.T) {
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
-	mockLdapClient.On("CreateEphemeralClient").Return(mockLdapConnProvider, nil)
+	mockLdapClient.On("CreateEphemeralConnection").Return(mockLdapConnProvider, nil)
 	mockLdapConnProvider.On("Close").Return(nil)
 
 	// Initilaize LDAP Authentication Provider with mock client
@@ -445,7 +445,7 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
-	mockLdapClient.On("CreateEphemeralClient").Return(mockLdapConnProvider, nil)
+	mockLdapClient.On("CreateEphemeralConnection").Return(mockLdapConnProvider, nil)
 	mockLdapConnProvider.On("Close").Return(nil)
 
 	// Initilaize LDAP Authentication Provider with mock client
@@ -481,7 +481,7 @@ func TestORM_SetPassword_LocalAdminFallbackLogin(t *testing.T) {
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
-	mockLdapClient.On("CreateEphemeralClient").Return(mockLdapConnProvider, nil)
+	mockLdapClient.On("CreateEphemeralConnection").Return(mockLdapConnProvider, nil)
 	mockLdapConnProvider.On("Close").Return(nil)
 
 	// Initilaize LDAP Authentication Provider with mock client

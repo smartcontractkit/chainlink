@@ -25,13 +25,14 @@ var ErrNotSupported = fmt.Errorf("functionality not supported with current authe
 // ErrEmptySessionID captures the empty case error message
 var ErrEmptySessionID = errors.New("session ID cannot be empty")
 
-//go:generate mockery --quiet --name LocalAdminUsersORM --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name BasicAdminUsersORM --output ./mocks/ --case=underscore
 
-// LocalAdminUsersORM is the interface that defines the functionality implemented by the local
+// BasicAdminUsersORM is the interface that defines the functionality required for supporting basic admin functionality
+// adjacent to the identity provider authentication provider implementation. It is currently implemented by the local
 // users/sessions ORM containing local admin CLI actions. This is separate from the AuthenticationProvider,
 // as local admin management (ie initial core node setup, initial admin user creation), is always
 // required no matter what the pluggable AuthenticationProvider implementation is.
-type LocalAdminUsersORM interface {
+type BasicAdminUsersORM interface {
 	ListUsers() ([]User, error)
 	CreateUser(user *User) error
 	FindUser(email string) (User, error)

@@ -101,7 +101,7 @@ func TestShell_DeleteUser(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.LocalAdminUsersORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
 
 	tests := []struct {
 		name  string

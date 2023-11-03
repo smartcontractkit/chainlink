@@ -628,7 +628,7 @@ func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	u, err := clsessions.NewUser(user.Email, Password, user.Role)
 	require.NoError(ta.t, err)
 
-	err = ta.LocalAdminUsersORM().CreateUser(&u)
+	err = ta.BasicAdminUsersORM().CreateUser(&u)
 	require.NoError(ta.t, err)
 
 	sessionID := ta.MustSeedNewSession(user.Email)

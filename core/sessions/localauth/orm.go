@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
-// implements sessions.AuthenticationProvider interface
 type orm struct {
 	q               pg.Q
 	sessionDuration time.Duration
@@ -27,8 +26,9 @@ type orm struct {
 	auditLogger     audit.AuditLogger
 }
 
+// orm implements sessions.AuthenticationProvider and sessions.BasicAdminUsersORM interfaces
 var _ sessions.AuthenticationProvider = (*orm)(nil)
-var _ sessions.LocalAdminUsersORM = (*orm)(nil)
+var _ sessions.BasicAdminUsersORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, sd time.Duration, lggr logger.Logger, cfg pg.QConfig, auditLogger audit.AuditLogger) sessions.AuthenticationProvider {
 	namedLogger := lggr.Named("LocalAuthAuthenticationProviderORM")

@@ -347,16 +347,16 @@ func (_m *Application) JobSpawner() job.Spawner {
 	return r0
 }
 
-// LocalAdminUsersORM provides a mock function with given fields:
-func (_m *Application) LocalAdminUsersORM() sessions.LocalAdminUsersORM {
+// BasicAdminUsersORM provides a mock function with given fields:
+func (_m *Application) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
 	ret := _m.Called()
 
-	var r0 sessions.LocalAdminUsersORM
-	if rf, ok := ret.Get(0).(func() sessions.LocalAdminUsersORM); ok {
+	var r0 sessions.BasicAdminUsersORM
+	if rf, ok := ret.Get(0).(func() sessions.BasicAdminUsersORM); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sessions.LocalAdminUsersORM)
+			r0 = ret.Get(0).(sessions.BasicAdminUsersORM)
 		}
 	}
 
