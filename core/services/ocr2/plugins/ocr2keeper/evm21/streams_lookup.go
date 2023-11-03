@@ -163,7 +163,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *StreamsLookup, i int, checkResults []ocr2keepers.CheckResult, lggr logger.Logger) {
 	defer wg.Done()
 
-	state, reason, values, retryable, ri, err := r.doMercuryRequest(ctx, lookup, checkResults[i].WorkID+"|"+fmt.Sprintf("%d", lookup.block), lggr)
+	state, reason, values, retryable, ri, err := r.doMercuryRequest(ctx, lookup, generatePluginRetryKey(checkResults[i].WorkID, lookup.block), lggr)
 	if err != nil {
 		lggr.Errorf("upkeep %s retryable %v retryInterval %s doMercuryRequest: %s", lookup.upkeepId, retryable, ri, err.Error())
 		checkResults[i].Retryable = retryable
@@ -624,4 +624,9 @@ func (r *EvmRegistry) calculateRetryConfig(retryable bool, prk string) (bool, ti
 		r.mercury.pluginRetryCache.Set(prk, retries+1, cache.DefaultExpiration)
 	}
 	return retryable, ri
+}
+
+// generatePluginRetryKey returns a plugin retry cache key
+func generatePluginRetryKey(workID string, block uint64) string {
+	return workID + "|" + fmt.Sprintf("%d", block)
 }

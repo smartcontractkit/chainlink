@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	defaultPluginRetryExpiration = 5 * time.Minute
+	defaultPluginRetryExpiration = 30 * time.Minute
 	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
 	defaultAllowListExpiration = 20 * time.Minute
 	// cleanupInterval decides when the expired items in cache will be deleted.
