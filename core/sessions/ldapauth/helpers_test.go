@@ -33,6 +33,14 @@ func NewTestLDAPAuthenticator(
 	return &ldapAuth, nil
 }
 
+// Default server group name mappings for test config and mocked ldap search results
+const (
+	NodeAdminsGroupCN   = "NodeAdmins"
+	NodeEditorsGroupCN  = "NodeEditors"
+	NodeRunnersGroupCN  = "NodeRunners"
+	NodeReadOnlyGroupCN = "NodeReadOnly"
+)
+
 // Implement a setter function within the _test file so that the ldapauth_test module can set the unexported field with a mock
 func (l *ldapAuthenticator) SetLDAPClient(newClient LDAPClient) {
 	l.ldapClient = newClient
@@ -95,19 +103,19 @@ func (t *TestConfig) ActiveAttributeAllowedValue() string {
 }
 
 func (t *TestConfig) AdminUserGroupCN() string {
-	return "NodeAdmins"
+	return NodeAdminsGroupCN
 }
 
 func (t *TestConfig) EditUserGroupCN() string {
-	return "NodeEditors"
+	return NodeEditorsGroupCN
 }
 
 func (t *TestConfig) RunUserGroupCN() string {
-	return "NodeRunners"
+	return NodeRunnersGroupCN
 }
 
 func (t *TestConfig) ReadUserGroupCN() string {
-	return "NodeReadOnly"
+	return NodeReadOnlyGroupCN
 }
 
 func (t *TestConfig) UserApiTokenEnabled() bool {

@@ -268,7 +268,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 	mockLdapConnProvider.On("Search", mock.AnythingOfType("*ldap.SearchRequest")).Return(&ldap.SearchResult{
 		Entries: []*ldap.Entry{
 			{
-				DN: "cn=NodeAdmins,ou=Groups,dc=example,dc=com",
+				DN: fmt.Sprintf("cn=%s,ou=Groups,dc=example,dc=com", ldapauth.NodeAdminsGroupCN),
 				Attributes: []*ldap.EntryAttribute{
 					{
 						Name: ldapauth.UniqueMemberAttribute,
@@ -285,7 +285,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 	mockLdapConnProvider.On("Search", mock.AnythingOfType("*ldap.SearchRequest")).Return(&ldap.SearchResult{
 		Entries: []*ldap.Entry{
 			{
-				DN: "cn=NodeEditors,ou=Groups,dc=example,dc=com",
+				DN: fmt.Sprintf("cn=%s,ou=Groups,dc=example,dc=com", ldapauth.NodeEditorsGroupCN),
 				Attributes: []*ldap.EntryAttribute{
 					{
 						Name: ldapauth.UniqueMemberAttribute,
@@ -527,11 +527,11 @@ func TestORM_MapSearchGroups(t *testing.T) {
 			"user in admin group only",
 			[]*ldap.Entry{
 				{
-					DN: "cn=NodeAdmins,ou=Users,dc=example,dc=com",
+					DN: fmt.Sprintf("cn=%s,ou=Groups,dc=example,dc=com", ldapauth.NodeAdminsGroupCN),
 					Attributes: []*ldap.EntryAttribute{
 						{
 							Name:   "cn",
-							Values: []string{"NodeAdmins"},
+							Values: []string{ldapauth.NodeAdminsGroupCN},
 						},
 					},
 				},
@@ -543,11 +543,11 @@ func TestORM_MapSearchGroups(t *testing.T) {
 			"user in edit group",
 			[]*ldap.Entry{
 				{
-					DN: "cn=NodeEditors,ou=Users,dc=example,dc=com",
+					DN: fmt.Sprintf("cn=%s,ou=Groups,dc=example,dc=com", ldapauth.NodeEditorsGroupCN),
 					Attributes: []*ldap.EntryAttribute{
 						{
 							Name:   "cn",
-							Values: []string{"NodeEditors"},
+							Values: []string{ldapauth.NodeEditorsGroupCN},
 						},
 					},
 				},
@@ -559,11 +559,11 @@ func TestORM_MapSearchGroups(t *testing.T) {
 			"user in run group",
 			[]*ldap.Entry{
 				{
-					DN: "cn=NodeRunners,ou=Users,dc=example,dc=com",
+					DN: fmt.Sprintf("cn=%s,ou=Groups,dc=example,dc=com", ldapauth.NodeRunnersGroupCN),
 					Attributes: []*ldap.EntryAttribute{
 						{
 							Name:   "cn",
-							Values: []string{"NodeRunners"},
+							Values: []string{ldapauth.NodeRunnersGroupCN},
 						},
 					},
 				},
@@ -575,11 +575,11 @@ func TestORM_MapSearchGroups(t *testing.T) {
 			"user in view role",
 			[]*ldap.Entry{
 				{
-					DN: "cn=NodeReadOnly,ou=Users,dc=example,dc=com",
+					DN: fmt.Sprintf("cn=%s,ou=Groups,dc=example,dc=com", ldapauth.NodeReadOnlyGroupCN),
 					Attributes: []*ldap.EntryAttribute{
 						{
 							Name:   "cn",
-							Values: []string{"NodeReadOnly"},
+							Values: []string{ldapauth.NodeReadOnlyGroupCN},
 						},
 					},
 				},
@@ -597,20 +597,20 @@ func TestORM_MapSearchGroups(t *testing.T) {
 			"user in run and view",
 			[]*ldap.Entry{
 				{
-					DN: "cn=NodeRunners,ou=Users,dc=example,dc=com",
+					DN: fmt.Sprintf("cn=%s,ou=Groups,dc=example,dc=com", ldapauth.NodeRunnersGroupCN),
 					Attributes: []*ldap.EntryAttribute{
 						{
 							Name:   "cn",
-							Values: []string{"NodeRunners"},
+							Values: []string{ldapauth.NodeRunnersGroupCN},
 						},
 					},
 				},
 				{
-					DN: "cn=NodeReadOnly,ou=Users,dc=example,dc=com",
+					DN: fmt.Sprintf("cn=%s,ou=Groups,dc=example,dc=com", ldapauth.NodeReadOnlyGroupCN),
 					Attributes: []*ldap.EntryAttribute{
 						{
 							Name:   "cn",
-							Values: []string{"NodeReadOnly"},
+							Values: []string{ldapauth.NodeReadOnlyGroupCN},
 						},
 					},
 				},
