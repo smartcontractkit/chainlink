@@ -613,7 +613,7 @@ func (r *EvmRegistry) calculateRetryConfig(retryable bool, workID string) (bool,
 			retries = totalAttempts.(int)
 			if retries >= totalPluginRetries {
 				retryable = false
-			} else if retries > 4 {
+			} else if retries >= totalFastPluginRetries {
 				ri = 5 * time.Second
 			} else {
 				ri = 1 * time.Second
