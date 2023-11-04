@@ -309,7 +309,7 @@ func MustRandomUser(t testing.TB) sessions.User {
 	return r
 }
 
-func NewUserWithSession(t testing.TB, orm sessions.ORM) sessions.User {
+func NewUserWithSession(t testing.TB, orm sessions.AuthenticationProvider) sessions.User {
 	u := MustRandomUser(t)
 	require.NoError(t, orm.CreateUser(&u))
 
@@ -330,7 +330,7 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 	return &MockAPIInitializer{t: t}
 }
 
-func (m *MockAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (m *MockAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
 	if user, err := orm.FindUser(APIEmailAdmin); err == nil {
 		return user, err
 	}
