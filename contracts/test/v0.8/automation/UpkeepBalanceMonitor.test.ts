@@ -72,13 +72,14 @@ describe('UpkeepBalanceMonitor', () => {
   })
 
   describe('setConfig', () => {
+    const newConfig = {
+      maxBatchSize: 100,
+      minPercentage: 150,
+      targetPercentage: 500,
+      maxTopUpAmount: 1,
+    }
+
     it('should set config correctly', async () => {
-      const newConfig = {
-        maxBatchSize: 100,
-        minPercentage: 150,
-        targetPercentage: 500,
-        maxTopUpAmount: 1,
-      }
       await upkeepBalanceMonitor.connect(owner).setConfig(newConfig)
       const config = await upkeepBalanceMonitor.getConfig()
       expect(config.maxBatchSize).to.equal(newConfig.maxBatchSize)
@@ -86,37 +87,78 @@ describe('UpkeepBalanceMonitor', () => {
       expect(config.targetPercentage).to.equal(newConfig.targetPercentage)
       expect(config.maxTopUpAmount).to.equal(newConfig.maxTopUpAmount)
     })
+
+    it('cannot be called by a non-owner', async () => {
+      await expect(
+        upkeepBalanceMonitor.connect(stranger).setConfig(newConfig),
+      ).to.be.revertedWith('Only callable by owner')
+    })
+
+    it('should emit an event', async () => {
+      await expect(
+        upkeepBalanceMonitor.connect(owner).setConfig(newConfig),
+      ).to.emit(upkeepBalanceMonitor, 'ConfigSet')
+    })
   })
 
   describe('setForwarder', () => {
+    const newForwarder = randomAddress()
+
     it('should set the forwarder correctly', async () => {
-      const expected = randomAddress()
-      await upkeepBalanceMonitor.connect(owner).setForwarder(expected)
+      await upkeepBalanceMonitor.connect(owner).setForwarder(newForwarder)
       const forwarderAddress = await upkeepBalanceMonitor.getForwarder()
-      expect(forwarderAddress).to.equal(expected)
+      expect(forwarderAddress).to.equal(newForwarder)
+    })
+
+    it('cannot be called by a non-owner', async () => {
+      await expect(
+        upkeepBalanceMonitor.connect(stranger).setForwarder(randomAddress()),
+      ).to.be.revertedWith('Only callable by owner')
+    })
+
+    it('should emit an event', async () => {
+      await expect(
+        upkeepBalanceMonitor.connect(owner).setForwarder(newForwarder),
+      )
+        .to.emit(upkeepBalanceMonitor, 'ForwarderSet')
+        .withArgs(newForwarder)
     })
   })
 
   describe('setWatchList', () => {
+    const newWatchList = [
+      BigNumber.from(1),
+      BigNumber.from(2),
+      BigNumber.from(10),
+    ]
+
     it('should add addresses to the watchlist', async () => {
-      const expected = [
-        BigNumber.from(1),
-        BigNumber.from(2),
-        BigNumber.from(10),
-      ]
-      await upkeepBalanceMonitor.connect(owner).setWatchList(expected)
+      await upkeepBalanceMonitor.connect(owner).setWatchList(newWatchList)
       const watchList = await upkeepBalanceMonitor.getWatchList()
-      expect(watchList).to.deep.equal(expected)
+      expect(watchList).to.deep.equal(newWatchList)
+    })
+
+    it('cannot be called by a non-owner', async () => {
+      await expect(
+        upkeepBalanceMonitor.connect(stranger).setWatchList([1, 2, 3]),
+      ).to.be.revertedWith('Only callable by owner')
+    })
+
+    it('should emit an event', async () => {
+      await expect(
+        upkeepBalanceMonitor.connect(owner).setWatchList(newWatchList),
+      ).to.emit(upkeepBalanceMonitor, 'WatchListSet')
     })
   })
 
   describe('withdraw', () => {
+    const payee = randomAddress()
+    const withdrawAmount = 100
+
     it('should withdraw funds to a payee', async () => {
-      const payee = randomAddress()
       const initialBalance = await linkToken.balanceOf(
         upkeepBalanceMonitor.address,
       )
-      const withdrawAmount = 100
       await upkeepBalanceMonitor.connect(owner).withdraw(withdrawAmount, payee)
       const finalBalance = await linkToken.balanceOf(
         upkeepBalanceMonitor.address,
@@ -125,6 +167,20 @@ describe('UpkeepBalanceMonitor', () => {
       expect(finalBalance).to.equal(initialBalance.sub(withdrawAmount))
       expect(payeeBalance).to.equal(withdrawAmount)
     })
+
+    it('cannot be called by a non-owner', async () => {
+      await expect(
+        upkeepBalanceMonitor.connect(stranger).withdraw(withdrawAmount, payee),
+      ).to.be.revertedWith('Only callable by owner')
+    })
+
+    it('should emit an event', async () => {
+      await expect(
+        upkeepBalanceMonitor.connect(owner).withdraw(withdrawAmount, payee),
+      )
+        .to.emit(upkeepBalanceMonitor, 'FundsWithdrawn')
+        .withArgs(100, payee)
+    })
   })
 
   describe('pause and unpause', () => {
@@ -132,6 +188,25 @@ describe('UpkeepBalanceMonitor', () => {
       await upkeepBalanceMonitor.connect(owner).pause()
       expect(await upkeepBalanceMonitor.paused()).to.be.true
       await upkeepBalanceMonitor.connect(owner).unpause()
+    })
+
+    it('cannot be called by a non-owner', async () => {
+      await expect(
+        upkeepBalanceMonitor.connect(stranger).pause(),
+      ).to.be.revertedWith('Only callable by owner')
+      await upkeepBalanceMonitor.connect(owner).pause()
+      await expect(
+        upkeepBalanceMonitor.connect(stranger).unpause(),
+      ).to.be.revertedWith('Only callable by owner')
+    })
+
+    it('should emit an event', async () => {
+      await expect(upkeepBalanceMonitor.connect(owner).pause())
+        .to.emit(upkeepBalanceMonitor, 'Paused')
+        .withArgs(owner.address)
+      await expect(upkeepBalanceMonitor.connect(owner).unpause())
+        .to.emit(upkeepBalanceMonitor, 'Unpaused')
+        .withArgs(owner.address)
     })
   })
 
