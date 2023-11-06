@@ -1,6 +1,7 @@
 package client
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -83,17 +84,6 @@ func testTransition(t *testing.T, rpc *mockNodeClient[types.ID, Head], transitio
 		assert.Equal(t, destinationState, node.State(), "Expected node to successfully transition from %s to %s state", allowedState, destinationState)
 		m.AssertCalled(t)
 	}
-
-	isAllowed := func(ns nodeState) bool {
-		for _, allowed := range allowedStates {
-			if allowed == ns {
-				return true
-			}
-		}
-
-		return false
-	}
-
 	// noop on attempt to transition from Closed state
 	m := new(fnMock)
 	node.setState(nodeStateClosed)
@@ -102,7 +92,7 @@ func testTransition(t *testing.T, rpc *mockNodeClient[types.ID, Head], transitio
 	assert.Equal(t, nodeStateClosed, node.State(), "Expected node to remain in closed state on transition attempt")
 
 	for _, nodeState := range allNodeStates {
-		if isAllowed(nodeState) || nodeState == nodeStateClosed {
+		if slices.Contains(allowedStates, nodeState) || nodeState == nodeStateClosed {
 			continue
 		}
 
