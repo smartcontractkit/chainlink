@@ -95,7 +95,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 			return s.State() == nodeStateAlive
 		})
 	})
-	t.Run("Can remover from chainID mismatch", func(t *testing.T) {
+	t.Run("Can recover from chainID mismatch", func(t *testing.T) {
 		t.Parallel()
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
@@ -117,5 +117,23 @@ func TestStartSendOnlyNode(t *testing.T) {
 		tests.AssertEventually(t, func() bool {
 			return s.State() == nodeStateAlive
 		})
+	})
+	t.Run("Start with Random ChainID", func(t *testing.T) {
+		t.Parallel()
+		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		client := newMockSendOnlyClient[types.ID](t)
+		client.On("Close").Once()
+		client.On("DialHTTP").Return(nil).Once()
+		configuredChainID := types.RandomID()
+		client.On("ChainID", mock.Anything).Return(configuredChainID, nil)
+		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), configuredChainID, client)
+
+		defer func() { assert.NoError(t, s.Close()) }()
+		err := s.Start(tests.Context(t))
+		assert.NoError(t, err)
+		tests.AssertEventually(t, func() bool {
+			return s.State() == nodeStateAlive
+		})
+		assert.Equal(t, 0, observedLogs.Len()) // No warnings expected
 	})
 }
