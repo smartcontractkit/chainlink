@@ -51,6 +51,8 @@ var (
 // 4. Confirmer sets transactions that have failed to (unconfirmed) which will be retried by the resender
 // 5. Confirmer sets transactions that have been confirmed to (confirmed) and creates a new receipt which is persisted
 
+// TODO(jtw): WHAT DO WE WANT TO DO WITH TX_ATTEMPTS?
+
 type InMemoryStore[
 	CHAIN_ID types.ID,
 	ADDR, TX_HASH, BLOCK_HASH types.Hashable,
@@ -168,14 +170,16 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Check
 /////
 
 // FindLatestSequence returns the latest sequence number for a given address
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (SEQ, error) {
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (seq SEQ, err error) {
 	// query the persistent storage since this method only gets called when the broadcaster is starting up.
 	// It is used to initialize the in-memory sequence map in the broadcaster
 	// NOTE(jtw): should the nextSequenceMap be moved to the in-memory store?
 
-	// TODO(jtw): do generic checks
-	// TODO(jtw): maybe this should be handled now
-	seq, err := ms.txStore.FindLatestSequence(ctx, fromAddress, chainID)
+	if ms.chainID.String() != chainID.String() {
+		return seq, fmt.Errorf("find_latest_sequence: %w", ErrInvalidChainID)
+	}
+
+	seq, err = ms.txStore.FindLatestSequence(ctx, fromAddress, chainID)
 	if err != nil {
 		return seq, fmt.Errorf("find_latest_sequence: %w", err)
 	}
@@ -258,15 +262,39 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTx
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxAttemptInProgressToBroadcast(
 	ctx context.Context,
 	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	newAttemptState txmgrtypes.TxAttemptState,
 ) error {
-	// TODO(jtw)
-	return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: not implemented")
+	if tx.BroadcastAt == nil {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: unconfirmed transaction must have broadcast)at time")
+	}
+	if tx.InitialBroadcastAt == nil {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: unconfirmed transaction must have initial_broadcast_at time")
+	}
+	if tx.State != TxInProgress {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: can only transition to unconfirmed from in_progress, transaction is currently %s", tx.State)
+	}
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: attempt must be in in_progress state")
+	}
+	if newAttemptState != txmgrtypes.TxAttemptBroadcast {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: new attempt state must be broadcast, got: %s", newAttemptState)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, tx, attempt, newAttemptState); err != nil {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
+	}
+	// Ensure that the tx state is updated to unconfirmed since this is a chain agnostic operation
+	tx.State = TxUnconfirmed
+	// NOTE(jtw): attempt is not getting updated in memory yet... only in persistent storage
+
+	return nil
 }
 
 // FindNextUnstartedTransactionFromAddress returns the next unstarted transaction for a given address.
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUnstartedTransactionFromAddress(ctx context.Context, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fromAddress ADDR, chainID CHAIN_ID) error {
+// NOTE(jtw): method signature is different from most other signatures where the tx is passed in and updated
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUnstartedTransactionFromAddress(_ context.Context, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fromAddress ADDR, chainID CHAIN_ID) error {
 	if ms.chainID.String() != chainID.String() {
 		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrInvalidChainID)
 	}
@@ -274,22 +302,54 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindN
 		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrAddressNotFound)
 	}
 
-	return fmt.Errorf("find_next_unstarted_transaction_from_address: not implemented")
+	select {
+	case tx = <-ms.unstarted[fromAddress]:
+		return nil
+	default:
+		return fmt.Errorf("find_next_unstarted_transaction_from_address: failed to FindNextUnstartedTransactionFromAddress")
+	}
 }
 
 // SaveReplacementInProgressAttempt saves a replacement attempt for a transaction that is in_progress.
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveReplacementInProgressAttempt(
 	ctx context.Context,
 	oldAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	replacementAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
-	// TODO(jtw)
+	if oldAttempt.State != txmgrtypes.TxAttemptInProgress || replacementAttempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("save_replacement_in_progress_attempt: expected attempts to be in_progress")
+	}
+	if oldAttempt.ID == 0 {
+		return fmt.Errorf("save_replacement_in_progress_attempt: expected oldattempt to have an ID")
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.SaveReplacementInProgressAttempt(ctx, oldAttempt, replacementAttempt); err != nil {
+		return fmt.Errorf("save_replacement_in_progress_attempt: %w", err)
+	}
+
+	// TODO(jtw): finish implementing
 	return fmt.Errorf("save_replacement_in_progress_attempt: not implemented")
 }
 
 // UpdateTxFatalError updates a transaction to fatal_error.
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxFatalError(ctx context.Context, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	// TODO(jtw)
+	if tx.State != TxInProgress {
+		return fmt.Errorf("update_tx_fatal_error: can only transition to fatal_error from in_progress, transaction is currently %s", tx.State)
+	}
+	if !tx.Error.Valid {
+		return fmt.Errorf("update_tx_fatal_error: expected error field to be set")
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.UpdateTxFatalError(ctx, tx); err != nil {
+		return fmt.Errorf("update_tx_fatal_error: %w", err)
+	}
+
+	// Ensure that the tx state is updated to fatal_error since this is a chain agnostic operation
+	tx.Sequence = nil
+	tx.State = TxFatalError
+
 	return fmt.Errorf("update_tx_fatal_error: not implemented")
 }
 
