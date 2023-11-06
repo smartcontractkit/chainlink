@@ -1344,17 +1344,19 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 		assert.Equal(t, true, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 	})
 
-	t.Run("returns false if transaction is of type 0x71 only on zkSync", func(t *testing.T) {
+	t.Run("returns false if transaction is of type 0x71 or 0xff only on zkSync", func(t *testing.T) {
 		cfg.ChainTypeF = string(config.ChainZkSync)
 		tx := evmtypes.Transaction{Type: 0x71, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
 		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 
-		tx2 := evmtypes.Transaction{Type: 0x72, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
-		assert.Equal(t, true, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		tx.Type = 0x02
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+
+		tx.Type = 0xff
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 
 		cfg.ChainTypeF = ""
 		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
-
 	})
 }
 

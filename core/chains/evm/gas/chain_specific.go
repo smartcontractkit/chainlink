@@ -43,9 +43,9 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 		}
 	}
 	if chainType == config.ChainZkSync {
-		// zKSync specific transaction that's used for contract deployments
-		// https://era.zksync.io/docs/reference/concepts/transactions.html#eip-1559-0x2
-		if tx.Type == 0x71 {
+		// zKSync specific type for contract deployment & priority transactions
+		// https://era.zksync.io/docs/reference/concepts/transactions.html#eip-712-0x71
+		if tx.Type == 0x71 || tx.Type == 0xff {
 			return false
 		}
 	}
