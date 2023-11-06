@@ -230,7 +230,7 @@ func (h *Head) NextInt() *big.Int {
 // AsSlice returns a slice of heads up to length k
 // len(heads) may be less than k if the available chain is not long enough
 func (h *Head) AsSlice(k int) (heads []*Head) {
-	if k == 0 || h == nil {
+	if k < 1 || h == nil {
 		return
 	}
 	heads = make([]*Head, 1)
