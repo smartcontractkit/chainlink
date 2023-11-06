@@ -58,8 +58,7 @@ let config = {
     },
     arbitrum_sepolia: {
       url: 'https://arbitrum-testnet-cl-1.simplystaking.xyz/FTPV9ZQZ17P1/rpc',
-
-    }
+    },
   },
   solidity: {
     compilers: [
@@ -147,14 +146,14 @@ if (process.env.NETWORK_NAME && process.env.EXPLORER_API_KEY) {
       },
       customChains: [
         {
-          network: "arbitrum_sepolia",
+          network: 'arbitrum_sepolia',
           chainId: 421614,
           urls: {
-            apiURL: "https://api-sepolia.arbiscan.io/api",
-            browserURL: "https://sepolia.arbiscan.io"
-          }
-        }
-      ]
+            apiURL: 'https://api-sepolia.arbiscan.io/api',
+            browserURL: 'https://sepolia.arbiscan.io',
+          },
+        },
+      ],
     },
   }
 }
