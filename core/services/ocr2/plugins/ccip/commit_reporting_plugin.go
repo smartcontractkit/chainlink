@@ -635,7 +635,7 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(observations []CommitObser
 
 	var tokenPriceUpdates []ccipdata.TokenPrice
 	for token, tokenPriceObservations := range priceObservations {
-		medianPrice := ccipcalc.BigIntMedian(tokenPriceObservations)
+		medianPrice := ccipcalc.BigIntSortedMiddle(tokenPriceObservations)
 
 		latestTokenPrice, exists := latestTokenPrices[token]
 		if exists {

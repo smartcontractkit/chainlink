@@ -100,8 +100,8 @@ func (g DAGasPriceEstimator) Median(gasPrices []GasPrice) (GasPrice, error) {
 		execPrices[i] = execGasPrice
 	}
 
-	daMedian := ccipcalc.BigIntMedian(daPrices)
-	execMedian := ccipcalc.BigIntMedian(execPrices)
+	daMedian := ccipcalc.BigIntSortedMiddle(daPrices)
+	execMedian := ccipcalc.BigIntSortedMiddle(execPrices)
 
 	daMedian = new(big.Int).Lsh(daMedian, g.priceEncodingLength)
 	return new(big.Int).Add(daMedian, execMedian), nil
