@@ -66,7 +66,9 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   ) external view whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
     (uint256[] memory needsFunding, uint256[] memory topUpAmounts) = getUnderfundedUpkeeps();
     upkeepNeeded = needsFunding.length > 0;
-    performData = abi.encode(needsFunding, topUpAmounts);
+    if (upkeepNeeded) {
+      performData = abi.encode(needsFunding, topUpAmounts);
+    }
     return (upkeepNeeded, performData);
   }
 

@@ -49,8 +49,8 @@ const setup = async () => {
     .transfer(upkeepBalanceMonitor.address, ethers.utils.parseEther('10000'))
   await upkeepBalanceMonitor
     .connect(owner)
-    .setWatchList([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
-  for (let i = 1; i < 13; i++) {
+    .setWatchList([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+  for (let i = 0; i < 12; i++) {
     await registry.mock.getMinBalance.withArgs(i).returns(100)
     await registry.mock.getBalance.withArgs(i).returns(121) // all upkeeps are sufficiently funded
   }
@@ -135,29 +135,66 @@ describe('UpkeepBalanceMonitor', () => {
     })
   })
 
-  describe('getUnderfundedUpkeeps', () => {
+  describe('checkUpkeep / getUnderfundedUpkeeps', () => {
     it('should find the underfunded upkeeps', async () => {
       let [upkeepIDs, topUpAmounts] =
         await upkeepBalanceMonitor.getUnderfundedUpkeeps()
       expect(upkeepIDs.length).to.equal(0)
       expect(topUpAmounts.length).to.equal(0)
+      let [upkeepNeeded, performData] =
+        await upkeepBalanceMonitor.checkUpkeep('0x')
+      expect(upkeepNeeded).to.be.false
+      expect(performData).to.equal('0x')
       // update the balance for some upkeeps
       await registry.mock.getBalance.withArgs(2).returns(120)
       await registry.mock.getBalance.withArgs(4).returns(15)
       await registry.mock.getBalance.withArgs(5).returns(0)
       ;[upkeepIDs, topUpAmounts] =
         await upkeepBalanceMonitor.getUnderfundedUpkeeps()
-      expect(upkeepIDs).to.deep.equal([2, 4, 5].map(BigNumber.from))
-      expect(topUpAmounts).to.deep.equal([180, 285, 300].map(BigNumber.from))
+      expect(upkeepIDs.map((v) => v.toNumber())).to.deep.equal([2, 4, 5])
+      expect(topUpAmounts.map((v) => v.toNumber())).to.deep.equal([
+        180, 285, 300,
+      ])
+      ;[upkeepNeeded, performData] =
+        await upkeepBalanceMonitor.checkUpkeep('0x')
+      expect(upkeepNeeded).to.be.true
+      expect(performData).to.equal(
+        ethers.utils.defaultAbiCoder.encode(
+          ['uint256[]', 'uint256[]'],
+          [
+            [2, 4, 5],
+            [180, 285, 300],
+          ],
+        ),
+      )
       // update all to need funding
-      for (let i = 1; i < 13; i++) {
+      for (let i = 0; i < 12; i++) {
         await registry.mock.getBalance.withArgs(i).returns(0)
       }
-      // test that only up to max batch size are included in the list
+      // only the max batch size are included in the list
       ;[upkeepIDs, topUpAmounts] =
         await upkeepBalanceMonitor.getUnderfundedUpkeeps()
       expect(upkeepIDs.length).to.equal(10)
       expect(topUpAmounts.length).to.equal(10)
+      expect(upkeepIDs.map((v) => v.toNumber())).to.deep.equal([
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+      ]) // 0-9
+      expect(topUpAmounts.map((v) => v.toNumber())).to.deep.equal([
+        ...Array(10).fill(300),
+      ])
+      // update the balance for some upkeeps
+      await registry.mock.getBalance.withArgs(0).returns(300)
+      await registry.mock.getBalance.withArgs(5).returns(300)
+      ;[upkeepIDs, topUpAmounts] =
+        await upkeepBalanceMonitor.getUnderfundedUpkeeps()
+      expect(upkeepIDs.length).to.equal(10)
+      expect(topUpAmounts.length).to.equal(10)
+      expect(upkeepIDs.map((v) => v.toNumber())).to.deep.equal([
+        1, 2, 3, 4, 6, 7, 8, 9, 10, 11,
+      ])
+      expect(topUpAmounts.map((v) => v.toNumber())).to.deep.equal([
+        ...Array(10).fill(300),
+      ])
     })
   })
 })
