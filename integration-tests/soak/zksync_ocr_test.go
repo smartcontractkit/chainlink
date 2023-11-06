@@ -20,7 +20,7 @@ import (
 func TestOCRZKSync(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
-	_, insideRunner := os.LookupEnv("INSIDE_REMOTE_RUNNER")
+	//_, insideRunner := os.LookupEnv("INSIDE_REMOTE_RUNNER")
 
 	l1RpcUrl, isSet := os.LookupEnv("L1_RPC_URL")
 	require.Equal(t, isSet, true, "L1_RPC_URL should be defined")
@@ -31,7 +31,7 @@ func TestOCRZKSync(t *testing.T) {
 	timeBetweenRounds, isSet := os.LookupEnv("OCR_TIME_BETWEEN_ROUNDS")
 	require.Equal(t, isSet, true, "OCR_TIME_BETWEEN_ROUNDS should be defined")
 
-	gauntletBinary, isSet := os.LookupEnv("GAUNTLET_LOCAL_BINARY")
+	//gauntletBinary, isSet := os.LookupEnv("GAUNTLET_LOCAL_BINARY")
 	require.Equal(t, isSet, true, "GAUNTLET_LOCAL_BINARY should be defined")
 
 	testEnvironment, testNetwork, err := zksync.SetupOCRTest(t)
@@ -40,10 +40,10 @@ func TestOCRZKSync(t *testing.T) {
 	require.NoError(t, err)
 
 	fmt.Println(pl)
-	if !insideRunner {
-		_, _, _, err = testEnvironment.Client.CopyToPod(testEnvironment.Cfg.Namespace, gauntletBinary, fmt.Sprintf("%s/%s:/gauntlet-evm-zksync-linux-x64", testEnvironment.Cfg.Namespace, pl.Items[0].Name), "remote-test-runner-node")
-		require.NoError(t, err, "Error uploading to pod")
-	}
+	//if !insideRunner {
+	//	_, _, _, err = testEnvironment.Client.CopyToPod(testEnvironment.Cfg.Namespace, gauntletBinary, fmt.Sprintf("%s/%s:/gauntlet-evm-zksync-linux-x64", testEnvironment.Cfg.Namespace, pl.Items[0].Name), "remote-test-runner-node")
+	//	require.NoError(t, err, "Error uploading to pod")
+	//}
 
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -79,6 +79,8 @@ func TestOCRZKSync(t *testing.T) {
 	endTime := time.Now().Add(duration)
 	round := 1
 	for ; time.Now().Before(endTime); time.Sleep(waitBetweenRounds) {
+		l.Info().Msg(fmt.Sprintf("Time now %v", time.Now()))
+		l.Info().Msg(fmt.Sprintf("End time %v", endTime))
 		l.Info().Msg(fmt.Sprintf("Starting round %d", round))
 		answer, err := zkClient.RequestOCRRound(int64(round), 10, l)
 		if err != nil {
@@ -90,4 +92,5 @@ func TestOCRZKSync(t *testing.T) {
 		}
 		round++
 	}
+	l.Info().Msg("Done test finished")
 }
