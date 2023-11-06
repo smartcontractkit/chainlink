@@ -27,9 +27,23 @@ on:
         default: "v2.7.0-beta0"
         required: true
       selectedNetworks:
-        description: Network to use (only Sepolia or Mumbai)
-        default: "Sepolia"
+        type: choice
+        options:
+          - "SIMULATED"
+          - "SEPOLIA"
+          - "MUMBAI"
+      fundingPrivateKey:
+        description: Private funding key (Skip for Simulated)
         required: true
+        type: string
+      wsURL:
+        description: WS URL for the network (Skip for Simulated)
+        required: true
+        type: string
+      httpURL:
+        description: HTTP URL for the network (Skip for Simulated)
+        required: true
+        type: string        
 
 jobs:
   test:
@@ -41,13 +55,22 @@ jobs:
       CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
       CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
       SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
-      EVM_KEYS: ${{ inputs.ctfFundingKey }}
-      EVM_HTTP_URLS: ${{ inputs.ctfRpcURL }}
-      EVM_URLS: ${{ inputs.ctfWsURL }}
       REF_NAME: ${{ github.head_ref || github.ref_name }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Get Inputs
+        run: |
+          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
+          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
+          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
+
+          echo ::add-mask::$EVM_URLS
+          echo ::add-mask::$EVM_HTTP_URLS
+          echo ::add-mask::$EVM_KEYS
+
+          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
+          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
+          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
