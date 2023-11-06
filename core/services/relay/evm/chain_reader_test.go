@@ -243,11 +243,19 @@ func TestValidateChainReaderConfig(t *testing.T) {
 			})*/
 
 	var cfg types.ChainReaderConfig
+
+	t.Run("abi not parsed", func(t *testing.T) {
+		formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, "", testCases[0].chainReadingDefinitions)
+		assert.NoError(t, json.Unmarshal([]byte(formattedCfgJsonString), &cfg))
+		assert.EqualError(t, ValidateChainReaderConfig(cfg), "contract: testContract ABI is not parsed")
+	})
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			abiString := strings.Replace(tc.abiInput, `"`, `\"`, -1)
 			formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, abiString, tc.chainReadingDefinitions)
 			assert.NoError(t, json.Unmarshal([]byte(formattedCfgJsonString), &cfg))
+			assert.NoError(t, parseChainContractReadersABIs(cfg.ChainContractReaders))
 			assert.NoError(t, ValidateChainReaderConfig(cfg))
 		})
 	}
@@ -264,6 +272,7 @@ func TestValidateChainReaderConfig(t *testing.T) {
 		manyChainReadingDefinitions = manyChainReadingDefinitions[:len(manyChainReadingDefinitions)-1]
 		formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, strings.Replace(largeABI, `"`, `\"`, -1), manyChainReadingDefinitions)
 		assert.NoError(t, json.Unmarshal([]byte(formattedCfgJsonString), &cfg))
+		assert.NoError(t, parseChainContractReadersABIs(cfg.ChainContractReaders))
 		assert.NoError(t, ValidateChainReaderConfig(cfg))
 	})
 }

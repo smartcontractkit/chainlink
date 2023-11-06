@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 
@@ -35,7 +36,8 @@ type ChainReaderConfig struct {
 }
 
 type ChainContractReader struct {
-	ContractABI string `json:"contractABI"`
+	ContractABI       string `json:"contractABI"`
+	ParsedContractABI *abi.ABI
 	// key is genericName from config
 	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions"`
 }

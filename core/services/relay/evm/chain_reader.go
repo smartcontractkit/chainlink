@@ -28,6 +28,10 @@ func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts)
 		return nil, relaytypes.ErrorChainReaderUnsupported{}
 	}
 
+	if err = parseChainContractReadersABIs(relayConfig.ChainReader.ChainContractReaders); err != nil {
+		return nil, err
+	}
+
 	if err = ValidateChainReaderConfig(*relayConfig.ChainReader); err != nil {
 		return nil, fmt.Errorf("invalid ChainReader configuration: %w", err)
 	}
@@ -35,19 +39,30 @@ func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts)
 	return &chainReader{lggr.Named("ChainReader"), chain.LogPoller(), relayConfig.ChainReader.ChainContractReaders}, nil
 }
 
-func ValidateChainReaderConfig(cfg types.ChainReaderConfig) error {
-	for contractName, chainContractReader := range cfg.ChainContractReaders {
-		abi, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
+func parseChainContractReadersABIs(chainContractReaders map[string]types.ChainContractReader) error {
+	for key, chainContractReader := range chainContractReaders {
+		parsedABI, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
 		if err != nil {
 			return err
+		}
+		chainContractReader.ParsedContractABI = &parsedABI
+		chainContractReaders[key] = chainContractReader
+	}
+	return nil
+}
+
+func ValidateChainReaderConfig(cfg types.ChainReaderConfig) (err error) {
+	for contractName, chainContractReader := range cfg.ChainContractReaders {
+		if chainContractReader.ParsedContractABI == nil {
+			return fmt.Errorf("contract: %s ABI is not parsed", contractName)
 		}
 
 		for chainReadingDefinitionName, chainReaderDefinition := range chainContractReader.ChainReaderDefinitions {
 			switch chainReaderDefinition.ReadType {
 			case types.Method:
-				err = validateMethods(abi, chainReaderDefinition)
+				err = validateMethods(*chainContractReader.ParsedContractABI, chainReaderDefinition)
 			case types.Event:
-				err = validateEvents(abi, chainReaderDefinition)
+				err = validateEvents(*chainContractReader.ParsedContractABI, chainReaderDefinition)
 			default:
 				return fmt.Errorf("invalid chain reader definition read type: %d", chainReaderDefinition.ReadType)
 			}
