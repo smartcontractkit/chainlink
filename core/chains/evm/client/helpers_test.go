@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -89,7 +88,7 @@ func NewChainClientWithTestNode(
 	}
 
 	lggr := logger.TestLogger(t)
-	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, clienttypes.Primary)
+	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
 	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCCLient](
 		nodeCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
@@ -101,7 +100,7 @@ func NewChainClientWithTestNode(
 			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
-		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, clienttypes.Secondary)
+		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
 		s := commonclient.NewSendOnlyNode[*big.Int, RPCCLient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
