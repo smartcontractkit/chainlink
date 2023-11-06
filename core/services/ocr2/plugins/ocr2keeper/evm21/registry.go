@@ -43,7 +43,7 @@ const (
 	cleanupInterval            = 5 * time.Minute
 	logTriggerRefreshBatchSize = 32
 	totalFastPluginRetries     = 5
-	totalPluginRetries         = 10
+	totalMediumPluginRetries   = 10
 )
 
 var (

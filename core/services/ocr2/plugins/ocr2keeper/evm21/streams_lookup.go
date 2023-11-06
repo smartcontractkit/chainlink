@@ -625,10 +625,10 @@ func (r *EvmRegistry) calculateRetryConfig(prk string) time.Duration {
 		retries = totalAttempts.(int)
 		if retries < totalFastPluginRetries {
 			ri = 1 * time.Second
-		} else if retries < totalPluginRetries {
+		} else if retries < totalMediumPluginRetries {
 			ri = 5 * time.Second
 		}
-		// if the core node has retried totalFastPluginRetries times, do not set retry interval and plugin will use
+		// if the core node has retried totalMediumPluginRetries times, do not set retry interval and plugin will use
 		// the default interval
 	} else {
 		ri = 1 * time.Second
