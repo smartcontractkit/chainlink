@@ -511,17 +511,21 @@ func (c *SimulatedBackendClient) ethGetTransactionReceipt(ctx context.Context, r
 	}
 
 	receipt, err := c.b.TransactionReceipt(ctx, hash)
-	if receipt != nil {
-		typed, ok := result.(*evmtypes.Receipt)
-		if !ok {
-			panic("expected a *evmtypes.Receipt")
-			// return fmt.Errorf("SimulatedBackendClient expected return type of *evmtypes.Receipt for eth_getTransactionReceipt, got type %T", result)
-		}
-
-		*typed = *evmtypes.FromGethReceipt(receipt)
+	if err != nil {
+		return err
 	}
 
-	return err
+	switch typed := result.(type) {
+	case *types.Receipt:
+		*typed = *receipt
+	case *evmtypes.Receipt:
+		*typed = *evmtypes.FromGethReceipt(receipt)
+	default:
+		panic("unexpected receipt type; use *gethtypes.Receipt or *evmtypes.Receipt")
+		// return fmt.Errorf("SimulatedBackendClient expected return type of *evmtypes.Receipt for eth_getTransactionReceipt, got type %T", result)
+	}
+
+	return nil
 }
 
 func (c *SimulatedBackendClient) ethGetBlockByNumber(ctx context.Context, result interface{}, args ...interface{}) error {
