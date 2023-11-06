@@ -56,6 +56,10 @@ let config = {
       ),
       hardfork: 'merge',
     },
+    arbitrum_sepolia: {
+      url: 'https://arbitrum-testnet-cl-1.simplystaking.xyz/FTPV9ZQZ17P1/rpc',
+
+    }
   },
   solidity: {
     compilers: [
@@ -105,6 +109,18 @@ let config = {
           },
         },
       },
+      'src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol': {
+        version: '0.8.6',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 50, // see native_solc_compile_all_vrf
+          },
+          metadata: {
+            bytecodeHash: 'none',
+          },
+        },
+      },
     },
   },
   contractSizer: {
@@ -129,6 +145,16 @@ if (process.env.NETWORK_NAME && process.env.EXPLORER_API_KEY) {
       apiKey: {
         [process.env.NETWORK_NAME]: process.env.EXPLORER_API_KEY,
       },
+      customChains: [
+        {
+          network: "arbitrum_sepolia",
+          chainId: 421614,
+          urls: {
+            apiURL: "https://api-sepolia.arbiscan.io/api",
+            browserURL: "https://sepolia.arbiscan.io"
+          }
+        }
+      ]
     },
   }
 }
