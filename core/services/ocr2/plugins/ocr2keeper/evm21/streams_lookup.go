@@ -59,14 +59,14 @@ type MercuryV02Response struct {
 // MercuryV03Response represents a JSON structure used by Mercury v0.3
 type MercuryV03Response struct {
 	Reports []MercuryV03Report `json:"reports"`
-	Errors  []ErrorItem        `json:"errors"`
+	//Errors  []ErrorItem        `json:"errors"`
 }
 
-type ErrorItem struct {
-	FeedID      string `json:"feedID"` // feed id in hex encoded
-	ErrorCode   string `json:"errorCode"`
-	ErrorDetail string `json:"errorDetail"`
-}
+//type ErrorItem struct {
+//	FeedID      string `json:"feedID"` // feed id in hex encoded
+//	ErrorCode   string `json:"errorCode"`
+//	ErrorDetail string `json:"errorDetail"`
+//}
 
 type MercuryV03Report struct {
 	FeedID                string `json:"feedID"` // feed id in hex encoded
@@ -332,9 +332,11 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, p
 			results[m.Index] = m.Bytes[0]
 		}
 	}
-	retryable, ri = r.calculateRetryConfig(retryable && !allSuccess, prk)
+	if retryable && !allSuccess {
+		ri = r.calculateRetryConfig(prk)
+	}
 	// only retry when not all successful AND none are not retryable
-	return state, encoding.UpkeepFailureReasonNone, results, retryable, ri, reqErr
+	return state, encoding.UpkeepFailureReasonNone, results, retryable && !allSuccess, ri, reqErr
 }
 
 // singleFeedRequest sends a v0.2 Mercury request for a single feed report.
@@ -528,9 +530,9 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 					return err1
 				}
 
-				for _, e := range response.Errors {
-					lggr.Debugf("at timestamp %s upkeep %s feed ID %s, mercury v0.3 server returns 206 with %s", sl.Time.String(), sl.upkeepId.String(), e.FeedID, e.ErrorDetail)
-				}
+				//for _, e := range response.Errors {
+				//	lggr.Debugf("at timestamp %s upkeep %s feed ID %s, mercury v0.3 server returns 206 with %s", sl.Time.String(), sl.upkeepId.String(), e.FeedID, e.ErrorDetail)
+				//}
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", http.StatusPartialContent)
@@ -615,27 +617,25 @@ func (r *EvmRegistry) generateHMAC(method string, path string, body []byte, clie
 	return userHmac
 }
 
-// calculateRetryConfig returns retryable and plugin retry interval based on how many times plugin has retried this work
-func (r *EvmRegistry) calculateRetryConfig(retryable bool, prk string) (bool, time.Duration) {
+// calculateRetryConfig returns plugin retry interval based on how many times plugin has retried this work
+func (r *EvmRegistry) calculateRetryConfig(prk string) time.Duration {
 	var ri time.Duration
-	if retryable {
-		var retries int
-		totalAttempts, ok := r.mercury.pluginRetryCache.Get(prk)
-		if ok {
-			retries = totalAttempts.(int)
-			if retries >= totalPluginRetries {
-				retryable = false
-			} else if retries >= totalFastPluginRetries {
-				ri = 5 * time.Second
-			} else {
-				ri = 1 * time.Second
-			}
-		} else {
+	var retries int
+	totalAttempts, ok := r.mercury.pluginRetryCache.Get(prk)
+	if ok {
+		retries = totalAttempts.(int)
+		if retries < totalFastPluginRetries {
 			ri = 1 * time.Second
+		} else if retries < totalPluginRetries {
+			ri = 5 * time.Second
 		}
-		r.mercury.pluginRetryCache.Set(prk, retries+1, cache.DefaultExpiration)
+		// if the core node has retried totalFastPluginRetries times, do not set retry interval and plugin will use
+		// the default interval
+	} else {
+		ri = 1 * time.Second
 	}
-	return retryable, ri
+	r.mercury.pluginRetryCache.Set(prk, retries+1, cache.DefaultExpiration)
+	return ri
 }
 
 // generatePluginRetryKey returns a plugin retry cache key
