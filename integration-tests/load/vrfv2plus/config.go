@@ -57,8 +57,8 @@ type Funding struct {
 }
 
 type SubFunding struct {
-	SubFundsLink   int64 `toml:"sub_funds_link"`
-	SubFundsNative int64 `toml:"sub_funds_native"`
+	SubFundsLink   float64 `toml:"sub_funds_link"`
+	SubFundsNative float64 `toml:"sub_funds_native"`
 }
 
 type Soak struct {
