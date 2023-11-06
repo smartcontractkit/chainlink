@@ -1528,6 +1528,136 @@ func (_FunctionsCoordinator *FunctionsCoordinatorFilterer) ParseOwnershipTransfe
 	return event, nil
 }
 
+type FunctionsCoordinatorRequestBilledIterator struct {
+	Event *FunctionsCoordinatorRequestBilled
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *FunctionsCoordinatorRequestBilledIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FunctionsCoordinatorRequestBilled)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(FunctionsCoordinatorRequestBilled)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *FunctionsCoordinatorRequestBilledIterator) Error() error {
+	return it.fail
+}
+
+func (it *FunctionsCoordinatorRequestBilledIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type FunctionsCoordinatorRequestBilled struct {
+	RequestId         [32]byte
+	JuelsPerGas       *big.Int
+	CallbackCostJuels *big.Int
+	TotalCostJuels    *big.Int
+	Raw               types.Log
+}
+
+func (_FunctionsCoordinator *FunctionsCoordinatorFilterer) FilterRequestBilled(opts *bind.FilterOpts, requestId [][32]byte) (*FunctionsCoordinatorRequestBilledIterator, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+
+	logs, sub, err := _FunctionsCoordinator.contract.FilterLogs(opts, "RequestBilled", requestIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &FunctionsCoordinatorRequestBilledIterator{contract: _FunctionsCoordinator.contract, event: "RequestBilled", logs: logs, sub: sub}, nil
+}
+
+func (_FunctionsCoordinator *FunctionsCoordinatorFilterer) WatchRequestBilled(opts *bind.WatchOpts, sink chan<- *FunctionsCoordinatorRequestBilled, requestId [][32]byte) (event.Subscription, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+
+	logs, sub, err := _FunctionsCoordinator.contract.WatchLogs(opts, "RequestBilled", requestIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(FunctionsCoordinatorRequestBilled)
+				if err := _FunctionsCoordinator.contract.UnpackLog(event, "RequestBilled", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_FunctionsCoordinator *FunctionsCoordinatorFilterer) ParseRequestBilled(log types.Log) (*FunctionsCoordinatorRequestBilled, error) {
+	event := new(FunctionsCoordinatorRequestBilled)
+	if err := _FunctionsCoordinator.contract.UnpackLog(event, "RequestBilled", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type FunctionsCoordinatorTransmittedIterator struct {
 	Event *FunctionsCoordinatorTransmitted
 
@@ -1673,6 +1803,8 @@ func (_FunctionsCoordinator *FunctionsCoordinator) ParseLog(log types.Log) (gene
 		return _FunctionsCoordinator.ParseOwnershipTransferRequested(log)
 	case _FunctionsCoordinator.abi.Events["OwnershipTransferred"].ID:
 		return _FunctionsCoordinator.ParseOwnershipTransferred(log)
+	case _FunctionsCoordinator.abi.Events["RequestBilled"].ID:
+		return _FunctionsCoordinator.ParseRequestBilled(log)
 	case _FunctionsCoordinator.abi.Events["Transmitted"].ID:
 		return _FunctionsCoordinator.ParseTransmitted(log)
 
@@ -1707,6 +1839,10 @@ func (FunctionsCoordinatorOwnershipTransferRequested) Topic() common.Hash {
 
 func (FunctionsCoordinatorOwnershipTransferred) Topic() common.Hash {
 	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
+}
+
+func (FunctionsCoordinatorRequestBilled) Topic() common.Hash {
+	return common.HexToHash("0x50ee981d8eb365635573e106848af67ca81b9c9712a304ecf9d705e66e505fda")
 }
 
 func (FunctionsCoordinatorTransmitted) Topic() common.Hash {
@@ -1809,6 +1945,12 @@ type FunctionsCoordinatorInterface interface {
 	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *FunctionsCoordinatorOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
 
 	ParseOwnershipTransferred(log types.Log) (*FunctionsCoordinatorOwnershipTransferred, error)
+
+	FilterRequestBilled(opts *bind.FilterOpts, requestId [][32]byte) (*FunctionsCoordinatorRequestBilledIterator, error)
+
+	WatchRequestBilled(opts *bind.WatchOpts, sink chan<- *FunctionsCoordinatorRequestBilled, requestId [][32]byte) (event.Subscription, error)
+
+	ParseRequestBilled(log types.Log) (*FunctionsCoordinatorRequestBilled, error)
 
 	FilterTransmitted(opts *bind.FilterOpts) (*FunctionsCoordinatorTransmittedIterator, error)
 

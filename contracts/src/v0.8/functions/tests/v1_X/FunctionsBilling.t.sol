@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {FunctionsCoordinator} from "../../dev/v1_X/FunctionsCoordinator.sol";
 import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
+import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {FunctionsSubscriptions} from "../../dev/v1_X/FunctionsSubscriptions.sol";
 import {Routable} from "../../dev/v1_X/Routable.sol";
 
@@ -221,8 +222,47 @@ contract FunctionsBilling__StartBilling {
 }
 
 /// @notice #_fulfillAndBill
-contract FunctionsBilling__FulfillAndBill {
-  // TODO: make contract internal function helper
+contract FunctionsBilling__FulfillAndBill is FunctionsClientRequestSetup {
+  function test__FulfillAndBill_RevertIfInvalidCommitment() public {
+    vm.expectRevert();
+    s_functionsCoordinator.fulfillAndBill_HARNESS(
+      s_requests[1].requestId,
+      new bytes(0),
+      new bytes(0),
+      new bytes(0), // malformed commitment data
+      new bytes(0)
+    );
+  }
+
+  event RequestBilled(bytes32 indexed requestId, uint96 juelsPerGas, uint96 callbackCostJuels, uint96 totalCostJuels);
+
+  function test__FulfillAndBill_Success() public {
+    uint96 juelsPerGas = uint96((1e18 * TX_GASPRICE_START) / uint256(LINK_ETH_RATE));
+    uint96 callbackCostGas = 5072; // Taken manually
+    uint96 callbackCostJuels = juelsPerGas * callbackCostGas;
+    uint96 gasOverheadJuels = juelsPerGas *
+      (getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback);
+
+    uint96 totalCostJuels = gasOverheadJuels + callbackCostJuels + s_donFee + s_adminFee;
+
+    // topic0 (function signature, always checked), check topic1 (true), NOT topic2 (false), NOT topic3 (false), and data (true).
+    bool checkTopic1 = true;
+    bool checkTopic2 = false;
+    bool checkTopic3 = false;
+    bool checkData = true;
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit RequestBilled(s_requests[1].requestId, juelsPerGas, callbackCostJuels, totalCostJuels);
+
+    FunctionsResponse.FulfillResult resultCode = s_functionsCoordinator.fulfillAndBill_HARNESS(
+      s_requests[1].requestId,
+      new bytes(0),
+      new bytes(0),
+      abi.encode(s_requests[1].commitment),
+      new bytes(0)
+    );
+
+    assertEq(uint256(resultCode), uint256(FunctionsResponse.FulfillResult.FULFILLED));
+  }
 }
 
 /// @notice #deleteCommitment

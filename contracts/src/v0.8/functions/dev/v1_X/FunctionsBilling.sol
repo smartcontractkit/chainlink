@@ -20,6 +20,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   using FunctionsResponse for FunctionsResponse.FulfillResult;
 
   uint256 private constant REASONABLE_GAS_PRICE_CEILING = 1_000_000_000_000_000; // 1 million gwei
+
+  event RequestBilled(bytes32 indexed requestId, uint96 juelsPerGas, uint96 callbackCostJuels, uint96 totalCostJuels);
+
   // ================================================================
   // |                  Request Commitment state                    |
   // ================================================================
@@ -292,6 +295,12 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       // Put donFee into the pool of fees, to be split later
       // Saves on storage writes that would otherwise be charged to the user
       s_feePool += commitment.donFee;
+      emit RequestBilled({
+        requestId: requestId,
+        juelsPerGas: juelsPerGas,
+        callbackCostJuels: callbackCostJuels,
+        totalCostJuels: gasOverheadJuels + callbackCostJuels + commitment.donFee + commitment.adminFee
+      });
     }
 
     return resultCode;
