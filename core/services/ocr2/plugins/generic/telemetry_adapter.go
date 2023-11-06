@@ -52,7 +52,7 @@ func (t *TelemetryAdapter) getOrCreateEndpoint(network string, chainID string, c
 	key := [4]string{network, chainID, contractID, telemetryType}
 	e, ok := t.endpoints[key]
 	if !ok {
-		e = t.endpointGenerator.GenMonitoringEndpoint(contractID, synchronization.TelemetryType(telemetryType), network, chainID)
+		e = t.endpointGenerator.GenMonitoringEndpoint(network, chainID, contractID, synchronization.TelemetryType(telemetryType))
 		t.endpoints[key] = e
 	}
 	return e, nil

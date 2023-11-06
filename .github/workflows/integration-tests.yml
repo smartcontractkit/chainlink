@@ -10,11 +10,15 @@ on:
       - "*"
   workflow_dispatch:
     inputs:
-      liveNetwork:
-        description: "Run Live Testnet Tests"
+      simulatedNetwork:
+        description: "Run Simulated Network Tests"
         required: false
         type: boolean
-
+        default: true
+      liveNetwork:
+        description: "Run Live Network Tests"
+        required: false
+        type: boolean
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
@@ -58,6 +62,7 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Check Paths That Require Tests To Run
         continue-on-error: true
+
     outputs:
       src: ${{ steps.changes.outputs.src }}
   build-chainlink:
@@ -176,7 +181,7 @@ jobs:
           echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
 
   eth-smoke-tests-matrix-automation:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || (github.event_name == 'workflow_dispatch' && !inputs.simulatedNetwork)) }}
     environment: integration
     permissions:
       checks: write
@@ -246,7 +251,7 @@ jobs:
         continue-on-error: true
 
   eth-smoke-tests-matrix:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || (github.event_name == 'workflow_dispatch' && !inputs.simulatedNetwork)) }}
     environment: integration
     permissions:
       checks: write
@@ -298,7 +303,7 @@ jobs:
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
             nodes: 1
@@ -971,7 +976,7 @@ jobs:
 
   testnet-smoke-tests-notify:
     name: Live Testnet Start Slack Thread
-    if: ${{ always() && needs.testnet-smoke-tests-matrix.result != 'skipped' && needs.testnet-smoke-tests-matrix.result != 'cancelled' }}
+    if: ${{ always() && needs.testnet-smoke-tests-matrix.result != 'skipped' && needs.testnet-smoke-tests-matrix.result != 'cancelled' && github.event_name != 'workflow_dispatch' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}

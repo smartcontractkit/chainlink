@@ -65,7 +65,7 @@ tests-*.xml
 tmp-manifest-*.yaml
 ztarrepo.tar.gz
 **/test-ledger/*
-__debug_bin
+__debug_bin*
 
 # goreleaser builds
 cosign.*
@@ -82,3 +82,4 @@ contracts/yarn.lock
 
 # Ignore DevSpace cache and log folder
 .devspace/
+go.work*
