@@ -80,8 +80,9 @@ type VRFCoordinatorV2_5 interface {
 	AddConsumer(subId *big.Int, consumerAddress string) error
 	FundSubscriptionWithNative(subId *big.Int, nativeTokenAmount *big.Int) error
 	Address() string
+	PendingRequestsExist(ctx context.Context, subID *big.Int) (bool, error)
 	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2_5.GetSubscription, error)
-	OwnerCancelSubscription(subID *big.Int) error
+	OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error)
 	CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error)
 	OracleWithdraw(recipient common.Address, amount *big.Int) error
 	OracleWithdrawNative(recipient common.Address, amount *big.Int) error
