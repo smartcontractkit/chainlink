@@ -24,7 +24,7 @@ on:
         required: true
       chainlinkVersion:
         description: Chainlink version to use
-        default: "v2.7.0-beta0"
+        default: "2.7.0-beta0"
         required: true
       selectedNetworks:
         type: choice
