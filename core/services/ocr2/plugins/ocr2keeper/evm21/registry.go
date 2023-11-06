@@ -38,7 +38,7 @@ import (
 const (
 	defaultPluginRetryExpiration = 30 * time.Minute
 	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
-	defaultAllowListExpiration = 20 * time.Minute
+	defaultAllowListExpiration = 10 * time.Minute
 	// cleanupInterval decides when the expired items in cache will be deleted.
 	cleanupInterval            = 5 * time.Minute
 	logTriggerRefreshBatchSize = 32
