@@ -28,6 +28,32 @@ jobs:
               - '.gitmodules'
               - 'contracts/foundry-lib'
 
+  lint:
+    defaults:
+      run:
+        working-directory: contracts
+    needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
+    name: Lint ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Run pnpm lint
+        run: pnpm lint
+      - name: Run solhint
+        run: pnpm solhint
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Lint
+        continue-on-error: true
+
   tests:
     strategy:
       fail-fast: false
@@ -35,7 +61,7 @@ jobs:
         product: [vrf, automation, llo-feeds, functions, shared]
     needs: [changes]
     if: needs.changes.outputs.changes == 'true'
-    name: Tests
+    name: Foundry Tests {{ matrix.product }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }
     # See https://github.com/foundry-rs/foundry/issues/3827
     runs-on: ubuntu-22.04
 
