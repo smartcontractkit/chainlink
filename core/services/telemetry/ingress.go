@@ -18,25 +18,25 @@ func NewIngressAgentWrapper(telemetryIngressClient synchronization.TelemetryServ
 	return &IngressAgentWrapper{telemetryIngressClient}
 }
 
-func (t *IngressAgentWrapper) GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType, network string, chainID string) ocrtypes.MonitoringEndpoint {
-	return NewIngressAgent(t.telemetryIngressClient, contractID, telemType, network, chainID)
+func (t *IngressAgentWrapper) GenMonitoringEndpoint(network, chainID string, contractID string, telemType synchronization.TelemetryType) ocrtypes.MonitoringEndpoint {
+	return NewIngressAgent(t.telemetryIngressClient, network, chainID, contractID, telemType)
 }
 
 type IngressAgent struct {
 	telemetryIngressClient synchronization.TelemetryService
-	contractID             string
-	telemType              synchronization.TelemetryType
 	network                string
 	chainID                string
+	contractID             string
+	telemType              synchronization.TelemetryType
 }
 
-func NewIngressAgent(telemetryIngressClient synchronization.TelemetryService, contractID string, telemType synchronization.TelemetryType, network string, chainID string) *IngressAgent {
+func NewIngressAgent(telemetryIngressClient synchronization.TelemetryService, network string, chainID string, contractID string, telemType synchronization.TelemetryType) *IngressAgent {
 	return &IngressAgent{
 		telemetryIngressClient,
-		contractID,
-		telemType,
 		network,
 		chainID,
+		contractID,
+		telemType,
 	}
 }
 

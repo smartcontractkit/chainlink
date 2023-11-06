@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 type CleanUpType string
@@ -30,22 +31,24 @@ const (
 )
 
 type CLTestEnvBuilder struct {
-	hasLogWatch        bool
-	hasGeth            bool
-	hasKillgrave       bool
-	hasForwarders      bool
-	clNodeConfig       *chainlink.Config
-	secretsConfig      string
-	nonDevGethNetworks []blockchain.EVMNetwork
-	clNodesCount       int
-	customNodeCsaKeys  []string
-	defaultNodeCsaKeys []string
-	l                  zerolog.Logger
-	t                  *testing.T
-	te                 *CLClusterTestEnv
-	isNonEVM           bool
-	cleanUpType        CleanUpType
-	cleanUpCustomFn    func()
+	hasLogWatch            bool
+	hasGeth                bool
+	hasKillgrave           bool
+	hasForwarders          bool
+	clNodeConfig           *chainlink.Config
+	secretsConfig          string
+	nonDevGethNetworks     []blockchain.EVMNetwork
+	clNodesCount           int
+	customNodeCsaKeys      []string
+	defaultNodeCsaKeys     []string
+	l                      zerolog.Logger
+	t                      *testing.T
+	te                     *CLClusterTestEnv
+	isNonEVM               bool
+	cleanUpType            CleanUpType
+	cleanUpCustomFn        func()
+	chainOptionsFn         []ChainOption
+	evmClientNetworkOption []EVMClientNetworkOption
 
 	/* funding */
 	ETHFunds *big.Float
@@ -162,6 +165,24 @@ func (b *CLTestEnvBuilder) WithCustomCleanup(customFn func()) *CLTestEnvBuilder 
 	return b
 }
 
+type ChainOption = func(*evmcfg.Chain) *evmcfg.Chain
+
+func (b *CLTestEnvBuilder) WithChainOptions(opts ...ChainOption) *CLTestEnvBuilder {
+	b.chainOptionsFn = make([]ChainOption, 0, 0)
+	b.chainOptionsFn = append(b.chainOptionsFn, opts...)
+
+	return b
+}
+
+type EVMClientNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
+
+func (b *CLTestEnvBuilder) EVMClientNetworkOptions(opts ...EVMClientNetworkOption) *CLTestEnvBuilder {
+	b.evmClientNetworkOption = make([]EVMClientNetworkOption, 0, 0)
+	b.evmClientNetworkOption = append(b.evmClientNetworkOption, opts...)
+
+	return b
+}
+
 func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	if b.te == nil {
 		var err error
@@ -245,10 +266,14 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if err != nil {
 			return nil, err
 		}
-
 	}
 
 	if !b.isNonEVM {
+		if b.evmClientNetworkOption != nil && len(b.evmClientNetworkOption) > 0 {
+			for _, fn := range b.evmClientNetworkOption {
+				fn(&networkConfig)
+			}
+		}
 		bc, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
 		if err != nil {
 			return nil, err
@@ -294,6 +319,14 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 
 			node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig, b.hasForwarders)
+
+			if b.chainOptionsFn != nil && len(b.chainOptionsFn) > 0 {
+				for _, fn := range b.chainOptionsFn {
+					for _, evmCfg := range cfg.EVM {
+						fn(&evmCfg.Chain)
+					}
+				}
+			}
 		}
 
 		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig)
