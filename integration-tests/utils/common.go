@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"math/big"
 	"net"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -22,4 +23,13 @@ func MustIP(s string) *net.IP {
 		panic(err)
 	}
 	return &ip
+}
+
+func BigIntSliceContains(slice []*big.Int, b *big.Int) bool {
+	for _, a := range slice {
+		if b.Cmp(a) == 0 {
+			return true
+		}
+	}
+	return false
 }

@@ -308,6 +308,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.WebServer = toml.WebServer{
+		AuthenticationMethod:    ptr("local"),
 		AllowOrigins:            ptr("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
 		BridgeCacheTTL:          models.MustNewDuration(10 * time.Second),
@@ -322,6 +323,25 @@ func TestConfig_Marshal(t *testing.T) {
 		MFA: toml.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
+		},
+		LDAP: toml.WebServerLDAP{
+			ServerTLS:                   ptr(true),
+			SessionTimeout:              models.MustNewDuration(15 * time.Minute),
+			QueryTimeout:                models.MustNewDuration(2 * time.Minute),
+			BaseUserAttr:                ptr("uid"),
+			BaseDN:                      ptr("dc=custom,dc=example,dc=com"),
+			UsersDN:                     ptr("ou=users"),
+			GroupsDN:                    ptr("ou=groups"),
+			ActiveAttribute:             ptr("organizationalStatus"),
+			ActiveAttributeAllowedValue: ptr("ACTIVE"),
+			AdminUserGroupCN:            ptr("NodeAdmins"),
+			EditUserGroupCN:             ptr("NodeEditors"),
+			RunUserGroupCN:              ptr("NodeRunners"),
+			ReadUserGroupCN:             ptr("NodeReadOnly"),
+			UserApiTokenEnabled:         ptr(false),
+			UserAPITokenDuration:        models.MustNewDuration(240 * time.Hour),
+			UpstreamSyncInterval:        models.MustNewDuration(0 * time.Second),
+			UpstreamSyncRateLimit:       models.MustNewDuration(2 * time.Minute),
 		},
 		RateLimit: toml.WebServerRateLimit{
 			Authenticated:         ptr[int64](42),
@@ -738,6 +758,7 @@ MaxAgeDays = 17
 MaxBackups = 9
 `},
 		{"WebServer", Config{Core: toml.Core{WebServer: full.WebServer}}, `[WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
 BridgeCacheTTL = '10s'
@@ -749,6 +770,25 @@ SessionReaperExpiration = '168h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
 ListenIP = '192.158.1.37'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = 'dc=custom,dc=example,dc=com'
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = 'organizationalStatus'
+ActiveAttributeAllowedValue = 'ACTIVE'
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -1118,8 +1158,17 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 5 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 6 errors:
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
+	- WebServer: 8 errors:
+		- LDAP.BaseDN: invalid value (<nil>): LDAP BaseDN can not be empty
+		- LDAP.BaseUserAttr: invalid value (<nil>): LDAP BaseUserAttr can not be empty
+		- LDAP.UsersDN: invalid value (<nil>): LDAP UsersDN can not be empty
+		- LDAP.GroupsDN: invalid value (<nil>): LDAP GroupsDN can not be empty
+		- LDAP.AdminUserGroupCN: invalid value (<nil>): LDAP AdminUserGroupCN can not be empty
+		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
+		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP RunUserGroupCN can not be empty
+		- LDAP.ReadUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
 	- EVM: 8 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
