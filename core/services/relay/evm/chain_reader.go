@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-// constructor for ChainReader, returns nil if there is any error
+// newChainReader validates config and initializes chainReader, returns nil if there is any error.
 func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts) (*chainReader, error) {
 	relayConfig, err := ropts.RelayConfig()
 	if err != nil {
@@ -32,7 +32,7 @@ func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts)
 		return nil, fmt.Errorf("invalid ChainReader configuration: %w", err)
 	}
 
-	return NewChainReaderService(lggr, chain.LogPoller())
+	return &chainReader{lggr.Named("ChainReader"), chain.LogPoller(), relayConfig.ChainReader.ChainContractReaders}, nil
 }
 
 func ValidateChainReaderConfig(cfg types.ChainReaderConfig) error {
@@ -155,12 +155,11 @@ type ChainReaderService interface {
 type chainReader struct {
 	lggr logger.Logger
 	lp   logpoller.LogPoller
+	// key being contract name
+	ChainContractReaders map[string]types.ChainContractReader
 }
 
 // chainReader constructor
-func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller) (*chainReader, error) {
-	return &chainReader{lggr.Named("ChainReader"), lp}, nil
-}
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) error {
 

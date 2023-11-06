@@ -1,4 +1,4 @@
-package evm_test
+package evm
 
 import (
 	"encoding/json"
@@ -9,18 +9,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocklogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestChainReaderStartClose(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lp := mocklogpoller.NewLogPoller(t)
-	chainReader, err := evm.NewChainReaderService(lggr, lp)
+	var lp2 logpoller.LogPoller = lp
+	var r error = nil
+	chainReader, err := &chainReader{lggr.Named("ChainReader"), lp2, nil}, r
 	require.NoError(t, err)
 	require.NotNil(t, chainReader)
 	err = chainReader.Start(testutils.Context(t))
@@ -247,7 +248,7 @@ func TestValidateChainReaderConfig(t *testing.T) {
 			abiString := strings.Replace(tc.abiInput, `"`, `\"`, -1)
 			formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, abiString, tc.chainReadingDefinitions)
 			assert.NoError(t, json.Unmarshal([]byte(formattedCfgJsonString), &cfg))
-			assert.NoError(t, evm.ValidateChainReaderConfig(cfg))
+			assert.NoError(t, ValidateChainReaderConfig(cfg))
 		})
 	}
 
@@ -263,6 +264,6 @@ func TestValidateChainReaderConfig(t *testing.T) {
 		manyChainReadingDefinitions = manyChainReadingDefinitions[:len(manyChainReadingDefinitions)-1]
 		formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, strings.Replace(largeABI, `"`, `\"`, -1), manyChainReadingDefinitions)
 		assert.NoError(t, json.Unmarshal([]byte(formattedCfgJsonString), &cfg))
-		assert.NoError(t, evm.ValidateChainReaderConfig(cfg))
+		assert.NoError(t, ValidateChainReaderConfig(cfg))
 	})
 }
