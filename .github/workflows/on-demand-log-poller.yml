@@ -30,15 +30,6 @@ on:
         description: Network to use (only Sepolia or Mumbai)
         default: "Sepolia"
         required: true
-      fundingKey:
-        description: Private key used to fund the contracts (must have sufficient ETH and LINK!)
-        required: true
-      rpcURL:
-        description: RPC URL to use
-        required: true
-      wsURL:
-        description: WS URL to use
-        required: true
 
 jobs:
   test:
@@ -59,8 +50,8 @@ jobs:
           CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
           CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
           SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
-          EVM_KEYS: ${{ inputs.fundingKey }}
-          EVM_HTTP_URLS: ${{ inputs.rpcURL }}
-          EVM_URLS: ${{ inputs.wsURL }}
+          EVM_KEYS: ${{ secrets.ctfFundingKey }}
+          EVM_HTTP_URLS: ${{ secrets.ctfRpcURL }}
+          EVM_URLS: ${{ secrets.ctfWsURL }}
         run: |
           go test -v -timeout 5h -run=TestLogPollerFromEnv integration-tests/reorg/log_poller_maybe_reorg_test.go
