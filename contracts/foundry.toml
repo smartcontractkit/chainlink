@@ -45,13 +45,18 @@ optimizer_runs = 10000
 src = 'src/v0.8/automation'
 test = 'src/v0.8/automation/test'
 
+[profile.l2ep]
+optimizer_runs = 1000000
+src = 'src/v0.8/l2ep'
+test = 'src/v0.8/l2ep/test'
+
+
 [profile.llo-feeds]
 optimizer_runs = 1000000
 src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.16'
-# We cannot turn on deny_warnings = true as that will
-# hide any CI failure
+# We cannot turn on deny_warnings = true as that will hide any CI failure
 
 [profile.shared]
 optimizer_runs = 1000000

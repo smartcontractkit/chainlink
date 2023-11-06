@@ -5,7 +5,7 @@ import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
 import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
-import {AutomationRegistryExecutableInterface, UpkeepInfo} from "../interfaces/v2_0/AutomationRegistryInterface2_0.sol";
+import {AutomationRegistryExecutableInterface, UpkeepInfo, State, OnchainConfig, UpkeepFailureReason} from "../interfaces/v2_0/AutomationRegistryInterface2_0.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
 import "../../shared/interfaces/IERC677Receiver.sol";

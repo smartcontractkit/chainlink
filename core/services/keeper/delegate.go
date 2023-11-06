@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -54,7 +55,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(spec job.Job, qopts ...pg.QOpt) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}

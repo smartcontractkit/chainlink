@@ -227,6 +227,49 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 	return
 }
 
+func automationExplorerNetworkName(chainID int64) (prefix string) {
+	switch chainID {
+	case 1: // ETH mainnet
+		prefix = "mainnet"
+	case 5: // Goerli
+		prefix = "goerli"
+	case 11155111: // Sepolia
+		prefix = "sepolia"
+
+	case 420: // Optimism Goerli
+		prefix = "optimism-goerli"
+
+	case ArbitrumGoerliChainID: // Arbitrum Goerli
+		prefix = "arbitrum-goerli"
+	case ArbitrumOneChainID: // Arbitrum mainnet
+		prefix = "arbitrum"
+
+	case 56: // BSC mainnet
+		prefix = "bsc"
+	case 97: // BSC testnet
+		prefix = "bnb-chain-testnet"
+
+	case 137: // Polygon mainnet
+		prefix = "polygon"
+	case 80001: // Polygon Mumbai testnet
+		prefix = "mumbai"
+
+	case 250: // Fantom mainnet
+		prefix = "fantom"
+	case 4002: // Fantom testnet
+		prefix = "fantom-testnet"
+
+	case 43114: // Avalanche mainnet
+		prefix = "avalanche"
+	case 43113: // Avalanche testnet
+		prefix = "fuji"
+
+	default: // Unknown chain, return prefix as-is
+		prefix = "<NOT IMPLEMENTED>"
+	}
+	return
+}
+
 // ExplorerLink creates a block explorer link for the given transaction hash. If the chain ID is
 // unrecognized, the hash is returned as-is.
 func ExplorerLink(chainID int64, txHash common.Hash) string {
@@ -245,6 +288,10 @@ func ContractExplorerLink(chainID int64, contractAddress common.Address) string 
 		return fmt.Sprintf("%s/address/%s", prefix, contractAddress.Hex())
 	}
 	return contractAddress.Hex()
+}
+
+func TenderlySimLink(simID string) string {
+	return fmt.Sprintf("https://dashboard.tenderly.co/simulator/%s", simID)
 }
 
 // ConfirmTXMined confirms that the given transaction is mined and prints useful execution information.
@@ -547,4 +594,8 @@ func StringTo32Bytes(s string) [32]byte {
 	var b [32]byte
 	copy(b[:], hexutil.MustDecode(s))
 	return b
+}
+
+func UpkeepLink(chainID int64, upkeepID *big.Int) string {
+	return fmt.Sprintf("https://automation.chain.link/%s/%s", automationExplorerNetworkName(chainID), upkeepID.String())
 }

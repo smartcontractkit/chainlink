@@ -222,11 +222,12 @@ func setBenchmarkPrice(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
 		o.benchmarkPrice.Err = res.Error
 		return res.Error
-	} else if val, err := toBigInt(res.Value); err != nil {
-		return fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
-	} else {
-		o.benchmarkPrice.Val = val
 	}
+	val, err := toBigInt(res.Value)
+	if err != nil {
+		return fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
+	}
+	o.benchmarkPrice.Val = val
 	return nil
 }
 
@@ -234,11 +235,12 @@ func setBid(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
 		o.bid.Err = res.Error
 		return res.Error
-	} else if val, err := toBigInt(res.Value); err != nil {
-		return fmt.Errorf("failed to parse Bid: %w", err)
-	} else {
-		o.bid.Val = val
 	}
+	val, err := toBigInt(res.Value)
+	if err != nil {
+		return fmt.Errorf("failed to parse Bid: %w", err)
+	}
+	o.bid.Val = val
 	return nil
 }
 
@@ -246,11 +248,12 @@ func setAsk(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
 		o.ask.Err = res.Error
 		return res.Error
-	} else if val, err := toBigInt(res.Value); err != nil {
-		return fmt.Errorf("failed to parse Ask: %w", err)
-	} else {
-		o.ask.Val = val
 	}
+	val, err := toBigInt(res.Value)
+	if err != nil {
+		return fmt.Errorf("failed to parse Ask: %w", err)
+	}
+	o.ask.Val = val
 	return nil
 }
 

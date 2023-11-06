@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/libocr/commontypes"
 )
 
 func TestP2PConfig(t *testing.T) {
@@ -23,7 +24,7 @@ func TestP2PConfig(t *testing.T) {
 	assert.True(t, p2p.TraceLogging())
 
 	v1 := p2p.V1()
-	assert.False(t, v1.Enabled())
+	assert.True(t, v1.Enabled())
 	assert.Equal(t, "1.2.3.4", v1.AnnounceIP().String())
 	assert.Equal(t, uint16(1234), v1.AnnouncePort())
 	assert.Equal(t, time.Minute, v1.BootstrapCheckInterval())
@@ -38,7 +39,7 @@ func TestP2PConfig(t *testing.T) {
 	assert.Equal(t, time.Minute, v1.PeerstoreWriteInterval())
 
 	v2 := p2p.V2()
-	assert.True(t, v2.Enabled())
+	assert.False(t, v2.Enabled())
 	assert.Equal(t, []string{"a", "b", "c"}, v2.AnnounceAddresses())
 	assert.ElementsMatch(
 		t,

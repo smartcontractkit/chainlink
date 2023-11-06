@@ -58,13 +58,13 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.TxRequest) bool {
+	txm.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k1.Address.String()
-	}), mock.Anything).Once().Return(txmgr.Tx{}, nil)
+	})).Once().Return(txmgr.Tx{}, nil)
 
-	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.TxRequest) bool {
+	txm.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k2.Address.String()
-	}), mock.Anything).Once().Return(txmgr.Tx{}, nil)
+	})).Once().Return(txmgr.Tx{}, nil)
 
 	// store 2 blocks
 	err = bhs.Store(context.Background(), 1)

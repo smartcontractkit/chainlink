@@ -268,6 +268,26 @@ func (v *EthereumVRFCoordinatorV2_5) FindSubscriptionID() (*big.Int, error) {
 	return subscriptionIterator.Event.SubId, nil
 }
 
+func (v *EthereumVRFCoordinatorV2_5) WaitForSubscriptionCreatedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated, error) {
+	eventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated)
+	subscription, err := v.coordinator.WatchSubscriptionCreated(nil, eventsChannel, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for SubscriptionCreated event")
+		case sub := <-eventsChannel:
+			return sub, nil
+		}
+	}
+}
+
 func (v *EthereumVRFCoordinatorV2_5) WaitForRandomWordsFulfilledEvent(subID []*big.Int, requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
 	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled)
 	subscription, err := v.coordinator.WatchRandomWordsFulfilled(nil, randomWordsFulfilledEventsChannel, requestID, subID)
@@ -849,7 +869,7 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetLastRequestId(ctx context.
 }
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetWrapper(ctx context.Context) (common.Address, error) {
-	return v.consumer.GetWrapper(&bind.CallOpts{
+	return v.consumer.IVrfV2PlusWrapper(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})

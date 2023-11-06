@@ -1,0 +1,126 @@
+name: On Demand VRFV2 Plus Load Test
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: Network to run tests on
+        type: choice
+        options:
+          - "ETHEREUM_MAINNET"
+          - "SIMULATED"
+          - "SEPOLIA"
+          - "OPTIMISM_MAINNET"
+          - "OPTIMISM_GOERLI"
+          - "ARBITRUM_MAINNET"
+          - "ARBITRUM_GOERLI"
+          - "BSC_MAINNET"
+          - "BSC_TESTNET"
+          - "POLYGON_MAINNET"
+          - "MUMBAI"
+          - "AVALANCHE_FUJI"
+          - "AVALANCHE_MAINNET"
+      fundingPrivateKey:
+        description: Private funding key (Skip for Simulated)
+        required: false
+        type: string
+      wsURL:
+        description: WS URL for the network (Skip for Simulated)
+        required: false
+        type: string
+      httpURL:
+        description: HTTP URL for the network (Skip for Simulated)
+        required: false
+        type: string
+      chainlinkImage:
+        description: Container image location for the Chainlink nodes
+        required: true
+        default: public.ecr.aws/chainlink/chainlink
+      chainlinkVersion:
+        description: Container image version for the Chainlink nodes
+        required: true
+        default: "2.6.0"
+      performanceTestType:
+        description: Performance Test Type of test to run
+        type: choice
+        options:
+          - "Soak"
+          - "Load"
+          - "Stress"
+          - "Spike"
+      testDuration:
+        description: Duration of the test (time string)
+        required: false
+        default: 1m
+      useExistingEnv:
+        description: Set `true` to use existing environment or `false` to deploy CL node and all contracts
+        required: false
+        default: false
+      configBase64:
+        description: TOML config in base64 (Needed when overriding config or providing contract addresses for existing env)
+        required: false
+jobs:
+  vrfv2plus_load_test:
+    name: ${{ inputs.network }} VRFV2 Plus Load Test
+    environment: integration
+    runs-on: ubuntu20.04-8cores-32GB
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
+      SELECTED_NETWORKS: ${{ inputs.network }}
+      TEST_TYPE: ${{ inputs.performanceTestType }}
+      VRFV2PLUS_TEST_DURATION: ${{ inputs.testDuration }}
+      VRFV2PLUS_USE_EXISTING_ENV: ${{ inputs.useExistingEnv }}
+      CONFIG: ${{ inputs.configBase64 }}
+      TEST_LOG_LEVEL: debug
+      REF_NAME: ${{ github.head_ref || github.ref_name }}
+      CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
+      CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+      WASP_LOG_LEVEL: info
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ${{ inputs.network }} VRFV2 Plus Load Test
+        continue-on-error: true
+      - name: Get Inputs
+        run: |
+          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
+          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
+          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
+
+          echo ::add-mask::$EVM_URLS
+          echo ::add-mask::$EVM_HTTP_URLS
+          echo ::add-mask::$EVM_KEYS
+
+          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
+          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
+          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        with:
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 6h -run TestVRFV2PlusLoad/vrfv2plus_soak_test ./load/vrfv2plus
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          cl_repo: ${{ inputs.chainlinkImage }}
+          cl_image_tag: ${{ inputs.chainlinkVersion }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: vrf-test-logs
+          artifacts_location: ./integration-tests/load/logs/
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          should_cleanup: false
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}

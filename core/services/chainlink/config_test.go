@@ -10,13 +10,15 @@ import (
 
 	"github.com/kylelemons/godebug/diff"
 	"github.com/shopspring/decimal"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
@@ -24,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -156,7 +156,7 @@ var (
 					{Name: ptr("secondary"), TendermintURL: relayutils.MustParseURL("http://bombay.cosmos.com")},
 				}},
 		},
-		Solana: []*solana.SolanaConfig{
+		Solana: []*solana.TOMLConfig{
 			{
 				ChainID: ptr("mainnet"),
 				Chain: solcfg.Chain{
@@ -176,7 +176,7 @@ var (
 				},
 			},
 		},
-		Starknet: []*starknet.StarknetConfig{
+		Starknet: []*stkcfg.TOMLConfig{
 			{
 				ChainID: ptr("foobar"),
 				Chain: stkcfg.Chain{
@@ -191,6 +191,7 @@ var (
 )
 
 func TestConfig_Marshal(t *testing.T) {
+	zeroSeconds := models.MustMakeDuration(time.Second * 0)
 	second := models.MustMakeDuration(time.Second)
 	minute := models.MustMakeDuration(time.Minute)
 	hour := models.MustMakeDuration(time.Hour)
@@ -221,6 +222,16 @@ func TestConfig_Marshal(t *testing.T) {
 				OCRDevelopmentMode:   ptr(false),
 				InfiniteDepthQueries: ptr(false),
 				DisableRateLimiting:  ptr(false),
+			},
+			Tracing: toml.Tracing{
+				Enabled:         ptr(true),
+				CollectorTarget: ptr("localhost:4317"),
+				NodeID:          ptr("clc-ocr-sol-devnet-node-1"),
+				Attributes: map[string]string{
+					"test": "load",
+					"env":  "dev",
+				},
+				SamplingRatio: ptr(1.0),
 			},
 		},
 	}
@@ -272,14 +283,21 @@ func TestConfig_Marshal(t *testing.T) {
 	full.TelemetryIngress = toml.TelemetryIngress{
 		UniConn:      ptr(true),
 		Logging:      ptr(true),
-		ServerPubKey: ptr("test-pub-key"),
-		URL:          mustURL("https://prom.test"),
 		BufferSize:   ptr[uint16](1234),
 		MaxBatchSize: ptr[uint16](4321),
 		SendInterval: models.MustNewDuration(time.Minute),
 		SendTimeout:  models.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
+		URL:          ptr(models.URL{}),
+		ServerPubKey: ptr(""),
+		Endpoints: []toml.TelemetryIngressEndpoint{{
+			Network:      ptr("EVM"),
+			ChainID:      ptr("1"),
+			ServerPubKey: ptr("test-pub-key"),
+			URL:          mustURL("prom.test")},
+		},
 	}
+
 	full.Log = toml.Log{
 		Level:       ptr(toml.LogLevel(zapcore.DPanicLevel)),
 		JSONConsole: ptr(true),
@@ -372,7 +390,7 @@ func TestConfig_Marshal(t *testing.T) {
 		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 		TraceLogging:              ptr(true),
 		V1: toml.P2PV1{
-			Enabled:                          ptr(false),
+			Enabled:                          ptr(true),
 			AnnounceIP:                       mustIP("1.2.3.4"),
 			AnnouncePort:                     ptr[uint16](1234),
 			BootstrapCheckInterval:           models.MustNewDuration(time.Minute),
@@ -385,7 +403,7 @@ func TestConfig_Marshal(t *testing.T) {
 			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
 		},
 		V2: toml.P2PV2{
-			Enabled:           ptr(true),
+			Enabled:           ptr(false),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
 			DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
@@ -529,6 +547,7 @@ func TestConfig_Marshal(t *testing.T) {
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
 					SyncThreshold:        ptr[uint32](13),
+					LeaseDuration:        &zeroSeconds,
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -560,7 +579,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			}},
 	}
-	full.Solana = []*solana.SolanaConfig{
+	full.Solana = []*solana.TOMLConfig{
 		{
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
@@ -588,7 +607,7 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
-	full.Starknet = []*starknet.StarknetConfig{
+	full.Starknet = []*stkcfg.TOMLConfig{
 		{
 			ChainID: ptr("foobar"),
 			Enabled: ptr(true),
@@ -644,6 +663,16 @@ DevWebServer = false
 OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
+
+[Tracing]
+Enabled = true
+CollectorTarget = 'localhost:4317'
+NodeID = 'clc-ocr-sol-devnet-node-1'
+SamplingRatio = 1.0
+
+[Tracing.Attributes]
+env = 'dev'
+test = 'load'
 `},
 		{"AuditLogger", Config{Core: toml.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
@@ -685,14 +714,21 @@ LeaseRefreshInterval = '1s'
 		{"TelemetryIngress", Config{Core: toml.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
 UniConn = true
 Logging = true
-ServerPubKey = 'test-pub-key'
-URL = 'https://prom.test'
 BufferSize = 1234
 MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+URL = ''
+ServerPubKey = ''
+
+[[TelemetryIngress.Endpoints]]
+Network = 'EVM'
+ChainID = '1'
+URL = 'prom.test'
+ServerPubKey = 'test-pub-key'
 `},
+
 		{"Log", Config{Core: toml.Core{Log: full.Log}}, `[Log]
 Level = 'crit'
 JSONConsole = true
@@ -786,7 +822,7 @@ PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
 
 [P2P.V1]
-Enabled = false
+Enabled = true
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 1234
 BootstrapCheckInterval = '1m0s'
@@ -799,7 +835,7 @@ NewStreamTimeout = '1s'
 PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
-Enabled = true
+Enabled = false
 AnnounceAddresses = ['a', 'b', 'c']
 DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
 DeltaDial = '1m0s'
@@ -928,6 +964,7 @@ PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
+LeaseDuration = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1059,6 +1096,17 @@ func TestConfig_full(t *testing.T) {
 				got.EVM[c].Nodes[n].Order = ptr(int32(100))
 			}
 		}
+	}
+
+	// Except for TelemetryIngress.ServerPubKey as this will be removed in the future
+	// and its only use is to signal to NOPs that these fields are no longer allowed
+	if got.TelemetryIngress.ServerPubKey == nil {
+		got.TelemetryIngress.ServerPubKey = ptr("")
+	}
+	// Except for TelemetryIngress.URL as this will be removed in the future
+	// and its only use is to signal to NOPs that these fields are no longer allowed
+	if got.TelemetryIngress.URL == nil {
+		got.TelemetryIngress.URL = new(models.URL)
 	}
 
 	cfgtest.AssertFieldsNotNil(t, got)
@@ -1202,6 +1250,21 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		secrets   = "# Secrets:\n"
 		input     = "# Input Configuration:\n"
 		effective = "# Effective Configuration, with defaults applied:\n"
+		warning   = "# Configuration warning:\n"
+
+		deprecated = `2 errors:
+	- P2P.V1: is deprecated and will be removed in a future version
+	- P2P.V1: 10 errors:
+		- AnnounceIP: is deprecated and will be removed in a future version
+		- AnnouncePort: is deprecated and will be removed in a future version
+		- BootstrapCheckInterval: is deprecated and will be removed in a future version
+		- DefaultBootstrapPeers: is deprecated and will be removed in a future version
+		- DHTAnnouncementCounterUserPrefix: is deprecated and will be removed in a future version
+		- DHTLookupInterval: is deprecated and will be removed in a future version
+		- ListenIP: is deprecated and will be removed in a future version
+		- ListenPort: is deprecated and will be removed in a future version
+		- NewStreamTimeout: is deprecated and will be removed in a future version
+		- PeerstoreWriteInterval: is deprecated and will be removed in a future version`
 	)
 	tests := []struct {
 		name         string
@@ -1211,10 +1274,11 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		wantConfig    string
 		wantEffective string
 		wantSecrets   string
+		wantWarning   string
 	}{
 		{name: "empty", wantEffective: emptyEffectiveTOML, wantSecrets: emptyEffectiveSecretsTOML},
 		{name: "full", inputSecrets: secretsFullTOML, inputConfig: fullTOML,
-			wantConfig: fullTOML, wantEffective: fullTOML, wantSecrets: secretsFullRedactedTOML},
+			wantConfig: fullTOML, wantEffective: fullTOML, wantSecrets: secretsFullRedactedTOML, wantWarning: deprecated},
 		{name: "multi-chain", inputSecrets: secretsMultiTOML, inputConfig: multiChainTOML,
 			wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML, wantSecrets: secretsMultiRedactedTOML},
 	}
@@ -1228,10 +1292,11 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 			}
 			c, err := opts.New()
 			require.NoError(t, err)
-			c.LogConfiguration(lggr.Infof)
+			c.LogConfiguration(lggr.Infof, lggr.Warnf)
 
 			inputLogs := observed.FilterMessageSnippet(secrets).All()
 			if assert.Len(t, inputLogs, 1) {
+				assert.Equal(t, zapcore.InfoLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, secrets)
 				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantSecrets, got)
@@ -1239,6 +1304,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 
 			inputLogs = observed.FilterMessageSnippet(input).All()
 			if assert.Len(t, inputLogs, 1) {
+				assert.Equal(t, zapcore.InfoLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, input)
 				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantConfig, got)
@@ -1246,9 +1312,18 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 
 			inputLogs = observed.FilterMessageSnippet(effective).All()
 			if assert.Len(t, inputLogs, 1) {
+				assert.Equal(t, zapcore.InfoLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, effective)
 				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantEffective, got)
+			}
+
+			inputLogs = observed.FilterMessageSnippet(warning).All()
+			if tt.wantWarning != "" && assert.Len(t, inputLogs, 1) {
+				assert.Equal(t, zapcore.WarnLevel, inputLogs[0].Level)
+				got := strings.TrimPrefix(inputLogs[0].Message, warning)
+				got = strings.TrimSuffix(got, "\n")
+				assert.Equal(t, tt.wantWarning, got)
 			}
 		})
 	}
@@ -1363,8 +1438,8 @@ func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
 	c.Cosmos = cosmos.CosmosConfigs{{ChainID: ptr("unknown cosmos chain")}}
-	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
-	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
+	c.Solana = solana.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
+	c.Starknet = stkcfg.TOMLConfigs{{ChainID: ptr("unknown starknet chain")}}
 	c.setDefaults()
 	if s, err := c.TOMLString(); assert.NoError(t, err) {
 		t.Log(s, err)

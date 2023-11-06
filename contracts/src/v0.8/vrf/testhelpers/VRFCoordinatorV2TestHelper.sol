@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
 
 // Ideally this contract should inherit from VRFCoordinatorV2 and delegate calls to VRFCoordinatorV2
 // However, due to exceeding contract size limit, the logic from VRFCoordinatorV2 is ported over to this contract
 contract VRFCoordinatorV2TestHelper {
-  uint96 s_paymentAmount;
+  uint96 internal s_paymentAmount;
 
   AggregatorV3Interface public immutable LINK_ETH_FEED;
 

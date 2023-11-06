@@ -15,10 +15,19 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+)
+
+type CleanUpType string
+
+const (
+	CleanUpTypeNone     CleanUpType = "none"
+	CleanUpTypeStandard CleanUpType = "standard"
+	CleanUpTypeCustom   CleanUpType = "custom"
 )
 
 type CLTestEnvBuilder struct {
@@ -37,6 +46,8 @@ type CLTestEnvBuilder struct {
 	te                 *CLClusterTestEnv
 	isNonEVM           bool
 
+	cleanUpType     CleanUpType
+	cleanUpCustomFn func()
 	/* funding */
 	ETHFunds *big.Float
 }
@@ -136,6 +147,22 @@ func (b *CLTestEnvBuilder) WithNonEVM() *CLTestEnvBuilder {
 	return b
 }
 
+func (b *CLTestEnvBuilder) WithStandardCleanup() *CLTestEnvBuilder {
+	b.cleanUpType = CleanUpTypeStandard
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithoutCleanup() *CLTestEnvBuilder {
+	b.cleanUpType = CleanUpTypeNone
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithCustomCleanup(customFn func()) *CLTestEnvBuilder {
+	b.cleanUpType = CleanUpTypeCustom
+	b.cleanUpCustomFn = customFn
+	return b
+}
+
 func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	if b.te == nil {
 		var err error
@@ -171,11 +198,20 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 	}
 
-	b.t.Cleanup(func() {
-		if err := b.te.Cleanup(); err != nil {
-			b.l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
+	switch b.cleanUpType {
+	case CleanUpTypeStandard:
+		b.t.Cleanup(func() {
+			if err := b.te.Cleanup(); err != nil {
+				b.l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		})
+	case CleanUpTypeCustom:
+		b.t.Cleanup(b.cleanUpCustomFn)
+	case CleanUpTypeNone:
+		b.l.Warn().Msg("test environment won't be cleaned up")
+	case "":
+		return b.te, errors.WithMessage(errors.New("explicit cleanup type must be set when building test environment"), "test environment builder failed")
+	}
 
 	if b.nonDevGethNetworks != nil {
 		b.te.WithPrivateChain(b.nonDevGethNetworks)

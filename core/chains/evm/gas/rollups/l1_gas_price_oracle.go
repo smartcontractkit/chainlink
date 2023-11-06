@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -112,10 +112,8 @@ func (o *l1GasPriceOracle) Close() error {
 	})
 }
 
-func (o *l1GasPriceOracle) Ready() error { return o.StartStopOnce.Ready() }
-
 func (o *l1GasPriceOracle) HealthReport() map[string]error {
-	return map[string]error{o.Name(): o.StartStopOnce.Healthy()}
+	return map[string]error{o.Name(): o.Healthy()}
 }
 
 func (o *l1GasPriceOracle) run() {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
@@ -31,13 +32,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 )
 
 var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -46,7 +52,7 @@ var registrarABI = cltypes.MustGetABI(registrar21.AutomationRegistrarABI)
 type KeeperRegistrar interface {
 	Address() string
 
-	EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool) ([]byte, error)
+	EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool, isMercury bool) ([]byte, error)
 
 	Fund(ethAmount *big.Float) error
 }
@@ -84,7 +90,6 @@ type KeeperRegistry interface {
 
 type KeeperConsumer interface {
 	Address() string
-	Fund(ethAmount *big.Float) error
 	Counter(ctx context.Context) (*big.Int, error)
 	Start() error
 }
@@ -1593,7 +1598,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) logDetails() {
 // EthereumUpkeepCounter represents keeper consumer (upkeep) counter contract
 type EthereumUpkeepCounter struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.UpkeepCounter
+	consumer *upkeep_counter_wrapper.UpkeepCounter
 	address  *common.Address
 }
 
@@ -1635,7 +1640,7 @@ func (v *EthereumUpkeepCounter) SetSpread(testRange *big.Int, interval *big.Int)
 // EthereumUpkeepPerformCounterRestrictive represents keeper consumer (upkeep) counter contract
 type EthereumUpkeepPerformCounterRestrictive struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.UpkeepPerformCounterRestrictive
+	consumer *upkeep_perform_counter_restrictive_wrapper.UpkeepPerformCounterRestrictive
 	address  *common.Address
 }
 
@@ -1674,7 +1679,7 @@ func (v *EthereumUpkeepPerformCounterRestrictive) SetSpread(testRange *big.Int, 
 // EthereumKeeperConsumer represents keeper consumer (upkeep) contract
 type EthereumKeeperConsumer struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.KeeperConsumer
+	consumer *keeper_consumer_wrapper.KeeperConsumer
 	address  *common.Address
 }
 
@@ -1685,14 +1690,6 @@ func (v *EthereumKeeperConsumer) Start() error {
 
 func (v *EthereumKeeperConsumer) Address() string {
 	return v.address.Hex()
-}
-
-func (v *EthereumKeeperConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (v *EthereumKeeperConsumer) Counter(ctx context.Context) (*big.Int, error) {
@@ -1724,6 +1721,7 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
 		return err
 	}
 
+	// The default values of ParamKeys are "feedIDs" and "timestamp" which are for v0.3
 	tx, err := v.consumer.SetParamKeys(txOpts, "feedIdHex", "blockNumber")
 	if err != nil {
 		return err
@@ -1731,15 +1729,43 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	cnt, err := v.consumer.Counter(opts)
+	if err != nil {
+		return nil, err
+	}
+	return cnt, nil
+}
+
+type EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer struct {
+	client   blockchain.EVMClient
+	consumer *log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookup
+	address  *common.Address
+}
+
+func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Address() string {
+	return v.address.Hex()
+}
+
+// Kick off the log trigger event. The contract uses Mercury v0.2 so no need to set ParamKeys
+func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Start() error {
+	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
+
+	tx, err := v.consumer.Start(txOpts)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
+func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1774,14 +1800,6 @@ func (v *EthereumAutomationLogCounterConsumer) Start() error {
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumAutomationLogCounterConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
-}
-
 func (v *EthereumAutomationLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -1798,7 +1816,7 @@ func (v *EthereumAutomationLogCounterConsumer) Counter(ctx context.Context) (*bi
 // performance tests.
 type EthereumKeeperConsumerPerformance struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.KeeperConsumerPerformance
+	consumer *keeper_consumer_performance_wrapper.KeeperConsumerPerformance
 	address  *common.Address
 }
 
@@ -1859,7 +1877,7 @@ func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(ctx context.Cont
 // EthereumKeeperPerformDataCheckerConsumer represents keeper perform data checker contract
 type EthereumKeeperPerformDataCheckerConsumer struct {
 	client             blockchain.EVMClient
-	performDataChecker *ethereum.PerformDataChecker
+	performDataChecker *perform_data_checker_wrapper.PerformDataChecker
 	address            *common.Address
 }
 
@@ -1952,7 +1970,7 @@ func (v *EthereumKeeperRegistrar) Fund(ethAmount *big.Float) error {
 }
 
 // EncodeRegisterRequest encodes register request to call it through link token TransferAndCall
-func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool) ([]byte, error) {
+func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool, isMercury bool) ([]byte, error) {
 	if v.registrar20 != nil {
 		registryABI, err := abi.JSON(strings.NewReader(keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.ABI))
 		if err != nil {
@@ -1977,17 +1995,22 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 		return req, nil
 	} else if v.registrar21 != nil {
 		if isLogTrigger {
-			// bytes representation of 0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d
-			topic0InBytes := [32]byte{
-				61, 83, 163, 149, 80, 224, 70, 136,
-				6, 88, 39, 243, 187, 134, 88, 76,
-				176, 7, 171, 158, 188, 167, 235,
-				213, 40, 231, 48, 28, 156, 49, 235, 93,
-			}
-
+			var topic0InBytes [32]byte
 			// bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
 			bytes0 := [32]byte{
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			}
+			if isMercury {
+				// bytes representation of 0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd
+				topic0InBytes = [32]byte{209, 255, 233, 228, 85, 129, 193, 29, 125, 159, 46, 213, 247, 82, 23, 205, 75, 233, 248, 183, 238, 230, 175, 15, 109, 3, 244, 109, 229, 57, 86, 205}
+			} else {
+				// bytes representation of 0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d
+				topic0InBytes = [32]byte{
+					61, 83, 163, 149, 80, 224, 70, 136,
+					6, 88, 39, 243, 187, 134, 88, 76,
+					176, 7, 171, 158, 188, 167, 235,
+					213, 40, 231, 48, 28, 156, 49, 235, 93,
+				}
 			}
 
 			logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
@@ -2022,7 +2045,6 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 				return nil, err
 			}
 			return req, nil
-
 		} else {
 			req, err := registrarABI.Pack(
 				"register",

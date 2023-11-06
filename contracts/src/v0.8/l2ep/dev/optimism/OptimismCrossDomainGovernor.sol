@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/DelegateForwarderInterface.sol";
-import "../../../vendor/@eth-optimism/contracts/v0.4.7/contracts/optimistic-ethereum/iOVM/bridge/messaging/iOVM_CrossDomainMessenger.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import "./OptimismCrossDomainForwarder.sol";
+import {DelegateForwarderInterface} from "../interfaces/DelegateForwarderInterface.sol";
+// solhint-disable-next-line no-unused-import
+import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
+
+import {OptimismCrossDomainForwarder} from "./OptimismCrossDomainForwarder.sol";
+
+import {iOVM_CrossDomainMessenger} from "../../../vendor/@eth-optimism/contracts/v0.4.7/contracts/optimistic-ethereum/iOVM/bridge/messaging/iOVM_CrossDomainMessenger.sol";
+import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 
 /**
  * @title OptimismCrossDomainGovernor - L1 xDomain account representation (with delegatecall support) for Optimism
@@ -28,8 +32,6 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
    * @notice versions:
    *
    * - OptimismCrossDomainForwarder 1.0.0: initial release
-   *
-   * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "OptimismCrossDomainGovernor 1.0.0";
@@ -57,9 +59,11 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
   modifier onlyLocalOrCrossDomainOwner() {
     address messenger = crossDomainMessenger();
     // 1. The delegatecall MUST come from either the L1 owner (via cross-chain message) or the L2 owner
+    // solhint-disable-next-line custom-errors
     require(msg.sender == messenger || msg.sender == owner(), "Sender is not the L2 messenger or owner");
     // 2. The L2 Messenger's caller MUST be the L1 Owner
     if (msg.sender == messenger) {
+      // solhint-disable-next-line custom-errors
       require(
         iOVM_CrossDomainMessenger(messenger).xDomainMessageSender() == l1Owner(),
         "xDomain sender is not the L1 owner"

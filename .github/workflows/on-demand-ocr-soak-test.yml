@@ -10,6 +10,8 @@ on:
           - "GOERLI"
           - "OPTIMISM_GOERLI"
           - "ARBITRUM_GOERLI"
+          - "ARBITRUM_SEPOLIA"
+          - "ARBITRUM_MAINNET"
           - "CELO_ALFAJORES"
           - "CELO_MAINNET"
           - "BASE_GOERLI"
@@ -17,7 +19,11 @@ on:
           - "BSC_MAINNET"
           - "BSC_TESTNET"
           - "SCROLL_SEPOLIA"
-          - "SCROLL_MAINNET"   
+          - "SCROLL_MAINNET"
+          - "MUMBAI"
+          - "POLYGON_MAINNET"   
+          - "LINEA_GOERLI"
+          - "LINEA_MAINNET"  
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
@@ -81,7 +87,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
