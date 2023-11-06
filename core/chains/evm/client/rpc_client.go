@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -57,7 +56,7 @@ type rpcClient struct {
 	name    string
 	id      int32
 	chainID *big.Int
-	tier    clienttypes.NodeTier
+	tier    commonclient.NodeTier
 
 	ws   rawclient
 	http *rawclient
@@ -85,7 +84,7 @@ func NewRPCClient(
 	name string,
 	id int32,
 	chainID *big.Int,
-	tier clienttypes.NodeTier,
+	tier commonclient.NodeTier,
 ) RPCCLient {
 	r := new(rpcClient)
 	r.name = name
