@@ -518,7 +518,7 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 			mockHttpStatusCode: http.StatusInternalServerError,
 			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
 			expectedValues:     [][]byte{nil},
-			expectedRetryable:  false,
+			expectedRetryable:  true,
 			expectedError:      errors.New("failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 500\n#2: 500\n#3: 500"),
 			state:              encoding.MercuryFlakyFailure,
 		},
@@ -946,6 +946,47 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name: "success - retry 206",
+			lookup: &StreamsLookup{
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
+			},
+			firstResponse: &MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
+					},
+				},
+			},
+			response: &MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
+					},
+					{
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            "0xab2123dc00000019",
+					},
+				},
+			},
+			retryNumber:    1,
+			statusCode:     http.StatusPartialContent,
+			lastStatusCode: http.StatusOK,
+		},
+		{
 			name: "success - retry for 500",
 			lookup: &StreamsLookup{
 				StreamsLookupError: &encoding.StreamsLookupError{
@@ -1107,8 +1148,9 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					},
 				},
 			},
-			retryNumber: 1,
-			statusCode:  http.StatusOK,
+			retryNumber:    1,
+			statusCode:     http.StatusOK,
+			lastStatusCode: http.StatusOK,
 		},
 	}
 
@@ -1140,7 +1182,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					b1, err := json.Marshal(tt.response)
 					assert.Nil(t, err)
 					resp1 := &http.Response{
-						StatusCode: tt.statusCode,
+						StatusCode: tt.lastStatusCode,
 						Body:       io.NopCloser(bytes.NewReader(b1)),
 					}
 					hc.On("Do", mock.Anything).Return(resp0, nil).Once().On("Do", mock.Anything).Return(resp1, nil).Once()

@@ -325,9 +325,11 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, p
 			results[m.Index] = m.Bytes[0]
 		}
 	}
-	retryable, ri = r.calculateRetryConfig(retryable && !allSuccess, prk)
+	if retryable && !allSuccess {
+		ri = r.calculateRetryConfig(prk)
+	}
 	// only retry when not all successful AND none are not retryable
-	return state, encoding.UpkeepFailureReasonNone, results, retryable, ri, reqErr
+	return state, encoding.UpkeepFailureReasonNone, results, retryable && !allSuccess, ri, reqErr
 }
 
 // singleFeedRequest sends a v0.2 Mercury request for a single feed report.
@@ -381,7 +383,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 				return err1
 			}
 
-			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError || resp.StatusCode == http.StatusBadGateway {
+			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError || resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout {
 				lggr.Warnf("at block %s upkeep %s received status code %d for feed %s", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode, sl.Feeds[index])
 				retryable = true
 				state = encoding.MercuryFlakyFailure
@@ -418,9 +420,9 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 			sent = true
 			return nil
 		},
-		// only retry when the error is 404 Not Found, 500 Internal Server Error, or 502 Bad Gateway
+		// only retry when the error is 404 Not Found, 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway)
+			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway) || err.Error() == fmt.Sprintf("%d", http.StatusServiceUnavailable) || err.Error() == fmt.Sprintf("%d", http.StatusGatewayTimeout)
 		}),
 		retry.Context(ctx),
 		retry.Delay(retryDelay),
@@ -507,14 +509,29 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				retryable = false
 				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3 with message: %s", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode, string(body))
-			} else if resp.StatusCode == http.StatusInternalServerError {
+			} else if resp.StatusCode == http.StatusInternalServerError || resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout {
 				retryable = true
 				state = encoding.MercuryFlakyFailure
-				return fmt.Errorf("%d", http.StatusInternalServerError)
-			} else if resp.StatusCode == http.StatusBadGateway {
+				return fmt.Errorf("%d", resp.StatusCode)
+			} else if resp.StatusCode == http.StatusPartialContent {
+				var response MercuryV03Response
+				err1 = json.Unmarshal(body, &response)
+				if err1 != nil {
+					lggr.Warnf("at timestamp %s upkeep %s failed to unmarshal body to MercuryV03Response from mercury v0.3: %v", sl.Time.String(), sl.upkeepId.String(), err1)
+					retryable = false
+					state = encoding.MercuryUnmarshalError
+					return err1
+				}
+				// in v0.3, if some feeds are not available, the server will only return available feeds, but we need to make sure ALL feeds are retrieved before calling user contract
+				// hence, retry in this case. retry will help when we send a very new timestamp and reports are not yet generated
+				var receivedFeeds []string
+				for _, f := range response.Reports {
+					receivedFeeds = append(receivedFeeds, f.FeedID)
+				}
+				lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server returned 206 status with [%s] reports while we requested [%s] feeds, retrying", sl.Time.String(), sl.upkeepId.String(), receivedFeeds, sl.Feeds)
 				retryable = true
 				state = encoding.MercuryFlakyFailure
-				return fmt.Errorf("%d", http.StatusBadGateway)
+				return fmt.Errorf("%d", http.StatusPartialContent)
 			} else if resp.StatusCode != http.StatusOK {
 				retryable = false
 				state = encoding.InvalidMercuryRequest
@@ -534,8 +551,11 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			// in v0.3, if some feeds are not available, the server will only return available feeds, but we need to make sure ALL feeds are retrieved before calling user contract
 			// hence, retry in this case. retry will help when we send a very new timestamp and reports are not yet generated
 			if len(response.Reports) != len(sl.Feeds) {
-				// TODO: AUTO-5044: calculate what reports are missing and log a warning
-				lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server retruned 200 status with %d reports while we requested %d feeds, treating as 404 (not found) and retrying", sl.Time.String(), sl.upkeepId.String(), len(response.Reports), len(sl.Feeds))
+				var receivedFeeds []string
+				for _, f := range response.Reports {
+					receivedFeeds = append(receivedFeeds, f.FeedID)
+				}
+				lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server returned 206 status with [%s] reports while we requested [%s] feeds, retrying", sl.Time.String(), sl.upkeepId.String(), receivedFeeds, sl.Feeds)
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", http.StatusNotFound)
@@ -560,9 +580,9 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			sent = true
 			return nil
 		},
-		// only retry when the error is 404 Not Found, 500 Internal Server Error, or 502 Bad Gateway
+		// only retry when the error is 206 Partial Content, 404 Not Found, 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway)
+			return err.Error() == fmt.Sprintf("%d", http.StatusPartialContent) || err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway) || err.Error() == fmt.Sprintf("%d", http.StatusServiceUnavailable) || err.Error() == fmt.Sprintf("%d", http.StatusGatewayTimeout)
 		}),
 		retry.Context(ctx),
 		retry.Delay(retryDelay),
@@ -596,27 +616,25 @@ func (r *EvmRegistry) generateHMAC(method string, path string, body []byte, clie
 	return userHmac
 }
 
-// calculateRetryConfig returns retryable and plugin retry interval based on how many times plugin has retried this work
-func (r *EvmRegistry) calculateRetryConfig(retryable bool, prk string) (bool, time.Duration) {
+// calculateRetryConfig returns plugin retry interval based on how many times plugin has retried this work
+func (r *EvmRegistry) calculateRetryConfig(prk string) time.Duration {
 	var ri time.Duration
-	if retryable {
-		var retries int
-		totalAttempts, ok := r.mercury.pluginRetryCache.Get(prk)
-		if ok {
-			retries = totalAttempts.(int)
-			if retries >= totalPluginRetries {
-				retryable = false
-			} else if retries >= totalFastPluginRetries {
-				ri = 5 * time.Second
-			} else {
-				ri = 1 * time.Second
-			}
-		} else {
+	var retries int
+	totalAttempts, ok := r.mercury.pluginRetryCache.Get(prk)
+	if ok {
+		retries = totalAttempts.(int)
+		if retries < totalFastPluginRetries {
 			ri = 1 * time.Second
+		} else if retries < totalPluginRetries {
+			ri = 5 * time.Second
 		}
-		r.mercury.pluginRetryCache.Set(prk, retries+1, cache.DefaultExpiration)
+		// if the core node has retried totalFastPluginRetries times, do not set retry interval and plugin will use
+		// the default interval
+	} else {
+		ri = 1 * time.Second
 	}
-	return retryable, ri
+	r.mercury.pluginRetryCache.Set(prk, retries+1, cache.DefaultExpiration)
+	return ri
 }
 
 // generatePluginRetryKey returns a plugin retry cache key
