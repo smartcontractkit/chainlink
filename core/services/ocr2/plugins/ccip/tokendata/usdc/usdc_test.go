@@ -106,10 +106,4 @@ func TestGetUSDCMessageBody(t *testing.T) {
 	require.Equal(t, body, expectedBody)
 
 	usdcReader.AssertNumberOfCalls(t, "GetLastUSDCMessagePriorToLogIndexInTx", 1)
-
-	// Make another call and assert that the cache is used
-	body, err = usdcService.getUSDCMessageBody(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{})
-	require.NoError(t, err)
-	require.Equal(t, body, expectedBody)
-	usdcReader.AssertNumberOfCalls(t, "GetLastUSDCMessagePriorToLogIndexInTx", 1)
 }

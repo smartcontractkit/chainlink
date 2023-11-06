@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -67,9 +66,6 @@ type TokenDataReader struct {
 	lggr           logger.Logger
 	usdcReader     ccipdata.USDCReader
 	attestationApi *url.URL
-	// Cache of sequence number -> usdc message body
-	usdcMessageHashCache      map[uint64][]byte
-	usdcMessageHashCacheMutex sync.Mutex
 }
 
 type attestationResponse struct {
@@ -81,10 +77,9 @@ var _ tokendata.Reader = &TokenDataReader{}
 
 func NewUSDCTokenDataReader(lggr logger.Logger, usdcReader ccipdata.USDCReader, usdcAttestationApi *url.URL) *TokenDataReader {
 	return &TokenDataReader{
-		lggr:                 lggr,
-		usdcReader:           usdcReader,
-		attestationApi:       usdcAttestationApi,
-		usdcMessageHashCache: make(map[uint64][]byte),
+		lggr:           lggr,
+		usdcReader:     usdcReader,
+		attestationApi: usdcAttestationApi,
 	}
 }
 
@@ -130,21 +125,11 @@ func encodeMessageAndAttestation(messageBody []byte, attestation string) ([]byte
 }
 
 func (s *TokenDataReader) getUSDCMessageBody(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([]byte, error) {
-	s.usdcMessageHashCacheMutex.Lock()
-	defer s.usdcMessageHashCacheMutex.Unlock()
-
-	if body, ok := s.usdcMessageHashCache[msg.SequenceNumber]; ok {
-		return body, nil
-	}
-
 	parsedMsgBody, err := s.usdcReader.GetLastUSDCMessagePriorToLogIndexInTx(ctx, int64(msg.LogIndex), msg.TxHash)
 	if err != nil {
 		return []byte{}, err
 	}
 	s.lggr.Infow("Got USDC message body", "messageBody", hexutil.Encode(parsedMsgBody), "messageID", hexutil.Encode(msg.MessageId[:]))
-
-	// Save the attempt in the cache in case the external call fails
-	s.usdcMessageHashCache[msg.SequenceNumber] = parsedMsgBody
 	return parsedMsgBody, nil
 }
 
