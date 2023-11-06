@@ -71,15 +71,15 @@ jobs:
           echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
           echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
           echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1          
+        with:
+          ref: ${{ env.REF_NAME }}          
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
           go-version-file: "integration-tests/go.mod"
           cache: true
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1          
-        with:
-          ref: ${{ env.REF_NAME }}
       - name: Run tests
         run: |
           cd integration-tests
