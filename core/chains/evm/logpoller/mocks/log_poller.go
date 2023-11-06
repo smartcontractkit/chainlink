@@ -635,20 +635,6 @@ func (_m *LogPoller) Name() string {
 	return r0
 }
 
-// PollInterval provides a mock function with given fields:
-func (_m *LogPoller) PollInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // Ready provides a mock function with given fields:
 func (_m *LogPoller) Ready() error {
 	ret := _m.Called()

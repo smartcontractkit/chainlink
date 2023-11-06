@@ -106,7 +106,3 @@ func (d disabled) IndexedLogsCreatedAfter(eventSig common.Hash, address common.A
 func (d disabled) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations, qopts ...pg.QOpt) (int64, error) {
 	return 0, ErrDisabled
 }
-
-func (d disabled) PollInterval() time.Duration {
-	return 0
-}

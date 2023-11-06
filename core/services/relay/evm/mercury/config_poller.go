@@ -1,12 +1,10 @@
 package mercury
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -93,8 +91,6 @@ type ConfigPoller struct {
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
 	feedId             common.Hash
-	notifyCh           chan struct{}
-	shutdown           chan struct{}
 }
 
 func FilterName(addr common.Address, feedID common.Hash) string {
@@ -113,28 +109,19 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
 		feedId:             feedId,
-		notifyCh:           make(chan struct{}, 1),
-		shutdown:           make(chan struct{}),
 	}
 
 	return cp, nil
 }
 
-// Start the subscription to Postgres' notify events.
-func (cp *ConfigPoller) Start() {
-	// todo: why doesn't start have a ctx?
-	go cp.trackConfig(context.Background())
-}
+func (cp *ConfigPoller) Start() {}
 
-// Close the subscription to Postgres' notify events.
 func (cp *ConfigPoller) Close() error {
-	cp.shutdown <- struct{}{}
 	return nil
 }
 
-// Notify abstracts the logpoller.LogPoller Notify() implementation
 func (cp *ConfigPoller) Notify() <-chan struct{} {
-	return cp.notifyCh
+	return nil // rely on libocr's builtin config polling
 }
 
 // Replay abstracts the logpoller.LogPoller Replay() implementation
@@ -187,32 +174,4 @@ func (cp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 		return 0, err
 	}
 	return uint64(latest.BlockNumber), nil
-}
-
-func (cp *ConfigPoller) trackConfig(ctx context.Context) {
-
-	lastConfig := ocrtypes.ConfigDigest{}
-
-	// poll at half the logpoller frequency to avoid aliasing
-	ticker := time.NewTicker(time.Duration(cp.destChainLogPoller.PollInterval().Milliseconds() / 2))
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-cp.shutdown:
-			return
-		case <-ticker.C:
-			// todo: under the cover this is calling LogPoller. logpoller must be able to satisfy tight polling loops like this for mercury and therefore may need some caching layer to
-			// prevent hammering the database. this will be a concern when there are many mercury concurrent providers i.e. many concurrent mercury jobs on a single node
-			block, config, err := cp.LatestConfigDetails(ctx)
-			if err != nil {
-				continue
-			}
-			if block > 0 && bytes.Compare(lastConfig[:], config[:]) != 0 {
-				lastConfig = config
-				cp.notifyCh <- struct{}{}
-			}
-		}
-	}
 }
