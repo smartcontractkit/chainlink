@@ -515,6 +515,9 @@ func (c *SimulatedBackendClient) ethGetTransactionReceipt(ctx context.Context, r
 		return err
 	}
 
+	// strongly typing the result here has the consequence of not being flexible in
+	// custom types where a real-world RPC client would allow for custom types with
+	// custom marshalling.
 	switch typed := result.(type) {
 	case *types.Receipt:
 		*typed = *receipt
