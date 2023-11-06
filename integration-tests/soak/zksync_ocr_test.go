@@ -25,8 +25,8 @@ func TestOCRZKSync(t *testing.T) {
 	l1RpcUrl, isSet := os.LookupEnv("L1_RPC_URL")
 	require.Equal(t, isSet, true, "L1_RPC_URL should be defined")
 
-	testDuration, isSet := os.LookupEnv("TEST_DURATION")
-	require.Equal(t, isSet, true, "TEST_DURATION should be defined")
+	//testDuration, isSet := os.LookupEnv("TEST_DURATION")
+	//require.Equal(t, isSet, true, "TEST_DURATION should be defined")
 
 	timeBetweenRounds, isSet := os.LookupEnv("OCR_TIME_BETWEEN_ROUNDS")
 	require.Equal(t, isSet, true, "OCR_TIME_BETWEEN_ROUNDS should be defined")
@@ -70,13 +70,13 @@ func TestOCRZKSync(t *testing.T) {
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
-	duration, err := time.ParseDuration(testDuration)
-	require.NoError(t, err, "Error parsing test duration")
+	//duration, err := time.ParseDuration(testDuration)
+	//require.NoError(t, err, "Error parsing test duration")
 
 	waitBetweenRounds, err := time.ParseDuration(timeBetweenRounds)
 	require.NoError(t, err, "Error parsing time between rounds duration")
 
-	endTime := time.Now().Add(duration)
+	endTime := time.Now().Add(time.Hour * 72)
 	round := 1
 	for ; time.Now().Before(endTime); time.Sleep(waitBetweenRounds) {
 		l.Info().Msg(fmt.Sprintf("Time now %v", time.Now()))
@@ -85,6 +85,7 @@ func TestOCRZKSync(t *testing.T) {
 		answer, err := zkClient.RequestOCRRound(int64(round), 10, l)
 		if err != nil {
 			l.Error().Err(err)
+			round++
 			continue
 		}
 		if answer.Int64() != int64(10) {
