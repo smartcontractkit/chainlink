@@ -2,8 +2,10 @@
 package actions
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"strings"
 	"testing"
@@ -442,4 +444,18 @@ func DeployMockETHLinkFeed(cd contracts.ContractDeployer, answer *big.Int) (cont
 		return nil, err
 	}
 	return mockETHLINKFeed, err
+}
+
+// todo - move to CTF
+func GenerateWallet() (common.Address, error) {
+	privateKey, err := crypto.GenerateKey()
+	if err != nil {
+		return common.Address{}, err
+	}
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return common.Address{}, errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
 }

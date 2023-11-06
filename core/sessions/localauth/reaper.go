@@ -1,4 +1,4 @@
-package sessions
+package localauth
 
 import (
 	"database/sql"

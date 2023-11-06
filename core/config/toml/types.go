@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -101,6 +102,7 @@ func (c *Core) ValidateConfig() (err error) {
 type Secrets struct {
 	Database   DatabaseSecrets          `toml:",omitempty"`
 	Password   Passwords                `toml:",omitempty"`
+	WebServer  WebServerSecrets         `toml:",omitempty"`
 	Pyroscope  PyroscopeSecrets         `toml:",omitempty"`
 	Prometheus PrometheusSecrets        `toml:",omitempty"`
 	Mercury    MercurySecrets           `toml:",omitempty"`
@@ -592,6 +594,7 @@ func (l *LogFile) setFrom(f *LogFile) {
 }
 
 type WebServer struct {
+	AuthenticationMethod    *string
 	AllowOrigins            *string
 	BridgeResponseURL       *models.URL
 	BridgeCacheTTL          *models.Duration
@@ -604,12 +607,16 @@ type WebServer struct {
 	StartTimeout            *models.Duration
 	ListenIP                *net.IP
 
+	LDAP      WebServerLDAP      `toml:",omitempty"`
 	MFA       WebServerMFA       `toml:",omitempty"`
 	RateLimit WebServerRateLimit `toml:",omitempty"`
 	TLS       WebServerTLS       `toml:",omitempty"`
 }
 
 func (w *WebServer) setFrom(f *WebServer) {
+	if v := f.AuthenticationMethod; v != nil {
+		w.AuthenticationMethod = v
+	}
 	if v := f.AllowOrigins; v != nil {
 		w.AllowOrigins = v
 	}
@@ -644,9 +651,44 @@ func (w *WebServer) setFrom(f *WebServer) {
 		w.HTTPMaxSize = v
 	}
 
+	w.LDAP.setFrom(&f.LDAP)
 	w.MFA.setFrom(&f.MFA)
 	w.RateLimit.setFrom(&f.RateLimit)
 	w.TLS.setFrom(&f.TLS)
+}
+
+func (w *WebServer) ValidateConfig() (err error) {
+	// Validate LDAP fields when authentication method is LDAPAuth
+	if *w.AuthenticationMethod != string(sessions.LDAPAuth) {
+		return
+	}
+
+	// Assert LDAP fields when AuthMethod set to LDAP
+	if *w.LDAP.BaseDN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Msg: "LDAP BaseDN can not be empty"})
+	}
+	if *w.LDAP.BaseUserAttr == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Msg: "LDAP BaseUserAttr can not be empty"})
+	}
+	if *w.LDAP.UsersDN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Msg: "LDAP UsersDN can not be empty"})
+	}
+	if *w.LDAP.GroupsDN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Msg: "LDAP GroupsDN can not be empty"})
+	}
+	if *w.LDAP.AdminUserGroupCN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Msg: "LDAP AdminUserGroupCN can not be empty"})
+	}
+	if *w.LDAP.EditUserGroupCN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+	}
+	if *w.LDAP.RunUserGroupCN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP RunUserGroupCN can not be empty"})
+	}
+	if *w.LDAP.ReadUserGroupCN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+	}
+	return err
 }
 
 type WebServerMFA struct {
@@ -713,6 +755,110 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 	if v := f.ListenIP; v != nil {
 		w.ListenIP = v
 	}
+}
+
+type WebServerLDAP struct {
+	ServerTLS                   *bool
+	SessionTimeout              *models.Duration
+	QueryTimeout                *models.Duration
+	BaseUserAttr                *string
+	BaseDN                      *string
+	UsersDN                     *string
+	GroupsDN                    *string
+	ActiveAttribute             *string
+	ActiveAttributeAllowedValue *string
+	AdminUserGroupCN            *string
+	EditUserGroupCN             *string
+	RunUserGroupCN              *string
+	ReadUserGroupCN             *string
+	UserApiTokenEnabled         *bool
+	UserAPITokenDuration        *models.Duration
+	UpstreamSyncInterval        *models.Duration
+	UpstreamSyncRateLimit       *models.Duration
+}
+
+func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
+	if v := f.ServerTLS; v != nil {
+		w.ServerTLS = v
+	}
+	if v := f.SessionTimeout; v != nil {
+		w.SessionTimeout = v
+	}
+	if v := f.SessionTimeout; v != nil {
+		w.SessionTimeout = v
+	}
+	if v := f.QueryTimeout; v != nil {
+		w.QueryTimeout = v
+	}
+	if v := f.BaseUserAttr; v != nil {
+		w.BaseUserAttr = v
+	}
+	if v := f.BaseDN; v != nil {
+		w.BaseDN = v
+	}
+	if v := f.UsersDN; v != nil {
+		w.UsersDN = v
+	}
+	if v := f.GroupsDN; v != nil {
+		w.GroupsDN = v
+	}
+	if v := f.ActiveAttribute; v != nil {
+		w.ActiveAttribute = v
+	}
+	if v := f.ActiveAttributeAllowedValue; v != nil {
+		w.ActiveAttributeAllowedValue = v
+	}
+	if v := f.AdminUserGroupCN; v != nil {
+		w.AdminUserGroupCN = v
+	}
+	if v := f.EditUserGroupCN; v != nil {
+		w.EditUserGroupCN = v
+	}
+	if v := f.RunUserGroupCN; v != nil {
+		w.RunUserGroupCN = v
+	}
+	if v := f.ReadUserGroupCN; v != nil {
+		w.ReadUserGroupCN = v
+	}
+	if v := f.UserApiTokenEnabled; v != nil {
+		w.UserApiTokenEnabled = v
+	}
+	if v := f.UserAPITokenDuration; v != nil {
+		w.UserAPITokenDuration = v
+	}
+	if v := f.UpstreamSyncInterval; v != nil {
+		w.UpstreamSyncInterval = v
+	}
+	if v := f.UpstreamSyncRateLimit; v != nil {
+		w.UpstreamSyncRateLimit = v
+	}
+}
+
+type WebServerLDAPSecrets struct {
+	ServerAddress     *models.SecretURL
+	ReadOnlyUserLogin *models.Secret
+	ReadOnlyUserPass  *models.Secret
+}
+
+func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
+	if v := f.ServerAddress; v != nil {
+		w.ServerAddress = v
+	}
+	if v := f.ReadOnlyUserLogin; v != nil {
+		w.ReadOnlyUserLogin = v
+	}
+	if v := f.ReadOnlyUserPass; v != nil {
+		w.ReadOnlyUserPass = v
+	}
+}
+
+type WebServerSecrets struct {
+	LDAP WebServerLDAPSecrets `toml:",omitempty"`
+}
+
+func (w *WebServerSecrets) SetFrom(f *WebServerSecrets) error {
+	w.LDAP.setFrom(&f.LDAP)
+	return nil
 }
 
 type JobPipeline struct {
