@@ -27,6 +27,7 @@ var (
 	vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts
 	vrfv2PlusData      *vrfv2plus.VRFV2PlusData
 	subIDs             []*big.Int
+	eoaWalletAddress   string
 
 	labels = map[string]string{
 		"branch": "vrfv2Plus_healthcheck",
@@ -85,6 +86,32 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2PlusConfig)
+					if env.EVMClient.NetworkSimulated() {
+						l.Info().
+							Str("Network Name", env.EVMClient.GetNetworkName()).
+							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+					} else {
+						//cancel subs and return funds to sub owner
+						for _, subID := range subIDs {
+							l.Info().
+								Str("Returning funds from SubID", subID.String()).
+								Str("Returning funds to", eoaWalletAddress).
+								Msg("Canceling subscription and returning funds to subscription owner")
+							pendingRequestsExist, err := vrfv2PlusContracts.Coordinator.PendingRequestsExist(context.Background(), subID)
+							if err != nil {
+								l.Error().Err(err).Msg("Error checking if pending requests exist")
+							}
+							if !pendingRequestsExist {
+								_, err := vrfv2PlusContracts.Coordinator.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
+								if err != nil {
+									l.Error().Err(err).Msg("Error canceling subscription")
+								}
+							} else {
+								l.Error().Str("Sub ID", subID.String()).Msg("Pending requests exist for subscription, cannot cancel subscription and return funds")
+							}
+
+						}
+					}
 				}).
 			Build()
 
@@ -99,7 +126,14 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			require.NoError(t, err)
 			consumers, err = vrfv2plus.DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, 1)
 			require.NoError(t, err)
-			subIDs, err = vrfv2plus.CreateFundSubsAndAddConsumers(env, &vrfv2PlusConfig, linkToken, coordinator, consumers, vrfv2PlusConfig.NumberOfSubToCreate)
+			subIDs, err = vrfv2plus.CreateFundSubsAndAddConsumers(
+				env,
+				vrfv2PlusConfig,
+				linkToken,
+				coordinator,
+				consumers,
+				vrfv2PlusConfig.NumberOfSubToCreate,
+			)
 			require.NoError(t, err)
 		} else {
 			consumer, err := env.ContractLoader.LoadVRFv2PlusLoadTestConsumer(vrfv2PlusConfig.ConsumerAddress)
@@ -141,6 +175,25 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2PlusConfig)
+
+					if env.EVMClient.NetworkSimulated() {
+						l.Info().
+							Str("Network Name", env.EVMClient.GetNetworkName()).
+							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+					} else {
+						for _, subID := range subIDs {
+							l.Info().
+								Str("Returning funds from SubID", subID.String()).
+								Str("Returning funds to", eoaWalletAddress).
+								Msg("Canceling subscription and returning funds to subscription owner")
+							_, err := vrfv2PlusContracts.Coordinator.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
+							if err != nil {
+								l.Error().Err(err).Msg("Error canceling subscription")
+							}
+						}
+						//err = vrfv2plus.ReturnFundsForFulfilledRequests(env.EVMClient, vrfv2PlusContracts.Coordinator, l)
+						//l.Error().Err(err).Msg("Error returning funds for fulfilled requests")
+					}
 					if err := env.Cleanup(); err != nil {
 						l.Error().Err(err).Msg("Error cleaning up test environment")
 					}
@@ -160,15 +213,18 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 		vrfv2PlusContracts, subIDs, vrfv2PlusData, err = vrfv2plus.SetupVRFV2_5Environment(
 			env,
-			&vrfv2PlusConfig,
+			vrfv2PlusConfig,
 			linkToken,
 			mockETHLinkFeed,
+			//register proving key against EOA address in order to return funds to this address
+			env.EVMClient.GetDefaultWallet().Address(),
 			1,
 			vrfv2PlusConfig.NumberOfSubToCreate,
 			l,
 		)
 		require.NoError(t, err, "error setting up VRF v2_5 env")
 	}
+	eoaWalletAddress = env.EVMClient.GetDefaultWallet().Address()
 
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 	for _, subID := range subIDs {
@@ -186,7 +242,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			vrfv2PlusContracts,
 			vrfv2PlusData.KeyHash,
 			subIDs,
-			&vrfv2PlusConfig,
+			vrfv2PlusConfig,
 			l,
 		),
 		Labels:      labels,
