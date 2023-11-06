@@ -101,7 +101,7 @@ func TestCalculateUsdPerUnitGas(t *testing.T) {
 	}
 }
 
-func TestBigIntMedian(t *testing.T) {
+func TestBigIntSortedMiddle(t *testing.T) {
 	tests := []struct {
 		name string
 		vals []*big.Int
@@ -130,7 +130,7 @@ func TestBigIntMedian(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, BigIntMedian(tt.vals), "BigIntMedian(%v)", tt.vals)
+			assert.Equalf(t, tt.want, BigIntSortedMiddle(tt.vals), "BigIntSortedMiddle(%v)", tt.vals)
 		})
 	}
 }

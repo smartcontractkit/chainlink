@@ -52,7 +52,7 @@ func (g ExecGasPriceEstimator) Median(gasPrices []GasPrice) (GasPrice, error) {
 		prices = append(prices, p)
 	}
 
-	return ccipcalc.BigIntMedian(prices), nil
+	return ccipcalc.BigIntSortedMiddle(prices), nil
 }
 
 func (g ExecGasPriceEstimator) Deviates(p1 GasPrice, p2 GasPrice) (bool, error) {

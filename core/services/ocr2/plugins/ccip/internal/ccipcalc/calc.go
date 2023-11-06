@@ -29,8 +29,10 @@ func CalculateUsdPerUnitGas(sourceGasPrice *big.Int, usdPerFeeCoin *big.Int) *bi
 	return tmp.Div(tmp, big.NewInt(1e18))
 }
 
-// BigIntMedian returns the median of the provided numbers. nil is returned if the provided slice is empty.
-func BigIntMedian(vals []*big.Int) *big.Int {
+// BigIntSortedMiddle returns the middle number after sorting the provided numbers. nil is returned if the provided slice is empty.
+// If length of the provided slice is even, the right-hand-side value of the middle 2 numbers is returned.
+// The objective of this function is to always pick within the range of values reported by honest nodes when we have 2f+1 values.
+func BigIntSortedMiddle(vals []*big.Int) *big.Int {
 	if len(vals) == 0 {
 		return nil
 	}
