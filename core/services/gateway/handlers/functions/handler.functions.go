@@ -180,11 +180,14 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 	}
 	if h.subscriptions != nil && h.minimumBalance != nil {
 		balance, err := h.subscriptions.GetMaxUserBalance(sender)
+		if err != nil {
+			h.lggr.Debugw("error getting max user balance", "sender", msg.Body.Sender, "err", err)
+		}
 		if balance == nil {
 			balance = big.NewInt(0)
 		}
 		if err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
-			h.lggr.Debug("received a message from a user having insufficient balance", "sender", msg.Body.Sender, "balance", balance.String())
+			h.lggr.Debugw("received a message from a user having insufficient balance", "sender", msg.Body.Sender, "balance", balance.String())
 			return fmt.Errorf("sender has insufficient balance: %v juels", balance.String())
 		}
 	}
