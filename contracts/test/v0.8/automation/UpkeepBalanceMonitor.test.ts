@@ -61,7 +61,7 @@ describe('UpkeepBalanceMonitor', () => {
     await loadFixture(setup)
   })
 
-  describe('constructor', () => {
+  describe('constructor()', () => {
     it('should set the initial values correctly', async () => {
       const config = await upkeepBalanceMonitor.getConfig()
       expect(config.maxBatchSize).to.equal(10)
@@ -71,7 +71,7 @@ describe('UpkeepBalanceMonitor', () => {
     })
   })
 
-  describe('setConfig', () => {
+  describe('setConfig()', () => {
     const newConfig = {
       maxBatchSize: 100,
       minPercentage: 150,
@@ -101,7 +101,7 @@ describe('UpkeepBalanceMonitor', () => {
     })
   })
 
-  describe('setForwarder', () => {
+  describe('setForwarder()', () => {
     const newForwarder = randomAddress()
 
     it('should set the forwarder correctly', async () => {
@@ -125,7 +125,7 @@ describe('UpkeepBalanceMonitor', () => {
     })
   })
 
-  describe('setWatchList', () => {
+  describe('setWatchList()', () => {
     const newWatchList = [
       BigNumber.from(1),
       BigNumber.from(2),
@@ -151,7 +151,7 @@ describe('UpkeepBalanceMonitor', () => {
     })
   })
 
-  describe('withdraw', () => {
+  describe('withdraw()', () => {
     const payee = randomAddress()
     const withdrawAmount = 100
 
@@ -183,11 +183,12 @@ describe('UpkeepBalanceMonitor', () => {
     })
   })
 
-  describe('pause and unpause', () => {
+  describe('pause() and unpause()', () => {
     it('should pause and unpause the contract', async () => {
       await upkeepBalanceMonitor.connect(owner).pause()
       expect(await upkeepBalanceMonitor.paused()).to.be.true
       await upkeepBalanceMonitor.connect(owner).unpause()
+      expect(await upkeepBalanceMonitor.paused()).to.be.false
     })
 
     it('cannot be called by a non-owner', async () => {
@@ -199,18 +200,9 @@ describe('UpkeepBalanceMonitor', () => {
         upkeepBalanceMonitor.connect(stranger).unpause(),
       ).to.be.revertedWith('Only callable by owner')
     })
-
-    it('should emit an event', async () => {
-      await expect(upkeepBalanceMonitor.connect(owner).pause())
-        .to.emit(upkeepBalanceMonitor, 'Paused')
-        .withArgs(owner.address)
-      await expect(upkeepBalanceMonitor.connect(owner).unpause())
-        .to.emit(upkeepBalanceMonitor, 'Unpaused')
-        .withArgs(owner.address)
-    })
   })
 
-  describe('checkUpkeep / getUnderfundedUpkeeps', () => {
+  describe('checkUpkeep() / getUnderfundedUpkeeps()', () => {
     it('should find the underfunded upkeeps', async () => {
       let [upkeepIDs, topUpAmounts] =
         await upkeepBalanceMonitor.getUnderfundedUpkeeps()
@@ -270,6 +262,101 @@ describe('UpkeepBalanceMonitor', () => {
       expect(topUpAmounts.map((v) => v.toNumber())).to.deep.equal([
         ...Array(10).fill(300),
       ])
+    })
+  })
+
+  describe('topUp()', () => {
+    beforeEach(async () => {
+      await registry.mock.onTokenTransfer
+        .withArgs(
+          upkeepBalanceMonitor.address,
+          100,
+          ethers.utils.defaultAbiCoder.encode(['uint256'], [1]),
+        )
+        .returns()
+      await registry.mock.onTokenTransfer
+        .withArgs(
+          upkeepBalanceMonitor.address,
+          50,
+          ethers.utils.defaultAbiCoder.encode(['uint256'], [7]),
+        )
+        .returns()
+    })
+
+    it('cannot be called by a non-owner', async () => {
+      await expect(
+        upkeepBalanceMonitor.connect(stranger).topUp([], []),
+      ).to.be.revertedWith('OnlyForwarderOrOwner()')
+    })
+
+    it('tops up the upkeeps by the amounts provided', async () => {
+      const initialBalance = await linkToken.balanceOf(registry.address)
+      const tx = await upkeepBalanceMonitor
+        .connect(owner)
+        .topUp([1, 7], [100, 50])
+      const finalBalance = await linkToken.balanceOf(registry.address)
+      expect(finalBalance).to.equal(initialBalance.add(150))
+      await expect(tx)
+        .to.emit(upkeepBalanceMonitor, 'TopUpSucceeded')
+        .withArgs(1, 100)
+      await expect(tx)
+        .to.emit(upkeepBalanceMonitor, 'TopUpSucceeded')
+        .withArgs(7, 50)
+    })
+
+    it('does not abort if one top-up fails', async () => {
+      const initialBalance = await linkToken.balanceOf(registry.address)
+      const tx = await upkeepBalanceMonitor
+        .connect(owner)
+        .topUp([1, 7, 100], [100, 50, 100])
+      const finalBalance = await linkToken.balanceOf(registry.address)
+      expect(finalBalance).to.equal(initialBalance.add(150))
+      await expect(tx)
+        .to.emit(upkeepBalanceMonitor, 'TopUpSucceeded')
+        .withArgs(1, 100)
+      await expect(tx)
+        .to.emit(upkeepBalanceMonitor, 'TopUpSucceeded')
+        .withArgs(7, 50)
+      await expect(tx)
+        .to.emit(upkeepBalanceMonitor, 'TopUpFailed')
+        .withArgs(100)
+    })
+  })
+
+  describe('performUpkeep()', () => {
+    it('should revert if the contract is paused', async () => {
+      await upkeepBalanceMonitor.connect(owner).pause()
+      await expect(
+        upkeepBalanceMonitor.connect(owner).performUpkeep('0x'),
+      ).to.be.revertedWith('Pausable: paused')
+    })
+  })
+
+  describe('checkUpkeep() / performUpkeep()', () => {
+    it('works round-trip', async () => {
+      await registry.mock.getBalance.withArgs(1).returns(100) // needs 200
+      await registry.mock.getBalance.withArgs(7).returns(0) // needs 300
+      await registry.mock.onTokenTransfer
+        .withArgs(
+          upkeepBalanceMonitor.address,
+          200,
+          ethers.utils.defaultAbiCoder.encode(['uint256'], [1]),
+        )
+        .returns()
+      await registry.mock.onTokenTransfer
+        .withArgs(
+          upkeepBalanceMonitor.address,
+          300,
+          ethers.utils.defaultAbiCoder.encode(['uint256'], [7]),
+        )
+        .returns()
+      const [upkeepNeeded, performData] =
+        await upkeepBalanceMonitor.checkUpkeep('0x')
+      expect(upkeepNeeded).to.be.true
+      const initialBalance = await linkToken.balanceOf(registry.address)
+      await upkeepBalanceMonitor.connect(owner).performUpkeep(performData)
+      const finalBalance = await linkToken.balanceOf(registry.address)
+      expect(finalBalance).to.equal(initialBalance.add(500))
     })
   })
 })

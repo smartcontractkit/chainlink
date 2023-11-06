@@ -82,17 +82,26 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @notice Called by the keeper/owner to send funds to underfunded upkeeps
   /// @param upkeepIDs the list of upkeep ids to fund
   /// @param topUpAmounts the list of amounts to fund each upkeep with
+  /// @dev We explicitly choose not to verify that input upkeepIDs are included in the watchlist. We also
+  /// explicity permit any amount to be sent via topUpAmounts; it does not have to meet the criteria
+  /// specified in getUnderfundedUpkeeps(). Here, we are relying on the security of automation's OCR to
+  /// secure the output of getUnderfundedUpkeeps() as the input to topUp(), and we are treating the owner
+  /// as a privileged user that can perform arbitrary top-ups to any upkeepID.
   function topUp(uint256[] memory upkeepIDs, uint96[] memory topUpAmounts) public {
     IAutomationForwarder forwarder = s_forwarder;
     if (msg.sender != address(s_forwarder) && msg.sender != owner()) revert OnlyForwarderOrOwner();
     if (upkeepIDs.length != topUpAmounts.length) revert InvalidTopUpData();
     address registryAddress = address(forwarder.getRegistry());
     for (uint256 i = 0; i < upkeepIDs.length; i++) {
-      try LINK_TOKEN.transferAndCall(registryAddress, topUpAmounts[i], abi.encode(upkeepIDs[i])) {
-        emit TopUpSucceeded(upkeepIDs[i], topUpAmounts[i]);
-      } catch {
-        emit TopUpFailed(upkeepIDs[i]);
-      }
+      try LINK_TOKEN.transferAndCall(registryAddress, topUpAmounts[i], abi.encode(upkeepIDs[i])) returns (
+        bool success
+      ) {
+        if (success) {
+          emit TopUpSucceeded(upkeepIDs[i], topUpAmounts[i]);
+          continue;
+        }
+      } catch {}
+      emit TopUpFailed(upkeepIDs[i]);
     }
   }
 
