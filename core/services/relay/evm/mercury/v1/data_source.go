@@ -86,7 +86,7 @@ type ErrEmptyLatestReport struct {
 	Err error
 }
 
-func (e ErrEmptyLatestReport) UnWrap() error { return e.Err }
+func (e ErrEmptyLatestReport) Unwrap() error { return e.Err }
 
 func (e ErrEmptyLatestReport) Error() string {
 	return fmt.Sprintf("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed. No initialBlockNumber was set, tried to use current block number to determine maxFinalizedBlockNumber but got error: %v", e.Err)
