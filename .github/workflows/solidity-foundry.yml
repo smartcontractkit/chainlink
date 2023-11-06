@@ -61,7 +61,7 @@ jobs:
         product: [vrf, automation, llo-feeds, functions, shared]
     needs: [changes]
     if: needs.changes.outputs.changes == 'true'
-    name: Foundry Tests {{ matrix.product }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }
+    name: Foundry Tests ${{ matrix.product }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }
     # See https://github.com/foundry-rs/foundry/issues/3827
     runs-on: ubuntu-22.04
 
