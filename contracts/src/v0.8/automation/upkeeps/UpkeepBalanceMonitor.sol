@@ -3,11 +3,9 @@
 pragma solidity 0.8.6;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {IKeeperRegistryMaster} from "../interfaces/v2_1/IKeeperRegistryMaster.sol";
 import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
 import {IAutomationRegistryConsumer} from "../interfaces/IAutomationRegistryConsumer.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
-import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
 /// @title The UpkeepBalanceMonitor contract
