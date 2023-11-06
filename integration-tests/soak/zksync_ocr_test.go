@@ -28,8 +28,8 @@ func TestOCRZKSync(t *testing.T) {
 	//testDuration, isSet := os.LookupEnv("TEST_DURATION")
 	//require.Equal(t, isSet, true, "TEST_DURATION should be defined")
 
-	timeBetweenRounds, isSet := os.LookupEnv("OCR_TIME_BETWEEN_ROUNDS")
-	require.Equal(t, isSet, true, "OCR_TIME_BETWEEN_ROUNDS should be defined")
+	//timeBetweenRounds, isSet := os.LookupEnv("OCR_TIME_BETWEEN_ROUNDS")
+	//require.Equal(t, isSet, true, "OCR_TIME_BETWEEN_ROUNDS should be defined")
 
 	//gauntletBinary, isSet := os.LookupEnv("GAUNTLET_LOCAL_BINARY")
 	require.Equal(t, isSet, true, "GAUNTLET_LOCAL_BINARY should be defined")
@@ -73,12 +73,12 @@ func TestOCRZKSync(t *testing.T) {
 	//duration, err := time.ParseDuration(testDuration)
 	//require.NoError(t, err, "Error parsing test duration")
 
-	waitBetweenRounds, err := time.ParseDuration(timeBetweenRounds)
-	require.NoError(t, err, "Error parsing time between rounds duration")
+	//waitBetweenRounds, err := time.ParseDuration(timeBetweenRounds)
+	//require.NoError(t, err, "Error parsing time between rounds duration")
 
 	endTime := time.Now().Add(time.Hour * 72)
 	round := 1
-	for ; time.Now().Before(endTime); time.Sleep(waitBetweenRounds) {
+	for ; time.Now().Before(endTime); time.Sleep(time.Second * 10) {
 		l.Info().Msg(fmt.Sprintf("Time now %v", time.Now()))
 		l.Info().Msg(fmt.Sprintf("End time %v", endTime))
 		l.Info().Msg(fmt.Sprintf("Starting round %d", round))
