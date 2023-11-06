@@ -11,9 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kelseyhightower/envconfig"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 

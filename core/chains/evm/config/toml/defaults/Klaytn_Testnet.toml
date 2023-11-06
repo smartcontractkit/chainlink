@@ -5,6 +5,6 @@ NoNewHeadsThreshold = '30s'
 OCR.ContractConfirmations = 1
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '750 gwei' # gwei = ston
 BumpThreshold = 0

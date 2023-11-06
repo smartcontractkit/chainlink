@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -22,8 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-func NewTestORM(t *testing.T, db *sqlx.DB, legacyChains evm.LegacyChainContainer, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, cfg pg.QConfig) job.ORM {
-	o := job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t), cfg)
+func NewTestORM(t *testing.T, db *sqlx.DB, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, cfg pg.QConfig) job.ORM {
+	o := job.NewORM(db, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t), cfg)
 	t.Cleanup(func() { o.Close() })
 	return o
 }

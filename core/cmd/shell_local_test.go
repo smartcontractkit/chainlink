@@ -25,7 +25,7 @@ import (
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -79,7 +79,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			})
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
+			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			lggr := logger.TestLogger(t)
 
@@ -100,7 +100,8 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			app := mocks.NewApplication(t)
-			app.On("SessionORM").Return(sessionORM).Maybe()
+			app.On("AuthenticationProvider").Return(authProviderORM).Maybe()
+			app.On("BasicAdminUsersORM").Return(authProviderORM).Maybe()
 			app.On("GetKeyStore").Return(keyStore).Maybe()
 			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
@@ -171,7 +172,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
+			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -199,7 +200,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
 			app := mocks.NewApplication(t)
-			app.On("SessionORM").Return(sessionORM)
+			app.On("BasicAdminUsersORM").Return(authProviderORM)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
@@ -302,8 +303,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
-	mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
-	mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+	mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 	app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
@@ -385,8 +385,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
-			mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
-			mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+			mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 
 			client := cmd.Shell{
@@ -465,8 +464,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
-			mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
-			mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+			mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
 

@@ -459,6 +459,7 @@ MaxBackups determines the maximum number of old log files to retain. Keeping thi
 ## WebServer
 ```toml
 [WebServer]
+AuthenticationMethod = 'local' # Default
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
 BridgeCacheTTL = '0s' # Default
 BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
@@ -472,6 +473,12 @@ StartTimeout = '15s' # Default
 ListenIP = '0.0.0.0' # Default
 ```
 
+
+### AuthenticationMethod
+```toml
+AuthenticationMethod = 'local' # Default
+```
+AuthenticationMethod defines which pluggable auth interface to use for user login and role assumption. Options include 'local' and 'ldap'. See docs for more details
 
 ### AllowOrigins
 ```toml
@@ -545,6 +552,132 @@ StartTimeout defines the maximum amount of time the node will wait for a server 
 ListenIP = '0.0.0.0' # Default
 ```
 ListenIP specifies the IP to bind the HTTP server to
+
+## WebServer.LDAP
+```toml
+[WebServer.LDAP]
+ServerTLS = true # Default
+SessionTimeout = '15m0s' # Default
+QueryTimeout = '2m0s' # Default
+BaseUserAttr = 'uid' # Default
+BaseDN = 'dc=custom,dc=example,dc=com' # Example
+UsersDN = 'ou=users' # Default
+GroupsDN = 'ou=groups' # Default
+ActiveAttribute = '' # Default
+ActiveAttributeAllowedValue = '' # Default
+AdminUserGroupCN = 'NodeAdmins' # Default
+EditUserGroupCN = 'NodeEditors' # Default
+RunUserGroupCN = 'NodeRunners' # Default
+ReadUserGroupCN = 'NodeReadOnly' # Default
+UserApiTokenEnabled = false # Default
+UserAPITokenDuration = '240h0m0s' # Default
+UpstreamSyncInterval = '0s' # Default
+UpstreamSyncRateLimit = '2m0s' # Default
+```
+Optional LDAP config if WebServer.AuthenticationMethod is set to 'ldap'
+LDAP queries are all parameterized to support custom LDAP 'dn', 'cn', and attributes
+
+### ServerTLS
+```toml
+ServerTLS = true # Default
+```
+ServerTLS defines the option to require the secure ldaps
+
+### SessionTimeout
+```toml
+SessionTimeout = '15m0s' # Default
+```
+SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
+
+### QueryTimeout
+```toml
+QueryTimeout = '2m0s' # Default
+```
+QueryTimeout defines how long queries should wait before timing out, defined in seconds
+
+### BaseUserAttr
+```toml
+BaseUserAttr = 'uid' # Default
+```
+BaseUserAttr defines the base attribute used to populate LDAP queries such as "uid=$", default is example
+
+### BaseDN
+```toml
+BaseDN = 'dc=custom,dc=example,dc=com' # Example
+```
+BaseDN defines the base LDAP 'dn' search filter to apply to every LDAP query, replace example,com with the appropriate LDAP server's structure
+
+### UsersDN
+```toml
+UsersDN = 'ou=users' # Default
+```
+UsersDN defines the 'dn' query to use when querying for the 'users' 'ou' group
+
+### GroupsDN
+```toml
+GroupsDN = 'ou=groups' # Default
+```
+GroupsDN defines the 'dn' query to use when querying for the 'groups' 'ou' group
+
+### ActiveAttribute
+```toml
+ActiveAttribute = '' # Default
+```
+ActiveAttribute is an optional user field to check truthiness for if a user is valid/active. This is only required if the LDAP provider lists inactive users as members of groups
+
+### ActiveAttributeAllowedValue
+```toml
+ActiveAttributeAllowedValue = '' # Default
+```
+ActiveAttributeAllowedValue is the value to check against for the above optional user attribute
+
+### AdminUserGroupCN
+```toml
+AdminUserGroupCN = 'NodeAdmins' # Default
+```
+AdminUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Admin' role
+
+### EditUserGroupCN
+```toml
+EditUserGroupCN = 'NodeEditors' # Default
+```
+EditUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Edit' role
+
+### RunUserGroupCN
+```toml
+RunUserGroupCN = 'NodeRunners' # Default
+```
+RunUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Run' role
+
+### ReadUserGroupCN
+```toml
+ReadUserGroupCN = 'NodeReadOnly' # Default
+```
+ReadUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Read' role
+
+### UserApiTokenEnabled
+```toml
+UserApiTokenEnabled = false # Default
+```
+UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
+
+### UserAPITokenDuration
+```toml
+UserAPITokenDuration = '240h0m0s' # Default
+```
+UserAPITokenDuration is the duration of time an API token is active for before expiring
+
+### UpstreamSyncInterval
+```toml
+UpstreamSyncInterval = '0s' # Default
+```
+UpstreamSyncInterval is the interval at which the background LDAP sync task will be called. A '0s' value disables the background sync being run on an interval. This check is already performed during login/logout actions, all sessions and API tokens stored in the local ldap tables are updated to match the remote server
+
+### UpstreamSyncRateLimit
+```toml
+UpstreamSyncRateLimit = '2m0s' # Default
+```
+UpstreamSyncRateLimit defines a duration to limit the number of query/API calls to the upstream LDAP provider. It prevents the sync functionality from being called multiple times within the defined duration
 
 ## WebServer.RateLimit
 ```toml
@@ -2726,7 +2859,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
@@ -2885,7 +3018,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
@@ -2963,7 +3096,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '750 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
@@ -3042,7 +3175,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
@@ -3199,7 +3332,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
@@ -3277,7 +3410,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '750 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
@@ -4383,7 +4516,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
@@ -4461,7 +4594,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
@@ -5004,7 +5137,8 @@ Mode controls what type of gas estimator is used.
 
 - `FixedPrice` uses static configured values for gas price (can be set via API call).
 - `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
-- `L2Suggested` is a special mode only for use with L2 blockchains. This mode will use the gas price suggested by the rpc endpoint via `eth_gasPrice`.
+- `L2Suggested` mode is deprecated and replaced with `SuggestedPrice`.
+- `SuggestedPrice` is a mode which uses the gas price suggested by the rpc endpoint via `eth_gasPrice`.
 - `Arbitrum` is a special mode only for use with Arbitrum blockchains. It uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
 
 Chainlink nodes decide what gas price to use using an `Estimator`. It ships with several simple and battle-hardened built-in estimators that should work well for almost all use-cases. Note that estimators will change their behaviour slightly depending on if you are in EIP-1559 mode or not.
