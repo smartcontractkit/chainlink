@@ -2,10 +2,13 @@ package evm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -36,7 +39,7 @@ func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts)
 		return nil, fmt.Errorf("invalid ChainReader configuration: %w", err)
 	}
 
-	return &chainReader{lggr.Named("ChainReader"), chain.LogPoller(), relayConfig.ChainReader.ChainContractReaders}, nil
+	return &chainReader{lggr.Named("ChainReader"), chain.LogPoller(), relayConfig.ChainReader.ChainContractReaders, chain}, nil
 }
 
 func parseChainContractReadersABIs(chainContractReaders map[string]types.ChainContractReader) error {
@@ -171,16 +174,31 @@ type chainReader struct {
 	lggr logger.Logger
 	lp   logpoller.LogPoller
 	// key being contract name
-	ChainContractReaders map[string]types.ChainContractReader
+	chainContractReaders map[string]types.ChainContractReader
+	chain                evm.Chain
 }
 
-// chainReader constructor
-
+// GetLatestValue calls given contract method and returns current value.
 func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) error {
+	chainContractReader := cr.chainContractReaders[bc.Name]
+	callData, err := chainContractReader.ParsedContractABI.Pack(method, params)
+	if err != nil {
+		return err
+	}
 
-	// TODO: implement GetLatestValue
+	contractAddr := common.HexToAddress(bc.Address)
+	ethCallMsg := ethereum.CallMsg{
+		From: common.Address{},
+		To:   &contractAddr,
+		Data: callData,
+	}
 
-	return fmt.Errorf("Unimplemented method GetlatestValue called")
+	response, err := cr.chain.Client().CallContract(ctx, ethCallMsg, nil)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(response, returnVal)
 }
 
 func (cr *chainReader) Start(ctx context.Context) error {
