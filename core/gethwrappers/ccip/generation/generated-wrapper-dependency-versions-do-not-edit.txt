@@ -13,7 +13,7 @@ maybe_revert_message_receiver: ../../../contracts/solc/v0.8.19/MaybeRevertMessag
 mock_arm_contract: ../../../contracts/solc/v0.8.19/MockARM.abi ../../../contracts/solc/v0.8.19/MockARM.bin efcf4cb260a2b6a6e189639f62bb50ab650a135715c1fcd42c92dfa9d04aa0e3
 ping_pong_demo: ../../../contracts/solc/v0.8.19/PingPongDemo.abi ../../../contracts/solc/v0.8.19/PingPongDemo.bin 61e6f809128174e884559a2015f6a60b29b56ffde1a1a380912f631a48508a6e
 price_registry: ../../../contracts/solc/v0.8.19/PriceRegistry.abi ../../../contracts/solc/v0.8.19/PriceRegistry.bin 36e8d2c44a16fefb5258557cb1eae25eca1cc12efcd3c3270f91a90a5f81e7ea
-router: ../../../contracts/solc/v0.8.19/Router.abi ../../../contracts/solc/v0.8.19/Router.bin 78a5f557cb3925da28aa755c8c69742b936e2db3c524bdff34a9f5ce024b8b0e
+router: ../../../contracts/solc/v0.8.19/Router.abi ../../../contracts/solc/v0.8.19/Router.bin d990e74b6032d4f75ef6e733e31ac5d34a3ac3f453b14f8c3a71367bb011c6db
 self_funded_ping_pong: ../../../contracts/solc/v0.8.19/SelfFundedPingPong.abi ../../../contracts/solc/v0.8.19/SelfFundedPingPong.bin fc2f9ac93f49f4a2a0a0008c2a660444cc5c127688f64beeb63e5f96a10c995e
 usdc_token_pool: ../../../contracts/solc/v0.8.19/USDCTokenPool.abi ../../../contracts/solc/v0.8.19/USDCTokenPool.bin 1b96c5a03654d5c9167b21678b0f41dbd3ff4713dffeb255bdaa840ea80570e1
 weth9: ../../../contracts/solc/v0.8.19/WETH9.abi ../../../contracts/solc/v0.8.19/WETH9.bin 5a7d64fb19b62ec523c7667ce4c2983295c05f74935b5f994c06a6f70d440f8b

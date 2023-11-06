@@ -60,6 +60,7 @@ func (p *PriceRegistryV1_2_0) GetTokenPrices(ctx context.Context, wantedTokens [
 	return tpu, nil
 }
 
+// ApplyPriceRegistryUpdateV1_2_0 is a helper function used in tests only.
 func ApplyPriceRegistryUpdateV1_2_0(t *testing.T, user *bind.TransactOpts, addr common.Address, ec client.Client, gasPrices []GasPrice, tokenPrices []TokenPrice) common.Hash {
 	require.True(t, len(gasPrices) <= 1)
 	pr, err := price_registry.NewPriceRegistry(addr, ec)

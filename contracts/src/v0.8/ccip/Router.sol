@@ -157,10 +157,8 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     uint256 gasLimit,
     address receiver
   ) external override whenHealthy returns (bool success, bytes memory retData) {
-    // We only permit offRamps to call this function. We have to encode the sourceChainSelector
-    // and msg.sender into a uint256 to use as a key in the set.
-    if (!s_chainSelectorAndOffRamps.contains(_mergeChainSelectorAndOffRamp(message.sourceChainSelector, msg.sender)))
-      revert OnlyOffRamp();
+    // We only permit offRamps to call this function.
+    if (!isOffRamp(message.sourceChainSelector, msg.sender)) revert OnlyOffRamp();
 
     // We encode here instead of the offRamps to constrain specifically what functions
     // can be called from the router.
@@ -229,7 +227,8 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     return offRamps;
   }
 
-  function isOffRamp(uint64 sourceChainSelector, address offRamp) external view returns (bool) {
+  function isOffRamp(uint64 sourceChainSelector, address offRamp) public view returns (bool) {
+    // We have to encode the sourceChainSelector and offRamp into a uint256 to use as a key in the set.
     return s_chainSelectorAndOffRamps.contains(_mergeChainSelectorAndOffRamp(sourceChainSelector, offRamp));
   }
 

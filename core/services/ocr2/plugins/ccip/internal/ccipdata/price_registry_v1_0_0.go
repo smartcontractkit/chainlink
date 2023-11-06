@@ -178,6 +178,7 @@ func NewPriceRegistryV1_0_0(lggr logger.Logger, priceRegistryAddr common.Address
 	}, nil
 }
 
+// ApplyPriceRegistryUpdateV1_0_0 is a helper function used in tests only.
 func ApplyPriceRegistryUpdateV1_0_0(t *testing.T, user *bind.TransactOpts, addr common.Address, ec client.Client, gasPrice []GasPrice, tokenPrices []TokenPrice) {
 	require.True(t, len(gasPrice) <= 1)
 	pr, err := price_registry_1_0_0.NewPriceRegistry(addr, ec)
