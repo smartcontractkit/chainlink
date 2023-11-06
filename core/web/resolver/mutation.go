@@ -882,7 +882,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return nil, errors.New("couldn't retrieve user session")
 	}
 
-	dbUser, err := r.App.SessionORM().FindUser(session.User.Email)
+	dbUser, err := r.App.AuthenticationProvider().FindUser(session.User.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -895,11 +895,11 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		}), nil
 	}
 
-	if err = r.App.SessionORM().ClearNonCurrentSessions(session.SessionID); err != nil {
+	if err = r.App.AuthenticationProvider().ClearNonCurrentSessions(session.SessionID); err != nil {
 		return nil, clearSessionsError{}
 	}
 
-	err = r.App.SessionORM().SetPassword(&dbUser, args.Input.NewPassword)
+	err = r.App.AuthenticationProvider().SetPassword(&dbUser, args.Input.NewPassword)
 	if err != nil {
 		return nil, failedPasswordUpdateError{}
 	}
@@ -937,12 +937,13 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 	if !ok {
 		return nil, errors.New("Failed to obtain current user from context")
 	}
-	dbUser, err := r.App.SessionORM().FindUser(session.User.Email)
+	dbUser, err := r.App.AuthenticationProvider().FindUser(session.User.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.CheckPasswordHash(args.Input.Password, dbUser.HashedPassword) {
+	err = r.App.AuthenticationProvider().TestPassword(dbUser.Email, args.Input.Password)
+	if err != nil {
 		r.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]interface{}{"user": dbUser.Email})
 
 		return NewCreateAPITokenPayload(nil, map[string]string{
@@ -950,7 +951,7 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 		}), nil
 	}
 
-	newToken, err := r.App.SessionORM().CreateAndSetAuthToken(&dbUser)
+	newToken, err := r.App.AuthenticationProvider().CreateAndSetAuthToken(&dbUser)
 	if err != nil {
 		return nil, err
 	}
@@ -970,12 +971,13 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 	if !ok {
 		return nil, errors.New("Failed to obtain current user from context")
 	}
-	dbUser, err := r.App.SessionORM().FindUser(session.User.Email)
+	dbUser, err := r.App.AuthenticationProvider().FindUser(session.User.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.CheckPasswordHash(args.Input.Password, dbUser.HashedPassword) {
+	err = r.App.AuthenticationProvider().TestPassword(dbUser.Email, args.Input.Password)
+	if err != nil {
 		r.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]interface{}{"user": dbUser.Email})
 
 		return NewDeleteAPITokenPayload(nil, map[string]string{
@@ -983,7 +985,7 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 		}), nil
 	}
 
-	err = r.App.SessionORM().DeleteAuthToken(&dbUser)
+	err = r.App.AuthenticationProvider().DeleteAuthToken(&dbUser)
 	if err != nil {
 		return nil, err
 	}
