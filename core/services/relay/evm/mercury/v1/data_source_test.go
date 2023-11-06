@@ -22,11 +22,13 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -69,7 +71,8 @@ func (m *mockORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg
 
 func TestMercury_Observe(t *testing.T) {
 	orm := &mockORM{}
-	ds := &datasource{lggr: logger.TestLogger(t), orm: orm, codec: (reportcodecv1.ReportCodec{})}
+	lggr := logger.TestLogger(t)
+	ds := NewDataSource(orm, nil, job.Job{}, pipeline.Spec{}, lggr, nil, nil, nil, nil, nil, mercuryutils.FeedID{})
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
 
@@ -400,9 +403,7 @@ func TestMercury_Observe(t *testing.T) {
 
 func TestMercury_SetLatestBlocks(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ds := datasource{
-		lggr: lggr,
-	}
+	ds := NewDataSource(nil, nil, job.Job{}, pipeline.Spec{}, lggr, nil, nil, nil, nil, nil, mercuryutils.FeedID{})
 
 	h := evmtypes.Head{
 		Number:           testutils.NewRandomPositiveInt64(),
