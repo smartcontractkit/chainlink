@@ -56,27 +56,47 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   }
 
   // ================================================================
-  // |                    AUTOMATION COMPATIBLE                     |
+  // |                      CORE FUNCTIONALITY                      |
   // ================================================================
 
-  /// @notice Gets list of upkeeps ids that are underfunded and returns a keeper-compatible payload.
-  /// @return upkeepNeeded signals if upkeep is needed, performData is an abi encoded list of subscription ids that need funds
-  function checkUpkeep(
-    bytes calldata
-  ) external view whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
-    (uint256[] memory needsFunding, uint256[] memory topUpAmounts) = getUnderfundedUpkeeps();
-    upkeepNeeded = needsFunding.length > 0;
-    if (upkeepNeeded) {
-      performData = abi.encode(needsFunding, topUpAmounts);
+  /// @notice Gets a list of upkeeps that are underfunded
+  /// @return needsFunding list of underfunded upkeepIDs
+  /// @return topUpAmounts amount to top up each upkeep
+  function getUnderfundedUpkeeps() public view returns (uint256[] memory, uint256[] memory) {
+    uint256 numUpkeeps = s_watchList.length;
+    uint256[] memory needsFunding = new uint256[](numUpkeeps);
+    uint256[] memory topUpAmounts = new uint256[](numUpkeeps);
+    Config memory config = s_config;
+    IAutomationRegistryConsumer registry = getRegistry();
+    uint256 availableFunds = LINK_TOKEN.balanceOf(address(this));
+    uint256 count;
+    uint256 upkeepID;
+    for (uint256 i = 0; i < numUpkeeps; i++) {
+      upkeepID = s_watchList[i];
+      uint96 upkeepBalance = registry.getBalance(upkeepID);
+      uint256 minBalance = uint256(registry.getMinBalance(upkeepID));
+      uint256 topUpThreshold = (minBalance * config.minPercentage) / 100;
+      uint256 topUpAmount = ((minBalance * config.targetPercentage) / 100) - upkeepBalance;
+      if (topUpAmount > config.maxTopUpAmount) {
+        topUpAmount = config.maxTopUpAmount;
+      }
+      if (upkeepBalance <= topUpThreshold && availableFunds >= topUpAmount) {
+        needsFunding[count] = upkeepID;
+        topUpAmounts[count] = topUpAmount;
+        count++;
+        availableFunds -= topUpAmount;
+      }
+      if (count == config.maxBatchSize) {
+        break;
+      }
     }
-    return (upkeepNeeded, performData);
-  }
-
-  /// @notice Called by the keeper to send funds to underfunded addresses.
-  /// @param performData the abi encoded list of addresses to fund
-  function performUpkeep(bytes calldata performData) external whenNotPaused {
-    (uint256[] memory upkeepIDs, uint96[] memory topUpAmounts) = abi.decode(performData, (uint256[], uint96[]));
-    topUp(upkeepIDs, topUpAmounts);
+    if (count < numUpkeeps) {
+      assembly {
+        mstore(needsFunding, count)
+        mstore(topUpAmounts, count)
+      }
+    }
+    return (needsFunding, topUpAmounts);
   }
 
   /// @notice Called by the keeper/owner to send funds to underfunded upkeeps
@@ -103,6 +123,30 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
       } catch {}
       emit TopUpFailed(upkeepIDs[i]);
     }
+  }
+
+  // ================================================================
+  // |                    AUTOMATION COMPATIBLE                     |
+  // ================================================================
+
+  /// @notice Gets list of upkeeps ids that are underfunded and returns a keeper-compatible payload.
+  /// @return upkeepNeeded signals if upkeep is needed, performData is an abi encoded list of subscription ids that need funds
+  function checkUpkeep(
+    bytes calldata
+  ) external view whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
+    (uint256[] memory needsFunding, uint256[] memory topUpAmounts) = getUnderfundedUpkeeps();
+    upkeepNeeded = needsFunding.length > 0;
+    if (upkeepNeeded) {
+      performData = abi.encode(needsFunding, topUpAmounts);
+    }
+    return (upkeepNeeded, performData);
+  }
+
+  /// @notice Called by the keeper to send funds to underfunded addresses.
+  /// @param performData the abi encoded list of addresses to fund
+  function performUpkeep(bytes calldata performData) external whenNotPaused {
+    (uint256[] memory upkeepIDs, uint96[] memory topUpAmounts) = abi.decode(performData, (uint256[], uint96[]));
+    topUp(upkeepIDs, topUpAmounts);
   }
 
   // ================================================================
@@ -165,46 +209,6 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   // ================================================================
   // |                           GETTERS                            |
   // ================================================================
-
-  /// @notice Gets a list of upkeeps that are underfunded.
-  /// @return needsFunding list of underfunded upkeepIDs
-  /// @return topUpAmounts amount to top up each upkeep
-  function getUnderfundedUpkeeps() public view returns (uint256[] memory, uint256[] memory) {
-    uint256 numUpkeeps = s_watchList.length;
-    uint256[] memory needsFunding = new uint256[](numUpkeeps);
-    uint256[] memory topUpAmounts = new uint256[](numUpkeeps);
-    Config memory config = s_config;
-    IAutomationRegistryConsumer registry = getRegistry();
-    uint256 availableFunds = LINK_TOKEN.balanceOf(address(this));
-    uint256 count;
-    uint256 upkeepID;
-    for (uint256 i = 0; i < numUpkeeps; i++) {
-      upkeepID = s_watchList[i];
-      uint96 upkeepBalance = registry.getBalance(upkeepID);
-      uint256 minBalance = uint256(registry.getMinBalance(upkeepID));
-      uint256 topUpThreshold = (minBalance * config.minPercentage) / 100;
-      uint256 topUpAmount = ((minBalance * config.targetPercentage) / 100) - upkeepBalance;
-      if (topUpAmount > config.maxTopUpAmount) {
-        topUpAmount = config.maxTopUpAmount;
-      }
-      if (upkeepBalance <= topUpThreshold && availableFunds >= topUpAmount) {
-        needsFunding[count] = upkeepID;
-        topUpAmounts[count] = topUpAmount;
-        count++;
-        availableFunds -= topUpAmount;
-      }
-      if (count == config.maxBatchSize) {
-        break;
-      }
-    }
-    if (count < numUpkeeps) {
-      assembly {
-        mstore(needsFunding, count)
-        mstore(topUpAmounts, count)
-      }
-    }
-    return (needsFunding, topUpAmounts);
-  }
 
   /// @notice Gets the list of upkeeps ids being monitored
   function getWatchList() external view returns (uint256[] memory) {
