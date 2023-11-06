@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -179,15 +180,10 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 	}
 	if h.subscriptions != nil && h.minimumBalance != nil {
 		balance, err := h.subscriptions.GetMaxUserBalance(sender)
-		if err != nil {
-			h.lggr.Debug("error while getting max user balance", "sender", msg.Body.Sender, "err", err)
-			return fmt.Errorf("error while getting max user balance: %w", err)
-		}
 		if balance == nil {
-			h.lggr.Debug("received a message from unknown user", "sender", msg.Body.Sender)
-			return fmt.Errorf("unknown user (subscription): %v", sender)
+			balance = big.NewInt(0)
 		}
-		if balance.Cmp(h.minimumBalance.ToInt()) < 0 {
+		if err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
 			h.lggr.Debug("received a message from a user having insufficient balance", "sender", msg.Body.Sender, "balance", balance.String())
 			return fmt.Errorf("sender has insufficient balance: %v juels", balance.String())
 		}
