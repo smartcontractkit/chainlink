@@ -31,7 +31,7 @@ on:
         default: "Sepolia"
         required: true
       fundingKey:
-        description: Private key used to fund the contracts
+        description: Private key used to fund the contracts (must have sufficient ETH and LINK!)
         required: true
       rpcURL:
         description: RPC URL to use
