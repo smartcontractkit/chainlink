@@ -1,11 +1,11 @@
 package loadvrfv2
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -64,11 +64,11 @@ func ReadConfig() (*PerformanceConfig, error) {
 	var cfg *PerformanceConfig
 	d, err := os.ReadFile(DefaultConfigFilename)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrReadPerfConfig)
+		return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
 	}
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
+		return nil, fmt.Errorf("%s, err: %w", ErrUnmarshalPerfConfig, err)
 	}
 	log.Debug().Interface("PerformanceConfig", cfg).Msg("Parsed performance config")
 	return cfg, nil

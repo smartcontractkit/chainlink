@@ -11,7 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -272,6 +271,7 @@ func TestVRFv2Plus(t *testing.T) {
 		subIDForCancelling := subIDsForCancelling[0]
 
 		testWalletAddress, err := actions.GenerateWallet()
+		require.NoError(t, err)
 
 		testWalletBalanceNativeBeforeSubCancelling, err := env.EVMClient.BalanceAt(context.Background(), testWalletAddress)
 		require.NoError(t, err)
@@ -639,7 +639,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
 	_, err = vrfv2plus.VRFV2PlusUpgradedVersionRegisterProvingKey(vrfv2PlusData.VRFKey, vrfv2PlusData.PrimaryEthAddress, newCoordinator)
-	require.NoError(t, err, errors.Wrap(err, vrfv2plus.ErrRegisteringProvingKey))
+	require.NoError(t, err, fmt.Errorf("%s, err: %w", vrfv2plus.ErrRegisteringProvingKey, err))
 
 	err = newCoordinator.SetConfig(
 		vrfv2PlusConfig.MinimumConfirmations,
@@ -652,6 +652,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			FulfillmentFlatFeeNativePPM: vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
 		},
 	)
+	require.NoError(t, err)
 
 	err = newCoordinator.SetLINKAndLINKNativeFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
 	require.NoError(t, err, vrfv2plus.ErrSetLinkNativeLinkFeed)

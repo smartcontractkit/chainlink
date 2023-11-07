@@ -1,6 +1,7 @@
 package loadvrfv2
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -55,7 +56,7 @@ func (m *JobVolumeVU) Clone(_ *wasp.Generator) wasp.VirtualUser {
 func (m *JobVolumeVU) Setup(_ *wasp.Generator) error {
 	jobs, err := vrfv2_actions.CreateVRFV2Jobs(m.nodes, m.contracts.Coordinator, m.bc, m.minIncomingConfirmations)
 	if err != nil {
-		return errors.Wrap(err, "failed to create VRFv2 jobs in setup")
+		return fmt.Errorf("failed to create VRFv2 jobs in setup: %w", err)
 	}
 	m.jobs = jobs
 	m.keyHash = jobs[0].KeyHash

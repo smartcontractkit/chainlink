@@ -2,10 +2,10 @@ package loadvrfv2plus
 
 import (
 	"encoding/base64"
+	"fmt"
 	"os"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -96,18 +96,18 @@ func ReadConfig() (*PerformanceConfig, error) {
 	if rawConfig == "" {
 		d, err = os.ReadFile(DefaultConfigFilename)
 		if err != nil {
-			return nil, errors.Wrap(err, ErrReadPerfConfig)
+			return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
 		}
 	} else {
 		d, err = base64.StdEncoding.DecodeString(rawConfig)
 	}
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
+		return nil, fmt.Errorf("%s, err: %w", ErrUnmarshalPerfConfig, err)
 	}
 
 	if cfg.Soak.RandomnessRequestCountPerRequest <= cfg.Soak.RandomnessRequestCountPerRequestDeviation {
-		return nil, errors.Wrap(err, ErrDeviationShouldBeLessThanOriginal)
+		return nil, fmt.Errorf("%s, err: %w", ErrDeviationShouldBeLessThanOriginal, err)
 	}
 
 	log.Debug().Interface("Config", cfg).Msg("Parsed config")
