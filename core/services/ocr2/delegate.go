@@ -224,7 +224,6 @@ func NewDelegate(
 	ethKs keystore.Eth,
 	relayers RelayGetter,
 	mailMon *utils.MailboxMonitor,
-	eventBroadcaster pg.EventBroadcaster,
 ) *Delegate {
 	return &Delegate{
 		db:                    db,

@@ -42,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -152,8 +151,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg.Database())
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 
-	dbListener := cfg.Database().Listener()
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing())
 
 	// create the relayer-chain interoperators from application configuration
@@ -165,7 +162,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
 		CSAETHKeystore: keyStore,
-		ChainOpts:      evm.ChainOpts{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon, DB: db},
+		ChainOpts:      evm.ChainOpts{AppConfig: cfg, MailMon: mailMon, DB: db},
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
@@ -213,7 +210,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		SqlxDB:                     db,
 		KeyStore:                   keyStore,
 		RelayerChainInteroperators: relayChainInterops,
-		EventBroadcaster:           eventBroadcaster,
 		MailMon:                    mailMon,
 		Logger:                     appLggr,
 		AuditLogger:                auditLogger,

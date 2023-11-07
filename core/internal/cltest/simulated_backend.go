@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -15,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -41,9 +39,8 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
 	chainID := utils.NewBig(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
 
-	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, chainID)
+	flagsAndDeps = append(flagsAndDeps, client, chainID)
 
 	//  app.Stop() will call client.Close on the simulated backend
 	app := NewApplicationWithConfig(t, cfg, flagsAndDeps...)
@@ -66,9 +63,8 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
 	chainID := utils.NewBig(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
 
-	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, chainID)
+	flagsAndDeps = append(flagsAndDeps, client, chainID)
 
 	//  app.Stop() will call client.Close on the simulated backend
 	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)

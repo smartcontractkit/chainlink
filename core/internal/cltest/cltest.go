@@ -200,11 +200,6 @@ func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipeline
 	}
 }
 
-func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
-	lggr := logger.TestLogger(t)
-	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.New())
-}
-
 func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgrcommon.ResumeCallback) *txmgr.Confirmer {
 	lggr := logger.TestLogger(t)
 	ge := config.EVM().GasEstimator()
@@ -345,8 +340,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		auditLogger = audit.NoopLogger
 	}
 
-	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
-
 	url := cfg.Database().URL()
 	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
@@ -363,8 +356,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			ethClient = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
-		case pg.EventBroadcaster:
-			eventBroadcaster = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
@@ -387,10 +378,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: evm.ChainOpts{
-			AppConfig:        cfg,
-			EventBroadcaster: eventBroadcaster,
-			MailMon:          mailMon,
-			DB:               db,
+			AppConfig: cfg,
+			MailMon:   mailMon,
+			DB:        db,
 		},
 		CSAETHKeystore: keyStore,
 	}
@@ -443,7 +433,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     cfg,
-		EventBroadcaster:           eventBroadcaster,
 		MailMon:                    mailMon,
 		SqlxDB:                     db,
 		KeyStore:                   keyStore,

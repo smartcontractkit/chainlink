@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -161,9 +160,8 @@ func (c ChainRelayExtenderConfig) Validate() error {
 type ChainOpts struct {
 	AppConfig AppConfig
 
-	EventBroadcaster pg.EventBroadcaster
-	MailMon          *utils.MailboxMonitor
-	GasEstimator     gas.EvmFeeEstimator
+	MailMon      *utils.MailboxMonitor
+	GasEstimator gas.EvmFeeEstimator
 
 	*sqlx.DB
 
@@ -181,9 +179,6 @@ func (o ChainOpts) Validate() error {
 	var err error
 	if o.AppConfig == nil {
 		err = errors.Join(err, errors.New("nil AppConfig"))
-	}
-	if o.EventBroadcaster == nil {
-		err = errors.Join(err, errors.New("nil EventBroadcaster"))
 	}
 	if o.MailMon == nil {
 		err = errors.Join(err, errors.New("nil MailMon"))

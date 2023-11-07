@@ -21,6 +21,7 @@ type Lock interface {
 	LeaseRefreshInterval() time.Duration
 }
 
+// TODO: remove this. only the TXM is using it, but it's not using it in a database specific way.
 type Listener interface {
 	MaxReconnectDuration() time.Duration
 	MinReconnectInterval() time.Duration

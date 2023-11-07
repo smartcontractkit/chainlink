@@ -109,7 +109,6 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	relayers                 *CoreRelayerChainInteroperators
-	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
@@ -142,7 +141,6 @@ type ChainlinkApplication struct {
 type ApplicationOpts struct {
 	Config                     GeneralConfig
 	Logger                     logger.Logger
-	EventBroadcaster           pg.EventBroadcaster
 	MailMon                    *utils.MailboxMonitor
 	SqlxDB                     *sqlx.DB
 	KeyStore                   keystore.Master
@@ -169,7 +167,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	db := opts.SqlxDB
 	cfg := opts.Config
 	relayerChainInterops := opts.RelayerChainInteroperators
-	eventBroadcaster := opts.EventBroadcaster
 	mailMon := opts.MailMon
 	externalInitiatorManager := opts.ExternalInitiatorManager
 	globalLogger := logger.Sugared(opts.Logger)
@@ -232,7 +229,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set Database.Backup.Mode=lite or Database.Backup.Mode=full")
 	}
 
-	srvcs = append(srvcs, eventBroadcaster, mailMon)
+	srvcs = append(srvcs, mailMon)
 	srvcs = append(srvcs, relayerChainInterops.Services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	srvcs = append(srvcs, promReporter)
@@ -372,7 +369,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,
-			eventBroadcaster,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
@@ -434,7 +430,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	return &ChainlinkApplication{
 		relayers:                 opts.RelayerChainInteroperators,
-		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
@@ -756,10 +751,6 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 
 func (app *ChainlinkApplication) GetRelayers() RelayerChainInteroperators {
 	return app.relayers
-}
-
-func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {
-	return app.EventBroadcaster
 }
 
 func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {

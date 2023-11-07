@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -33,10 +32,9 @@ func TestLegacyChains(t *testing.T) {
 
 func TestChainOpts_Validate(t *testing.T) {
 	type fields struct {
-		AppConfig        evm.AppConfig
-		EventBroadcaster pg.EventBroadcaster
-		MailMon          *utils.MailboxMonitor
-		DB               *sqlx.DB
+		AppConfig evm.AppConfig
+		MailMon   *utils.MailboxMonitor
+		DB        *sqlx.DB
 	}
 	tests := []struct {
 		name    string
@@ -46,19 +44,17 @@ func TestChainOpts_Validate(t *testing.T) {
 		{
 			name: "valid",
 			fields: fields{
-				AppConfig:        configtest.NewTestGeneralConfig(t),
-				EventBroadcaster: pg.NewNullEventBroadcaster(),
-				MailMon:          &utils.MailboxMonitor{},
-				DB:               pgtest.NewSqlxDB(t),
+				AppConfig: configtest.NewTestGeneralConfig(t),
+				MailMon:   &utils.MailboxMonitor{},
+				DB:        pgtest.NewSqlxDB(t),
 			},
 		},
 		{
 			name: "invalid",
 			fields: fields{
-				AppConfig:        nil,
-				EventBroadcaster: nil,
-				MailMon:          nil,
-				DB:               nil,
+				AppConfig: nil,
+				MailMon:   nil,
+				DB:        nil,
 			},
 			wantErr: true,
 		},
@@ -66,10 +62,9 @@ func TestChainOpts_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := evm.ChainOpts{
-				AppConfig:        tt.fields.AppConfig,
-				EventBroadcaster: tt.fields.EventBroadcaster,
-				MailMon:          tt.fields.MailMon,
-				DB:               tt.fields.DB,
+				AppConfig: tt.fields.AppConfig,
+				MailMon:   tt.fields.MailMon,
+				DB:        tt.fields.DB,
 			}
 			if err := o.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("ChainOpts.Validate() error = %v, wantErr %v", err, tt.wantErr)

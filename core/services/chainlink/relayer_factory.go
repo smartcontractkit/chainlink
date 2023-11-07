@@ -64,10 +64,9 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		}
 
 		relayerOpts := evmrelay.RelayerOpts{
-			DB:               ccOpts.DB,
-			QConfig:          ccOpts.AppConfig.Database(),
-			CSAETHKeystore:   config.CSAETHKeystore,
-			EventBroadcaster: ccOpts.EventBroadcaster,
+			DB:             ccOpts.DB,
+			QConfig:        ccOpts.AppConfig.Database(),
+			CSAETHKeystore: config.CSAETHKeystore,
 		}
 		relayer, err2 := evmrelay.NewRelayer(ccOpts.Logger.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {

@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
@@ -84,11 +83,10 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 		Logger:   logger.TestLogger(t),
 		KeyStore: testopts.KeyStore,
 		ChainOpts: evm.ChainOpts{
-			AppConfig:        testopts.GeneralConfig,
-			EventBroadcaster: pg.NewNullEventBroadcaster(),
-			MailMon:          testopts.MailMon,
-			GasEstimator:     testopts.GasEstimator,
-			DB:               testopts.DB,
+			AppConfig:    testopts.GeneralConfig,
+			MailMon:      testopts.MailMon,
+			GasEstimator: testopts.GasEstimator,
+			DB:           testopts.DB,
 		},
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {

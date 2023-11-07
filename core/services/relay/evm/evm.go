@@ -47,13 +47,12 @@ import (
 var _ relaytypes.Relayer = &Relayer{} //nolint:staticcheck
 
 type Relayer struct {
-	db               *sqlx.DB
-	chain            evm.Chain
-	lggr             logger.Logger
-	ks               CSAETHKeystore
-	mercuryPool      wsrpc.Pool
-	eventBroadcaster pg.EventBroadcaster
-	pgCfg            pg.QConfig
+	db          *sqlx.DB
+	chain       evm.Chain
+	lggr        logger.Logger
+	ks          CSAETHKeystore
+	mercuryPool wsrpc.Pool
+	pgCfg       pg.QConfig
 }
 
 type CSAETHKeystore interface {
@@ -65,7 +64,6 @@ type RelayerOpts struct {
 	*sqlx.DB
 	pg.QConfig
 	CSAETHKeystore
-	pg.EventBroadcaster
 }
 
 func (c RelayerOpts) Validate() error {
@@ -78,9 +76,6 @@ func (c RelayerOpts) Validate() error {
 	}
 	if c.CSAETHKeystore == nil {
 		err = errors.Join(err, errors.New("nil Keystore"))
-	}
-	if c.EventBroadcaster == nil {
-		err = errors.Join(err, errors.New("nil Eventbroadcaster"))
 	}
 
 	if err != nil {
@@ -96,13 +91,12 @@ func NewRelayer(lggr logger.Logger, chain evm.Chain, opts RelayerOpts) (*Relayer
 	}
 	lggr = lggr.Named("Relayer")
 	return &Relayer{
-		db:               opts.DB,
-		chain:            chain,
-		lggr:             lggr,
-		ks:               opts.CSAETHKeystore,
-		mercuryPool:      wsrpc.NewPool(lggr),
-		eventBroadcaster: opts.EventBroadcaster,
-		pgCfg:            opts.QConfig,
+		db:          opts.DB,
+		chain:       chain,
+		lggr:        lggr,
+		ks:          opts.CSAETHKeystore,
+		mercuryPool: wsrpc.NewPool(lggr),
+		pgCfg:       opts.QConfig,
 	}, nil
 }
 
@@ -151,7 +145,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	cw, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
+	cw, err := newConfigProvider(lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
@@ -210,7 +204,7 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
 
-	configProvider, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
+	configProvider, err := newConfigProvider(lggr, r.chain, relayOpts)
 	if err != nil {
 		// Never return (*configProvider)(nil)
 		return nil, err
@@ -320,7 +314,7 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return c.configPoller
 }
 
-func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpts, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
+func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
 	}
@@ -501,7 +495,7 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
 
-	configWatcher, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
+	configWatcher, err := newConfigProvider(lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
 	}
