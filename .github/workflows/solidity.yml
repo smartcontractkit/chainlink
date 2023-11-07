@@ -92,6 +92,8 @@ jobs:
           this-job-name: Native Compilation
         continue-on-error: true
 
+  # The if statements for steps after checkout repo is a workaround for
+  # passing required check for PRs that don't have filtered changes.
   lint:
     defaults:
       run:
@@ -101,7 +103,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        if: needs.changes.outputs.changes == 'true'
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup NodeJS
         if: needs.changes.outputs.changes == 'true'

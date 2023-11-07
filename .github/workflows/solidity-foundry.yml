@@ -38,9 +38,10 @@ jobs:
     # See https://github.com/foundry-rs/foundry/issues/3827
     runs-on: ubuntu-22.04
 
+    # The if statements for steps after checkout repo is workaround for
+    # passing required check for PRs that don't have filtered changes.
     steps:
       - name: Checkout the repo
-        if: needs.changes.outputs.changes == 'true'
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: recursive
