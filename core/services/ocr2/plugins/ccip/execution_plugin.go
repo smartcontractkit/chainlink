@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/contractutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
@@ -44,39 +43,46 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.Lega
 	if err != nil {
 		return nil, nil, err
 	}
-	chainIDInterface, ok := spec.RelayConfig["chainID"]
-	if !ok {
-		return nil, nil, errors.New("chainID must be provided in relay config")
-	}
-	destChainID := int64(chainIDInterface.(float64))
-	destChain, err := chainSet.Get(strconv.FormatInt(destChainID, 10))
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "get chainset")
-	}
-	offRamp, _, err := contractutil.LoadOffRamp(common.HexToAddress(spec.ContractID), destChain.Client())
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed loading offRamp")
-	}
-	offRampConfig, err := offRamp.GetStaticConfig(&bind.CallOpts{})
+
+	destChain, destChainID, err := ccipconfig.GetChainFromSpec(spec, chainSet)
 	if err != nil {
 		return nil, nil, err
 	}
-	chainId, err := chainselectors.ChainIdFromSelector(offRampConfig.SourceChainSelector)
+
+	// Create the offRamp reader.
+	offRampAddress := common.HexToAddress(spec.ContractID)
+	offRampReader, err := ccipdata.NewOffRampReader(lggr, offRampAddress, destChain.Client(), destChain.LogPoller(), destChain.GasEstimator())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "create offRampReader")
+	}
+	offRampConfig, err := offRampReader.GetStaticConfig(context.Background())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "get offRamp static config")
+	}
+
+	chainID, err := chainselectors.ChainIdFromSelector(offRampConfig.SourceChainSelector)
 	if err != nil {
 		return nil, nil, err
 	}
-	sourceChain, err := chainSet.Get(strconv.FormatUint(chainId, 10))
+
+	sourceChain, err := chainSet.Get(strconv.FormatUint(chainID, 10))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to open source chain")
+		return nil, nil, errors.Wrap(err, "open source chain")
 	}
-	onRamp, onRampVersion, err := contractutil.LoadOnRamp(offRampConfig.OnRamp, sourceChain.Client())
+
+	execLggr := lggr.Named("CCIPExecution").With(
+		"sourceChain", ChainName(int64(chainID)),
+		"destChain", ChainName(destChainID))
+	onRampReader, err := ccipdata.NewOnRampReader(execLggr, offRampConfig.SourceChainSelector,
+		offRampConfig.ChainSelector, offRampConfig.OnRamp, sourceChain.LogPoller(), sourceChain.Client(), sourceChain.Config().EVM().FinalityTagEnabled())
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed loading onRamp")
+		return nil, nil, errors.Wrap(err, "create onramp reader")
 	}
-	dynamicOnRampConfig, err := contractutil.LoadOnRampDynamicConfig(onRamp, onRampVersion, sourceChain.Client())
+	dynamicOnRampConfig, err := onRampReader.GetDynamicConfig()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed loading onRamp config")
+		return nil, nil, errors.Wrap(err, "get onramp dynamic config")
 	}
+
 	sourceRouter, err := router.NewRouter(dynamicOnRampConfig.Router, sourceChain.Client())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed loading source router")
@@ -85,41 +91,32 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.Lega
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get source native token")
 	}
-	execLggr := lggr.Named("CCIPExecution").With(
-		"sourceChain", ChainName(int64(chainId)),
-		"destChain", ChainName(destChainID))
+
 	// TODO: we don't support onramp source registry changes without a reboot yet?
 	sourcePriceRegistry, err := ccipdata.NewPriceRegistryReader(lggr, dynamicOnRampConfig.PriceRegistry, sourceChain.LogPoller(), sourceChain.Client())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not load source registry")
 	}
-	offRampReader, err := ccipdata.NewOffRampReader(lggr, common.HexToAddress(spec.ContractID), destChain.Client(), destChain.LogPoller(), destChain.GasEstimator())
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not load offRampReader")
-	}
+
 	commitStoreReader, err := ccipdata.NewCommitStoreReader(lggr, offRampConfig.CommitStore, destChain.Client(), destChain.LogPoller(), destChain.GasEstimator())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not load commitStoreReader reader")
 	}
-	onRampReader, err := ccipdata.NewOnRampReader(execLggr, offRampConfig.SourceChainSelector,
-		offRampConfig.ChainSelector, offRampConfig.OnRamp, sourceChain.LogPoller(), sourceChain.Client(), sourceChain.Config().EVM().FinalityTagEnabled())
-	if err != nil {
-		return nil, nil, err
-	}
+
 	tokenDataProviders, err := getTokenDataProviders(lggr, pluginConfig, sourceChain.LogPoller())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get token data providers")
 	}
 
 	// Prom wrappers
-	onRampReader = observability.NewObservedOnRampReader(onRampReader, int64(chainId), ExecPluginLabel)
-	sourcePriceRegistry = observability.NewPriceRegistryReader(sourcePriceRegistry, int64(chainId), ExecPluginLabel)
+	onRampReader = observability.NewObservedOnRampReader(onRampReader, int64(chainID), ExecPluginLabel)
+	sourcePriceRegistry = observability.NewPriceRegistryReader(sourcePriceRegistry, int64(chainID), ExecPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ExecPluginLabel)
 	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, ExecPluginLabel)
 
 	execLggr.Infow("Initialized exec plugin",
 		"pluginConfig", pluginConfig,
-		"onRampAddress", onRamp.Address(),
+		"onRampAddress", offRampConfig.OnRamp,
 		"sourcePriceRegistry", sourcePriceRegistry.Address(),
 		"dynamicOnRampConfig", dynamicOnRampConfig,
 		"sourceNative", sourceWrappedNative,

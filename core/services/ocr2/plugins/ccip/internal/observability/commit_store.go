@@ -76,3 +76,9 @@ func (o *ObservedCommitStoreReader) VerifyExecutionReport(ctx context.Context, r
 		return o.CommitStoreReader.VerifyExecutionReport(ctx, report)
 	})
 }
+
+func (o *ObservedCommitStoreReader) GetCommitStoreStaticConfig(ctx context.Context) (ccipdata.CommitStoreStaticConfig, error) {
+	return withObservedContract(o.metric, "GetCommitStoreStaticConfig", func() (ccipdata.CommitStoreStaticConfig, error) {
+		return o.CommitStoreReader.GetCommitStoreStaticConfig(ctx)
+	})
+}

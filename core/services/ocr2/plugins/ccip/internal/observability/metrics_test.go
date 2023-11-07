@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
 func TestProperLabelsArePassed(t *testing.T) {
@@ -47,7 +47,7 @@ func TestMetricsSendFromContractDirectly(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainId := int64(420)
 
-	mockedOfframp := ccipdata.NewMockOffRampReader(t)
+	mockedOfframp := ccipdatamocks.NewOffRampReader(t)
 	mockedOfframp.On("GetSupportedTokens", ctx).Return([]common.Address{}, nil)
 	mockedOfframp.On("GetDestinationTokens", ctx).Return(nil, fmt.Errorf("execution error"))
 

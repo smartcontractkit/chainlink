@@ -1,6 +1,8 @@
 package ccipdata
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -38,4 +40,26 @@ func (o *OnRampV1_1_0) RouterAddress() (common.Address, error) {
 		return common.Address{}, err
 	}
 	return config.Router, nil
+}
+
+func (o *OnRampV1_1_0) GetDynamicConfig() (OnRampDynamicConfig, error) {
+	if o.onRamp == nil {
+		return OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
+	}
+	legacyDynamicConfig, err := o.onRamp.GetDynamicConfig(nil)
+	if err != nil {
+		return OnRampDynamicConfig{}, err
+	}
+	return OnRampDynamicConfig{
+		Router:                            legacyDynamicConfig.Router,
+		MaxNumberOfTokensPerMsg:           legacyDynamicConfig.MaxTokensLength,
+		DestGasOverhead:                   legacyDynamicConfig.DestGasOverhead,
+		DestGasPerPayloadByte:             legacyDynamicConfig.DestGasPerPayloadByte,
+		DestDataAvailabilityOverheadGas:   0,
+		DestGasPerDataAvailabilityByte:    0,
+		DestDataAvailabilityMultiplierBps: 0,
+		PriceRegistry:                     legacyDynamicConfig.PriceRegistry,
+		MaxDataBytes:                      legacyDynamicConfig.MaxDataSize,
+		MaxPerMsgGasLimit:                 uint32(legacyDynamicConfig.MaxGasLimit),
+	}, nil
 }

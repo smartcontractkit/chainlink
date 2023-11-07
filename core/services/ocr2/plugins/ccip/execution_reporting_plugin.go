@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"golang.org/x/sync/errgroup"
@@ -231,7 +230,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 	// always be the lower bound of what would be available on chain
 	// since we already account for inflight txs.
 	getAllowedTokenAmount := cache.LazyFetch(func() (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
-		return r.config.offRampReader.CurrentRateLimiterState(&bind.CallOpts{Context: ctx})
+		return r.config.offRampReader.CurrentRateLimiterState(ctx)
 	})
 	sourceToDestTokens, supportedDestTokens, err := r.sourceDestinationTokens(ctx)
 	if err != nil {

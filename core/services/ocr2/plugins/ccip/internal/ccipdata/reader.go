@@ -33,7 +33,7 @@ type Closer interface {
 
 // Client can be used to fetch CCIP related parsed on-chain data.
 //
-//go:generate mockery --quiet --name Reader --output . --filename reader_mock.go --inpackage --case=underscore
+//go:generate mockery --quiet --name Reader --filename reader_mock.go --case=underscore
 type Reader interface {
 	// LatestBlock returns the latest known/parsed block of the underlying implementation.
 	LatestBlock(ctx context.Context) (int64, error)

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -94,6 +93,15 @@ type ExecReport struct {
 	ProofFlagBits     *big.Int
 }
 
+type OffRampStaticConfig struct {
+	CommitStore         common.Address
+	ChainSelector       uint64
+	SourceChainSelector uint64
+	OnRamp              common.Address
+	PrevOffRamp         common.Address
+	ArmProxy            common.Address
+}
+
 type TokenBucketRateLimit struct {
 	Tokens      *big.Int
 	LastUpdated uint32
@@ -102,10 +110,10 @@ type TokenBucketRateLimit struct {
 	Rate        *big.Int
 }
 
-//go:generate mockery --quiet --name OffRampReader --output . --filename offramp_reader_mock.go --inpackage --case=underscore
+//go:generate mockery --quiet --name OffRampReader --filename offramp_reader_mock.go --case=underscore
 type OffRampReader interface {
 	Closer
-	// Will error if messages are not a compatible verion
+	// Will error if messages are not a compatible version.
 	EncodeExecutionReport(report ExecReport) ([]byte, error)
 	DecodeExecutionReport(report []byte) (ExecReport, error)
 	// GetExecutionStateChangesBetweenSeqNums returns all the execution state change events for the provided message sequence numbers (inclusive).
@@ -125,11 +133,10 @@ type OffRampReader interface {
 	OffchainConfig() ExecOffchainConfig
 	OnchainConfig() ExecOnchainConfig
 	GasPriceEstimator() prices.GasPriceEstimatorExec
-
-	// Required for the execution plugin.
-	GetSenderNonce(opts *bind.CallOpts, sender common.Address) (uint64, error)
-	CurrentRateLimiterState(opts *bind.CallOpts) (evm_2_evm_offramp.RateLimiterTokenBucket, error)
-	GetExecutionState(opts *bind.CallOpts, sequenceNumber uint64) (uint8, error)
+	GetSenderNonce(ctx context.Context, sender common.Address) (uint64, error)
+	CurrentRateLimiterState(ctx context.Context) (evm_2_evm_offramp.RateLimiterTokenBucket, error)
+	GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error)
+	GetStaticConfig(ctx context.Context) (OffRampStaticConfig, error)
 }
 
 // MessageExecutionState defines the execution states of CCIP messages.

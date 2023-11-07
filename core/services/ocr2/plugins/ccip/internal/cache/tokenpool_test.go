@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -76,7 +76,7 @@ func TestNewTokenPools(t *testing.T) {
 			mockLp := mocks.NewLogPoller(t)
 			mockLp.On("LatestBlock", mock.Anything).Return(int64(100), nil)
 
-			offRamp := ccipdata.NewMockOffRampReader(t)
+			offRamp := ccipdatamocks.NewOffRampReader(t)
 			offRamp.On("TokenEvents").Return([]common.Hash{})
 			offRamp.On("Address").Return(utils.RandomAddress())
 			destTokens := make([]common.Address, 0, len(tc.sourceToDestTokens))
@@ -125,7 +125,7 @@ func Test_tokenPools_CallOrigin_concurrency(t *testing.T) {
 		destTokens = append(destTokens, destToken)
 	}
 
-	offRamp := ccipdata.NewMockOffRampReader(t)
+	offRamp := ccipdatamocks.NewOffRampReader(t)
 	offRamp.On("GetDestinationTokens", mock.Anything).Return(destTokens, nil)
 	for destToken, pool := range tokenToPool {
 		offRamp.On("GetPoolByDestToken", mock.Anything, destToken).Return(pool, nil)

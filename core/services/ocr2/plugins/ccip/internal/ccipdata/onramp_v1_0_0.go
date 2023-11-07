@@ -108,6 +108,32 @@ type OnRampV1_0_0 struct {
 	sendRequestedSeqNumberWord int
 }
 
+func (o *OnRampV1_0_0) Address() (common.Address, error) {
+	return o.onRamp.Address(), nil
+}
+
+func (o *OnRampV1_0_0) GetDynamicConfig() (OnRampDynamicConfig, error) {
+	if o.onRamp == nil {
+		return OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
+	}
+	legacyDynamicConfig, err := o.onRamp.GetDynamicConfig(nil)
+	if err != nil {
+		return OnRampDynamicConfig{}, err
+	}
+	return OnRampDynamicConfig{
+		Router:                            legacyDynamicConfig.Router,
+		MaxNumberOfTokensPerMsg:           legacyDynamicConfig.MaxTokensLength,
+		DestGasOverhead:                   0,
+		DestGasPerPayloadByte:             0,
+		DestDataAvailabilityOverheadGas:   0,
+		DestGasPerDataAvailabilityByte:    0,
+		DestDataAvailabilityMultiplierBps: 0,
+		PriceRegistry:                     legacyDynamicConfig.PriceRegistry,
+		MaxDataBytes:                      legacyDynamicConfig.MaxDataSize,
+		MaxPerMsgGasLimit:                 uint32(legacyDynamicConfig.MaxGasLimit),
+	}, nil
+}
+
 func (o *OnRampV1_0_0) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error) {
 	return nil, errors.New("USDC not supported in < 1.2.0")
 }

@@ -105,16 +105,34 @@ type OffRampV1_0_0 struct {
 	onchainConfig     ExecOnchainConfig
 }
 
-func (o *OffRampV1_0_0) GetExecutionState(opts *bind.CallOpts, sequenceNumber uint64) (uint8, error) {
-	return o.offRamp.GetExecutionState(opts, sequenceNumber)
+func (o *OffRampV1_0_0) GetStaticConfig(ctx context.Context) (OffRampStaticConfig, error) {
+	if o.offRamp == nil {
+		return OffRampStaticConfig{}, fmt.Errorf("offramp not initialized")
+	}
+	c, err := o.offRamp.GetStaticConfig(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return OffRampStaticConfig{}, fmt.Errorf("error while retrieving offramp config: %w", err)
+	}
+	return OffRampStaticConfig{
+		CommitStore:         c.CommitStore,
+		ChainSelector:       c.ChainSelector,
+		SourceChainSelector: c.SourceChainSelector,
+		OnRamp:              c.OnRamp,
+		PrevOffRamp:         c.PrevOffRamp,
+		ArmProxy:            c.ArmProxy,
+	}, nil
 }
 
-func (o *OffRampV1_0_0) GetSenderNonce(opts *bind.CallOpts, sender common.Address) (uint64, error) {
-	return o.offRamp.GetSenderNonce(opts, sender)
+func (o *OffRampV1_0_0) GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error) {
+	return o.offRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sequenceNumber)
 }
 
-func (o *OffRampV1_0_0) CurrentRateLimiterState(opts *bind.CallOpts) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
-	state, err := o.offRamp.CurrentRateLimiterState(opts)
+func (o *OffRampV1_0_0) GetSenderNonce(ctx context.Context, sender common.Address) (uint64, error) {
+	return o.offRamp.GetSenderNonce(&bind.CallOpts{Context: ctx}, sender)
+}
+
+func (o *OffRampV1_0_0) CurrentRateLimiterState(ctx context.Context) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
+	state, err := o.offRamp.CurrentRateLimiterState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return *new(evm_2_evm_offramp.RateLimiterTokenBucket), err
 	}
