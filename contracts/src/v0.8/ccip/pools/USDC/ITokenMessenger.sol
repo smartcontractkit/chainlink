@@ -56,5 +56,10 @@ interface ITokenMessenger {
 
   /// Returns the version of the message body format.
   /// @dev immutable
-  function messageBodyVersion() external returns (uint32);
+  function messageBodyVersion() external view returns (uint32);
+
+  /// Returns local Message Transmitter responsible for sending and receiving messages
+  /// to/from remote domainsmessage transmitter for this token messenger.
+  /// @dev immutable
+  function localMessageTransmitter() external view returns (address);
 }
