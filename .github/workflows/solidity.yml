@@ -24,6 +24,18 @@ jobs:
             src:
               - 'contracts/**/*'
               - '.github/workflows/solidity.yml'
+      - name: Verify read only files don't change
+        uses: tj-actions/verify-changed-files@v16.1.1
+        with:
+          fail-if-changed: true
+          fail-message: |
+            Cannot edit older versions of Solidity contracts.
+          files: |
+            contracts/src/v0.4/*
+            contracts/src/v0.5/*
+            contracts/src/v0.6/*
+            contracts/src/v0.7/*
+
 
   prepublish-test:
     needs: [changes]
