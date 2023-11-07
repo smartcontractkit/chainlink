@@ -2,6 +2,7 @@ package ccipdata
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -14,14 +15,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_0_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
-	_ PriceRegistryReader = &PriceRegistryV1_0_0{}
+	abiERC20                     = abihelpers.MustParseABI(erc20.ERC20ABI)
+	_        PriceRegistryReader = &PriceRegistryV1_0_0{}
 	// Exposed only for backwards compatibility with tests.
 	UsdPerUnitGasUpdatedV1_0_0 = abihelpers.MustGetEventID("UsdPerUnitGasUpdated", abihelpers.MustParseABI(price_registry_1_0_0.PriceRegistryABI))
 )
@@ -30,6 +34,7 @@ type PriceRegistryV1_0_0 struct {
 	priceRegistry   price_registry_1_0_0.PriceRegistryInterface
 	address         common.Address
 	lp              logpoller.LogPoller
+	evmBatchCaller  rpclib.EvmBatchCaller
 	lggr            logger.Logger
 	filters         []logpoller.Filter
 	tokenUpdated    common.Hash
@@ -136,6 +141,36 @@ func (p *PriceRegistryV1_0_0) GetGasPriceUpdatesCreatedAfter(ctx context.Context
 	)
 }
 
+func (p *PriceRegistryV1_0_0) GetTokensDecimals(ctx context.Context, tokenAddresses []common.Address) ([]uint8, error) {
+	if len(tokenAddresses) == 0 {
+		return nil, nil
+	}
+
+	evmCalls := make([]rpclib.EvmCall, 0, len(tokenAddresses))
+	for _, tokenAddress := range tokenAddresses {
+		evmCalls = append(evmCalls, rpclib.NewEvmCall(abiERC20, "decimals", tokenAddress))
+	}
+
+	latestBlock, err := p.lp.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("get latest block: %w", err)
+	}
+
+	results, err := p.evmBatchCaller.BatchCall(ctx, uint64(latestBlock), evmCalls)
+	if err != nil {
+		return nil, fmt.Errorf("batch call limit: %w", err)
+	}
+
+	decimals, err := rpclib.ParseOutputs[uint8](results, func(d rpclib.DataAndErr) (uint8, error) {
+		return rpclib.ParseOutput[uint8](d, 0)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("parse outputs: %w", err)
+	}
+
+	return decimals, nil
+}
+
 func NewPriceRegistryV1_0_0(lggr logger.Logger, priceRegistryAddr common.Address, lp logpoller.LogPoller, ec client.Client) (*PriceRegistryV1_0_0, error) {
 	priceRegistry, err := price_registry_1_0_0.NewPriceRegistry(priceRegistryAddr, ec)
 	if err != nil {
@@ -166,9 +201,15 @@ func NewPriceRegistryV1_0_0(lggr logger.Logger, priceRegistryAddr common.Address
 		return nil, err
 	}
 	return &PriceRegistryV1_0_0{
-		priceRegistry:   priceRegistry,
-		address:         priceRegistryAddr,
-		lp:              lp,
+		priceRegistry: priceRegistry,
+		address:       priceRegistryAddr,
+		lp:            lp,
+		evmBatchCaller: rpclib.NewDynamicLimitedBatchCaller(
+			lggr,
+			ec,
+			rpclib.DefaultRpcBatchSizeLimit,
+			rpclib.DefaultRpcBatchBackOffMultiplier,
+		),
 		lggr:            lggr,
 		gasUpdated:      UsdPerUnitGasUpdatedV1_0_0,
 		tokenUpdated:    usdPerTokenUpdated,

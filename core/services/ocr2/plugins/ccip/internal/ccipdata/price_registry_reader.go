@@ -56,6 +56,7 @@ type PriceRegistryReader interface {
 	FeeTokenEvents() []common.Hash
 	GetFeeTokens(ctx context.Context) ([]common.Address, error)
 	GetTokenPrices(ctx context.Context, wantedTokens []common.Address) ([]TokenPriceUpdate, error)
+	GetTokensDecimals(ctx context.Context, tokenAddresses []common.Address) ([]uint8, error)
 }
 
 // NewPriceRegistryReader determines the appropriate version of the price registry and returns a reader for it.

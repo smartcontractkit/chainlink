@@ -9,7 +9,6 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
@@ -107,21 +106,6 @@ func (c *LogPollerReader) loadOffRamp(addr common.Address) (*evm_2_evm_offramp.E
 
 	c.dependencyCache.Store(addr, offRamp)
 	return offRamp, nil
-}
-
-func (c *LogPollerReader) loadCommitStore(addr common.Address) (*commit_store.CommitStoreFilterer, error) {
-	commitStore, exists := loadCachedDependency[*commit_store.CommitStoreFilterer](&c.dependencyCache, addr)
-	if exists {
-		return commitStore, nil
-	}
-
-	commitStore, err := commit_store.NewCommitStoreFilterer(addr, c.client)
-	if err != nil {
-		return nil, err
-	}
-
-	c.dependencyCache.Store(addr, commitStore)
-	return commitStore, nil
 }
 
 func loadCachedDependency[T any](cache *sync.Map, addr common.Address) (T, bool) {

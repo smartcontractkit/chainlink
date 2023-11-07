@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cometbft/cometbft/libs/rand"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -23,7 +22,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/custom_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -128,6 +126,8 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			mockOffRampReader.On("CurrentRateLimiterState", mock.Anything).Return(tc.rateLimiterState, nil).Maybe()
 			mockOffRampReader.On("Address").Return(offRamp.Address()).Maybe()
 			mockOffRampReader.On("GetSenderNonce", mock.Anything, mock.Anything).Return(offRamp.GetSenderNonce(nil, utils.RandomAddress())).Maybe()
+			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, []common.Address{}).
+				Return([]ccipdata.TokenBucketRateLimit{}, nil).Maybe()
 			p.config.offRampReader = mockOffRampReader
 
 			mockOnRampReader := ccipdata.NewMockOnRampReader(t)
@@ -765,11 +765,14 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 	tk2pool := utils.RandomAddress()
 
 	testCases := []struct {
-		name              string
-		tokenAmounts      []internal.TokenAmount
-		sourceToDestToken map[common.Address]common.Address
-		destPools         map[common.Address]common.Address
-		poolRateLimits    map[common.Address]custom_token_pool.RateLimiterTokenBucket
+		name         string
+		tokenAmounts []internal.TokenAmount
+		// the order of the following fields: sourceTokens, destTokens and poolRateLimits
+		// should follow the order of the tokenAmounts
+		sourceTokens      []common.Address
+		destTokens        []common.Address
+		destPools         []common.Address
+		poolRateLimits    []ccipdata.TokenBucketRateLimit
 		destPoolsCacheErr error
 
 		expRateLimits map[common.Address]*big.Int
@@ -783,17 +786,12 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 				{Token: tk1},
 				{Token: tk1},
 			},
-			sourceToDestToken: map[common.Address]common.Address{
-				tk1: tk1dest,
-				tk2: tk2dest,
-			},
-			destPools: map[common.Address]common.Address{
-				tk1dest: tk1pool,
-				tk2dest: tk2pool,
-			},
-			poolRateLimits: map[common.Address]custom_token_pool.RateLimiterTokenBucket{
-				tk1pool: {Tokens: big.NewInt(1000), IsEnabled: true},
-				tk2pool: {Tokens: big.NewInt(2000), IsEnabled: true},
+			sourceTokens: []common.Address{tk1, tk2},
+			destTokens:   []common.Address{tk1dest, tk2dest},
+			destPools:    []common.Address{tk1pool, tk2pool},
+			poolRateLimits: []ccipdata.TokenBucketRateLimit{
+				{Tokens: big.NewInt(1000), IsEnabled: true},
+				{Tokens: big.NewInt(2000), IsEnabled: true},
 			},
 			expRateLimits: map[common.Address]*big.Int{
 				tk1dest: big.NewInt(1000),
@@ -802,19 +800,16 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 			expErr: false,
 		},
 		{
-			name: "token missing from source to dest mapping",
+			name: "missing from source to dest mapping should not return error",
 			tokenAmounts: []internal.TokenAmount{
 				{Token: tk1},
-				{Token: tk2}, // <-- missing form sourceToDestToken
+				{Token: tk2}, // <- missing
 			},
-			sourceToDestToken: map[common.Address]common.Address{
-				tk1: tk1dest,
-			},
-			destPools: map[common.Address]common.Address{
-				tk1dest: tk1pool,
-			},
-			poolRateLimits: map[common.Address]custom_token_pool.RateLimiterTokenBucket{
-				tk1pool: {Tokens: big.NewInt(1000), IsEnabled: true},
+			sourceTokens: []common.Address{tk1},
+			destTokens:   []common.Address{tk1dest},
+			destPools:    []common.Address{tk1pool},
+			poolRateLimits: []ccipdata.TokenBucketRateLimit{
+				{Tokens: big.NewInt(1000), IsEnabled: true},
 			},
 			expRateLimits: map[common.Address]*big.Int{
 				tk1dest: big.NewInt(1000),
@@ -827,17 +822,12 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 				{Token: tk1},
 				{Token: tk2},
 			},
-			sourceToDestToken: map[common.Address]common.Address{
-				tk1: tk1dest,
-				tk2: tk2dest,
-			},
-			destPools: map[common.Address]common.Address{
-				tk1dest: tk1pool,
-				tk2dest: tk2pool,
-			},
-			poolRateLimits: map[common.Address]custom_token_pool.RateLimiterTokenBucket{
-				tk1pool: {Tokens: big.NewInt(1000), IsEnabled: true},
-				tk2pool: {Tokens: big.NewInt(2000), IsEnabled: false}, // <--- pool disabled
+			sourceTokens: []common.Address{tk1, tk2},
+			destTokens:   []common.Address{tk1dest, tk2dest},
+			destPools:    []common.Address{tk1pool, tk2pool},
+			poolRateLimits: []ccipdata.TokenBucketRateLimit{
+				{Tokens: big.NewInt(1000), IsEnabled: true},
+				{Tokens: big.NewInt(2000), IsEnabled: false},
 			},
 			expRateLimits: map[common.Address]*big.Int{
 				tk1dest: big.NewInt(1000),
@@ -845,18 +835,37 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 			expErr: false,
 		},
 		{
-			name:              "dest pool cache error",
-			tokenAmounts:      []internal.TokenAmount{{Token: tk1}},
-			sourceToDestToken: map[common.Address]common.Address{tk1: tk1dest},
-			destPoolsCacheErr: errors.New("some random error"),
+			name: "dest pool cache error",
+			tokenAmounts: []internal.TokenAmount{
+				{Token: tk1},
+			},
+			sourceTokens: []common.Address{tk1},
+			destTokens:   []common.Address{tk1dest},
+			destPools:    []common.Address{tk1pool},
+			poolRateLimits: []ccipdata.TokenBucketRateLimit{
+				{Tokens: big.NewInt(1000), IsEnabled: true},
+			},
+			expRateLimits: map[common.Address]*big.Int{
+				tk1dest: big.NewInt(1000),
+			},
+			destPoolsCacheErr: errors.New("some err"),
 			expErr:            true,
 		},
 		{
-			name:              "pool for token not found",
-			tokenAmounts:      []internal.TokenAmount{{Token: tk1}},
-			sourceToDestToken: map[common.Address]common.Address{tk1: tk1dest},
-			destPools:         map[common.Address]common.Address{},
-			expErr:            true,
+			name: "pool for token not found",
+			tokenAmounts: []internal.TokenAmount{
+				{Token: tk1}, {Token: tk2}, {Token: tk1}, {Token: tk2},
+			},
+			sourceTokens: []common.Address{tk1, tk2},
+			destTokens:   []common.Address{tk1dest, tk2dest},
+			destPools:    []common.Address{tk1pool}, // <-- pool2 not found
+			poolRateLimits: []ccipdata.TokenBucketRateLimit{
+				{Tokens: big.NewInt(1000), IsEnabled: true},
+			},
+			expRateLimits: map[common.Address]*big.Int{
+				tk1dest: big.NewInt(1000),
+			},
+			expErr: true,
 		},
 	}
 
@@ -864,25 +873,30 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			sourceToDestMapping := make(map[common.Address]common.Address)
+			for i, srcTk := range tc.sourceTokens {
+				sourceToDestMapping[srcTk] = tc.destTokens[i]
+			}
+
+			poolsMapping := make(map[common.Address]common.Address)
+			for i, poolAddr := range tc.destPools {
+				poolsMapping[tc.destTokens[i]] = poolAddr
+			}
+
 			p := &ExecutionReportingPlugin{}
 			p.lggr = lggr
 
 			tokenPoolsCache := cache.NewMockAutoSync[map[common.Address]common.Address](t)
-			tokenPoolsCache.On("Get", ctx).Return(tc.destPools, tc.destPoolsCacheErr).Maybe()
+			tokenPoolsCache.On("Get", ctx).Return(poolsMapping, tc.destPoolsCacheErr).Maybe()
 			p.cachedTokenPools = tokenPoolsCache
 
-			offRamp, offRampAddr := testhelpers.NewFakeOffRamp(t)
-			offRamp.SetTokenPools(tc.destPools)
-
+			offRampAddr := utils.RandomAddress()
 			mockOffRampReader := ccipdata.NewMockOffRampReader(t)
 			mockOffRampReader.On("Address").Return(offRampAddr, nil).Maybe()
+			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, tc.destPools).
+				Return(tc.poolRateLimits, nil).
+				Maybe()
 			p.config.offRampReader = mockOffRampReader
-
-			p.customTokenPoolFactory = func(ctx context.Context, poolAddress common.Address, _ bind.ContractBackend) (custom_token_pool.CustomTokenPoolInterface, error) {
-				mp := &mockPool{}
-				mp.On("CurrentOffRampRateLimiterState", mock.Anything, offRampAddr).Return(tc.poolRateLimits[poolAddress], nil)
-				return mp, nil
-			}
 
 			rateLimits, err := p.destPoolRateLimits(ctx, []commitReportWithSendRequests{
 				{
@@ -894,7 +908,8 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 						},
 					},
 				},
-			}, tc.sourceToDestToken)
+			}, sourceToDestMapping)
+
 			if tc.expErr {
 				assert.Error(t, err)
 				return
@@ -1710,14 +1725,4 @@ func generateExecutionReport(t *testing.T, numMsgs, tokensPerMsg, bytesPerMsg in
 		Proofs:            make([][32]byte, numMsgs),
 		ProofFlagBits:     big.NewInt(rand.Int64()),
 	}
-}
-
-type mockPool struct {
-	custom_token_pool.CustomTokenPoolInterface
-	mock.Mock
-}
-
-func (mp *mockPool) CurrentOffRampRateLimiterState(opts *bind.CallOpts, offRamp common.Address) (custom_token_pool.RateLimiterTokenBucket, error) {
-	args := mp.Called(opts, offRamp)
-	return args.Get(0).(custom_token_pool.RateLimiterTokenBucket), args.Error(1)
 }

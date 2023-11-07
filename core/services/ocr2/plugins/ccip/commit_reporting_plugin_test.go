@@ -302,8 +302,8 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 
 			aos := make([]types.AttributedObservation, 0, len(tc.observations))
 			for _, o := range tc.observations {
-				obs, err := o.Marshal()
-				assert.NoError(t, err)
+				obs, err2 := o.Marshal()
+				assert.NoError(t, err2)
 				aos = append(aos, types.AttributedObservation{Observation: obs})
 			}
 

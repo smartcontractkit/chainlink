@@ -383,4 +383,8 @@ func testOffRampReader(t *testing.T, th offRampReaderTH) {
 	destTokens, err := th.reader.GetDestinationTokensFromSourceTokens(ctx, tokens)
 	require.NoError(t, err)
 	require.Empty(t, destTokens)
+
+	rateLimits, err := th.reader.GetTokenPoolsRateLimits(ctx, []common.Address{})
+	require.NoError(t, err)
+	require.Empty(t, rateLimits)
 }
