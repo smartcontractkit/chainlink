@@ -57,7 +57,7 @@ jobs:
       id-token: write
       contents: read
     name: ${{ inputs.network }} Automation Benchmark Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-16cores-64GB
     env:
       SELECTED_NETWORKS: ${{ inputs.network }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
