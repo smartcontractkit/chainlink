@@ -1219,16 +1219,26 @@ WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress'
 	}, pg.OptReadOnlyTx())
 
 	return txes, nil
-	/*
-			err = qq.Get(&dbEtxs, `
-		SELECT * FROM evm.txes
-		WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress'`)
-			fmt.Println("txee:", dbEtxs)
+}
 
-			txes = make([]*Tx, len(dbEtxs))
-			dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
-			return txes, err
-	*/
+func (o *evmTxStore) GetFatalTransactions(ctx context.Context) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		stmt := `SELECT * FROM evm.txes WHERE state = 'fatal_error'`
+		var dbEtxs []DbEthTx
+		if err = tx.Select(&dbEtxs, stmt); err != nil {
+			return pkgerrors.Wrap(err, "GetFatalTransactions failed to load evm.txes")
+		}
+		txes = make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
+		return pkgerrors.Wrap(err, "GetFatalTransactions failed to load evm.tx_attempts")
+	}, pg.OptReadOnlyTx())
+
+	return txes, nil
 }
 
 // FindTxsRequiringGasBump returns transactions that have all
