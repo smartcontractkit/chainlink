@@ -10,6 +10,10 @@ library CallWithExactGas {
   error NoGasForCallExactCheck();
   error NotEnoughGasForCall();
 
+  bytes4 internal constant NoContractSig = 0x0c3b563c;
+  bytes4 internal constant NoGasForCallExactCheckSig = 0xafa32a2c;
+  bytes4 internal constant NotEnoughGasForCallSig = 0x37c3be29;
+
   /// @notice calls target address with exactly gasAmount gas and payload as calldata.
   /// Accounts for gasForCallExactCheck gas that will be used by this function. Will revert
   /// if the target is not a contact. Will revert when there is not enough gas to call the
@@ -22,16 +26,12 @@ library CallWithExactGas {
     uint256 gasLimit,
     uint16 gasForCallExactCheck
   ) internal returns (bool success) {
-    bytes4 noContract = NoContract.selector;
-    bytes4 noGasForCallExactCheck = NoGasForCallExactCheck.selector;
-    bytes4 notEnoughGasForCall = NotEnoughGasForCall.selector;
-
     assembly {
       // solidity calls check that a contract actually exists at the destination, so we do the same
       // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
       // doesn't need to account for it.
       if iszero(extcodesize(target)) {
-        mstore(0, noContract)
+        mstore(0, NoContractSig)
         revert(0, 0x4)
       }
 
@@ -43,13 +43,13 @@ library CallWithExactGas {
       // gas. gasForCallExactCheck ensures we have at least enough gas to be able
       // to revert if gasAmount >  63//64*gas available.
       if lt(g, gasForCallExactCheck) {
-        mstore(0, noGasForCallExactCheck)
+        mstore(0, NoGasForCallExactCheckSig)
         revert(0, 0x4)
       }
       g := sub(g, gasForCallExactCheck)
       // if g - g//64 <= gasAmount, revert. We subtract g//64 because of EIP-150
       if iszero(gt(sub(g, div(g, 64)), gasLimit)) {
-        mstore(0, notEnoughGasForCall)
+        mstore(0, NotEnoughGasForCallSig)
         revert(0, 0x4)
       }
 
@@ -80,16 +80,12 @@ library CallWithExactGas {
     // allocate retData memory ahead of time
     retData = new bytes(maxReturnBytes);
 
-    bytes4 noContract = NoContract.selector;
-    bytes4 noGasForCallExactCheck = NoGasForCallExactCheck.selector;
-    bytes4 notEnoughGasForCall = NotEnoughGasForCall.selector;
-
     assembly {
       // solidity calls check that a contract actually exists at the destination, so we do the same
       // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
       // doesn't need to account for it.
       if iszero(extcodesize(target)) {
-        mstore(0, noContract)
+        mstore(0, NoContractSig)
         revert(0, 0x4)
       }
 
@@ -101,13 +97,13 @@ library CallWithExactGas {
       // gas. gasForCallExactCheck ensures we have at least enough gas to be able
       // to revert if gasAmount >  63//64*gas available.
       if lt(g, gasForCallExactCheck) {
-        mstore(0, noGasForCallExactCheck)
+        mstore(0, NoGasForCallExactCheckSig)
         revert(0, 0x4)
       }
       g := sub(g, gasForCallExactCheck)
       // if g - g//64 <= gasAmount, revert. We subtract g//64 because of EIP-150
       if iszero(gt(sub(g, div(g, 64)), gasLimit)) {
-        mstore(0, notEnoughGasForCall)
+        mstore(0, NotEnoughGasForCallSig)
         revert(0, 0x4)
       }
 
