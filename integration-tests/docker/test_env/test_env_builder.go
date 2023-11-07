@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"runtime/debug"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -230,7 +230,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	case CleanUpTypeNone:
 		b.l.Warn().Msg("test environment won't be cleaned up")
 	case "":
-		return b.te, errors.WithMessage(errors.New("explicit cleanup type must be set when building test environment"), "test environment builder failed")
+		return b.te, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("explicit cleanup type must be set when building test environment"))
 	}
 
 	if b.nonDevGethNetworks != nil {
@@ -243,14 +243,14 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		for i, n := range b.te.PrivateChain {
 			primaryNode := n.GetPrimaryNode()
 			if primaryNode == nil {
-				return b.te, errors.WithStack(fmt.Errorf("primary node is nil in PrivateChain interface"))
+				return b.te, fmt.Errorf("primary node is nil in PrivateChain interface, stack: %s", string(debug.Stack()))
 			}
 			nonDevNetworks = append(nonDevNetworks, *n.GetNetworkConfig())
 			nonDevNetworks[i].URLs = []string{primaryNode.GetInternalWsUrl()}
 			nonDevNetworks[i].HTTPURLs = []string{primaryNode.GetInternalHttpUrl()}
 		}
 		if nonDevNetworks == nil {
-			return nil, errors.New("cannot create nodes with custom config without nonDevNetworks")
+			return nil, fmt.Errorf("cannot create nodes with custom config without nonDevNetworks")
 		}
 
 		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
