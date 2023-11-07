@@ -173,6 +173,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 		return &LineaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.FantomClient:
 		return &FantomContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.KromaClient:
+		return &KromaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -237,6 +239,10 @@ type LineaContractDeployer struct {
 }
 
 type FantomContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type KromaContractDeployer struct {
 	*EthereumContractDeployer
 }
 

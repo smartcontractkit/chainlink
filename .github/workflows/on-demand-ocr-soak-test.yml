@@ -26,6 +26,8 @@ on:
           - "LINEA_MAINNET"  
           - "FANTOM_TESTNET"   
           - "FANTOM_MAINNET"   
+          - "KROMA_MAINNET"
+          - "KROMA_SEPOLIA"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
