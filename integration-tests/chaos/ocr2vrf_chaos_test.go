@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	a "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/alias"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -68,7 +67,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			chainlink.New(0, defaultOCR2VRFSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMinority: utils.Ptr("1")},
 				DurationStr:    "1m",
 			},
 		},
@@ -78,7 +77,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
-		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
 		//		DurationStr:    "1m",
 		//	},
 		//},
@@ -88,9 +87,9 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
-		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
 		//		DurationStr:    "1m",
-		//		ContainerNames: &[]*string{a.Str("chainlink-db")},
+		//		ContainerNames: &[]*string{utils.Ptr("chainlink-db")},
 		//	},
 		//},
 		//NetworkChaosFailMajorityNetwork: {
@@ -98,8 +97,8 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewNetworkPartition,
 		//	&chaos.Props{
-		//		FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-		//		ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+		//		FromLabels:  &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
+		//		ToLabels:    &map[string]*string{ChaosGroupMinority: utils.Ptr("1")},
 		//		DurationStr: "1m",
 		//	},
 		//},
@@ -108,8 +107,8 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewNetworkPartition,
 		//	&chaos.Props{
-		//		FromLabels:  &map[string]*string{"app": a.Str("geth")},
-		//		ToLabels:    &map[string]*string{ChaosGroupMajority: a.Str("1")},
+		//		FromLabels:  &map[string]*string{"app": utils.Ptr("geth")},
+		//		ToLabels:    &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
 		//		DurationStr: "1m",
 		//	},
 		//},

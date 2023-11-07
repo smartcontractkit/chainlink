@@ -44,7 +44,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -518,7 +518,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
-	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
+	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(client.Successful, nil)
 	// Construct chain
 	h2 := Head(2)
 	h1 := HeadWithHash(1, h2.ParentHash)

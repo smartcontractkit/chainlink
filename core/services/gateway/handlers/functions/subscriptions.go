@@ -130,19 +130,16 @@ func (s *onchainSubscriptions) queryLoop() {
 
 		blockNumber := big.NewInt(0).Sub(latestBlockHeight, s.blockConfirmations)
 
-		updateLastKnownCount := func() {
+		if lastKnownCount == 0 || start > lastKnownCount {
 			count, err := s.getSubscriptionsCount(ctx, blockNumber)
 			if err != nil {
-				s.lggr.Errorw("Error getting subscriptions count", "err", err)
-				return
+				s.lggr.Errorw("Error getting new subscriptions count", "err", err)
+			} else {
+				s.lggr.Infow("Updated subscriptions count", "count", count, "blockNumber", blockNumber.Int64())
+				lastKnownCount = count
 			}
-			s.lggr.Infow("Updated subscriptions count", "err", err, "count", count, "blockNumber", blockNumber.Int64())
-			lastKnownCount = count
 		}
 
-		if lastKnownCount == 0 {
-			updateLastKnownCount()
-		}
 		if lastKnownCount == 0 {
 			s.lggr.Info("Router has no subscriptions yet")
 			return
@@ -152,12 +149,9 @@ func (s *onchainSubscriptions) queryLoop() {
 			start = 1
 		}
 
-		end := start + uint64(s.config.UpdateRangeSize)
+		end := start + uint64(s.config.UpdateRangeSize) - 1
 		if end > lastKnownCount {
-			updateLastKnownCount()
-			if end > lastKnownCount {
-				end = lastKnownCount
-			}
+			end = lastKnownCount
 		}
 		if err := s.querySubscriptionsRange(ctx, blockNumber, start, end); err != nil {
 			s.lggr.Errorw("Error querying subscriptions", "err", err, "start", start, "end", end)
@@ -180,6 +174,8 @@ func (s *onchainSubscriptions) queryLoop() {
 }
 
 func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, blockNumber *big.Int, start, end uint64) error {
+	s.lggr.Debugw("Querying subscriptions", "blockNumber", blockNumber, "start", start, "end", end)
+
 	subscriptions, err := s.router.GetSubscriptionsInRange(&bind.CallOpts{
 		Pending:     false,
 		BlockNumber: blockNumber,
