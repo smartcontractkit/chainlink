@@ -514,20 +514,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", resp.StatusCode)
 			} else if resp.StatusCode == http.StatusPartialContent {
-				//var response MercuryV03Response
-				//err1 = json.Unmarshal(body, &response)
-				//if err1 != nil {
-				//	lggr.Warnf("at timestamp %s upkeep %s failed to unmarshal body to MercuryV03Response from mercury v0.3: %v", sl.Time.String(), sl.upkeepId.String(), err1)
-				//	retryable = false
-				//	state = encoding.MercuryUnmarshalError
-				//	return err1
-				//}
-				// in v0.3, if some feeds are not available, the server will only return available feeds, but we need to make sure ALL feeds are retrieved before calling user contract
-				// hence, retry in this case. retry will help when we send a very new timestamp and reports are not yet generated
-				//var receivedFeeds []string
-				//for _, f := range response.Reports {
-				//	receivedFeeds = append(receivedFeeds, f.FeedID)
-				//}
+				// TODO (AUTO-5044): handle response code 206 entirely with errors field parsing
 				lggr.Warnf("at timestamp %s upkeep %s requested [%s] feeds but mercury v0.3 server returned 206 status, treating it as 404 and retrying", sl.Time.String(), sl.upkeepId.String(), sl.Feeds)
 				retryable = true
 				state = encoding.MercuryFlakyFailure
