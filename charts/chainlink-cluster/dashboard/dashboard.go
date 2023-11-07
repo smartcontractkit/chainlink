@@ -113,7 +113,7 @@ func (m *CLClusterDashboard) generate() error {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`histogram_quantile(0.95, sum(rate(ocr2_reporting_plugin_query_time_bucket{job=~".*"}[$__rate_interval])) by (le, service)) / 1e9`,
+					`histogram_quantile(0.95, sum(rate(ocr2_reporting_plugin_query_time_bucket{namespace="${namespace}", app="app"}[$__rate_interval])) by (le, service)) / 1e9`,
 				),
 			),
 			row.WithTimeSeries(
@@ -125,7 +125,7 @@ func (m *CLClusterDashboard) generate() error {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`histogram_quantile(0.95, sum(rate(ocr2_reporting_plugin_observation_time_bucket{job=~".*"}[$__rate_interval])) by (le, service)) / 1e9`,
+					`histogram_quantile(0.95, sum(rate(ocr2_reporting_plugin_observation_time_bucket{namespace="${namespace}", app="app"}[$__rate_interval])) by (le, service)) / 1e9`,
 				),
 			),
 			row.WithTimeSeries(
@@ -137,7 +137,7 @@ func (m *CLClusterDashboard) generate() error {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`histogram_quantile(0.95, sum(rate(ocr2_reporting_plugin_should_accept_finalized_report_time_bucket{job=~".*"}[$__rate_interval])) by (le, service)) / 1e9`,
+					`histogram_quantile(0.95, sum(rate(ocr2_reporting_plugin_should_accept_finalized_report_time_bucket{namespace="${namespace}", app="app"}[$__rate_interval])) by (le, service)) / 1e9`,
 				),
 			),
 			row.WithTimeSeries(
@@ -149,7 +149,7 @@ func (m *CLClusterDashboard) generate() error {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`	histogram_quantile(0.95, sum(rate(ocr2_reporting_plugin_report_time_bucket{job=~".*"}[$__rate_interval])) by (le, service)) / 1e9`,
+					`histogram_quantile(0.95, sum(rate(ocr2_reporting_plugin_report_time_bucket{namespace="${namespace}", app="app"}[$__rate_interval])) by (le, service)) / 1e9`,
 				),
 			),
 			row.WithTimeSeries(
@@ -161,7 +161,7 @@ func (m *CLClusterDashboard) generate() error {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`histogram_quantile(0.95, sum(rate(ocr2_reporting_plugin_should_transmit_accepted_report_time_bucket{job=~".*"}[$__rate_interval])) by (le, service)) / 1e9`,
+					`histogram_quantile(0.95, sum(rate(ocr2_reporting_plugin_should_transmit_accepted_report_time_bucket{namespace="${namespace}", app="app"}[$__rate_interval])) by (le, service)) / 1e9`,
 				),
 			),
 		),

@@ -6,9 +6,11 @@ metadata:
   labels:
     release: grafana-agent
 spec:
+  namespaceSelector:
+    matchNames:
+      - "cl-cluster"
   podMetricsEndpoints:
-    - path: /metrics
-      port: "6688"
+    - port: access
   selector:
     matchLabels:
       app: {{ $.Release.Name }}
