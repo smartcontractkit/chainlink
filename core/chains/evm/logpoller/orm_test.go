@@ -421,7 +421,7 @@ func TestORM(t *testing.T) {
 	assert.Len(t, logs, 7)
 
 	// Delete logs after should delete all logs.
-	err = o1.DeleteLogsAfter(1)
+	err = o1.DeleteLogsAndBlockAfter(1)
 	require.NoError(t, err)
 	logs, err = o1.SelectLogsByBlockRange(1, latest.BlockNumber)
 	require.NoError(t, err)

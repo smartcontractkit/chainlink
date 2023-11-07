@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -20,9 +21,8 @@ import (
 // it exposes some of the database implementation details (e.g. pg.Q). Ideally it should be agnostic and could be applied to any persistence layer.
 // What is more, LogPoller should not be aware of the underlying database implementation and delegate all the queries to the ORM.
 type ORM interface {
-	Q() pg.Q
 	InsertLogs(logs []Log, qopts ...pg.QOpt) error
-	InsertBlock(blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, lastFinalizedBlockNumber int64, qopts ...pg.QOpt) error
+	InsertLogsWithBlock(logs []types.Log, block LogPollerBlock, qopts ...pg.QOpt) error
 	InsertFilter(filter Filter, qopts ...pg.QOpt) error
 
 	LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error)
@@ -30,7 +30,7 @@ type ORM interface {
 
 	DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error
 	DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error
-	DeleteLogsAfter(start int64, qopts ...pg.QOpt) error
+	DeleteLogsAndBlockAfter(start int64, qopts ...pg.QOpt) error
 	DeleteExpiredLogs(qopts ...pg.QOpt) error
 
 	GetBlocksRange(start int64, end int64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
@@ -58,6 +58,7 @@ type ORM interface {
 type DbORM struct {
 	chainID *big.Int
 	q       pg.Q
+	lggr    logger.Logger
 }
 
 // NewORM creates a DbORM scoped to chainID.
@@ -67,11 +68,8 @@ func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *
 	return &DbORM{
 		chainID: chainID,
 		q:       q,
+		lggr:    lggr,
 	}
-}
-
-func (o *DbORM) Q() pg.Q {
-	return o.q
 }
 
 // InsertBlock is idempotent to support replays.
@@ -204,9 +202,29 @@ func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 	return err
 }
 
-func (o *DbORM) DeleteLogsAfter(start int64, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-	return q.ExecQ(`DELETE FROM evm.logs WHERE block_number >= $1 AND evm_chain_id = $2`, start, utils.NewBig(o.chainID))
+func (o *DbORM) DeleteLogsAndBlockAfter(start int64, qopts ...pg.QOpt) error {
+	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		args, err := newQueryArgs(o.chainID).
+			withStartBlock(start).
+			toArgs()
+		if err != nil {
+			o.lggr.Error("Cant build args for DeleteLogsAndBlockAfter queries", "err", err)
+			return err
+		}
+
+		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks WHERE block_number >= :start_block AND evm_chain_id = :chain_id`, args)
+		if err != nil {
+			o.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
+			return err
+		}
+
+		_, err = tx.NamedExec(`DELETE FROM evm.logs WHERE block_number >= :start_block AND evm_chain_id = :chain_id`, args)
+		if err != nil {
+			o.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
+			return err
+		}
+		return nil
+	})
 }
 
 type Exp struct {
@@ -679,6 +697,30 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topic
 		return nil, err
 	}
 	return logs, nil
+}
+
+func (o *DbORM) InsertLogsWithBlock(logs []types.Log, block LogPollerBlock, qopts ...pg.QOpt) error {
+	// Optimization, don't open TX when there is only block to be persisted
+	if len(logs) == 0 {
+		return o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, qopts...)
+	}
+
+	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		if err := o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, pg.WithQueryer(tx)); err != nil {
+			return err
+		}
+		if len(logs) == 0 {
+			return nil
+		}
+		return o.InsertLogs(
+			convertLogs(
+				logs,
+				[]LogPollerBlock{block},
+				logger.NullLogger,
+				o.chainID,
+			),
+			pg.WithQueryer(tx))
+	})
 }
 
 func nestedBlockNumberQuery(confs Confirmations) string {
