@@ -35,7 +35,7 @@ func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts)
 		return nil, err
 	}
 
-	if err = ValidateChainReaderConfig(*relayConfig.ChainReader); err != nil {
+	if err = validateChainReaderConfig(*relayConfig.ChainReader); err != nil {
 		return nil, fmt.Errorf("invalid ChainReader configuration: %w", err)
 	}
 
@@ -54,7 +54,7 @@ func parseChainContractReadersABIs(chainContractReaders map[string]types.ChainCo
 	return nil
 }
 
-func ValidateChainReaderConfig(cfg types.ChainReaderConfig) (err error) {
+func validateChainReaderConfig(cfg types.ChainReaderConfig) (err error) {
 	for contractName, chainContractReader := range cfg.ChainContractReaders {
 		if chainContractReader.ParsedContractABI == nil {
 			return fmt.Errorf("contract: %s ABI is not parsed", contractName)
