@@ -31,6 +31,7 @@ func main() {
 	if grafanaToken == "" {
 		panic("GRAFANA_TOKEN must be provided")
 	}
+	// if you'll use this dashboard base in other projects, you can add your own opts here to extend it
 	db, err := dashboard.NewCLClusterDashboard(name, ldsn, pdsn, dbf, grafanaURL, grafanaToken, nil)
 	if err != nil {
 		panic(err)

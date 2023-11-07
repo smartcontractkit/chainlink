@@ -22,6 +22,7 @@ const (
 	ErrFailedToCreateFolder    = "failed to create folder"
 )
 
+// CLClusterDashboard is a dashboard for a Chainlink cluster
 type CLClusterDashboard struct {
 	Name                     string
 	LokiDataSourceName       string
@@ -33,6 +34,7 @@ type CLClusterDashboard struct {
 	builder                  dashboard.Builder
 }
 
+// NewCLClusterDashboard returns a new dashboard for a Chainlink cluster, can be used as a base for more complex plugin based dashboards
 func NewCLClusterDashboard(name, ldsn, pdsn, dbf, grafanaURL, grafanaToken string, opts []dashboard.Option) (*CLClusterDashboard, error) {
 	db := &CLClusterDashboard{
 		Name:                     name,
@@ -41,6 +43,7 @@ func NewCLClusterDashboard(name, ldsn, pdsn, dbf, grafanaURL, grafanaToken strin
 		PrometheusDataSourceName: pdsn,
 		GrafanaURL:               grafanaURL,
 		GrafanaToken:             grafanaToken,
+		extendedOpts:             opts,
 	}
 	if err := db.generate(); err != nil {
 		return db, err
@@ -48,6 +51,7 @@ func NewCLClusterDashboard(name, ldsn, pdsn, dbf, grafanaURL, grafanaToken strin
 	return db, nil
 }
 
+// nodeLogsRowOption returns a row option for a node's logs with name and instance selector
 func (m *CLClusterDashboard) nodeLogsRowOption(name, instanceSelector string) row.Option {
 	return row.WithLogs(
 		name,
@@ -61,9 +65,9 @@ func (m *CLClusterDashboard) nodeLogsRowOption(name, instanceSelector string) ro
 	)
 }
 
+// generate generates the dashboard, adding extendedOpts to the default options
 func (m *CLClusterDashboard) generate() error {
-	builder, err := dashboard.New(
-		"Chainlink Cluster Dashboard",
+	opts := []dashboard.Option{
 		dashboard.AutoRefresh("10s"),
 		dashboard.Tags([]string{"generated"}),
 		dashboard.VariableAsQuery(
@@ -165,11 +169,17 @@ func (m *CLClusterDashboard) generate() error {
 				),
 			),
 		),
+	}
+	opts = append(opts, m.extendedOpts...)
+	builder, err := dashboard.New(
+		"Chainlink Cluster Dashboard",
+		opts...,
 	)
 	m.builder = builder
 	return err
 }
 
+// Deploy deploys the dashboard to Grafana
 func (m *CLClusterDashboard) Deploy() error {
 	ctx := context.Background()
 	client := grabana.NewClient(&http.Client{}, m.GrafanaURL, grabana.WithAPIToken(m.GrafanaToken))

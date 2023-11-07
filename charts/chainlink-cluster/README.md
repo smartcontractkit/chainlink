@@ -20,8 +20,8 @@ Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./val
 
 Set your registry for the image, example for `ECR`:
 ```
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 795953128386.dkr.ecr.us-west-2.amazonaws.com
-export DEVSPACE_IMAGE="795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink-devspace"
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${aws_account}.dkr.ecr.us-west-2.amazonaws.com
+export DEVSPACE_IMAGE="${aws_account}.dkr.ecr.us-west-2.amazonaws.com/chainlink-devspace"
 ```
 Enter the shell and deploy
 ```
