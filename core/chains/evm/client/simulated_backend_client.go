@@ -443,7 +443,6 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 		case "eth_getHeaderByNumber":
 			b[i].Error = c.ethGetHeaderByNumber(ctx, b[i].Result, b[i].Args...)
 		default:
-			// panic("not implemented")
 			return fmt.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
 	}
