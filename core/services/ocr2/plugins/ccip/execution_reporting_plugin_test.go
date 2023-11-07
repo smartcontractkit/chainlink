@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -96,7 +97,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			p.inflightReports.reports = tc.inflightReports
 			p.lggr = logger.TestLogger(t)
 
-			commitStoreReader := ccipdata.NewMockCommitStoreReader(t)
+			commitStoreReader := ccipdatamocks.NewCommitStoreReader(t)
 			commitStoreReader.On("IsDown", mock.Anything).Return(tc.commitStorePaused, nil)
 			// Blessed roots return true
 			for root, blessed := range tc.blessedRoots {
@@ -106,7 +107,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 				Return(tc.unexpiredReports, nil).Maybe()
 			p.config.commitStoreReader = commitStoreReader
 
-			destReader := ccipdata.NewMockReader(t)
+			destReader := ccipdatamocks.NewReader(t)
 			destReader.On("LatestBlock", ctx).Return(int64(1234), nil).Maybe()
 			p.config.destReader = destReader
 
@@ -120,7 +121,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			offRamp, _ := testhelpers.NewFakeOffRamp(t)
 			offRamp.SetRateLimiterState(tc.rateLimiterState)
 
-			mockOffRampReader := ccipdata.NewMockOffRampReader(t)
+			mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
 			mockOffRampReader.On("GetExecutionStateChangesBetweenSeqNums", ctx, mock.Anything, mock.Anything, 0).
 				Return(executionEvents, nil).Maybe()
 			mockOffRampReader.On("CurrentRateLimiterState", mock.Anything).Return(tc.rateLimiterState, nil).Maybe()
@@ -130,7 +131,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 				Return([]ccipdata.TokenBucketRateLimit{}, nil).Maybe()
 			p.config.offRampReader = mockOffRampReader
 
-			mockOnRampReader := ccipdata.NewMockOnRampReader(t)
+			mockOnRampReader := ccipdatamocks.NewOnRampReader(t)
 			mockOnRampReader.On("GetSendRequestsBetweenSeqNums", ctx, mock.Anything, mock.Anything, 0).
 				Return(tc.sendRequests, nil).Maybe()
 			p.config.onRampReader = mockOnRampReader
@@ -142,11 +143,11 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			}, nil).Maybe()
 			p.cachedDestTokens = cachedDestTokens
 
-			destPriceRegReader := ccipdata.NewMockPriceRegistryReader(t)
+			destPriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
 			destPriceRegReader.On("GetTokenPrices", ctx, mock.Anything).Return(
 				[]ccipdata.TokenPriceUpdate{{TokenPrice: ccipdata.TokenPrice{Token: common.HexToAddress("0x1"), Value: big.NewInt(123)}, TimestampUnixSec: big.NewInt(time.Now().Unix())}}, nil).Maybe()
 			destPriceRegReader.On("Address").Return(utils.RandomAddress()).Maybe()
-			sourcePriceRegReader := ccipdata.NewMockPriceRegistryReader(t)
+			sourcePriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
 			sourcePriceRegReader.On("Address").Return(utils.RandomAddress()).Maybe()
 			sourcePriceRegReader.On("GetTokenPrices", ctx, mock.Anything).Return(
 				[]ccipdata.TokenPriceUpdate{{TokenPrice: ccipdata.TokenPrice{Token: common.HexToAddress("0x1"), Value: big.NewInt(123)}, TimestampUnixSec: big.NewInt(time.Now().Unix())}}, nil).Maybe()
@@ -214,7 +215,7 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 
 			//commitStore, _ := testhelpers.NewFakeCommitStore(t, tc.committedSeqNum)
 
-			p.config.commitStoreReader = ccipdata.NewMockCommitStoreReader(t)
+			p.config.commitStoreReader = ccipdatamocks.NewCommitStoreReader(t)
 
 			observations := make([]types.AttributedObservation, len(tc.observations))
 			for i := range observations {
@@ -257,7 +258,7 @@ func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	encodedReport, err := ccipdata.EncodeExecutionReport(report)
 	require.NoError(t, err)
 
-	mockOffRampReader := ccipdata.NewMockOffRampReader(t)
+	mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
 	mockOffRampReader.On("DecodeExecutionReport", encodedReport).Return(report, nil)
 
 	plugin := ExecutionReportingPlugin{
@@ -304,9 +305,9 @@ func TestExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	encodedReport, err := ccipdata.EncodeExecutionReport(report)
 	require.NoError(t, err)
 
-	mockCommitStoreReader := ccipdata.NewMockCommitStoreReader(t)
+	mockCommitStoreReader := ccipdatamocks.NewCommitStoreReader(t)
 
-	mockOffRampReader := ccipdata.NewMockOffRampReader(t)
+	mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
 	mockOffRampReader.On("DecodeExecutionReport", encodedReport).Return(report, nil)
 	mockedExecState := mockOffRampReader.On("GetExecutionState", mock.Anything, uint64(12)).Return(uint8(ccipdata.ExecutionStateUntouched), nil).Once()
 
@@ -351,7 +352,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 	p := &ExecutionReportingPlugin{}
 	p.lggr = logger.TestLogger(t)
 
-	commitStore := ccipdata.NewMockCommitStoreReader(t)
+	commitStore := ccipdatamocks.NewCommitStoreReader(t)
 	commitStore.On("VerifyExecutionReport", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	commitStore.On("GetExpectedNextSequenceNumber", mock.Anything).
 		Return(executionReport.Messages[len(executionReport.Messages)-1].SequenceNumber+1, nil)
@@ -375,7 +376,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 	p.config.offRampReader = offRampReader
 
 	sendReqs := make([]ccipdata.Event[internal.EVM2EVMMessage], len(observations))
-	sourceReader := ccipdata.NewMockOnRampReader(t)
+	sourceReader := ccipdatamocks.NewOnRampReader(t)
 	for i := range observations {
 		msg := internal.EVM2EVMMessage{
 			SourceChainSelector: math.MaxUint64,
@@ -626,7 +627,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			}
 
 			// Mock calls to reader.
-			mockOffRampReader := ccipdata.NewMockOffRampReader(t)
+			mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
 			mockOffRampReader.On("GetSenderNonce", mock.Anything, sender1).Return(uint64(0), nil).Maybe()
 
 			plugin := ExecutionReportingPlugin{
@@ -891,7 +892,7 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 			p.cachedTokenPools = tokenPoolsCache
 
 			offRampAddr := utils.RandomAddress()
-			mockOffRampReader := ccipdata.NewMockOffRampReader(t)
+			mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
 			mockOffRampReader.On("Address").Return(offRampAddr, nil).Maybe()
 			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, tc.destPools).
 				Return(tc.poolRateLimits, nil).
@@ -1004,15 +1005,15 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 			p := &ExecutionReportingPlugin{}
 			p.lggr = lggr
 
-			offRampReader := ccipdata.NewMockOffRampReader(t)
+			offRampReader := ccipdatamocks.NewOffRampReader(t)
 			p.config.offRampReader = offRampReader
 
-			sourceReader := ccipdata.NewMockOnRampReader(t)
+			sourceReader := ccipdatamocks.NewOnRampReader(t)
 			sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.expQueryMin, tc.expQueryMax, 0).
 				Return(tc.onchainEvents, nil).Maybe()
 			p.config.onRampReader = sourceReader
 
-			destReader := ccipdata.NewMockReader(t)
+			destReader := ccipdatamocks.NewReader(t)
 			destReader.On("LatestBlock", ctx).Return(tc.destLatestBlock, nil).Maybe()
 			var executedEvents []ccipdata.Event[ccipdata.ExecutionStateChanged]
 			for _, executedSeqNum := range tc.destExecutedSeqNums {
@@ -1345,7 +1346,7 @@ func Test_getTokensPrices(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			priceReg := ccipdata.NewMockPriceRegistryReader(t)
+			priceReg := ccipdatamocks.NewPriceRegistryReader(t)
 			priceReg.On("GetTokenPrices", mock.Anything, mock.Anything).Return(tc.retPrices, nil)
 			priceReg.On("Address").Return(utils.RandomAddress(), nil)
 

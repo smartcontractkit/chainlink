@@ -26,7 +26,20 @@ const (
 	COMMIT_CCIP_SENDS = "Commit ccip sends"
 )
 
-//go:generate mockery --quiet --name OnRampReader --output . --filename onramp_reader_mock.go --inpackage --case=underscore
+type OnRampDynamicConfig struct {
+	Router                            common.Address
+	MaxNumberOfTokensPerMsg           uint16
+	DestGasOverhead                   uint32
+	DestGasPerPayloadByte             uint16
+	DestDataAvailabilityOverheadGas   uint32
+	DestGasPerDataAvailabilityByte    uint16
+	DestDataAvailabilityMultiplierBps uint16
+	PriceRegistry                     common.Address
+	MaxDataBytes                      uint32
+	MaxPerMsgGasLimit                 uint32
+}
+
+//go:generate mockery --quiet --name OnRampReader --filename onramp_reader_mock.go --case=underscore
 type OnRampReader interface {
 	Closer
 	// GetSendRequestsGteSeqNum returns all the message send requests with sequence number greater than or equal to the provided.
@@ -36,6 +49,8 @@ type OnRampReader interface {
 	GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confs int) ([]Event[internal.EVM2EVMMessage], error)
 	// Get router configured in the onRamp
 	RouterAddress() (common.Address, error)
+	Address() (common.Address, error)
+	GetDynamicConfig() (OnRampDynamicConfig, error)
 }
 
 // NewOnRampReader determines the appropriate version of the onramp and returns a reader for it

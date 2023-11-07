@@ -307,6 +307,12 @@ func TestCommitStoreReaders(t *testing.T) {
 	for v, cr := range crs {
 		cr := cr
 		t.Run("CommitStoreReader "+v, func(t *testing.T) {
+
+			// Static config.
+			cfg, err := cr.GetCommitStoreStaticConfig(context.Background())
+			require.NoError(t, err)
+			require.NotNil(t, cfg)
+
 			// Assert encoding
 			b, err := cr.EncodeCommitReport(rep)
 			require.NoError(t, err)
@@ -367,6 +373,7 @@ func TestCommitStoreReaders(t *testing.T) {
 			gp, err := cr.GasPriceEstimator().GetGasPrice(context.Background())
 			require.NoError(t, err)
 			assert.Equal(t, expectedGas[v], cr.GasPriceEstimator().String(gp))
+
 		})
 	}
 }

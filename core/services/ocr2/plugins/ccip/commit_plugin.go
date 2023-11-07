@@ -3,14 +3,10 @@ package ccip
 import (
 	"context"
 	"encoding/json"
-	"strconv"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
@@ -23,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/contractutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
@@ -47,33 +42,27 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 	if err != nil {
 		return nil, nil, err
 	}
-	chainIDInterface, ok := spec.RelayConfig["chainID"]
-	if !ok {
-		return nil, nil, errors.New("chainID must be provided in relay config")
-	}
-	destChainID := int64(chainIDInterface.(float64))
-	destChain, err := chainSet.Get(strconv.FormatInt(destChainID, 10))
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "get chainset")
-	}
-	commitStore, _, err := contractutil.LoadCommitStore(common.HexToAddress(spec.ContractID), destChain.Client())
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed loading commitStore")
-	}
-	staticConfig, err := commitStore.GetStaticConfig(&bind.CallOpts{})
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed getting the static config from the commitStore")
-	}
-	chainId, err := chainselectors.ChainIdFromSelector(staticConfig.SourceChainSelector)
+
+	destChain, destChainID, err := ccipconfig.GetChainFromSpec(spec, chainSet)
 	if err != nil {
 		return nil, nil, err
 	}
-	sourceChain, err := chainSet.Get(strconv.FormatUint(chainId, 10))
+
+	commitStoreAddress := common.HexToAddress(spec.ContractID)
+	staticConfig, err := ccipdata.FetchCommitStoreStaticConfig(commitStoreAddress, destChain.Client())
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to open source chain")
+		return nil, nil, errors.Wrap(err, "failed getting the static config from the commitStore")
+	}
+	sourceChain, sourceChainID, err := ccipconfig.GetChainByChainSelector(chainSet, staticConfig.SourceChainSelector)
+	if err != nil {
+		return nil, nil, err
+	}
+	commitStoreReader, err := ccipdata.NewCommitStoreReader(lggr, commitStoreAddress, destChain.Client(), destChain.LogPoller(), sourceChain.GasEstimator())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not create commitStore reader")
 	}
 	commitLggr := lggr.Named("CCIPCommit").With(
-		"sourceChain", ChainName(int64(chainId)),
+		"sourceChain", ChainName(sourceChainID),
 		"destChain", ChainName(destChainID))
 	pipelinePriceGetter, err := pricegetter.NewPipelineGetter(pluginConfig.TokenPricesUSDPipeline, pr, jb.ID, jb.ExternalJobID, jb.Name.ValueOrZero(), lggr)
 	if err != nil {
@@ -89,10 +78,6 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed offramp reader")
 	}
-	commitStoreReader, err := ccipdata.NewCommitStoreReader(commitLggr, common.HexToAddress(spec.ContractID), destChain.Client(), destChain.LogPoller(), sourceChain.GasEstimator())
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed commit reader")
-	}
 	onRampRouterAddr, err := onRampReader.RouterAddress()
 	if err != nil {
 		return nil, nil, err
@@ -107,7 +92,7 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 	}
 
 	// Prom wrappers
-	onRampReader = observability.NewObservedOnRampReader(onRampReader, int64(chainId), CommitPluginLabel)
+	onRampReader = observability.NewObservedOnRampReader(onRampReader, sourceChainID, CommitPluginLabel)
 	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, CommitPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, CommitPluginLabel)
 

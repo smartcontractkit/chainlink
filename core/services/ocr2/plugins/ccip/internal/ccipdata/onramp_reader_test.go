@@ -339,4 +339,13 @@ func testOnRampReader(t *testing.T, th onRampReaderTH, expectedRouterAddress com
 	require.NoError(t, err)
 	require.NotNil(t, msg)
 	require.Equal(t, []ccipdata.Event[internal.EVM2EVMMessage]{}, msg)
+
+	address, err := th.reader.Address()
+	require.NoError(t, err)
+	require.NotNil(t, address)
+
+	cfg, err := th.reader.GetDynamicConfig()
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	require.Equal(t, expectedRouterAddress, cfg.Router)
 }
