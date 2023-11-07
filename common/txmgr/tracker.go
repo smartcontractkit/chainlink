@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"slices"
 	"time"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -135,15 +136,15 @@ func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) insert
 	tracker.lggr.Debugw(fmt.Sprintf("inserted tx %v", tx.ID))
 }
 
-// GetTxes returns list of tracked transactions that are still valid
-func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTxes() []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	var txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+// GetAbandonedAddresses returns list of abandoned addresses being tracked
+func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandonedAddresses() []ADDR {
+	var addrs []ADDR
 	for _, atx := range tracker.txCache {
-		if atx.isValid() {
-			txes = append(txes, atx.tx)
+		if atx.isValid() && !slices.Contains(addrs, atx.tx.FromAddress) {
+			addrs = append(addrs, atx.tx.FromAddress)
 		}
 	}
-	return txes
+	return addrs
 }
 
 // finalizeTx tries to finalize a transaction based on its current state.

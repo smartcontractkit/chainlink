@@ -119,10 +119,6 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 	}
 
-	if err := er.resendAbandoned(); err != nil {
-		er.logger.Warnw("Failed to resend abandoned transactions", "err", err)
-	}
-
 	ticker := time.NewTicker(utils.WithJitter(er.interval))
 	defer ticker.Stop()
 	for {
@@ -138,15 +134,19 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 }
 
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnconfirmed() error {
-	enabledAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
+	resendAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
 	if err != nil {
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
 	}
+
+	resendAddresses = append(resendAddresses, er.tracker.GetAbandonedAddresses()...)
+
 	ageThreshold := er.txConfig.ResendAfterThreshold()
 	maxInFlightTransactions := er.txConfig.MaxInFlight()
 	olderThan := time.Now().Add(-ageThreshold)
 	var allAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	for _, k := range enabledAddresses {
+
+	for _, k := range resendAddresses {
 		var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 		attempts, err = er.txStore.FindTxAttemptsRequiringResend(er.ctx, olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
@@ -181,13 +181,6 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnco
 	}
 	logResendResult(er.logger, txErrTypes)
 
-	return nil
-}
-
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendAbandoned() error {
-	abandoned := er.tracker.GetTxes()
-	// TODO resend abandoned transactions
-	_ = abandoned
 	return nil
 }
 

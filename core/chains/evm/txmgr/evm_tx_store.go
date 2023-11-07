@@ -1199,8 +1199,10 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 }
 
 func (o *evmTxStore) GetNonFinalizedTransactions(ctx context.Context) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT * FROM evm.txes
