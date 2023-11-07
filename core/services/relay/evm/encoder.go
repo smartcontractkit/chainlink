@@ -57,7 +57,7 @@ func encode(item reflect.Value, info *types.CodecEntry) (ocrtypes.Report, error)
 		return encode(item.Elem(), info)
 	case reflect.Array, reflect.Slice:
 		return encodeArray(item, info)
-	case reflect.Struct:
+	case reflect.Struct, reflect.Map:
 		return encodeItem(item, info)
 	default:
 		return nil, relaytypes.InvalidEncodingError{}
