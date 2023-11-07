@@ -93,8 +93,6 @@ func (c *SimulatedBackendClient) Close() {}
 // and will not return an error when an old block is used.
 func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	switch method {
-	case "eth_getBlockByHash", "web3_clientVersion", "eth_getTransactionByHash", "eth_gasPrice":
-		panic(method + " not implemented")
 	case "eth_getTransactionReceipt":
 		return c.ethGetTransactionReceipt(ctx, result, args...)
 	case "eth_getBlockByNumber":
@@ -104,7 +102,7 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 	case "eth_getHeaderByNumber":
 		return c.ethGetHeaderByNumber(ctx, result, args...)
 	default:
-		panic(fmt.Errorf("second arg to SimulatedBackendClient.Call is an RPC API method which has not yet been implemented: %s. Add processing for it here", method))
+		return fmt.Errorf("second arg to SimulatedBackendClient.Call is an RPC API method which has not yet been implemented: %s. Add processing for it here", method)
 	}
 }
 
@@ -173,7 +171,7 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 		default:
 			blockNumber, err := hexutil.DecodeBig(n)
 			if err != nil {
-				panic(fmt.Errorf("%w: while parsing '%s' as hex-encoded block number", err, n))
+				return nil, fmt.Errorf("%w: while parsing '%s' as hex-encoded block number", err, n)
 			}
 			return blockNumber, nil
 		}
@@ -445,8 +443,8 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 		case "eth_getHeaderByNumber":
 			b[i].Error = c.ethGetHeaderByNumber(ctx, b[i].Result, b[i].Args...)
 		default:
-			panic("not implemented")
-			// return fmt.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
+			// panic("not implemented")
+			return fmt.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
 	}
 
@@ -491,8 +489,7 @@ func (c *SimulatedBackendClient) fetchHeader(ctx context.Context, blockNumOrTag 
 	default:
 		blockNum, ok := new(big.Int).SetString(blockNumOrTag, 0)
 		if !ok {
-			panic("not valid *big.Int")
-			// return nil, fmt.Errorf("error while converting block number string: %s to big.Int ", blockNumOrTag)
+			return nil, fmt.Errorf("error while converting block number string: %s to big.Int ", blockNumOrTag)
 		}
 		return c.b.HeaderByNumber(ctx, blockNum)
 	}
@@ -500,14 +497,12 @@ func (c *SimulatedBackendClient) fetchHeader(ctx context.Context, blockNumOrTag 
 
 func (c *SimulatedBackendClient) ethGetTransactionReceipt(ctx context.Context, result interface{}, args ...interface{}) error {
 	if len(args) != 1 {
-		panic("invalid length of args")
-		// return fmt.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_getTransactionReceipt", len(args))
+		return fmt.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_getTransactionReceipt", len(args))
 	}
 
 	hash, is := args[0].(common.Hash)
 	if !is {
-		panic("arg 0 should be hash")
-		// return fmt.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", args[0])
+		return fmt.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", args[0])
 	}
 
 	receipt, err := c.b.TransactionReceipt(ctx, hash)
@@ -524,8 +519,7 @@ func (c *SimulatedBackendClient) ethGetTransactionReceipt(ctx context.Context, r
 	case *evmtypes.Receipt:
 		*typed = *evmtypes.FromGethReceipt(receipt)
 	default:
-		panic("unexpected receipt type; use *gethtypes.Receipt or *evmtypes.Receipt")
-		// return fmt.Errorf("SimulatedBackendClient expected return type of *evmtypes.Receipt for eth_getTransactionReceipt, got type %T", result)
+		return fmt.Errorf("SimulatedBackendClient expected return type of *evmtypes.Receipt for eth_getTransactionReceipt, got type %T", result)
 	}
 
 	return nil
@@ -533,20 +527,17 @@ func (c *SimulatedBackendClient) ethGetTransactionReceipt(ctx context.Context, r
 
 func (c *SimulatedBackendClient) ethGetBlockByNumber(ctx context.Context, result interface{}, args ...interface{}) error {
 	if len(args) != 2 {
-		panic("args length not 2")
-		// return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(args))
+		return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(args))
 	}
 
 	blockNumOrTag, is := args[0].(string)
 	if !is {
-		panic("arg 0 should be string")
-		// return fmt.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getBlockByNumber, got: %T", args[0])
+		return fmt.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getBlockByNumber, got: %T", args[0])
 	}
 
 	_, is = args[1].(bool)
 	if !is {
-		panic("args 1 should be bool")
-		// return fmt.Errorf("SimulatedBackendClient expected second arg to be a boolean for eth_getBlockByNumber, got: %T", args[1])
+		return fmt.Errorf("SimulatedBackendClient expected second arg to be a boolean for eth_getBlockByNumber, got: %T", args[1])
 	}
 
 	header, err := c.fetchHeader(ctx, blockNumOrTag)
@@ -566,8 +557,7 @@ func (c *SimulatedBackendClient) ethGetBlockByNumber(ctx context.Context, result
 		res.ParentHash = header.ParentHash
 		res.Timestamp = time.Unix(int64(header.Time), 0).UTC()
 	default:
-		panic("unexpected result type")
-		// return fmt.Errorf("SimulatedBackendClient Unexpected Type %T", res)
+		return fmt.Errorf("SimulatedBackendClient Unexpected Type %T", res)
 	}
 
 	return nil
@@ -575,19 +565,16 @@ func (c *SimulatedBackendClient) ethGetBlockByNumber(ctx context.Context, result
 
 func (c *SimulatedBackendClient) ethCall(ctx context.Context, result interface{}, args ...interface{}) error {
 	if len(args) != 2 {
-		panic("expected 2 args")
-		// return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_call", len(args))
+		return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_call", len(args))
 	}
 
 	params, ok := args[0].(map[string]interface{})
 	if !ok {
-		panic("args 0 should be map[string]interface{}")
-		// return fmt.Errorf("SimulatedBackendClient expected first arg to be map[string]interface{} for eth_call, got: %T", args[0])
+		return fmt.Errorf("SimulatedBackendClient expected first arg to be map[string]interface{} for eth_call, got: %T", args[0])
 	}
 
 	if _, err := c.blockNumber(args[1]); err != nil {
-		panic("invalid block")
-		// return fmt.Errorf("SimulatedBackendClient expected second arg to be the string 'latest' or a *big.Int for eth_call, got: %T", args[1])
+		return fmt.Errorf("SimulatedBackendClient expected second arg to be the string 'latest' or a *big.Int for eth_call, got: %T", args[1])
 	}
 
 	resp, err := c.b.CallContract(ctx, toCallMsg(params), nil /* always latest block on simulated backend */)
@@ -600,13 +587,12 @@ func (c *SimulatedBackendClient) ethCall(ctx context.Context, result interface{}
 		*typedResult = append(*typedResult, resp...)
 
 		if !bytes.Equal(*typedResult, resp) {
-			panic(fmt.Errorf("SimulatedBackendClient was passed a non-empty array, or failed to copy answer. Expected %x = %x", *typedResult, resp))
+			return fmt.Errorf("SimulatedBackendClient was passed a non-empty array, or failed to copy answer. Expected %x = %x", *typedResult, resp)
 		}
 	case *string:
 		*typedResult = hexutil.Encode(resp)
 	default:
-		panic("unexpected result type")
-		// return fmt.Errorf("SimulatedBackendClient unexpected type %T", result)
+		return fmt.Errorf("SimulatedBackendClient unexpected type %T", result)
 	}
 
 	return nil
@@ -614,12 +600,12 @@ func (c *SimulatedBackendClient) ethCall(ctx context.Context, result interface{}
 
 func (c *SimulatedBackendClient) ethGetHeaderByNumber(ctx context.Context, result interface{}, args ...interface{}) error {
 	if len(args) != 1 {
-		panic(fmt.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_getHeaderByNumber", len(args)))
+		return fmt.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_getHeaderByNumber", len(args))
 	}
 
 	blockNumber, err := c.blockNumber(args[0])
 	if err != nil {
-		panic(fmt.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getHeaderByNumber: %w", err))
+		return fmt.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getHeaderByNumber: %w", err)
 	}
 
 	header, err := c.b.HeaderByNumber(ctx, blockNumber)
@@ -631,7 +617,7 @@ func (c *SimulatedBackendClient) ethGetHeaderByNumber(ctx context.Context, resul
 	case *types.Header:
 		*typedResult = *header
 	default:
-		panic(fmt.Errorf("SimulatedBackendClient unexpected Type %T", typedResult))
+		return fmt.Errorf("SimulatedBackendClient unexpected Type %T", typedResult)
 	}
 
 	return nil
