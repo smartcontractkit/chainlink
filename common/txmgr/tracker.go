@@ -152,7 +152,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandone
 // Returns true if the transaction was finalized.
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) finalizeTx(
 	ctx context.Context, atx AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-	// TODO: Query db to update state of transaction
+	// TODO: Query db for updated state of transaction
 
 	switch atx.tx.State {
 	case TxConfirmed, TxConfirmedMissingReceipt, TxFatalError:
