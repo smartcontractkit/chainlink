@@ -146,6 +146,44 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
   event Burned(address indexed sender, uint256 amount);
   event TokensConsumed(uint256 tokens);
 
+  // Base test case, included for PR gas comparisons as fuzz tests are excluded from forge snapshot due to being flaky.
+  function testLockOrBurnSuccess() public {
+    bytes32 receiver = bytes32(uint256(uint160(STRANGER)));
+    uint256 amount = 1;
+    changePrank(s_routerAllowedOnRamp);
+    s_token.approve(address(s_usdcTokenPool), amount);
+
+    USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPool.getDomain(DEST_CHAIN_ID);
+
+    vm.expectEmit();
+    emit TokensConsumed(amount);
+
+    vm.expectEmit();
+    emit DepositForBurn(
+      s_mockUSDC.s_nonce(),
+      address(s_token),
+      amount,
+      address(s_usdcTokenPool),
+      receiver,
+      expectedDomain.domainIdentifier,
+      s_mockUSDC.i_destinationTokenMessenger(),
+      expectedDomain.allowedCaller
+    );
+
+    vm.expectEmit();
+    emit Burned(s_routerAllowedOnRamp, amount);
+
+    bytes memory encodedNonce = s_usdcTokenPool.lockOrBurn(
+      OWNER,
+      abi.encodePacked(receiver),
+      amount,
+      DEST_CHAIN_ID,
+      bytes("")
+    );
+    uint64 nonce = abi.decode(encodedNonce, (uint64));
+    assertEq(s_mockUSDC.s_nonce() - 1, nonce);
+  }
+
   function testFuzz_LockOrBurnSuccess(bytes32 destinationReceiver, uint256 amount) public {
     vm.assume(amount < rateLimiterConfig().capacity);
     vm.assume(amount > 0);
