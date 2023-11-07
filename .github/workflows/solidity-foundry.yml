@@ -28,45 +28,19 @@ jobs:
               - '.gitmodules'
               - 'contracts/foundry-lib'
 
-  lint:
-    defaults:
-      run:
-        working-directory: contracts
-    needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
-    name: Lint ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-      - name: Run pnpm lint
-        run: pnpm lint
-      - name: Run solhint
-        run: pnpm solhint
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Lint
-        continue-on-error: true
-
   tests:
     strategy:
       fail-fast: false
       matrix:
         product: [vrf, automation, llo-feeds, functions, shared]
     needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
     name: Foundry Tests ${{ matrix.product }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     # See https://github.com/foundry-rs/foundry/issues/3827
     runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout the repo
+        if: needs.changes.outputs.changes == 'true'
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: recursive
@@ -75,15 +49,18 @@ jobs:
       # and not native Foundry. This is to make sure the dependencies
       # stay in sync.
       - name: Setup NodeJS
+        if: needs.changes.outputs.changes == 'true'
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
+        if: needs.changes.outputs.changes == 'true'
         uses: foundry-rs/foundry-toolchain@v1
         with:
           # Has to match the `make foundry` version.
           version: nightly-5be158ba6dc7c798a6f032026fe60fc01686b33b
 
       - name: Run Forge build
+        if: needs.changes.outputs.changes == 'true'
         run: |
           forge --version
           forge build
@@ -93,6 +70,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge tests
+        if: needs.changes.outputs.changes == 'true'
         run: |
           forge test -vvv
         id: test
@@ -101,7 +79,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge snapshot
-        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) }}
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
         run: |
           forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot
@@ -110,7 +88,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Collect Metrics
-        if: always()
+        if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
