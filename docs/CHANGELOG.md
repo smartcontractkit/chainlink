@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added a new, optional WebServer authentication option that supports LDAP as a user identity provider. This enables user login access and user roles to be managed and provisioned via a centralized remote server that supports the LDAP protocol, which can be helpful when running multiple nodes. See the documentation for more information and config setup instructions. There is a new `[WebServer].AuthenticationMethod` config option, when set to `ldap` requires the new `[WebServer.LDAP]` config section to be defined, see the reference `docs/core.toml`.
+- New prom metrics for mercury:
+    `mercury_transmit_queue_delete_error_count`
+    `mercury_transmit_queue_insert_error_count`
+    `mercury_transmit_queue_push_error_count`
+    Nops should consider alerting on these.
 
 
 ### Changed
