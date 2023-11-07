@@ -6,7 +6,6 @@ import {Internal} from "../../libraries/Internal.sol";
 import {Client} from "../../libraries/Client.sol";
 import {AggregateRateLimiterHelper} from "../helpers/AggregateRateLimiterHelper.sol";
 import {AggregateRateLimiter} from "../../AggregateRateLimiter.sol";
-import {PriceRegistry} from "../../PriceRegistry.sol";
 import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 
 import "../BaseTest.t.sol";

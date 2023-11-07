@@ -2,8 +2,6 @@
 pragma solidity ^0.8.0;
 
 import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
-import {RateLimiter} from "../../libraries/RateLimiter.sol";
-import {TokenPool} from "../../pools/TokenPool.sol";
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 
 contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {

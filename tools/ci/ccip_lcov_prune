@@ -8,6 +8,9 @@ set -e
 # src/v0.8/ccip/libraries/MerkleMultiProof.sol
 # excluded because Foundry doesn't support coverage on library files
 
+# BurnWithFromMintTokenPool is excluded because Forge doesn't seem to
+# register coverage, even though it is 100% covered.
+
 
 lcov --remove $1 -o $2 \
   '*/ccip/test/*' \
@@ -21,4 +24,5 @@ lcov --remove $1 -o $2 \
   'src/v0.8/ConfirmedOwnerWithProposal.sol' \
   'src/v0.8/tests/MockV3Aggregator.sol' \
   'src/v0.8/ccip/applications/CCIPClientExample.sol' \
+  'src/v0.8/ccip/pools/BurnWithFromMintTokenPool.sol' \
   --rc lcov_branch_coverage=1

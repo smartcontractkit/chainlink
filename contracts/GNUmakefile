@@ -56,7 +56,7 @@ ccip-precommit:
 	forge test
 	make snapshot
 	pnpm prettier:write
-	pnpm lint:ccip
+	pnpm solhint
 
 ccip-lcov: export FOUNDRY_PROFILE=ccip
 .PHONY: ccip-lcov

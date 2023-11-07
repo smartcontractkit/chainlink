@@ -12,18 +12,22 @@ import {BurnMintTokenPoolAbstract} from "./BurnMintTokenPoolAbstract.sol";
 /// It either accepts any address as originalSender, or only accepts whitelisted originalSender.
 /// The only way to change whitelisting mode is to deploy a new pool.
 /// If that is expected, please make sure the token's burner/minter roles are adjustable.
-contract BurnMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
+contract BurnFromMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "BurnMintTokenPool 1.2.0";
+  string public constant override typeAndVersion = "BurnFromMintTokenPool 1.2.0";
 
   constructor(
     IBurnMintERC20 token,
     address[] memory allowlist,
     address armProxy
-  ) TokenPool(token, allowlist, armProxy) {}
+  ) TokenPool(token, allowlist, armProxy) {
+    // Some tokens allow burning from the sender without approval, but not all do.
+    // To be safe, we approve the pool to burn from the pool.
+    token.approve(address(this), type(uint256).max);
+  }
 
   /// @inheritdoc BurnMintTokenPoolAbstract
   function _burn(uint256 amount) internal virtual override {
-    IBurnMintERC20(address(i_token)).burn(amount);
+    IBurnMintERC20(address(i_token)).burnFrom(address(this), amount);
   }
 }
