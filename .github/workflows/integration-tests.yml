@@ -66,7 +66,6 @@ jobs:
 
   build-chainlink:
     environment: integration
-    if: needs.changes.outputs.src == 'true'
     permissions:
       id-token: write
       contents: read
@@ -84,6 +83,7 @@ jobs:
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
@@ -96,6 +96,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
+        if: needs.changes.outputs.src == 'true'
         uses: ./.github/actions/build-chainlink-image
         with: 
           tag_suffix: ${{ matrix.image.tag-suffix }}
