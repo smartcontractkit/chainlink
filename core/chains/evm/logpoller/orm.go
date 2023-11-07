@@ -195,6 +195,8 @@ func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 }
 
 func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
+	// These deletes are bounded by reorg depth, so they are
+	// fast and should not slow down the log readers.
 	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
 		args, err := newQueryArgs(o.chainID).
 			withStartBlock(start).
