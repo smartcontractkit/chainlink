@@ -336,12 +336,19 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindN
 	if _, ok := ms.unstarted[fromAddress]; !ok {
 		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrAddressNotFound)
 	}
+	// ensure that the address is not already busy with a transaction in progress
+	ms.inprogressLock.RLock()
+	if ms.inprogress[fromAddress] != nil {
+		ms.inprogressLock.RUnlock()
+		return fmt.Errorf("find_next_unstarted_transaction_from_address: address %s is already busy with a transaction in progress", fromAddress)
+	}
+	ms.inprogressLock.RUnlock()
 
 	select {
 	case tx = <-ms.unstarted[fromAddress]:
 		return nil
 	default:
-		return fmt.Errorf("find_next_unstarted_transaction_from_address: failed to FindNextUnstartedTransactionFromAddress")
+		return ErrTxnNotFound
 	}
 }
 
