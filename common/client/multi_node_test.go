@@ -180,7 +180,7 @@ func TestMultiNode_Dial(t *testing.T) {
 		err := mn.Dial(tests.Context(t))
 		assert.EqualError(t, err, expectedError.Error())
 	})
-	t.Run("Starts successfully with health nodes", func(t *testing.T) {
+	t.Run("Starts successfully with healthy nodes", func(t *testing.T) {
 		t.Parallel()
 		chainID := types.NewIDFromInt(10)
 		node := newHealthyNode(t, chainID)
@@ -350,7 +350,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 		node1.On("State").Return(nodeStateAlive).Once()
 		node1.On("String").Return("node1").Maybe()
 		node2 := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-		node1.On("String").Return("node2").Maybe()
+		node2.On("String").Return("node2").Maybe()
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
@@ -393,7 +393,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 		require.Equal(t, newBest.String(), newActiveNode.String())
 
 	})
-	t.Run("No active nodes - reports crytical error", func(t *testing.T) {
+	t.Run("No active nodes - reports critical error", func(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.InfoLevel)
@@ -499,7 +499,7 @@ func TestMultiNode_BatchCallContextAll(t *testing.T) {
 		err := mn.BatchCallContextAll(tests.Context(t), nil)
 		require.EqualError(t, err, ErroringNodeError.Error())
 	})
-	t.Run("Returns response of active node", func(t *testing.T) {
+	t.Run("Returns error if RPC call fails for active node", func(t *testing.T) {
 		chainID := types.RandomID()
 		rpc := newMultiNodeRPCClient(t)
 		expectedError := errors.New("rpc failed to do the batch call")
