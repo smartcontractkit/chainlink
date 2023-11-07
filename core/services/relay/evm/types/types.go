@@ -36,8 +36,8 @@ type ChainReaderConfig struct {
 }
 
 type ChainContractReader struct {
-	ContractABI       string `json:"contractABI"`
-	ParsedContractABI *abi.ABI
+	ContractABI       string   `json:"contractABI"`
+	ParsedContractABI *abi.ABI `json:"-"`
 	// key is genericName from config
 	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions"`
 }
