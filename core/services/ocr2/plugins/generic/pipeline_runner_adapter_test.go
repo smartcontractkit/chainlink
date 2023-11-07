@@ -1,9 +1,8 @@
-package generic
+package generic_test
 
 import (
 	"context"
 	"net/http"
-	"reflect"
 	"testing"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -52,7 +52,7 @@ func TestAdapter_Integration(t *testing.T) {
 		http.DefaultClient,
 		http.DefaultClient,
 	)
-	pra := NewPipelineRunnerAdapter(logger, job.Job{}, pr)
+	pra := generic.NewPipelineRunnerAdapter(logger, job.Job{}, pr)
 	results, err := pra.ExecuteRun(context.Background(), spec, types.Vars{Vars: map[string]interface{}{"val": 1}}, types.Options{})
 	require.NoError(t, err)
 
@@ -83,7 +83,7 @@ func TestAdapter_AddsDefaultVars(t *testing.T) {
 	logger := logger.TestLogger(t)
 	mpr := newMockPipelineRunner()
 	jobID, externalJobID, name := int32(100), uuid.New(), null.StringFrom("job-name")
-	pra := NewPipelineRunnerAdapter(logger, job.Job{ID: jobID, ExternalJobID: externalJobID, Name: name}, mpr)
+	pra := generic.NewPipelineRunnerAdapter(logger, job.Job{ID: jobID, ExternalJobID: externalJobID, Name: name}, mpr)
 
 	_, err := pra.ExecuteRun(context.Background(), spec, types.Vars{}, types.Options{})
 	require.NoError(t, err)
@@ -105,7 +105,7 @@ func TestPipelineRunnerAdapter_SetsVarsOnSpec(t *testing.T) {
 	logger := logger.TestLogger(t)
 	mpr := newMockPipelineRunner()
 	jobID, externalJobID, name, jobType := int32(100), uuid.New(), null.StringFrom("job-name"), job.Type("generic")
-	pra := NewPipelineRunnerAdapter(logger, job.Job{ID: jobID, ExternalJobID: externalJobID, Name: name, Type: jobType}, mpr)
+	pra := generic.NewPipelineRunnerAdapter(logger, job.Job{ID: jobID, ExternalJobID: externalJobID, Name: name, Type: jobType}, mpr)
 
 	maxDuration := time.Duration(100 * time.Second)
 	_, err := pra.ExecuteRun(context.Background(), spec, types.Vars{}, types.Options{MaxTaskDuration: maxDuration})
@@ -115,30 +115,4 @@ func TestPipelineRunnerAdapter_SetsVarsOnSpec(t *testing.T) {
 	assert.Equal(t, name.ValueOrZero(), mpr.spec.JobName)
 	assert.Equal(t, string(jobType), mpr.spec.JobType)
 	assert.Equal(t, maxDuration, mpr.spec.MaxTaskDuration.Duration())
-
-}
-
-func TestMerge(t *testing.T) {
-	vars := map[string]interface{}{
-		"jb": map[string]interface{}{
-			"databaseID": "some-job-id",
-		},
-	}
-	addedVars := map[string]interface{}{
-		"jb": map[string]interface{}{
-			"some-other-var": "foo",
-		},
-		"val": 0,
-	}
-
-	err := merge(vars, addedVars)
-	require.NoError(t, err)
-
-	assert.True(t, reflect.DeepEqual(vars, map[string]interface{}{
-		"jb": map[string]interface{}{
-			"databaseID":     "some-job-id",
-			"some-other-var": "foo",
-		},
-		"val": 0,
-	}), vars)
 }

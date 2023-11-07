@@ -129,6 +129,29 @@ func TestHead_ChainLength(t *testing.T) {
 	assert.Equal(t, uint32(0), head2.ChainLength())
 }
 
+func TestHead_AsSlice(t *testing.T) {
+	h1 := &evmtypes.Head{
+		Number: 1,
+	}
+	h2 := &evmtypes.Head{
+		Number: 2,
+		Parent: h1,
+	}
+	h3 := &evmtypes.Head{
+		Number: 3,
+		Parent: h2,
+	}
+
+	assert.Len(t, (*evmtypes.Head)(nil).AsSlice(0), 0)
+	assert.Len(t, (*evmtypes.Head)(nil).AsSlice(1), 0)
+
+	assert.Len(t, h3.AsSlice(0), 0)
+	assert.Equal(t, []*evmtypes.Head{h3}, h3.AsSlice(1))
+	assert.Equal(t, []*evmtypes.Head{h3, h2}, h3.AsSlice(2))
+	assert.Equal(t, []*evmtypes.Head{h3, h2, h1}, h3.AsSlice(3))
+	assert.Equal(t, []*evmtypes.Head{h3, h2, h1}, h3.AsSlice(4))
+}
+
 func TestModels_HexToFunctionSelector(t *testing.T) {
 	t.Parallel()
 	fid := evmtypes.HexToFunctionSelector("0xb3f98adc")

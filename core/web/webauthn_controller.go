@@ -36,7 +36,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 		return
 	}
 
-	orm := c.App.SessionORM()
+	orm := c.App.AuthenticationProvider()
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
 		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %+v", err)
@@ -66,7 +66,7 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 		return
 	}
 
-	orm := c.App.SessionORM()
+	orm := c.App.AuthenticationProvider()
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
 		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %s", err)
@@ -83,7 +83,7 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 		return
 	}
 
-	if sessions.AddCredentialToUser(c.App.SessionORM(), user.Email, credential) != nil {
+	if sessions.AddCredentialToUser(c.App.AuthenticationProvider(), user.Email, credential) != nil {
 		c.App.GetLogger().Errorf("Could not save WebAuthn credential to DB for user: %s", user.Email)
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return

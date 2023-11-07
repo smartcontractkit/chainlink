@@ -24,6 +24,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -32,6 +33,8 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -58,6 +61,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -67,9 +72,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
+	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
@@ -127,24 +133,14 @@ type coordinatorV2Universe struct {
 	batchCoordinatorContractAddress    common.Address
 }
 
-const (
-	ConfirmedEthTxesV2Query = `SELECT * FROM evm.txes
-		WHERE evm.txes.state = 'confirmed'
-		AND evm.txes.meta->>'RequestID' = $1
-		AND CAST(evm.txes.meta->>'SubId' AS NUMERIC) = $2 LIMIT 1`
-	ConfirmedEthTxesV2PlusQuery = `SELECT * FROM evm.txes
-		WHERE evm.txes.state = 'confirmed'
-		AND evm.txes.meta->>'RequestID' = $1
-		AND CAST(evm.txes.meta->>'GlobalSubId' AS NUMERIC) = $2 LIMIT 1`
-	ConfirmedEthTxesV2BatchQuery = `
-		SELECT * FROM evm.txes
-		WHERE evm.txes.state = 'confirmed'
-		AND CAST(evm.txes.meta->>'SubId' AS NUMERIC) = $1`
-	ConfirmedEthTxesV2PlusBatchQuery = `
-		SELECT * FROM evm.txes
-		WHERE evm.txes.state = 'confirmed'
-		AND CAST(evm.txes.meta->>'GlobalSubId' AS NUMERIC) = $1`
-)
+func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Master, ec *evmclimocks.Client) txmgrcommon.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee] {
+	_, _, evmConfig := txmgr.MakeTestConfigs(t)
+	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
+	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
+		nil, txStore, nil, nil, nil, nil)
+
+	return txm
+}
 
 func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers int) coordinatorV2Universe {
 	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
@@ -454,7 +450,7 @@ func sendEth(t *testing.T, key ethkey.KeyV2, ec *backends.SimulatedBackend, to c
 	nonce, err := ec.PendingNonceAt(testutils.Context(t), key.Address)
 	require.NoError(t, err)
 	tx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{
-		ChainID:   big.NewInt(1337),
+		ChainID:   testutils.SimulatedChainID,
 		Nonce:     nonce,
 		GasTipCap: big.NewInt(1),
 		GasFeeCap: assets.GWei(10).ToInt(), // block base fee in sim
@@ -463,7 +459,7 @@ func sendEth(t *testing.T, key ethkey.KeyV2, ec *backends.SimulatedBackend, to c
 		Value:     big.NewInt(0).Mul(big.NewInt(int64(eth)), big.NewInt(1e18)),
 		Data:      nil,
 	})
-	signedTx, err := gethtypes.SignTx(tx, gethtypes.NewLondonSigner(big.NewInt(1337)), key.ToEcdsaPrivKey())
+	signedTx, err := gethtypes.SignTx(tx, gethtypes.NewLondonSigner(testutils.SimulatedChainID), key.ToEcdsaPrivKey())
 	require.NoError(t, err)
 	err = ec.SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
@@ -762,32 +758,42 @@ func assertNumRandomWords(
 	}
 }
 
-func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version) bool {
-	var query string
+func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainId *big.Int) bool {
+	cfg := pgtest.NewQConfig(false)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
-		query = ConfirmedEthTxesV2PlusQuery
+		metaField = "GlobalSubId"
 	} else if vrfVersion == vrfcommon.V2 {
-		query = ConfirmedEthTxesV2Query
+		metaField = "SubId"
 	} else {
 		t.Errorf("unsupported vrf version %s", vrfVersion)
 	}
+
 	return gomega.NewWithT(t).Eventually(func() bool {
 		backend.Commit()
-		var txs []txmgr.DbEthTx
-		err := db.Select(&txs, query, common.BytesToHash(requestID.Bytes()).String(), subID.String())
+		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, chainId)
 		require.NoError(t, err)
-		t.Log("num txs", len(txs))
-		return len(txs) == 1
+		for _, tx := range txes {
+			meta, err := tx.GetMeta()
+			require.NoError(t, err)
+			if meta.RequestID.String() == common.BytesToHash(requestID.Bytes()).String() {
+				return true
+			}
+		}
+		return false
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
-func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version) bool {
+func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainId *big.Int) bool {
 	requestIDMap := map[string]bool{}
-	var query string
+	cfg := pgtest.NewQConfig(false)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
-		query = ConfirmedEthTxesV2PlusBatchQuery
+		metaField = "GlobalSubId"
 	} else if vrfVersion == vrfcommon.V2 {
-		query = ConfirmedEthTxesV2BatchQuery
+		metaField = "SubId"
 	} else {
 		t.Errorf("unsupported vrf version %s", vrfVersion)
 	}
@@ -796,12 +802,10 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *bac
 	}
 	return gomega.NewWithT(t).Eventually(func() bool {
 		backend.Commit()
-		var txs []txmgr.DbEthTx
-		require.NoError(t, db.Select(&txs, query, subID.String()))
-		for _, tx := range txs {
-			var evmTx txmgr.Tx
-			tx.ToTx(&evmTx)
-			meta, err := evmTx.GetMeta()
+		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, chainId)
+		require.NoError(t, err)
+		for _, tx := range txes {
+			meta, err := tx.GetMeta()
 			require.NoError(t, err)
 			for _, requestID := range meta.RequestIDs {
 				if _, ok := requestIDMap[requestID.String()]; ok {
@@ -1188,7 +1192,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2)
+	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)
@@ -1268,7 +1272,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2)
+	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)
@@ -1599,6 +1603,10 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.Zero(t, key.Cmp(keys[0]))
 
 	require.NoError(t, app.Start(testutils.Context(t)))
+	var chain evm.Chain
+	chain, err = app.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	listenerV2 := v22.MakeTestListenerV2(chain)
 
 	jbs := createVRFJobs(
 		t,
@@ -1751,11 +1759,10 @@ func TestIntegrationVRFV2(t *testing.T) {
 	})
 
 	// We should see the response count present
-	chain, err := app.GetRelayers().LegacyEVMChains().Get(big.NewInt(1337).String())
 	require.NoError(t, err)
-
-	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config.Database())
-	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ConfiguredChainID().Uint64(), chain.Config().EVM().FinalityDepth())
+	var counts map[string]uint64
+	counts, err = listenerV2.GetStartingResponseCountsV2(testutils.Context(t))
+	require.NoError(t, err)
 	t.Log(counts, rf[0].RequestID().String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestID().String()])
 }
@@ -1997,19 +2004,30 @@ func TestFulfillmentCost(t *testing.T) {
 
 func TestStartingCountsV1(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "vrf_test_starting_counts", nil)
-	_, err := db.Exec(`INSERT INTO evm.heads (hash, number, parent_hash, created_at, timestamp, evm_chain_id)
-	VALUES ($1, 4, $2, NOW(), NOW(), 1337)`, utils.NewHash(), utils.NewHash())
-	require.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
-	q := pg.NewQ(db, lggr, cfg.Database())
-	finalityDepth := 3
-	counts := vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))
-	assert.Equal(t, 0, len(counts))
+	qCfg := pgtest.NewQConfig(false)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), qCfg)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+	ec := evmclimocks.NewClient(t)
+	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
+	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
+	txm := makeTestTxm(t, txStore, ks, ec)
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	chain, err := legacyChains.Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	listenerV1 := &v1.Listener{
+		Chain: chain,
+	}
+	listenerV2 := v22.MakeTestListenerV2(chain)
+	var counts map[[32]byte]uint64
+	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(counts))
 	err = ks.Unlock(testutils.Password)
 	require.NoError(t, err)
-	k, err := ks.Eth().Create(big.NewInt(1337))
+	k, err := ks.Eth().Create(testutils.SimulatedChainID)
 	require.NoError(t, err)
 	b := time.Now()
 	n1, n2, n3, n4 := evmtypes.Nonce(0), evmtypes.Nonce(1), evmtypes.Nonce(2), evmtypes.Nonce(3)
@@ -2027,7 +2045,7 @@ func TestStartingCountsV1(t *testing.T) {
 	md2, err := json.Marshal(&m2)
 	md2_ := datatypes.JSON(md2)
 	require.NoError(t, err)
-	chainID := utils.NewBig(big.NewInt(1337))
+	chainID := utils.NewBig(testutils.SimulatedChainID)
 	confirmedTxes := []txmgr.Tx{
 		{
 			Sequence:           &n1,
@@ -2100,16 +2118,13 @@ func TestStartingCountsV1(t *testing.T) {
 			ChainID:            chainID.ToInt(),
 		})
 	}
-	sql := `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, initial_broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
-VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :initial_broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id);`
-	for _, tx := range append(confirmedTxes, unconfirmedTxes...) {
-		var dbEtx txmgr.DbEthTx
-		dbEtx.FromTx(&tx) //nolint:gosec // just copying fields
-		_, err = db.NamedExec(sql, &dbEtx)
+	txList := append(confirmedTxes, unconfirmedTxes...)
+	for i := range txList {
+		err = txStore.InsertTx(&txList[i])
 		require.NoError(t, err)
 	}
 
-	// add evm.tx_attempts for confirmed
+	// add tx attempt for confirmed
 	broadcastBlock := int64(1)
 	var txAttempts []txmgr.TxAttempt
 	for i := range confirmedTxes {
@@ -2124,7 +2139,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			ChainSpecificFeeLimit:   uint32(100),
 		})
 	}
-	// add evm.tx_attempts for unconfirmed
+	// add tx attempt for unconfirmed
 	for i := range unconfirmedTxes {
 		txAttempts = append(txAttempts, txmgr.TxAttempt{
 			TxID:                  int64(i + 1 + len(confirmedTxes)),
@@ -2139,41 +2154,35 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	for _, txAttempt := range txAttempts {
 		t.Log("tx attempt eth tx id: ", txAttempt.TxID)
 	}
-	sql = `INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, state, created_at, chain_specific_gas_limit)
-		VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :state, :created_at, :chain_specific_gas_limit)`
-	for _, attempt := range txAttempts {
-		var dbAttempt txmgr.DbEthTxAttempt
-		dbAttempt.FromTxAttempt(&attempt) //nolint:gosec // just copying fields
-		_, err = db.NamedExec(sql, &dbAttempt)
+	for i := range txAttempts {
+		err = txStore.InsertTxAttempt(&txAttempts[i])
 		require.NoError(t, err)
 	}
 
 	// add evm.receipts
-	receipts := []txmgr.Receipt{}
+	receipts := []evmtypes.Receipt{}
 	for i := 0; i < 4; i++ {
-		receipts = append(receipts, txmgr.Receipt{
+		receipts = append(receipts, evmtypes.Receipt{
 			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
-			BlockNumber:      broadcastBlock,
+			BlockNumber:      big.NewInt(broadcastBlock),
 			TransactionIndex: 1,
-			Receipt:          evmtypes.Receipt{},
-			CreatedAt:        time.Now(),
 		})
 	}
-	sql = `INSERT INTO evm.receipts (block_hash, tx_hash, block_number, transaction_index, receipt, created_at)
-		VALUES (:block_hash, :tx_hash, :block_number, :transaction_index, :receipt, :created_at)`
-	for _, r := range receipts {
-		_, err2 := db.NamedExec(sql, r)
-		require.NoError(t, err2)
+	for i := range receipts {
+		_, err = txStore.InsertReceipt(&receipts[i])
+		require.NoError(t, err)
 	}
 
-	counts = vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))
+	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
+	require.NoError(t, err)
 	assert.Equal(t, 3, len(counts))
 	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
 	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])
 	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x12)])
 
-	countsV2 := vrf.GetStartingResponseCountsV2(q, lggr, 1337, uint32(finalityDepth))
+	countsV2, err := listenerV2.GetStartingResponseCountsV2(testutils.Context(t))
+	require.NoError(t, err)
 	t.Log(countsV2)
 	assert.Equal(t, 3, len(countsV2))
 	assert.Equal(t, uint64(1), countsV2[big.NewInt(0x10).String()])

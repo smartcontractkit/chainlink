@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -17,7 +17,7 @@ import (
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -225,7 +225,6 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 type CosmosFactoryConfig struct {
 	Keystore keystore.Cosmos
 	coscfg.TOMLConfigs
-	EventBroadcaster pg.EventBroadcaster
 	*sqlx.DB
 	pg.QConfig
 }
@@ -237,9 +236,6 @@ func (c CosmosFactoryConfig) Validate() error {
 	}
 	if len(c.TOMLConfigs) == 0 {
 		err = errors.Join(err, fmt.Errorf("no CosmosConfigs provided"))
-	}
-	if c.EventBroadcaster == nil {
-		err = errors.Join(err, fmt.Errorf("nil EventBroadcaster"))
 	}
 	if c.DB == nil {
 		err = errors.Join(err, fmt.Errorf("nil DB"))
@@ -254,12 +250,12 @@ func (c CosmosFactoryConfig) Validate() error {
 	return err
 }
 
-func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.ID]cosmos.LoopRelayerChainer, error) {
+func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.ID]CosmosLoopRelayerChainer, error) {
 	err := config.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("cannot create Cosmos relayer: %w", err)
 	}
-	relayers := make(map[relay.ID]cosmos.LoopRelayerChainer)
+	relayers := make(map[relay.ID]CosmosLoopRelayerChainer)
 
 	var (
 		cosmosLggr = r.Logger.Named("Cosmos")
@@ -273,11 +269,9 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 		lggr := cosmosLggr.Named(relayID.ChainID)
 
 		opts := cosmos.ChainOpts{
-			QueryConfig:      config.QConfig,
-			Logger:           lggr,
-			DB:               config.DB,
-			KeyStore:         loopKs,
-			EventBroadcaster: config.EventBroadcaster,
+			Logger:   lggr,
+			DB:       config.DB,
+			KeyStore: loopKs,
 		}
 
 		chain, err := cosmos.NewChain(chainCfg, opts)
@@ -285,7 +279,7 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 			return nil, fmt.Errorf("failed to load Cosmos chain %q: %w", relayID, err)
 		}
 
-		relayers[relayID] = cosmos.NewLoopRelayerChain(pkgcosmos.NewRelayer(lggr, chain), chain)
+		relayers[relayID] = NewCosmosLoopRelayerChain(cosmos.NewRelayer(lggr, chain), chain)
 
 	}
 	return relayers, nil

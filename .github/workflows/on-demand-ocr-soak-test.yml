@@ -26,6 +26,10 @@ on:
           - "LINEA_MAINNET"  
           - "FANTOM_TESTNET"   
           - "FANTOM_MAINNET"   
+          - "KROMA_MAINNET"
+          - "KROMA_SEPOLIA"
+          - "WEMIX_TESTNET"
+          - "WEMIX_MAINNET"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
@@ -129,7 +133,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak

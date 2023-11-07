@@ -61,7 +61,6 @@ func newEvmTxm(
 			lggr,
 			logPoller,
 			opts.KeyStore,
-			opts.EventBroadcaster,
 			estimator)
 	} else {
 		txm = opts.GenTxManager(chainID)

@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -318,7 +318,8 @@ func (c *SimulatedBackendClient) BlockByHash(ctx context.Context, hash common.Ha
 }
 
 func (c *SimulatedBackendClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
-	panic("not implemented")
+	header, err := c.b.HeaderByNumber(ctx, nil)
+	return header.Number, err
 }
 
 // ChainID returns the ethereum ChainID.
@@ -416,16 +417,16 @@ func (c *SimulatedBackendClient) HeaderByHash(ctx context.Context, h common.Hash
 	return c.b.HeaderByHash(ctx, h)
 }
 
-func (c *SimulatedBackendClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
+func (c *SimulatedBackendClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
 	if err == nil {
-		return clienttypes.Successful, nil
+		return commonclient.Successful, nil
 	}
 	if strings.Contains(err.Error(), "could not fetch parent") || strings.Contains(err.Error(), "invalid transaction") {
-		return clienttypes.Fatal, err
+		return commonclient.Fatal, err
 	}
 	// All remaining error messages returned from SendTransaction are considered Unknown.
-	return clienttypes.Unknown, err
+	return commonclient.Unknown, err
 }
 
 // SendTransaction sends a transaction.
