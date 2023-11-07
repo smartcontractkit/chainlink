@@ -20,30 +20,20 @@ import (
 func TestOCRZKSync(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
-	//_, insideRunner := os.LookupEnv("INSIDE_REMOTE_RUNNER")
-
 	l1RpcUrl, isSet := os.LookupEnv("L1_RPC_URL")
 	require.Equal(t, isSet, true, "L1_RPC_URL should be defined")
 
-	//testDuration, isSet := os.LookupEnv("TEST_DURATION")
-	//require.Equal(t, isSet, true, "TEST_DURATION should be defined")
+	testDuration, isSet := os.LookupEnv("TEST_DURATION")
+	require.Equal(t, isSet, true, "TEST_DURATION should be defined")
 
-	//timeBetweenRounds, isSet := os.LookupEnv("OCR_TIME_BETWEEN_ROUNDS")
-	//require.Equal(t, isSet, true, "OCR_TIME_BETWEEN_ROUNDS should be defined")
+	timeBetweenRounds, isSet := os.LookupEnv("OCR_TIME_BETWEEN_ROUNDS")
+	require.Equal(t, isSet, true, "OCR_TIME_BETWEEN_ROUNDS should be defined")
 
 	//gauntletBinary, isSet := os.LookupEnv("GAUNTLET_LOCAL_BINARY")
 	require.Equal(t, isSet, true, "GAUNTLET_LOCAL_BINARY should be defined")
 
 	testEnvironment, testNetwork, err := zksync.SetupOCRTest(t)
 	require.NoError(t, err)
-	pl, err := testEnvironment.Client.ListPods(testEnvironment.Cfg.Namespace, "job-name=remote-test-runner")
-	require.NoError(t, err)
-
-	fmt.Println(pl)
-	//if !insideRunner {
-	//	_, _, _, err = testEnvironment.Client.CopyToPod(testEnvironment.Cfg.Namespace, gauntletBinary, fmt.Sprintf("%s/%s:/gauntlet-evm-zksync-linux-x64", testEnvironment.Cfg.Namespace, pl.Items[0].Name), "remote-test-runner-node")
-	//	require.NoError(t, err, "Error uploading to pod")
-	//}
 
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -70,28 +60,29 @@ func TestOCRZKSync(t *testing.T) {
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
-	//duration, err := time.ParseDuration(testDuration)
-	//require.NoError(t, err, "Error parsing test duration")
+	duration, err := time.ParseDuration(testDuration)
+	require.NoError(t, err, "Error parsing test duration")
 
-	//waitBetweenRounds, err := time.ParseDuration(timeBetweenRounds)
-	//require.NoError(t, err, "Error parsing time between rounds duration")
+	waitBetweenRounds, err := time.ParseDuration(timeBetweenRounds)
+	require.NoError(t, err, "Error parsing time between rounds duration")
 
-	endTime := time.Now().Add(time.Hour * 72)
+	endTime := time.Now().Add(duration)
 	round := 1
-	for ; time.Now().Before(endTime); time.Sleep(time.Second * 10) {
+	for ; time.Now().Before(endTime); time.Sleep(waitBetweenRounds) {
 		l.Info().Msg(fmt.Sprintf("Time now %v", time.Now()))
 		l.Info().Msg(fmt.Sprintf("End time %v", endTime))
 		l.Info().Msg(fmt.Sprintf("Starting round %d", round))
 		answer, err := zkClient.RequestOCRRound(int64(round), 10, l)
 		if err != nil {
-			l.Error().Err(err)
+			l.Error().Msg(fmt.Sprintf("%v", err))
 			round++
 			continue
 		}
+		l.Info().Msg("Round request done")
 		if answer.Int64() != int64(10) {
 			l.Error().Int64("Expected answer to be 10 but got", answer.Int64())
 		}
 		round++
 	}
-	l.Info().Msg("Done test finished")
+	l.Info().Msg("Test finished")
 }
