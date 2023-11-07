@@ -27,7 +27,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -52,7 +51,7 @@ type CLClusterTestEnv struct {
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
-	utils.SetupCoreDockerEnvLogger()
+	log.Logger = logging.GetLogger(nil, "CORE_DOCKER_ENV_LOG_LEVEL")
 	network, err := docker.CreateNetwork(log.Logger)
 	if err != nil {
 		return nil, err

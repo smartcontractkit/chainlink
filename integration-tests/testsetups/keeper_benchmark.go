@@ -413,6 +413,7 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents() {
 	require.NoError(k.t, err, "Subscribing to upkeep performed events log shouldn't fail")
 
 	interruption := make(chan os.Signal, 1)
+	//nolint:staticcheck //ignore SA1016 we need to send the os.Kill signal
 	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
 
 	go func() {

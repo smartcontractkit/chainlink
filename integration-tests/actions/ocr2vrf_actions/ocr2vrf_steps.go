@@ -1,6 +1,7 @@
 package ocr2vrf_actions
 
 import (
+	"context"
 	"math/big"
 	"strings"
 	"testing"
@@ -272,14 +273,14 @@ func RequestRandomnessFulfillmentAndWaitForFulfilment(
 }
 
 func getRequestId(t *testing.T, consumer contracts.VRFBeaconConsumer, receipt *types.Receipt, confirmationDelay *big.Int) *big.Int {
-	periodBlocks, err := consumer.IBeaconPeriodBlocks(nil)
+	periodBlocks, err := consumer.IBeaconPeriodBlocks(context.Background())
 	require.NoError(t, err, "Error getting Beacon Period block count")
 
 	blockNumber := receipt.BlockNumber
 	periodOffset := new(big.Int).Mod(blockNumber, periodBlocks)
 	nextBeaconOutputHeight := new(big.Int).Sub(new(big.Int).Add(blockNumber, periodBlocks), periodOffset)
 
-	requestID, err := consumer.GetRequestIdsBy(nil, nextBeaconOutputHeight, confirmationDelay)
+	requestID, err := consumer.GetRequestIdsBy(context.Background(), nextBeaconOutputHeight, confirmationDelay)
 	require.NoError(t, err, "Error getting requestID from consumer contract")
 
 	return requestID

@@ -1,10 +1,11 @@
 package loadfunctions
 
 import (
-	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/wasp"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/wasp"
 )
 
 /* Monitors on-chain stats of LoadConsumer and pushes them to Loki every second */

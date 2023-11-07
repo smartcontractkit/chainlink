@@ -2,18 +2,20 @@ package loadvrfv2plus
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	"github.com/smartcontractkit/wasp"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/kelseyhightower/envconfig"
+	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/wasp"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"

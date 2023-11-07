@@ -133,6 +133,8 @@ func TestAutomationReorg(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			network := networks.MustGetSelectedNetworksFromEnv()[0]
@@ -250,7 +252,8 @@ func TestAutomationReorg(t *testing.T) {
 			}, "5m", "1s").Should(gomega.Succeed())
 
 			l.Info().Msg("Upkeep performed during unstable chain, waiting for reorg to finish")
-			rc.WaitDepthReached()
+			err = rc.WaitDepthReached()
+			require.NoError(t, err)
 
 			l.Info().Msg("Reorg finished, chain should be stable now. Expecting upkeeps to keep getting performed")
 			gom.Eventually(func(g gomega.Gomega) {

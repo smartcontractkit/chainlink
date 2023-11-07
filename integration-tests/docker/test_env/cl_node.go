@@ -22,6 +22,9 @@ import (
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
@@ -29,8 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
@@ -411,19 +412,21 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	}, nil
 }
 
-func GetOracleIdentities(chainlinkNodes []*ClNode) ([]int, []confighelper.OracleIdentityExtra) {
+func GetOracleIdentities(chainlinkNodes []*ClNode) ([]int, []confighelper.OracleIdentityExtra, error) {
 	S := make([]int, len(chainlinkNodes))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
 	sharedSecretEncryptionPublicKeys := make([]ocrtypes.ConfigEncryptionPublicKey, len(chainlinkNodes))
 	var wg sync.WaitGroup
+	errCh := make(chan error, len(chainlinkNodes)) // Buffered error channel to avoid blocking
 	for i, cl := range chainlinkNodes {
 		wg.Add(1)
-		go func(i int, cl *ClNode) error {
+		go func(i int, cl *ClNode) {
 			defer wg.Done()
 
 			ocr2Keys, err := cl.API.MustReadOCR2Keys()
 			if err != nil {
-				return err
+				errCh <- err
+				return
 			}
 			var ocr2Config client.OCR2KeyAttributes
 			for _, key := range ocr2Keys.Data {
@@ -435,40 +438,47 @@ func GetOracleIdentities(chainlinkNodes []*ClNode) ([]int, []confighelper.Oracle
 
 			keys, err := cl.API.MustReadP2PKeys()
 			if err != nil {
-				return err
+				errCh <- err
+				return
 			}
 			p2pKeyID := keys.Data[0].Attributes.PeerID
 
 			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
 			if err != nil {
-				return err
+				errCh <- err
+				return
 			}
 
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			copy(offchainPkBytesFixed[:], offchainPkBytes)
 			if err != nil {
-				return err
+				errCh <- err
+				return
 			}
 
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
 			if err != nil {
-				return err
+				errCh <- err
+				return
 			}
 
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			copy(configPkBytesFixed[:], configPkBytes)
 			if err != nil {
-				return err
+				errCh <- err
+				return
 			}
 
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
 			if err != nil {
-				return err
+				errCh <- err
+				return
 			}
 
 			csaKeys, _, err := cl.API.ReadCSAKeys()
 			if err != nil {
-				return err
+				errCh <- err
+				return
 			}
 
 			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
@@ -482,11 +492,17 @@ func GetOracleIdentities(chainlinkNodes []*ClNode) ([]int, []confighelper.Oracle
 				ConfigEncryptionPublicKey: configPkBytesFixed,
 			}
 			S[i] = 1
-
-			return nil
 		}(i, cl)
 	}
 	wg.Wait()
-
-	return S, oracleIdentities
+	close(errCh) // Close the error channel
+	// Check for errors sent to the error channel
+	var firstErr error
+	for err := range errCh {
+		if err != nil {
+			firstErr = err
+			break
+		}
+	}
+	return S, oracleIdentities, firstErr
 }

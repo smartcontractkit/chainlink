@@ -10,10 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"gopkg.in/guregu/null.v4"
+
 	coreClient "github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"gopkg.in/guregu/null.v4"
 )
 
 func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, fromBlock uint64, feedId [32]byte) *coreClient.OCR2TaskJobSpec {

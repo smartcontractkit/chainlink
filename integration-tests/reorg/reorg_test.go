@@ -26,6 +26,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"

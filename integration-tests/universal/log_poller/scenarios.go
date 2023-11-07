@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/stretchr/testify/require"
 )
 
 func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {

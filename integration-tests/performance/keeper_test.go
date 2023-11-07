@@ -84,7 +84,7 @@ func TestKeeperPerformance(t *testing.T) {
 
 		// Cancel all the registered upkeeps via the registry
 		for i := 0; i < len(upkeepIDs); i++ {
-			err := registry.CancelUpkeep(upkeepIDs[i])
+			err = registry.CancelUpkeep(upkeepIDs[i])
 			require.NoError(t, err, "Could not cancel upkeep at index %d", i)
 		}
 

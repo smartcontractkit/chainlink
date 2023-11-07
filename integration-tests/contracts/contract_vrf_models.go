@@ -262,12 +262,13 @@ type RequestStatus struct {
 }
 
 type LoadTestRequestStatus struct {
-	Fulfilled             bool
-	RandomWords           []*big.Int
-	requestTimestamp      *big.Int
-	fulfilmentTimestamp   *big.Int
-	requestBlockNumber    *big.Int
-	fulfilmentBlockNumber *big.Int
+	Fulfilled   bool
+	RandomWords []*big.Int
+	// Unused???
+	// requestTimestamp      *big.Int
+	// fulfilmentTimestamp   *big.Int
+	// requestBlockNumber    *big.Int
+	// fulfilmentBlockNumber *big.Int
 }
 
 type VRFLoadTestMetrics struct {

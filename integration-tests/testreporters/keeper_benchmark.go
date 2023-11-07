@@ -183,7 +183,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	}
 
 	for contractIndex, report := range k.Reports {
-		avg, median, ninetyPct, ninetyNinePct, max := intListStats(report.AllCheckDelays)
+		avg, median, ninetyPct, ninetyNinePct, max = intListStats(report.AllCheckDelays)
 		err = keeperReportWriter.Write([]string{
 			fmt.Sprint(contractIndex),
 			report.RegistryAddress,

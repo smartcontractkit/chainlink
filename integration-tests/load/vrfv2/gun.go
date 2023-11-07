@@ -1,9 +1,10 @@
 package loadvrfv2
 
 import (
+	"github.com/smartcontractkit/wasp"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	vrfConst "github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
-	"github.com/smartcontractkit/wasp"
 )
 
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */

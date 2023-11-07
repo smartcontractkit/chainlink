@@ -3,8 +3,9 @@ package migration
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"os"
 

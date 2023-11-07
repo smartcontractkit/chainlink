@@ -116,6 +116,7 @@ func TestAutomationChaos(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -176,9 +177,9 @@ func TestAutomationChaos(t *testing.T) {
 				},
 			}
 
-			for n, tst := range testCases {
-				name := n
-				testCase := tst
+			for name, testCase := range testCases {
+				name := name
+				testCase := testCase
 				t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 					t.Parallel()
 					network := networks.MustGetSelectedNetworksFromEnv()[0] // Need a new copy of the network for each test

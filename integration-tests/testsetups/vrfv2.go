@@ -126,7 +126,7 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 	//todo - need to find better way for this
 	time.Sleep(1 * time.Minute)
 
-	loadTestMetrics, err := v.Inputs.ConsumerContract.GetLoadTestMetrics(nil)
+	loadTestMetrics, err := v.Inputs.ConsumerContract.GetLoadTestMetrics(context.Background())
 	if err != nil {
 		l.Error().Err(err).Msg("Error Occurred when getting Load Test Metrics from Consumer contract")
 	}

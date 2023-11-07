@@ -343,7 +343,7 @@ func (o *OCRSoakTest) SaveState() error {
 	if err != nil {
 		return err
 	}
-	// #nosec G306 - let everyone read
+	//nolint:gosec // G306 - let everyone read
 	if err = os.WriteFile(saveFileLocation, data, 0644); err != nil {
 		return err
 	}
@@ -468,6 +468,7 @@ func (o *OCRSoakTest) Interrupted() bool {
 func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	endTest := time.After(testDuration)
 	interruption := make(chan os.Signal, 1)
+	//nolint:staticcheck //ignore SA1016 we need to send the os.Kill signal
 	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
 	lastValue := 0
 	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP

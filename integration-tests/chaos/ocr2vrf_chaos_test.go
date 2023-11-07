@@ -1,6 +1,7 @@
 package chaos
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -185,7 +186,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+				randomness, err := consumerContract.GetRandomnessByRequestId(context.Background(), requestID, big.NewInt(int64(i)))
 				require.NoError(t, err)
 				l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
@@ -212,7 +213,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+				randomness, err := consumerContract.GetRandomnessByRequestId(context.Background(), requestID, big.NewInt(int64(i)))
 				require.NoError(t, err, "Error getting Randomness result from Consumer Contract")
 				l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
