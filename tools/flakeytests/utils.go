@@ -29,23 +29,16 @@ func DigString(mp map[string]interface{}, path []string) (string, error) {
 	return vs, nil
 }
 
-func GetGithubMetadata(repo string, eventName string, sha string, path string) Context {
+func getGithubMetadata(repo string, eventName string, sha string, e io.Reader) Context {
+	d, err := io.ReadAll(e)
+	if err != nil {
+		log.Fatal("Error reading gh event into string")
+	}
+
 	event := map[string]interface{}{}
-	if path != "" {
-		r, err := os.Open(path)
-		if err != nil {
-			log.Fatalf("Error reading gh event at path: %s", path)
-		}
-
-		d, err := io.ReadAll(r)
-		if err != nil {
-			log.Fatal("Error reading gh event into string")
-		}
-
-		err = json.Unmarshal(d, &event)
-		if err != nil {
-			log.Fatalf("Error unmarshaling gh event at path: %s", path)
-		}
+	err = json.Unmarshal(d, &event)
+	if err != nil {
+		log.Fatalf("Error unmarshaling gh event at path")
 	}
 
 	basicCtx := &Context{Repository: repo, CommitSHA: sha, Type: eventName}
@@ -58,8 +51,27 @@ func GetGithubMetadata(repo string, eventName string, sha string, path string) C
 		}
 
 		basicCtx.PullRequestURL = prURL
+
+		// For pull request events, the $GITHUB_SHA variable doesn't actually
+		// contain the sha for the latest commit, as documented here:
+		// https://stackoverflow.com/a/68068674
+		var newSha string
+		s, err := DigString(event, []string{"pull_request", "head", "sha"})
+		if err == nil {
+			newSha = s
+		}
+
+		basicCtx.CommitSHA = newSha
 		return *basicCtx
 	default:
 		return *basicCtx
 	}
+}
+
+func GetGithubMetadata(repo string, eventName string, sha string, path string) Context {
+	event, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("Error reading gh event at path: %s", path)
+	}
+	return getGithubMetadata(repo, eventName, sha, event)
 }
