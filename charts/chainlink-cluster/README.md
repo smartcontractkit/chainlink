@@ -118,3 +118,17 @@ helm test cl-cluster
 ```
 helm uninstall cl-cluster
 ```
+
+# Grafana dashboard
+We are using [Grabana]() lib to create dashboards programmatically
+```
+export GRAFANA_URL=...
+export GRAFANA_TOKEN=...
+export LOKI_DATA_SOURCE_NAME=Loki
+export PROMETHEUS_DATA_SOURCE_NAME=Thanos
+export DASHBOARD_FOLDER=CLClusterEphemeralDevspace
+export DASHBOARD_NAME=ChainlinkCluster
+
+cd dashboard/cmd && go run dashboard_deploy.go
+```
+Open Grafana folder `CLClusterEphemeralDevspace` and find dashboard `ChainlinkCluster`
