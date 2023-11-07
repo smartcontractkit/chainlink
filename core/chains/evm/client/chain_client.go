@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -213,7 +212,7 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 	return c.multiNode.SendTransaction(ctx, tx)
 }
 
-func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commontypes.SendTxReturnCode, error) {
+func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
 	return ClassifySendError(err, c.logger, tx, fromAddress, c.IsL2())
 }

@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -24,6 +26,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+var (
+	insufficientBlocksCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_insufficient_blocks_count",
+		Help: fmt.Sprintf("Count of times that there were not enough blocks in the chain during observation (need: %d)", nBlocksObservation),
+	},
+		[]string{"feedID"},
+	)
+	zeroBlocksCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_zero_blocks_count",
+		Help: "Count of times that there were zero blocks in the chain during observation",
+	},
+		[]string{"feedID"},
+	)
+)
+
+// nBlocksObservation controls how many blocks are included in the LatestBlocks observation
+const nBlocksObservation int = 5
 
 type Runner interface {
 	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
@@ -51,18 +71,31 @@ type datasource struct {
 	chainHeadTracker   types.ChainHeadTracker
 	fetcher            Fetcher
 	initialBlockNumber *int64
+
+	insufficientBlocksCounter prometheus.Counter
+	zeroBlocksCounter         prometheus.Counter
 }
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID [32]byte) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber}
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID mercuryutils.FeedID) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
+}
+
+type ErrEmptyLatestReport struct {
+	Err error
+}
+
+func (e ErrEmptyLatestReport) Unwrap() error { return e.Err }
+
+func (e ErrEmptyLatestReport) Error() string {
+	return fmt.Sprintf("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed. No initialBlockNumber was set, tried to use current block number to determine maxFinalizedBlockNumber but got error: %v", e.Err)
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, pipelineExecutionErr error) {
-	// setCurrentBlock must come first, along with observationTimestamp, to
-	// avoid front-running
-	ds.setCurrentBlock(ctx, &obs)
+	// setLatestBlocks must come chronologically before observations, along
+	// with observationTimestamp, to avoid front-running
+	ds.setLatestBlocks(ctx, &obs)
 
 	var wg sync.WaitGroup
 	if fetchMaxFinalizedBlockNum {
@@ -89,7 +122,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			}
 			if ds.initialBlockNumber == nil {
 				if obs.CurrentBlockNum.Err != nil {
-					obs.MaxFinalizedBlockNumber.Err = fmt.Errorf("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed. No initialBlockNumber was set, tried to use current block number to determine maxFinalizedBlockNumber but got error: %w", obs.CurrentBlockNum.Err)
+					obs.MaxFinalizedBlockNumber.Err = ErrEmptyLatestReport{Err: obs.CurrentBlockNum.Err}
 				} else {
 					// Subract 1 here because we will later add 1 to the
 					// maxFinalizedBlockNumber to get the first validFromBlockNum, which
@@ -258,37 +291,40 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 	return run, trrs, err
 }
 
-func (ds *datasource) setCurrentBlock(ctx context.Context, obs *relaymercuryv1.Observation) {
-	latestHead, err := ds.getCurrentBlock(ctx)
-	if err != nil {
+func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.Observation) {
+	latestBlocks := ds.getLatestBlocks(ctx, nBlocksObservation)
+	if len(latestBlocks) < nBlocksObservation {
+		ds.insufficientBlocksCounter.Inc()
+		ds.lggr.Warnw("Insufficient blocks", "latestBlocks", latestBlocks, "lenLatestBlocks", len(latestBlocks), "nBlocksObservation", nBlocksObservation)
+	}
+
+	// TODO: remove with https://smartcontract-it.atlassian.net/browse/BCF-2209
+	if len(latestBlocks) == 0 {
+		ds.zeroBlocksCounter.Inc()
+		err := errors.New("no blocks available")
 		obs.CurrentBlockNum.Err = err
 		obs.CurrentBlockHash.Err = err
 		obs.CurrentBlockTimestamp.Err = err
-		return
-	}
-	obs.CurrentBlockNum.Val = latestHead.Number
-	obs.CurrentBlockHash.Val = latestHead.Hash.Bytes()
-
-	if latestHead.Timestamp.IsZero() {
-		obs.CurrentBlockTimestamp.Val = 0
 	} else {
-		obs.CurrentBlockTimestamp.Val = uint64(latestHead.Timestamp.Unix())
+		obs.CurrentBlockNum.Val = latestBlocks[0].Number
+		obs.CurrentBlockHash.Val = latestBlocks[0].Hash.Bytes()
+		if latestBlocks[0].Timestamp.IsZero() {
+			obs.CurrentBlockTimestamp.Val = 0
+		} else {
+			obs.CurrentBlockTimestamp.Val = uint64(latestBlocks[0].Timestamp.Unix())
+		}
+	}
+
+	for _, block := range latestBlocks {
+		obs.LatestBlocks = append(obs.LatestBlocks, relaymercuryv1.NewBlock(block.Number, block.Hash.Bytes(), uint64(block.Timestamp.Unix())))
 	}
 }
 
-func (ds *datasource) getCurrentBlock(ctx context.Context) (*evmtypes.Head, error) {
-	// Use the headtracker's view of the latest block, this is very fast since
+func (ds *datasource) getLatestBlocks(ctx context.Context, k int) (blocks []*evmtypes.Head) {
+	// Use the headtracker's view of the chain, this is very fast since
 	// it doesn't make any external network requests, and it is the
 	// headtracker's job to ensure it has an up-to-date view of the chain based
 	// on responses from all available RPC nodes
 	latestHead := ds.chainHeadTracker.HeadTracker().LatestChain()
-	if latestHead == nil {
-		logger.Sugared(ds.lggr).AssumptionViolation("HeadTracker unexpectedly returned nil head, falling back to RPC call")
-		var err error
-		latestHead, err = ds.chainHeadTracker.Client().HeadByNumber(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return latestHead, nil
+	return latestHead.AsSlice(k)
 }

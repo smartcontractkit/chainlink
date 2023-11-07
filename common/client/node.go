@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -136,7 +135,7 @@ func NewNode[
 	}
 	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
 	lggr = lggr.Named("Node").With(
-		"nodeTier", client.Primary.String(),
+		"nodeTier", Primary.String(),
 		"nodeName", name,
 		"node", n.String(),
 		"chainID", chainID,
@@ -150,7 +149,7 @@ func NewNode[
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) String() string {
-	s := fmt.Sprintf("(%s)%s:%s", client.Primary.String(), n.name, n.ws.String())
+	s := fmt.Sprintf("(%s)%s:%s", Primary.String(), n.name, n.ws.String())
 	if n.http != nil {
 		s = s + fmt.Sprintf(":%s", n.http.String())
 	}

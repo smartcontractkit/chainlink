@@ -227,7 +227,7 @@ func addRegistry(registryToTest string) []eth_contracts.KeeperRegistryVersion {
 	case "2_0-Multiple":
 		return repeatRegistries(eth_contracts.RegistryVersion_2_0, NumberOfRegistries)
 	case "2_1-Multiple":
-		return repeatRegistries(eth_contracts.RegistryVersion_1_0, NumberOfRegistries)
+		return repeatRegistries(eth_contracts.RegistryVersion_2_1, NumberOfRegistries)
 	default:
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0}
 	}

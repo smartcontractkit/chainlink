@@ -228,8 +228,6 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           artifacts_location: ./integration-tests/smoke/logs/
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -303,7 +301,7 @@ jobs:
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
             nodes: 1
@@ -429,8 +427,6 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}${{ matrix.product.tag_suffix }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           artifacts_name: ${{ matrix.product.name }}-test-logs
           artifacts_location: ./integration-tests/smoke/logs/
           publish_check_name: ${{ matrix.product.name }}
