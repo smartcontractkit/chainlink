@@ -1198,13 +1198,11 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 	return nil
 }
 
-func (o *evmTxStore) GetNonFinalizedTransactions(ctx context.Context, limit int) (txes []*Tx, err error) {
+func (o *evmTxStore) GetNonFinalizedTransactions(ctx context.Context) (txes []*Tx, err error) {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	queryStr := fmt.Sprintf(`
+	err = qq.Get(txes, `
 SELECT * FROM evm.txes 
-WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress' 
-LIMIT %d`, limit)
-	err = qq.Get(txes, queryStr)
+WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress'`)
 	return txes, err
 }
 

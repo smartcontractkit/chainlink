@@ -51,12 +51,13 @@ func NewTxm(
 	feeCfg := NewEvmTxmFeeConfig(fCfg)     // wrap Evm specific config
 	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
 	ethBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, txNonceSyncer, lggr, checker, chainConfig.NonceAutoSync())
-	ethConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
+	ethTracker := NewEvmTracker(txStore, lggr)
+	ethConfirmer := NewEvmConfirmer(txStore, txmClient, ethTracker, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
 	var ethResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
-		ethResender = NewEvmResender(lggr, txStore, txmClient, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
+		ethResender = NewEvmResender(lggr, txStore, txmClient, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig, ethTracker)
 	}
-	txm = NewEvmTxm(txmClient.ConfiguredChainID(), txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender)
+	txm = NewEvmTxm(txmClient.ConfiguredChainID(), txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender, ethTracker)
 	return txm, nil
 }
 
@@ -75,11 +76,12 @@ func NewEvmTxm(
 	broadcaster *Broadcaster,
 	confirmer *Confirmer,
 	resender *Resender,
+	tracker *Tracker,
 ) *Txm {
-	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, nonceSyncer, broadcaster, confirmer, resender)
+	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, nonceSyncer, broadcaster, confirmer, resender, tracker)
 }
 
-// NewEvnResender creates a new concrete EvmResender
+// NewEvmResender creates a new concrete EvmResender
 func NewEvmResender(
 	lggr logger.Logger,
 	txStore TransactionStore,
@@ -88,8 +90,9 @@ func NewEvmResender(
 	pollInterval time.Duration,
 	config EvmResenderConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
+	tracker *Tracker,
 ) *Resender {
-	return txmgr.NewResender(lggr, txStore, client, ks, pollInterval, config, txConfig)
+	return txmgr.NewResender(lggr, txStore, client, tracker, ks, pollInterval, config, txConfig)
 }
 
 // NewEvmReaper instantiates a new EVM-specific reaper object
@@ -101,6 +104,7 @@ func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int]
 func NewEvmConfirmer(
 	txStore TxStore,
 	client TxmClient,
+	tracker *Tracker,
 	chainConfig txmgrtypes.ConfirmerChainConfig,
 	feeConfig txmgrtypes.ConfirmerFeeConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
@@ -109,7 +113,15 @@ func NewEvmConfirmer(
 	txAttemptBuilder TxAttemptBuilder,
 	lggr logger.Logger,
 ) *Confirmer {
-	return txmgr.NewConfirmer(txStore, client, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
+	return txmgr.NewConfirmer(txStore, client, tracker, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
+}
+
+// NewEvmTracker instantiates a new EVM tracker for abandoned transactions
+func NewEvmTracker(
+	txStore TxStore,
+	lggr logger.Logger,
+) *Tracker {
+	return txmgr.NewTracker(txStore, lggr)
 }
 
 // NewEvmBroadcaster returns a new concrete EvmBroadcaster

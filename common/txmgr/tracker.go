@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
-	"slices"
 	"time"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -16,8 +15,6 @@ import (
 const (
 	// TTL is the default time to live for abandoned transactions (6hrs)
 	TTL = 6 * time.Hour
-	// MaxCacheSize is the max number of transactions to track at once
-	MaxCacheSize = 100
 )
 
 // AbandonedErrorMsg occurs when an abandoned tx exceeds its time to live
@@ -38,6 +35,11 @@ type AbandonedTx[
 	fatalTime time.Time
 }
 
+// isValid returns false when it's past fatal time for this AbandonedTx
+func (atx *AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) isValid() bool {
+	return time.Now().Before(atx.fatalTime)
+}
+
 // Tracker tracks and finalizes abandoned transactions
 type Tracker[
 	CHAIN_ID types.ID,
@@ -48,8 +50,9 @@ type Tracker[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
-	txStore *txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	lggr    logger.Logger
+	txStore      txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	lggr         logger.Logger
+	enabledAddrs map[ADDR]bool
 	// txCache stores abandoned transactions by ID
 	txCache map[int64]AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 }
@@ -64,47 +67,56 @@ func NewTracker[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
-	txStore *txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	lggr logger.Logger,
-) Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		txStore: txStore,
-		lggr:    lggr.Named("Tracker"),
-		txCache: map[int64]AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
+) *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
+		txStore:      txStore,
+		lggr:         lggr.Named("Tracker"),
+		enabledAddrs: map[ADDR]bool{},
+		txCache:      map[int64]AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 	}
 }
 
-// HandleAbandonedTxes is called by the Confirmer to track and finalize abandoned transactions
-func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HandleAbandonedTxes(ctx context.Context, enabledAddrs []ADDR) {
-	// Try to finalize tracked transactions
-	for id, atx := range tracker.txCache {
-		if finalized := tracker.finalizeTx(ctx, atx); finalized {
-			delete(tracker.txCache, id)
-		}
+func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetEnabledAddresses(enabledAddrs []ADDR) {
+	for _, addr := range enabledAddrs {
+		tracker.enabledAddrs[addr] = true
 	}
+}
 
-	// Track more abandoned transactions if there's space
-	if len(tracker.txCache) == MaxCacheSize {
+// TrackAbandonedTxes called once to find and inserts all abandoned txes into the tracker
+func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) TrackAbandonedTxes(ctx context.Context) {
+	if tracker.enabledAddrs == nil {
+		tracker.lggr.Panicw("enabledAddresses not set to track abandoned txes")
 		return
 	}
 
-	nonFinalizedTxes, err := (*tracker.txStore).GetNonFinalizedTransactions(ctx, MaxCacheSize)
+	nonFinalizedTxes, err := tracker.txStore.GetNonFinalizedTransactions(ctx)
 	if err != nil {
 		tracker.lggr.Errorw("failed to get non finalized txes from txStore")
 		return
 	}
 
 	for _, tx := range nonFinalizedTxes {
+		// Check if tx is abandoned
+		if tracker.enabledAddrs[tx.FromAddress] {
+			continue
+		}
+
+		// Ignore duplicate txes
 		if _, contains := tracker.txCache[tx.ID]; contains {
 			continue
 		}
 
-		// Check if tx is abandoned
-		if !slices.Contains(enabledAddrs, tx.FromAddress) {
-			tracker.insertTx(tx)
-			if len(tracker.txCache) == MaxCacheSize {
-				break
-			}
+		tracker.insertTx(tx)
+	}
+}
+
+// HandleAbandonedTxes is called by the Confirmer to update abandoned transactions
+func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HandleAbandonedTxes(ctx context.Context) {
+	for id, atx := range tracker.txCache {
+		if finalized := tracker.finalizeTx(ctx, atx); finalized {
+			delete(tracker.txCache, id)
 		}
 	}
 }
@@ -123,22 +135,36 @@ func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) insert
 	tracker.lggr.Debugw(fmt.Sprintf("inserted tx %v", tx.ID))
 }
 
+// GetTxes returns list of tracked transactions that are still valid
+func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTxes() []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	var txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, atx := range tracker.txCache {
+		if atx.isValid() {
+			txes = append(txes, atx.tx)
+		}
+	}
+	return txes
+}
+
 // finalizeTx tries to finalize a transaction based on its current state.
 // Returns true if the transaction was finalized.
 func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) finalizeTx(
 	ctx context.Context, atx AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+	// TODO: Query db again to see if tx with this ID was updated?
 	switch atx.tx.State {
 	case TxConfirmed, TxConfirmedMissingReceipt, TxFatalError:
-		// TODO: Query db again to see if this was updated?
 		return true
 	case TxInProgress:
-		if time.Now().After(atx.fatalTime) {
-			// TODO: Confirm tx status on chain in case it was confirmed
-			if err := tracker.finalizeFatal(ctx, atx.tx); err != nil {
-				tracker.lggr.Errorw(err.Error())
-			}
-			return true
+		if atx.isValid() {
+			break
 		}
+
+		// TODO: Confirm tx status on chain in case it was confirmed
+		if err := tracker.finalizeFatal(ctx, atx.tx); err != nil {
+			tracker.lggr.Errorw(err.Error())
+			break
+		}
+		return true
 	case TxUnstarted, TxUnconfirmed:
 		// TODO: Handle TxUnstarted, TxUnconfirmed
 	default:
@@ -154,7 +180,7 @@ func (tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) finali
 	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	tx.Error.SetValid(AbandonedErrorMsg)
 
-	err := (*tracker.txStore).UpdateTxFatalError(ctx, tx)
+	err := tracker.txStore.UpdateTxFatalError(ctx, tx)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to mark tx %v as fatal", tx.ID))
 	}

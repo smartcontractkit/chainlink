@@ -127,7 +127,7 @@ type Confirmer[
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
-	abandonedTracker Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
 	mb        *utils.Mailbox[HEAD]
 	ctx       context.Context
@@ -152,6 +152,7 @@ func NewConfirmer[
 ](
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	chainConfig txmgrtypes.ConfirmerChainConfig,
 	feeConfig txmgrtypes.ConfirmerFeeConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
@@ -167,17 +168,16 @@ func NewConfirmer[
 		lggr:             lggr,
 		client:           client,
 		TxAttemptBuilder: txAttemptBuilder,
-		abandonedTracker: NewTracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](
-			&txStore, lggr),
-		resumeCallback: nil,
-		chainConfig:    chainConfig,
-		feeConfig:      feeConfig,
-		txConfig:       txConfig,
-		dbConfig:       dbConfig,
-		chainID:        client.ConfiguredChainID(),
-		ks:             keystore,
-		mb:             utils.NewSingleMailbox[HEAD](),
-		isReceiptNil:   isReceiptNil,
+		tracker:          tracker,
+		resumeCallback:   nil,
+		chainConfig:      chainConfig,
+		feeConfig:        feeConfig,
+		txConfig:         txConfig,
+		dbConfig:         dbConfig,
+		chainID:          client.ConfiguredChainID(),
+		ks:               keystore,
+		mb:               utils.NewSingleMailbox[HEAD](),
+		isReceiptNil:     isReceiptNil,
 	}
 }
 
@@ -205,6 +205,9 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sta
 	if err != nil {
 		return errors.Wrap(err, "Confirmer: failed to load EnabledAddressesForChain")
 	}
+
+	ec.tracker.SetEnabledAddresses(ec.enabledAddresses)
+	ec.tracker.TrackAbandonedTxes(ec.ctx)
 
 	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
 	ec.wg = sync.WaitGroup{}
@@ -310,7 +313,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
-	ec.abandonedTracker.HandleAbandonedTxes(ctx, ec.enabledAddresses)
+	ec.tracker.HandleAbandonedTxes(ctx)
 	ec.lggr.Debugw("Finished HandleAbandonedTxes", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 
 	if ec.resumeCallback != nil {
