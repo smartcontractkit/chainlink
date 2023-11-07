@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -187,7 +186,7 @@ func CreateOCRKeeperJobsLocal(
 	} else if registryVersion == ethereum.RegistryVersion_2_0 {
 		contractVersion = "v2.0"
 	} else {
-		return errors.New("v2.0 and v2.1 are the only supported versions")
+		return fmt.Errorf("v2.0 and v2.1 are the only supported versions")
 	}
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{

@@ -8,11 +8,11 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -114,7 +114,7 @@ func (te *CLClusterTestEnv) StartPrivateChain() error {
 	for _, chain := range te.PrivateChain {
 		primaryNode := chain.GetPrimaryNode()
 		if primaryNode == nil {
-			return errors.WithStack(fmt.Errorf("primary node is nil in PrivateChain interface"))
+			return fmt.Errorf("primary node is nil in PrivateChain interface, stack: %s", string(debug.Stack()))
 		}
 		err := primaryNode.Start()
 		if err != nil {
@@ -164,7 +164,7 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	for _, cl := range te.ClCluster.Nodes {
 		if err := cl.Fund(te.EVMClient, amount); err != nil {
-			return errors.Wrap(err, ErrFundCLNode)
+			return fmt.Errorf("%s, err: %w", ErrFundCLNode, err)
 		}
 		time.Sleep(5 * time.Second)
 	}
@@ -181,10 +181,10 @@ func (te *CLClusterTestEnv) Terminate() error {
 func (te *CLClusterTestEnv) Cleanup() error {
 	te.l.Info().Msg("Cleaning up test environment")
 	if te.t == nil {
-		return errors.New("cannot cleanup test environment without a testing.T")
+		return fmt.Errorf("cannot cleanup test environment without a testing.T")
 	}
 	if te.ClCluster == nil || len(te.ClCluster.Nodes) == 0 {
-		return errors.New("chainlink nodes are nil, unable cleanup chainlink nodes")
+		return fmt.Errorf("chainlink nodes are nil, unable cleanup chainlink nodes")
 	}
 
 	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
@@ -196,7 +196,7 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	}
 
 	if te.EVMClient == nil {
-		return errors.New("evm client is nil, unable to return funds from chainlink nodes during cleanup")
+		return fmt.Errorf("evm client is nil, unable to return funds from chainlink nodes during cleanup")
 	} else if te.EVMClient.NetworkSimulated() {
 		te.l.Info().
 			Str("Network Name", te.EVMClient.GetNetworkName()).
