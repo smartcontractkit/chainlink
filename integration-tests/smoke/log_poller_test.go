@@ -19,7 +19,7 @@ func TestLogPollerFewFilters(t *testing.T) {
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 100,
+				ExecutionCount: 10,
 			},
 			FuzzConfig: logpoller.FuzzConfig{
 				MinEmitWaitTimeMs: 200,

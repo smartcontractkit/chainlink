@@ -31,8 +31,8 @@ const (
 )
 
 type CLTestEnvBuilder struct {
-	hasLogWatch            bool
-	hasGeth                bool
+	hasLogWatch bool
+	// hasGeth                bool
 	hasKillgrave           bool
 	hasForwarders          bool
 	clNodeConfig           *chainlink.Config
@@ -49,6 +49,7 @@ type CLTestEnvBuilder struct {
 	cleanUpCustomFn        func()
 	chainOptionsFn         []ChainOption
 	evmClientNetworkOption []EVMClientNetworkOption
+	ethereumNetworkBuilder *test_env.EthereumNetworkBuilder
 
 	/* funding */
 	ETHFunds *big.Float
@@ -118,8 +119,23 @@ func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
 	return b
 }
 
+// deprecated
+// left only for backward compatibility
 func (b *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
-	b.hasGeth = true
+	ethBuilder := test_env.NewEthereumNetworkBuilder(b.t)
+	err := ethBuilder.
+		WithConsensusType(test_env.ConsensusType_PoW).
+		WithExecutionLayer(test_env.ExecutionLayer_Geth).
+		Build()
+
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(enb test_env.EthereumNetworkBuilder) *CLTestEnvBuilder {
+	b.ethereumNetworkBuilder = &enb
 	return b
 }
 
@@ -191,8 +207,16 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 	}
+
+	var enDesc string
+	if b.ethereumNetworkBuilder != nil {
+		enDesc = b.ethereumNetworkBuilder.Describe()
+	} else {
+		enDesc = "none"
+	}
+
 	b.l.Info().
-		Bool("hasGeth", b.hasGeth).
+		Str("privateEthereumNetwork", enDesc).
 		Bool("hasKillgrave", b.hasKillgrave).
 		Int("clNodesCount", b.clNodesCount).
 		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
@@ -260,9 +284,9 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		return b.te, nil
 	}
 	networkConfig := networks.MustGetSelectedNetworksFromEnv()[0]
-	var internalDockerUrls test_env.InternalDockerUrls
-	if b.hasGeth && networkConfig.Simulated {
-		networkConfig, internalDockerUrls, err = b.te.StartGeth()
+	var rpcProvider test_env.RpcProvider
+	if b.ethereumNetworkBuilder != nil && networkConfig.Simulated {
+		networkConfig, rpcProvider, err = b.te.StartEthereumNetwork(b.ethereumNetworkBuilder)
 		if err != nil {
 			return nil, err
 		}
@@ -311,8 +335,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			var httpUrls []string
 			var wsUrls []string
 			if networkConfig.Simulated {
-				httpUrls = []string{internalDockerUrls.HttpUrl}
-				wsUrls = []string{internalDockerUrls.WsUrl}
+				httpUrls = rpcProvider.PrivateHttpUrls()
+				wsUrls = rpcProvider.PrivateWsUrsl()
 			} else {
 				httpUrls = networkConfig.HTTPURLs
 				wsUrls = networkConfig.URLs
@@ -341,7 +365,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
-	if b.hasGeth && b.clNodesCount > 0 && b.ETHFunds != nil {
+	if b.ethereumNetworkBuilder != nil && b.clNodesCount > 0 && b.ETHFunds != nil {
 		b.te.ParallelTransactions(true)
 		defer b.te.ParallelTransactions(false)
 		if err := b.te.FundChainlinkNodes(b.ETHFunds); err != nil {

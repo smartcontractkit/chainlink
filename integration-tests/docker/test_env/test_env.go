@@ -41,7 +41,6 @@ type CLClusterTestEnv struct {
 
 	/* components */
 	ClCluster        *ClCluster
-	Geth             *test_env.Geth          // for tests using --dev networks
 	PrivateChain     []test_env.PrivateChain // for tests using non-dev networks
 	MockAdapter      *test_env.Killgrave
 	EVMClient        blockchain.EVMClient
@@ -59,7 +58,6 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 	}
 	n := []string{network.Name}
 	return &CLClusterTestEnv{
-		Geth:        test_env.NewGeth(n),
 		MockAdapter: test_env.NewKillgrave(n, ""),
 		Network:     network,
 		l:           log.Logger,
@@ -71,7 +69,7 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
 	te.Cfg = cfg
 	n := []string{te.Network.Name}
-	te.Geth = test_env.NewGeth(n, test_env.WithContainerName(te.Cfg.Geth.ContainerName))
+	// te.Geth = test_env.NewGeth(n, test_env.WithContainerName(te.Cfg.Geth.ContainerName))
 	te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
 	return te
 }
@@ -79,7 +77,6 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
 	te.t = t
 	te.l = logging.GetTestLogger(t)
-	te.Geth.WithTestLogger(t)
 	te.MockAdapter.WithTestLogger(t)
 	return te
 }
@@ -128,8 +125,20 @@ func (te *CLClusterTestEnv) StartPrivateChain() error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, test_env.InternalDockerUrls, error) {
-	return te.Geth.StartContainer()
+func (te *CLClusterTestEnv) StartEthereumNetwork(b *test_env.EthereumNetworkBuilder) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
+	b.UsingDockerNetworks([]string{te.Network.Name})
+	err := b.Build()
+	if err != nil {
+		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
+	}
+
+	n, rpc, err := b.Start()
+
+	if err != nil {
+		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
+	}
+
+	return n, rpc, nil
 }
 
 func (te *CLClusterTestEnv) StartMockAdapter() error {
