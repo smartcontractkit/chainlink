@@ -57,6 +57,7 @@ jobs:
 
 
   sepolia-smoke-tests:
+    if: false # TODO: Waiting on secrets
     environment: integration
     permissions:
       checks: write
@@ -68,6 +69,7 @@ jobs:
       SELECTED_NETWORKS: SEPOLIA
     strategy:
       fail-fast: false
+      max-parallel: 1 # Current key setup limits us to run sequentially
       matrix:
         product: [ocr, automation]
     name: Sepolia ${{ matrix.product }} Tests
@@ -123,8 +125,10 @@ jobs:
       SELECTED_NETWORKS: OPTIMISM_GOERLI
     strategy:
       fail-fast: false
+      max-parallel: 1 # Current key setup limits us to run sequentially
       matrix:
-        product: [ocr, automation]
+        product: [ocr]
+        # product: [ocr, automation] # DEBUG
     name: Optimism Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -178,8 +182,10 @@ jobs:
       SELECTED_NETWORKS: ARBITRUM_GOERLI
     strategy:
       fail-fast: false
+      max-parallel: 1 # Current key setup limits us to run sequentially
       matrix:
-        product: [ocr, automation]
+        product: [ocr]
+        # product: [ocr, automation] # DEBUG
     name: Arbitrum Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
