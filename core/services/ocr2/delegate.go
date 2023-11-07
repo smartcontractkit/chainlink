@@ -590,9 +590,21 @@ func (d *Delegate) newServicesGenericPlugin(
 	}
 
 	errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
+	var providerClientConn grpc.ClientConnInterface
 	providerConn, ok := provider.(connProvider)
-	if !ok {
-		return nil, errors.New("provider not supported: the provider is not a LOOPP provider")
+	if ok {
+		providerClientConn = providerConn.ClientConn()
+	} else {
+		d.lggr.Info("provider is not a LOOPP provider, switching to provider server")
+		ps, err := NewProviderServer(provider, d.lggr)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("cannot start EVM provider server: %s", err))
+		}
+		providerClientConn, err = ps.GetConn()
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("cannot connect to EVM provider server: %s", err))
+		}
+		srvs = append(srvs, ps)
 	}
 
 	pluginConfig := types.ReportingPluginServiceConfig{
@@ -605,7 +617,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	pr := generic.NewPipelineRunnerAdapter(pluginLggr, jb, d.pipelineRunner)
 	ta := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 
-	plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerConn.ClientConn(), pr, ta, errorLog)
+	plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog)
 	oracleArgs.ReportingPluginFactory = plugin
 	srvs = append(srvs, plugin)
 
