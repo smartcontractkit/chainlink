@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -2162,11 +2161,11 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 	topicOneInputs := abi.Arguments{fabi.Events["SubscriptionCreated"].Inputs[0]}
 	topicOneHash := []common.Hash{r.Logs[0].Topics[1:][0]}
 	if err := abi.ParseTopicsIntoMap(topicsMap, topicOneInputs, topicOneHash); err != nil {
-		return 0, errors.Wrap(err, "failed to decode topic value")
+		return 0, fmt.Errorf("failed to decode topic value, err: %w", err)
 	}
 	e.l.Info().Interface("NewTopicsDecoded", topicsMap).Send()
 	if topicsMap["subscriptionId"] == 0 {
-		return 0, errors.New("failed to decode subscription ID after creation")
+		return 0, fmt.Errorf("failed to decode subscription ID after creation")
 	}
 	return topicsMap["subscriptionId"].(uint64), nil
 }

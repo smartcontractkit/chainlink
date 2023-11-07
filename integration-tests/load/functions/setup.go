@@ -2,6 +2,7 @@ package loadfunctions
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	mrand "math/rand"
 	"os"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
@@ -91,41 +91,41 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 		log.Info().Msg("Creating new subscription")
 		subID, err := router.CreateSubscriptionWithConsumer(loadTestClient.Address())
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create a new subscription")
+			return nil, fmt.Errorf("failed to create a new subscription: %w", err)
 		}
 		encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint64"}]`, subID)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to encode subscription ID for funding")
+			return nil, fmt.Errorf("failed to encode subscription ID for funding: %w", err)
 		}
 		_, err = lt.TransferAndCall(router.Address(), big.NewInt(0).Mul(cfg.Common.Funding.SubFunds, big.NewInt(1e18)), encodedSubId)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to transferAndCall router, LINK funding")
+			return nil, fmt.Errorf("failed to transferAndCall router, LINK funding: %w", err)
 		}
 		cfg.Common.SubscriptionID = subID
 	}
 	pKey, pubKey, err := parseEthereumPrivateKey(os.Getenv("MUMBAI_KEYS"))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to load Ethereum private key")
+		return nil, fmt.Errorf("failed to load Ethereum private key: %w", err)
 	}
 	tpk, err := coord.GetThresholdPublicKey()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get Threshold public key")
+		return nil, fmt.Errorf("failed to get Threshold public key: %w", err)
 	}
 	log.Info().Hex("ThresholdPublicKeyBytesHex", tpk).Msg("Loaded coordinator keys")
 	donPubKey, err := coord.GetDONPublicKey()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get DON public key")
+		return nil, fmt.Errorf("failed to get DON public key: %w", err)
 	}
 	log.Info().Hex("DONPublicKeyHex", donPubKey).Msg("Loaded DON key")
 	tdh2pk, err := ParseTDH2Key(tpk)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal tdh2 public key")
+		return nil, fmt.Errorf("failed to unmarshal tdh2 public key: %w", err)
 	}
 	var encryptedSecrets string
 	if cfg.Common.Secrets != "" {
 		encryptedSecrets, err = EncryptS4Secrets(pKey, tdh2pk, donPubKey, cfg.Common.Secrets)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate tdh2 secrets")
+			return nil, fmt.Errorf("failed to generate tdh2 secrets: %w", err)
 		}
 		slotID, slotVersion, err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
 			GatewayURL:            cfg.Common.GatewayURL,
@@ -139,7 +139,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 			S4SetPayload:          encryptedSecrets,
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to upload secrets to S4")
+			return nil, fmt.Errorf("failed to upload secrets to S4: %w", err)
 		}
 		cfg.Common.SecretsSlotID = slotID
 		cfg.Common.SecretsVersionID = slotVersion
@@ -168,13 +168,13 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 func parseEthereumPrivateKey(pk string) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	pKey, err := crypto.HexToECDSA(pk)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to convert Ethereum key from hex")
+		return nil, nil, fmt.Errorf("failed to convert Ethereum key from hex: %w", err)
 	}
 
 	publicKey := pKey.Public()
 	pubKey, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return nil, nil, errors.Wrap(err, "failed to get public key from Ethereum private key")
+		return nil, nil, fmt.Errorf("failed to get public key from Ethereum private key: %w", err)
 	}
 	log.Info().Str("Address", crypto.PubkeyToAddress(*pubKey).Hex()).Msg("Parsed private key for address")
 	return pKey, pubKey, nil
