@@ -78,15 +78,6 @@ func (m *CLClusterDashboard) generate() error {
 			"interval",
 			interval.Values([]string{"30s", "1m", "5m", "10m", "30m", "1h", "6h", "12h"}),
 		),
-		// logs
-		dashboard.Row(
-			"Logs",
-			row.Collapse(),
-			m.nodeLogsRowOption("Node 1", "node-1"),
-			m.nodeLogsRowOption("Node 2", "node-2"),
-			m.nodeLogsRowOption("Node 3", "node-3"),
-			m.nodeLogsRowOption("Node 4", "node-4"),
-		),
 		dashboard.Row(
 			"Cluster health",
 			row.WithTimeSeries(
@@ -99,6 +90,15 @@ func (m *CLClusterDashboard) generate() error {
 					prometheus.Legend("{{pod}}"),
 				),
 			),
+		),
+		// logs
+		dashboard.Row(
+			"Logs",
+			row.Collapse(),
+			m.nodeLogsRowOption("Node 1", "node-1"),
+			m.nodeLogsRowOption("Node 2", "node-2"),
+			m.nodeLogsRowOption("Node 3", "node-3"),
+			m.nodeLogsRowOption("Node 4", "node-4"),
 		),
 		// FIXME: these metrics are not exposed by the node for some reason
 		// DON report metrics
