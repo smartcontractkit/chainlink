@@ -613,7 +613,7 @@ func TestEvmRegistry_DoMercuryRequestV03(t *testing.T) {
 			lookup: &StreamsLookup{
 				feedParamKey: feedIDs,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
+				timeParamKey: timestamp,
 				time:         big.NewInt(25880526),
 				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
 				upkeepId:     upkeepId,
