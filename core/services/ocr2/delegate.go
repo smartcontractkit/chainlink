@@ -291,7 +291,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 		JobID:         jb.ID,
 		ContractID:    spec.ContractID,
 		New:           false,
-		RelayConfig:   spec.RelayConfig.Bytes(),
+		RelayConfig:   spec.RelayConfig.BytesWithPreservedJson(),
 	}
 
 	relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
@@ -518,7 +518,7 @@ func (d *Delegate) newServicesMercury(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   spec.RelayConfig.BytesWithPreservedJson(),
 			ProviderType:  string(spec.PluginType),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
@@ -635,7 +635,7 @@ func (d *Delegate) newServicesDKG(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   spec.RelayConfig.BytesWithPreservedJson(),
 		}, types.PluginArgs{
 			TransmitterID: spec.TransmitterID.String,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -720,7 +720,7 @@ func (d *Delegate) newServicesOCR2VRF(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   spec.RelayConfig.BytesWithPreservedJson(),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -734,7 +734,7 @@ func (d *Delegate) newServicesOCR2VRF(
 			ExternalJobID: jb.ExternalJobID,
 			JobID:         jb.ID,
 			ContractID:    cfg.DKGContractAddress,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   spec.RelayConfig.BytesWithPreservedJson(),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1177,7 +1177,7 @@ func (d *Delegate) newServicesOCR2Functions(
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         jb.ID,
 				ContractID:    spec.ContractID,
-				RelayConfig:   spec.RelayConfig.Bytes(),
+				RelayConfig:   spec.RelayConfig.BytesWithPreservedJson(),
 				New:           d.isNewlyCreatedJob,
 			},
 			types.PluginArgs{

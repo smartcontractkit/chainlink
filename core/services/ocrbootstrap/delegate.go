@@ -109,7 +109,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	ctx := ctxVals.ContextWithValues(context.Background())
 
 	var routerFields relayConfigRouterContractFields
-	if err = json.Unmarshal(spec.RelayConfig.Bytes(), &routerFields); err != nil {
+	if err = json.Unmarshal(spec.RelayConfig.BytesWithPreservedJson(), &routerFields); err != nil {
 		return nil, err
 	}
 
@@ -124,12 +124,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         jb.ID,
 				ContractID:    spec.ContractID,
-				RelayConfig:   spec.RelayConfig.Bytes(),
+				RelayConfig:   spec.RelayConfig.BytesWithPreservedJson(),
 				New:           d.isNewlyCreatedJob,
 				ProviderType:  string(types.Functions),
 			},
 			types.PluginArgs{
-				PluginConfig: spec.RelayConfig.Bytes(), // contains all necessary fields for config provider
+				PluginConfig: spec.RelayConfig.BytesWithPreservedJson(), // contains all necessary fields for config provider
 			},
 		)
 	} else {
@@ -138,7 +138,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   spec.RelayConfig.BytesWithPreservedJson(),
 		})
 	}
 
