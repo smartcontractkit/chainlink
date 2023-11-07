@@ -3,10 +3,11 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"

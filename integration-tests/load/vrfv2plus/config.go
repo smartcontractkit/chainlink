@@ -2,12 +2,13 @@ package loadvrfv2plus
 
 import (
 	"encoding/base64"
+	"os"
+
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"os"
 )
 
 const (

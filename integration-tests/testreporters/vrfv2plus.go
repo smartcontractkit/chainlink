@@ -2,11 +2,12 @@ package testreporters
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"math/big"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 
 	"github.com/slack-go/slack"
 

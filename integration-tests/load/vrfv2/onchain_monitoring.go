@@ -2,11 +2,12 @@ package loadvrfv2
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	"github.com/smartcontractkit/wasp"
-	"testing"
-	"time"
 )
 
 /* Monitors on-chain stats of LoadConsumer and pushes them to Loki every second */

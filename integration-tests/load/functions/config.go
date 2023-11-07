@@ -1,12 +1,13 @@
 package loadfunctions
 
 import (
+	"math/big"
+	"os"
+
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"math/big"
-	"os"
 )
 
 const (
