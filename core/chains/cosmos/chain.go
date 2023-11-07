@@ -257,7 +257,7 @@ func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, 
 	}
 
 	sendMsg := bank.NewMsgSend(fromAcc, toAcc, sdk.Coins{coin})
-	_, err = txm.Enqueue("", sendMsg)
+	_, err = txm.Enqueue(ctx, "", sendMsg)
 	if err != nil {
 		return fmt.Errorf("failed to enqueue tx: %w", err)
 	}

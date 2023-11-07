@@ -450,7 +450,7 @@ func (txm *Txm) confirmTx(ctx context.Context, tc cosmosclient.Reader, txHash st
 }
 
 // Enqueue enqueue a msg destined for the cosmos chain.
-func (txm *Txm) Enqueue(contractID string, msg sdk.Msg) (int64, error) {
+func (txm *Txm) Enqueue(ctx context.Context, contractID string, msg sdk.Msg) (int64, error) {
 	typeURL, raw, err := txm.marshalMsg(msg)
 	if err != nil {
 		return 0, err
@@ -503,7 +503,7 @@ func (txm *Txm) marshalMsg(msg sdk.Msg) (string, []byte, error) {
 }
 
 // GetMsgs returns any messages matching ids.
-func (txm *Txm) GetMsgs(ids ...int64) (adapters.Msgs, error) {
+func (txm *Txm) GetMsgs(ctx context.Context, ids ...int64) (adapters.Msgs, error) {
 	return txm.orm.GetMsgs(ids...)
 }
 

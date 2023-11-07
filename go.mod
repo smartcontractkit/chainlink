@@ -15,7 +15,7 @@ require (
 	github.com/esote/minmaxheap v1.0.0
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/fatih/color v1.15.0
-	github.com/fxamacker/cbor/v2 v2.4.0
+	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/gagliardetto/solana-go v1.4.1-0.20220428092759-5250b4abbb27
 	github.com/getsentry/sentry-go v0.19.0
 	github.com/gin-contrib/cors v1.4.0
@@ -190,7 +190,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/btree v1.1.2 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/go-tpm v0.3.3 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -384,10 +384,19 @@ replace (
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/smartcontractkit/go-plugin v0.0.0-20231003134350-e49dad63b306
 
+	// until merged upstream: https://github.com/mitchellh/mapstructure/pull/343
+	github.com/mitchellh/mapstructure v1.5.0 => github.com/nolag/mapstructure v1.5.1
+
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 	github.com/smartcontractkit/chainlink-cosmos => github.com/smartcontractkit/chainlink-cosmos v0.0.0-20231031013442-9ae27ea597e0
 	github.com/smartcontractkit/chainlink-relay => github.com/smartcontractkit/chainlink-relay v0.0.0-20231101034200-60ac98bbd672
 	github.com/smartcontractkit/chainlink-solana => github.com/smartcontractkit/chainlink-solana v0.0.0-20231025024416-cdec7787d48d
 	github.com/smartcontractkit/chainlink-starknet/relayer => github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20231025034231-79ae4e6f9999
+)
+
+replace (
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231030134738-81a5a89699a0 => ../chainlink-cosmos
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231031114820-e9826d481111 => ../chainlink-relay
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231023133638-72f4e799ab05 => ../chainlink-solana
 )
