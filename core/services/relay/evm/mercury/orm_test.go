@@ -3,6 +3,7 @@ package mercury
 import (
 	"testing"
 
+	"github.com/cometbft/cometbft/libs/rand"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ import (
 func TestORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
-	var jobID int32 // foreign key constraints disabled so can leave as 0
+	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	lggr := logger.TestLogger(t)
@@ -48,7 +49,7 @@ func TestORM(t *testing.T) {
 	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[2]}, jobID, reportContexts[2])
 	require.NoError(t, err)
 
-	transmissions, err := orm.GetTransmitRequests()
+	transmissions, err := orm.GetTransmitRequests(jobID)
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContexts[2]},
@@ -65,7 +66,7 @@ func TestORM(t *testing.T) {
 	err = orm.DeleteTransmitRequests([]*pb.TransmitRequest{{Payload: reports[1]}})
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests()
+	transmissions, err = orm.GetTransmitRequests(jobID)
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContexts[2]},
@@ -80,7 +81,7 @@ func TestORM(t *testing.T) {
 	err = orm.DeleteTransmitRequests([]*pb.TransmitRequest{{Payload: []byte("does-not-exist")}})
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests()
+	transmissions, err = orm.GetTransmitRequests(jobID)
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContexts[2]},
@@ -98,7 +99,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, reports[2], l)
 
-	transmissions, err = orm.GetTransmitRequests()
+	transmissions, err = orm.GetTransmitRequests(jobID)
 	require.NoError(t, err)
 	require.Empty(t, transmissions)
 
@@ -106,7 +107,7 @@ func TestORM(t *testing.T) {
 	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, jobID, reportContexts[3])
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests()
+	transmissions, err = orm.GetTransmitRequests(jobID)
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[3]}, ReportCtx: reportContexts[3]},
@@ -118,7 +119,7 @@ func TestORM(t *testing.T) {
 	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, jobID, reportContexts[3])
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests()
+	transmissions, err = orm.GetTransmitRequests(jobID)
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[3]}, ReportCtx: reportContexts[3]},
@@ -131,7 +132,7 @@ func TestORM(t *testing.T) {
 
 func TestORM_PruneTransmitRequests(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	var jobID int32 // foreign key constraints disabled so can leave as 0
+	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 
@@ -157,10 +158,10 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 	require.NoError(t, err)
 
 	// Max size greater than table size, expect no-op
-	err = orm.PruneTransmitRequests(5)
+	err = orm.PruneTransmitRequests(jobID, 5)
 	require.NoError(t, err)
 
-	transmissions, err := orm.GetTransmitRequests()
+	transmissions, err := orm.GetTransmitRequests(jobID)
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[1]}, ReportCtx: makeReportContext(1, 2)},
@@ -168,37 +169,48 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 	})
 
 	// Max size equal to table size, expect no-op
-	err = orm.PruneTransmitRequests(2)
+	err = orm.PruneTransmitRequests(jobID, 2)
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests()
+	transmissions, err = orm.GetTransmitRequests(jobID)
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[1]}, ReportCtx: makeReportContext(1, 2)},
 		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: makeReportContext(1, 1)},
 	})
 
+	// Max size is table size + 1, but jobID differs, expect no-op
+	err = orm.PruneTransmitRequests(-1, 2)
+	require.NoError(t, err)
+
+	transmissions, err = orm.GetTransmitRequests(jobID)
+	require.NoError(t, err)
+	require.Equal(t, []*Transmission{
+		{Req: &pb.TransmitRequest{Payload: reports[1]}, ReportCtx: makeReportContext(1, 2)},
+		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: makeReportContext(1, 1)},
+	}, transmissions)
+
 	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[2]}, jobID, makeReportContext(2, 1))
 	require.NoError(t, err)
 	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, jobID, makeReportContext(2, 2))
 	require.NoError(t, err)
 
-	// Max size is table size + 1, expect the oldest row to be pruned.
-	err = orm.PruneTransmitRequests(3)
+	// Max size is table size - 1, expect the oldest row to be pruned.
+	err = orm.PruneTransmitRequests(jobID, 3)
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests()
+	transmissions, err = orm.GetTransmitRequests(jobID)
 	require.NoError(t, err)
-	require.Equal(t, transmissions, []*Transmission{
+	require.Equal(t, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[3]}, ReportCtx: makeReportContext(2, 2)},
 		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: makeReportContext(2, 1)},
 		{Req: &pb.TransmitRequest{Payload: reports[1]}, ReportCtx: makeReportContext(1, 2)},
-	})
+	}, transmissions)
 }
 
 func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	var jobID int32 // foreign key constraints disabled so can leave as 0
+	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 

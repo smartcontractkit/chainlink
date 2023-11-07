@@ -2,23 +2,25 @@
 package actions
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -260,7 +262,7 @@ func TeardownSuite(
 ) error {
 	l := logging.GetTestLogger(t)
 	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
-		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
+		return fmt.Errorf("Error dumping environment logs, leaving environment running for manual retrieval, err: %w", err)
 	}
 	// Delete all jobs to stop depleting the funds
 	err := DeleteAllJobs(chainlinkNodes)
@@ -328,16 +330,16 @@ func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
 		}
 		jobs, _, err := node.ReadJobs()
 		if err != nil {
-			return errors.Wrap(err, "error reading jobs from chainlink node")
+			return fmt.Errorf("error reading jobs from chainlink node, err: %w", err)
 		}
 		for _, maps := range jobs.Data {
 			if _, ok := maps["id"]; !ok {
-				return errors.Errorf("error reading job id from chainlink node's jobs %+v", jobs.Data)
+				return fmt.Errorf("error reading job id from chainlink node's jobs %+v", jobs.Data)
 			}
 			id := maps["id"].(string)
 			_, err := node.DeleteJob(id)
 			if err != nil {
-				return errors.Wrap(err, "error deleting job from chainlink node")
+				return fmt.Errorf("error deleting job from chainlink node, err: %w", err)
 			}
 		}
 	}
@@ -348,7 +350,7 @@ func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
 // all from a remote, k8s style environment
 func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient blockchain.EVMClient) error {
 	if blockchainClient == nil {
-		return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
+		return fmt.Errorf("blockchain client is nil, unable to return funds from chainlink nodes")
 	}
 	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 	if blockchainClient.NetworkSimulated() {
@@ -414,7 +416,7 @@ func UpgradeChainlinkNodeVersions(
 	nodes ...*client.ChainlinkK8sClient,
 ) error {
 	if newImage == "" && newVersion == "" {
-		return errors.New("unable to upgrade node version, found empty image and version, must provide either a new image or a new version")
+		return fmt.Errorf("unable to upgrade node version, found empty image and version, must provide either a new image or a new version")
 	}
 	for _, node := range nodes {
 		if err := node.UpgradeVersion(testEnvironment, newImage, newVersion); err != nil {
@@ -442,4 +444,18 @@ func DeployMockETHLinkFeed(cd contracts.ContractDeployer, answer *big.Int) (cont
 		return nil, err
 	}
 	return mockETHLINKFeed, err
+}
+
+// todo - move to CTF
+func GenerateWallet() (common.Address, error) {
+	privateKey, err := crypto.GenerateKey()
+	if err != nil {
+		return common.Address{}, err
+	}
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return common.Address{}, fmt.Errorf("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
 }

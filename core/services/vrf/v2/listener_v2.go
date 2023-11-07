@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,11 +25,11 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -55,6 +57,8 @@ var (
 	batchCoordinatorV2ABI                    = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 	batchCoordinatorV2PlusABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
 	vrfOwnerABI                              = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
+	// These are the transaction states used when summing up already reserved subscription funds that are about to be used in in-flight transactions
+	reserveEthLinkQueryStates = []txmgrtypes.TxState{txmgrcommon.TxUnconfirmed, txmgrcommon.TxUnstarted, txmgrcommon.TxInProgress}
 )
 
 const (
@@ -72,29 +76,8 @@ const (
 	// backoffFactor is the factor by which to increase the delay each time a request fails.
 	backoffFactor = 1.3
 
-	V2ReservedLinkQuery = `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
-		FROM evm.txes
-		WHERE meta->>'MaxLink' IS NOT NULL
-		AND evm_chain_id = $1
-		AND CAST(meta->>'SubId' AS NUMERIC) = $2
-		AND state IN ('unconfirmed', 'unstarted', 'in_progress')
-		GROUP BY meta->>'SubId'`
-
-	V2PlusReservedLinkQuery = `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
-		FROM evm.txes
-		WHERE meta->>'MaxLink' IS NOT NULL
-		AND evm_chain_id = $1
-		AND CAST(meta->>'GlobalSubId' AS NUMERIC) = $2
-		AND state IN ('unconfirmed', 'unstarted', 'in_progress')
-		GROUP BY meta->>'GlobalSubId'`
-
-	V2PlusReservedEthQuery = `SELECT SUM(CAST(meta->>'MaxEth' AS NUMERIC(78, 0)))
-		FROM evm.txes
-		WHERE meta->>'MaxEth' IS NOT NULL
-		AND evm_chain_id = $1
-		AND CAST(meta->>'GlobalSubId' AS NUMERIC) = $2
-		AND state IN ('unconfirmed', 'unstarted', 'in_progress')
-		GROUP BY meta->>'GlobalSubId'`
+	txMetaFieldSubId  = "SubId"
+	txMetaGlobalSubId = "GlobalSubId"
 
 	CouldNotDetermineIfLogConsumedMsg = "Could not determine if log was already consumed"
 )
@@ -115,33 +98,27 @@ func New(
 	cfg vrfcommon.Config,
 	feeCfg vrfcommon.FeeConfig,
 	l logger.Logger,
-	ethClient evmclient.Client,
+	chain evm.Chain,
 	chainID *big.Int,
-	logBroadcaster log.Broadcaster,
 	q pg.Q,
 	coordinator CoordinatorV2_X,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	vrfOwner vrf_owner.VRFOwnerInterface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.TxManager,
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
 	mailMon *utils.MailboxMonitor,
 	reqLogs *utils.Mailbox[log.Broadcast],
 	reqAdded func(),
-	respCount map[string]uint64,
-	headBroadcaster httypes.HeadBroadcasterRegistry,
 	deduper *vrfcommon.LogDeduper,
 ) job.ServiceCtx {
 	return &listenerV2{
 		cfg:                cfg,
 		feeCfg:             feeCfg,
 		l:                  logger.Sugared(l),
-		ethClient:          ethClient,
+		chain:              chain,
 		chainID:            chainID,
-		logBroadcaster:     logBroadcaster,
-		txm:                txm,
 		mailMon:            mailMon,
 		coordinator:        coordinator,
 		batchCoordinator:   batchCoordinator,
@@ -153,9 +130,7 @@ func New(
 		reqLogs:            reqLogs,
 		chStop:             make(chan struct{}),
 		reqAdded:           reqAdded,
-		respCount:          respCount,
 		blockNumberToReqID: pairing.New(),
-		headBroadcaster:    headBroadcaster,
 		latestHeadMu:       sync.RWMutex{},
 		wg:                 &sync.WaitGroup{},
 		aggregator:         aggregator,
@@ -191,15 +166,13 @@ type vrfPipelineResult struct {
 }
 
 type listenerV2 struct {
-	utils.StartStopOnce
-	cfg            vrfcommon.Config
-	feeCfg         vrfcommon.FeeConfig
-	l              logger.SugaredLogger
-	ethClient      evmclient.Client
-	chainID        *big.Int
-	logBroadcaster log.Broadcaster
-	txm            txmgr.TxManager
-	mailMon        *utils.MailboxMonitor
+	services.StateMachine
+	cfg     vrfcommon.Config
+	feeCfg  vrfcommon.FeeConfig
+	l       logger.SugaredLogger
+	chain   evm.Chain
+	chainID *big.Int
+	mailMon *utils.MailboxMonitor
 
 	coordinator      CoordinatorV2_X
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface
@@ -228,7 +201,6 @@ type listenerV2 struct {
 	blockNumberToReqID *pairing.PairHeap
 
 	// head tracking data structures
-	headBroadcaster  httypes.HeadBroadcasterRegistry
 	latestHeadMu     sync.RWMutex
 	latestHeadNumber uint64
 
@@ -270,9 +242,9 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 				"proofVerificationGas", GasProofVerification)
 		}
 
-		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
+		spec := job.LoadDefaultVRFPollPeriod(*lsn.job.VRFSpec)
 
-		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
+		unsubscribeLogs := lsn.chain.LogBroadcaster().Register(lsn, log.ListenerOpts{
 			Contract:       lsn.coordinator.Address(),
 			ParseLog:       lsn.coordinator.ParseLog,
 			LogsWithTopics: lsn.coordinator.LogsWithTopics(spec.PublicKey.MustHash()),
@@ -283,10 +255,19 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 			ReplayStartedCallback:    lsn.ReplayStartedCallback,
 		})
 
-		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+		latestHead, unsubscribeHeadBroadcaster := lsn.chain.HeadBroadcaster().Subscribe(lsn)
 		if latestHead != nil {
 			lsn.setLatestHead(latestHead)
 		}
+
+		lsn.respCountMu.Lock()
+		defer lsn.respCountMu.Unlock()
+		var respCount map[string]uint64
+		respCount, err = lsn.GetStartingResponseCountsV2(ctx)
+		if err != nil {
+			return err
+		}
+		lsn.respCount = respCount
 
 		// Log listener gathers request logs
 		lsn.wg.Add(1)
@@ -303,6 +284,46 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		lsn.mailMon.Monitor(lsn.reqLogs, "VRFListenerV2", "RequestLogs", fmt.Sprint(lsn.job.ID))
 		return nil
 	})
+}
+
+func (lsn *listenerV2) GetStartingResponseCountsV2(ctx context.Context) (respCount map[string]uint64, err error) {
+	respCounts := map[string]uint64{}
+	var latestBlockNum *big.Int
+	// Retry client call for LatestBlockHeight if fails
+	// Want to avoid failing startup due to potential faulty RPC call
+	err = retry.Do(func() error {
+		latestBlockNum, err = lsn.chain.Client().LatestBlockHeight(ctx)
+		return err
+	}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
+	if err != nil {
+		return nil, err
+	}
+	if latestBlockNum == nil {
+		return nil, errors.New("LatestBlockHeight return nil block num")
+	}
+	confirmedBlockNum := latestBlockNum.Int64() - int64(lsn.chain.Config().EVM().FinalityDepth())
+	// Only check as far back as the evm finality depth for completed transactions.
+	var counts []vrfcommon.RespCountEntry
+	counts, err = vrfcommon.GetRespCounts(ctx, lsn.chain.TxManager(), lsn.chainID, confirmedBlockNum)
+	if err != nil {
+		// Continue with an empty map, do not block job on this.
+		lsn.l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
+		return respCounts, nil
+	}
+
+	for _, c := range counts {
+		// Remove the quotes from the json
+		req := strings.Replace(c.RequestID, `"`, ``, 2)
+		// Remove the 0x prefix
+		b, err := hex.DecodeString(req[2:])
+		if err != nil {
+			lsn.l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			continue
+		}
+		bi := new(big.Int).SetBytes(b)
+		respCounts[bi.String()] = uint64(c.Count)
+	}
+	return respCounts, nil
 }
 
 func (lsn *listenerV2) setLatestHead(head *evmtypes.Head) {
@@ -519,68 +540,80 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func MaybeSubtractReservedLink(q pg.Q, startBalance *big.Int, chainID uint64, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
-	var (
-		reservedLink string
-		query        string
-	)
+func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalance *big.Int, chainID *big.Int, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
+	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
-		query = V2PlusReservedLinkQuery
+		metaField = txMetaGlobalSubId
 	} else if vrfVersion == vrfcommon.V2 {
-		query = V2ReservedLinkQuery
+		metaField = txMetaFieldSubId
 	} else {
 		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
 
-	err := q.Get(&reservedLink, query, chainID, subID.String())
+	txes, err := lsn.chain.TxManager().FindTxesByMetaFieldAndStates(ctx, metaField, subID.String(), reserveEthLinkQueryStates, chainID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "getting reserved LINK")
+		return nil, errors.Wrap(err, "TXM FindTxesByMetaFieldAndStates failed")
 	}
 
-	if reservedLink != "" {
-		reservedLinkInt, success := big.NewInt(0).SetString(reservedLink, 10)
-		if !success {
-			return nil, fmt.Errorf("converting reserved LINK %s", reservedLink)
+	reservedLinkSum := big.NewInt(0)
+	// Aggregate non-null MaxLink from all txes returned
+	for _, tx := range txes {
+		var meta *txmgrtypes.TxMeta[common.Address, common.Hash]
+		meta, err = tx.GetMeta()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetMeta for Tx failed")
 		}
+		if meta != nil && meta.MaxLink != nil {
+			txMaxLink, success := new(big.Int).SetString(*meta.MaxLink, 10)
+			if !success {
+				return nil, fmt.Errorf("converting reserved LINK %s", *meta.MaxLink)
+			}
 
-		return new(big.Int).Sub(startBalance, reservedLinkInt), nil
+			reservedLinkSum.Add(reservedLinkSum, txMaxLink)
+		}
 	}
 
-	return new(big.Int).Set(startBalance), nil
+	return new(big.Int).Sub(startBalance, reservedLinkSum), nil
 }
 
 // MaybeSubtractReservedEth figures out how much ether is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func MaybeSubtractReservedEth(q pg.Q, startBalance *big.Int, chainID uint64, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
-	var (
-		reservedEther string
-		query         string
-	)
+func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalance *big.Int, chainID *big.Int, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
+	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
-		query = V2PlusReservedEthQuery
+		metaField = txMetaGlobalSubId
 	} else if vrfVersion == vrfcommon.V2 {
 		// native payment is not supported for v2, so returning 0 reserved ETH
 		return big.NewInt(0), nil
 	} else {
 		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
-	err := q.Get(&reservedEther, query, chainID, subID.String())
+	txes, err := lsn.chain.TxManager().FindTxesByMetaFieldAndStates(ctx, metaField, subID.String(), reserveEthLinkQueryStates, chainID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "getting reserved ether")
+		return nil, errors.Wrap(err, "TXM FindTxesByMetaFieldAndStates failed")
 	}
 
-	if reservedEther != "" {
-		reservedEtherInt, success := big.NewInt(0).SetString(reservedEther, 10)
-		if !success {
-			return nil, fmt.Errorf("converting reserved ether %s", reservedEther)
+	reservedEthSum := big.NewInt(0)
+	// Aggregate non-null MaxEth from all txes returned
+	for _, tx := range txes {
+		var meta *txmgrtypes.TxMeta[common.Address, common.Hash]
+		meta, err = tx.GetMeta()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetMeta for Tx failed")
 		}
+		if meta != nil && meta.MaxEth != nil {
+			txMaxEth, success := new(big.Int).SetString(*meta.MaxEth, 10)
+			if !success {
+				return nil, fmt.Errorf("converting reserved ETH %s", *meta.MaxEth)
+			}
 
-		return new(big.Int).Sub(startBalance, reservedEtherInt), nil
+			reservedEthSum.Add(reservedEthSum, txMaxEth)
+		}
 	}
 
 	if startBalance != nil {
-		return new(big.Int).Set(startBalance), nil
+		return new(big.Int).Sub(startBalance, reservedEthSum), nil
 	}
 	return big.NewInt(0), nil
 }
@@ -811,14 +844,14 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	subIsActive bool,
 ) map[string]struct{} {
 	var processed = make(map[string]struct{})
-	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startLinkBalance, lsn.chainID.Uint64(), subID, lsn.coordinator.Version())
+	startBalanceNoReserveLink, err := lsn.MaybeSubtractReservedLink(
+		ctx, startLinkBalance, lsn.chainID, subID, lsn.coordinator.Version())
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
 	}
-	startBalanceNoReserveEth, err := MaybeSubtractReservedEth(
-		lsn.q, startEthBalance, lsn.chainID.Uint64(), subID, lsn.coordinator.Version())
+	startBalanceNoReserveEth, err := lsn.MaybeSubtractReservedEth(
+		ctx, startEthBalance, lsn.chainID, subID, lsn.coordinator.Version())
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved ether for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
@@ -882,7 +915,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 
 	// fulfill the request through the VRF owner
 	err = lsn.q.Transaction(func(tx pg.Queryer) error {
-		if err = lsn.logBroadcaster.MarkConsumed(p.req.lb, pg.WithQueryer(tx)); err != nil {
+		if err = lsn.chain.LogBroadcaster().MarkConsumed(p.req.lb, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
@@ -900,7 +933,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		if err != nil {
 			return errors.Wrap(err, "abi pack VRFOwner.fulfillRandomWords")
 		}
-		estimateGasLimit, err := lsn.ethClient.EstimateGas(ctx, ethereum.CallMsg{
+		estimateGasLimit, err := lsn.chain.Client().EstimateGas(ctx, ethereum.CallMsg{
 			From: fromAddress,
 			To:   &vrfOwnerAddressSpec,
 			Data: txData,
@@ -918,7 +951,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 		subID := p.req.req.SubID()
 		requestTxHash := p.req.req.Raw().TxHash
-		etx, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
+		etx, err = lsn.chain.TxManager().CreateTransaction(ctx, txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
@@ -942,7 +975,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 func (lsn *listenerV2) isConsumerValidAfterFinalityDepthElapsed(ctx context.Context, req pendingRequest) bool {
 	latestHead := lsn.getLatestHead()
 	if latestHead-req.req.Raw().BlockNumber > uint64(lsn.cfg.FinalityDepth()) {
-		code, err := lsn.ethClient.CodeAt(ctx, req.req.Sender(), big.NewInt(int64(latestHead)))
+		code, err := lsn.chain.Client().CodeAt(ctx, req.req.Sender(), big.NewInt(int64(latestHead)))
 		if err != nil {
 			lsn.l.Warnw("Failed to fetch contract code", "err", err)
 			return true // error fetching code, give the benefit of doubt to the consumer
@@ -1102,7 +1135,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				if err = lsn.pipelineRunner.InsertFinishedRun(p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
 				}
-				if err = lsn.logBroadcaster.MarkConsumed(p.req.lb, pg.WithQueryer(tx)); err != nil {
+				if err = lsn.chain.LogBroadcaster().MarkConsumed(p.req.lb, pg.WithQueryer(tx)); err != nil {
 					return err
 				}
 
@@ -1125,7 +1158,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
 				requestTxHash := p.req.req.Raw().TxHash
-				transaction, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
+				transaction, err = lsn.chain.TxManager().CreateTransaction(ctx, txmgr.TxRequest{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
@@ -1184,15 +1217,15 @@ func (lsn *listenerV2) processRequestsPerSub(
 	}
 
 	var processed = make(map[string]struct{})
-	chainId := lsn.ethClient.ConfiguredChainID()
-	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startLinkBalance, chainId.Uint64(), subID, lsn.coordinator.Version())
+	chainId := lsn.chain.Client().ConfiguredChainID()
+	startBalanceNoReserveLink, err := lsn.MaybeSubtractReservedLink(
+		ctx, startLinkBalance, chainId, subID, lsn.coordinator.Version())
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
 	}
-	startBalanceNoReserveEth, err := MaybeSubtractReservedEth(
-		lsn.q, startEthBalance, lsn.chainID.Uint64(), subID, lsn.coordinator.Version())
+	startBalanceNoReserveEth, err := lsn.MaybeSubtractReservedEth(
+		ctx, startEthBalance, lsn.chainID, subID, lsn.coordinator.Version())
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved ETH for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
@@ -1298,7 +1331,7 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 		}
 	}
 
-	err := lsn.ethClient.BatchCallContext(ctx, calls)
+	err := lsn.chain.Client().BatchCallContext(ctx, calls)
 	if err != nil {
 		return fulfilled, errors.Wrap(err, "making batch call")
 	}
@@ -1581,7 +1614,7 @@ func (lsn *listenerV2) getConfirmedAt(req RandomWordsRequested, nodeMinConfs uin
 func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 	if v, ok := lb.DecodedLog().(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled); ok {
 		lsn.l.Debugw("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
-		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
+		consumed, err := lsn.chain.LogBroadcaster().WasAlreadyConsumed(lb)
 		if err != nil {
 			lsn.l.Errorw(CouldNotDetermineIfLogConsumedMsg, "err", err, "txHash", lb.RawLog().TxHash)
 			return
@@ -1601,7 +1634,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 
 	if v, ok := lb.DecodedLog().(*vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled); ok {
 		lsn.l.Debugw("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
-		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
+		consumed, err := lsn.chain.LogBroadcaster().WasAlreadyConsumed(lb)
 		if err != nil {
 			lsn.l.Errorw(CouldNotDetermineIfLogConsumedMsg, "err", err, "txHash", lb.RawLog().TxHash)
 			return
@@ -1622,7 +1655,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 	req, err := lsn.coordinator.ParseRandomWordsRequested(lb.RawLog())
 	if err != nil {
 		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
-		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
+		consumed, err := lsn.chain.LogBroadcaster().WasAlreadyConsumed(lb)
 		if err != nil {
 			lsn.l.Errorw(CouldNotDetermineIfLogConsumedMsg, "err", err, "txHash", lb.RawLog().TxHash)
 			return
@@ -1647,7 +1680,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 }
 
 func (lsn *listenerV2) markLogAsConsumed(lb log.Broadcast) {
-	err := lsn.logBroadcaster.MarkConsumed(lb)
+	err := lsn.chain.LogBroadcaster().MarkConsumed(lb)
 	lsn.l.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 

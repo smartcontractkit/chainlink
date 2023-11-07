@@ -62,7 +62,7 @@ func TestShell_ChangeRole(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
 
 	tests := []struct {
 		name  string
@@ -101,7 +101,7 @@ func TestShell_DeleteUser(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
 
 	tests := []struct {
 		name  string
@@ -135,7 +135,7 @@ func TestShell_ListUsers(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
 
 	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.ListUsers, set, "")

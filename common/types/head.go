@@ -1,5 +1,7 @@
 package types
 
+import "github.com/smartcontractkit/chainlink/v2/core/utils"
+
 // Head provides access to a chain's head, as needed by the TxManager.
 // This is a generic interface which ALL chains will implement.
 //
@@ -24,4 +26,8 @@ type Head[BLOCK_HASH Hashable] interface {
 	// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 	// If not in chain, returns the zero hash
 	HashAtHeight(blockNum int64) BLOCK_HASH
+
+	// Returns the total difficulty of the block. For chains who do not have a concept of block
+	// difficulty, return 0.
+	BlockDifficulty() *utils.Big
 }

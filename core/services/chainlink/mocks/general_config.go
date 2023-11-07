@@ -6,7 +6,7 @@ import (
 	chainlinkconfig "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
 
-	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	cosmosconfig "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -99,15 +99,15 @@ func (_m *GeneralConfig) ConfigTOML() (string, string) {
 }
 
 // CosmosConfigs provides a mock function with given fields:
-func (_m *GeneralConfig) CosmosConfigs() cosmos.CosmosConfigs {
+func (_m *GeneralConfig) CosmosConfigs() cosmosconfig.TOMLConfigs {
 	ret := _m.Called()
 
-	var r0 cosmos.CosmosConfigs
-	if rf, ok := ret.Get(0).(func() cosmos.CosmosConfigs); ok {
+	var r0 cosmosconfig.TOMLConfigs
+	if rf, ok := ret.Get(0).(func() cosmosconfig.TOMLConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cosmos.CosmosConfigs)
+			r0 = ret.Get(0).(cosmosconfig.TOMLConfigs)
 		}
 	}
 
@@ -298,9 +298,9 @@ func (_m *GeneralConfig) Log() config.Log {
 	return r0
 }
 
-// LogConfiguration provides a mock function with given fields: log
-func (_m *GeneralConfig) LogConfiguration(log config.LogfFn) {
-	_m.Called(log)
+// LogConfiguration provides a mock function with given fields: log, warn
+func (_m *GeneralConfig) LogConfiguration(log config.LogfFn, warn config.LogfFn) {
+	_m.Called(log, warn)
 }
 
 // Mercury provides a mock function with given fields:

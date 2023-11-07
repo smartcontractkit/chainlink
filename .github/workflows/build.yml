@@ -1,4 +1,4 @@
-name: 'Build Chainlink'
+name: "Build Chainlink"
 
 on:
   pull_request:
@@ -7,7 +7,6 @@ on:
       - master
 
 jobs:
-
   build-chainlink:
     runs-on: ubuntu-20.04
     steps:
@@ -17,6 +16,8 @@ jobs:
       - name: Build chainlink image
         uses: ./.github/actions/build-sign-publish-chainlink
         with:
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           publish: false
           sign-images: false
       - name: Collect Metrics

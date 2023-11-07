@@ -6,7 +6,7 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "test": "hardhat test",
+    "test": "hardhat test --parallel",
     "lint": "eslint --ext js,ts .",
     "prettier:check": "prettier '**/*' --check --ignore-unknown",
     "prettier:write": "prettier '**/*' --write --ignore-unknown",
@@ -18,7 +18,7 @@
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "pnpm publish --tag beta",
     "publish-prod": "npm dist-tag add @chainlink/contracts@0.8.0 latest",
-    "solhint": "solhint --max-warnings 377 \"./src/v0.8/**/*.sol\""
+    "solhint": "solhint --max-warnings 350 \"./src/v0.8/**/*.sol\""
   },
   "files": [
     "src/v0.8",

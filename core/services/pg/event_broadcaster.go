@@ -11,8 +11,9 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -23,12 +24,13 @@ import (
 // EventBroadcaster opaquely manages a collection of Postgres event listeners
 // and broadcasts events to subscribers (with an optional payload filter).
 type EventBroadcaster interface {
-	services.ServiceCtx
+	services.Service
 	Subscribe(channel, payloadFilter string) (Subscription, error)
 	Notify(channel string, payload string) error
 }
 
 type eventBroadcaster struct {
+	services.StateMachine
 	uri                  string
 	minReconnectInterval time.Duration
 	maxReconnectDuration time.Duration
@@ -39,7 +41,6 @@ type eventBroadcaster struct {
 	chStop               chan struct{}
 	chDone               chan struct{}
 	lggr                 logger.Logger
-	utils.StartStopOnce
 }
 
 var _ EventBroadcaster = (*eventBroadcaster)(nil)

@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -52,7 +53,7 @@ type (
 	// OCRContractTracker complies with ContractConfigTracker interface and
 	// handles log events related to the contract more generally
 	OCRContractTracker struct {
-		utils.StartStopOnce
+		services.StateMachine
 
 		ethClient        evmclient.Client
 		contract         *offchain_aggregator_wrapper.OffchainAggregator
@@ -400,7 +401,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
-	case "", config.ChainArbitrum, config.ChainCelo, config.ChainOptimismBedrock, config.ChainXDai:
+	case "", config.ChainArbitrum, config.ChainCelo, config.ChainOptimismBedrock, config.ChainXDai, config.ChainKroma, config.ChainWeMix, config.ChainZkSync:
 		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()

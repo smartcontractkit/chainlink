@@ -330,7 +330,7 @@ func (_m *LogPoller) IndexedLogsWithSigsExcluding(address common.Address, eventS
 }
 
 // LatestBlock provides a mock function with given fields: qopts
-func (_m *LogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
+func (_m *LogPoller) LatestBlock(qopts ...pg.QOpt) (logpoller.LogPollerBlock, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -339,15 +339,15 @@ func (_m *LogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 int64
+	var r0 logpoller.LogPollerBlock
 	var r1 error
-	if rf, ok := ret.Get(0).(func(...pg.QOpt) (int64, error)); ok {
+	if rf, ok := ret.Get(0).(func(...pg.QOpt) (logpoller.LogPollerBlock, error)); ok {
 		return rf(qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(...pg.QOpt) int64); ok {
+	if rf, ok := ret.Get(0).(func(...pg.QOpt) logpoller.LogPollerBlock); ok {
 		r0 = rf(qopts...)
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Get(0).(logpoller.LogPollerBlock)
 	}
 
 	if rf, ok := ret.Get(1).(func(...pg.QOpt) error); ok {

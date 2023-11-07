@@ -8,10 +8,10 @@ import (
 
 	gotoml "github.com/pelletier/go-toml/v2"
 
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -36,7 +36,7 @@ type Config struct {
 
 	EVM evmcfg.EVMConfigs `toml:",omitempty"`
 
-	Cosmos cosmos.CosmosConfigs `toml:",omitempty"`
+	Cosmos coscfg.TOMLConfigs `toml:",omitempty"`
 
 	Solana solana.TOMLConfigs `toml:",omitempty"`
 
@@ -52,6 +52,50 @@ func (c *Config) TOMLString() (string, error) {
 	return string(b), nil
 }
 
+// deprecationWarnings returns an error if the Config contains deprecated fields.
+// This is typically used before defaults have been applied, with input from the user.
+func (c *Config) deprecationWarnings() (err error) {
+	if c.P2P.V1 != (toml.P2PV1{}) {
+		err = multierr.Append(err, config.ErrDeprecated{Name: "P2P.V1"})
+		var err2 error
+		if c.P2P.V1.AnnounceIP != nil {
+			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "AnnounceIP"})
+		}
+		if c.P2P.V1.AnnouncePort != nil {
+			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "AnnouncePort"})
+		}
+		if c.P2P.V1.BootstrapCheckInterval != nil {
+			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "BootstrapCheckInterval"})
+		}
+		if c.P2P.V1.DefaultBootstrapPeers != nil {
+			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "DefaultBootstrapPeers"})
+		}
+		if c.P2P.V1.DHTAnnouncementCounterUserPrefix != nil {
+			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "DHTAnnouncementCounterUserPrefix"})
+		}
+		if c.P2P.V1.DHTLookupInterval != nil {
+			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "DHTLookupInterval"})
+		}
+		if c.P2P.V1.ListenIP != nil {
+			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "ListenIP"})
+		}
+		if c.P2P.V1.ListenPort != nil {
+			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "ListenPort"})
+		}
+		if c.P2P.V1.NewStreamTimeout != nil {
+			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "NewStreamTimeout"})
+		}
+		if c.P2P.V1.PeerstoreWriteInterval != nil {
+			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "PeerstoreWriteInterval"})
+		}
+		err2 = config.NamedMultiErrorList(err2, "P2P.V1")
+		err = multierr.Append(err, err2)
+	}
+	return
+}
+
+// Validate returns an error if the Config is not valid for use, as-is.
+// This is typically used after defaults have been applied.
 func (c *Config) Validate() error {
 	if err := config.Validate(c); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
@@ -75,7 +119,7 @@ func (c *Config) setDefaults() {
 
 	for i := range c.Cosmos {
 		if c.Cosmos[i] == nil {
-			c.Cosmos[i] = new(cosmos.CosmosConfig)
+			c.Cosmos[i] = new(coscfg.TOMLConfig)
 		}
 		c.Cosmos[i].Chain.SetDefaults()
 	}
@@ -124,28 +168,32 @@ type Secrets struct {
 }
 
 func (s *Secrets) SetFrom(f *Secrets) (err error) {
-	if err1 := s.Database.SetFrom(&f.Database); err1 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err1, "Database"))
+	if err2 := s.Database.SetFrom(&f.Database); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Database"))
 	}
 
 	if err2 := s.Password.SetFrom(&f.Password); err2 != nil {
 		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Password"))
 	}
 
-	if err3 := s.Pyroscope.SetFrom(&f.Pyroscope); err3 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Pyroscope"))
+	if err2 := s.WebServer.SetFrom(&f.WebServer); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "WebServer"))
 	}
 
-	if err4 := s.Prometheus.SetFrom(&f.Prometheus); err4 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Prometheus"))
+	if err2 := s.Pyroscope.SetFrom(&f.Pyroscope); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Pyroscope"))
 	}
 
-	if err5 := s.Mercury.SetFrom(&f.Mercury); err5 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err5, "Mercury"))
+	if err2 := s.Prometheus.SetFrom(&f.Prometheus); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Prometheus"))
 	}
 
-	if err6 := s.Threshold.SetFrom(&f.Threshold); err6 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err6, "Threshold"))
+	if err2 := s.Mercury.SetFrom(&f.Mercury); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Mercury"))
+	}
+
+	if err2 := s.Threshold.SetFrom(&f.Threshold); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Threshold"))
 	}
 
 	_, err = utils.MultiErrorList(err)

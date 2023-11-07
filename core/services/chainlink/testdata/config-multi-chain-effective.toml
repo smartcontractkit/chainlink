@@ -61,6 +61,7 @@ MaxAgeDays = 0
 MaxBackups = 1
 
 [WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = 'http://localhost:3000,http://localhost:6688'
 BridgeResponseURL = ''
 BridgeCacheTTL = '0s'
@@ -72,6 +73,25 @@ SessionReaperExpiration = '240h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
 ListenIP = '0.0.0.0'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = ''
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = ''
+ActiveAttributeAllowedValue = ''
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]
 RPID = ''
@@ -142,7 +162,7 @@ PeerID = ''
 TraceLogging = false
 
 [P2P.V1]
-Enabled = true
+Enabled = false
 AnnounceIP = ''
 AnnouncePort = 0
 BootstrapCheckInterval = '20s'
@@ -155,7 +175,7 @@ NewStreamTimeout = '10s'
 PeerstoreWriteInterval = '5m0s'
 
 [P2P.V2]
-Enabled = false
+Enabled = true
 AnnounceAddresses = []
 DefaultBootstrappers = []
 DeltaDial = '15s'

@@ -22,7 +22,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
@@ -79,8 +78,8 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df, l1Oracle)
 	case "FixedPrice":
 		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, l1Oracle)
-	case "Optimism2", "L2Suggested":
-		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient), df, l1Oracle)
+	case "L2Suggested", "SuggestedPrice":
+		return NewWrappedEvmEstimator(NewSuggestedPriceEstimator(lggr, ethClient), df, l1Oracle)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, l1Oracle)
@@ -150,10 +149,10 @@ func (fee EvmFee) ValidDynamic() bool {
 
 // WrappedEvmEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
 type WrappedEvmEstimator struct {
+	services.StateMachine
 	EvmEstimator
 	EIP1559Enabled bool
 	l1Oracle       rollups.L1Oracle
-	utils.StartStopOnce
 }
 
 var _ EvmFeeEstimator = (*WrappedEvmEstimator)(nil)

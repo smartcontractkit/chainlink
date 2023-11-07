@@ -58,7 +58,7 @@ runs:
         skip-pkg-cache: true
         skip-build-cache: true
         # only-new-issues is only applicable to PRs, otherwise it is always set to false
-        only-new-issues: true
+        only-new-issues: false # disabled for PRs due to unreliability
         args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
         working-directory: ${{ inputs.go-directory }}
     - name: Store lint report artifact

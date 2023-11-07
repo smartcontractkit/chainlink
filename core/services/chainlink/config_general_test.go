@@ -149,6 +149,9 @@ var mercurySecretsTOMLSplitTwo string
 //go:embed testdata/mergingsecretsdata/secrets-threshold.toml
 var thresholdSecretsTOML string
 
+//go:embed testdata/mergingsecretsdata/secrets-webserver-ldap.toml
+var WebServerLDAPSecretsTOML string
+
 func TestConfig_SecretsMerging(t *testing.T) {
 	t.Run("verify secrets merging in GeneralConfigOpts.New()", func(t *testing.T) {
 		databaseSecrets, err := parseSecrets(databaseSecretsTOML)
@@ -165,6 +168,8 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		require.NoErrorf(t, err6, "error: %s", err6)
 		thresholdSecrets, err7 := parseSecrets(thresholdSecretsTOML)
 		require.NoErrorf(t, err7, "error: %s", err7)
+		webserverLDAPSecrets, err8 := parseSecrets(WebServerLDAPSecretsTOML)
+		require.NoErrorf(t, err8, "error: %s", err8)
 
 		opts := new(GeneralConfigOpts)
 		configFiles := []string{
@@ -178,6 +183,7 @@ func TestConfig_SecretsMerging(t *testing.T) {
 			"testdata/mergingsecretsdata/secrets-mercury-split-one.toml",
 			"testdata/mergingsecretsdata/secrets-mercury-split-two.toml",
 			"testdata/mergingsecretsdata/secrets-threshold.toml",
+			"testdata/mergingsecretsdata/secrets-webserver-ldap.toml",
 		}
 		err = opts.Setup(configFiles, secretsFiles)
 		require.NoErrorf(t, err, "error: %s", err)
@@ -193,6 +199,10 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		assert.Equal(t, (string)(*pyroscopeSecrets.Pyroscope.AuthToken), (string)(*opts.Secrets.Pyroscope.AuthToken))
 		assert.Equal(t, (string)(*prometheusSecrets.Prometheus.AuthToken), (string)(*opts.Secrets.Prometheus.AuthToken))
 		assert.Equal(t, (string)(*thresholdSecrets.Threshold.ThresholdKeyShare), (string)(*opts.Secrets.Threshold.ThresholdKeyShare))
+
+		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ServerAddress.URL().String(), opts.Secrets.WebServer.LDAP.ServerAddress.URL().String())
+		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ReadOnlyUserLogin, opts.Secrets.WebServer.LDAP.ReadOnlyUserLogin)
+		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ReadOnlyUserPass, opts.Secrets.WebServer.LDAP.ReadOnlyUserPass)
 
 		err = assertDeepEqualityMercurySecrets(*merge(mercurySecrets_a.Mercury, mercurySecrets_b.Mercury), opts.Secrets.Mercury)
 		require.NoErrorf(t, err, "merged mercury secrets unequal")

@@ -26,12 +26,13 @@ else
   echo "$latest_tag" >"$tag_file"
   echo "Tag updated $current_tag -> $latest_tag"
   if [ "$CI" ]; then
-    echo "current_tag=$current_tag" >> $GITHUB_OUTPUT
-    echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
-    # See https://github.com/peter-evans/create-pull-request/blob/main/docs/examples.md#setting-the-pull-request-body-from-a-file
-    body="${body//'%'/'%25'}"
-    body="${body//$'\n'/'%0A'}"
-    body="${body//$'\r'/'%0D'}"
-    echo "body=$body" >> $GITHUB_OUTPUT
+    echo "current_tag=$current_tag" >>$GITHUB_OUTPUT
+    echo "latest_tag=$latest_tag" >>$GITHUB_OUTPUT
+
+    # See https://github.com/orgs/community/discussions/26288#discussioncomment-3876281
+    delimiter="$(openssl rand -hex 8)"
+    echo "body<<${delimiter}" >>"${GITHUB_OUTPUT}"
+    echo "$body" >>"${GITHUB_OUTPUT}"
+    echo "${delimiter}" >>"${GITHUB_OUTPUT}"
   fi
 fi
