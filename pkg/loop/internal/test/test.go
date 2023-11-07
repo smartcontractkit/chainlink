@@ -139,11 +139,13 @@ URL = 'https://test.url'
 	options = types.Options{
 		MaxTaskDuration: 10 * time.Second,
 	}
-	taskResults = []types.TaskResult{
+	taskResults = types.TaskResults([]types.TaskResult{
 		{
-			Value: "hello",
+			TaskValue: types.TaskValue{
+				Value: "hello",
+			},
 			Index: 0,
 		},
-	}
+	})
 	payload = []byte("oops")
 )

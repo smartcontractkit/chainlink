@@ -12,7 +12,7 @@ var _ types.PipelineRunnerService = (*StaticPipelineRunnerService)(nil)
 
 type StaticPipelineRunnerService struct{}
 
-func (pr *StaticPipelineRunnerService) ExecuteRun(ctx context.Context, s string, v types.Vars, o types.Options) ([]types.TaskResult, error) {
+func (pr *StaticPipelineRunnerService) ExecuteRun(ctx context.Context, s string, v types.Vars, o types.Options) (types.TaskResults, error) {
 	if s != spec {
 		return nil, fmt.Errorf("expected %s but got %s", spec, s)
 	}

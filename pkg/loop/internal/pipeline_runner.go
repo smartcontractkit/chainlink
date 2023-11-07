@@ -23,7 +23,7 @@ func newPipelineRunnerClient(cc grpc.ClientConnInterface) *pipelineRunnerService
 	return &pipelineRunnerServiceClient{grpc: pb.NewPipelineRunnerServiceClient(cc)}
 }
 
-func (p pipelineRunnerServiceClient) ExecuteRun(ctx context.Context, spec string, vars types.Vars, options types.Options) ([]types.TaskResult, error) {
+func (p pipelineRunnerServiceClient) ExecuteRun(ctx context.Context, spec string, vars types.Vars, options types.Options) (types.TaskResults, error) {
 	varsStruct, err := structpb.NewStruct(vars.Vars)
 	if err != nil {
 		return nil, err
@@ -49,10 +49,13 @@ func (p pipelineRunnerServiceClient) ExecuteRun(ctx context.Context, spec string
 			err = errors.New(trr.Error)
 		}
 		trs[i] = types.TaskResult{
-			ID:    trr.Id,
-			Type:  trr.Type,
-			Value: trr.Value.AsInterface(),
-			Error: err,
+			ID:   trr.Id,
+			Type: trr.Type,
+			TaskValue: types.TaskValue{
+				Value:      trr.Value.AsInterface(),
+				Error:      err,
+				IsTerminal: trr.IsTerminal,
+			},
 			Index: int(trr.Index),
 		}
 	}
@@ -94,12 +97,13 @@ func (p *pipelineRunnerServiceServer) ExecuteRun(ctx context.Context, rr *pb.Run
 			errs = trr.Error.Error()
 		}
 		taskResults[i] = &pb.TaskResult{
-			Id:       trr.ID,
-			Type:     trr.Type,
-			Value:    v,
-			Error:    errs,
-			HasError: hasError,
-			Index:    int32(trr.Index),
+			Id:         trr.ID,
+			Type:       trr.Type,
+			Value:      v,
+			Error:      errs,
+			HasError:   hasError,
+			IsTerminal: trr.IsTerminal,
+			Index:      int32(trr.Index),
 		}
 	}
 

@@ -67,10 +67,11 @@ func (m *ReportingPluginServiceClient) NewReportingPluginFactory(
 
 		reply, err := m.reportingPluginService.NewReportingPluginFactory(ctx, &pb.NewReportingPluginFactoryRequest{
 			ReportingPluginServiceConfig: &pb.ReportingPluginServiceConfig{
-				ProviderType: config.ProviderType,
-				Command:      config.Command,
-				PluginName:   config.PluginName,
-				PluginConfig: config.PluginConfig,
+				ProviderType:  config.ProviderType,
+				Command:       config.Command,
+				PluginName:    config.PluginName,
+				TelemetryType: config.TelemetryType,
+				PluginConfig:  config.PluginConfig,
 			},
 			ProviderID:       providerID,
 			ErrorLogID:       errorLogID,
@@ -135,10 +136,11 @@ func (m *reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Con
 	telemetry := NewTelemetryServiceClient(telemetryConn)
 
 	config := types.ReportingPluginServiceConfig{
-		ProviderType: request.ReportingPluginServiceConfig.ProviderType,
-		PluginConfig: request.ReportingPluginServiceConfig.PluginConfig,
-		PluginName:   request.ReportingPluginServiceConfig.PluginName,
-		Command:      request.ReportingPluginServiceConfig.Command,
+		ProviderType:  request.ReportingPluginServiceConfig.ProviderType,
+		PluginConfig:  request.ReportingPluginServiceConfig.PluginConfig,
+		PluginName:    request.ReportingPluginServiceConfig.PluginName,
+		Command:       request.ReportingPluginServiceConfig.Command,
+		TelemetryType: request.ReportingPluginServiceConfig.TelemetryType,
 	}
 
 	factory, err := m.impl.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetry, errorLog)

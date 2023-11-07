@@ -23,7 +23,7 @@ type mockPipelineRunner struct {
 	options     types.Options
 }
 
-func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec string, vars types.Vars, options types.Options) ([]types.TaskResult, error) {
+func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec string, vars types.Vars, options types.Options) (types.TaskResults, error) {
 	m.spec, m.vars, m.options = spec, vars, options
 	return m.taskResults, m.err
 }
@@ -39,13 +39,17 @@ func (c *clientAdapter) ExecuteRun(ctx context.Context, in *pb.RunRequest, opts 
 func TestPipelineRunnerService(t *testing.T) {
 	originalResults := []types.TaskResult{
 		{
-			ID:    "1",
-			Value: float64(123),
+			ID: "1",
+			TaskValue: types.TaskValue{
+				Value: float64(123),
+			},
 			Index: 0,
 		},
 		{
-			ID:    "2",
-			Error: errors.New("Error task"),
+			ID: "2",
+			TaskValue: types.TaskValue{
+				Error: errors.New("Error task"),
+			},
 			Index: 1,
 		},
 	}

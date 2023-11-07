@@ -7,10 +7,11 @@ import (
 )
 
 type ReportingPluginServiceConfig struct {
-	ProviderType string
-	Command      string
-	PluginName   string
-	PluginConfig string
+	ProviderType  string
+	Command       string
+	PluginName    string
+	TelemetryType string
+	PluginConfig  string
 }
 
 // ReportingPluginClient is the client interface to a plugin running

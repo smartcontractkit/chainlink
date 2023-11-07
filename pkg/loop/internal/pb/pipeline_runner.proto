@@ -23,7 +23,8 @@ message TaskResult {
   google.protobuf.Value value = 3;
   string error = 4;
   bool has_error = 5;
-  int32 index = 6;
+  bool is_terminal = 6;
+  int32 index = 7;
 }
 
 message RunResponse {
