@@ -279,6 +279,26 @@ func (r JSONConfig) Bytes() []byte {
 	return b
 }
 
+func (r JSONConfig) BytesWithPreservedJson() []byte {
+	var retCopy = make(JSONConfig, 0)
+	for key, value := range r {
+		copiedVal := value
+		// If the value is a string, unmarshal it first to preserve potential JSON structure
+		if strValue, ok := copiedVal.(string); ok {
+			var parsedValue interface{}
+			err := json.Unmarshal([]byte(strValue), &parsedValue)
+			if err == nil {
+				copiedVal = parsedValue
+			}
+
+		}
+		retCopy[key] = copiedVal
+	}
+
+	b, _ := json.Marshal(retCopy)
+	return b
+}
+
 // Value returns this instance serialized for database storage.
 func (r JSONConfig) Value() (driver.Value, error) {
 	return json.Marshal(r)
