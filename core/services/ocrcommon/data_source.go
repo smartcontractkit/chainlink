@@ -144,6 +144,8 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp Observat
 			FinalResults:   finalResult,
 			RepTimestamp:   timestamp,
 		})
+	} else {
+		ds.lggr.Infow("Enhanced telemetry is disabled for job", "job", ds.jb.Name)
 	}
 
 	return run, finalResult, err
