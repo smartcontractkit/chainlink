@@ -69,13 +69,14 @@ library CallWithExactGas {
   /// https://github.com/nomad-xyz/ExcessivelySafeCall/blob/main/src/ExcessivelySafeCall.sol.
   /// @return success whether the call succeeded
   /// @return retData the return data from the call, capped at maxReturnBytes bytes
+  /// @return gasUsed the gas used by the external call. Does not include the overhead of this function.
   function _callWithExactGasSafeReturnData(
     bytes memory payload,
     address target,
     uint256 gasLimit,
     uint16 gasForCallExactCheck,
     uint16 maxReturnBytes
-  ) internal returns (bool success, bytes memory retData) {
+  ) internal returns (bool success, bytes memory retData, uint256 gasUsed) {
     // allocate retData memory ahead of time
     retData = new bytes(maxReturnBytes);
 
@@ -110,9 +111,12 @@ library CallWithExactGas {
         revert(0, 0x4)
       }
 
+      // We save the gas before the call so we can calculate how much gas the call used
+      let gasBeforeCall := gas()
       // call and return whether we succeeded. ignore return data
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
       success := call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0, 0)
+      gasUsed := sub(gasBeforeCall, gas())
 
       // limit our copy to maxReturnBytes bytes
       let toCopy := returndatasize()
@@ -124,7 +128,7 @@ library CallWithExactGas {
       // copy the bytes from retData[0:_toCopy]
       returndatacopy(add(retData, 0x20), 0, toCopy)
     }
-    return (success, retData);
+    return (success, retData, gasUsed);
   }
 
   /// @notice Calls target address with exactly gasAmount gas and payload as calldata

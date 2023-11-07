@@ -19,14 +19,9 @@ contract CallWithExactGasHelper {
     uint256 gasLimit,
     uint16 gasForCallExactCheck,
     uint16 maxReturnBytes
-  ) public returns (bool success, bytes memory retData) {
-    (success, retData) = CallWithExactGas._callWithExactGasSafeReturnData(
-      payload,
-      target,
-      gasLimit,
-      gasForCallExactCheck,
-      maxReturnBytes
-    );
+  ) public returns (bool success, bytes memory retData, uint256 gasUsed) {
+    return
+      CallWithExactGas._callWithExactGasSafeReturnData(payload, target, gasLimit, gasForCallExactCheck, maxReturnBytes);
   }
 
   function callWithExactGasEvenIfTargetIsNoContract(
