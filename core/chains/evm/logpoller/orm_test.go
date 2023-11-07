@@ -179,13 +179,13 @@ func TestORM(t *testing.T) {
 	assert.Equal(t, int64(12), latest.BlockNumber)
 
 	// Delete a block (only 10 on chain).
-	require.NoError(t, o1.DeleteBlocksAfter(10))
+	require.NoError(t, o1.DeleteLogsAndBlocksAfter(10))
 	_, err = o1.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 
 	// Delete blocks from another chain.
-	require.NoError(t, o2.DeleteBlocksAfter(11))
+	require.NoError(t, o2.DeleteLogsAndBlocksAfter(11))
 	_, err = o2.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
@@ -318,7 +318,6 @@ func TestORM(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 	// With block 12, anything <=2 should work
-	require.NoError(t, o1.DeleteBlocksAfter(10))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 11, time.Now(), 0))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 12, time.Now(), 0))
 	_, err = o1.SelectLatestLogByEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
@@ -421,7 +420,7 @@ func TestORM(t *testing.T) {
 	assert.Len(t, logs, 7)
 
 	// Delete logs after should delete all logs.
-	err = o1.DeleteLogsAndBlockAfter(1)
+	err = o1.DeleteLogsAndBlocksAfter(1)
 	require.NoError(t, err)
 	logs, err = o1.SelectLogsByBlockRange(1, latest.BlockNumber)
 	require.NoError(t, err)

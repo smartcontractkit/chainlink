@@ -27,9 +27,8 @@ type ORM interface {
 	LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error)
 	DeleteFilter(name string, qopts ...pg.QOpt) error
 
-	DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error
 	DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error
-	DeleteLogsAndBlockAfter(start int64, qopts ...pg.QOpt) error
+	DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error
 	DeleteExpiredLogs(qopts ...pg.QOpt) error
 
 	GetBlocksRange(start int64, end int64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
@@ -188,12 +187,6 @@ func (o *DbORM) SelectLatestLogByEventSigWithConfs(eventSig common.Hash, address
 	return &l, nil
 }
 
-// DeleteBlocksAfter delete all blocks after and including start.
-func (o *DbORM) DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-	return q.ExecQ(`DELETE FROM evm.log_poller_blocks WHERE block_number >= $1 AND evm_chain_id = $2`, start, utils.NewBig(o.chainID))
-}
-
 // DeleteBlocksBefore delete all blocks before and including end.
 func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
@@ -201,23 +194,23 @@ func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 	return err
 }
 
-func (o *DbORM) DeleteLogsAndBlockAfter(start int64, qopts ...pg.QOpt) error {
+func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
 	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
 		args, err := newQueryArgs(o.chainID).
 			withStartBlock(start).
 			toArgs()
 		if err != nil {
-			o.lggr.Error("Cant build args for DeleteLogsAndBlockAfter queries", "err", err)
+			o.lggr.Error("Cant build args for DeleteLogsAndBlocksAfter queries", "err", err)
 			return err
 		}
 
-		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks WHERE block_number >= :start_block AND evm_chain_id = :chain_id`, args)
+		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
 		if err != nil {
 			o.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
 			return err
 		}
 
-		_, err = tx.NamedExec(`DELETE FROM evm.logs WHERE block_number >= :start_block AND evm_chain_id = :chain_id`, args)
+		_, err = tx.NamedExec(`DELETE FROM evm.logs WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
 		if err != nil {
 			o.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
 			return err

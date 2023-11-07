@@ -74,6 +74,12 @@ func (o *ObservedORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	})
 }
 
+func (o *ObservedORM) InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error {
+	return withObservedExec(o, "InsertLogsWithBlock", func() error {
+		return o.ORM.InsertLogsWithBlock(logs, block, qopts...)
+	})
+}
+
 func (o *ObservedORM) InsertFilter(filter Filter, qopts ...pg.QOpt) error {
 	return withObservedExec(o, "InsertFilter", func() error {
 		return o.ORM.InsertFilter(filter, qopts...)
@@ -92,21 +98,15 @@ func (o *ObservedORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
 	})
 }
 
-func (o *ObservedORM) DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "DeleteBlocksAfter", func() error {
-		return o.ORM.DeleteBlocksAfter(start, qopts...)
-	})
-}
-
 func (o *ObservedORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 	return withObservedExec(o, "DeleteBlocksBefore", func() error {
 		return o.ORM.DeleteBlocksBefore(end, qopts...)
 	})
 }
 
-func (o *ObservedORM) DeleteLogsAndBlockAfter(start int64, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "DeleteLogsAndBlockAfter", func() error {
-		return o.ORM.DeleteLogsAndBlockAfter(start, qopts...)
+func (o *ObservedORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
+	return withObservedExec(o, "DeleteLogsAndBlocksAfter", func() error {
+		return o.ORM.DeleteLogsAndBlocksAfter(start, qopts...)
 	})
 }
 
