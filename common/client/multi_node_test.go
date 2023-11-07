@@ -158,14 +158,19 @@ func TestMultiNode_Dial(t *testing.T) {
 		err := mn.Dial(tests.Context(t))
 		assert.EqualError(t, err, fmt.Sprintf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", sendOnlyName, sendOnlyChainID, mn.chainID))
 	})
+
+	newHealthySendOnly := func(t *testing.T, chainID types.ID) *mockSendOnlyNode[types.ID, multiNodeRPCClient] {
+		node := newMockSendOnlyNode(t)
+		node.On("ConfiguredChainID").Return(chainID).Once()
+		node.On("Start", mock.Anything).Return(nil).Once()
+		node.On("Close").Return(nil).Once()
+		return node
+	}
 	t.Run("Fails on send only node failure", func(t *testing.T) {
 		t.Parallel()
 		chainID := types.NewIDFromInt(10)
 		node := newHealthyNode(t, chainID)
-		sendOnly1 := newMockSendOnlyNode(t)
-		sendOnly1.On("ConfiguredChainID").Return(chainID).Once()
-		sendOnly1.On("Start", mock.Anything).Return(nil).Once()
-		sendOnly1.On("Close").Return(nil).Once()
+		sendOnly1 := newHealthySendOnly(t, chainID)
 		sendOnly2 := newMockSendOnlyNode(t)
 		sendOnly2.On("ConfiguredChainID").Return(chainID).Once()
 		expectedError := errors.New("failed to start send only node")
@@ -188,6 +193,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
 			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
+			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{newHealthySendOnly(t, chainID)},
 		})
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Dial(tests.Context(t))
@@ -566,7 +572,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, err, ErroringNodeError.Error())
 	})
-	t.Run("Returns response of active node", func(t *testing.T) {
+	t.Run("Returns error if RPC call fails for active node", func(t *testing.T) {
 		chainID := types.RandomID()
 		rpc := newMultiNodeRPCClient(t)
 		expectedError := errors.New("rpc failed to do the batch call")
