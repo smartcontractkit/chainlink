@@ -295,10 +295,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			configOverrider = configOverriderService
 		}
 
+		jb.OCROracleSpec.CaptureEATelemetry = chain.Config().OCR().CaptureEATelemetry()
 		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
 		if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), concreteSpec.ContractAddress.String(), synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
 			services = append(services, enhancedTelemService)
+		} else {
+			lggr.Infow("Enhanced telemetry is disabled for job", "job", jb.Name)
 		}
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{

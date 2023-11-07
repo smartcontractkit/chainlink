@@ -746,6 +746,8 @@ func (d *Delegate) newServicesMedian(
 	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
 		medianServices = append(medianServices, enhancedTelemService)
+	} else {
+		lggr.Infow("Enhanced telemetry is disabled for job", "job", jb.Name)
 	}
 
 	return medianServices, err2

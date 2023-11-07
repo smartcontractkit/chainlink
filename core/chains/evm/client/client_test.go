@@ -24,49 +24,48 @@ import (
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func mustNewClient(t *testing.T, wsURL string, sendonlys ...url.URL) evmclient.Client {
+func mustNewClient(t *testing.T, wsURL string, sendonlys ...url.URL) client.Client {
 	return mustNewClientWithChainID(t, wsURL, testutils.FixtureChainID, sendonlys...)
 }
 
-func mustNewClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) evmclient.Client {
-	cfg := evmclient.TestNodePoolConfig{
-		NodeSelectionMode: evmclient.NodeSelectionMode_RoundRobin,
+func mustNewClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) client.Client {
+	cfg := client.TestNodePoolConfig{
+		NodeSelectionMode: client.NodeSelectionMode_RoundRobin,
 	}
-	c, err := evmclient.NewClientWithTestNode(t, cfg, time.Second*0, wsURL, nil, sendonlys, 42, chainID)
+	c, err := client.NewClientWithTestNode(t, cfg, time.Second*0, wsURL, nil, sendonlys, 42, chainID)
 	require.NoError(t, err)
 	return c
 }
 
-func mustNewChainClient(t *testing.T, wsURL string, sendonlys ...url.URL) evmclient.Client {
+func mustNewChainClient(t *testing.T, wsURL string, sendonlys ...url.URL) client.Client {
 	return mustNewChainClientWithChainID(t, wsURL, testutils.FixtureChainID, sendonlys...)
 }
 
-func mustNewChainClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) evmclient.Client {
-	cfg := evmclient.TestNodePoolConfig{
-		NodeSelectionMode: evmclient.NodeSelectionMode_RoundRobin,
+func mustNewChainClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) client.Client {
+	cfg := client.TestNodePoolConfig{
+		NodeSelectionMode: client.NodeSelectionMode_RoundRobin,
 	}
-	c, err := evmclient.NewChainClientWithTestNode(t, cfg, time.Second*0, cfg.NodeLeaseDuration, wsURL, nil, sendonlys, 42, chainID)
+	c, err := client.NewChainClientWithTestNode(t, cfg, time.Second*0, cfg.NodeLeaseDuration, wsURL, nil, sendonlys, 42, chainID)
 	require.NoError(t, err)
 	return c
 }
 
-func mustNewClients(t *testing.T, wsURL string, sendonlys ...url.URL) []evmclient.Client {
-	var clients []evmclient.Client
+func mustNewClients(t *testing.T, wsURL string, sendonlys ...url.URL) []client.Client {
+	var clients []client.Client
 	clients = append(clients, mustNewClient(t, wsURL, sendonlys...))
 	clients = append(clients, mustNewChainClient(t, wsURL, sendonlys...))
 	return clients
 }
 
-func mustNewClientsWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) []evmclient.Client {
-	var clients []evmclient.Client
+func mustNewClientsWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) []client.Client {
+	var clients []client.Client
 	clients = append(clients, mustNewClientWithChainID(t, wsURL, chainID, sendonlys...))
 	clients = append(clients, mustNewChainClientWithChainID(t, wsURL, chainID, sendonlys...))
 	return clients
@@ -287,7 +286,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			contractAddress := testutils.NewAddress()
 			userAddress := testutils.NewAddress()
-			functionSelector := evmtypes.HexToFunctionSelector(evmclient.BALANCE_OF_ADDRESS_FUNCTION_SELECTOR) // balanceOf(address)
+			functionSelector := evmtypes.HexToFunctionSelector(client.BALANCE_OF_ADDRESS_FUNCTION_SELECTOR) // balanceOf(address)
 			txData := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
 
 			wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
@@ -522,7 +521,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.Fatal)
+			assert.Equal(t, errType, commonclient.Fatal)
 		}
 	})
 
@@ -550,7 +549,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.TransactionAlreadyKnown)
+			assert.Equal(t, errType, commonclient.TransactionAlreadyKnown)
 		}
 	})
 
@@ -577,7 +576,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.NoError(t, err)
-			assert.Equal(t, errType, commontypes.Successful)
+			assert.Equal(t, errType, commonclient.Successful)
 		}
 	})
 
@@ -605,7 +604,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.Underpriced)
+			assert.Equal(t, errType, commonclient.Underpriced)
 		}
 	})
 
@@ -633,7 +632,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.Unsupported)
+			assert.Equal(t, errType, commonclient.Unsupported)
 		}
 	})
 
@@ -661,7 +660,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.Retryable)
+			assert.Equal(t, errType, commonclient.Retryable)
 		}
 	})
 
@@ -689,7 +688,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.InsufficientFunds)
+			assert.Equal(t, errType, commonclient.InsufficientFunds)
 		}
 	})
 
@@ -717,7 +716,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.ExceedsMaxFee)
+			assert.Equal(t, errType, commonclient.ExceedsMaxFee)
 		}
 	})
 
@@ -745,7 +744,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, commontypes.Unknown)
+			assert.Equal(t, errType, commonclient.Unknown)
 		}
 	})
 }
@@ -811,7 +810,7 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	// Empty node means there are no active nodes to select from, causing client to always return error.
-	erroringClient := evmclient.NewChainClientWithEmptyNode(t, commonclient.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID)
+	erroringClient := client.NewChainClientWithEmptyNode(t, commonclient.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID)
 
 	_, err := erroringClient.BalanceAt(ctx, common.Address{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)
@@ -883,7 +882,7 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	code, err := erroringClient.SendTransactionReturnCode(ctx, nil, common.Address{})
-	require.Equal(t, code, commontypes.Unknown)
+	require.Equal(t, code, commonclient.Unknown)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	_, err = erroringClient.SequenceAt(ctx, common.Address{}, nil)
@@ -912,4 +911,4 @@ func TestEthClient_ErroringClient(t *testing.T) {
 
 }
 
-const headResult = evmclient.HeadResult
+const headResult = client.HeadResult
