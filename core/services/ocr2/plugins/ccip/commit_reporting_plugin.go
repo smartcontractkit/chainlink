@@ -164,7 +164,6 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 				rf.config.destLP,
 				rf.config.offRamp,
 				rf.destPriceRegReader,
-				rf.config.destClient,
 				int64(rf.config.commitStore.OffchainConfig().DestFinalityDepth),
 			),
 			gasPriceEstimator: rf.config.commitStore.GasPriceEstimator(),

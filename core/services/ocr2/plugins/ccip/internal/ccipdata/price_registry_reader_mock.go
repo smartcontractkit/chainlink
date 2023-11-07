@@ -175,6 +175,32 @@ func (_m *MockPriceRegistryReader) GetTokenPrices(ctx context.Context, wantedTok
 	return r0, r1
 }
 
+// GetTokensDecimals provides a mock function with given fields: ctx, tokenAddresses
+func (_m *MockPriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddresses []common.Address) ([]uint8, error) {
+	ret := _m.Called(ctx, tokenAddresses)
+
+	var r0 []uint8
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) ([]uint8, error)); ok {
+		return rf(ctx, tokenAddresses)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) []uint8); ok {
+		r0 = rf(ctx, tokenAddresses)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]uint8)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []common.Address) error); ok {
+		r1 = rf(ctx, tokenAddresses)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 type mockConstructorTestingTNewMockPriceRegistryReader interface {
 	mock.TestingT
 	Cleanup(func())

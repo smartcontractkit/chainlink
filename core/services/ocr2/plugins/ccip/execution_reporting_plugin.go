@@ -21,7 +21,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/custom_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
@@ -66,19 +65,18 @@ type ExecutionPluginStaticConfig struct {
 type ExecutionReportingPlugin struct {
 	config ExecutionPluginStaticConfig
 
-	F                      int
-	lggr                   logger.Logger
-	inflightReports        *inflightExecReportsContainer
-	snoozedRoots           cache.SnoozedRoots
-	destPriceRegistry      ccipdata.PriceRegistryReader
-	destWrappedNative      common.Address
-	onchainConfig          ccipdata.ExecOnchainConfig
-	offchainConfig         ccipdata.ExecOffchainConfig
-	cachedSourceFeeTokens  cache.AutoSync[[]common.Address]
-	cachedDestTokens       cache.AutoSync[cache.CachedTokens]
-	cachedTokenPools       cache.AutoSync[map[common.Address]common.Address]
-	customTokenPoolFactory func(ctx context.Context, poolAddress common.Address, bind bind.ContractBackend) (custom_token_pool.CustomTokenPoolInterface, error)
-	gasPriceEstimator      prices.GasPriceEstimatorExec
+	F                     int
+	lggr                  logger.Logger
+	inflightReports       *inflightExecReportsContainer
+	snoozedRoots          cache.SnoozedRoots
+	destPriceRegistry     ccipdata.PriceRegistryReader
+	destWrappedNative     common.Address
+	onchainConfig         ccipdata.ExecOnchainConfig
+	offchainConfig        ccipdata.ExecOffchainConfig
+	cachedSourceFeeTokens cache.AutoSync[[]common.Address]
+	cachedDestTokens      cache.AutoSync[cache.CachedTokens]
+	cachedTokenPools      cache.AutoSync[map[common.Address]common.Address]
+	gasPriceEstimator     prices.GasPriceEstimatorExec
 }
 
 type ExecutionReportingPluginFactory struct {
@@ -157,10 +155,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 			cachedDestTokens:      cachedDestTokens,
 			cachedSourceFeeTokens: cachedSourceFeeTokens,
 			cachedTokenPools:      cachedTokenPools,
-			customTokenPoolFactory: func(ctx context.Context, poolAddress common.Address, contractBackend bind.ContractBackend) (custom_token_pool.CustomTokenPoolInterface, error) {
-				return custom_token_pool.NewCustomTokenPool(poolAddress, contractBackend)
-			},
-			gasPriceEstimator: rf.config.offRampReader.GasPriceEstimator(),
+			gasPriceEstimator:     rf.config.offRampReader.GasPriceEstimator(),
 		}, types.ReportingPluginInfo{
 			Name: "CCIPExecution",
 			// Setting this to false saves on calldata since OffRamp doesn't require agreement between NOPs
@@ -358,49 +353,66 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 	return []ObservedMessage{}, nil
 }
 
-// destPoolRateLimits returns a map that consists of the rate limits of each destination tokens of the provided reports.
+// destPoolRateLimits returns a map that consists of the rate limits of each destination token of the provided reports.
 // If a token is missing from the returned map it either means that token was not found or token pool is disabled for this token.
 func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commitReports []commitReportWithSendRequests, sourceToDestToken map[common.Address]common.Address) (map[common.Address]*big.Int, error) {
-	dstTokens := make(map[common.Address]struct{}) // todo: replace with a set or uniqueSlice data structure
-	for _, msg := range commitReports {
-		for _, req := range msg.sendRequestsWithMeta {
-			for _, tk := range req.TokenAmounts {
-				if dstToken, exists := sourceToDestToken[tk.Token]; exists {
-					dstTokens[dstToken] = struct{}{}
-					continue
-				}
-				r.lggr.Warnw("token not found on destination chain", "sourceToken", tk)
-			}
-		}
-	}
-
 	tokenPools, err := r.cachedTokenPools.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get cached token pools: %w", err)
 	}
 
-	res := make(map[common.Address]*big.Int, len(dstTokens))
+	dstTokenToPool := make(map[common.Address]common.Address)
+	dstPoolToToken := make(map[common.Address]common.Address)
+	dstPools := make([]common.Address, 0)
 
-	for dstToken := range dstTokens {
-		poolAddress, exists := tokenPools[dstToken]
+	for _, msg := range commitReports {
+		for _, req := range msg.sendRequestsWithMeta {
+			for _, tk := range req.TokenAmounts {
+				dstToken, exists := sourceToDestToken[tk.Token]
+				if !exists {
+					r.lggr.Warnw("token not found on destination chain", "sourceToken", tk)
+					continue
+				}
+
+				// another message with the same token exists in the report
+				// we skip it since we don't want to query for the rate limit twice
+				if _, seen := dstTokenToPool[dstToken]; seen {
+					continue
+				}
+
+				poolAddress, exists := tokenPools[dstToken]
+				if !exists {
+					return nil, fmt.Errorf("pool for token '%s' does not exist", dstToken)
+				}
+
+				if tokenAddr, seen := dstPoolToToken[poolAddress]; seen {
+					return nil, fmt.Errorf("pool is already seen for token %s", tokenAddr)
+				}
+
+				dstTokenToPool[dstToken] = poolAddress
+				dstPoolToToken[poolAddress] = dstToken
+				dstPools = append(dstPools, poolAddress)
+			}
+		}
+	}
+
+	rateLimits, err := r.config.offRampReader.GetTokenPoolsRateLimits(ctx, dstPools)
+	if err != nil {
+		return nil, fmt.Errorf("fetch pool rate limits: %w", err)
+	}
+
+	res := make(map[common.Address]*big.Int, len(dstTokenToPool))
+	for i, rateLimit := range rateLimits {
+		// if the rate limit is disabled for this token pool then we omit it from the result
+		if !rateLimit.IsEnabled {
+			continue
+		}
+
+		tokenAddr, exists := dstPoolToToken[dstPools[i]]
 		if !exists {
-			return nil, fmt.Errorf("pool for token '%s' does not exist", dstToken)
+			return nil, fmt.Errorf("pool to token mapping does not contain %s", dstPools[i])
 		}
-
-		tokenPool, err := r.customTokenPoolFactory(ctx, poolAddress, r.config.destClient)
-		if err != nil {
-			return nil, fmt.Errorf("new custom dest token pool %s: %w", poolAddress, err)
-		}
-
-		offRampAddr := r.config.offRampReader.Address()
-		rateLimiterState, err := tokenPool.CurrentOffRampRateLimiterState(&bind.CallOpts{Context: ctx}, offRampAddr)
-		if err != nil {
-			return nil, fmt.Errorf("get rate off ramp rate limiter state: %w", err)
-		}
-
-		if rateLimiterState.IsEnabled {
-			res[dstToken] = rateLimiterState.Tokens
-		}
+		res[tokenAddr] = rateLimit.Tokens
 	}
 
 	return res, nil
