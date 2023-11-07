@@ -1200,10 +1200,33 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 
 func (o *evmTxStore) GetNonFinalizedTransactions(ctx context.Context) (txes []*Tx, err error) {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	err = qq.Get(txes, `
-SELECT * FROM evm.txes 
-WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress'`)
-	return txes, err
+
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT * FROM evm.txes
+WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress'
+`
+		var dbEtxs []DbEthTx
+		if err = tx.Select(&dbEtxs, stmt); err != nil {
+			return pkgerrors.Wrap(err, "GetNonFinalizedTransactions failed to load evm.txes")
+		}
+		txes = make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
+		return pkgerrors.Wrap(err, "GetNonFinalizedTransactions failed to load evm.tx_attempts")
+	}, pg.OptReadOnlyTx())
+
+	return txes, nil
+	/*
+			err = qq.Get(&dbEtxs, `
+		SELECT * FROM evm.txes
+		WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress'`)
+			fmt.Println("txee:", dbEtxs)
+
+			txes = make([]*Tx, len(dbEtxs))
+			dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+			return txes, err
+	*/
 }
 
 // FindTxsRequiringGasBump returns transactions that have all

@@ -1335,6 +1335,39 @@ func TestORM_GetTxInProgress(t *testing.T) {
 	})
 }
 
+func TestORM_GetNonFinalizedTransactions(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	t.Run("gets 0 non finalized eth transaction", func(t *testing.T) {
+		txes, err := txStore.GetNonFinalizedTransactions(testutils.Context(t))
+		require.NoError(t, err)
+		require.Empty(t, txes)
+	})
+
+	t.Run("get in progress, unstarted, and unconfirmed eth transactions", func(t *testing.T) {
+		inProgressTx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
+		unconfirmedTx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 124, fromAddress)
+		unstartedTx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
+
+		txes, err := txStore.GetNonFinalizedTransactions(testutils.Context(t))
+		require.NoError(t, err)
+
+		for _, tx := range txes {
+			require.True(t,
+				tx.ID == inProgressTx.ID ||
+					tx.ID == unconfirmedTx.ID ||
+					tx.ID == unstartedTx.ID)
+		}
+	})
+}
+
 func TestORM_HasInProgressTransaction(t *testing.T) {
 	t.Parallel()
 

@@ -649,6 +649,32 @@ func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address commo
 	return r0, r1
 }
 
+// GetNonFinalizedTransactions provides a mock function with given fields: ctx
+func (_m *EvmTxStore) GetNonFinalizedTransactions(ctx context.Context) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx)
+
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetTxInProgress provides a mock function with given fields: ctx, fromAddress
 func (_m *EvmTxStore) GetTxInProgress(ctx context.Context, fromAddress common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, fromAddress)
