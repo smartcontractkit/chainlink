@@ -56,7 +56,7 @@ jobs:
       CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
       SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
       REF_NAME: ${{ github.head_ref || github.ref_name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-8cores-32GB
     steps:
       - name: Get Inputs
         run: |
