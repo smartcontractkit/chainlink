@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -22,7 +21,7 @@ import (
 // What is more, LogPoller should not be aware of the underlying database implementation and delegate all the queries to the ORM.
 type ORM interface {
 	InsertLogs(logs []Log, qopts ...pg.QOpt) error
-	InsertLogsWithBlock(logs []types.Log, block LogPollerBlock, qopts ...pg.QOpt) error
+	InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error
 	InsertFilter(filter Filter, qopts ...pg.QOpt) error
 
 	LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error)
@@ -699,7 +698,7 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topic
 	return logs, nil
 }
 
-func (o *DbORM) InsertLogsWithBlock(logs []types.Log, block LogPollerBlock, qopts ...pg.QOpt) error {
+func (o *DbORM) InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error {
 	// Optimization, don't open TX when there is only block to be persisted
 	if len(logs) == 0 {
 		return o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, qopts...)
@@ -709,17 +708,7 @@ func (o *DbORM) InsertLogsWithBlock(logs []types.Log, block LogPollerBlock, qopt
 		if err := o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
-		if len(logs) == 0 {
-			return nil
-		}
-		return o.InsertLogs(
-			convertLogs(
-				logs,
-				[]LogPollerBlock{block},
-				logger.NullLogger,
-				o.chainID,
-			),
-			pg.WithQueryer(tx))
+		return o.InsertLogs(logs, pg.WithQueryer(tx))
 	})
 }
 
