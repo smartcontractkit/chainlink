@@ -96,6 +96,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
+        if: needs.changes.outputs.src == 'true'
         uses: ./.github/actions/build-chainlink-image
         with: 
           tag_suffix: ${{ matrix.image.tag-suffix }}
