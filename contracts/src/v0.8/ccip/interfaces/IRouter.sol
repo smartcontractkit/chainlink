@@ -15,10 +15,11 @@ interface IRouter {
   /// the contract is called. If not, only tokens are transferred.
   /// @return success A boolean value indicating whether the ccip message was received without errors.
   /// @return retBytes A bytes array containing return data form CCIP receiver.
+  /// @return gasUsed the gas used by the external customer call. Does not include any overhead.
   function routeMessage(
     Client.Any2EVMMessage calldata message,
     uint16 gasForCallExactCheck,
     uint256 gasLimit,
     address receiver
-  ) external returns (bool success, bytes memory retBytes);
+  ) external returns (bool success, bytes memory retBytes, uint256 gasUsed);
 }

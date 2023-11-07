@@ -11,8 +11,8 @@ import {IAny2EVMMessageReceiver} from "./interfaces/IAny2EVMMessageReceiver.sol"
 
 import {Client} from "./libraries/Client.sol";
 import {Internal} from "./libraries/Internal.sol";
-import {CallWithExactGas} from "./libraries/CallWithExactGas.sol";
-import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
+import {CallWithExactGas} from "../shared/call/CallWithExactGas.sol";
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
 import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -156,7 +156,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     uint16 gasForCallExactCheck,
     uint256 gasLimit,
     address receiver
-  ) external override whenHealthy returns (bool success, bytes memory retData) {
+  ) external override whenHealthy returns (bool success, bytes memory retData, uint256 gasUsed) {
     // We only permit offRamps to call this function.
     if (!isOffRamp(message.sourceChainSelector, msg.sender)) revert OnlyOffRamp();
 
@@ -164,16 +164,16 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     // can be called from the router.
     bytes memory data = abi.encodeWithSelector(IAny2EVMMessageReceiver.ccipReceive.selector, message);
 
-    (success, retData) = CallWithExactGas._callWithExactGas(
+    (success, retData, gasUsed) = CallWithExactGas._callWithExactGasSafeReturnData(
       data,
       receiver,
       gasLimit,
-      Internal.MAX_RET_BYTES,
-      gasForCallExactCheck
+      gasForCallExactCheck,
+      Internal.MAX_RET_BYTES
     );
 
     emit MessageExecuted(message.messageId, message.sourceChainSelector, msg.sender, keccak256(data));
-    return (success, retData);
+    return (success, retData, gasUsed);
   }
 
   // @notice Merges a chain selector and offRamp address into a single uint256 by shifting the
