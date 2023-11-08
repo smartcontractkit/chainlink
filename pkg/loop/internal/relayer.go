@@ -447,3 +447,15 @@ func healthReport(s map[string]string) (hr map[string]error) {
 	}
 	return hr
 }
+
+// RegisterStandAloneMedianProvider register the servers needed for a median plugin provider,
+// this is a workaround to test the Node API on EVM until the EVM relayer is loopifyed
+func RegisterStandAloneMedianProvider(s *grpc.Server, p types.MedianProvider) {
+	pb.RegisterServiceServer(s, &serviceServer{srv: p})
+	pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: p.OffchainConfigDigester()})
+	pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: p.ContractConfigTracker()})
+	pb.RegisterContractTransmitterServer(s, &contractTransmitterServer{impl: p.ContractTransmitter()})
+	pb.RegisterReportCodecServer(s, &reportCodecServer{impl: p.ReportCodec()})
+	pb.RegisterMedianContractServer(s, &medianContractServer{impl: p.MedianContract()})
+	pb.RegisterOnchainConfigCodecServer(s, &onchainConfigCodecServer{impl: p.OnchainConfigCodec()})
+}
