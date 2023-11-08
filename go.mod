@@ -392,8 +392,8 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
-	github.com/smartcontractkit/chainlink-cosmos => github.com/smartcontractkit/chainlink-cosmos v0.0.0-20231018003459-2fa437214ddb
+	github.com/smartcontractkit/chainlink-cosmos => github.com/smartcontractkit/chainlink-cosmos v0.0.0-20231102020720-36bfe1e78327
 	github.com/smartcontractkit/chainlink-relay => github.com/smartcontractkit/chainlink-relay v0.0.0-20231107215547-ee2e975fb9d9
-	github.com/smartcontractkit/chainlink-solana => github.com/smartcontractkit/chainlink-solana v0.0.0-20231018005728-a71a9ad18cc9
-	github.com/smartcontractkit/chainlink-starknet/relayer => github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20231018010624-0802db9a01a7
+	github.com/smartcontractkit/chainlink-solana => github.com/smartcontractkit/chainlink-solana v0.0.0-20231101173529-89dcfddba1e5
+	github.com/smartcontractkit/chainlink-starknet/relayer => github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20231102015854-0056a86b5f79
 )
