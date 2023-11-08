@@ -64,7 +64,7 @@ func TestUSDCReader_ReadTokenData(t *testing.T) {
 	attestationURI, err := url.ParseRequestURI(ts.URL)
 	require.NoError(t, err)
 
-	usdcService := usdc.NewUSDCTokenDataReader(lggr, &usdcReader, attestationURI)
+	usdcService := usdc.NewUSDCTokenDataReader(lggr, &usdcReader, attestationURI, 0)
 	msgAndAttestation, err := usdcService.ReadTokenData(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 		EVM2EVMMessage: internal.EVM2EVMMessage{
 			SequenceNumber: seqNum,
