@@ -17,7 +17,7 @@ func ParseDietCBOR(b []byte) (map[string]interface{}, error) {
 	b = autoAddMapDelimiters(b)
 
 	var m map[interface{}]interface{}
-	if err := cbor.Unmarshal(b, &m); err != nil {
+	if _, err := cbor.UnmarshalFirst(b, &m); err != nil {
 		return nil, err
 	}
 
@@ -38,7 +38,8 @@ func ParseDietCBOR(b []byte) (map[string]interface{}, error) {
 // "top-level map" requirement of "diet" CBOR.
 func ParseDietCBORToStruct(b []byte, v interface{}) error {
 	b = autoAddMapDelimiters(b)
-	return cbor.Unmarshal(b, v)
+	_, err := cbor.UnmarshalFirst(b, v)
+	return err
 }
 
 // ParseStandardCBOR parses CBOR in "standards compliant" mode.
@@ -49,7 +50,7 @@ func ParseStandardCBOR(b []byte) (a interface{}, err error) {
 	if len(b) == 0 {
 		return nil, nil
 	}
-	if err = cbor.Unmarshal(b, &a); err != nil {
+	if _, err = cbor.UnmarshalFirst(b, &a); err != nil {
 		return nil, err
 	}
 	return
