@@ -596,7 +596,8 @@ func (d *Delegate) newServicesGenericPlugin(
 		providerClientConn = providerConn.ClientConn()
 	} else {
 		d.lggr.Info("provider is not a LOOPP provider, switching to provider server")
-		ps, err := NewProviderServer(provider, d.lggr)
+
+		ps, err := NewProviderServer(provider, types.OCR2PluginType(cconf.ProviderType), d.lggr)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("cannot start EVM provider server: %s", err))
 		}

@@ -65,7 +65,7 @@ func (p *ProviderServer) GetConn() (*grpc.ClientConn, error) {
 }
 
 // NewProviderServer creates a GRPC server that will wrap a provider, this is a workaround to test the Node API PoC until the EVM relayer is loopifyed
-func NewProviderServer(p types.PluginProvider, lggr logger.Logger) (*ProviderServer, error) {
+func NewProviderServer(p types.PluginProvider, pType types.OCR2PluginType, lggr logger.Logger) (*ProviderServer, error) {
 	lis, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return nil, err
@@ -76,7 +76,10 @@ func NewProviderServer(p types.PluginProvider, lggr logger.Logger) (*ProviderSer
 		lggr:   lggr.Named("EVM.ProviderServer"),
 		doneCh: make(chan any),
 	}
-	loop.RegisterStandAloneProvider(ps.s, p)
+	err = loop.RegisterStandAloneProvider(ps.s, p, pType)
+	if err != nil {
+		return nil, err
+	}
 
 	ps.serve()
 	ps.checkConnectionsLoop()
