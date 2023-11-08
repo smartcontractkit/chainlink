@@ -40,13 +40,13 @@ library ChainSpecificUtil {
 
   // ------------ End Optimism Constants ------------
 
-  /// @notice Returns the L1 fees that will be paid for the current transaction, given any calldata
+  /// @notice Returns the L1 fees in wei that will be paid for the current transaction, given any calldata
   /// @notice for the current transaction.
   /// @notice When on a known Arbitrum chain, it uses ArbGas.getCurrentTxL1GasFees to get the fees.
   /// @notice On Arbitrum, the provided calldata is not used to calculate the fees.
   /// @notice On Optimism, the provided calldata is passed to the OVM_GasPriceOracle predeploy
   /// @notice and getL1Fee is called to get the fees.
-  function _getCurrentTxL1GasFees(bytes memory txCallData) internal view returns (uint256) {
+  function _getCurrentTxL1GasFees(bytes memory txCallData) internal view returns (uint256 l1FeeWei) {
     uint256 chainid = block.chainid;
     if (_isArbitrumChainId(chainid)) {
       return ARBGAS.getCurrentTxL1GasFees();
