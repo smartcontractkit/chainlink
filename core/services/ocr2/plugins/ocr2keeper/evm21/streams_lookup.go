@@ -150,13 +150,13 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 
 	var wg sync.WaitGroup
 
-	wg.Add(len(lookups))
-
-	r.threadCtrl.Go(func(ctx context.Context) {
-		for i, lookup := range lookups {
-			r.doLookup(ctx, &wg, lookup, i, checkResults, lggr)
-		}
-	})
+	for i, lookup := range lookups {
+		idx := i
+		wg.Add(1)
+		r.threadCtrl.Go(func(ctx context.Context) {
+			r.doLookup(ctx, &wg, lookup, idx, checkResults, lggr)
+		})
+	}
 
 	wg.Wait()
 
