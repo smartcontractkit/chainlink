@@ -694,11 +694,12 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topic
 }
 
 func (o *DbORM) InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error {
-	// Optimization, don't open TX when there is only block to be persisted
+	// Optimization, don't open TX when there is only a block to be persisted
 	if len(logs) == 0 {
 		return o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, qopts...)
 	}
 
+	// Block and logs goes with the same TX to ensure atomicity
 	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
 		if err := o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, pg.WithQueryer(tx)); err != nil {
 			return err
