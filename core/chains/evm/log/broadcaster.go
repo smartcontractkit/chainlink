@@ -432,7 +432,17 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 		case rawLog := <-chRawLogs:
 			b.logger.Debugw("Received a log",
 				"blockNumber", rawLog.BlockNumber, "blockHash", rawLog.BlockHash, "address", rawLog.Address)
-			b.onNewLog(rawLog)
+			shouldResubscribe := b.onNewLog(rawLog)
+			if shouldResubscribe {
+				lggr := b.logger
+				// Do we have logs in the pool?
+				// They are are invalid, since we may have missed 'removed' logs.
+				if blockNum := b.invalidatePool(); blockNum > 0 {
+					lggr = lggr.With("blockNumber", blockNum)
+				}
+				lggr.Debugw("Issue processing new log. Backfilling after resubscribing")
+				return true, errors.New("issue processing new log")
+			}
 
 		case <-b.newHeads.Notify():
 			b.onNewHeads()
@@ -519,17 +529,22 @@ func (b *broadcaster) invalidatePool() int64 {
 	return -1
 }
 
-func (b *broadcaster) onNewLog(log types.Log) {
+func (b *broadcaster) onNewLog(log types.Log) (shouldResubscribe bool) {
 	b.maybeWarnOnLargeBlockNumberDifference(int64(log.BlockNumber))
 
 	if log.Removed {
 		// Remove the whole block that contained this log.
 		b.logger.Debugw("Found reverted log", "log", log)
 		b.logPool.removeBlock(log.BlockHash, log.BlockNumber)
-		return
+		// this can happen with buggy RPC's, the only fix is to replay from the block before the reverted log
+		if (log.BlockHash == common.Hash{}) || log.BlockNumber == 0 {
+			b.logger.Errorw("Log with empty block hash or number", "log", log)
+			return true
+		}
+		return false
 	} else if !b.registrations.isAddressRegistered(log.Address) {
 		b.logger.Debugw("Found unregistered address", "address", log.Address)
-		return
+		return false
 	}
 	if b.logPool.addLog(log) {
 		// First or new lowest block number
@@ -540,6 +555,7 @@ func (b *broadcaster) onNewLog(log types.Log) {
 			b.logger.Errorw("Failed to set pending broadcasts number", "blockNumber", log.BlockNumber, "err", err)
 		}
 	}
+	return false
 }
 
 func (b *broadcaster) onNewHeads() {
