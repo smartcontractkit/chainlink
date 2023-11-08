@@ -280,7 +280,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Dialect = dialects.Postgres
 		// evm config is used in this test. but if set, it must be pass config validation.
 		// simplest to make it nil
@@ -359,7 +359,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			// Use the non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
+			config, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Dialect = dialects.Postgres
 				// evm config is used in this test. but if set, it must be pass config validation.
 				// simplest to make it nil
@@ -437,7 +437,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
-			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
+			config, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Dialect = dialects.Postgres
 
 				c.EVM = nil
