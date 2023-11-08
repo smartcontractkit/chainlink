@@ -112,11 +112,12 @@ func (c *Config) OverrideFromEnv() error {
 		if c.General.Generator == GeneratorType_WASP {
 			c.Wasp.Load.Duration = &d
 		} else {
-			// make the looped generator approximately run for desired duration
-			// on average we will emit 1 event per second
-			c.LoopedConfig.FuzzConfig.MinEmitWaitTimeMs = 900
-			c.LoopedConfig.FuzzConfig.MaxEmitWaitTimeMs = 1100
-			c.LoopedConfig.ContractConfig.ExecutionCount = int(d.Duration().Seconds())
+			// this is completely arbitrary and practice shows that even with this values
+			// test executes much longer than specified, probably due to network latency
+			c.LoopedConfig.FuzzConfig.MinEmitWaitTimeMs = 400
+			c.LoopedConfig.FuzzConfig.MaxEmitWaitTimeMs = 600
+			// divide by 4 based on past runs, but we should do it in a better way
+			c.LoopedConfig.ContractConfig.ExecutionCount = int(d.Duration().Seconds() / 4)
 		}
 	}
 
