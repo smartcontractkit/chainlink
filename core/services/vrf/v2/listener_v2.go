@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 var (
@@ -163,6 +164,9 @@ type vrfPipelineResult struct {
 	req           pendingRequest
 	proof         VRFProof
 	reqCommitment RequestCommitment
+
+	blockNumberUsed uint64
+	blockHashUsed   common.Hash
 }
 
 type listenerV2 struct {
@@ -741,8 +745,10 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 				"attempts", p.req.attempts,
 				"remainingBalance", startBalanceNoReserved.String(),
 				"consumerAddress", p.req.req.Sender(),
-				"blockNumber", p.req.req.Raw().BlockNumber,
-				"blockHash", p.req.req.Raw().BlockHash,
+				"reqBlockNumber", p.req.req.Raw().BlockNumber,
+				"reqBlockHash", p.req.req.Raw().BlockHash,
+				"blockNumberUsed", p.blockNumberUsed,
+				"blockHashUsed", p.blockHashUsed,
 			)
 			fromAddresses := lsn.fromAddresses()
 			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
@@ -1426,6 +1432,65 @@ func (lsn *listenerV2) estimateFee(
 	)
 }
 
+func safeSub(a, b uint64) uint64 {
+	if a < b {
+		return 0
+	}
+	return a - b
+}
+
+func (lsn *listenerV2) checkReqBlockHashAndBlockNumber(lggr logger.Logger, req pendingRequest) (blockHash common.Hash, blockNumber uint64, err error) {
+	blockNumber = req.req.Raw().BlockNumber
+	blockHash = req.req.Raw().BlockHash
+	// TODO: should we batch these for all pending requests?
+	logs, err := lsn.chain.Client().FilterLogs(context.Background(), ethereum.FilterQuery{
+		// TODO: is a 100 block window should be more than enough to handle deep re-orgs?
+		FromBlock: new(big.Int).SetUint64(safeSub(req.req.Raw().BlockNumber, 100)),
+		ToBlock:   new(big.Int).SetUint64(mathutil.Min(lsn.getLatestHead(), req.req.Raw().BlockNumber+100)),
+		Addresses: []common.Address{lsn.coordinator.Address()},
+		Topics: [][]common.Hash{
+			req.req.Raw().Topics,
+		},
+	})
+	if err != nil {
+		// if there is indeed a mismatch it'll eventually be retried and should eventually succeed
+		return common.Hash{}, 0, errors.Wrap(err, "fetching logs")
+	}
+	if len(logs) > 1 {
+		// should be impossible
+		return common.Hash{}, 0, errors.Errorf("more than one log found for request ID %s", req.req.RequestID().String())
+	}
+	if len(logs) == 0 {
+		return common.Hash{}, 0, errors.Errorf("no logs found for request ID %s", req.req.RequestID().String())
+	}
+	// at this point len(logs) must equal 1
+	lg := logs[0]
+	if lg.BlockNumber != blockNumber {
+		// new block number is possible if a re-org occurs and the request lands in a different block
+		// than the one it was originally mined in.
+		// TODO: only prefer log block number and block hash if the pending request has had many attempts?
+		lggr.Warnw("block number mismatch for request ID, preferring log block number",
+			"reqID", req.req.RequestID().String(),
+			"logBlockNumber", lg.BlockNumber,
+			"reqBlockNumber", blockNumber,
+			"logBlockHash", lg.BlockHash,
+			"reqBlockHash", blockHash)
+		return lg.BlockHash, lg.BlockNumber, nil
+	}
+	if lg.BlockHash != blockHash {
+		// new block hash is possible if a re-org occurs and the request lands in the same block
+		// TODO: only prefer log block number and block hash if the pending request has had many attempts?
+		lggr.Warnw("block hash mismatch for request ID, preferring log block hash",
+			"reqID", req.req.RequestID().String(),
+			"logBlockNumber", lg.BlockNumber,
+			"reqBlockNumber", blockNumber,
+			"logBlockHash", lg.BlockHash,
+			"reqBlockHash", blockHash)
+		return lg.BlockHash, lg.BlockNumber, nil
+	}
+	return blockHash, blockNumber, nil
+}
+
 // Here we use the pipeline to parse the log, generate a vrf response
 // then simulate the transaction at the max gas price to determine its maximum link cost.
 func (lsn *listenerV2) simulateFulfillment(
@@ -1448,6 +1513,25 @@ func (lsn *listenerV2) simulateFulfillment(
 		res.fundsNeeded = big.NewInt(0)
 	}
 
+	// default to the request's block hash and number, but if we have a more recent log
+	// use that instead.
+	// on re-orgs, other things may change, like the log index and transaction index,
+	// but those do not affect the vrf proof generation.
+	var (
+		reqBlockHash   = req.req.Raw().BlockHash
+		reqBlockNumber = req.req.Raw().BlockNumber
+	)
+	newBlockHash, newBlockNum, err := lsn.checkReqBlockHashAndBlockNumber(lg, req)
+	if err != nil {
+		// not critical, just log and continue
+		lg.Warnw("unable to check request block hash and number, continuing anyway",
+			"reqID", req.req.RequestID(),
+			"err", err)
+	} else {
+		reqBlockHash = newBlockHash
+		reqBlockNumber = newBlockNum
+	}
+
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"databaseID":    lsn.job.ID,
@@ -1458,13 +1542,16 @@ func (lsn *listenerV2) simulateFulfillment(
 			"evmChainID":    lsn.job.VRFSpec.EVMChainID.String(),
 		},
 		"jobRun": map[string]interface{}{
-			"logBlockHash":   req.req.Raw().BlockHash.Bytes(),
-			"logBlockNumber": req.req.Raw().BlockNumber,
+			"logBlockHash":   reqBlockHash.Bytes(),
+			"logBlockNumber": reqBlockNumber,
 			"logTxHash":      req.req.Raw().TxHash,
 			"logTopics":      req.req.Raw().Topics,
 			"logData":        req.req.Raw().Data,
 		},
 	})
+	res.blockNumberUsed = reqBlockNumber
+	res.blockHashUsed = reqBlockHash
+
 	var trrs pipeline.TaskRunResults
 	res.run, trrs, err = lsn.pipelineRunner.ExecuteRun(ctx, *lsn.job.PipelineSpec, vars, lg)
 	if err != nil {
