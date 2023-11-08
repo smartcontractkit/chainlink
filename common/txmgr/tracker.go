@@ -80,6 +80,9 @@ func NewTracker[
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetEnabledAddresses(enabledAddrs []ADDR) {
+	if len(enabledAddrs) == 0 {
+		tr.lggr.Warnf("enabled address list is empty")
+	}
 	for _, addr := range enabledAddrs {
 		tr.enabledAddrs[addr] = true
 	}
@@ -88,7 +91,6 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetEnabledA
 // TrackAbandonedTxes called once to find and inserts all abandoned txes into the tracker
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) TrackAbandonedTxes(ctx context.Context) error {
 	if len(tr.enabledAddrs) == 0 {
-		tr.lggr.Errorw("enabledAddresses not set to track abandoned txes")
 		return errors.New("enabledAddresses not set")
 	}
 

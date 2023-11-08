@@ -208,9 +208,9 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sta
 	}
 
 	ec.tracker.SetEnabledAddresses(ec.enabledAddresses)
-	err = ec.tracker.TrackAbandonedTxes(ec.ctx)
+	err = ec.tracker.TrackAbandonedTxes(context.Background())
 	if err != nil {
-		return errors.Wrap(err, "Confirmer: failed to track abandoned transactions")
+		ec.lggr.Warnw("Confirmer: failed to track abandoned transactions", "err", err)
 	}
 
 	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())

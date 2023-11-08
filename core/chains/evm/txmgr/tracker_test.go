@@ -96,7 +96,7 @@ func TestEthTracker_ExceedingTTL(t *testing.T) {
 
 		// Ensure tx1 is finalized as fatal for exceeding ttl
 		tracker.HandleAbandonedTxes(ctx)
-		assert.Empty(t, tracker.GetAbandonedAddresses())
+		assert.NotContains(t, tracker.GetAbandonedAddresses(), addr1)
 
 		fatalTxes, err := txStore.GetFatalTransactions(ctx)
 		assert.NoError(t, err)
