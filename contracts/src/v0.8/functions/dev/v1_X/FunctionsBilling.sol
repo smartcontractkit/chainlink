@@ -125,14 +125,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return uint256(weiPerUnitLink);
   }
 
-  function _getJuelsPerGas(uint256 gasPriceWei) private view returns (uint96) {
-    // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
-    // There are only 1e9*1e18 = 1e27 juels in existence, should not exceed uint96 (2^96 ~ 7e28)
-    return SafeCast.toUint96((1e18 * gasPriceWei) / getWeiPerUnitLink());
-  }
-
   function _getJuelsFromWei(uint256 amountWei) private view returns (uint96) {
     // (1e18 juels/link) * wei / (wei/link) = juels
+    // There are only 1e9*1e18 = 1e27 juels in existence, should not exceed uint96 (2^96 ~ 7e28)
     return SafeCast.toUint96((1e18 * amountWei) / getWeiPerUnitLink());
   }
 
@@ -176,14 +171,12 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     /// @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
 
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
-    uint256 executionWei = gasPriceWithOverestimation * executionGas;
     uint256 l1FeeWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
+    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei((gasPriceWithOverestimation * executionGas) + l1FeeWei);
 
-    uint96 estimatedGasReimbursement = _getJuelsFromWei(executionWei + l1FeeWei);
+    uint96 feesJuels = uint96(donFee) + uint96(adminFee);
 
-    uint96 feesWei = uint96(donFee) + uint96(adminFee);
-
-    return estimatedGasReimbursement + feesWei;
+    return estimatedGasReimbursementJuels + feesJuels;
   }
 
   // ================================================================
@@ -280,7 +273,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     (FunctionsResponse.FulfillResult resultCode, uint96 callbackCostJuels) = _getRouter().fulfill(
       response,
       err,
-      _getJuelsPerGas(tx.gasprice),
+      _getJuelsFromWei(tx.gasprice), // Juels Per Gas conversion rate
       gasOverheadJuels + commitment.donFee, // cost without callback or admin fee, those will be added by the Router
       msg.sender,
       commitment
