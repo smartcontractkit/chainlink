@@ -18,9 +18,9 @@ import {OVM_GasPriceOracle} from "../../../vendor/@eth-optimism/contracts/v0.8.9
 /// @dev where Extra Buffer for L1 cost = (L1 Estimated Cost / L2 Gas Price)
 contract ChainSpecificUtil__getCurrentTxL1GasFees_Arbitrum is FunctionsFulfillmentSetup {
   address private constant ARBGAS_ADDR = address(0x000000000000000000000000000000000000006C);
-  uint256 private constant L1_FEE_WEI = 100;
+  uint256 private constant L1_FEE_WEI = 15_818_209_764_247;
 
-  uint96 l1FeeJuels = uint96(L1_FEE_WEI * (1e18 / uint256(LINK_ETH_RATE)));
+  uint96 l1FeeJuels = uint96((1e18 * L1_FEE_WEI) / uint256(LINK_ETH_RATE));
 
   function setUp() public virtual override {
     vm.mockCall(ARBGAS_ADDR, abi.encodeWithSelector(ArbGasInfo.getCurrentTxL1GasFees.selector), abi.encode(L1_FEE_WEI));
@@ -83,9 +83,9 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Arbitrum is FunctionsFulfillme
 /// @dev where L1 data fee = l1_gas_price * ((count_zero_bytes(tx_data) * 4 + count_non_zero_bytes(tx_data) * 16) + fixed_overhead + noncalldata_gas) * dynamic_overhead
 contract ChainSpecificUtil__getCurrentTxL1GasFees_Optimism is FunctionsFulfillmentSetup {
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
-  uint256 private constant L1_FEE_WEI = 300000000;
+  uint256 private constant L1_FEE_WEI = 15_818_209_764_247;
 
-  uint96 l1FeeJuels = uint96(L1_FEE_WEI * (1e18 / uint256(LINK_ETH_RATE)));
+  uint96 l1FeeJuels = uint96((1e18 * L1_FEE_WEI) / uint256(LINK_ETH_RATE));
 
   function setUp() public virtual override {
     vm.mockCall(
@@ -152,9 +152,9 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Optimism is FunctionsFulfillme
 /// @dev where L1 data fee = l1_gas_price * ((count_zero_bytes(tx_data) * 4 + count_non_zero_bytes(tx_data) * 16) + fixed_overhead + noncalldata_gas) * dynamic_overhead
 contract ChainSpecificUtil__getCurrentTxL1GasFees_Base is FunctionsFulfillmentSetup {
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
-  uint256 private constant L1_FEE_WEI = 300000000;
+  uint256 private constant L1_FEE_WEI = 15_818_209_764_247;
 
-  uint96 l1FeeJuels = uint96(L1_FEE_WEI * (1e18 / uint256(LINK_ETH_RATE)));
+  uint96 l1FeeJuels = uint96((1e18 * L1_FEE_WEI) / uint256(LINK_ETH_RATE));
 
   function setUp() public virtual override {
     vm.mockCall(
