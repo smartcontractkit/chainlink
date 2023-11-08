@@ -18,7 +18,7 @@
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "pnpm publish --tag beta",
     "publish-prod": "npm dist-tag add @chainlink/contracts@0.8.0 latest",
-    "solhint": "solhint --max-warnings 350 \"./src/v0.8/**/*.sol\""
+    "solhint": "solhint --max-warnings 344 \"./src/v0.8/**/*.sol\""
   },
   "files": [
     "src/v0.8",
@@ -75,8 +75,8 @@
     "prettier-plugin-solidity": "1.1.3",
     "rlp": "^2.2.7",
     "solhint": "^3.6.2",
-    "solhint-plugin-chainlink-solidity": "git+https://github.com/smartcontractkit/chainlink-solhint-rules.git",
-    "solhint-plugin-prettier": "^0.0.5",
+    "solhint-plugin-chainlink-solidity": "git+https://github.com/smartcontractkit/chainlink-solhint-rules.git#v1.0.1",
+    "solhint-plugin-prettier": "^0.1.0",
     "solidity-coverage": "^0.8.5",
     "ts-node": "^10.9.1",
     "tslib": "^2.6.2",
