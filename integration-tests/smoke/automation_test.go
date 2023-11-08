@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -329,7 +328,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	for i := 0; i < len(upkeepIDs); i++ {
 		// Obtain the amount of times the upkeep has been executed so far
-		countersAfterSetNoMatch[i], err = consumers[i].Counter(utils.TestContext(t)))
+		countersAfterSetNoMatch[i], err = consumers[i].Counter(utils.TestContext(t))
 		require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 		l.Info().Int64("Upkeep Count", countersAfterSetNoMatch[i].Int64()).Int("Upkeep Index", i).Msg("Upkeep")
 	}
@@ -1033,11 +1032,11 @@ func setupAutomationTestDocker(
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
 	syncInterval := models.MustMakeDuration(5 * time.Minute)
-	clNodeConfig.Feature.LogPoller = it_utils.Ptr[bool](true)
-	clNodeConfig.OCR2.Enabled = it_utils.Ptr[bool](true)
-	clNodeConfig.Keeper.TurnLookBack = it_utils.Ptr[int64](int64(0))
+	clNodeConfig.Feature.LogPoller = utils.Ptr[bool](true)
+	clNodeConfig.OCR2.Enabled = utils.Ptr[bool](true)
+	clNodeConfig.Keeper.TurnLookBack = utils.Ptr[int64](int64(0))
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
-	clNodeConfig.Keeper.Registry.PerformGasOverhead = it_utils.Ptr[uint32](uint32(150000))
+	clNodeConfig.Keeper.Registry.PerformGasOverhead = utils.Ptr[uint32](uint32(150000))
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 

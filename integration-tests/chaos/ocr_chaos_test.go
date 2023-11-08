@@ -22,11 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
-	it_utils "github.com/smartcontract/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -195,7 +195,7 @@ func TestOCRChaos(t *testing.T) {
 					err := ocr.RequestNewRound()
 					require.NoError(t, err, "Error requesting new round")
 				}
-				round, err := ocrInstances[0].GetLatestRound(it_utils.Context(t))
+				round, err := ocrInstances[0].GetLatestRound(it_utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				l.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
 				if round.RoundId.Int64() == chaosStartRound && !chaosApplied {
