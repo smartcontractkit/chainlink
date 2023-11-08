@@ -66,11 +66,11 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// @return needsFunding list of underfunded upkeepIDs
   /// @return registryAddresses list of registries that the upkeepIDs belong to
   /// @return topUpAmounts amount to top up each upkeep
-  function getUnderfundedUpkeeps() public view returns (uint256[] memory, address[] memory, uint256[] memory) {
+  function getUnderfundedUpkeeps() public view returns (uint256[] memory, address[] memory, uint96[] memory) {
     Config memory config = s_config;
     uint256[] memory needsFunding = new uint256[](config.maxBatchSize);
     address[] memory registryAddresses = new address[](config.maxBatchSize);
-    uint256[] memory topUpAmounts = new uint256[](config.maxBatchSize);
+    uint96[] memory topUpAmounts = new uint96[](config.maxBatchSize);
     uint256 availableFunds = LINK_TOKEN.balanceOf(address(this));
     uint256 count;
     for (uint256 i = 0; i < s_registries.length(); i++) {
@@ -78,9 +78,9 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
       for (uint256 j = 0; j < s_registryWatchLists[address(registry)].length; j++) {
         uint256 upkeepID = s_registryWatchLists[address(registry)][j];
         uint96 upkeepBalance = registry.getBalance(upkeepID);
-        uint256 minBalance = uint256(registry.getMinBalance(upkeepID));
-        uint256 topUpThreshold = (minBalance * config.minPercentage) / 100;
-        uint256 topUpAmount = ((minBalance * config.targetPercentage) / 100) - upkeepBalance;
+        uint96 minBalance = registry.getMinBalance(upkeepID);
+        uint96 topUpThreshold = (minBalance * config.minPercentage) / 100;
+        uint96 topUpAmount = ((minBalance * config.targetPercentage) / 100) - upkeepBalance;
         if (topUpAmount > config.maxTopUpAmount) {
           topUpAmount = config.maxTopUpAmount;
         }
@@ -146,7 +146,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
     (
       uint256[] memory needsFunding,
       address[] memory registryAddresses,
-      uint256[] memory topUpAmounts
+      uint96[] memory topUpAmounts
     ) = getUnderfundedUpkeeps();
     upkeepNeeded = needsFunding.length > 0;
     if (upkeepNeeded) {
