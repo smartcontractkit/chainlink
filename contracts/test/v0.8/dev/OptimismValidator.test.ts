@@ -8,7 +8,7 @@ import { abi as optimismSequencerStatusRecorderAbi } from '../../../artifacts/sr
 // @ts-ignore
 import { abi as optimismL1CrossDomainMessengerAbi } from '@eth-optimism/contracts/artifacts/contracts/L1/messaging/L1CrossDomainMessenger.sol'
 // @ts-ignore
-import { abi as aggregatorAbi } from '../../../artifacts/src/v0.8/interfaces/AggregatorV2V3Interface.sol/AggregatorV2V3Interface.json'
+import { abi as aggregatorAbi } from '../../../artifacts/src/v0.8/shared/interfaces/AggregatorV2V3Interface.sol/AggregatorV2V3Interface.json'
 
 describe('OptimismValidator', () => {
   const GAS_LIMIT = BigNumber.from(1_900_000)
