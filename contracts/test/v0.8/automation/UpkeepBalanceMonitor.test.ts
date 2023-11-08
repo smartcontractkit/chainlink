@@ -1,5 +1,5 @@
 import { ethers } from 'hardhat'
-import chai, { assert, expect } from 'chai'
+import { expect } from 'chai'
 import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { randomAddress } from '../../test-helpers/helpers'
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
@@ -16,6 +16,7 @@ import {
 let owner: SignerWithAddress
 let stranger: SignerWithAddress
 let registry: MockContract
+let registry2: MockContract
 let forwarder: MockContract
 let linkToken: LinkToken
 let upkeepBalanceMonitor: UpkeepBalanceMonitor
@@ -41,6 +42,7 @@ const setup = async () => {
     maxTopUpAmount: ethers.utils.parseEther('100'),
   })
   registry = await deployMockContract(owner, RegistryFactory.abi)
+  registry2 = await deployMockContract(owner, RegistryFactory.abi)
   forwarder = await deployMockContract(owner, ForwarderFactory.abi)
   await forwarder.mock.getRegistry.returns(registry.address)
   await upkeepBalanceMonitor.setForwarder(forwarder.address)
@@ -49,10 +51,17 @@ const setup = async () => {
     .transfer(upkeepBalanceMonitor.address, ethers.utils.parseEther('10000'))
   await upkeepBalanceMonitor
     .connect(owner)
-    .setWatchList([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  for (let i = 0; i < 12; i++) {
+    .setWatchList(registry.address, [0, 1, 2, 3, 4, 5, 6, 7, 8])
+  await upkeepBalanceMonitor
+    .connect(owner)
+    .setWatchList(registry2.address, [9, 10, 11])
+  for (let i = 0; i < 9; i++) {
     await registry.mock.getMinBalance.withArgs(i).returns(100)
     await registry.mock.getBalance.withArgs(i).returns(121) // all upkeeps are sufficiently funded
+  }
+  for (let i = 9; i < 12; i++) {
+    await registry2.mock.getMinBalance.withArgs(i).returns(100)
+    await registry2.mock.getBalance.withArgs(i).returns(121) // all upkeeps are sufficiently funded
   }
 }
 
@@ -133,21 +142,29 @@ describe('UpkeepBalanceMonitor', () => {
     ]
 
     it('should add addresses to the watchlist', async () => {
-      await upkeepBalanceMonitor.connect(owner).setWatchList(newWatchList)
-      const watchList = await upkeepBalanceMonitor.getWatchList()
-      expect(watchList).to.deep.equal(newWatchList)
+      await upkeepBalanceMonitor
+        .connect(owner)
+        .setWatchList(registry.address, newWatchList)
+      const [_, upkeepIDs] = await upkeepBalanceMonitor.getWatchList()
+      expect(upkeepIDs[0]).to.deep.equal(newWatchList)
     })
 
     it('cannot be called by a non-owner', async () => {
       await expect(
-        upkeepBalanceMonitor.connect(stranger).setWatchList([1, 2, 3]),
+        upkeepBalanceMonitor
+          .connect(stranger)
+          .setWatchList(registry.address, [1, 2, 3]),
       ).to.be.revertedWith('Only callable by owner')
     })
 
     it('should emit an event', async () => {
       await expect(
-        upkeepBalanceMonitor.connect(owner).setWatchList(newWatchList),
-      ).to.emit(upkeepBalanceMonitor, 'WatchListSet')
+        upkeepBalanceMonitor
+          .connect(owner)
+          .setWatchList(registry.address, newWatchList),
+      )
+        .to.emit(upkeepBalanceMonitor, 'WatchListSet')
+        .withArgs(registry.address)
     })
   })
 
@@ -204,9 +221,10 @@ describe('UpkeepBalanceMonitor', () => {
 
   describe('checkUpkeep() / getUnderfundedUpkeeps()', () => {
     it('should find the underfunded upkeeps', async () => {
-      let [upkeepIDs, topUpAmounts] =
+      let [upkeepIDs, registries, topUpAmounts] =
         await upkeepBalanceMonitor.getUnderfundedUpkeeps()
       expect(upkeepIDs.length).to.equal(0)
+      expect(registries.length).to.equal(0)
       expect(topUpAmounts.length).to.equal(0)
       let [upkeepNeeded, performData] =
         await upkeepBalanceMonitor.checkUpkeep('0x')
@@ -216,9 +234,14 @@ describe('UpkeepBalanceMonitor', () => {
       await registry.mock.getBalance.withArgs(2).returns(120)
       await registry.mock.getBalance.withArgs(4).returns(15)
       await registry.mock.getBalance.withArgs(5).returns(0)
-      ;[upkeepIDs, topUpAmounts] =
+      ;[upkeepIDs, registries, topUpAmounts] =
         await upkeepBalanceMonitor.getUnderfundedUpkeeps()
       expect(upkeepIDs.map((v) => v.toNumber())).to.deep.equal([2, 4, 5])
+      expect(registries).to.deep.equal([
+        registry.address,
+        registry.address,
+        registry.address,
+      ])
       expect(topUpAmounts.map((v) => v.toNumber())).to.deep.equal([
         180, 285, 300,
       ])
@@ -227,37 +250,49 @@ describe('UpkeepBalanceMonitor', () => {
       expect(upkeepNeeded).to.be.true
       expect(performData).to.equal(
         ethers.utils.defaultAbiCoder.encode(
-          ['uint256[]', 'uint256[]'],
+          ['uint256[]', 'address[]', 'uint256[]'],
           [
             [2, 4, 5],
+            [registry.address, registry.address, registry.address],
             [180, 285, 300],
           ],
         ),
       )
       // update all to need funding
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 9; i++) {
         await registry.mock.getBalance.withArgs(i).returns(0)
       }
+      for (let i = 9; i < 12; i++) {
+        await registry2.mock.getBalance.withArgs(i).returns(0)
+      }
       // only the max batch size are included in the list
-      ;[upkeepIDs, topUpAmounts] =
+      ;[upkeepIDs, registries, topUpAmounts] =
         await upkeepBalanceMonitor.getUnderfundedUpkeeps()
       expect(upkeepIDs.length).to.equal(10)
       expect(topUpAmounts.length).to.equal(10)
       expect(upkeepIDs.map((v) => v.toNumber())).to.deep.equal([
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-      ]) // 0-9
+      ])
+      expect(registries).to.deep.equal([
+        ...Array(9).fill(registry.address),
+        registry2.address,
+      ])
       expect(topUpAmounts.map((v) => v.toNumber())).to.deep.equal([
         ...Array(10).fill(300),
       ])
       // update the balance for some upkeeps
       await registry.mock.getBalance.withArgs(0).returns(300)
       await registry.mock.getBalance.withArgs(5).returns(300)
-      ;[upkeepIDs, topUpAmounts] =
+      ;[upkeepIDs, registries, topUpAmounts] =
         await upkeepBalanceMonitor.getUnderfundedUpkeeps()
       expect(upkeepIDs.length).to.equal(10)
       expect(topUpAmounts.length).to.equal(10)
       expect(upkeepIDs.map((v) => v.toNumber())).to.deep.equal([
         1, 2, 3, 4, 6, 7, 8, 9, 10, 11,
+      ])
+      expect(registries).to.deep.equal([
+        ...Array(7).fill(registry.address),
+        ...Array(3).fill(registry2.address),
       ])
       expect(topUpAmounts.map((v) => v.toNumber())).to.deep.equal([
         ...Array(10).fill(300),
@@ -285,7 +320,7 @@ describe('UpkeepBalanceMonitor', () => {
 
     it('cannot be called by a non-owner', async () => {
       await expect(
-        upkeepBalanceMonitor.connect(stranger).topUp([], []),
+        upkeepBalanceMonitor.connect(stranger).topUp([], [], []),
       ).to.be.revertedWith('OnlyForwarderOrOwner()')
     })
 
@@ -293,7 +328,7 @@ describe('UpkeepBalanceMonitor', () => {
       const initialBalance = await linkToken.balanceOf(registry.address)
       const tx = await upkeepBalanceMonitor
         .connect(owner)
-        .topUp([1, 7], [100, 50])
+        .topUp([1, 7], [registry.address, registry.address], [100, 50])
       const finalBalance = await linkToken.balanceOf(registry.address)
       expect(finalBalance).to.equal(initialBalance.add(150))
       await expect(tx)
@@ -308,7 +343,11 @@ describe('UpkeepBalanceMonitor', () => {
       const initialBalance = await linkToken.balanceOf(registry.address)
       const tx = await upkeepBalanceMonitor
         .connect(owner)
-        .topUp([1, 7, 100], [100, 50, 100])
+        .topUp(
+          [1, 7, 100],
+          [registry.address, registry.address, registry.address],
+          [100, 50, 100],
+        )
       const finalBalance = await linkToken.balanceOf(registry.address)
       expect(finalBalance).to.equal(initialBalance.add(150))
       await expect(tx)
