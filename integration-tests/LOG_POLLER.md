@@ -23,7 +23,7 @@ Different tests might have slightly modified scenarios, but generally they follo
 * make sure all CL nodes have filters registered
 * emit test logs
 * wait for log poller to finalise last block in which logs were emitted
-** block number is determined by finality tag or fixed finality depth depending on network configuration
+** block number is determined either by finality tag or fixed finality depth depending on network configuration
 * wait for all CL nodes to have expected log count
 * compare logs that present in the EVM node with logs in CL nodes
 
@@ -155,3 +155,9 @@ go test -v -test.timeout=2700s -run TestLogPollerReplay integration-tests/smoke/
 ```
 
 Remember to adjust test timeout accordingly to match expected duration.
+
+
+## Github Actions
+If all of that seems too complicated use this [on-demand workflow](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-log-poller.yml).
+
+Execution time here is an approximation, so depending on network conditions it might be slightly longer or shorter.
