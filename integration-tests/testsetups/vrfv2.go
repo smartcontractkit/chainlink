@@ -88,7 +88,8 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 		Msg("Starting VRFV2 Soak Test")
 
 	// set the requests to only run for a certain amount of time
-	testContext, testCancel := context.WithTimeout(utils.TestContext(t), v.Inputs.TestDuration)
+	ctx := utils.TestContext(t)
+	testContext, testCancel := context.WithTimeout(ctx, v.Inputs.TestDuration)
 	defer testCancel()
 
 	v.NumberOfRandRequests = 0
@@ -127,7 +128,7 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 	//todo - need to find better way for this
 	time.Sleep(1 * time.Minute)
 
-	loadTestMetrics, err := v.Inputs.ConsumerContract.GetLoadTestMetrics(utils.TestContext(t))
+	loadTestMetrics, err := v.Inputs.ConsumerContract.GetLoadTestMetrics(ctx)
 	if err != nil {
 		l.Error().Err(err).Msg("Error Occurred when getting Load Test Metrics from Consumer contract")
 	}
