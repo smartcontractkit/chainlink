@@ -61,9 +61,17 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 			expErr: false,
 		},
 		{
-			name: "unexpected output type",
+			name: "different compatible type",
 			outputChangeFn: func(outputs []rpclib.DataAndErr) []rpclib.DataAndErr {
-				outputs[0].Outputs = []any{utils.RandomAddress().String()}
+				outputs[0].Outputs = []any{outputs[0].Outputs[0].(common.Address).String()}
+				return outputs
+			},
+			expErr: false,
+		},
+		{
+			name: "different incompatible type",
+			outputChangeFn: func(outputs []rpclib.DataAndErr) []rpclib.DataAndErr {
+				outputs[0].Outputs = []any{outputs[0].Outputs[0].(common.Address).Bytes()}
 				return outputs
 			},
 			expErr: true,

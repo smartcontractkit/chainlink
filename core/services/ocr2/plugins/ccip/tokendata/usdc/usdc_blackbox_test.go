@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/usdc"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -55,7 +55,7 @@ func TestUSDCReader_ReadTokenData(t *testing.T) {
 	txHash := utils.RandomBytes32()
 	logIndex := int64(4)
 
-	usdcReader := ccipdata.MockUSDCReader{}
+	usdcReader := ccipdatamocks.USDCReader{}
 	usdcReader.On("GetLastUSDCMessagePriorToLogIndexInTx",
 		mock.Anything,
 		logIndex,

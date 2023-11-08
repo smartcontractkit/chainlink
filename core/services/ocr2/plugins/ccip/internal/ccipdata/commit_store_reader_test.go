@@ -175,7 +175,7 @@ func TestCommitOnchainConfig(t *testing.T) {
 func TestCommitStoreReaders(t *testing.T) {
 	user, ec := newSim(t)
 	lggr := logger.TestLogger(t)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr, pgtest.NewQConfig(true)), ec, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr, pgtest.NewQConfig(true)), ec, lggr, 100*time.Millisecond, false, 2, 3, 2, 1000)
 
 	// Deploy 2 commit store versions
 	onramp1 := utils.RandomAddress()
@@ -307,6 +307,12 @@ func TestCommitStoreReaders(t *testing.T) {
 	for v, cr := range crs {
 		cr := cr
 		t.Run("CommitStoreReader "+v, func(t *testing.T) {
+
+			// Static config.
+			cfg, err := cr.GetCommitStoreStaticConfig(context.Background())
+			require.NoError(t, err)
+			require.NotNil(t, cfg)
+
 			// Assert encoding
 			b, err := cr.EncodeCommitReport(rep)
 			require.NoError(t, err)
@@ -367,6 +373,7 @@ func TestCommitStoreReaders(t *testing.T) {
 			gp, err := cr.GasPriceEstimator().GetGasPrice(context.Background())
 			require.NoError(t, err)
 			assert.Equal(t, expectedGas[v], cr.GasPriceEstimator().String(gp))
+
 		})
 	}
 }

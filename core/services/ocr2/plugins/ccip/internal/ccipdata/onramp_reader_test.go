@@ -38,7 +38,7 @@ func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
 		common.Address{},
 		lp,
 		bc,
-		true)
+	)
 	assert.EqualError(t, err, "expected 'EVM2EVMOnRamp' got '' (no contract code at given address)")
 }
 
@@ -78,7 +78,7 @@ func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
 		orm,
 		bc,
 		log,
-		100*time.Millisecond, 2, 3, 2, 1000)
+		100*time.Millisecond, false, 2, 3, 2, 1000)
 
 	// Setup onRamp.
 	var onRampAddress common.Address
@@ -94,7 +94,7 @@ func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
 	}
 
 	// Create the version-specific reader.
-	reader, err := ccipdata.NewOnRampReader(log, testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), onRampAddress, lp, bc, false)
+	reader, err := ccipdata.NewOnRampReader(log, testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), onRampAddress, lp, bc)
 	require.NoError(t, err)
 
 	return onRampReaderTH{
@@ -339,4 +339,13 @@ func testOnRampReader(t *testing.T, th onRampReaderTH, expectedRouterAddress com
 	require.NoError(t, err)
 	require.NotNil(t, msg)
 	require.Equal(t, []ccipdata.Event[internal.EVM2EVMMessage]{}, msg)
+
+	address, err := th.reader.Address()
+	require.NoError(t, err)
+	require.NotNil(t, address)
+
+	cfg, err := th.reader.GetDynamicConfig()
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	require.Equal(t, expectedRouterAddress, cfg.Router)
 }
