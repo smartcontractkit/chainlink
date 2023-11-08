@@ -152,9 +152,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 
 	for i, lookup := range lookups {
 		wg.Add(1)
-		r.threadCtrl.Go(func(ctx context.Context) {
-			r.doLookup(ctx, &wg, lookup, i, checkResults, lggr)
-		})
+		go r.doLookup(ctx, &wg, lookup, i, checkResults, lggr)
 	}
 
 	wg.Wait()
