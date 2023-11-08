@@ -21,8 +21,8 @@ func TestLogPollerFromEnv(t *testing.T) {
 				ExecutionCount: 100,
 			},
 			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 800,
-				MaxEmitWaitTimeMs: 1200,
+				MinEmitWaitTimeMs: 400,
+				MaxEmitWaitTimeMs: 600,
 			},
 		},
 	}

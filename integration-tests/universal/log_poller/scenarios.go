@@ -310,7 +310,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 		require.Equal(t, "Replay started", response.Data.Attributes.Message, "Unexpected response message from log poller's replay")
 	}
 
-	l.Warn().Str("Duration", consistencyTimeout).Msg("Waiting for logs to be processed by all nodes and for chain to advance beyond finality")
+	l.Warn().Str("Duration", consistencyTimeout).Msg("Waiting for replay logs to be processed by all nodes")
 
 	gom.Eventually(func(g gomega.Gomega) {
 		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)

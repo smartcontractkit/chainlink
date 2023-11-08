@@ -186,6 +186,8 @@ func (te *CLClusterTestEnv) Cleanup() error {
 		return fmt.Errorf("chainlink nodes are nil, unable cleanup chainlink nodes")
 	}
 
+	te.logWhetherAllContainersAreRunning()
+
 	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
 	// Collect logs if the test fails, or if we just want them
 	if te.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
@@ -213,6 +215,21 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	}
 
 	return nil
+}
+
+func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
+	for _, node := range te.ClCluster.Nodes {
+		isCLRunning := node.Container.IsRunning()
+		isDBRunning := node.PostgresDb.Container.IsRunning()
+
+		if !isCLRunning {
+			te.l.Warn().Str("Node", node.ContainerName).Msg("Chainlink node was not running, when test ended")
+		}
+
+		if !isDBRunning {
+			te.l.Warn().Str("Node", node.ContainerName).Msg("Postgres DB is not running, when test ended")
+		}
+	}
 }
 
 // collectTestLogs collects the logs from all the Chainlink nodes in the test environment and writes them to local files

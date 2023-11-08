@@ -57,11 +57,19 @@ To deploy a full VRF environment on-chain, run:
 
 ```shell
 go run . deploy-universe \
---sending-key-funding-amount 100000000000000000 \
---subscription-balance=10000000000000000000 \
+--subscription-balance=5000000000000000000 \ #5 LINK
 --uncompressed-pub-key=<VRF Uncompressed Public Key> \
---vrf-primary-node-sending-keys="<sending-key1-address,sending-key2-address>" \
---batch-fulfillment-enabled false
+--vrf-primary-node-sending-keys="<sending-key1-address,sending-key2-address>" \ #used to fund the keys and for sample VRF Job Spec generation
+--sending-key-funding-amount 100000000000000000 \ #0.1 ETH, fund addresses specified in vrf-primary-node-sending-keys
+--batch-fulfillment-enabled false \ #only used for sample VRF Job Spec generation
+--register-vrf-key-against-address=<"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments>
+```
+```shell
+go run . deploy-universe \
+--subscription-balance=5000000000000000000 \
+--uncompressed-pub-key="0xf3706e247a7b205c8a8bd25a6e8c4650474da496151371085d45beeead27e568c1a5e8330c7fa718f8a31226efbff6632ed6f8ed470b637aa9be2b948e9dcef6" \
+--batch-fulfillment-enabled false \
+--register-vrf-key-against-address="0x23b5613fc04949F4A53d1cc8d6BCCD21ffc38C11"
 ```
 
 ## Deploying the Consumer Contract
