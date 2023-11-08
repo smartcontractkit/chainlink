@@ -208,21 +208,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 	}
 
-	var enDesc string
-	if b.ethereumNetworkBuilder != nil {
-		enDesc = b.ethereumNetworkBuilder.Describe()
-	} else {
-		enDesc = "none"
-	}
-
-	b.l.Info().
-		Str("privateEthereumNetwork", enDesc).
-		Bool("hasKillgrave", b.hasKillgrave).
-		Int("clNodesCount", b.clNodesCount).
-		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
-		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
-		Msg("Building CL cluster test environment..")
-
 	var err error
 	if b.t != nil {
 		b.te.WithTestLogger(b.t)
@@ -286,10 +271,16 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	networkConfig := networks.MustGetSelectedNetworksFromEnv()[0]
 	var rpcProvider test_env.RpcProvider
 	if b.ethereumNetworkBuilder != nil && networkConfig.Simulated {
-		networkConfig, rpcProvider, err = b.te.StartEthereumNetwork(b.ethereumNetworkBuilder)
+		// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point
+		// in general it seems we have no methods for saving config to file and we only load it from file
+		// but I don't know how that config file is to be created or whether anyone ever done that
+		var enCfg test_env.EthereumNetworkConfig
+		networkConfig, rpcProvider, enCfg, err = b.te.StartEthereumNetwork(b.ethereumNetworkBuilder)
 		if err != nil {
 			return nil, err
 		}
+		b.te.RpcProvider = rpcProvider
+		b.te.PrivateEthereumConfig = &enCfg
 	}
 
 	if !b.isNonEVM {
@@ -372,6 +363,21 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 	}
+
+	var enDesc string
+	if b.te.PrivateEthereumConfig != nil {
+		enDesc = b.te.PrivateEthereumConfig.Describe()
+	} else {
+		enDesc = "none"
+	}
+
+	b.l.Info().
+		Str("privateEthereumNetwork", enDesc).
+		Bool("hasKillgrave", b.hasKillgrave).
+		Int("clNodesCount", b.clNodesCount).
+		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
+		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
+		Msg("Building CL cluster test environment..")
 
 	return b.te, nil
 }

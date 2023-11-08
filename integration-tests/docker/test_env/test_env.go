@@ -40,14 +40,16 @@ type CLClusterTestEnv struct {
 	LogWatch *logwatch.LogWatch
 
 	/* components */
-	ClCluster        *ClCluster
-	PrivateChain     []test_env.PrivateChain // for tests using non-dev networks
-	MockAdapter      *test_env.Killgrave
-	EVMClient        blockchain.EVMClient
-	ContractDeployer contracts.ContractDeployer
-	ContractLoader   contracts.ContractLoader
-	l                zerolog.Logger
-	t                *testing.T
+	ClCluster             *ClCluster
+	PrivateChain          []test_env.PrivateChain // for tests using non-dev networks -- unify it with new approach
+	MockAdapter           *test_env.Killgrave
+	EVMClient             blockchain.EVMClient
+	ContractDeployer      contracts.ContractDeployer
+	ContractLoader        contracts.ContractLoader
+	RpcProvider           test_env.RpcProvider
+	PrivateEthereumConfig *test_env.EthereumNetworkConfig // new approach to private chains, supporting eth1 and eth2
+	l                     zerolog.Logger
+	t                     *testing.T
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
@@ -65,11 +67,10 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 }
 
 // WithTestEnvConfig sets the test environment cfg.
-// Sets up the Geth and MockAdapter containers with the provided cfg.
+// Sets up private ethereum chain and MockAdapter containers with the provided cfg.
 func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
 	te.Cfg = cfg
 	n := []string{te.Network.Name}
-	// te.Geth = test_env.NewGeth(n, test_env.WithContainerName(te.Cfg.Geth.ContainerName))
 	te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
 	return te
 }
@@ -125,20 +126,27 @@ func (te *CLClusterTestEnv) StartPrivateChain() error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) StartEthereumNetwork(b *test_env.EthereumNetworkBuilder) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
+func (te *CLClusterTestEnv) StartEthereumNetwork(b *test_env.EthereumNetworkBuilder) (blockchain.EVMNetwork, test_env.RpcProvider, test_env.EthereumNetworkConfig, error) {
+	// if environment is being restored from a previous state, use the existing config
+	// this might fail terribly if temporary folders with chain data on the host machine were removed
+	if te.Cfg != nil && te.Cfg.PrivateEthereumConfig != nil {
+		b.WithExistingConfig(*te.Cfg.PrivateEthereumConfig)
+	}
+
+	// use Docker Network created or loaded so that all containers are on the same network
 	b.UsingDockerNetworks([]string{te.Network.Name})
 	err := b.Build()
 	if err != nil {
-		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
+		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, test_env.EthereumNetworkConfig{}, err
 	}
 
-	n, rpc, err := b.Start()
+	n, rpc, config, err := b.Start()
 
 	if err != nil {
-		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
+		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, test_env.EthereumNetworkConfig{}, err
 	}
 
-	return n, rpc, nil
+	return n, rpc, config, nil
 }
 
 func (te *CLClusterTestEnv) StartMockAdapter() error {
