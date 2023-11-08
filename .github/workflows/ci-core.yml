@@ -22,7 +22,7 @@ jobs:
     name: lint
     runs-on: ubuntu20.04-8cores-32GB
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1 
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         with:
@@ -63,8 +63,6 @@ jobs:
         uses: ./.github/actions/setup-wasmd
       - name: Setup Postgres
         uses: ./.github/actions/setup-postgres
-      - name: Touching core/web/assets/index.html
-        run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
       - name: Build binary
@@ -145,8 +143,6 @@ jobs:
         uses: ./.github/actions/setup-go
       - name: Setup Postgres
         uses: ./.github/actions/setup-postgres
-      - name: Touching core/web/assets/index.html
-        run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
       - name: Build binary

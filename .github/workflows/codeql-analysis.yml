@@ -30,10 +30,6 @@ jobs:
         with:
           go-version-file: 'go.mod'
 
-      - name: Touching core/web/assets/index.html
-        if: ${{ matrix.language == 'go' }}
-        run: mkdir -p core/web/assets && touch core/web/assets/index.html
-
       - name: Initialize CodeQL
         uses: github/codeql-action/init@cdcdbb579706841c47f7063dda365e292e5cad7a # v2.13.4
         with:

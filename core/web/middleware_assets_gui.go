@@ -1,4 +1,4 @@
-// +build !dev 
+//go:build gui 
 
 package web
 

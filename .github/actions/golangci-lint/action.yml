@@ -38,9 +38,6 @@ runs:
         cache-version: ${{ inputs.cache-version }}
         go-version-file: ${{ inputs.go-version-file }}
         go-module-file: ${{ inputs.go-module-file }}
-    - name: Touching core/web/assets/index.html
-      shell: bash
-      run: mkdir -p core/web/assets && touch core/web/assets/index.html
     - name: Build binary
       if: ${{ inputs.go-directory == '.' }}
       shell: bash
