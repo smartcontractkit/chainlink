@@ -24,7 +24,7 @@ func newLeaseLock(t *testing.T, db *sqlx.DB, cfg pg.LeaseLockConfig) pg.LeaseLoc
 }
 
 func Test_LeaseLock(t *testing.T) {
-	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "leaselock", func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.Database.Lock.Enabled = &t
 	})
@@ -207,7 +207,7 @@ func Test_LeaseLock(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	t.Run("on virgin database", func(t *testing.T) {
-		_, db := heavyweight.FullTestDBEmptyV2(t, "leaselock", nil)
+		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 		cfg := pg.LeaseLockConfig{
 			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
