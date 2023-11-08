@@ -1325,6 +1325,7 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 				"to":   r.addr.Hex(),
 				"data": hexutil.Bytes(payload),
 			}
+			g
 			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(tt.lookup.block)).Return(tt.callbackErr).
 				Run(func(args mock.Arguments) {
 					by := args.Get(1).(*hexutil.Bytes)
