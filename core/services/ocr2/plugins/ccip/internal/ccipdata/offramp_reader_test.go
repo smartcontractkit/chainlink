@@ -224,7 +224,7 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 		orm,
 		bc,
 		log,
-		100*time.Millisecond, 2, 3, 2, 1000)
+		100*time.Millisecond, false, 2, 3, 2, 1000)
 
 	// Setup offRamp.
 	var offRampAddress common.Address
@@ -383,4 +383,8 @@ func testOffRampReader(t *testing.T, th offRampReaderTH) {
 	destTokens, err := th.reader.GetDestinationTokensFromSourceTokens(ctx, tokens)
 	require.NoError(t, err)
 	require.Empty(t, destTokens)
+
+	rateLimits, err := th.reader.GetTokenPoolsRateLimits(ctx, []common.Address{})
+	require.NoError(t, err)
+	require.Empty(t, rateLimits)
 }

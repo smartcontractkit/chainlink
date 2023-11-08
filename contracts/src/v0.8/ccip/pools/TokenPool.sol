@@ -62,7 +62,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
   EnumerableSet.AddressSet internal s_onRamps;
   /// @dev Inbound rate limits. This allows per destination chain
   /// token issuer specified rate limiting (e.g. issuers may trust chains to varying
-  /// degress and prefer different limits)
+  /// degrees and prefer different limits)
   mapping(address => RateLimiter.TokenBucket) internal s_onRampRateLimits;
   /// @dev A set of allowed offRamps.
   EnumerableSet.AddressSet internal s_offRamps;
@@ -115,7 +115,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
   }
 
   /// @notice Get onRamp whitelist
-  /// @return list of onramps.
+  /// @return list of onRamps.
   function getOnRamps() public view returns (address[] memory) {
     return s_onRamps.values();
   }

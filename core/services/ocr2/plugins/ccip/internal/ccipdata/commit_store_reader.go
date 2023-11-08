@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
@@ -63,6 +64,13 @@ type CommitOffchainConfig struct {
 	DestFinalityDepth      uint32
 }
 
+type CommitStoreStaticConfig struct {
+	ChainSelector       uint64
+	SourceChainSelector uint64
+	OnRamp              common.Address
+	ArmProxy            common.Address
+}
+
 func NewCommitOffchainConfig(
 	sourceFinalityDepth uint32,
 	gasPriceDeviationPPB uint32,
@@ -83,7 +91,7 @@ func NewCommitOffchainConfig(
 	}
 }
 
-//go:generate mockery --quiet --name CommitStoreReader --output . --filename commit_store_reader_mock.go --inpackage --case=underscore
+//go:generate mockery --quiet --name CommitStoreReader --filename commit_store_reader_mock.go --case=underscore
 type CommitStoreReader interface {
 	Closer
 	GetExpectedNextSequenceNumber(context context.Context) (uint64, error)
@@ -101,6 +109,7 @@ type CommitStoreReader interface {
 	EncodeCommitReport(report CommitStoreReport) ([]byte, error)
 	DecodeCommitReport(report []byte) (CommitStoreReport, error)
 	VerifyExecutionReport(ctx context.Context, report ExecReport) (bool, error)
+	GetCommitStoreStaticConfig(ctx context.Context) (CommitStoreStaticConfig, error)
 }
 
 func NewCommitStoreReader(lggr logger.Logger, address common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator) (CommitStoreReader, error) {
@@ -117,6 +126,23 @@ func NewCommitStoreReader(lggr logger.Logger, address common.Address, ec client.
 	default:
 		return nil, errors.Errorf("got unexpected version %v", version.String())
 	}
+}
+
+// FetchCommitStoreStaticConfig provides access to a commitStore's static config, which is required to access the source chain ID.
+func FetchCommitStoreStaticConfig(address common.Address, ec client.Client) (commit_store.CommitStoreStaticConfig, error) {
+	commitStore, err := loadCommitStore(address, ec)
+	if err != nil {
+		return commit_store.CommitStoreStaticConfig{}, err
+	}
+	return commitStore.GetStaticConfig(&bind.CallOpts{})
+}
+
+func loadCommitStore(commitStoreAddress common.Address, client client.Client) (commit_store.CommitStoreInterface, error) {
+	_, err := ccipconfig.VerifyTypeAndVersion(commitStoreAddress, client, ccipconfig.CommitStore)
+	if err != nil {
+		return nil, errors.Wrap(err, "Invalid commitStore contract")
+	}
+	return commit_store.NewCommitStore(commitStoreAddress, client)
 }
 
 // EncodeCommitReport is only used in tests

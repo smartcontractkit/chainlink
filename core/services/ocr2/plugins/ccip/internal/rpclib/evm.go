@@ -2,8 +2,10 @@ package rpclib
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -203,20 +205,44 @@ type DataAndErr struct {
 	Err     error
 }
 
+func ParseOutputs[T any](results []DataAndErr, parseFunc func(d DataAndErr) (T, error)) ([]T, error) {
+	parsed := make([]T, 0, len(results))
+
+	for _, res := range results {
+		v, err := parseFunc(res)
+		if err != nil {
+			return nil, fmt.Errorf("parse contract output: %w", err)
+		}
+		parsed = append(parsed, v)
+	}
+
+	return parsed, nil
+}
+
 func ParseOutput[T any](dataAndErr DataAndErr, idx int) (T, error) {
-	var empty T
+	var parsed T
 
 	if dataAndErr.Err != nil {
-		return empty, dataAndErr.Err
+		return parsed, fmt.Errorf("rpc call error: %w", dataAndErr.Err)
 	}
 
 	if idx < 0 || idx >= len(dataAndErr.Outputs) {
-		return empty, fmt.Errorf("idx %d is out of bounds for %d outputs", idx, len(dataAndErr.Outputs))
+		return parsed, fmt.Errorf("idx %d is out of bounds for %d outputs", idx, len(dataAndErr.Outputs))
 	}
 
 	res, is := dataAndErr.Outputs[idx].(T)
 	if !is {
-		return empty, fmt.Errorf("the result (%T) is not an address", dataAndErr.Outputs[idx])
+		// some rpc types are not strictly defined
+		// for that reason we try to manually map the fields using json encoding
+		b, err := json.Marshal(dataAndErr.Outputs[idx])
+		if err == nil {
+			var empty T
+			if err := json.Unmarshal(b, &parsed); err == nil && !reflect.DeepEqual(parsed, empty) {
+				return parsed, nil
+			}
+		}
+
+		return parsed, fmt.Errorf("the result type is: %T, expected: %T", dataAndErr.Outputs[idx], parsed)
 	}
 
 	return res, nil

@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import "./EVM2EVMOffRampSetup.t.sol";
 import "../../Router.sol";
-import {CallWithExactGas} from "../../libraries/CallWithExactGas.sol";
+import {CallWithExactGas} from "../../../shared/call/CallWithExactGas.sol";
 import "../helpers/receivers/ConformingReceiver.sol";
 import "../helpers/receivers/MaybeRevertMessageReceiverNo165.sol";
 import "../helpers/receivers/ReentrancyAbuser.sol";

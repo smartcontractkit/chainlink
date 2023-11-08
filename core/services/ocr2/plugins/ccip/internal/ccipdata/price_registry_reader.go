@@ -43,7 +43,7 @@ type GasPriceUpdate struct {
 	TimestampUnixSec *big.Int
 }
 
-//go:generate mockery --quiet --name PriceRegistryReader --output . --filename price_registry_reader_mock.go --inpackage --case=underscore
+//go:generate mockery --quiet --name PriceRegistryReader --filename price_registry_reader_mock.go --case=underscore
 type PriceRegistryReader interface {
 	Close(qopts ...pg.QOpt) error
 	// GetTokenPriceUpdatesCreatedAfter returns all the token price updates that happened after the provided timestamp.
@@ -56,6 +56,7 @@ type PriceRegistryReader interface {
 	FeeTokenEvents() []common.Hash
 	GetFeeTokens(ctx context.Context) ([]common.Address, error)
 	GetTokenPrices(ctx context.Context, wantedTokens []common.Address) ([]TokenPriceUpdate, error)
+	GetTokensDecimals(ctx context.Context, tokenAddresses []common.Address) ([]uint8, error)
 }
 
 // NewPriceRegistryReader determines the appropriate version of the price registry and returns a reader for it.

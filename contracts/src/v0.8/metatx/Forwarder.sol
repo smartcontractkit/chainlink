@@ -3,6 +3,7 @@
 pragma solidity ^0.8.15;
 pragma abicoder v2;
 
+// solhint-disable-next-line no-global-import
 import "./IForwarder.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
@@ -45,7 +46,7 @@ contract Forwarder is IForwarder, ERC165, OwnerIsCreator {
 
   constructor() {
     string memory requestType = string(abi.encodePacked("ForwardRequest(", GENERIC_PARAMS, ")"));
-    registerRequestTypeInternal(requestType);
+    _registerRequestTypeInternal(requestType);
   }
 
   /// @inheritdoc IERC165
@@ -104,6 +105,7 @@ contract Forwarder is IForwarder, ERC165, OwnerIsCreator {
     );
 
     if (!success) {
+      // solhint-disable-next-line custom-errors
       if (ret.length == 0) revert("Forwarded call reverted without reason");
       // assembly below extracts revert reason from the low-level call
       assembly {
@@ -144,7 +146,7 @@ contract Forwarder is IForwarder, ERC165, OwnerIsCreator {
     }
 
     string memory requestType = string(abi.encodePacked(typeName, "(", GENERIC_PARAMS, ",", typeSuffix));
-    registerRequestTypeInternal(requestType);
+    _registerRequestTypeInternal(requestType);
   }
 
   function getDomainSeparator(string calldata name, string calldata version) public view returns (bytes memory) {
@@ -167,7 +169,7 @@ contract Forwarder is IForwarder, ERC165, OwnerIsCreator {
     emit DomainRegistered(domainHash, domainSeparator);
   }
 
-  function registerRequestTypeInternal(string memory requestType) internal {
+  function _registerRequestTypeInternal(string memory requestType) internal {
     bytes32 requestTypehash = keccak256(bytes(requestType));
     s_typeHashes[requestTypehash] = true;
     emit RequestTypeRegistered(requestTypehash, requestType);
@@ -194,7 +196,6 @@ contract Forwarder is IForwarder, ERC165, OwnerIsCreator {
       abi.encodePacked("\x19\x01", domainSeparator, keccak256(_getEncoded(req, requestTypeHash, suffixData)))
     );
     // solhint-disable-next-line avoid-tx-origin
-
     if (tx.origin != DRY_RUN_ADDRESS && digest.recover(sig) != req.from) {
       revert SignatureMismatch();
     }

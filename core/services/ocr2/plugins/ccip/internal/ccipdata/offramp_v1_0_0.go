@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/custom_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -37,6 +38,7 @@ const (
 
 var (
 	abiOffRampV1_0_0                                    = abihelpers.MustParseABI(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampABI)
+	abiCustomTokenPool                                  = abihelpers.MustParseABI(custom_token_pool.CustomTokenPoolABI)
 	_                                     OffRampReader = &OffRampV1_0_0{}
 	ExecutionStateChangedEventV1_0_0                    = abihelpers.MustGetEventID("ExecutionStateChanged", abiOffRampV1_0_0)
 	ExecutionStateChangedSeqNrIndexV1_0_0               = 1
@@ -103,16 +105,34 @@ type OffRampV1_0_0 struct {
 	onchainConfig     ExecOnchainConfig
 }
 
-func (o *OffRampV1_0_0) GetExecutionState(opts *bind.CallOpts, sequenceNumber uint64) (uint8, error) {
-	return o.offRamp.GetExecutionState(opts, sequenceNumber)
+func (o *OffRampV1_0_0) GetStaticConfig(ctx context.Context) (OffRampStaticConfig, error) {
+	if o.offRamp == nil {
+		return OffRampStaticConfig{}, fmt.Errorf("offramp not initialized")
+	}
+	c, err := o.offRamp.GetStaticConfig(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return OffRampStaticConfig{}, fmt.Errorf("error while retrieving offramp config: %w", err)
+	}
+	return OffRampStaticConfig{
+		CommitStore:         c.CommitStore,
+		ChainSelector:       c.ChainSelector,
+		SourceChainSelector: c.SourceChainSelector,
+		OnRamp:              c.OnRamp,
+		PrevOffRamp:         c.PrevOffRamp,
+		ArmProxy:            c.ArmProxy,
+	}, nil
 }
 
-func (o *OffRampV1_0_0) GetSenderNonce(opts *bind.CallOpts, sender common.Address) (uint64, error) {
-	return o.offRamp.GetSenderNonce(opts, sender)
+func (o *OffRampV1_0_0) GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error) {
+	return o.offRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sequenceNumber)
 }
 
-func (o *OffRampV1_0_0) CurrentRateLimiterState(opts *bind.CallOpts) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
-	state, err := o.offRamp.CurrentRateLimiterState(opts)
+func (o *OffRampV1_0_0) GetSenderNonce(ctx context.Context, sender common.Address) (uint64, error) {
+	return o.offRamp.GetSenderNonce(&bind.CallOpts{Context: ctx}, sender)
+}
+
+func (o *OffRampV1_0_0) CurrentRateLimiterState(ctx context.Context) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
+	state, err := o.offRamp.CurrentRateLimiterState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return *new(evm_2_evm_offramp.RateLimiterTokenBucket), err
 	}
@@ -149,29 +169,57 @@ func (o *OffRampV1_0_0) GetDestinationTokensFromSourceTokens(ctx context.Context
 		return nil, fmt.Errorf("batch call limit: %w", err)
 	}
 
+	destTokens, err := rpclib.ParseOutputs[common.Address](results, func(d rpclib.DataAndErr) (common.Address, error) {
+		return rpclib.ParseOutput[common.Address](d, 0)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("parse outputs: %w", err)
+	}
+
 	seenDestTokens := make(map[common.Address]struct{})
-	destTokens := make([]common.Address, 0, len(tokenAddresses))
-	for _, res := range results {
-		if res.Err != nil {
-			return nil, fmt.Errorf("rpc sub-call: %w", res.Err)
+	for _, destToken := range destTokens {
+		if _, exists := seenDestTokens[destToken]; exists {
+			return nil, fmt.Errorf("offRamp misconfig, destination token %s already exists", destToken)
 		}
-
-		destTokenAddress, err := rpclib.ParseOutput[common.Address](res, 0)
-		if err != nil {
-			return nil, err
-		}
-		destTokens = append(destTokens, destTokenAddress)
-
-		if _, exists := seenDestTokens[destTokenAddress]; exists {
-			return nil, fmt.Errorf("offRamp misconfig, destination token %s already exists", destTokenAddress)
-		}
-		seenDestTokens[destTokenAddress] = struct{}{}
+		seenDestTokens[destToken] = struct{}{}
 	}
 
-	if len(destTokens) != len(tokenAddresses) {
-		return nil, fmt.Errorf("got %d tokens while %d were expected", len(destTokens), len(tokenAddresses))
-	}
 	return destTokens, nil
+}
+
+func (o *OffRampV1_0_0) GetTokenPoolsRateLimits(ctx context.Context, poolAddresses []common.Address) ([]TokenBucketRateLimit, error) {
+	if len(poolAddresses) == 0 {
+		return nil, nil
+	}
+
+	evmCalls := make([]rpclib.EvmCall, 0, len(poolAddresses))
+	for _, poolAddress := range poolAddresses {
+		evmCalls = append(evmCalls, rpclib.NewEvmCall(
+			abiCustomTokenPool,
+			"currentOffRampRateLimiterState",
+			poolAddress,
+			o.addr,
+		))
+	}
+
+	latestBlock, err := o.lp.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("get latest block: %w", err)
+	}
+
+	results, err := o.evmBatchCaller.BatchCall(ctx, uint64(latestBlock), evmCalls)
+	if err != nil {
+		return nil, fmt.Errorf("batch call limit: %w", err)
+	}
+
+	rateLimits, err := rpclib.ParseOutputs[TokenBucketRateLimit](results, func(d rpclib.DataAndErr) (TokenBucketRateLimit, error) {
+		return rpclib.ParseOutput[TokenBucketRateLimit](d, 0)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("parse outputs: %w", err)
+	}
+
+	return rateLimits, nil
 }
 
 func (o *OffRampV1_0_0) GetSupportedTokens(ctx context.Context) ([]common.Address, error) {
@@ -258,7 +306,7 @@ func (o *OffRampV1_0_0) GetExecutionStateChangesBetweenSeqNums(ctx context.Conte
 		o.eventIndex,
 		logpoller.EvmWord(seqNumMin),
 		logpoller.EvmWord(seqNumMax),
-		confs,
+		logpoller.Confirmations(confs),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {

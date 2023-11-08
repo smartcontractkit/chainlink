@@ -3807,41 +3807,23 @@ GasLimit = 5300000
 
 </p></details>
 
-<<<<<<< HEAD
-<details><summary>Avalanche ANZ testnet (76578)</summary><p>
-=======
 <details><summary>Linea Goerli (59140)</summary><p>
->>>>>>> develop
 
 ```toml
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-<<<<<<< HEAD
-FinalityDepth = 1
-FinalityTagEnabled = false
-LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
-LogBackfillBatchSize = 1000
-LogPollInterval = '3s'
-LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 1
-=======
 FinalityDepth = 15
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
->>>>>>> develop
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
-<<<<<<< HEAD
-RPCBlockQueryDelay = 2
-=======
 RPCBlockQueryDelay = 1
->>>>>>> develop
 
 [Transactions]
 ForwardersEnabled = false
@@ -3849,36 +3831,22 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-<<<<<<< HEAD
-ResendAfterThreshold = '1m0s'
-=======
 ResendAfterThreshold = '3m0s'
->>>>>>> develop
 
 [BalanceMonitor]
 Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-<<<<<<< HEAD
-PriceDefault = '25 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '25 gwei'
-=======
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
->>>>>>> develop
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
-<<<<<<< HEAD
-BumpPercent = 20
-=======
 BumpPercent = 40
->>>>>>> develop
 BumpThreshold = 3
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
@@ -3887,11 +3855,7 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-<<<<<<< HEAD
-BlockHistorySize = 24
-=======
 BlockHistorySize = 8
->>>>>>> develop
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
@@ -3906,11 +3870,6 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-<<<<<<< HEAD
-
-[OCR]
-ContractConfirmations = 1
-=======
 LeaseDuration = '0s'
 
 [OCR]
@@ -3993,7 +3952,85 @@ LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
->>>>>>> develop
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>Avalanche ANZ testnet (76578)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 1
+FinalityTagEnabled = false
+LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
+LogBackfillBatchSize = 1000
+LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 2
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '25 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '25 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'

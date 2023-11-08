@@ -81,7 +81,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 	user, ec := newSim(t)
 	lggr := logger.TestLogger(t)
 	// TODO: We should be able to use an in memory log poller ORM here to speed up the tests.
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr, pgtest.NewQConfig(true)), ec, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr, pgtest.NewQConfig(true)), ec, lggr, 100*time.Millisecond, false, 2, 3, 2, 1000)
 
 	feeTokens := []common.Address{utils.RandomAddress(), utils.RandomAddress()}
 	dest := uint64(10)
@@ -125,7 +125,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 	assert.Equal(t, reflect.TypeOf(pr10r).String(), reflect.TypeOf(&ccipdata.PriceRegistryV1_0_0{}).String())
 	pr12r, err := ccipdata.NewPriceRegistryReader(lggr, addr2, lp, ec)
 	require.NoError(t, err)
-	assert.Equal(t, reflect.TypeOf(pr10r).String(), reflect.TypeOf(&ccipdata.PriceRegistryV1_0_0{}).String())
+	assert.Equal(t, reflect.TypeOf(pr12r).String(), reflect.TypeOf(&ccipdata.PriceRegistryV1_2_0{}).String())
 	// Apply block1.
 	ccipdata.ApplyPriceRegistryUpdateV1_0_0(t, user, addr, ec, gasPriceUpdatesBlock1, tokenPriceUpdatesBlock1)
 	ccipdata.ApplyPriceRegistryUpdateV1_2_0(t, user, addr2, ec, gasPriceUpdatesBlock1, tokenPriceUpdatesBlock1)

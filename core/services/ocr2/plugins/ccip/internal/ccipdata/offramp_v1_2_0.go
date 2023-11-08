@@ -1,6 +1,7 @@
 package ccipdata
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"sync"
@@ -87,8 +88,8 @@ type OffRampV1_2_0 struct {
 	onchainConfig     ExecOnchainConfig
 }
 
-func (o *OffRampV1_2_0) CurrentRateLimiterState(opts *bind.CallOpts) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
-	return o.offRamp.CurrentRateLimiterState(opts)
+func (o *OffRampV1_2_0) CurrentRateLimiterState(ctx context.Context) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
+	return o.offRamp.CurrentRateLimiterState(&bind.CallOpts{Context: ctx})
 }
 
 func (o *OffRampV1_2_0) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (common.Address, common.Address, error) {

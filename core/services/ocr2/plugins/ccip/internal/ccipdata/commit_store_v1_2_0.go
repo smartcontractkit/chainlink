@@ -45,6 +45,19 @@ type CommitStoreV1_2_0 struct {
 	offchainConfig    CommitOffchainConfig
 }
 
+func (c *CommitStoreV1_2_0) GetCommitStoreStaticConfig(ctx context.Context) (CommitStoreStaticConfig, error) {
+	config, err := c.commitStore.GetStaticConfig(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return CommitStoreStaticConfig{}, err
+	}
+	return CommitStoreStaticConfig{
+		ChainSelector:       config.ChainSelector,
+		SourceChainSelector: config.SourceChainSelector,
+		OnRamp:              config.OnRamp,
+		ArmProxy:            config.ArmProxy,
+	}, nil
+}
+
 func (c *CommitStoreV1_2_0) EncodeCommitReport(report CommitStoreReport) ([]byte, error) {
 	return encodeCommitReportV1_2_0(c.commitReportArgs, report)
 }
@@ -274,7 +287,7 @@ func (c *CommitStoreV1_2_0) GetAcceptedCommitReportsGteSeqNum(ctx context.Contex
 		c.address,
 		c.reportAcceptedMaxSeqIndex,
 		logpoller.EvmWord(seqNum),
-		confs,
+		logpoller.Confirmations(confs),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
@@ -293,7 +306,7 @@ func (c *CommitStoreV1_2_0) GetAcceptedCommitReportsGteTimestamp(ctx context.Con
 		c.reportAcceptedSig,
 		c.address,
 		ts,
-		confs,
+		logpoller.Confirmations(confs),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {

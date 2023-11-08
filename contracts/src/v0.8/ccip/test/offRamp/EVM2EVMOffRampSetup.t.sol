@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
-import {IPriceRegistry} from "../../interfaces/IPriceRegistry.sol";
 import {IPool} from "../../interfaces/pools/IPool.sol";
 
 import {Internal} from "../../libraries/Internal.sol";
@@ -12,7 +11,6 @@ import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 import {MockCommitStore} from "../mocks/MockCommitStore.sol";
 import {Router} from "../../Router.sol";
 import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
-import {AggregateRateLimiter} from "../../AggregateRateLimiter.sol";
 import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
 import {TokenSetup} from "../TokenSetup.t.sol";
 import {RouterSetup} from "../router/RouterSetup.t.sol";

@@ -351,6 +351,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     newMessage.messageId = Internal._hash(newMessage, i_metadataHash);
 
     // Emit message request
+    // Note this must happen after pools, some tokens (eg USDC) emit events that we
+    // expect to directly precede this event.
     emit CCIPSendRequested(newMessage);
     return newMessage.messageId;
   }

@@ -2,22 +2,21 @@
 pragma solidity 0.8.19;
 
 import {ITokenMessenger} from "../../pools/USDC/ITokenMessenger.sol";
-import {IMessageReceiver} from "../../pools/USDC/IMessageReceiver.sol";
+import {IMessageTransmitter} from "../../pools/USDC/IMessageTransmitter.sol";
+import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 
-// This contract mocks both the ITokenMessenger and IMessageReceiver
+// This contract mocks both the ITokenMessenger and IMessageTransmitter
 // contracts involved with the Cross Chain Token Protocol.
-contract MockUSDC is ITokenMessenger, IMessageReceiver {
+contract MockUSDCTokenMessenger is ITokenMessenger {
   uint32 private immutable i_messageBodyVersion;
   bytes32 public constant i_destinationTokenMessenger = keccak256("i_destinationTokenMessenger");
-
-  // Indicated whether the receiveMessage() call should succeed.
-  bool public s_shouldSucceed;
   uint64 public s_nonce;
+  address private i_transmitter;
 
-  constructor(uint32 version) {
+  constructor(uint32 version, address transmitter) {
     i_messageBodyVersion = version;
     s_nonce = 1;
-    s_shouldSucceed = true;
+    i_transmitter = transmitter;
   }
 
   function depositForBurnWithCaller(
@@ -27,6 +26,8 @@ contract MockUSDC is ITokenMessenger, IMessageReceiver {
     address burnToken,
     bytes32 destinationCaller
   ) external returns (uint64) {
+    IBurnMintERC20(burnToken).transferFrom(msg.sender, address(this), amount);
+    IBurnMintERC20(burnToken).burn(amount);
     emit DepositForBurn(
       s_nonce,
       burnToken,
@@ -40,15 +41,11 @@ contract MockUSDC is ITokenMessenger, IMessageReceiver {
     return s_nonce++;
   }
 
-  function receiveMessage(bytes calldata, bytes calldata) external view returns (bool success) {
-    return s_shouldSucceed;
-  }
-
   function messageBodyVersion() external view returns (uint32) {
     return i_messageBodyVersion;
   }
 
-  function setShouldSucceed(bool shouldSucceed) external {
-    s_shouldSucceed = shouldSucceed;
+  function localMessageTransmitter() external view returns (address) {
+    return i_transmitter;
   }
 }

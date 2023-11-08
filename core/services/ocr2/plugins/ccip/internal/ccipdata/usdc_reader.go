@@ -18,7 +18,7 @@ const (
 	MESSAGE_SENT_FILTER_NAME = "USDC message sent"
 )
 
-//go:generate mockery --quiet --name USDCReader --output . --filename usdc_reader_mock.go --inpackage --case=underscore
+//go:generate mockery --quiet --name USDCReader --filename usdc_reader_mock.go --case=underscore
 type USDCReader interface {
 	// GetLastUSDCMessagePriorToLogIndexInTx returns the last USDC message that was sent before the provided log index in the given transaction.
 	GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error)

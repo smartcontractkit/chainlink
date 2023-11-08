@@ -13,7 +13,7 @@ import {IAny2EVMOffRamp} from "../interfaces/IAny2EVMOffRamp.sol";
 import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
-import {CallWithExactGas} from "../libraries/CallWithExactGas.sol";
+import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
 import {OCR2BaseNoChecks} from "../ocr/OCR2BaseNoChecks.sol";
 import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
 import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
@@ -430,7 +430,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       !message.receiver.isContract() || !message.receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)
     ) return;
 
-    (bool success, bytes memory returnData) = IRouter(s_dynamicConfig.router).routeMessage(
+    (bool success, bytes memory returnData, ) = IRouter(s_dynamicConfig.router).routeMessage(
       Internal._toAny2EVMMessage(message, destTokenAmounts),
       Internal.GAS_FOR_CALL_EXACT_CHECK,
       message.gasLimit,
@@ -602,7 +602,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       // Call the pool with exact gas to increase resistance against malicious tokens or token pools.
       // _callWithExactGas also protects against return data bombs by capping the return data size
       // at MAX_RET_BYTES.
-      (bool success, bytes memory returnData) = CallWithExactGas._callWithExactGas(
+      (bool success, bytes memory returnData, ) = CallWithExactGas._callWithExactGasSafeReturnData(
         abi.encodeWithSelector(
           pool.releaseOrMint.selector,
           originalSender,
@@ -613,8 +613,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
         ),
         address(pool),
         s_dynamicConfig.maxPoolReleaseOrMintGas,
-        Internal.MAX_RET_BYTES,
-        Internal.GAS_FOR_CALL_EXACT_CHECK
+        Internal.GAS_FOR_CALL_EXACT_CHECK,
+        Internal.MAX_RET_BYTES
       );
 
       // wrap and rethrow the error so we can catch it lower in the stack

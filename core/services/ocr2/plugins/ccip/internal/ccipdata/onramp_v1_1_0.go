@@ -1,6 +1,8 @@
 package ccipdata
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -17,12 +19,12 @@ type OnRampV1_1_0 struct {
 	onRamp *evm_2_evm_onramp_1_1_0.EVM2EVMOnRamp
 }
 
-func NewOnRampV1_1_0(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAddress common.Address, sourceLP logpoller.LogPoller, source client.Client, finalityTags bool) (*OnRampV1_1_0, error) {
+func NewOnRampV1_1_0(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAddress common.Address, sourceLP logpoller.LogPoller, source client.Client) (*OnRampV1_1_0, error) {
 	onRamp, err := evm_2_evm_onramp_1_1_0.NewEVM2EVMOnRamp(onRampAddress, source)
 	if err != nil {
 		return nil, err
 	}
-	onRamp100, err := NewOnRampV1_0_0(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source, finalityTags)
+	onRamp100, err := NewOnRampV1_0_0(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source)
 	if err != nil {
 		return nil, err
 	}
@@ -38,4 +40,26 @@ func (o *OnRampV1_1_0) RouterAddress() (common.Address, error) {
 		return common.Address{}, err
 	}
 	return config.Router, nil
+}
+
+func (o *OnRampV1_1_0) GetDynamicConfig() (OnRampDynamicConfig, error) {
+	if o.onRamp == nil {
+		return OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
+	}
+	legacyDynamicConfig, err := o.onRamp.GetDynamicConfig(nil)
+	if err != nil {
+		return OnRampDynamicConfig{}, err
+	}
+	return OnRampDynamicConfig{
+		Router:                            legacyDynamicConfig.Router,
+		MaxNumberOfTokensPerMsg:           legacyDynamicConfig.MaxTokensLength,
+		DestGasOverhead:                   legacyDynamicConfig.DestGasOverhead,
+		DestGasPerPayloadByte:             legacyDynamicConfig.DestGasPerPayloadByte,
+		DestDataAvailabilityOverheadGas:   0,
+		DestGasPerDataAvailabilityByte:    0,
+		DestDataAvailabilityMultiplierBps: 0,
+		PriceRegistry:                     legacyDynamicConfig.PriceRegistry,
+		MaxDataBytes:                      legacyDynamicConfig.MaxDataSize,
+		MaxPerMsgGasLimit:                 uint32(legacyDynamicConfig.MaxGasLimit),
+	}, nil
 }

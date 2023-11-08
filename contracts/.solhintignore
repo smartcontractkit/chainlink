@@ -1,4 +1,4 @@
-# 351 warnings
+# 377 warnings
 #./src/v0.8/automation
 # 27 warnings
 #./src/v0.8/functions
@@ -11,6 +11,7 @@
 ./src/v0.8/llo-feeds/test
 ./src/v0.8/vrf/testhelpers
 ./src/v0.8/functions/tests
+./src/v0.8/ccip/test
 
 # Always ignore vendor
 ./src/v0.8/vendor

@@ -11,17 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
-	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_tokenToDecimals(t *testing.T) {
-	tokenPriceMappings := map[common.Address]uint8{
+	tokenDecimalsMapping := map[common.Address]uint8{
 		common.HexToAddress("0xA"): 10,
 		common.HexToAddress("0xB"): 5,
 		common.HexToAddress("0xC"): 2,
@@ -67,7 +66,7 @@ func Test_tokenToDecimals(t *testing.T) {
 			},
 		},
 		{
-			name:       "missing tokens are skipped",
+			name:       "error on invalid token",
 			destTokens: []common.Address{},
 			feeTokens:  []common.Address{common.HexToAddress("0xD")},
 			want:       map[common.Address]uint8{},
@@ -77,17 +76,42 @@ func Test_tokenToDecimals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			offRampReader := ccipdata.NewMockOffRampReader(t)
+			offRampReader := ccipdatamocks.NewOffRampReader(t)
 			offRampReader.On("GetDestinationTokens", mock.Anything).Return(tt.destTokens, nil)
 
-			priceRegistryReader := ccipdata.NewMockPriceRegistryReader(t)
+			decimalsQueryTokens := make([]common.Address, 0)
+			tokenDecimals := make([]uint8, 0)
+			var queryErr error
+			for i := range tt.destTokens {
+				decimals, exists := tokenDecimalsMapping[tt.destTokens[i]]
+				if !exists {
+					queryErr = fmt.Errorf("decimals not found")
+				}
+				tokenDecimals = append(tokenDecimals, decimals)
+				decimalsQueryTokens = append(decimalsQueryTokens, tt.destTokens[i])
+			}
+			for i := range tt.feeTokens {
+				if slices.Contains(decimalsQueryTokens, tt.feeTokens[i]) {
+					continue
+				}
+				decimals, exists := tokenDecimalsMapping[tt.feeTokens[i]]
+				if !exists {
+					queryErr = fmt.Errorf("decimals not found")
+				}
+				tokenDecimals = append(tokenDecimals, decimals)
+				decimalsQueryTokens = append(decimalsQueryTokens, tt.feeTokens[i])
+			}
+
+			priceRegistryReader := ccipdatamocks.NewPriceRegistryReader(t)
 			priceRegistryReader.On("GetFeeTokens", mock.Anything).Return(tt.feeTokens, nil)
+			if len(decimalsQueryTokens) > 0 {
+				priceRegistryReader.On("GetTokensDecimals", mock.Anything, decimalsQueryTokens).Return(tokenDecimals, queryErr).Once()
+			}
 
 			tokenToDecimal := &tokenToDecimals{
 				lggr:                logger.TestLogger(t),
 				offRamp:             offRampReader,
 				priceRegistryReader: priceRegistryReader,
-				tokenFactory:        createTokenFactory(tokenPriceMappings),
 			}
 
 			got, err := tokenToDecimal.CallOrigin(testutils.Context(t))
@@ -99,11 +123,7 @@ func Test_tokenToDecimals(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 
-			// we set token factory to always return an error
-			// we don't expect it to be used again, decimals should be in cache.
-			tokenToDecimal.tokenFactory = func(address common.Address) (link_token_interface.LinkTokenInterface, error) {
-				return nil, fmt.Errorf("some error")
-			}
+			// we don't expect rpc call to be made, decimals should be in cache.
 			got, err = tokenToDecimal.CallOrigin(testutils.Context(t))
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
@@ -144,7 +164,7 @@ func TestCallOrigin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			offRampReader := ccipdata.NewMockOffRampReader(t)
+			offRampReader := ccipdatamocks.NewOffRampReader(t)
 			srcTks := make([]common.Address, 0, len(tc.srcToDst))
 			destTks := make([]common.Address, 0, len(tc.srcToDst))
 
@@ -216,17 +236,4 @@ func Test_cachedDecimals(t *testing.T) {
 	decimals, exists = tokenDecimalsCache.getCachedDecimals(addr)
 	assert.Equal(t, uint8(123), decimals)
 	assert.True(t, exists)
-}
-
-func createTokenFactory(decimalMapping map[common.Address]uint8) func(address common.Address) (link_token_interface.LinkTokenInterface, error) {
-	return func(address common.Address) (link_token_interface.LinkTokenInterface, error) {
-		linkToken := &mock_contracts.LinkTokenInterface{}
-		if decimals, found := decimalMapping[address]; found {
-			// Make sure each token is fetched only once
-			linkToken.On("Decimals", mock.Anything).Return(decimals, nil)
-		} else {
-			linkToken.On("Decimals", mock.Anything).Return(uint8(0), errors.New("Error"))
-		}
-		return linkToken, nil
-	}
 }

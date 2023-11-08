@@ -2,14 +2,14 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 import {ITokenMessenger} from "./ITokenMessenger.sol";
-import {IMessageReceiver} from "./IMessageReceiver.sol";
+import {IMessageTransmitter} from "./IMessageTransmitter.sol";
 
 import {TokenPool} from "../TokenPool.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/IERC165.sol";
 
 /// @notice This pool mints and burns USDC tokens through the Cross Chain Transfer
 /// Protocol (CCTP).
@@ -17,7 +17,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   using SafeERC20 for IERC20;
 
   event DomainsSet(DomainUpdate[]);
-  event ConfigSet(USDCConfig);
+  event ConfigSet(address tokenMessenger);
 
   error UnknownDomain(uint64 domain);
   error UnlockingUSDCFailed();
@@ -44,13 +44,6 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     bool enabled; // ─────────────╯ Whether the domain is enabled
   }
 
-  // Contains the contracts for sending and receiving USDC tokens
-  struct USDCConfig {
-    uint32 version; // ──────────╮ CCTP internal version
-    address tokenMessenger; // ──╯ Contract to burn tokens
-    address messageTransmitter; // Contract to mint tokens
-  }
-
   struct SourceTokenDataPayload {
     uint64 nonce;
     uint32 sourceDomain;
@@ -59,16 +52,20 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "USDCTokenPool 1.2.0";
 
-  uint32 public immutable i_localDomainIdentifier;
+  // We restrict to the first version. New pool may be required for subsequent versions.
   uint32 public constant SUPPORTED_USDC_VERSION = 0;
 
   // The local USDC config
-  USDCConfig private s_config;
+  ITokenMessenger public immutable i_tokenMessenger;
+  IMessageTransmitter public immutable i_messageTransmitter;
+  uint32 public immutable i_localDomainIdentifier;
 
   // The unique USDC pool flag to signal through EIP 165 that this is a USDC token pool.
   bytes4 private constant USDC_INTERFACE_ID = bytes4(keccak256("USDC"));
 
-  // A domain is a USDC representation of a chain.
+  /// A domain is a USDC representation of a destination chain.
+  /// @dev Zero is a valid domain identifier.
+  /// @dev The address to mint on the destination chain is the corresponding USDC pool.
   struct Domain {
     bytes32 allowedCaller; //      Address allowed to mint on the domain
     uint32 domainIdentifier; // ─╮ Unique domain ID
@@ -79,14 +76,23 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   mapping(uint64 chainSelector => Domain CCTPDomain) private s_chainToDomain;
 
   constructor(
-    USDCConfig memory config,
-    IBurnMintERC20 token,
+    ITokenMessenger tokenMessenger,
+    IERC20 token,
     address[] memory allowlist,
-    address armProxy,
-    uint32 localDomainIdentifier
+    address armProxy
   ) TokenPool(token, allowlist, armProxy) {
-    _setConfig(config);
-    i_localDomainIdentifier = localDomainIdentifier;
+    if (address(tokenMessenger) == address(0)) revert InvalidConfig();
+    IMessageTransmitter transmitter = IMessageTransmitter(tokenMessenger.localMessageTransmitter());
+    uint32 transmitterVersion = transmitter.version();
+    if (transmitterVersion != SUPPORTED_USDC_VERSION) revert InvalidMessageVersion(transmitterVersion);
+    uint32 tokenMessengerVersion = tokenMessenger.messageBodyVersion();
+    if (tokenMessengerVersion != SUPPORTED_USDC_VERSION) revert InvalidTokenMessengerVersion(tokenMessengerVersion);
+
+    i_tokenMessenger = tokenMessenger;
+    i_messageTransmitter = transmitter;
+    i_localDomainIdentifier = transmitter.localDomain();
+    i_token.safeApprove(address(i_tokenMessenger), type(uint256).max);
+    emit ConfigSet(address(tokenMessenger));
   }
 
   /// @notice returns the USDC interface flag used for EIP165 identification.
@@ -94,7 +100,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     return USDC_INTERFACE_ID;
   }
 
-  // @inheritdoc IERC165
+  /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
     return interfaceId == USDC_INTERFACE_ID || super.supportsInterface(interfaceId);
   }
@@ -104,6 +110,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   /// Benefits of rate limiting here does not justify the extra gas cost.
   /// @param amount Amount to burn
   /// @dev emits ITokenMessenger.DepositForBurn
+  /// @dev Assumes caller has validated destinationReceiver
   function lockOrBurn(
     address originalSender,
     bytes calldata destinationReceiver,
@@ -118,7 +125,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     // Since this pool is the msg sender of the CCTP transaction, only this contract
     // is able to call replaceDepositForBurn. Since this contract does not implement
     // replaceDepositForBurn, the tokens cannot be maliciously re-routed to another address.
-    uint64 nonce = ITokenMessenger(s_config.tokenMessenger).depositForBurnWithCaller(
+    uint64 nonce = i_tokenMessenger.depositForBurnWithCaller(
       amount,
       domain.domainIdentifier,
       receiver,
@@ -157,12 +164,8 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
 
     _validateMessage(msgAndAttestation.message, sourceTokenData);
 
-    if (
-      !IMessageReceiver(s_config.messageTransmitter).receiveMessage(
-        msgAndAttestation.message,
-        msgAndAttestation.attestation
-      )
-    ) revert UnlockingUSDCFailed();
+    if (!i_messageTransmitter.receiveMessage(msgAndAttestation.message, msgAndAttestation.attestation))
+      revert UnlockingUSDCFailed();
     emit Minted(msg.sender, receiver, amount);
   }
 
@@ -215,38 +218,13 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   // │                           Config                             │
   // ================================================================
 
-  /// @notice Gets the current config
-  function getConfig() external view returns (USDCConfig memory) {
-    return s_config;
-  }
-
-  /// @notice Sets the config
-  function setConfig(USDCConfig memory config) external onlyOwner {
-    _setConfig(config);
-  }
-
-  /// @notice Sets the config
-  function _setConfig(USDCConfig memory config) internal {
-    if (config.version != SUPPORTED_USDC_VERSION) revert InvalidMessageVersion(config.version);
-    if (config.messageTransmitter == address(0) || config.tokenMessenger == address(0)) revert InvalidConfig();
-    uint32 tokenMessengerVersion = ITokenMessenger(config.tokenMessenger).messageBodyVersion();
-    if (tokenMessengerVersion != SUPPORTED_USDC_VERSION) revert InvalidTokenMessengerVersion(tokenMessengerVersion);
-
-    // Revoke approval for previous token messenger
-    if (s_config.tokenMessenger != address(0)) i_token.safeApprove(s_config.tokenMessenger, 0);
-    // Approve new token messenger. New tokenMessenger must have an allowance of 0, otherwise safeApprove reverts.
-    // Since we set allowance to 0 for existing tokenMessenger before approving a new one, this condition is always met.
-    i_token.safeApprove(config.tokenMessenger, type(uint256).max);
-    s_config = config;
-    emit ConfigSet(config);
-  }
-
   /// @notice Gets the CCTP domain for a given CCIP chain selector.
   function getDomain(uint64 chainSelector) external view returns (Domain memory) {
     return s_chainToDomain[chainSelector];
   }
 
   /// @notice Sets the CCTP domain for a CCIP chain selector.
+  /// @dev Must verify mapping of selectors -> (domain, caller) offchain.
   function setDomains(DomainUpdate[] calldata domains) external onlyOwner {
     for (uint256 i = 0; i < domains.length; ++i) {
       DomainUpdate memory domain = domains[i];

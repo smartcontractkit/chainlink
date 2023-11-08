@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 
 import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {Context} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Context.sol";
 import {AbstractCrossChainMetaTransactor} from "./AbstractCrossChainMetaTransactor.sol";
 
 /// @dev Implementation of the {IERC20} interface.
@@ -19,6 +18,7 @@ import {AbstractCrossChainMetaTransactor} from "./AbstractCrossChainMetaTransact
 /// Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
 /// functions have been added to mitigate the well-known issues around setting
 /// allowances. See {IERC20-approve}.
+// solhint-disable custom-errors, chainlink-solidity/prefix-storage-variables-with-s-underscore
 contract BankERC20 is IERC20, IERC20Metadata, AbstractCrossChainMetaTransactor {
   mapping(address => uint256) private _balances;
 
