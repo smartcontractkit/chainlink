@@ -43,31 +43,6 @@ type TestingTxStore[
 
 type txStoreFunc func(*testing.T, chainlink.GeneralConfig) (TestingTxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee], common.Address, *big.Int)
 
-func evmTxStore(t *testing.T, cfg chainlink.GeneralConfig) (TestingTxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee], common.Address, *big.Int) {
-	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	chainID := ethClient.ConfiguredChainID()
-
-	return cltest.NewTxStore(t, db, cfg.Database()), fromAddress, chainID
-}
-func inmemoryTxStore(t *testing.T, cfg chainlink.GeneralConfig) (TestingTxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee], common.Address, *big.Int) {
-	db := pgtest.NewSqlxDB(t)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	chainID := ethClient.ConfiguredChainID()
-
-	ims, err := txmgr.NewInMemoryStore[
-		*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee,
-	](chainID, keyStore.Eth(), txStore)
-	require.NoError(t, err)
-
-	return ims, fromAddress, chainID
-}
-
 var txStoresFuncs = map[string]txStoreFunc{
 	"evm_postgres_tx_store":  evmTxStore,
 	"evm_in_memory_tx_store": inmemoryTxStore,
@@ -257,4 +232,29 @@ type checkTxQueueCapacityOutput struct {
 type findLatestSequenceInput struct {
 	fromAddress common.Address
 	chainID     *big.Int
+}
+
+func evmTxStore(t *testing.T, cfg chainlink.GeneralConfig) (TestingTxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee], common.Address, *big.Int) {
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	chainID := ethClient.ConfiguredChainID()
+
+	return cltest.NewTxStore(t, db, cfg.Database()), fromAddress, chainID
+}
+func inmemoryTxStore(t *testing.T, cfg chainlink.GeneralConfig) (TestingTxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee], common.Address, *big.Int) {
+	db := pgtest.NewSqlxDB(t)
+	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	chainID := ethClient.ConfiguredChainID()
+
+	ims, err := txmgr.NewInMemoryStore[
+		*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee,
+	](chainID, keyStore.Eth(), txStore)
+	require.NoError(t, err)
+
+	return ims, fromAddress, chainID
 }

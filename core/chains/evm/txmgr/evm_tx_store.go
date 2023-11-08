@@ -58,6 +58,7 @@ type TxStoreWebApi interface {
 	TransactionsWithAttempts(offset, limit int) ([]Tx, int, error)
 	FindTxAttempt(hash common.Hash) (*TxAttempt, error)
 	FindTxWithAttempts(etxID int64) (etx Tx, err error)
+	UnstartedTransactions(limit, offset int, fromAddress common.Address, chainID *big.Int) ([]Tx, int, error)
 }
 
 type TestEvmTxStore interface {
@@ -447,6 +448,22 @@ func (o *evmTxStore) TransactionsWithAttempts(offset, limit int) (txs []Tx, coun
 	}
 	txs = dbEthTxsToEvmEthTxs(dbTxs)
 	err = o.preloadTxAttempts(txs)
+	return
+}
+
+// UnstartedTransactions returns all eth transactions that have no attempts.
+func (o *evmTxStore) UnstartedTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error) {
+	sql := `SELECT count(*) FROM evm.txes WHERE state = 'unstarted' AND from_address = $1 AND evm_chain_id = $2`
+	if err = o.q.Get(&count, sql, fromAddress, chainID.String()); err != nil {
+		return
+	}
+
+	sql = `SELECT * FROM evm.txes WHERE state = 'unstarted' AND from_address = $1 AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC LIMIT $3 OFFSET $4`
+	var dbTxs []DbEthTx
+	if err = o.q.Select(&dbTxs, sql, fromAddress, chainID.String(), limit, offset); err != nil {
+		return
+	}
+	txs = dbEthTxsToEvmEthTxs(dbTxs)
 	return
 }
 
