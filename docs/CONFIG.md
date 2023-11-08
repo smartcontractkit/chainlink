@@ -2690,7 +2690,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'kroma'
 FinalityDepth = 400
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -2746,7 +2746,6 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3137,7 +3136,6 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3216,7 +3214,6 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3316,7 +3313,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'kroma'
 FinalityDepth = 400
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -3372,7 +3369,6 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1

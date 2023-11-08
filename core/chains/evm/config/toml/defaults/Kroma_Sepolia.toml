@@ -1,6 +1,7 @@
 ChainID = '2358'
 ChainType = 'kroma' # Kroma is based on the Optimism Bedrock architechture
 FinalityDepth = 400
+FinalityTagEnabled = true
 LogPollInterval = '2s'
 NoNewHeadsThreshold = '40s'
 MinIncomingConfirmations = 1
