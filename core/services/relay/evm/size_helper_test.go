@@ -5,11 +5,14 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
+
+const anyNumElements = 10
 
 func TestGetMaxSize(t *testing.T) {
 	t.Run("Basic types all encode to 32 bytes", func(t *testing.T) {
@@ -22,7 +25,7 @@ func TestGetMaxSize(t *testing.T) {
 			{Name: "TF", Type: mustType(t, "bool")},
 		}
 
-		runSizeTest(t, args, int8(9), big.NewInt(3), big.NewInt(200), [3]byte{1, 3, 4}, make32Bytes(1), true)
+		runSizeTest(t, anyNumElements, args, int8(9), big.NewInt(3), big.NewInt(200), [3]byte{1, 3, 4}, make32Bytes(1), true)
 	})
 
 	t.Run("Slices of basic types all encode to 32 bytes each + header and footer", func(t *testing.T) {
@@ -41,7 +44,7 @@ func TestGetMaxSize(t *testing.T) {
 		b3 := [][3]byte{{1, 2, 3}, {1, 2, 3}, {1, 2, 3}, {1, 2, 3}, {1, 2, 3}, {1, 2, 3}, {1, 2, 3}, {1, 2, 3}, {1, 2, 3}, {1, 2, 3}}
 		b32 := [][32]byte{make32Bytes(1), make32Bytes(2), make32Bytes(3), make32Bytes(4), make32Bytes(5), make32Bytes(6), make32Bytes(7), make32Bytes(8), make32Bytes(9), make32Bytes(10)}
 		tf := []bool{true, false, true, false, true, false, true, false, true, false}
-		runSizeTest(t, args, i8, i80, i256, b3, b32, tf)
+		runSizeTest(t, anyNumElements, args, i8, i80, i256, b3, b32, tf)
 	})
 
 	t.Run("Arrays of basic types all encode to 32 bytes each", func(t *testing.T) {
@@ -60,7 +63,7 @@ func TestGetMaxSize(t *testing.T) {
 		b3 := [3][3]byte{{1, 2, 3}, {1, 2, 3}, {1, 2, 3}}
 		b32 := [3][32]byte{make32Bytes(1), make32Bytes(2), make32Bytes(3)}
 		tf := [3]bool{true, false, true}
-		runSizeTest(t, args, i8, i80, i256, b3, b32, tf)
+		runSizeTest(t, anyNumElements, args, i8, i80, i256, b3, b32, tf)
 	})
 
 	t.Run("Tuples are a sum of their elements", func(t *testing.T) {
@@ -103,47 +106,144 @@ func TestGetMaxSize(t *testing.T) {
 		}{
 			big.NewInt(3), true,
 		}
-		runSizeTest(t, args, arg1, arg2)
+		runSizeTest(t, anyNumElements, args, arg1, arg2)
 	})
 
 	t.Run("Slices of tuples are a sum of their elements with header and footer", func(t *testing.T) {
-		assert.Fail(t, "not written yet")
+		tuple1 := []abi.ArgumentMarshaling{
+			{Name: "I80", Type: "int80"},
+			{Name: "TF", Type: "bool"},
+		}
+		t1, err := abi.NewType("tuple[]", "", tuple1)
+		require.NoError(t, err)
+
+		args := abi.Arguments{
+			{Name: "t1", Type: t1},
+		}
+		arg1 := []struct {
+			I80 *big.Int
+			TF  bool
+		}{
+			{big.NewInt(1), true},
+			{big.NewInt(2), true},
+			{big.NewInt(3), true},
+			{big.NewInt(4), false},
+			{big.NewInt(5), true},
+			{big.NewInt(6), true},
+			{big.NewInt(7), true},
+			{big.NewInt(8), false},
+			{big.NewInt(9), true},
+			{big.NewInt(10), true},
+		}
+		runSizeTest(t, anyNumElements, args, arg1)
 	})
 
 	t.Run("Arrays of tuples are a sum of their elements", func(t *testing.T) {
-		assert.Fail(t, "not written yet")
+		tuple1 := []abi.ArgumentMarshaling{
+			{Name: "I80", Type: "int80"},
+			{Name: "TF", Type: "bool"},
+		}
+		t1, err := abi.NewType("tuple[3]", "", tuple1)
+		require.NoError(t, err)
+
+		args := abi.Arguments{
+			{Name: "t1", Type: t1},
+		}
+		arg1 := []struct {
+			I80 *big.Int
+			TF  bool
+		}{
+			{big.NewInt(1), true},
+			{big.NewInt(2), true},
+			{big.NewInt(3), true},
+		}
+		runSizeTest(t, anyNumElements, args, arg1)
+
 	})
 
 	t.Run("Bytes pack themselves", func(t *testing.T) {
+		args := abi.Arguments{{Name: "B", Type: mustType(t, "bytes")}}
 		t.Run("No padding needed", func(t *testing.T) {
-			assert.Fail(t, "not written yet")
+			padded := []byte("12345789022345678903234567890412345678905123456789061234")
+			runSizeTest(t, 64, args, padded)
 		})
 		t.Run("Padding needed", func(t *testing.T) {
-			assert.Fail(t, "not written yet")
+			needsPadding := []byte("12345789022345678903234567890412345678905123456")
+			runSizeTest(t, 56, args, needsPadding)
+		})
+	})
+
+	t.Run("Strings pack themselves", func(t *testing.T) {
+		args := abi.Arguments{{Name: "B", Type: mustType(t, "string")}}
+		t.Run("No padding needed", func(t *testing.T) {
+			padded := "12345789022345678903234567890412345678905123456789061234"
+			runSizeTest(t, 64, args, padded)
+		})
+		t.Run("Padding needed", func(t *testing.T) {
+			needsPadding := "12345789022345678903234567890412345678905123456"
+			runSizeTest(t, 56, args, needsPadding)
 		})
 	})
 
 	t.Run("Nested dynamic types return errors", func(t *testing.T) {
 		t.Run("Slice in slice", func(t *testing.T) {
-			assert.Fail(t, "not written yet")
+			args := abi.Arguments{{Name: "B", Type: mustType(t, "int32[][]")}}
+			_, err := evm.GetMaxSize(anyNumElements, args)
+			assert.IsType(t, relaytypes.InvalidTypeError{}, err)
 		})
 		t.Run("Slice in array", func(t *testing.T) {
-			assert.Fail(t, "not written yet")
-		})
-		t.Run("Slice in tuple", func(t *testing.T) {
-			assert.Fail(t, "not written yet")
+			args := abi.Arguments{{Name: "B", Type: mustType(t, "int32[][2]")}}
+			_, err := evm.GetMaxSize(anyNumElements, args)
+			assert.IsType(t, relaytypes.InvalidTypeError{}, err)
 		})
 	})
 
-	t.Run("Dynamic tuples return errors", func(t *testing.T) {
-		assert.Fail(t, "not written yet")
+	t.Run("Slices in a top level tuple works as-if they are the sized element", func(t *testing.T) {
+		tuple1 := []abi.ArgumentMarshaling{
+			{Name: "I80", Type: "int80[]"},
+			{Name: "TF", Type: "bool[]"},
+		}
+		t1, err := abi.NewType("tuple", "", tuple1)
+		require.NoError(t, err)
+		args := abi.Arguments{{Name: "tuple", Type: t1}}
+
+		arg1 := struct {
+			I80 []*big.Int
+			TF  []bool
+		}{
+			I80: []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3), big.NewInt(4), big.NewInt(5), big.NewInt(6), big.NewInt(7), big.NewInt(8), big.NewInt(9), big.NewInt(10)},
+			TF:  []bool{true, true, true, false, true, true, true, false, true, true},
+		}
+
+		runSizeTest(t, anyNumElements, args, arg1)
+	})
+
+	t.Run("Nested dynamic tuples return errors", func(t *testing.T) {
+		tuple1 := []abi.ArgumentMarshaling{
+			{Name: "I8", Type: "int8"},
+			{Name: "I80", Type: "int80"},
+			{Name: "I256", Type: "int256"},
+			{Name: "B3", Type: "bytes3"},
+			{Name: "B32", Type: "bytes32"},
+			{Name: "TF", Type: "bool[]"},
+		}
+
+		tuple2 := []abi.ArgumentMarshaling{
+			{Name: "I80", Type: "int80"},
+			{Name: "T1", Type: "tuple", Components: tuple1},
+		}
+		t2, err := abi.NewType("tuple", "", tuple2)
+		require.NoError(t, err)
+
+		args := abi.Arguments{{Name: "t2", Type: t2}}
+		_, err = evm.GetMaxSize(anyNumElements, args)
+		assert.IsType(t, relaytypes.InvalidTypeError{}, err)
 	})
 }
 
-func runSizeTest(t *testing.T, args abi.Arguments, params ...any) {
-	anyNumElements := 10
+func runSizeTest(t *testing.T, n int, args abi.Arguments, params ...any) {
 
-	actual, err := evm.GetMaxSize(anyNumElements, args)
+	actual, err := evm.GetMaxSize(n, args)
 	require.NoError(t, err)
 
 	expected, err := args.Pack(params...)
