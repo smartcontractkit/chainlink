@@ -596,10 +596,11 @@ func (d *Delegate) newServicesGenericPlugin(
 	}
 
 	pluginConfig := types.ReportingPluginServiceConfig{
-		PluginName:   cconf.PluginName,
-		Command:      command,
-		ProviderType: cconf.ProviderType,
-		PluginConfig: string(p.PluginConfig),
+		PluginName:    cconf.PluginName,
+		Command:       command,
+		ProviderType:  cconf.ProviderType,
+		TelemetryType: cconf.TelemetryType,
+		PluginConfig:  string(p.PluginConfig),
 	}
 
 	pr := generic.NewPipelineRunnerAdapter(pluginLggr, jb, d.pipelineRunner)
@@ -699,6 +700,8 @@ func (d *Delegate) newServicesMercury(
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("EnhancedTelemetryMercury"))
 		mercuryServices = append(mercuryServices, enhancedTelemService)
+	} else {
+		lggr.Infow("Enhanced telemetry is disabled for mercury job", "job", jb.Name)
 	}
 
 	return mercuryServices, err2
@@ -746,6 +749,8 @@ func (d *Delegate) newServicesMedian(
 	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
 		medianServices = append(medianServices, enhancedTelemService)
+	} else {
+		lggr.Infow("Enhanced telemetry is disabled for job", "job", jb.Name)
 	}
 
 	return medianServices, err2

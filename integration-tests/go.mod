@@ -17,15 +17,14 @@ require (
 	github.com/manifoldco/promptui v0.9.0
 	github.com/onsi/gomega v1.27.8
 	github.com/pelletier/go-toml/v2 v2.1.0
-	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.30.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/segmentio/ksuid v1.0.4
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-testing-framework v1.18.4-0.20231106170326-cc1b855e6b08
+	github.com/smartcontractkit/chainlink-testing-framework v1.18.5
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/libocr v0.0.0-20231020123319-d255366a6545
-	github.com/smartcontractkit/ocr2keepers v0.7.27
+	github.com/smartcontractkit/libocr v0.0.0-20231107151413-13e0202ae8d7
+	github.com/smartcontractkit/ocr2keepers v0.7.28
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
@@ -58,6 +57,7 @@ require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
+	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d // indirect
 	github.com/CosmWasm/wasmd v0.40.1 // indirect
 	github.com/CosmWasm/wasmvm v1.2.4 // indirect
@@ -152,9 +152,11 @@ require (
 	github.com/gin-contrib/sessions v0.0.5 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/gin-gonic/gin v1.9.1 // indirect
+	github.com/go-asn1-ber/asn1-ber v1.5.4 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
+	github.com/go-ldap/ldap/v3 v3.4.5 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -361,6 +363,7 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/alertmanager v0.25.1 // indirect
@@ -385,7 +388,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231101160906-7acebcc1b353 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231101203911-c686b4d48672 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231107132621-6de9cc4fb264 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231023133638-72f4e799ab05 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231024133459-1ef3a11319eb // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
@@ -424,7 +427,6 @@ require (
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
-	github.com/yuin/goldmark v1.4.13 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	github.com/zondax/hid v0.9.1 // indirect
 	github.com/zondax/ledger-go v0.14.1 // indirect
@@ -452,7 +454,6 @@ require (
 	golang.org/x/arch v0.4.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1 // indirect
-	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.13.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect

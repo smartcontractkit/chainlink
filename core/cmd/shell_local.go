@@ -362,7 +362,8 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
-	sessionORM := app.SessionORM()
+	// Local shell initialization always uses local auth users table for admin auth
+	authProviderORM := app.BasicAdminUsersORM()
 	keyStore := app.GetKeyStore()
 	err = s.KeyStoreAuthenticator.authenticate(keyStore, s.Config.Password())
 	if err != nil {
@@ -449,11 +450,11 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	var user sessions.User
-	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil {
+	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(authProviderORM, lggr); err != nil {
 		if !errors.Is(err, ErrNoCredentialFile) {
 			return errors.Wrap(err, "error creating api initializer")
 		}
-		if user, err = s.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
+		if user, err = s.FallbackAPIInitializer.Initialize(authProviderORM, lggr); err != nil {
 			if errors.Is(err, ErrorNoAPICredentialsAvailable) {
 				return errors.WithStack(err)
 			}

@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -159,7 +158,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) RPC() RPC {
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) String() string {
-	return fmt.Sprintf("(%s)%s:%s", client.Secondary.String(), s.name, s.uri.Redacted())
+	return fmt.Sprintf("(%s)%s:%s", Secondary.String(), s.name, s.uri.Redacted())
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state nodeState) (changed bool) {
