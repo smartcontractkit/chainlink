@@ -271,7 +271,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
 
   /// @notice Predicts the estimated cost (maximum cost) of a request
   /// @dev Meant only for Ethereum, does not add L2 chains' L1 fee
-  function _getExpectedCostEstimate(uint256 callbackGas, uint256 l1Fee) internal view returns (uint96) {
+  function _getExpectedCostEstimate(uint256 callbackGas) internal view returns (uint96) {
     uint256 gasPrice = TX_GASPRICE_START < getCoordinatorConfig().minimumEstimateGasPriceWei
       ? getCoordinatorConfig().minimumEstimateGasPriceWei
       : TX_GASPRICE_START;
@@ -279,29 +279,19 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
       ((gasPrice * getCoordinatorConfig().fulfillmentGasPriceOverEstimationBP) / 10_000);
     uint96 juelsPerGas = uint96((1e18 * gasPriceWithOverestimation) / uint256(LINK_ETH_RATE));
     uint96 gasOverheadJuels = juelsPerGas *
-      ((getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback) +
-        uint96(l1Fee));
+      ((getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback));
     uint96 callbackGasCostJuels = uint96(juelsPerGas * callbackGas);
     return gasOverheadJuels + s_donFee + s_adminFee + callbackGasCostJuels;
   }
 
-  function _getExpectedCostEstimate(uint256 callbackGas) internal view returns (uint96) {
-    return _getExpectedCostEstimate(callbackGas, 0);
-  }
-
   /// @notice Predicts the actual cost of a request
   /// @dev Meant only for Ethereum, does not add L2 chains' L1 fee
-  function _getExpectedCost(uint256 gasUsed, uint256 l1Fee) internal view returns (uint96) {
+  function _getExpectedCost(uint256 gasUsed) internal view returns (uint96) {
     uint96 juelsPerGas = uint96((1e18 * TX_GASPRICE_START) / uint256(LINK_ETH_RATE));
     uint96 gasOverheadJuels = juelsPerGas *
       (getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback);
     uint96 callbackGasCostJuels = uint96(juelsPerGas * gasUsed);
-    uint96 l1FeeJuels = uint96(juelsPerGas * l1Fee);
-    return gasOverheadJuels + s_donFee + s_adminFee + callbackGasCostJuels + l1FeeJuels;
-  }
-
-  function _getExpectedCost(uint256 gasUsed) internal view returns (uint96) {
-    return _getExpectedCost(gasUsed, 0);
+    return gasOverheadJuels + s_donFee + s_adminFee + callbackGasCostJuels;
   }
 
   /// @notice Send a request and store information about it in s_requests

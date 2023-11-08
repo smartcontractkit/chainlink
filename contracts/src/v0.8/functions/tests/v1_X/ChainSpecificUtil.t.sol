@@ -18,14 +18,12 @@ import {OVM_GasPriceOracle} from "../../../vendor/@eth-optimism/contracts/v0.8.9
 /// @dev where Extra Buffer for L1 cost = (L1 Estimated Cost / L2 Gas Price)
 contract ChainSpecificUtil__getCurrentTxL1GasFees_Arbitrum is FunctionsFulfillmentSetup {
   address private constant ARBGAS_ADDR = address(0x000000000000000000000000000000000000006C);
-  uint256 private constant L1_FEE_GASUNITS = 10000;
+  uint256 private constant L1_FEE_WEI = 100;
+
+  uint96 l1FeeJuels = uint96(L1_FEE_WEI * (1e18 / uint256(LINK_ETH_RATE)));
 
   function setUp() public virtual override {
-    vm.mockCall(
-      ARBGAS_ADDR,
-      abi.encodeWithSelector(ArbGasInfo.getCurrentTxL1GasFees.selector),
-      abi.encode(L1_FEE_GASUNITS)
-    );
+    vm.mockCall(ARBGAS_ADDR, abi.encodeWithSelector(ArbGasInfo.getCurrentTxL1GasFees.selector), abi.encode(L1_FEE_WEI));
   }
 
   function test__getCurrentTxL1GasFees_SuccessWhenArbitrumMainnet() public {
@@ -36,14 +34,12 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Arbitrum is FunctionsFulfillme
     FunctionsFulfillmentSetup.setUp();
 
     // Check request cost estimate
-    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(
-      s_requests[1].requestData.callbackGasLimit,
-      L1_FEE_GASUNITS
-    );
+    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
+      l1FeeJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels);
 
     // Check response actual cost
-    uint96 expectedTotalCostJuels = _getExpectedCost(5416, L1_FEE_GASUNITS);
+    uint96 expectedTotalCostJuels = _getExpectedCost(5416) + l1FeeJuels;
     assertEq(s_responses[1].totalCostJuels, expectedTotalCostJuels);
   }
 
@@ -55,14 +51,12 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Arbitrum is FunctionsFulfillme
     FunctionsFulfillmentSetup.setUp();
 
     // Check request cost estimate
-    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(
-      s_requests[1].requestData.callbackGasLimit,
-      L1_FEE_GASUNITS
-    );
+    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
+      l1FeeJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels);
 
     // Check response actual cost
-    uint96 expectedTotalCostJuels = _getExpectedCost(5416, L1_FEE_GASUNITS);
+    uint96 expectedTotalCostJuels = _getExpectedCost(5416) + l1FeeJuels;
     assertEq(s_responses[1].totalCostJuels, expectedTotalCostJuels);
   }
 
@@ -74,14 +68,12 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Arbitrum is FunctionsFulfillme
     FunctionsFulfillmentSetup.setUp();
 
     // Check request cost estimate
-    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(
-      s_requests[1].requestData.callbackGasLimit,
-      L1_FEE_GASUNITS
-    );
+    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
+      l1FeeJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels);
 
     // Check response actual cost
-    uint96 expectedTotalCostJuels = _getExpectedCost(5416, L1_FEE_GASUNITS);
+    uint96 expectedTotalCostJuels = _getExpectedCost(5416) + l1FeeJuels;
     assertEq(s_responses[1].totalCostJuels, expectedTotalCostJuels);
   }
 }
@@ -91,13 +83,15 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Arbitrum is FunctionsFulfillme
 /// @dev where L1 data fee = l1_gas_price * ((count_zero_bytes(tx_data) * 4 + count_non_zero_bytes(tx_data) * 16) + fixed_overhead + noncalldata_gas) * dynamic_overhead
 contract ChainSpecificUtil__getCurrentTxL1GasFees_Optimism is FunctionsFulfillmentSetup {
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
-  uint256 private constant L1_FEE_GASUNITS = 10000;
+  uint256 private constant L1_FEE_WEI = 300000000;
+
+  uint96 l1FeeJuels = uint96(L1_FEE_WEI * (1e18 / uint256(LINK_ETH_RATE)));
 
   function setUp() public virtual override {
     vm.mockCall(
       OVM_GASPRICEORACLE_ADDR,
       abi.encodeWithSelector(OVM_GasPriceOracle.getL1Fee.selector),
-      abi.encode(L1_FEE_GASUNITS)
+      abi.encode(L1_FEE_WEI)
     );
   }
 
@@ -109,14 +103,12 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Optimism is FunctionsFulfillme
     FunctionsFulfillmentSetup.setUp();
 
     // Check request cost estimate
-    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(
-      s_requests[1].requestData.callbackGasLimit,
-      L1_FEE_GASUNITS
-    );
+    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
+      l1FeeJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels);
 
     // Check response actual cost
-    uint96 expectedTotalCostJuels = _getExpectedCost(5416, L1_FEE_GASUNITS);
+    uint96 expectedTotalCostJuels = _getExpectedCost(5416) + l1FeeJuels;
     assertEq(s_responses[1].totalCostJuels, expectedTotalCostJuels);
   }
 
@@ -128,14 +120,12 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Optimism is FunctionsFulfillme
     FunctionsFulfillmentSetup.setUp();
 
     // Check request cost estimate
-    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(
-      s_requests[1].requestData.callbackGasLimit,
-      L1_FEE_GASUNITS
-    );
+    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
+      l1FeeJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels);
 
     // Check response actual cost
-    uint96 expectedTotalCostJuels = _getExpectedCost(5416, L1_FEE_GASUNITS);
+    uint96 expectedTotalCostJuels = _getExpectedCost(5416) + l1FeeJuels;
     assertEq(s_responses[1].totalCostJuels, expectedTotalCostJuels);
   }
 
@@ -147,14 +137,12 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Optimism is FunctionsFulfillme
     FunctionsFulfillmentSetup.setUp();
 
     // Check request cost estimate
-    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(
-      s_requests[1].requestData.callbackGasLimit,
-      L1_FEE_GASUNITS
-    );
+    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
+      l1FeeJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels);
 
     // Check response actual cost
-    uint96 expectedTotalCostJuels = _getExpectedCost(5416, L1_FEE_GASUNITS);
+    uint96 expectedTotalCostJuels = _getExpectedCost(5416) + l1FeeJuels;
     assertEq(s_responses[1].totalCostJuels, expectedTotalCostJuels);
   }
 }
@@ -164,13 +152,15 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Optimism is FunctionsFulfillme
 /// @dev where L1 data fee = l1_gas_price * ((count_zero_bytes(tx_data) * 4 + count_non_zero_bytes(tx_data) * 16) + fixed_overhead + noncalldata_gas) * dynamic_overhead
 contract ChainSpecificUtil__getCurrentTxL1GasFees_Base is FunctionsFulfillmentSetup {
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
-  uint256 private constant L1_FEE_GASUNITS = 10000;
+  uint256 private constant L1_FEE_WEI = 300000000;
+
+  uint96 l1FeeJuels = uint96(L1_FEE_WEI * (1e18 / uint256(LINK_ETH_RATE)));
 
   function setUp() public virtual override {
     vm.mockCall(
       OVM_GASPRICEORACLE_ADDR,
       abi.encodeWithSelector(OVM_GasPriceOracle.getL1Fee.selector),
-      abi.encode(L1_FEE_GASUNITS)
+      abi.encode(L1_FEE_WEI)
     );
   }
 
@@ -182,14 +172,12 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Base is FunctionsFulfillmentSe
     FunctionsFulfillmentSetup.setUp();
 
     // Check request cost estimate
-    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(
-      s_requests[1].requestData.callbackGasLimit,
-      L1_FEE_GASUNITS
-    );
+    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
+      l1FeeJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels);
 
     // Check response actual cost
-    uint96 expectedTotalCostJuels = _getExpectedCost(5416, L1_FEE_GASUNITS);
+    uint96 expectedTotalCostJuels = _getExpectedCost(5416) + l1FeeJuels;
     assertEq(s_responses[1].totalCostJuels, expectedTotalCostJuels);
   }
 
@@ -201,14 +189,12 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Base is FunctionsFulfillmentSe
     FunctionsFulfillmentSetup.setUp();
 
     // Check request cost estimate
-    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(
-      s_requests[1].requestData.callbackGasLimit,
-      L1_FEE_GASUNITS
-    );
+    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
+      l1FeeJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels);
 
     // Check response actual cost
-    uint96 expectedTotalCostJuels = _getExpectedCost(5416, L1_FEE_GASUNITS);
+    uint96 expectedTotalCostJuels = _getExpectedCost(5416) + l1FeeJuels;
     assertEq(s_responses[1].totalCostJuels, expectedTotalCostJuels);
   }
 
@@ -220,14 +206,12 @@ contract ChainSpecificUtil__getCurrentTxL1GasFees_Base is FunctionsFulfillmentSe
     FunctionsFulfillmentSetup.setUp();
 
     // Check request cost estimate
-    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(
-      s_requests[1].requestData.callbackGasLimit,
-      L1_FEE_GASUNITS
-    );
+    uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
+      l1FeeJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels);
 
     // Check response actual cost
-    uint96 expectedTotalCostJuels = _getExpectedCost(5416, L1_FEE_GASUNITS);
+    uint96 expectedTotalCostJuels = _getExpectedCost(5416) + l1FeeJuels;
     assertEq(s_responses[1].totalCostJuels, expectedTotalCostJuels);
   }
 }
