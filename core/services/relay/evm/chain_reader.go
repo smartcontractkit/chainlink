@@ -182,6 +182,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundCo
 	chainContractReader := cr.chainContractReaders[bc.Name]
 	chainReadingDefinition := chainContractReader.ChainReaderDefinitions[method]
 	chainSpecificName := chainReadingDefinition.ChainSpecificName
+	contractAddr := common.HexToAddress(bc.Address)
 
 	if chainReadingDefinition.ReadType == types.Method {
 		var callData []byte
@@ -197,7 +198,6 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundCo
 			}
 		}
 
-		contractAddr := common.HexToAddress(bc.Address)
 		ethCallMsg := ethereum.CallMsg{
 			From: common.Address{},
 			To:   &contractAddr,
@@ -212,7 +212,19 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundCo
 		if err = chainContractReader.ParsedContractABI.UnpackIntoInterface(returnVal, chainSpecificName, response); err != nil {
 			return errors.Wrap(err, "failed to unpack response")
 		}
-	}
+	} //else {
+	//	event := chainContractReader.ParsedContractABI.Events[chainSpecificName]
+	//	if err != nil {
+	//		return err
+	//	}
+	//	for _, input := range event.Inputs {
+	//		overrideVal := chainReadingDefinition.Params[input.Name]
+	//		if overrideVal != nil {
+	//			params = overrideVal
+	//		}
+	//	}
+	//	cr.lp.IndexedLogs(event.ID, common.HexToAddress(), contractAddr, params)
+	//}
 
 	return nil
 }
