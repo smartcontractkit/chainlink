@@ -380,8 +380,9 @@ jobs:
           # docker volume create otel-traces
 
           # Start OpenTelemetry Collector
+          # Note the user must be set to the same user as the runner for the trace data to be accessible
           docker run -d --network=tracing --name=otel-collector \
-            -v $PWD/otel-collector.yaml:/etc/otel-collector.yaml \
+            -v $PWD/otel-collector-ci.yaml:/etc/otel-collector.yaml \
             -v $PWD/../../integration-tests/smoke/traces:/tracing \
             --user "$(id -u):$(id -g)" \
             -p 4317:4317 otel/opentelemetry-collector:0.88.0 --config=/etc/otel-collector.yaml
