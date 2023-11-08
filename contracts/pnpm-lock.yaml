@@ -146,8 +146,8 @@ devDependencies:
     specifier: ^2.2.7
     version: 2.2.7
   solhint:
-    specifier: ^3.6.2
-    version: 3.6.2
+    specifier: ^4.0.0
+    version: 4.0.0
   solhint-plugin-chainlink-solidity:
     specifier: git+https://github.com/smartcontractkit/chainlink-solhint-rules.git#v1.2.0
     version: github.com/smartcontractkit/chainlink-solhint-rules/cfc50b32f95b730304a50deb2e27e88d87115874
@@ -1315,6 +1315,27 @@ packages:
       open: 9.1.0
       picocolors: 1.0.0
       tslib: 2.6.2
+    dev: true
+
+  /@pnpm/config.env-replace@1.1.0:
+    resolution: {integrity: sha512-htyl8TWnKL7K/ESFa1oW2UB5lVDxuF5DpM7tBi6Hu2LNL3mWkIzNLG6N4zoCUP1lCKNxWy/3iu8mS8MvToGd6w==}
+    engines: {node: '>=12.22.0'}
+    dev: true
+
+  /@pnpm/network.ca-file@1.0.2:
+    resolution: {integrity: sha512-YcPQ8a0jwYU9bTdJDpXjMi7Brhkr1mXsXrUJvjqM2mQDgkRiz8jFaQGOdaLxgjtUfQgZhKy/O3cG/YwmgKaxLA==}
+    engines: {node: '>=12.22.0'}
+    dependencies:
+      graceful-fs: 4.2.10
+    dev: true
+
+  /@pnpm/npm-conf@2.2.2:
+    resolution: {integrity: sha512-UA91GwWPhFExt3IizW6bOeY/pQ0BkuNwKjk9iQW9KqxluGCrg4VenZ0/L+2Y0+ZOtme72EVvg6v0zo3AMQRCeA==}
+    engines: {node: '>=12'}
+    dependencies:
+      '@pnpm/config.env-replace': 1.1.0
+      '@pnpm/network.ca-file': 1.0.2
+      config-chain: 1.1.13
     dev: true
 
   /@prettier/sync@0.3.0(prettier@3.0.3):
@@ -3839,6 +3860,13 @@ packages:
       inherits: 2.0.4
       readable-stream: 2.3.7
       typedarray: 0.0.6
+    dev: true
+
+  /config-chain@1.1.13:
+    resolution: {integrity: sha512-qj+f8APARXHrM0hraqXYb2/bOVSV4PvJQlNZ/DVj0QrmNM2q2euizkeuVckQ57J+W0mRH6Hvi+k50M4Jul2VRQ==}
+    dependencies:
+      ini: 1.3.8
+      proto-list: 1.2.4
     dev: true
 
   /constant-case@2.0.0:
@@ -7334,6 +7362,13 @@ packages:
       graceful-fs: 4.2.10
     dev: true
 
+  /latest-version@7.0.0:
+    resolution: {integrity: sha512-KvNT4XqAMzdcL6ka6Tl3i2lYeFDgXNCuIX+xNx6ZMVR1dFq+idXd9FLKNMOIx0t9mJ9/HudyX4oZWXZQ0UJHeg==}
+    engines: {node: '>=14.16'}
+    dependencies:
+      package-json: 8.1.1
+    dev: true
+
   /lcid@1.0.0:
     resolution: {integrity: sha512-YiGkH6EnGrDGqLMITnGjXtGmNtjoXw9SVUzcaos8RBi7Ps0VBylkq+vOcY9QE5poLasPCR849ucFUkl0UzUyOw==}
     engines: {node: '>=0.10.0'}
@@ -8531,6 +8566,16 @@ packages:
     engines: {node: '>=6'}
     dev: true
 
+  /package-json@8.1.1:
+    resolution: {integrity: sha512-cbH9IAIJHNj9uXi196JVsRlt7cHKak6u/e6AkL/bkRelZ7rlL3X1YKxsZwa36xipOEKAsdtmaG6aAJoM1fx2zA==}
+    engines: {node: '>=14.16'}
+    dependencies:
+      got: 12.1.0
+      registry-auth-token: 5.0.2
+      registry-url: 6.0.1
+      semver: 7.5.4
+    dev: true
+
   /param-case@2.1.1:
     resolution: {integrity: sha512-eQE845L6ot89sk2N8liD8HAuH4ca6Vvr7VWAWwt7+kvvG5aBcPmmphQ68JsEG2qa9n1TykS2DLeMt363AAH8/w==}
     dependencies:
@@ -8900,6 +8945,10 @@ packages:
       signal-exit: 3.0.7
     dev: true
 
+  /proto-list@1.2.4:
+    resolution: {integrity: sha512-vtK/94akxsTMhe0/cbfpR+syPuszcuwhqVjJq26CuNDgFGj682oRBXOP5MJpv2r7JtE8MsiepGIqvvOTBwn2vA==}
+    dev: true
+
   /proxy-addr@2.0.5:
     resolution: {integrity: sha512-t/7RxHXPH6cJtP0pRG6smSr9QJidhB+3kXu0KgXnbGYMgzEnUxRQ4/LDdfOwZEMyIh3/xHb8PX3t+lfL9z+YVQ==}
     engines: {node: '>= 0.10'}
@@ -9088,6 +9137,16 @@ packages:
       unpipe: 1.0.0
     dev: true
 
+  /rc@1.2.8:
+    resolution: {integrity: sha512-y3bGgqKj3QBdxLbLkomlohkvsA8gdAiUQlSBJnBhfn+BPxg4bc62d8TcBW15wavDfgexCgccckhcZvywyQYPOw==}
+    hasBin: true
+    dependencies:
+      deep-extend: 0.6.0
+      ini: 1.3.8
+      minimist: 1.2.8
+      strip-json-comments: 2.0.1
+    dev: true
+
   /read-pkg-up@1.0.1:
     resolution: {integrity: sha512-WD9MTlNtI55IwYUS27iHh9tK3YoIVhxis8yKhLpTqWtml739uXc9NWTpxoHkfZf3+DkCCsXox94/VWZniuZm6A==}
     engines: {node: '>=0.10.0'}
@@ -9222,6 +9281,20 @@ packages:
       regenerate: 1.4.2
       regjsgen: 0.2.0
       regjsparser: 0.1.5
+    dev: true
+
+  /registry-auth-token@5.0.2:
+    resolution: {integrity: sha512-o/3ikDxtXaA59BmZuZrJZDJv8NMDGSj+6j6XaeBmHw8eY1i1qd9+6H+LjVvQXx3HN6aRCGa1cUdJ9RaJZUugnQ==}
+    engines: {node: '>=14'}
+    dependencies:
+      '@pnpm/npm-conf': 2.2.2
+    dev: true
+
+  /registry-url@6.0.1:
+    resolution: {integrity: sha512-+crtS5QjFRqFCoQmvGduwYWEBng99ZvmFvF+cUJkGYF1L1BfU8C6Zp9T7f5vPAwyLkUExpvK+ANVZmGU49qi4Q==}
+    engines: {node: '>=12'}
+    dependencies:
+      rc: 1.2.8
     dev: true
 
   /regjsgen@0.2.0:
@@ -9883,8 +9956,8 @@ packages:
       prettier-plugin-solidity: 1.1.3(prettier@3.0.3)
     dev: true
 
-  /solhint@3.6.2:
-    resolution: {integrity: sha512-85EeLbmkcPwD+3JR7aEMKsVC9YrRSxd4qkXuMzrlf7+z2Eqdfm1wHWq1ffTuo5aDhoZxp2I9yF3QkxZOxOL7aQ==}
+  /solhint@4.0.0:
+    resolution: {integrity: sha512-bFViMcFvhqVd/HK3Roo7xZXX5nbujS7Bxeg5vnZc9QvH0yCWCrQ38Yrn1pbAY9tlKROc6wFr+rK1mxYgYrjZgA==}
     hasBin: true
     dependencies:
       '@solidity-parser/parser': 0.16.0
@@ -9898,6 +9971,7 @@ packages:
       glob: 8.1.0
       ignore: 5.2.4
       js-yaml: 4.1.0
+      latest-version: 7.0.0
       lodash: 4.17.21
       pluralize: 8.0.0
       semver: 7.5.4
@@ -10328,6 +10402,11 @@ packages:
   /strip-indent@2.0.0:
     resolution: {integrity: sha512-RsSNPLpq6YUL7QYy44RnPVTn/lcVZtb48Uof3X5JLbF4zD/Gs7ZFDv2HWol+leoQN2mT86LAzSshGfkTlSOpsA==}
     engines: {node: '>=4'}
+    dev: true
+
+  /strip-json-comments@2.0.1:
+    resolution: {integrity: sha512-4gB8na07fecVVkOI6Rs4e7T6NOTki5EmL7TUduTs6bu3EdnSycntVJ4re8kgZA+wx9IueI2Y11bfbgwtzuE0KQ==}
+    engines: {node: '>=0.10.0'}
     dev: true
 
   /strip-json-comments@3.1.1:
