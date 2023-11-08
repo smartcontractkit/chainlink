@@ -31,6 +31,7 @@ type CLClusterDashboard struct {
 	Folder                   string
 	GrafanaURL               string
 	GrafanaToken             string
+	opts                     []dashboard.Option
 	extendedOpts             []dashboard.Option
 	builder                  dashboard.Builder
 }
@@ -50,6 +51,10 @@ func NewCLClusterDashboard(name, ldsn, pdsn, dbf, grafanaURL, grafanaToken strin
 		return db, err
 	}
 	return db, nil
+}
+
+func (m *CLClusterDashboard) Opts() []dashboard.Option {
+	return m.opts
 }
 
 // logsRowOption returns a row option for a node's logs with name and instance selector
@@ -367,6 +372,7 @@ func (m *CLClusterDashboard) generate() error {
 		"Chainlink Cluster Dashboard",
 		opts...,
 	)
+	m.opts = opts
 	m.builder = builder
 	return err
 }
