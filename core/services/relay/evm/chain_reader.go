@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/pkg/errors"
-
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -52,7 +51,7 @@ func ValidateChainReaderConfig(cfg types.ChainReaderConfig) error {
 				return fmt.Errorf("invalid chain reader definition read type: %d", chainReaderDefinition.ReadType)
 			}
 			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("invalid chain reader config for contract: %q chain reading definition: %q", contractName, chainReadingDefinitionName))
+				return fmt.Errorf("invalid chain reader config for contract: %q chain reading definition: %q, err: %w", contractName, chainReadingDefinitionName, err)
 			}
 		}
 	}
@@ -162,11 +161,24 @@ func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller) (*chainRe
 	return &chainReader{lggr.Named("ChainReader"), lp}, nil
 }
 
+func (cr *chainReader) Encode(ctx context.Context, item any, itemType string) (ocrtypes.Report, error) {
+	return nil, fmt.Errorf("Unimplemented method Encode called %w", relaytypes.ErrorChainReaderUnsupported{})
+}
+
+func (cr *chainReader) Decode(_ context.Context, raw []byte, into any, itemType string) error {
+	return fmt.Errorf("Unimplemented method Decode called %w", relaytypes.ErrorChainReaderUnsupported{})
+}
+
+func (cr *chainReader) GetMaxEncodingSize(ctx context.Context, n int, itemType string) (int, error) {
+	return 0, fmt.Errorf("Unimplemented method GetMaxDecodingSize called %w", relaytypes.ErrorChainReaderUnsupported{})
+}
+
+func (cr *chainReader) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
+	return 0, fmt.Errorf("Unimplemented method GetMaxDecodingSize called %w", relaytypes.ErrorChainReaderUnsupported{})
+}
+
 func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) error {
-
-	// TODO: implement GetLatestValue
-
-	return fmt.Errorf("Unimplemented method GetlatestValue called")
+	return fmt.Errorf("Unimplemented method GetLatestValue called %w", relaytypes.ErrorChainReaderUnsupported{})
 }
 
 func (cr *chainReader) Start(ctx context.Context) error {
