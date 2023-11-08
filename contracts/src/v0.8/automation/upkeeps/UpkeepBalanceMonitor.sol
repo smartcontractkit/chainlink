@@ -192,8 +192,9 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   // |                           SETTERS                            |
   // ================================================================
 
-  /// @notice Sets the list of upkeeps to watch and their funding parameters.
-  /// @param watchlist the list of subscription ids to watch
+  /// @notice Sets the list of upkeeps to watch
+  /// @param registryAddress the registry that this watchlist applies to
+  /// @param watchlist the list of UpkeepIDs to watch
   function setWatchList(address registryAddress, uint256[] calldata watchlist) external onlyOwner {
     if (watchlist.length == 0) {
       s_registries.remove(registryAddress);
