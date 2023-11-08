@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 const (
@@ -258,7 +259,7 @@ func (o *OCRSoakTest) Setup() {
 
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(utils.TestContext(o.t), time.Second*5)
 	latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
 	cancel()
 	require.NoError(o.t, err, "Error getting current block number")
@@ -559,7 +560,7 @@ func (o *OCRSoakTest) setFilterQuery() {
 // WARNING: Should only be used for observation and logging. This is not a reliable way to collect events.
 func (o *OCRSoakTest) observeOCREvents() error {
 	eventLogs := make(chan types.Log)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(utils.TestContext(o.t), 5*time.Second)
 	eventSub, err := o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
 	cancel()
 	if err != nil {
@@ -593,7 +594,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 						Str("Backoff", backoff.String()).
 						Interface("Query", o.filterQuery).
 						Msg("Error while subscribed to OCR Logs. Resubscribing")
-					ctx, cancel = context.WithTimeout(context.Background(), backoff)
+					ctx, cancel = context.WithTimeout(utils.TestContext(o.t), backoff)
 					eventSub, err = o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
 					cancel()
 					if err != nil {
@@ -646,12 +647,12 @@ func (o *OCRSoakTest) collectEvents() error {
 	timeout := time.Second * 15
 	o.log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(utils.TestContext(o.t), timeout)
 	contractEvents, err := o.chainClient.FilterLogs(ctx, o.filterQuery)
 	cancel()
 	for err != nil {
 		o.log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(utils.TestContext(o.t), timeout)
 		contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
 		cancel()
 		if err != nil {

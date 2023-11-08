@@ -1,7 +1,6 @@
 package test_env
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -233,7 +233,7 @@ func (te *CLClusterTestEnv) collectTestLogs() error {
 				return err
 			}
 			defer logFile.Close()
-			logReader, err := node.Container.Logs(context.Background())
+			logReader, err := node.Container.Logs(utils.TestContext(te.t))
 			if err != nil {
 				return err
 			}

@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -17,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func DeployForwarderContracts(
@@ -67,7 +67,7 @@ func AcceptAuthorizedReceiversOperator(
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for events in nodes shouldn't fail")
 
-	senders, err := forwarderInstance.GetAuthorizedSenders(context.Background())
+	senders, err := forwarderInstance.GetAuthorizedSenders(utils.TestContext(t))
 	require.NoError(t, err, "Getting authorized senders shouldn't fail")
 	var nodesAddrs []string
 	for _, o := range nodeAddresses {
@@ -75,7 +75,7 @@ func AcceptAuthorizedReceiversOperator(
 	}
 	require.Equal(t, nodesAddrs, senders, "Senders addresses should match node addresses")
 
-	owner, err := forwarderInstance.Owner(context.Background())
+	owner, err := forwarderInstance.Owner(utils.TestContext(t))
 	require.NoError(t, err, "Getting authorized forwarder owner shouldn't fail")
 	require.Equal(t, operator.Hex(), owner, "Forwarder owner should match operator")
 }
@@ -141,7 +141,7 @@ func SubscribeOperatorFactoryEvents(
 	l := logging.GetTestLogger(t)
 	contractABI, err := operator_factory.OperatorFactoryMetaData.GetAbi()
 	require.NoError(t, err, "Getting contract abi for OperatorFactory shouldn't fail")
-	latestBlockNum, err := chainClient.LatestBlockNumber(context.Background())
+	latestBlockNum, err := chainClient.LatestBlockNumber(utils.TestContext(t))
 	require.NoError(t, err, "Subscribing to contract event log for OperatorFactory instance shouldn't fail")
 	query := geth.FilterQuery{
 		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
@@ -149,7 +149,7 @@ func SubscribeOperatorFactoryEvents(
 	}
 
 	eventLogs := make(chan types.Log)
-	sub, err := chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
+	sub, err := chainClient.SubscribeFilterLogs(utils.TestContext(t), query, eventLogs)
 	require.NoError(t, err, "Subscribing to contract event log for OperatorFactory instance shouldn't fail")
 	go func() {
 		defer sub.Unsubscribe()
@@ -160,7 +160,7 @@ func SubscribeOperatorFactoryEvents(
 				l.Error().Err(err).Msg("Error while watching for new contract events. Retrying Subscription")
 				sub.Unsubscribe()
 
-				sub, err = chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
+				sub, err = chainClient.SubscribeFilterLogs(utils.TestContext(t), query, eventLogs)
 				require.NoError(t, err, "Subscribing to contract event log for OperatorFactory instance shouldn't fail")
 			case vLog := <-eventLogs:
 				eventDetails, err := contractABI.EventByID(vLog.Topics[0])

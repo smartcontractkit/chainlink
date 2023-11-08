@@ -1,7 +1,6 @@
 package chaos
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -269,7 +269,7 @@ func TestAutomationChaos(t *testing.T) {
 					gom.Eventually(func(g gomega.Gomega) {
 						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 						for i := 0; i < len(upkeepIDs); i++ {
-							counter, err := consumers[i].Counter(context.Background())
+							counter, err := consumers[i].Counter(it_utils.TestContext(t))
 							require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 							expect := 5
 							l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
@@ -284,7 +284,7 @@ func TestAutomationChaos(t *testing.T) {
 					gom.Eventually(func(g gomega.Gomega) {
 						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 						for i := 0; i < len(upkeepIDs); i++ {
-							counter, err := consumers[i].Counter(context.Background())
+							counter, err := consumers[i].Counter(it_utils.TestContext(t))
 							require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 							expect := 10
 							l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")

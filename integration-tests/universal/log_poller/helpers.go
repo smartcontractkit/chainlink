@@ -79,8 +79,8 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 	return nil
 }
 
+// Currently Unused November 8, 2023, Might be useful in the near future so keeping it here for now
 // this is not really possible, log trigger doesn't support multiple topics, even if log poller does
-// Unused???
 // var registerMultipleTopicsFilter = func(registry contracts.KeeperRegistry, upkeepID *big.Int, emitterAddress common.Address, topics []abi.Event) error {
 // 	if len(topics) > 4 {
 // 		return errors.New("Cannot register more than 4 topics")
@@ -276,29 +276,6 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 		}
 	}
 }
-
-// Unused???
-// var waitForEndBlockInLogPoller = func(endBlock int64, chainID *big.Int, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
-// 	for i := 1; i < len(nodes.Nodes); i++ {
-// 		clNode := nodes.Nodes[i]
-// 		orm, db, err := NewOrm(coreLogger, chainID, clNode.PostgresDb)
-// 		if err != nil {
-// 			return false, err
-// 		}
-
-// 		defer db.Close()
-// 		block, err := orm.SelectBlockByNumber(endBlock)
-// 		if err != nil {
-// 			return false, err
-// 		}
-
-// 		if block == nil {
-// 			return false, nil
-// 		}
-// 	}
-
-// 	return true, nil
-// }
 
 var chainHasFinalisedEndBlock = func(l zerolog.Logger, evmClient blockchain.EVMClient, endBlock int64) (bool, error) {
 	effectiveEndBlock := endBlock + 1

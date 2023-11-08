@@ -1,15 +1,11 @@
 package test_env
 
 import (
-	"context"
-	"crypto/ed25519"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -21,9 +17,6 @@ import (
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
@@ -119,7 +112,7 @@ func (n *ClNode) SetTestLogger(t *testing.T) {
 
 // Restart restarts only CL node, DB container is reused
 func (n *ClNode) Restart(cfg *chainlink.Config) error {
-	if err := n.Container.Terminate(context.Background()); err != nil {
+	if err := n.Container.Terminate(utils.TestContext(n.t)); err != nil {
 		return err
 	}
 	n.NodeConfig = cfg
@@ -197,7 +190,7 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 }
 
 func (n *ClNode) GetContainerName() string {
-	name, err := n.Container.Name(context.Background())
+	name, err := n.Container.Name(utils.TestContext(n.t))
 	if err != nil {
 		return ""
 	}
@@ -285,15 +278,15 @@ func (n *ClNode) StartContainer() error {
 		return fmt.Errorf("%s err: %w", ErrStartCLNodeContainer, err)
 	}
 	if n.lw != nil {
-		if err := n.lw.ConnectContainer(context.Background(), container, "cl-node", true); err != nil {
+		if err := n.lw.ConnectContainer(utils.TestContext(n.t), container, "cl-node", true); err != nil {
 			return err
 		}
 	}
-	clEndpoint, err := test_env.GetEndpoint(context.Background(), container, "http")
+	clEndpoint, err := test_env.GetEndpoint(utils.TestContext(n.t), container, "http")
 	if err != nil {
 		return err
 	}
-	ip, err := container.ContainerIP(context.Background())
+	ip, err := container.ContainerIP(utils.TestContext(n.t))
 	if err != nil {
 		return err
 	}
@@ -410,99 +403,4 @@ func (n *ClNode) getContainerRequest(secrets string) (
 			},
 		},
 	}, nil
-}
-
-func GetOracleIdentities(chainlinkNodes []*ClNode) ([]int, []confighelper.OracleIdentityExtra, error) {
-	S := make([]int, len(chainlinkNodes))
-	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
-	sharedSecretEncryptionPublicKeys := make([]ocrtypes.ConfigEncryptionPublicKey, len(chainlinkNodes))
-	var wg sync.WaitGroup
-	errCh := make(chan error, len(chainlinkNodes)) // Buffered error channel to avoid blocking
-	for i, cl := range chainlinkNodes {
-		wg.Add(1)
-		go func(i int, cl *ClNode) {
-			defer wg.Done()
-
-			ocr2Keys, err := cl.API.MustReadOCR2Keys()
-			if err != nil {
-				errCh <- err
-				return
-			}
-			var ocr2Config client.OCR2KeyAttributes
-			for _, key := range ocr2Keys.Data {
-				if key.Attributes.ChainType == string(chaintype.EVM) {
-					ocr2Config = key.Attributes
-					break
-				}
-			}
-
-			keys, err := cl.API.MustReadP2PKeys()
-			if err != nil {
-				errCh <- err
-				return
-			}
-			p2pKeyID := keys.Data[0].Attributes.PeerID
-
-			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
-			if err != nil {
-				errCh <- err
-				return
-			}
-
-			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			copy(offchainPkBytesFixed[:], offchainPkBytes)
-			if err != nil {
-				errCh <- err
-				return
-			}
-
-			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
-			if err != nil {
-				errCh <- err
-				return
-			}
-
-			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			copy(configPkBytesFixed[:], configPkBytes)
-			if err != nil {
-				errCh <- err
-				return
-			}
-
-			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
-			if err != nil {
-				errCh <- err
-				return
-			}
-
-			csaKeys, _, err := cl.API.ReadCSAKeys()
-			if err != nil {
-				errCh <- err
-				return
-			}
-
-			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
-			oracleIdentities[i] = confighelper.OracleIdentityExtra{
-				OracleIdentity: confighelper.OracleIdentity{
-					OnchainPublicKey:  onchainPkBytes,
-					OffchainPublicKey: offchainPkBytesFixed,
-					PeerID:            p2pKeyID,
-					TransmitAccount:   ocrtypes.Account(csaKeys.Data[0].ID),
-				},
-				ConfigEncryptionPublicKey: configPkBytesFixed,
-			}
-			S[i] = 1
-		}(i, cl)
-	}
-	wg.Wait()
-	close(errCh) // Close the error channel
-	// Check for errors sent to the error channel
-	var firstErr error
-	for err := range errCh {
-		if err != nil {
-			firstErr = err
-			break
-		}
-	}
-	return S, oracleIdentities, firstErr
 }
