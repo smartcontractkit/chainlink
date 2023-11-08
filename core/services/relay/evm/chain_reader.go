@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -46,7 +45,7 @@ func parseChainContractReadersABIs(chainContractReaders map[string]types.ChainCo
 	for key, chainContractReader := range chainContractReaders {
 		parsedABI, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
 		if err != nil {
-			return err
+			return fmt.Errorf("falied to parse contract:%s abi:%s, err:%w", key, chainContractReader.ContractABI, err)
 		}
 		chainContractReader.ParsedContractABI = &parsedABI
 		chainContractReaders[key] = chainContractReader
@@ -179,26 +178,43 @@ type chainReader struct {
 }
 
 // GetLatestValue calls given contract method and returns current value.
-func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) error {
+func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) (err error) {
 	chainContractReader := cr.chainContractReaders[bc.Name]
-	callData, err := chainContractReader.ParsedContractABI.Pack(method, params)
-	if err != nil {
-		return err
+	chainReadingDefinition := chainContractReader.ChainReaderDefinitions[method]
+	chainSpecificName := chainReadingDefinition.ChainSpecificName
+
+	if chainReadingDefinition.ReadType == types.Method {
+		var callData []byte
+		if params != nil {
+			callData, err = chainContractReader.ParsedContractABI.Pack(chainSpecificName, params)
+			if err != nil {
+				return err
+			}
+		} else {
+			callData, err = chainContractReader.ParsedContractABI.Pack(chainSpecificName)
+			if err != nil {
+				return err
+			}
+		}
+
+		contractAddr := common.HexToAddress(bc.Address)
+		ethCallMsg := ethereum.CallMsg{
+			From: common.Address{},
+			To:   &contractAddr,
+			Data: callData,
+		}
+
+		response, err := cr.chain.Client().CallContract(ctx, ethCallMsg, nil)
+		if err != nil {
+			return err
+		}
+
+		if err = chainContractReader.ParsedContractABI.UnpackIntoInterface(returnVal, chainSpecificName, response); err != nil {
+			return errors.Wrap(err, "failed to unpack response")
+		}
 	}
 
-	contractAddr := common.HexToAddress(bc.Address)
-	ethCallMsg := ethereum.CallMsg{
-		From: common.Address{},
-		To:   &contractAddr,
-		Data: callData,
-	}
-
-	response, err := cr.chain.Client().CallContract(ctx, ethCallMsg, nil)
-	if err != nil {
-		return err
-	}
-
-	return json.Unmarshal(response, returnVal)
+	return nil
 }
 
 func (cr *chainReader) Start(ctx context.Context) error {
