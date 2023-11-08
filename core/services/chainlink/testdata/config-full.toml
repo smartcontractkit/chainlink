@@ -67,6 +67,7 @@ MaxAgeDays = 17
 MaxBackups = 9
 
 [WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
 BridgeCacheTTL = '10s'
@@ -78,6 +79,25 @@ SessionReaperExpiration = '168h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
 ListenIP = '192.158.1.37'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = 'dc=custom,dc=example,dc=com'
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = 'organizationalStatus'
+ActiveAttributeAllowedValue = 'ACTIVE'
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'

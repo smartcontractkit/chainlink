@@ -1,8 +1,9 @@
 package test_env
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -61,7 +62,7 @@ func (c *ClCluster) NodeCSAKeys() ([]string, error) {
 	for _, n := range c.Nodes {
 		csaKeys, err := n.GetNodeCSAKeys()
 		if err != nil {
-			return nil, errors.Wrap(err, ErrGetNodeCSAKeys)
+			return nil, fmt.Errorf("%s, err: %w", ErrGetNodeCSAKeys, err)
 		}
 		keys = append(keys, csaKeys.Data[0].ID)
 	}

@@ -185,11 +185,11 @@ type medianContract struct {
 }
 
 type latestTransmissionDetailsResponse struct {
-	ConfigDigest    ocr2types.ConfigDigest
-	Epoch           uint32
-	Round           uint8
-	LatestAnswer    *big.Int
-	LatestTimestamp uint64
+	configDigest    ocr2types.ConfigDigest
+	epoch           uint32
+	round           uint8
+	latestAnswer    *big.Int
+	latestTimestamp time.Time
 }
 
 type latestRoundRequested struct {
@@ -206,7 +206,7 @@ func (m *medianContract) LatestTransmissionDetails(ctx context.Context) (configD
 		return
 	}
 
-	return resp.ConfigDigest, resp.Epoch, resp.Round, resp.LatestAnswer, time.Unix(int64(resp.LatestTimestamp), 0), err
+	return resp.configDigest, resp.epoch, resp.round, resp.latestAnswer, resp.latestTimestamp, err
 }
 
 func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, err error) {

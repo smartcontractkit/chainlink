@@ -227,6 +227,21 @@ func (h *Head) NextInt() *big.Int {
 	return new(big.Int).Add(h.ToInt(), big.NewInt(1))
 }
 
+// AsSlice returns a slice of heads up to length k
+// len(heads) may be less than k if the available chain is not long enough
+func (h *Head) AsSlice(k int) (heads []*Head) {
+	if k < 1 || h == nil {
+		return
+	}
+	heads = make([]*Head, 1)
+	heads[0] = h
+	for len(heads) < k && h.Parent != nil {
+		h = h.Parent
+		heads = append(heads, h)
+	}
+	return
+}
+
 func (h *Head) UnmarshalJSON(bs []byte) error {
 	type head struct {
 		Hash             common.Hash    `json:"hash"`
