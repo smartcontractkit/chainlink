@@ -12,7 +12,7 @@ import (
 
 type Block struct {
 	Num  int64
-	Hash string // Hash is stringified to allow use of block as hash key. It is NOT hex
+	Hash string // Hash is stringified to allow use of block as hash key. It is NOT hex and can be cast directly to []byte
 	Ts   uint64
 }
 

@@ -176,6 +176,11 @@ func Test_Plugin_Observation(t *testing.T) {
 				CurrentBlockTimestamp: mercury.ObsResult[uint64]{
 					Val: rand.Uint64(),
 				},
+				LatestBlocks: []Block{
+					Block{Num: rand.Int63(), Hash: string(randBytes(32)), Ts: rand.Uint64()},
+					Block{Num: rand.Int63(), Hash: string(randBytes(32)), Ts: rand.Uint64()},
+					Block{Num: rand.Int63(), Hash: string(randBytes(32)), Ts: rand.Uint64()},
+				},
 			}
 
 			rp.dataSource = mockDataSource{obs}
@@ -193,6 +198,12 @@ func Test_Plugin_Observation(t *testing.T) {
 			assert.Equal(t, obs.CurrentBlockNum.Val, p.CurrentBlockNum)
 			assert.Equal(t, obs.CurrentBlockHash.Val, p.CurrentBlockHash)
 			assert.Equal(t, obs.CurrentBlockTimestamp.Val, p.CurrentBlockTimestamp)
+			assert.Equal(t, len(obs.LatestBlocks), len(p.LatestBlocks))
+			for i := range obs.LatestBlocks {
+				assert.Equal(t, obs.LatestBlocks[i].Num, p.LatestBlocks[i].Num)
+				assert.Equal(t, []byte(obs.LatestBlocks[i].Hash), p.LatestBlocks[i].Hash)
+				assert.Equal(t, obs.LatestBlocks[i].Ts, p.LatestBlocks[i].Ts)
+			}
 			// since previousReport is not nil, maxFinalizedBlockNumber is skipped
 			assert.Zero(t, p.MaxFinalizedBlockNumber)
 
@@ -229,6 +240,7 @@ func Test_Plugin_Observation(t *testing.T) {
 					Err: errors.New("currentBlockTimestamp exploded"),
 					Val: rand.Uint64(),
 				},
+				LatestBlocks: ([]Block)(nil),
 			}
 			rp.dataSource = mockDataSource{obs}
 
@@ -247,6 +259,7 @@ func Test_Plugin_Observation(t *testing.T) {
 			assert.Zero(t, p.CurrentBlockTimestamp)
 			// since previousReport is not nil, maxFinalizedBlockNumber is skipped
 			assert.Zero(t, p.MaxFinalizedBlockNumber)
+			assert.Len(t, p.LatestBlocks, 0)
 
 			assert.False(t, p.PricesValid)
 			assert.False(t, p.CurrentBlockValid)
@@ -274,6 +287,9 @@ func Test_Plugin_Observation(t *testing.T) {
 				CurrentBlockTimestamp: mercury.ObsResult[uint64]{
 					Val: rand.Uint64(),
 				},
+				LatestBlocks: []Block{
+					Block{Num: rand.Int63(), Hash: string(randBytes(32)), Ts: rand.Uint64()},
+				},
 			}
 			rp.dataSource = mockDataSource{obs}
 
@@ -290,6 +306,12 @@ func Test_Plugin_Observation(t *testing.T) {
 			assert.Zero(t, p.CurrentBlockNum)
 			assert.Equal(t, obs.CurrentBlockHash.Val, p.CurrentBlockHash)
 			assert.Equal(t, obs.CurrentBlockTimestamp.Val, p.CurrentBlockTimestamp)
+			assert.Equal(t, len(obs.LatestBlocks), len(p.LatestBlocks))
+			for i := range obs.LatestBlocks {
+				assert.Equal(t, obs.LatestBlocks[i].Num, p.LatestBlocks[i].Num)
+				assert.Equal(t, []byte(obs.LatestBlocks[i].Hash), p.LatestBlocks[i].Hash)
+				assert.Equal(t, obs.LatestBlocks[i].Ts, p.LatestBlocks[i].Ts)
+			}
 			// since previousReport is not nil, maxFinalizedBlockNumber is skipped
 			assert.Zero(t, p.MaxFinalizedBlockNumber)
 
@@ -562,8 +584,12 @@ func Test_Plugin_parseAttributedObservation(t *testing.T) {
 			pao, err := parseAttributedObservation(ao)
 			assert.NoError(t, err)
 
+			assert.Len(t, pao.GetLatestBlocks(), MaxAllowedBlocks)
 			assert.Equal(t, 49, int(pao.GetLatestBlocks()[0].Num))
-			assert.Equal(t, 40, int(pao.GetLatestBlocks()[9].Num))
+			assert.Equal(t, 48, int(pao.GetLatestBlocks()[1].Num))
+			assert.Equal(t, 47, int(pao.GetLatestBlocks()[2].Num))
+			assert.Equal(t, 46, int(pao.GetLatestBlocks()[3].Num))
+			assert.Equal(t, 45, int(pao.GetLatestBlocks()[4].Num))
 		})
 	})
 
@@ -595,7 +621,7 @@ func Test_Plugin_parseAttributedObservation(t *testing.T) {
 			ao := newAttributedObservation(t, obs)
 
 			_, err := parseAttributedObservation(ao)
-			assert.EqualError(t, err, "LatestBlocks too large; got: 11, max: 10")
+			assert.EqualError(t, err, fmt.Sprintf("LatestBlocks too large; got: %d, max: %d", MaxAllowedBlocks+1, MaxAllowedBlocks))
 		})
 	})
 
