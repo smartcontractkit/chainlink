@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"errors"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
@@ -44,5 +43,5 @@ func (m *mapDecoder) DecodeMany(ctx context.Context, raw []byte, itemType string
 }
 
 func (m *mapDecoder) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
-	return 0, errors.New("TODO")
+	return GetMaxSizeFormEntry(n, m.Definitions[itemType])
 }

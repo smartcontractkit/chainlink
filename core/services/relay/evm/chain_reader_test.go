@@ -1,6 +1,7 @@
 package evm_test
 
 import (
+	"context"
 	"encoding/json"
 	"math/big"
 	"reflect"
@@ -10,6 +11,7 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	. "github.com/smartcontractkit/chainlink-relay/pkg/types/interfacetests"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	chainevm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -78,6 +80,17 @@ var defs = map[string][]abi.ArgumentMarshaling{
 
 func TestChainReader(t *testing.T) {
 	RunChainReaderInterfaceTests(t, &interfaceTester{})
+	t.Run("GetMaxEncodingSize delegates to GetMaxSize", func(t *testing.T) {
+		runSizeDelegationTest(t, func(reader relaytypes.ChainReader, ctx context.Context, i int, s string) (int, error) {
+			return reader.GetMaxEncodingSize(ctx, i, s)
+		})
+	})
+
+	t.Run("GetMaxDecodingSize delegates to GetMaxSize", func(t *testing.T) {
+		runSizeDelegationTest(t, func(reader relaytypes.ChainReader, ctx context.Context, i int, s string) (int, error) {
+			return reader.GetMaxDecodingSize(ctx, i, s)
+		})
+	})
 }
 
 type interfaceTester struct {
@@ -296,4 +309,18 @@ type innerTestStruct struct {
 type midLevelTestStruct struct {
 	FixedBytes [2]byte
 	Inner      innerTestStruct
+}
+
+func runSizeDelegationTest(t *testing.T, run func(relaytypes.ChainReader, context.Context, int, string) (int, error)) {
+	it := &interfaceTester{}
+	it.Setup(t)
+
+	cr := it.GetChainReader(t)
+
+	ctx := context.Background()
+	actual, err := run(cr, ctx, 10, TestItemType)
+	require.NoError(t, err)
+
+	expected, _ := evm.GetMaxSize(10, it.defs[TestItemType])
+	assert.Equal(t, expected, actual)
 }

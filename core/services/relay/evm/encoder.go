@@ -6,7 +6,6 @@ import (
 	"reflect"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -32,7 +31,7 @@ func (e *encoder) Encode(ctx context.Context, item any, itemType string) (ocrtyp
 }
 
 func (e *encoder) GetMaxEncodingSize(ctx context.Context, n int, itemType string) (int, error) {
-	return 0, errors.New("TODO")
+	return GetMaxSizeFormEntry(n, e.Definitions[itemType])
 }
 
 func (e *encoder) getEncodingType(itemType string, forceArray bool) (reflect.Type, error) {
