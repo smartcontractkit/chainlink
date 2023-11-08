@@ -659,7 +659,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
-		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, e.Owner.From.String())
+		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, vrfKeyRegistrationConfig.RegisterAgainstAddress)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		_, _, provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
