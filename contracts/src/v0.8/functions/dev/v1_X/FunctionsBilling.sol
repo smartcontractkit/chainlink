@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
-import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 
 import {Routable} from "./Routable.sol";
