@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/v2/dashboard
 
-go 1.21.0
+go 1.21
 
 require (
 	github.com/K-Phoen/grabana v0.21.19

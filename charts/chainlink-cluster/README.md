@@ -132,3 +132,8 @@ export DASHBOARD_NAME=ChainlinkCluster
 cd dashboard/cmd && go run dashboard_deploy.go
 ```
 Open Grafana folder `CLClusterEphemeralDevspace` and find dashboard `ChainlinkCluster`
+
+If you'd like to add more metrics or verify that all of them are added you can have the full list using IDE search or `ripgrep`:
+```
+rg -U ".*promauto.*\n.*Name: \"(.*)\"" ../.. > metrics.txt
+```
