@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/pressly/goose/v3"
-	"github.com/smartcontractkit/sqlx"
 )
 
 func init() {

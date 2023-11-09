@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/jmoiron/sqlx"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/smartcontractkit/ocr2vrf/types/hash"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
