@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/AggregatorV3Interface.sol";
+import "../shared/interfaces/AggregatorV3Interface.sol";
 
 contract MockETHLINKAggregator is AggregatorV3Interface {
   int256 public answer;
