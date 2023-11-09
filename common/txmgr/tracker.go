@@ -29,7 +29,6 @@ type AbandonedTx[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
-	//tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	id          int64
 	fromAddress ADDR
 	// fatalTime represents the time at which this transaction is to be marked fatal
@@ -54,11 +53,9 @@ type Tracker[
 	txStore      txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	lggr         logger.Logger
 	enabledAddrs map[ADDR]bool
-	// txCache stores abandoned transactions by ID
-	txCache map[int64]AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	// ttl is the default time to live for abandoned transactions
-	ttl  time.Duration
-	lock sync.Mutex
+	txCache      map[int64]AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	ttl          time.Duration
+	lock         sync.Mutex
 }
 
 // NewTracker creates a new Tracker
@@ -136,6 +133,19 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HandleAband
 	}
 }
 
+// GetAbandonedAddresses returns list of abandoned addresses being tracked
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandonedAddresses() []ADDR {
+	tr.lock.Lock()
+	defer tr.lock.Unlock()
+	var addrs []ADDR
+	for _, atx := range tr.txCache {
+		if atx.isValid() && !slices.Contains(addrs, atx.fromAddress) {
+			addrs = append(addrs, atx.fromAddress)
+		}
+	}
+	return addrs
+}
+
 // insertTx inserts a transaction into the tracker as an AbandonedTx
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) insertTx(
 	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
@@ -160,19 +170,6 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) getTx(
 		return nil, errors.Wrap(err, "failed to get tx by ID from txStore")
 	}
 	return tx, nil
-}
-
-// GetAbandonedAddresses returns list of abandoned addresses being tracked
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandonedAddresses() []ADDR {
-	tr.lock.Lock()
-	defer tr.lock.Unlock()
-	var addrs []ADDR
-	for _, atx := range tr.txCache {
-		if atx.isValid() && !slices.Contains(addrs, atx.fromAddress) {
-			addrs = append(addrs, atx.fromAddress)
-		}
-	}
-	return addrs
 }
 
 // finalizeTx tries to finalize a transaction based on its current state.
