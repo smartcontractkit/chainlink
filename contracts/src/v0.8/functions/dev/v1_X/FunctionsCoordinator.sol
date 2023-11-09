@@ -156,7 +156,14 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
     for (uint256 i = 0; i < requestIds.length; ++i) {
       FunctionsResponse.FulfillResult result = FunctionsResponse.FulfillResult(
-        _fulfillAndBill(requestIds[i], results[i], errors[i], onchainMetadata[i], offchainMetadata[i])
+        _fulfillAndBill(
+          requestIds[i],
+          results[i],
+          errors[i],
+          onchainMetadata[i],
+          offchainMetadata[i],
+          uint8(requestIds.length) // will not exceed "MaxRequestBatchSize" on the Job's ReportingPluginConfig
+        )
       );
 
       // Emit on successfully processing the fulfillment
