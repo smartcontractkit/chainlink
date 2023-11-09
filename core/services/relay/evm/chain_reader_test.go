@@ -302,7 +302,7 @@ func (it *interfaceTester) setupChain(t *testing.T) {
 	it.auth, err = bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
 	require.NoError(t, err)
 
-	it.sim = backends.NewSimulatedBackend(core.GenesisAlloc{it.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms)
+	it.sim = backends.NewSimulatedBackend(core.GenesisAlloc{it.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
 	it.sim.Commit()
 	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
 }
@@ -314,7 +314,7 @@ func (it *interfaceTester) deployNewContract(t *testing.T, ctx context.Context) 
 
 	// 105528 was in the error: gas too low: have 0, want 105528
 	// Not sure if there's a better way to get it.
-	it.auth.GasLimit = 105528
+	it.auth.GasLimit = 1055280000
 
 	address, tx, ts, err := DeployEvmTest(it.auth, it.sim)
 

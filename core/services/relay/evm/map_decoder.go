@@ -21,12 +21,19 @@ func (m *mapDecoder) DecodeSingle(ctx context.Context, raw []byte, itemType stri
 		return nil, relaytypes.InvalidTypeError{}
 	}
 
-	args := info.Args
 	values := map[string]any{}
-	if err := args.UnpackIntoMap(values, raw); err != nil {
+	if err := info.Args.UnpackIntoMap(values, raw); err != nil {
 		return nil, relaytypes.InvalidEncodingError{}
 	}
 
+	if noName, ok := values[""]; ok {
+		values = map[string]any{}
+		if err := mapstructureDecode(noName, &values); err != nil {
+			return nil, relaytypes.InvalidEncodingError{}
+		}
+	}
+
+	args := info.UnwrappedArgs
 	fields := make([]string, len(args))
 	for i, arg := range args {
 		fields[i] = arg.Name

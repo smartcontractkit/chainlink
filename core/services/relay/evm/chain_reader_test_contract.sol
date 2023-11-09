@@ -37,6 +37,6 @@ contract LatestValueHolder {
     }
 
     function GetElementAtIndex(uint256 i) public view returns (TestStruct memory) {
-        return seen[i];
+        return seen[i-1];
     }
 }

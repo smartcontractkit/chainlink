@@ -191,10 +191,12 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundCo
 	address := common.HexToAddress(bc.Address)
 	callMsg := ethereum.CallMsg{
 		To:   &address,
+		From: address,
 		Data: data,
 	}
 
 	output, err := cr.client.CallContract(ctx, callMsg, nil)
+
 	if err != nil {
 		return err
 	}

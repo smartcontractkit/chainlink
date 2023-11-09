@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"reflect"
 
@@ -99,9 +98,7 @@ func encodeItem(item reflect.Value, info *types.CodecEntry) (ocrtypes.Report, er
 		if err := mapstructureDecode(item.Interface(), checked.Interface()); err != nil {
 			return nil, err
 		}
-		fmt.Printf("%#v\n%#v\n", item.Interface(), checked.Interface())
 		item = reflect.NewAt(info.NativeType, checked.UnsafePointer())
-		fmt.Printf("%#v\n", item.Interface())
 	}
 
 	item = reflect.Indirect(item)
@@ -116,7 +113,7 @@ func encodeItem(item reflect.Value, info *types.CodecEntry) (ocrtypes.Report, er
 
 	if bytes, err := info.Args.Pack(values...); err == nil {
 		withPrefix := make([]byte, 0, len(info.EncodingPrefix)+len(bytes))
-		copy(withPrefix, info.EncodingPrefix)
+		withPrefix = append(withPrefix, info.EncodingPrefix...)
 		return append(withPrefix, bytes...), nil
 	}
 

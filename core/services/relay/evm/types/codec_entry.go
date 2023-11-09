@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
@@ -23,9 +22,9 @@ func (c *CodecInfo) init() error {
 }
 
 type CodecEntry struct {
-	Args           abi.Arguments
-	EncodingPrefix []byte
-
+	Args             abi.Arguments
+	UnwrappedArgs    abi.Arguments
+	EncodingPrefix   []byte
 	CheckedType      reflect.Type
 	CheckedArrayType reflect.Type
 	ArraySize        int
@@ -37,7 +36,8 @@ func (info *CodecEntry) Init() error {
 		return nil
 	}
 
-	args := info.getArgs()
+	info.unwrappedArgs()
+	args := info.UnwrappedArgs
 	argLen := len(args)
 	native := make([]reflect.StructField, argLen)
 	checked := make([]reflect.StructField, argLen)
@@ -47,13 +47,6 @@ func (info *CodecEntry) Init() error {
 		if err != nil {
 			return err
 		}
-
-		if arg.Name == "" {
-			// TODO revisit this a bit, maybe provide a way to return primitives too?
-			// Use a test case to verify
-			return errors.New("arguments must be named, unless they are a single return value that is a struct")
-		}
-
 		tag := reflect.StructTag(`json:"` + arg.Name + `"`)
 		name := strings.ToUpper(arg.Name[:1]) + arg.Name[1:]
 		native[i] = reflect.StructField{Name: name, Type: nativeArg, Tag: tag}
@@ -66,13 +59,14 @@ func (info *CodecEntry) Init() error {
 	return nil
 }
 
-func (info *CodecEntry) getArgs() abi.Arguments {
+func (info *CodecEntry) unwrappedArgs() {
 	args := info.Args
 
 	// Unwrap an unnamed tuple so that callers don't need to wrap it
 	// Eg: If you have struct Foo { ... } and return an unnamed Foo, you should be able ot decode to a go Foo{} directly
 	if len(args) != 1 || args[0].Name != "" {
-		return args
+		info.UnwrappedArgs = args
+		return
 	}
 
 	elms := args[0].Type.TupleElems
@@ -86,7 +80,7 @@ func (info *CodecEntry) getArgs() abi.Arguments {
 			}
 		}
 	}
-	return args
+	info.UnwrappedArgs = args
 }
 
 func getNativeAndCheckedTypes(curType *abi.Type) (reflect.Type, reflect.Type, error) {
