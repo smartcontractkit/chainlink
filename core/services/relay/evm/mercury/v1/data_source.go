@@ -290,14 +290,17 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 }
 
 func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.Observation) {
-	latestBlocks, err := ds.chainReader.LatestBlocks(ctx, nBlocksObservation)
+	latestBlocks, err := ds.chainReader.LatestHeads(ctx, nBlocksObservation)
 	if len(latestBlocks) < nBlocksObservation {
 		ds.insufficientBlocksCounter.Inc()
 		ds.lggr.Warnw("Insufficient blocks", "latestBlocks", latestBlocks, "lenLatestBlocks", len(latestBlocks), "nBlocksObservation", nBlocksObservation)
 	}
 
 	// TODO: remove with https://smartcontract-it.atlassian.net/browse/BCF-2209
-	if len(latestBlocks) == 0 {
+	if len(latestBlocks) == 0 || err != nil {
+		if err == nil {
+			err = fmt.Errorf("no blocks available")
+		}
 		ds.zeroBlocksCounter.Inc()
 		obs.CurrentBlockNum.Err = err
 		obs.CurrentBlockHash.Err = err

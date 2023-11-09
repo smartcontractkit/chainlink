@@ -3,7 +3,6 @@ package evm
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -125,15 +124,15 @@ func NewChainReader(h httypes.HeadTracker) relaymercury.ChainReader {
 	}
 }
 
-func (r *chainReader) LatestBlocks(ctx context.Context, k int) ([]relaymercury.Block, error) {
+func (r *chainReader) LatestHeads(ctx context.Context, k int) ([]relaymercury.Head, error) {
 	evmBlocks := r.tracker.LatestChain().AsSlice(k)
 	if len(evmBlocks) == 0 {
-		return nil, fmt.Errorf("no blocks available")
+		return nil, nil
 	}
 
-	blocks := make([]relaymercury.Block, len(evmBlocks))
+	blocks := make([]relaymercury.Head, len(evmBlocks))
 	for x := 0; x < len(evmBlocks); x++ {
-		blocks[x] = relaymercury.Block{
+		blocks[x] = relaymercury.Head{
 			Number:    uint64(evmBlocks[x].BlockNumber()),
 			Hash:      evmBlocks[x].Hash[:],
 			Timestamp: uint64(evmBlocks[x].Timestamp.Unix()),
