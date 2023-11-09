@@ -85,7 +85,7 @@ library CallWithExactGas {
       // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
       // doesn't need to account for it.
       if iszero(extcodesize(target)) {
-        mstore(0, NoContractSig)
+        mstore(0, NO_CONTRACT_SIG)
         revert(0, 0x4)
       }
 
@@ -97,13 +97,13 @@ library CallWithExactGas {
       // gas. gasForCallExactCheck ensures we have at least enough gas to be able
       // to revert if gasAmount >  63//64*gas available.
       if lt(g, gasForCallExactCheck) {
-        mstore(0, NoGasForCallExactCheckSig)
+        mstore(0, NO_GAS_FOR_CALL_EXACT_CHECK_SIG)
         revert(0, 0x4)
       }
       g := sub(g, gasForCallExactCheck)
       // if g - g//64 <= gasAmount, revert. We subtract g//64 because of EIP-150
       if iszero(gt(sub(g, div(g, 64)), gasLimit)) {
-        mstore(0, NotEnoughGasForCallSig)
+        mstore(0, NOT_ENOUGH_GAS_FOR_CALL_SIG)
         revert(0, 0x4)
       }
 
