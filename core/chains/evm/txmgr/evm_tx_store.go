@@ -1221,6 +1221,31 @@ WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress'
 	return txes, nil
 }
 
+func (o *evmTxStore) GetTxByID(ctx context.Context, id int64) (txe *Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		stmt := `SELECT * FROM evm.txes WHERE id = $1`
+		var dbEtxs []DbEthTx
+		if err = tx.Select(&dbEtxs, stmt, id); err != nil {
+			return pkgerrors.Wrap(err, "GetTxByID failed to load evm.txes")
+		}
+		txes := make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+		if len(txes) != 1 {
+			return fmt.Errorf("GetTxByID failed to get tx with id %v", id)
+		}
+		txe = txes[0]
+		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
+		return pkgerrors.Wrap(err, "GetTxByID failed to load evm.tx_attempts")
+	}, pg.OptReadOnlyTx())
+
+	return txe, nil
+}
+
 func (o *evmTxStore) GetFatalTransactions(ctx context.Context) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)

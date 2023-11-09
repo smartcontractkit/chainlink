@@ -1368,6 +1368,29 @@ func TestORM_GetNonFinalizedTransactions(t *testing.T) {
 	})
 }
 
+func TestORM_GetTxByID(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	t.Run("no transaction", func(t *testing.T) {
+		tx, err := txStore.GetTxByID(testutils.Context(t), int64(0))
+		require.NoError(t, err)
+		require.Nil(t, tx)
+	})
+
+	t.Run("get transaction by ID", func(t *testing.T) {
+		insertedTx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
+		tx, err := txStore.GetTxByID(testutils.Context(t), insertedTx.ID)
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+	})
+}
+
 func TestORM_GetFatalTransactions(t *testing.T) {
 	t.Parallel()
 
