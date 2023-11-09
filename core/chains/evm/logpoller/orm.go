@@ -245,13 +245,35 @@ func (o *DbORM) DeleteExpiredLogs(qopts ...pg.QOpt) error {
 
 // InsertLogs is idempotent to support replays.
 func (o *DbORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
-	for _, log := range logs {
-		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
-			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
-		}
+	if err := o.validateLogs(logs); err != nil {
+		return err
 	}
-	q := o.q.WithOpts(qopts...)
 
+	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		return o.insertLogsWithinTx(logs, tx)
+	})
+}
+
+func (o *DbORM) InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error {
+	// Optimization, don't open TX when there is only a block to be persisted
+	if len(logs) == 0 {
+		return o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, qopts...)
+	}
+
+	if err := o.validateLogs(logs); err != nil {
+		return err
+	}
+
+	// Block and logs goes with the same TX to ensure atomicity
+	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		if err := o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, pg.WithQueryer(tx)); err != nil {
+			return err
+		}
+		return o.insertLogsWithinTx(logs, tx)
+	})
+}
+
+func (o *DbORM) insertLogsWithinTx(logs []Log, tx pg.Queryer) error {
 	batchInsertSize := 4000
 	for i := 0; i < len(logs); i += batchInsertSize {
 		start, end := i, i+batchInsertSize
@@ -259,12 +281,14 @@ func (o *DbORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 			end = len(logs)
 		}
 
-		err := q.ExecQNamed(`
-			INSERT INTO evm.logs 
-				(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at) 
+		_, err := tx.NamedExec(`
+				INSERT INTO evm.logs 
+					(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at) 
 				VALUES 
-				(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) 
-				ON CONFLICT DO NOTHING`, logs[start:end])
+					(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) 
+				ON CONFLICT DO NOTHING`,
+			logs[start:end],
+		)
 
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
@@ -274,6 +298,15 @@ func (o *DbORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 				continue
 			}
 			return err
+		}
+	}
+	return nil
+}
+
+func (o *DbORM) validateLogs(logs []Log) error {
+	for _, log := range logs {
+		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
+			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
 		}
 	}
 	return nil
@@ -691,21 +724,6 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topic
 		return nil, err
 	}
 	return logs, nil
-}
-
-func (o *DbORM) InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error {
-	// Optimization, don't open TX when there is only a block to be persisted
-	if len(logs) == 0 {
-		return o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, qopts...)
-	}
-
-	// Block and logs goes with the same TX to ensure atomicity
-	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
-		if err := o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, pg.WithQueryer(tx)); err != nil {
-			return err
-		}
-		return o.InsertLogs(logs, pg.WithQueryer(tx))
-	})
 }
 
 func nestedBlockNumberQuery(confs Confirmations) string {
