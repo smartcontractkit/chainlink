@@ -79,7 +79,9 @@ MacOSX*
 
 contracts/yarn.lock
 
-
 # Ignore DevSpace cache and log folder
 .devspace/
 go.work*
+
+# This sometimes shows up for some reason
+tools/flakeytests/coverage.txt
