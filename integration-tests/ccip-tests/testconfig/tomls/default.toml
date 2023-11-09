@@ -96,6 +96,8 @@ NoOfRoutersPerPair = 1
 NoOfTokensPerChain = 2
 NoOfTokensInMsg = 2
 AmountPerToken = 1
+MulticallInOneTx = false
+NoOfSendsInMulticall = 5
 
 [CCIP.Groups.load]
 KeepEnvAlive = false
@@ -116,6 +118,8 @@ NoOfRoutersPerPair = 1
 NoOfTokensPerChain = 2
 NoOfTokensInMsg = 2
 AmountPerToken = 1
+MulticallInOneTx = false
+NoOfSendsInMulticall = 5
 
 [CCIP.Groups.chaos]
 KeepEnvAlive = false
@@ -138,3 +142,5 @@ NoOfTokensInMsg = 2
 AmountPerToken = 1
 WaitBetweenChaosDuringLoad = '2m'
 ChaosDuration = '10m'
+MulticallInOneTx = false
+NoOfSendsInMulticall = 5

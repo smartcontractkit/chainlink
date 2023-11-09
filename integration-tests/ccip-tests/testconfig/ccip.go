@@ -12,6 +12,8 @@ type CCIPTestConfig struct {
 	CommitAndExecuteOnSameDON  *bool              `toml:",omitempty"`
 	NumberOfCommitNodes        int                `toml:",omitempty"`
 	MsgType                    string             `toml:",omitempty"`
+	MulticallInOneTx           *bool              `toml:",omitempty"`
+	NoOfSendsInMulticall       int                `toml:",omitempty"`
 	PhaseTimeout               *models.Duration   `toml:",omitempty"`
 	TestDuration               *models.Duration   `toml:",omitempty"`
 	LocalCluster               *bool              `toml:",omitempty"`
@@ -111,6 +113,12 @@ func (c *CCIPTestConfig) ApplyOverrides(fromCfg *CCIPTestConfig) error {
 	if fromCfg.AmountPerToken != 0 {
 		c.AmountPerToken = fromCfg.AmountPerToken
 	}
+	if fromCfg.MulticallInOneTx != nil {
+		c.MulticallInOneTx = fromCfg.MulticallInOneTx
+	}
+	if fromCfg.NoOfSendsInMulticall != 0 {
+		c.NoOfSendsInMulticall = fromCfg.NoOfSendsInMulticall
+	}
 
 	return nil
 }
@@ -143,6 +151,11 @@ func (c *CCIPTestConfig) Validate() error {
 		}
 	}
 
+	if c.MulticallInOneTx != nil {
+		if c.NoOfSendsInMulticall == 0 {
+			return errors.Errorf("number of sends in multisend should be greater than 0 if multisend is true")
+		}
+	}
 	return nil
 }
 

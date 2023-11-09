@@ -31,6 +31,7 @@ type CommonContracts struct {
 
 type SourceContracts struct {
 	OnRamp     string `json:"on_ramp"`
+	Multicall  string `json:"multicall,omitempty"`
 	DepolyedAt uint64 `json:"deployed_at"`
 }
 
