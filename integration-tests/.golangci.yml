@@ -23,9 +23,6 @@ linters-settings:
   govet:
     # report about shadowed variables
     check-shadowing: true
-  # errorlint:
-  #   # Allow formatting of errors without %w
-  #   errorf: false
   revive:
     confidence: 0.8
     rules:
