@@ -16,8 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -38,6 +36,7 @@ import (
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"

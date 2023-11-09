@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/jmoiron/sqlx"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	"github.com/smartcontractkit/sqlx"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"

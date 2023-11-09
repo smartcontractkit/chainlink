@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {AggregatorV2V3Interface} from "../interfaces/AggregatorV2V3Interface.sol";
+import {AggregatorV2V3Interface} from "../shared/interfaces/AggregatorV2V3Interface.sol";
 
 contract FeedConsumer {
   AggregatorV2V3Interface public immutable AGGREGATOR;

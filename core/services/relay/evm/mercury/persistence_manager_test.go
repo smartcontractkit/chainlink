@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cometbft/cometbft/libs/rand"
+	"github.com/jmoiron/sqlx"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"

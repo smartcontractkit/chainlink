@@ -5,7 +5,7 @@ import {BaseTestWithConfiguredVerifierAndFeeManager} from "./BaseVerifierTest.t.
 import {IVerifier} from "../../interfaces/IVerifier.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
-import {Common} from "../../../libraries/Common.sol";
+import {Common} from "../../libraries/Common.sol";
 
 contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifierAndFeeManager {
   function test_revertsIfNotCorrectVerifier() public {
