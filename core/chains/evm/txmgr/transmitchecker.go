@@ -217,7 +217,7 @@ func (v *VRFV1Checker) Check(
 	requestTransactionReceipt := &gethtypes.Receipt{}
 	batch := []rpc.BatchElem{{
 		Method: "eth_getBlockByNumber",
-		Args:   []interface{}{nil},
+		Args:   []interface{}{"latest", false},
 		Result: mostRecentHead,
 	}, {
 		Method: "eth_getTransactionReceipt",

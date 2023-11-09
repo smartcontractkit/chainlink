@@ -44,3 +44,8 @@ type ContractAddresses struct {
 	CoordinatorAddress      common.Address
 	BatchCoordinatorAddress common.Address
 }
+
+type VRFKeyRegistrationConfig struct {
+	VRFKeyUncompressedPubKey string
+	RegisterAgainstAddress   string
+}

@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 
 import {BaseTest, BaseTestWithConfiguredVerifierAndFeeManager} from "../verifier/BaseVerifierTest.t.sol";
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
-import {Common} from "../../../libraries/Common.sol";
+import {Common} from "../../libraries/Common.sol";
 import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 
 contract Verifier_setConfig is BaseTest {
