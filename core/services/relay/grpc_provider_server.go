@@ -1,10 +1,10 @@
-package ocr2
+package relay
 
 import (
 	"context"
 	"net"
-	"time"
 
+	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -14,48 +14,24 @@ import (
 )
 
 type ProviderServer struct {
-	s      *grpc.Server
-	lis    net.Listener
-	lggr   logger.Logger
-	conns  []*grpc.ClientConn
-	doneCh chan any
+	s     *grpc.Server
+	lis   net.Listener
+	lggr  logger.Logger
+	conns []*grpc.ClientConn
 }
 
-// checkConnectionsLoop will check if we have active connections,
-// if no active connections are found the server will be closed
-func (p *ProviderServer) checkConnectionsLoop() {
-	ticker := time.NewTicker(time.Second * 10)
-	go func() {
-		for {
-			select {
-			case <-p.doneCh:
-				return
-			case <-ticker.C:
-				hasActiveClients := false
-				for _, c := range p.conns {
-					if c.GetState() < 3 {
-						hasActiveClients = true
-						break
-					}
-				}
-				if !hasActiveClients {
-					ticker.Stop()
-					p.Close()
-				}
-			}
-		}
-	}()
-}
-
-// Start is a NOOP as the server is started at creation
 func (p *ProviderServer) Start(ctx context.Context) error {
+	p.serve()
 	return nil
 }
 
 func (p *ProviderServer) Close() error {
-	p.doneCh <- true
+	var err error
+	for _, c := range p.conns {
+		multierr.Combine(err, c.Close())
+	}
 	p.s.Stop()
-	return nil
+	return err
 }
 
 func (p *ProviderServer) GetConn() (*grpc.ClientConn, error) {
@@ -71,18 +47,15 @@ func NewProviderServer(p types.PluginProvider, pType types.OCR2PluginType, lggr 
 		return nil, err
 	}
 	ps := ProviderServer{
-		s:      grpc.NewServer(),
-		lis:    lis,
-		lggr:   lggr.Named("EVM.ProviderServer"),
-		doneCh: make(chan any),
+		s:    grpc.NewServer(),
+		lis:  lis,
+		lggr: lggr.Named("EVM.ProviderServer"),
 	}
 	err = loop.RegisterStandAloneProvider(ps.s, p, pType)
 	if err != nil {
 		return nil, err
 	}
 
-	ps.serve()
-	ps.checkConnectionsLoop()
 	return &ps, nil
 }
 
