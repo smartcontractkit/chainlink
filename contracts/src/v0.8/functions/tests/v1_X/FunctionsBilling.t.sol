@@ -230,11 +230,18 @@ contract FunctionsBilling__FulfillAndBill is FunctionsClientRequestSetup {
       new bytes(0),
       new bytes(0),
       new bytes(0), // malformed commitment data
-      new bytes(0)
+      new bytes(0),
+      1
     );
   }
 
-  event RequestBilled(bytes32 indexed requestId, uint96 juelsPerGas, uint96 callbackCostJuels, uint96 totalCostJuels);
+  event RequestBilled(
+    bytes32 indexed requestId,
+    uint96 juelsPerGas,
+    uint256 l1FeeShareWei,
+    uint96 callbackCostJuels,
+    uint96 totalCostJuels
+  );
 
   function test__FulfillAndBill_Success() public {
     uint96 juelsPerGas = uint96((1e18 * TX_GASPRICE_START) / uint256(LINK_ETH_RATE));
@@ -251,14 +258,15 @@ contract FunctionsBilling__FulfillAndBill is FunctionsClientRequestSetup {
     bool checkTopic3 = false;
     bool checkData = true;
     vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    emit RequestBilled(s_requests[1].requestId, juelsPerGas, callbackCostJuels, totalCostJuels);
+    emit RequestBilled(s_requests[1].requestId, juelsPerGas, 0, callbackCostJuels, totalCostJuels);
 
     FunctionsResponse.FulfillResult resultCode = s_functionsCoordinator.fulfillAndBill_HARNESS(
       s_requests[1].requestId,
       new bytes(0),
       new bytes(0),
       abi.encode(s_requests[1].commitment),
-      new bytes(0)
+      new bytes(0),
+      1
     );
 
     assertEq(uint256(resultCode), uint256(FunctionsResponse.FulfillResult.FULFILLED));
