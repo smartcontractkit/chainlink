@@ -9,9 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -57,9 +59,23 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewEthTxResourceFromAttempt(*ethTxAttempt), "transaction")
 }
 
+type EvmTransactionController struct {
+	App      chainlink.Application
+	Chains   evm.LegacyChainContainer
+	KeyStore keystore.Eth
+}
+
+func NewEVMTransactionController(app chainlink.Application) *EvmTransactionController {
+	return &EvmTransactionController{
+		App:      app,
+		Chains:   app.GetRelayers().LegacyEVMChains(),
+		KeyStore: app.GetKeyStore().Eth(),
+	}
+}
+
 // Create signs and sends transaction from specified address. If address is not provided uses one of enabled keys for
 // specified chain.
-func (tc *TransactionsController) Create(c *gin.Context) {
+func (tc *EvmTransactionController) Create(c *gin.Context) {
 	var tx models.CreateEVMTransactionRequest
 	if err := c.ShouldBindJSON(&tx); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -82,7 +98,12 @@ func (tc *TransactionsController) Create(c *gin.Context) {
 		return
 	}
 
-	chain, err := getChain(tc.App.GetRelayers().LegacyEVMChains(), tx.ChainID.String())
+	if tx.ToAddress == nil {
+		jsonAPIError(c, http.StatusBadRequest, errors.New("toAddress must be set"))
+		return
+	}
+
+	chain, err := getChain(tc.Chains, tx.ChainID.String())
 	if err != nil {
 		if errors.Is(err, ErrMissingChainID) {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -95,13 +116,13 @@ func (tc *TransactionsController) Create(c *gin.Context) {
 	}
 
 	if tx.FromAddress == utils.ZeroAddress {
-		tx.FromAddress, err = tc.App.GetKeyStore().Eth().GetRoundRobinAddress(tx.ChainID.ToInt())
+		tx.FromAddress, err = tc.KeyStore.GetRoundRobinAddress(tx.ChainID.ToInt())
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("failed to get fromAddress: %v", err))
 			return
 		}
 	} else {
-		_, err = tc.App.GetKeyStore().Eth().GetRoundRobinAddress(tx.ChainID.ToInt(), tx.FromAddress)
+		_, err = tc.KeyStore.GetRoundRobinAddress(tx.ChainID.ToInt(), tx.FromAddress)
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity,
 				errors.Errorf("fromAddress %v is not available: %v", tx.FromAddress, err))
@@ -118,7 +139,7 @@ func (tc *TransactionsController) Create(c *gin.Context) {
 	etx, err := chain.TxManager().CreateTransaction(c, txmgr.TxRequest{
 		IdempotencyKey:   &tx.IdempotencyKey,
 		FromAddress:      tx.FromAddress,
-		ToAddress:        tx.DestinationAddress,
+		ToAddress:        *tx.ToAddress,
 		EncodedPayload:   decoded,
 		Value:            *value,
 		FeeLimit:         tx.FeeLimit,

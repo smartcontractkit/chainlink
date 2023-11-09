@@ -4,16 +4,31 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+	"github.com/status-im/keycard-go/hexutils"
+	"github.com/stretchr/testify/mock"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmMocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmConfigMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	evmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	ksMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -132,35 +147,33 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 }
 
-const txCreatePath = "/v2/transactions/evm"
-
-// TestTransactionsController_Create_Stateless_Validations - tests Create endpoint of TestTransactionsController that
-// do not require different state/configuration of the application.
-func TestTransactionsController_Create_Stateless_Validations(t *testing.T) {
+func TestTransactionsController_Create(t *testing.T) {
 	t.Parallel()
+	const txCreatePath = "/v2/transactions/evm"
 
-	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
-
-	client := app.NewHTTPClient(nil)
-
-	t.Run("Fails on malformed json", func(t *testing.T) {
-		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer([]byte("Hello")))
-		t.Cleanup(cleanup)
-
-		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
-	})
-	t.Run("Fails on missing Idempotency key", func(t *testing.T) {
-		request := models.CreateEVMTransactionRequest{
-			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-			FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
-		}
-
+	createTx := func(controller *web.EvmTransactionController, request interface{}) *httptest.ResponseRecorder {
 		body, err := json.Marshal(&request)
 		assert.NoError(t, err)
 
-		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
-		t.Cleanup(cleanup)
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodPost, txCreatePath, bytes.NewBuffer(body))
+		router := gin.New()
+		router.POST(txCreatePath, controller.Create)
+		router.ServeHTTP(w, req)
+		return w
+	}
+
+	t.Run("Fails on malformed json", func(t *testing.T) {
+		resp := createTx(&web.EvmTransactionController{}, "Hello")
+
+		cltest.AssertServerResponse(t, resp.Result(), http.StatusBadRequest)
+	})
+	t.Run("Fails on missing Idempotency key", func(t *testing.T) {
+		request := models.CreateEVMTransactionRequest{
+			ToAddress: ptr(common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371")),
+		}
+
+		resp := createTx(&web.EvmTransactionController{}, request).Result()
 
 		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
@@ -168,16 +181,12 @@ func TestTransactionsController_Create_Stateless_Validations(t *testing.T) {
 	})
 	t.Run("Fails on malformed payload", func(t *testing.T) {
 		request := models.CreateEVMTransactionRequest{
-			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-			FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
-			IdempotencyKey:     "idempotency_key",
+			ToAddress:      ptr(common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371")),
+			FromAddress:    common.HexToAddress("0x0000000000000000000000000000000000000000"),
+			IdempotencyKey: "idempotency_key",
 		}
 
-		body, err := json.Marshal(&request)
-		assert.NoError(t, err)
-
-		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
-		t.Cleanup(cleanup)
+		resp := createTx(&web.EvmTransactionController{}, request).Result()
 
 		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
@@ -185,36 +194,49 @@ func TestTransactionsController_Create_Stateless_Validations(t *testing.T) {
 	})
 	t.Run("Fails if chain ID is not set", func(t *testing.T) {
 		request := models.CreateEVMTransactionRequest{
-			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-			FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
-			IdempotencyKey:     "idempotency_key",
-			EncodedPayload:     "0x",
+			ToAddress:      ptr(common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371")),
+			FromAddress:    common.HexToAddress("0x0000000000000000000000000000000000000000"),
+			IdempotencyKey: "idempotency_key",
+			EncodedPayload: "0x",
 		}
 
-		body, err := json.Marshal(&request)
-		assert.NoError(t, err)
-
-		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
-		t.Cleanup(cleanup)
+		resp := createTx(&web.EvmTransactionController{}, request).Result()
 
 		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
 		require.Equal(t, "chainID must be set", respError.Error())
 	})
-	t.Run("Fails on requesting chain that is not available", func(t *testing.T) {
+	t.Run("Fails if toAddress is not specified", func(t *testing.T) {
 		request := models.CreateEVMTransactionRequest{
-			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-			FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
-			IdempotencyKey:     "idempotency_key",
-			EncodedPayload:     "0x",
-			ChainID:            utils.NewBigI(1),
+			ToAddress:      nil,
+			FromAddress:    common.HexToAddress("0x0000000000000000000000000000000000000000"),
+			IdempotencyKey: "idempotency_key",
+			EncodedPayload: "0x",
+			ChainID:        utils.NewBigI(0),
 		}
 
-		body, err := json.Marshal(&request)
-		assert.NoError(t, err)
+		resp := createTx(&web.EvmTransactionController{}, request).Result()
 
-		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
-		t.Cleanup(cleanup)
+		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t, "toAddress must be set", respError.Error())
+	})
+	chainID := utils.NewBigI(rand.Int64())
+	t.Run("Fails if requested chain that is not available", func(t *testing.T) {
+		request := models.CreateEVMTransactionRequest{
+			ToAddress:      ptr(common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371")),
+			FromAddress:    common.HexToAddress("0x0000000000000000000000000000000000000000"),
+			IdempotencyKey: "idempotency_key",
+			EncodedPayload: "0x",
+			ChainID:        chainID,
+		}
+
+		chainContainer := evmMocks.NewLegacyChainContainer(t)
+		chainContainer.On("Get", chainID.String()).Return(nil, web.ErrMissingChainID).Once()
+		controller := &web.EvmTransactionController{
+			Chains: chainContainer,
+		}
+		resp := createTx(controller, request).Result()
 
 		cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
@@ -222,42 +244,110 @@ func TestTransactionsController_Create_Stateless_Validations(t *testing.T) {
 	})
 	t.Run("Fails when fromAddress is not specified and there are no available keys ", func(t *testing.T) {
 		request := models.CreateEVMTransactionRequest{
-			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-			IdempotencyKey:     "idempotency_key",
-			EncodedPayload:     "0x",
-			ChainID:            utils.NewBigI(0),
+			ToAddress:      ptr(common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371")),
+			IdempotencyKey: "idempotency_key",
+			EncodedPayload: "0x",
+			ChainID:        chainID,
 		}
 
-		body, err := json.Marshal(&request)
-		assert.NoError(t, err)
+		chainContainer := evmMocks.NewLegacyChainContainer(t)
+		chain := evmMocks.NewChain(t)
+		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
 
-		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
-		t.Cleanup(cleanup)
+		ethKeystore := ksMocks.NewEth(t)
+		ethKeystore.On("GetRoundRobinAddress", chainID.ToInt()).
+			Return(nil, errors.New("failed to get key")).Once()
+		resp := createTx(&web.EvmTransactionController{
+			Chains:   chainContainer,
+			KeyStore: ethKeystore,
+		}, request).Result()
 
 		cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
-		require.Equal(t, "failed to get fromAddress: no sending keys available for chain 0", respError.Error())
+		require.Equal(t, "failed to get fromAddress: failed to get key", respError.Error())
 	})
-	t.Run("Fails when specified fromAddress is not available for the chain ", func(t *testing.T) {
+	t.Run("Fails when specified fromAddress is not available for the chain", func(t *testing.T) {
+		fromAddr := common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371")
 		request := models.CreateEVMTransactionRequest{
-			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-			FromAddress:        common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-			IdempotencyKey:     "idempotency_key",
-			EncodedPayload:     "0x",
-			ChainID:            utils.NewBigI(0),
+			ToAddress:      ptr(common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371")),
+			FromAddress:    fromAddr,
+			IdempotencyKey: "idempotency_key",
+			EncodedPayload: "0x",
+			ChainID:        chainID,
 		}
 
-		body, err := json.Marshal(&request)
-		assert.NoError(t, err)
+		chainContainer := evmMocks.NewLegacyChainContainer(t)
+		chain := evmMocks.NewChain(t)
+		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
 
-		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
-		t.Cleanup(cleanup)
+		ethKeystore := ksMocks.NewEth(t)
+		ethKeystore.On("GetRoundRobinAddress", chainID.ToInt(), fromAddr).Return(nil,
+			errors.New("failed to get key for specified whitelist")).Once()
+		resp := createTx(&web.EvmTransactionController{
+			Chains:   chainContainer,
+			KeyStore: ethKeystore,
+		}, request).Result()
 
 		cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
 		require.Equal(t,
-			"fromAddress 0xfa01fA015c8A5332987319823728982379128371 is not available: no sending "+
-				"keys available for chain 0 that match whitelist: [0xfa01fA015c8A5332987319823728982379128371]",
+			"fromAddress 0xfa01fA015c8A5332987319823728982379128371 is not available: failed to get key for specified whitelist",
+			respError.Error())
+	})
+
+	newChain := func(t *testing.T, txm txmgr.TxManager, limitDefault uint32) evm.Chain {
+		chain := evmMocks.NewChain(t)
+		chain.On("TxManager").Return(txm)
+		config := evmConfigMocks.NewChainScopedConfig(t)
+		gasEstimator := evmConfigMocks.NewGasEstimator(t)
+		gasEstimator.On("LimitDefault").Return(limitDefault)
+		evmConfig := evmConfigMocks.NewEVM(t)
+		evmConfig.On("GasEstimator").Return(gasEstimator)
+		config.On("EVM").Return(evmConfig)
+		chain.On("Config").Return(config)
+		return chain
+	}
+	t.Run("Populates feeLimit if one is not set", func(t *testing.T) {
+		payload := []byte("tx_payload")
+		value := big.NewInt(rand.Int64())
+		request := models.CreateEVMTransactionRequest{
+			ToAddress:        ptr(common.HexToAddress("0xEA746B853DcFFA7535C64882E191eE31BE8CE711")),
+			FromAddress:      common.HexToAddress("0x39364605296d7c77e7C2089F0e48D527bb309d38"),
+			IdempotencyKey:   "idempotency_key",
+			EncodedPayload:   "0x" + hexutils.BytesToHex(payload),
+			ChainID:          chainID,
+			Value:            utils.NewBig(value),
+			ForwarderAddress: common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2"),
+		}
+
+		txm := txmMocks.NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee](t)
+		expectedError := errors.New("failed to create tx")
+		const feeLimit = uint32(158124)
+		txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
+			IdempotencyKey:   &request.IdempotencyKey,
+			FromAddress:      request.FromAddress,
+			ToAddress:        *request.ToAddress,
+			EncodedPayload:   payload,
+			Value:            *value,
+			FeeLimit:         feeLimit,
+			ForwarderAddress: request.ForwarderAddress,
+			Strategy:         txmgrcommon.NewSendEveryStrategy(),
+		}).Return(txmgr.Tx{}, expectedError).Once()
+
+		chainContainer := evmMocks.NewLegacyChainContainer(t)
+		chain := newChain(t, txm, feeLimit)
+		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
+
+		ethKeystore := ksMocks.NewEth(t)
+		ethKeystore.On("GetRoundRobinAddress", chainID.ToInt(), request.FromAddress).Return(request.FromAddress, nil).Once()
+		resp := createTx(&web.EvmTransactionController{
+			Chains:   chainContainer,
+			KeyStore: ethKeystore,
+		}, request).Result()
+
+		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t, fmt.Sprintf("transaction failed: %v", expectedError),
 			respError.Error())
 	})
 }
