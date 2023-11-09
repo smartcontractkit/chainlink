@@ -44,6 +44,7 @@ type NodeConfig interface {
 	SyncThreshold() uint32
 }
 
+//go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
 type Node[
 	CHAIN_ID types.ID,
 	HEAD Head,
@@ -177,19 +178,21 @@ func (n *node[CHAIN_ID, HEAD, RPC]) UnsubscribeAllExceptAliveLoop() {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Close() error {
-	return n.StopOnce(n.name, func() error {
-		defer func() {
-			n.wg.Wait()
-			n.rpc.Close()
-		}()
+	return n.StopOnce(n.name, n.close)
+}
 
-		n.stateMu.Lock()
-		defer n.stateMu.Unlock()
+func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
+	defer func() {
+		n.wg.Wait()
+		n.rpc.Close()
+	}()
 
-		n.cancelNodeCtx()
-		n.state = nodeStateClosed
-		return nil
-	})
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+
+	n.cancelNodeCtx()
+	n.state = nodeStateClosed
+	return nil
 }
 
 // Start dials and verifies the node
