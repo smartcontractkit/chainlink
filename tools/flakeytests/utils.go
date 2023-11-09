@@ -42,7 +42,7 @@ func getGithubMetadata(repo string, eventName string, sha string, e io.Reader, r
 		log.Fatalf("Error unmarshaling gh event at path")
 	}
 
-	runURL := fmt.Sprintf("%s/actions/%s", repo, runID)
+	runURL := fmt.Sprintf("github.com/%s/actions/runs/%s", repo, runID)
 	basicCtx := &Context{Repository: repo, CommitSHA: sha, Type: eventName, RunURL: runURL}
 	switch eventName {
 	case "pull_request":
