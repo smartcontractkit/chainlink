@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -967,7 +967,7 @@ func testEoa(
 
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
-	config, _ := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_eoa_request", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
@@ -1128,7 +1128,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	callBackGasLimit := int64(100_000) // base callback gas.
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_wrapper", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
@@ -1208,7 +1208,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	callBackGasLimit := int64(2_000_000) // base callback gas.
 	gasLanePriceWei := assets.GWei(10)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_wrapper_high_gas_revert", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
@@ -1585,7 +1585,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	gasPrice := assets.GWei(1)
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
-	config, _ := heavyweight.FullTestDBV2(t, "vrf_v2_integration", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, gasPrice, toml.KeySpecific{
 			Key:          &key.EIP55Address,
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
@@ -2003,7 +2003,7 @@ func TestFulfillmentCost(t *testing.T) {
 }
 
 func TestStartingCountsV1(t *testing.T) {
-	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "vrf_test_starting_counts", nil)
+	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 
 	lggr := logger.TestLogger(t)
 	qCfg := pgtest.NewQConfig(false)

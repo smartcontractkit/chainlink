@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"

@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
-import {ByteUtil} from "../ByteUtil.sol";
+import {ByteUtil} from "../libraries/ByteUtil.sol";
 
 contract ByteUtilTest is Test {
   using ByteUtil for bytes;

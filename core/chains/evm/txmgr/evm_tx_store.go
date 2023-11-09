@@ -13,9 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	pkgerrors "github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	nullv4 "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"

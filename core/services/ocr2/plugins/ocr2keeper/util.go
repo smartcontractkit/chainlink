@@ -3,12 +3,12 @@ package ocr2keeper
 import (
 	"fmt"
 
+	"github.com/jmoiron/sqlx"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers20 "github.com/smartcontractkit/ocr2keepers/pkg/v2"
 	ocr2keepers20coordinator "github.com/smartcontractkit/ocr2keepers/pkg/v2/coordinator"
 	ocr2keepers20polling "github.com/smartcontractkit/ocr2keepers/pkg/v2/observer/polling"
 	ocr2keepers20runner "github.com/smartcontractkit/ocr2keepers/pkg/v2/runner"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
