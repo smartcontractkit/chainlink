@@ -11,7 +11,7 @@ import (
 	gotoml "github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	relaychains "github.com/smartcontractkit/chainlink-relay/pkg/chains"
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"

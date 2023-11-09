@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
+	sqlxTypes "github.com/jmoiron/sqlx/types"
 	"github.com/pkg/errors"
-	sqlxTypes "github.com/smartcontractkit/sqlx/types"
 )
 
 // WebAuthn holds the credentials for API user.
