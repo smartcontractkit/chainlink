@@ -1,15 +1,21 @@
 package web_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -124,4 +130,134 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	resp, cleanup := client.Get("/v2/transactions/" + (attempt.Hash.String() + "1"))
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+}
+
+const txCreatePath = "/v2/transactions/evm"
+
+// TestTransactionsController_Create_Stateless_Validations - tests Create endpoint of TestTransactionsController that
+// do not require different state/configuration of the application.
+func TestTransactionsController_Create_Stateless_Validations(t *testing.T) {
+	t.Parallel()
+
+	app := cltest.NewApplication(t)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(nil)
+
+	t.Run("Fails on malformed json", func(t *testing.T) {
+		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer([]byte("Hello")))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
+	})
+	t.Run("Fails on missing Idempotency key", func(t *testing.T) {
+		request := models.CreateEVMTransactionRequest{
+			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
+			FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		}
+
+		body, err := json.Marshal(&request)
+		assert.NoError(t, err)
+
+		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t, "idempotencyKey must be set", respError.Error())
+	})
+	t.Run("Fails on malformed payload", func(t *testing.T) {
+		request := models.CreateEVMTransactionRequest{
+			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
+			FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
+			IdempotencyKey:     "idempotency_key",
+		}
+
+		body, err := json.Marshal(&request)
+		assert.NoError(t, err)
+
+		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t, "encodedPayload is malformed: empty hex string", respError.Error())
+	})
+	t.Run("Fails if chain ID is not set", func(t *testing.T) {
+		request := models.CreateEVMTransactionRequest{
+			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
+			FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
+			IdempotencyKey:     "idempotency_key",
+			EncodedPayload:     "0x",
+		}
+
+		body, err := json.Marshal(&request)
+		assert.NoError(t, err)
+
+		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t, "chainID must be set", respError.Error())
+	})
+	t.Run("Fails on requesting chain that is not available", func(t *testing.T) {
+		request := models.CreateEVMTransactionRequest{
+			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
+			FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
+			IdempotencyKey:     "idempotency_key",
+			EncodedPayload:     "0x",
+			ChainID:            utils.NewBigI(1),
+		}
+
+		body, err := json.Marshal(&request)
+		assert.NoError(t, err)
+
+		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t, web.ErrMissingChainID.Error(), respError.Error())
+	})
+	t.Run("Fails when fromAddress is not specified and there are no available keys ", func(t *testing.T) {
+		request := models.CreateEVMTransactionRequest{
+			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
+			IdempotencyKey:     "idempotency_key",
+			EncodedPayload:     "0x",
+			ChainID:            utils.NewBigI(0),
+		}
+
+		body, err := json.Marshal(&request)
+		assert.NoError(t, err)
+
+		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t, "failed to get fromAddress: no sending keys available for chain 0", respError.Error())
+	})
+	t.Run("Fails when specified fromAddress is not available for the chain ", func(t *testing.T) {
+		request := models.CreateEVMTransactionRequest{
+			DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
+			FromAddress:        common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
+			IdempotencyKey:     "idempotency_key",
+			EncodedPayload:     "0x",
+			ChainID:            utils.NewBigI(0),
+		}
+
+		body, err := json.Marshal(&request)
+		assert.NoError(t, err)
+
+		resp, cleanup := client.Post(txCreatePath, bytes.NewBuffer(body))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t,
+			"fromAddress 0xfa01fA015c8A5332987319823728982379128371 is not available: no sending "+
+				"keys available for chain 0 that match whitelist: [0xfa01fA015c8A5332987319823728982379128371]",
+			respError.Error())
+	})
 }

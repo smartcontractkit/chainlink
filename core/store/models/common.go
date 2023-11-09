@@ -662,3 +662,17 @@ func (h ServiceHeader) Validate() (err error) {
 	}
 	return
 }
+
+// CreateEVMTransactionRequest represents a request to create request to submit evm transaction.
+type CreateEVMTransactionRequest struct {
+	IdempotencyKey     string         `json:"idempotencyKey"`
+	ChainID            *utils.Big     `json:"chainID"`
+	DestinationAddress common.Address `json:"destinationAddress"`
+	FromAddress        common.Address `json:"fromAddress"`    // optional, if not set we use one of accounts available for specified chain
+	EncodedPayload     string         `json:"encodedPayload"` // hex encoded payload
+	Value              utils.Big      `json:"value"`
+	ForwarderAddress   common.Address `json:"forwarderAddress"`
+	FeeLimit           uint32         `json:"feeLimit"`
+	SkipWaitTxAttempt  bool           `json:"skipWaitTxAttempt"`
+	WaitAttemptTimeout *time.Duration `json:"waitAttemptTimeout"`
+}

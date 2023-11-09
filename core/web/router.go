@@ -279,6 +279,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		txs := TransactionsController{app}
 		authv2.GET("/transactions/evm", paginatedRequest(txs.Index))
+		authv2.POST("/transactions/evm", txs.Create)
 		authv2.GET("/transactions/evm/:TxHash", txs.Show)
 		authv2.GET("/transactions", paginatedRequest(txs.Index))
 		authv2.GET("/transactions/:TxHash", txs.Show)

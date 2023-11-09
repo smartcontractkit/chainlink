@@ -2,9 +2,18 @@ package web
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -46,4 +55,101 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 	}
 
 	jsonAPIResponse(c, presenters.NewEthTxResourceFromAttempt(*ethTxAttempt), "transaction")
+}
+
+// Create signs and sends transaction from specified address. If address is not provided uses one of enabled keys for
+// specified chain.
+func (tc *TransactionsController) Create(c *gin.Context) {
+	var tx models.CreateEVMTransactionRequest
+	if err := c.ShouldBindJSON(&tx); err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	if tx.IdempotencyKey == "" {
+		jsonAPIError(c, http.StatusBadRequest, errors.New("idempotencyKey must be set"))
+		return
+	}
+
+	decoded, err := hexutil.Decode(tx.EncodedPayload)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("encodedPayload is malformed: %v", err))
+		return
+	}
+
+	if tx.ChainID == nil {
+		jsonAPIError(c, http.StatusBadRequest, errors.New("chainID must be set"))
+		return
+	}
+
+	chain, err := getChain(tc.App.GetRelayers().LegacyEVMChains(), tx.ChainID.String())
+	if err != nil {
+		if errors.Is(err, ErrMissingChainID) {
+			jsonAPIError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
+
+		tc.App.GetLogger().Errorf("Failed to get chain", "err", err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	if tx.FromAddress == utils.ZeroAddress {
+		tx.FromAddress, err = tc.App.GetKeyStore().Eth().GetRoundRobinAddress(tx.ChainID.ToInt())
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("failed to get fromAddress: %v", err))
+			return
+		}
+	} else {
+		_, err = tc.App.GetKeyStore().Eth().GetRoundRobinAddress(tx.ChainID.ToInt(), tx.FromAddress)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity,
+				errors.Errorf("fromAddress %v is not available: %v", tx.FromAddress, err))
+			return
+		}
+	}
+
+	if tx.FeeLimit == 0 {
+		// TODO: is it a right place to get default limit?
+		tx.FeeLimit = chain.Config().EVM().GasEstimator().LimitDefault()
+	}
+
+	value := tx.Value.ToInt()
+	etx, err := chain.TxManager().CreateTransaction(c, txmgr.TxRequest{
+		IdempotencyKey:   &tx.IdempotencyKey,
+		FromAddress:      tx.FromAddress,
+		ToAddress:        tx.DestinationAddress,
+		EncodedPayload:   decoded,
+		Value:            *value,
+		FeeLimit:         tx.FeeLimit,
+		ForwarderAddress: tx.ForwarderAddress,
+		Strategy:         txmgrcommon.NewSendEveryStrategy(),
+	})
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("transaction failed: %v", err))
+		return
+	}
+
+	tc.App.GetAuditLogger().Audit(audit.EthTransactionCreated, map[string]interface{}{
+		"ethTX": etx,
+	})
+
+	// skip waiting for txmgr to create TxAttempt
+	if tx.SkipWaitTxAttempt {
+		jsonAPIResponse(c, presenters.NewEthTxResource(etx), "eth_tx")
+		return
+	}
+
+	timeout := 10 * time.Second // default
+	if tx.WaitAttemptTimeout != nil {
+		timeout = *tx.WaitAttemptTimeout
+	}
+
+	// wait and retrieve tx attempt matching tx ID
+	attempt, err := FindTxAttempt(c, timeout, etx, tc.App.TxmStorageService().FindTxWithAttempts)
+	if err != nil {
+		jsonAPIError(c, http.StatusGatewayTimeout, fmt.Errorf("failed to find transaction within timeout: %w", err))
+		return
+	}
+	jsonAPIResponse(c, presenters.NewEthTxResourceFromAttempt(attempt), "eth_tx")
 }
