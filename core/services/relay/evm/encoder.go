@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"reflect"
 
@@ -51,7 +52,11 @@ func (e *encoder) getEncodingType(itemType string, forceArray bool) (reflect.Typ
 }
 
 func encode(item reflect.Value, info *types.CodecEntry) (ocrtypes.Report, error) {
-	switch item.Kind() {
+	iType := item.Type()
+	for iType.Kind() == reflect.Pointer {
+		iType = iType.Elem()
+	}
+	switch iType.Kind() {
 	case reflect.Pointer:
 		return encode(item.Elem(), info)
 	case reflect.Array, reflect.Slice:
@@ -94,10 +99,12 @@ func encodeItem(item reflect.Value, info *types.CodecEntry) (ocrtypes.Report, er
 		if err := mapstructureDecode(item.Interface(), checked.Interface()); err != nil {
 			return nil, err
 		}
+		fmt.Printf("%#v\n%#v\n", item.Interface(), checked.Interface())
 		item = reflect.NewAt(info.NativeType, checked.UnsafePointer())
+		fmt.Printf("%#v\n", item.Interface())
 	}
 
-	item = item.Elem()
+	item = reflect.Indirect(item)
 	length := item.NumField()
 	values := make([]any, length)
 	iType := item.Type()
@@ -116,18 +123,24 @@ func encodeItem(item reflect.Value, info *types.CodecEntry) (ocrtypes.Report, er
 	return nil, relaytypes.InvalidEncodingError{}
 }
 
-func sizeVerifyBigIntHook(_, to reflect.Type, data any) (any, error) {
+func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
+	if !to.Implements(types.SizedBigIntType()) {
+		return data, nil
+	}
+
+	var err error
+	data, err = utils.BigIntHook(from, reflect.TypeOf((*big.Int)(nil)), data)
+	if err != nil {
+		return nil, err
+	}
+
 	bi, ok := data.(*big.Int)
 	if !ok {
 		return data, nil
 	}
 
-	if to.Implements(types.SizedBigIntType()) {
-		converted := reflect.ValueOf(bi).Convert(to).Interface().(types.SizedBigInt)
-		return converted, converted.Verify()
-	}
-
-	return data, nil
+	converted := reflect.ValueOf(bi).Convert(to).Interface().(types.SizedBigInt)
+	return converted, converted.Verify()
 }
 
 func mapstructureDecode(src, dest any) error {

@@ -9,7 +9,7 @@ import (
 
 func GetMaxSizeFormEntry(n int, entry *types.CodecEntry) (int, error) {
 	if entry == nil {
-		return 0, relaytypes.InvalidEncodingError{}
+		return 0, relaytypes.InvalidTypeError{}
 	}
 	return GetMaxSize(n, entry.Args)
 }

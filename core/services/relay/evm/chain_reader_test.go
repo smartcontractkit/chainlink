@@ -1,21 +1,33 @@
 package evm_test
 
+//go:generate ./chainlink_reader_test_setup.sh
+
 import (
 	"context"
+	"crypto/ecdsa"
+	_ "embed"
 	"encoding/json"
+	"math"
 	"math/big"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	evmtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	. "github.com/smartcontractkit/chainlink-relay/pkg/types/interfacetests"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	chainevm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -24,6 +36,14 @@ import (
 )
 
 const anyMethodName = "method"
+
+const commonGasLimitOnEvms = uint64(4712388)
+
+//go:embed chain_reader_test_contract.abi
+var contractAbi string
+
+//go:embed chain_reader_test_contract.bin
+var contractHex string
 
 var inner = []abi.ArgumentMarshaling{
 	{Name: "I", Type: "int64"},
@@ -34,6 +54,8 @@ var nested = []abi.ArgumentMarshaling{
 	{Name: "FixedBytes", Type: "bytes2"},
 	{Name: "Inner", Type: "tuple", Components: inner},
 }
+
+const sizeItemType = "item for size"
 
 var defs = map[string][]abi.ArgumentMarshaling{
 	TestItemType: {
@@ -76,6 +98,10 @@ var defs = map[string][]abi.ArgumentMarshaling{
 		{Name: "BigField", Type: "int192[2]"},
 		{Name: "NestedStruct", Type: "tuple[2]", Components: nested},
 	},
+	sizeItemType: {
+		{Name: "Stuff", Type: "int256[]"},
+		{Name: "OtherStuff", Type: "int256"},
+	},
 }
 
 func TestChainReader(t *testing.T) {
@@ -94,10 +120,14 @@ func TestChainReader(t *testing.T) {
 }
 
 type interfaceTester struct {
-	chain    chainevm.Chain
-	contract relaytypes.BoundContract
-	ropts    *types.RelayOpts
-	defs     map[string]abi.Arguments
+	chain          *mocks.Chain
+	contract       relaytypes.BoundContract
+	ropts          *types.RelayOpts
+	defs           map[string]abi.Arguments
+	parsedContract abi.ABI
+	auth           *bind.TransactOpts
+	sim            *backends.SimulatedBackend
+	pk             *ecdsa.PrivateKey
 }
 
 func (it *interfaceTester) Setup(t *testing.T) {
@@ -106,18 +136,33 @@ func (it *interfaceTester) Setup(t *testing.T) {
 		defBytes, err := json.Marshal(defs)
 		require.NoError(t, err)
 		require.NoError(t, json.Unmarshal(defBytes, &it.defs))
-
-		// TODO would like to set up a real EVM here, but tests I see use a mock...
-		c := evmclimocks.NewClient(t)
-		chainMock := &mocks.Chain{}
-		it.chain = chainMock
-		chainMock.On("Client").Return(c)
-		chainMock.On("LogPoller").Return(lpmocks.NewLogPoller(t))
+		it.chain = &mocks.Chain{}
+		it.setupChain(t)
+		it.chain.On("LogPoller").Return(lpmocks.NewLogPoller(t))
 
 		relayConfig := types.RelayConfig{
 			ChainReader: &types.ChainReaderConfig{
-				ChainContractReaders: map[string]types.ChainContractReader{},
-				ChainCodecConfigs:    map[string]types.ChainCodedConfig{},
+				ChainContractReaders: map[string]types.ChainContractReader{
+					"LatestValueHolder": {
+						ContractABI: contractAbi,
+						ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
+							anyMethodName: {
+								ChainSpecificName: "GetElementAtIndex",
+								ReturnValues: []string{
+									"Field",
+									"DifferentField",
+									"OracleId",
+									"OracleIds",
+									"Account",
+									"Accounts",
+									"BigField",
+									"NestedStruct",
+								},
+							},
+						},
+					},
+				},
+				ChainCodecConfigs: map[string]types.ChainCodedConfig{},
 			},
 		}
 
@@ -137,7 +182,7 @@ func (it *interfaceTester) Setup(t *testing.T) {
 	}
 }
 
-func (it *interfaceTester) Teardown(t *testing.T) {
+func (it *interfaceTester) Teardown(_ *testing.T) {
 	it.contract.Address = ""
 }
 
@@ -169,32 +214,45 @@ func (it *interfaceTester) IncludeArrayEncodingSizeEnforcement() bool {
 	return true
 }
 
-func (it *interfaceTester) SetLatestValue(t *testing.T, testStruct *TestStruct) (relaytypes.BoundContract, string) {
+func (it *interfaceTester) SetLatestValue(t *testing.T, ctx context.Context, testStruct *TestStruct) (relaytypes.BoundContract, string) {
 	// Since most tests don't use the contract, it's set up lazily to save time
 	if it.contract.Address == "" {
-		// TODO set up the contract and get the address back
-		// it.contract.Address =
+		it.contract.Address = it.deployNewContract(t, ctx)
 		it.contract.Name = anyMethodName
-		// TODO tests for pending?
 		it.contract.Pending = false
 	}
+
+	data, err := it.parsedContract.Pack("AddTestStruct", argsFromTestStruct(*testStruct)...)
+	require.NoError(t, err)
+	gasPrice, err := it.sim.SuggestGasPrice(context.Background())
+	require.NoError(t, err)
+
+	contractAddress := common.HexToAddress(it.contract.Address)
+	msg := ethereum.CallMsg{From: it.auth.From, To: &contractAddress, Data: data}
+	gasLimit, err := it.sim.EstimateGas(context.Background(), msg)
+	require.NoError(t, err)
+
+	tx := &evmtypes.DynamicFeeTx{
+		ChainID:   big.NewInt(1337),
+		Nonce:     it.auth.Nonce.Uint64(),
+		GasTipCap: gasPrice,
+		GasFeeCap: gasPrice,
+		Gas:       gasLimit,
+		To:        &contractAddress,
+		Data:      data,
+	}
+
+	signedTx, err := evmtypes.SignNewTx(it.pk, evmtypes.LatestSignerForChainID(big.NewInt(1337)), tx)
+
+	require.NoError(t, it.sim.SendTransaction(context.Background(), signedTx))
+	it.sim.Commit()
+	it.incNonce()
+	it.awaitTx(t, ctx, signedTx)
 	return it.contract, anyMethodName
 }
 
 func (it *interfaceTester) encodeFieldsOnItem(t *testing.T, request *EncodeRequest) ocr2types.Report {
-	first := request.TestStructs[0]
-
-	allArgs := []any{
-		first.Field,
-		first.DifferentField,
-		uint8(first.OracleId),
-		getOracleIds(first),
-		[32]byte(first.Account),
-		getAccounts(first),
-		first.BigField,
-		toInternalType(first.NestedStruct),
-	}
-	return packArgs(t, allArgs, it.defs[TestItemType], request)
+	return packArgs(t, argsFromTestStruct(request.TestStructs[0]), it.defs[TestItemType], request)
 }
 
 func (it *interfaceTester) encodeFieldsOnSliceOrArray(t *testing.T, request *EncodeRequest) []byte {
@@ -247,6 +305,54 @@ func (it *interfaceTester) encodeFieldsOnSliceOrArray(t *testing.T, request *Enc
 	return packArgs(t, allArgs, oargs, request)
 }
 
+func (it *interfaceTester) setupChain(t *testing.T) {
+	privateKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	it.pk = privateKey
+
+	it.auth, err = bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
+	require.NoError(t, err)
+
+	it.sim = backends.NewSimulatedBackend(core.GenesisAlloc{it.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms)
+	it.sim.Commit()
+	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
+
+	parsedContract, err := abi.JSON(strings.NewReader(contractAbi))
+	require.NoError(t, err)
+	it.parsedContract = parsedContract
+}
+
+func (it *interfaceTester) deployNewContract(t *testing.T, ctx context.Context) string {
+	gasPrice, err := it.sim.SuggestGasPrice(ctx)
+	require.NoError(t, err)
+	it.auth.GasPrice = gasPrice
+
+	// 105528 was in the error: gas too low: have 0, want 105528
+	// Not sure if there's a better way to get it.
+	it.auth.GasLimit = 105528
+
+	address, tx, _, err := bind.DeployContract(it.auth, it.parsedContract, common.FromHex(contractHex), it.sim)
+	require.NoError(t, err)
+	it.sim.Commit()
+	it.incNonce()
+	it.awaitTx(t, ctx, tx)
+	return address.String()
+}
+
+func (it *interfaceTester) awaitTx(t *testing.T, ctx context.Context, tx *evmtypes.Transaction) {
+	receipt, err := it.sim.TransactionReceipt(ctx, tx.Hash())
+	require.NoError(t, err)
+	require.Equal(t, evmtypes.ReceiptStatusSuccessful, receipt.Status)
+}
+
+func (it *interfaceTester) incNonce() {
+	if it.auth.Nonce == nil {
+		it.auth.Nonce = big.NewInt(1)
+	} else {
+		it.auth.Nonce = it.auth.Nonce.Add(it.auth.Nonce, big.NewInt(1))
+	}
+}
+
 func packArgs(t *testing.T, allArgs []any, oargs abi.Arguments, request *EncodeRequest) []byte {
 	// extra capacity in case we add an argument
 	args := make(abi.Arguments, len(oargs), len(oargs)+1)
@@ -275,6 +381,19 @@ func getAccounts(first TestStruct) [][32]byte {
 		accountBytes[i] = [32]byte(account)
 	}
 	return accountBytes
+}
+
+func argsFromTestStruct(ts TestStruct) []any {
+	return []any{
+		ts.Field,
+		ts.DifferentField,
+		uint8(ts.OracleId),
+		getOracleIds(ts),
+		[32]byte(ts.Account),
+		getAccounts(ts),
+		ts.BigField,
+		toInternalType(ts.NestedStruct),
+	}
 }
 
 func getOracleIds(first TestStruct) [32]byte {
@@ -318,9 +437,9 @@ func runSizeDelegationTest(t *testing.T, run func(relaytypes.ChainReader, contex
 	cr := it.GetChainReader(t)
 
 	ctx := context.Background()
-	actual, err := run(cr, ctx, 10, TestItemType)
+	actual, err := run(cr, ctx, 10, sizeItemType)
 	require.NoError(t, err)
 
-	expected, _ := evm.GetMaxSize(10, it.defs[TestItemType])
+	expected, _ := evm.GetMaxSize(10, it.defs[sizeItemType])
 	assert.Equal(t, expected, actual)
 }
