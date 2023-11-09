@@ -1164,7 +1164,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 
 	if cfg.CaptureAutomationCustomTelemetry != nil && *cfg.CaptureAutomationCustomTelemetry ||
 		cfg.CaptureAutomationCustomTelemetry == nil && d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
-		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, rid.ChainID, rid.Network, synchronization.AutomationCustom)
+		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.AutomationCustom)
 		customTelemService, custErr := autotelemetry21.NewAutomationCustomTelemetryService(
 			endpoint,
 			lggr,

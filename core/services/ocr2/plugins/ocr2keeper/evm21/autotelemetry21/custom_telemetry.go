@@ -9,12 +9,13 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
 type AutomationCustomTelemetryService struct {
@@ -107,7 +108,11 @@ func (e *AutomationCustomTelemetryService) Close() error {
 	return e.StopOnce("AutomationCustomTelemetryService", func() error {
 		e.lggr.Debug("Stopping: custom telemetry service")
 		e.threadCtrl.Close()
-		e.blockSubscriber.Unsubscribe(e.blockSubChanID)
+		err := e.blockSubscriber.Unsubscribe(e.blockSubChanID)
+		if err != nil {
+			e.lggr.Errorf("Custom telemetry service encounters error %v when stopping", err)
+			return err
+		}
 		e.lggr.Infof("Stopped: Custom telemetry service")
 		return nil
 	})
