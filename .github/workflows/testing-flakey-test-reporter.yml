@@ -1,0 +1,65 @@
+name: Testing flakey test reporter
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Run on key branches to make sure integration is good, otherwise run on all PR's
+on:
+  pull_request:
+
+jobs:
+  detect-flakey-tests:
+    name: Flakey Test Detection
+    runs-on: ubuntu-latest
+    if: always()
+    env:
+      CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Setup node
+        uses: actions/setup-node@v3
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Build binary
+        run: go build -tags test -o chainlink.test .
+      - name: Setup DB
+        run: ./chainlink.test local db preparetest
+      - name: Build flakey test runner
+        run: go build ./tools/flakeytests/cmd/runner
+      - name: Print GH event
+        run: cat $GITHUB_EVENT_PATH
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+      - name: Print GH sha
+        run: echo $GITHUB_SHA
+      - name: Re-run tests
+        env:
+          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          ./runner \
+            -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH \
+            -grafana_host=$GRAFANA_CLOUD_HOST \
+            -gh_sha=$GITHUB_SHA \
+            -gh_event_path=$GITHUB_EVENT_PATH \
+            -gh_event_name=$GITHUB_EVENT_NAME \
+            -gh_run_id=$GITHUB_RUN_ID \
+            -gh_repo=$GITHUB_REPO \
+            -command=./tools/bin/go_core_tests \
+            ./tools/flakeytests/failingtest.txt
