@@ -14,7 +14,7 @@ BlockBackfillDepth = 10 # Default
 # BlockBackfillSkip enables skipping of very long backfills.
 BlockBackfillSkip = false # Default
 # ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-# Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix
+# Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync
 ChainType = 'arbitrum' # Example
 # FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID so it should not be necessary to change this under normal operation.
 # BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain

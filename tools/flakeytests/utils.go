@@ -2,6 +2,7 @@ package flakeytests
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -29,26 +30,20 @@ func DigString(mp map[string]interface{}, path []string) (string, error) {
 	return vs, nil
 }
 
-func GetGithubMetadata(repo string, eventName string, sha string, path string) Context {
-	event := map[string]interface{}{}
-	if path != "" {
-		r, err := os.Open(path)
-		if err != nil {
-			log.Fatalf("Error reading gh event at path: %s", path)
-		}
-
-		d, err := io.ReadAll(r)
-		if err != nil {
-			log.Fatal("Error reading gh event into string")
-		}
-
-		err = json.Unmarshal(d, &event)
-		if err != nil {
-			log.Fatalf("Error unmarshaling gh event at path: %s", path)
-		}
+func getGithubMetadata(repo string, eventName string, sha string, e io.Reader, runID string) Context {
+	d, err := io.ReadAll(e)
+	if err != nil {
+		log.Fatal("Error reading gh event into string")
 	}
 
-	basicCtx := &Context{Repository: repo, CommitSHA: sha, Type: eventName}
+	event := map[string]interface{}{}
+	err = json.Unmarshal(d, &event)
+	if err != nil {
+		log.Fatalf("Error unmarshaling gh event at path")
+	}
+
+	runURL := fmt.Sprintf("%s/actions/%s", repo, runID)
+	basicCtx := &Context{Repository: repo, CommitSHA: sha, Type: eventName, RunURL: runURL}
 	switch eventName {
 	case "pull_request":
 		prURL := ""
@@ -58,8 +53,27 @@ func GetGithubMetadata(repo string, eventName string, sha string, path string) C
 		}
 
 		basicCtx.PullRequestURL = prURL
+
+		// For pull request events, the $GITHUB_SHA variable doesn't actually
+		// contain the sha for the latest commit, as documented here:
+		// https://stackoverflow.com/a/68068674
+		var newSha string
+		s, err := DigString(event, []string{"pull_request", "head", "sha"})
+		if err == nil {
+			newSha = s
+		}
+
+		basicCtx.CommitSHA = newSha
 		return *basicCtx
 	default:
 		return *basicCtx
 	}
+}
+
+func GetGithubMetadata(repo string, eventName string, sha string, path string, runID string) Context {
+	event, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("Error reading gh event at path: %s", path)
+	}
+	return getGithubMetadata(repo, eventName, sha, event, runID)
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -230,7 +229,7 @@ func (dkgContract *EthereumDKG) WaitForTransmittedEvent(timeout time.Duration) (
 		case err = <-subscription.Err():
 			return nil, err
 		case <-time.After(timeout):
-			return nil, errors.New("timeout waiting for DKGTransmitted event")
+			return nil, fmt.Errorf("timeout waiting for DKGTransmitted event")
 		case transmittedEvent := <-transmittedEventsChannel:
 			return transmittedEvent, nil
 		}
@@ -250,7 +249,7 @@ func (dkgContract *EthereumDKG) WaitForConfigSetEvent(timeout time.Duration) (*d
 		case err = <-subscription.Err():
 			return nil, err
 		case <-time.After(timeout):
-			return nil, errors.New("timeout waiting for DKGConfigSet event")
+			return nil, fmt.Errorf("timeout waiting for DKGConfigSet event")
 		case configSetEvent := <-configSetEventsChannel:
 			return configSetEvent, nil
 		}
@@ -451,7 +450,7 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
 ) (*types.Receipt, error) {
 	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
 	if err != nil {
-		return nil, errors.Wrap(err, "TransactionOpts failed")
+		return nil, fmt.Errorf("TransactionOpts failed, err: %w", err)
 	}
 	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomness(
 		opts,
@@ -460,20 +459,20 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
 		confirmationDelayArg,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "TestRequestRandomness failed")
+		return nil, fmt.Errorf("TestRequestRandomness failed, err: %w", err)
 	}
 	err = consumer.client.ProcessTransaction(tx)
 	if err != nil {
-		return nil, errors.Wrap(err, "ProcessTransaction failed")
+		return nil, fmt.Errorf("ProcessTransaction failed, err: %w", err)
 	}
 	err = consumer.client.WaitForEvents()
 
 	if err != nil {
-		return nil, errors.Wrap(err, "WaitForEvents failed")
+		return nil, fmt.Errorf("WaitForEvents failed, err: %w", err)
 	}
 	receipt, err := consumer.client.GetTxReceipt(tx.Hash())
 	if err != nil {
-		return nil, errors.Wrap(err, "GetTxReceipt failed")
+		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
 	}
 	log.Info().Interface("Sub ID", subID).
 		Interface("Number of Words", numWords).
@@ -526,20 +525,20 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 		arguments,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "TestRequestRandomnessFulfillment failed")
+		return nil, fmt.Errorf("TestRequestRandomnessFulfillment failed, err: %w", err)
 	}
 	err = consumer.client.ProcessTransaction(tx)
 	if err != nil {
-		return nil, errors.Wrap(err, "ProcessTransaction failed")
+		return nil, fmt.Errorf("ProcessTransaction failed, err: %w", err)
 	}
 	err = consumer.client.WaitForEvents()
 
 	if err != nil {
-		return nil, errors.Wrap(err, "WaitForEvents failed")
+		return nil, fmt.Errorf("WaitForEvents failed, err: %w", err)
 	}
 	receipt, err := consumer.client.GetTxReceipt(tx.Hash())
 	if err != nil {
-		return nil, errors.Wrap(err, "GetTxReceipt failed")
+		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
 	}
 	log.Info().Interface("Sub ID", subID).
 		Interface("Number of Words", numWords).

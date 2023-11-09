@@ -73,7 +73,7 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 }
 
 func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
-	cfg, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
+	cfg, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	lggr := logger.TestLogger(t)
 	err := goose.UpTo(db.DB, migrationDir, 99)
 	require.NoError(t, err)
@@ -342,7 +342,7 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 }
 
 func TestMigrate_101_GenericOCR2(t *testing.T) {
-	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
 
@@ -392,7 +392,7 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 
 func TestMigrate(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
 
@@ -443,7 +443,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 }
 
 func TestDatabaseBackFillWithMigration202(t *testing.T) {
-	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 
 	err := goose.UpTo(db.DB, migrationDir, 201)
 	require.NoError(t, err)
@@ -523,7 +523,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	maxLogsSize := 100_000
 	// Disable Goose logging for benchmarking
 	goose.SetLogger(goose.NopLogger())
-	_, db := heavyweight.FullTestDBEmptyV2(b, migrationDir, nil)
+	_, db := heavyweight.FullTestDBEmptyV2(b, nil)
 
 	err := goose.UpTo(db.DB, migrationDir, previousMigration)
 	require.NoError(b, err)
