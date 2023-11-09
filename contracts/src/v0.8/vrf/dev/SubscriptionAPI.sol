@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
 import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
 import {IVRFSubscriptionV2Plus} from "./interfaces/IVRFSubscriptionV2Plus.sol";
 
