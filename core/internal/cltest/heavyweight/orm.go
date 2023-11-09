@@ -7,13 +7,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"os"
 	"path"
 	"runtime"
+	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -30,21 +31,25 @@ import (
 
 // FullTestDBV2 creates a pristine DB which runs in a separate database than the normal
 // unit tests, so you can do things like use other Postgres connection types with it.
-func FullTestDBV2(t testing.TB, name string, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
-	return prepareFullTestDBV2(t, name, false, true, overrideFn)
+func FullTestDBV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+	return prepareFullTestDBV2(t, false, true, overrideFn)
 }
 
 // FullTestDBNoFixturesV2 is the same as FullTestDB, but it does not load fixtures.
-func FullTestDBNoFixturesV2(t testing.TB, name string, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
-	return prepareFullTestDBV2(t, name, false, false, overrideFn)
+func FullTestDBNoFixturesV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+	return prepareFullTestDBV2(t, false, false, overrideFn)
 }
 
 // FullTestDBEmptyV2 creates an empty DB (without migrations).
-func FullTestDBEmptyV2(t testing.TB, name string, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
-	return prepareFullTestDBV2(t, name, true, false, overrideFn)
+func FullTestDBEmptyV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+	return prepareFullTestDBV2(t, true, false, overrideFn)
 }
 
-func prepareFullTestDBV2(t testing.TB, name string, empty bool, loadFixtures bool, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+func generateName() string {
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
+}
+
+func prepareFullTestDBV2(t testing.TB, empty bool, loadFixtures bool, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	testutils.SkipShort(t, "FullTestDB")
 
 	if empty && loadFixtures {
@@ -59,8 +64,7 @@ func prepareFullTestDBV2(t testing.TB, name string, empty bool, loadFixtures boo
 	})
 
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
-	name = fmt.Sprintf("%s_%x", name, rand.Intn(0xFFF)) // to avoid name collisions
-	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.Database().URL(), name, empty)
+	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.Database().URL(), generateName(), empty)
 	require.NoError(t, err)
 	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, gcfg.Database())
 	require.NoError(t, err)

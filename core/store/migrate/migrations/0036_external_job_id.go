@@ -45,7 +45,7 @@ func Up36(ctx context.Context, tx *sql.Tx) error {
 	// Update all jobs to have an external_job_id.
 	// We do this to avoid using the uuid postgres extension.
 	var jobIDs []int32
-	txx := sqlx.NewTx(tx, "postgres")
+	txx := sqlx.Tx{Tx: tx}
 	if err := txx.SelectContext(ctx, &jobIDs, "SELECT id FROM jobs"); err != nil {
 		return err
 	}
