@@ -197,6 +197,9 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		"blockHeight", head.BlockNumber(),
 		"blockHash", head.BlockHash(),
 		"parentHeadHash", head.GetParentHash(),
+		"blockTs", head.GetTimestamp(),
+		"blockTsUnix", head.GetTimestamp().Unix(),
+		"blockDifficulty", head.BlockDifficulty(),
 	)
 
 	err := ht.headSaver.Save(ctx, head)

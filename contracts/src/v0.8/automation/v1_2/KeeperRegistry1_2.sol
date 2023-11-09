@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../KeeperBase.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
-import "../../interfaces/AggregatorV3Interface.sol";
+import "../../shared/interfaces/AggregatorV3Interface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/v1_2/KeeperRegistryInterface1_2.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";

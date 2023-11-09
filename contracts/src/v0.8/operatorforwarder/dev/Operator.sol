@@ -5,7 +5,7 @@ import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
 import {LinkTokenReceiver} from "./LinkTokenReceiver.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
-import {AuthorizedReceiverInterface} from "../../interfaces/AuthorizedReceiverInterface.sol";
+import {AuthorizedReceiverInterface} from "./interfaces/AuthorizedReceiverInterface.sol";
 import {OperatorInterface} from "../../interfaces/OperatorInterface.sol";
 import {IOwnable} from "../../shared/interfaces/IOwnable.sol";
 import {WithdrawalInterface} from "./interfaces/WithdrawalInterface.sol";
