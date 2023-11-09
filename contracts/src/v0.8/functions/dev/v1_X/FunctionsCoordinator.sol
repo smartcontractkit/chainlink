@@ -142,19 +142,20 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       report,
       (bytes32[], bytes[], bytes[], bytes[], bytes[])
     );
+    uint256 numberOfFulfillments = uint8(requestIds.length);
 
     if (
-      requestIds.length == 0 ||
-      requestIds.length != results.length ||
-      requestIds.length != errors.length ||
-      requestIds.length != onchainMetadata.length ||
-      requestIds.length != offchainMetadata.length
+      numberOfFulfillments == 0 ||
+      numberOfFulfillments != results.length ||
+      numberOfFulfillments != errors.length ||
+      numberOfFulfillments != onchainMetadata.length ||
+      numberOfFulfillments != offchainMetadata.length
     ) {
       revert ReportInvalid();
     }
 
     // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
-    for (uint256 i = 0; i < requestIds.length; ++i) {
+    for (uint256 i = 0; i < numberOfFulfillments; ++i) {
       FunctionsResponse.FulfillResult result = FunctionsResponse.FulfillResult(
         _fulfillAndBill(
           requestIds[i],
@@ -162,7 +163,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
           errors[i],
           onchainMetadata[i],
           offchainMetadata[i],
-          uint8(requestIds.length) // will not exceed "MaxRequestBatchSize" on the Job's ReportingPluginConfig
+          uint8(numberOfFulfillments) // will not exceed "MaxRequestBatchSize" on the Job's ReportingPluginConfig
         )
       );
 
