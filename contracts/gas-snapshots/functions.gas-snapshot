@@ -26,7 +26,7 @@ FunctionsBilling_OracleWithdrawAll:test_OracleWithdrawAll_SuccessPaysTransmitter
 FunctionsBilling_UpdateConfig:test_UpdateConfig_RevertIfNotOwner() (gas: 18974)
 FunctionsBilling_UpdateConfig:test_UpdateConfig_Success() (gas: 38251)
 FunctionsBilling__DisperseFeePool:test__DisperseFeePool_RevertIfNotSet() (gas: 8801)
-FunctionsBilling__FulfillAndBill:test__FulfillAndBill_RevertIfInvalidCommitment() (gas: 13293)
+FunctionsBilling__FulfillAndBill:test__FulfillAndBill_RevertIfInvalidCommitment() (gas: 13302)
 FunctionsBilling__FulfillAndBill:test__FulfillAndBill_Success() (gas: 180763)
 FunctionsClient_Constructor:test_Constructor_Success() (gas: 7573)
 FunctionsClient_FulfillRequest:test_FulfillRequest_MaximumGas() (gas: 504364)
