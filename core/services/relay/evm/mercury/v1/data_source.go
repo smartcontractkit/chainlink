@@ -42,8 +42,7 @@ var (
 	)
 )
 
-// nBlocksObservation controls how many blocks are included in the LatestBlocks observation
-const nBlocksObservation int = 5
+const nBlocksObservation int = relaymercuryv1.MaxAllowedBlocks
 
 type Runner interface {
 	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
