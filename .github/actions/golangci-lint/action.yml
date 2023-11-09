@@ -30,7 +30,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
     - name: Setup Go
       uses: ./.github/actions/setup-go
       with:
@@ -53,12 +53,12 @@ runs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
       with:
-        version: v1.54.2
+        version: v1.55.0
         # We already cache these directories in setup-go
         skip-pkg-cache: true
         skip-build-cache: true
         # only-new-issues is only applicable to PRs, otherwise it is always set to false
-        only-new-issues: true
+        only-new-issues: false # disabled for PRs due to unreliability
         args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
         working-directory: ${{ inputs.go-directory }}
     - name: Store lint report artifact
@@ -69,7 +69,7 @@ runs:
         path: ${{ inputs.go-directory }}/golangci-lint-report.xml
     - name: Collect Metrics
       if: always()
-      uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+      uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
       with:
         basic-auth: ${{ inputs.gc-basic-auth }}
         hostname: ${{ inputs.gc-host }}

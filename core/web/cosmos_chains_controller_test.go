@@ -13,10 +13,9 @@ import (
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -76,7 +75,7 @@ Nodes = []
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupCosmosChainsControllerTestV2(t, &cosmos.CosmosConfig{
+			controller := setupCosmosChainsControllerTestV2(t, &coscfg.TOMLConfig{
 				ChainID: ptr(validId),
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
@@ -106,7 +105,7 @@ Nodes = []
 func Test_CosmosChainsController_Index(t *testing.T) {
 	t.Parallel()
 
-	chainA := &cosmos.CosmosConfig{
+	chainA := &coscfg.TOMLConfig{
 		ChainID: ptr("a" + cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
@@ -114,7 +113,7 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 		},
 	}
 
-	chainB := &cosmos.CosmosConfig{
+	chainB := &coscfg.TOMLConfig{
 		ChainID: ptr("b" + cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
@@ -174,7 +173,7 @@ type TestCosmosChainsController struct {
 	client cltest.HTTPClientCleaner
 }
 
-func setupCosmosChainsControllerTestV2(t *testing.T, cfgs ...*cosmos.CosmosConfig) *TestCosmosChainsController {
+func setupCosmosChainsControllerTestV2(t *testing.T, cfgs ...*coscfg.TOMLConfig) *TestCosmosChainsController {
 	for i := range cfgs {
 		cfgs[i].SetDefaults()
 	}

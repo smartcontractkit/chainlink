@@ -163,7 +163,7 @@ func setupNode(
 
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// [JobPipeline]
 		// MaxSuccessfulRuns = 0
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
@@ -189,10 +189,6 @@ func setupNode(
 		// TraceLogging = true
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
 		c.P2P.TraceLogging = ptr(true)
-
-		// [P2P.V1]
-		// Enabled = false
-		c.P2P.V1.Enabled = ptr(false)
 
 		// [P2P.V2]
 		// Enabled = true

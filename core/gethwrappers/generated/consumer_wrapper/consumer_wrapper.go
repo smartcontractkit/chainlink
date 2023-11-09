@@ -52,7 +52,7 @@ func DeployConsumer(auth *bind.TransactOpts, backend bind.ContractBackend, _link
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &Consumer{ConsumerCaller: ConsumerCaller{contract: contract}, ConsumerTransactor: ConsumerTransactor{contract: contract}, ConsumerFilterer: ConsumerFilterer{contract: contract}}, nil
+	return address, tx, &Consumer{address: address, abi: *parsed, ConsumerCaller: ConsumerCaller{contract: contract}, ConsumerTransactor: ConsumerTransactor{contract: contract}, ConsumerFilterer: ConsumerFilterer{contract: contract}}, nil
 }
 
 type Consumer struct {

@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services"
-
 	"github.com/gorilla/websocket"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -46,7 +46,7 @@ type GatewayConnectorHandler interface {
 }
 
 type gatewayConnector struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	config      *ConnectorConfig
 	codec       api.Codec

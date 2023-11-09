@@ -226,7 +226,7 @@ func setupNodeOCR2(
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
 	p2pKey := keystest.NewP2PKeyV2(t)
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.Feature.LogPoller = ptr(true)
@@ -326,12 +326,12 @@ func setupNodeOCR2(
 }
 
 func TestIntegration_OCR2VRF_ForwarderFlow(t *testing.T) {
-	t.Skip()
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/VRF-688")
 	runOCR2VRFTest(t, true)
 }
 
 func TestIntegration_OCR2VRF(t *testing.T) {
-	t.Skip()
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/VRF-688")
 	runOCR2VRFTest(t, false)
 }
 

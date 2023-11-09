@@ -50,6 +50,7 @@ func main() {
 			return nil
 		},
 	}
+
 	startEnvCmd.AddCommand(startFullEnvCmd)
 
 	// Set default log level for non-testcontainer code

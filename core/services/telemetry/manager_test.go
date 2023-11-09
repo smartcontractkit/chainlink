@@ -10,10 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -23,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func setupMockConfig(t *testing.T, useBatchSend bool) *mocks.TelemetryIngress {
@@ -55,14 +56,14 @@ func TestManagerAgents(t *testing.T) {
 
 	tm := NewManager(tic, ks, lggr)
 	require.Equal(t, "*synchronization.telemetryIngressBatchClient", reflect.TypeOf(tm.endpoints[0].client).String())
-	me := tm.GenMonitoringEndpoint("", "", "network-1", "network-1-chainID-1")
+	me := tm.GenMonitoringEndpoint("network-1", "network-1-chainID-1", "", "")
 	require.Equal(t, "*telemetry.IngressAgentBatch", reflect.TypeOf(me).String())
 
 	tic = setupMockConfig(t, false)
 	tic.On("Endpoints").Return([]config.TelemetryIngressEndpoint{te})
 	tm = NewManager(tic, ks, lggr)
 	require.Equal(t, "*synchronization.telemetryIngressClient", reflect.TypeOf(tm.endpoints[0].client).String())
-	me = tm.GenMonitoringEndpoint("", "", "network-1", "network-1-chainID-1")
+	me = tm.GenMonitoringEndpoint("network-1", "network-1-chainID-1", "", "")
 	require.Equal(t, "*telemetry.IngressAgent", reflect.TypeOf(me).String())
 }
 
@@ -245,25 +246,25 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		})
 
 		tm.endpoints[i] = &telemetryEndpoint{
-			StartStopOnce: utils.StartStopOnce{},
-			ChainID:       e.chainID,
-			Network:       e.network,
-			client:        clientMock,
+			StateMachine: services.StateMachine{},
+			ChainID:      e.chainID,
+			Network:      e.network,
+			client:       clientMock,
 		}
 
 	}
 	//Unknown networks or chainID
-	noopEndpoint := tm.GenMonitoringEndpoint("some-contractID", "some-type", "unknown-network", "unknown-chainID")
+	noopEndpoint := tm.GenMonitoringEndpoint("unknown-network", "unknown-chainID", "some-contractID", "some-type")
 	require.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(noopEndpoint).String())
 	require.Equal(t, 1, obsLogs.Len())
 	require.Contains(t, obsLogs.TakeAll()[0].Message, "no telemetry endpoint found")
 
-	noopEndpoint = tm.GenMonitoringEndpoint("some-contractID", "some-type", "network-1", "unknown-chainID")
+	noopEndpoint = tm.GenMonitoringEndpoint("network-1", "unknown-chainID", "some-contractID", "some-type")
 	require.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(noopEndpoint).String())
 	require.Equal(t, 1, obsLogs.Len())
 	require.Contains(t, obsLogs.TakeAll()[0].Message, "no telemetry endpoint found")
 
-	noopEndpoint = tm.GenMonitoringEndpoint("some-contractID", "some-type", "network-2", "network-1-chainID-1")
+	noopEndpoint = tm.GenMonitoringEndpoint("network-2", "network-1-chainID-1", "some-contractID", "some-type")
 	require.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(noopEndpoint).String())
 	require.Equal(t, 1, obsLogs.Len())
 	require.Contains(t, obsLogs.TakeAll()[0].Message, "no telemetry endpoint found")
@@ -273,10 +274,10 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		telemType := fmt.Sprintf("TelemType_%s", e.chainID)
 		contractID := fmt.Sprintf("contractID_%s", e.chainID)
 		me := tm.GenMonitoringEndpoint(
-			contractID,
-			synchronization.TelemetryType(telemType),
 			e.network,
 			e.chainID,
+			contractID,
+			synchronization.TelemetryType(telemType),
 		)
 		me.SendLog([]byte(e.chainID))
 		require.Equal(t, 0, obsLogs.Len())
@@ -304,7 +305,7 @@ func TestLegacyMode(t *testing.T) {
 	require.Equal(t, true, tm.legacyMode)
 	require.Len(t, tm.endpoints, 1)
 
-	clientSent := make([]synchronization.TelemPayload, 0)
+	var clientSent []synchronization.TelemPayload
 	clientMock := mocks2.NewTelemetryService(t)
 	clientMock.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
 		clientSent = append(clientSent, synchronization.TelemPayload{
@@ -315,7 +316,7 @@ func TestLegacyMode(t *testing.T) {
 	})
 	tm.endpoints[0].client = clientMock
 
-	e := tm.GenMonitoringEndpoint("some-contractID", "some-type", "unknown-network", "unknown-chainID")
+	e := tm.GenMonitoringEndpoint("unknown-network", "unknown-chainID", "some-contractID", "some-type")
 	require.Equal(t, "*telemetry.IngressAgentBatch", reflect.TypeOf(e).String())
 
 	e.SendLog([]byte("endpoint-1-message-1"))
@@ -323,21 +324,18 @@ func TestLegacyMode(t *testing.T) {
 	e.SendLog([]byte("endpoint-1-message-3"))
 	require.Len(t, clientSent, 3)
 
-	e2 := tm.GenMonitoringEndpoint("another-contractID", "another-type", "another-unknown-network", "another-unknown-chainID")
+	e2 := tm.GenMonitoringEndpoint("another-unknown-network", "another-unknown-chainID", "another-contractID", "another-type")
 	require.Equal(t, "*telemetry.IngressAgentBatch", reflect.TypeOf(e).String())
 
 	e2.SendLog([]byte("endpoint-2-message-1"))
 	e2.SendLog([]byte("endpoint-2-message-2"))
 	e2.SendLog([]byte("endpoint-2-message-3"))
-	if len(clientSent) != 6 {
-		t.Fatalf("expected length 6 but got %d", len(clientSent))
-	}
-
-	require.Equal(t, 1, obsLogs.Len()) // Deprecation warning for TelemetryIngress.URL and TelemetryIngress.ServerPubKey
-	require.Equal(t, []byte("endpoint-1-message-1"), clientSent[0].Telemetry)
-	require.Equal(t, []byte("endpoint-1-message-2"), clientSent[1].Telemetry)
-	require.Equal(t, []byte("endpoint-1-message-3"), clientSent[2].Telemetry)
-	require.Equal(t, []byte("endpoint-2-message-1"), clientSent[3].Telemetry)
-	require.Equal(t, []byte("endpoint-2-message-2"), clientSent[4].Telemetry)
-	require.Equal(t, []byte("endpoint-2-message-3"), clientSent[5].Telemetry)
+	require.Len(t, clientSent, 6)
+	assert.Equal(t, []byte("endpoint-1-message-1"), clientSent[0].Telemetry)
+	assert.Equal(t, []byte("endpoint-1-message-2"), clientSent[1].Telemetry)
+	assert.Equal(t, []byte("endpoint-1-message-3"), clientSent[2].Telemetry)
+	assert.Equal(t, []byte("endpoint-2-message-1"), clientSent[3].Telemetry)
+	assert.Equal(t, []byte("endpoint-2-message-2"), clientSent[4].Telemetry)
+	assert.Equal(t, []byte("endpoint-2-message-3"), clientSent[5].Telemetry)
+	assert.Equal(t, 1, obsLogs.Len()) // Deprecation warning for TelemetryIngress.URL and TelemetryIngress.ServerPubKey
 }

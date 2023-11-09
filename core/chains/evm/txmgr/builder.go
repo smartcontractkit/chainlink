@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -16,7 +16,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // NewTxm constructs the necessary dependencies for the EvmTxm (broadcaster, confirmer, etc) and returns a new EvmTxManager
@@ -31,7 +30,6 @@ func NewTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	keyStore keystore.Eth,
-	eventBroadcaster pg.EventBroadcaster,
 	estimator gas.EvmFeeEstimator,
 ) (txm TxManager,
 	err error,
@@ -52,7 +50,7 @@ func NewTxm(
 	txmCfg := NewEvmTxmConfig(chainConfig) // wrap Evm specific config
 	feeCfg := NewEvmTxmFeeConfig(fCfg)     // wrap Evm specific config
 	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
-	ethBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, chainConfig.NonceAutoSync())
+	ethBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, txNonceSyncer, lggr, checker, chainConfig.NonceAutoSync())
 	ethConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
 	var ethResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
@@ -123,12 +121,11 @@ func NewEvmBroadcaster(
 	txConfig txmgrtypes.BroadcasterTransactionsConfig,
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
 	keystore KeyStore,
-	eventBroadcaster pg.EventBroadcaster,
 	txAttemptBuilder TxAttemptBuilder,
 	nonceSyncer NonceSyncer,
 	logger logger.Logger,
 	checkerFactory TransmitCheckerFactory,
 	autoSyncNonce bool,
 ) *Broadcaster {
-	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, eventBroadcaster, txAttemptBuilder, nonceSyncer, logger, checkerFactory, autoSyncNonce, stringToGethAddress, evmtypes.GenerateNextNonce)
+	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, txAttemptBuilder, nonceSyncer, logger, checkerFactory, autoSyncNonce, evmtypes.GenerateNextNonce)
 }

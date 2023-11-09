@@ -1,7 +1,6 @@
 package v2_test
 
 import (
-	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -62,7 +61,7 @@ func testSingleConsumerHappyPath(
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
@@ -113,7 +112,7 @@ func testSingleConsumerHappyPath(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID1, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID1, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In particular:
@@ -133,7 +132,7 @@ func testSingleConsumerHappyPath(
 		t.Log("runs", len(runs))
 		return len(runs) == 2
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-	mine(t, requestID2, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID2, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In particular:
@@ -202,7 +201,7 @@ func testMultipleConsumersNeedBHS(
 		GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 	})
 
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_needs_blockhash_store", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), keySpecificOverrides...)(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
@@ -285,7 +284,7 @@ func testMultipleConsumersNeedBHS(
 			return len(runs) == 1
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-		mine(t, requestID, subID, uni.backend, db, vrfVersion)
+		mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
 		if len(assertions) > 0 {
@@ -349,7 +348,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		uni.backend.Commit()
 	}
 
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_needs_trusted_blockhash_store", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), keySpecificOverrides...)(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(5_000_000))
@@ -446,7 +445,7 @@ func testMultipleConsumersNeedTrustedBHS(
 			return len(runs) == 1
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-		mine(t, requestID, subID, uni.backend, db, vrfVersion)
+		mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
 		if len(assertions) > 0 {
@@ -477,10 +476,9 @@ func verifyBlockhashStored(
 			return true
 		} else if strings.Contains(err.Error(), "execution reverted") {
 			return false
-		} else {
-			t.Fatal(err)
-			return false
 		}
+		t.Fatal(err)
+		return false
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
@@ -503,10 +501,9 @@ func verifyBlockhashStoredTrusted(
 			return true
 		} else if strings.Contains(err.Error(), "execution reverted") {
 			return false
-		} else {
-			t.Fatal(err)
-			return false
 		}
+		t.Fatal(err)
+		return false
 	}, time.Second*300, time.Second).Should(gomega.BeTrue())
 }
 
@@ -533,7 +530,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_batch_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
@@ -594,7 +591,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		return len(runs) == numRequests
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-	mineBatch(t, reqIDs, subID, uni.backend, db, vrfVersion)
+	mineBatch(t, reqIDs, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	for i, requestID := range reqIDs {
 		// Assert correct state of RandomWordsFulfilled event.
@@ -637,7 +634,7 @@ func testSingleConsumerNeedsTopUp(
 ) {
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(1000)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_needstopup", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(1000), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key.EIP55Address),
@@ -696,7 +693,7 @@ func testSingleConsumerNeedsTopUp(
 
 	// Mine the fulfillment. Need to wait for Txm to mark the tx as confirmed
 	// so that we can actually see the event on the simulated chain.
-	mine(t, requestID, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert the state of the RandomWordsFulfilled event.
 	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
@@ -741,7 +738,7 @@ func testBlockHeaderFeeder(
 
 	gasLanePriceWei := assets.GWei(10)
 
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_test_block_header_feeder", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, gasLanePriceWei, toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(vrfKey.EIP55Address),
@@ -820,7 +817,7 @@ func testBlockHeaderFeeder(
 			return len(runs) == 1
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-		mine(t, requestID, subID, uni.backend, db, vrfVersion)
+		mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
 		if len(assertions) > 0 {
@@ -896,7 +893,7 @@ func testSingleConsumerForcedFulfillment(
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
-	config, db := heavyweight.FullTestDBV2(t, fmt.Sprintf("vrfv2_singleconsumer_forcefulfill_%v", batchEnabled), func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
@@ -1023,7 +1020,7 @@ func testSingleConsumerForcedFulfillment(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In this particular case:
@@ -1063,7 +1060,7 @@ func testSingleConsumerEIP150(
 
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
-	config, _ := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_eip150_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
@@ -1131,7 +1128,7 @@ func testSingleConsumerEIP150Revert(
 
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
-	config, _ := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_eip150_revert", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
@@ -1194,7 +1191,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(100)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_bigcallback_sandwich", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(100), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
@@ -1266,7 +1263,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	}, 3*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, reqIDs[1], subID, uni.backend, db, vrfVersion)
+	mine(t, reqIDs[1], subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert the random word was fulfilled
 	assertRandomWordsFulfilled(t, reqIDs[1], false, uni.rootContract, nativePayment)
@@ -1310,7 +1307,7 @@ func testSingleConsumerMultipleGasLanes(
 	expensiveKey := cltest.MustGenerateRandomKey(t)
 	cheapGasLane := assets.GWei(10)
 	expensiveGasLane := assets.GWei(1000)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_multiplegaslanes", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Cheap gas lane.
 			Key:          ptr(cheapKey.EIP55Address),
@@ -1367,7 +1364,7 @@ func testSingleConsumerMultipleGasLanes(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, cheapRequestID, subID, uni.backend, db, vrfVersion)
+	mine(t, cheapRequestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, cheapRequestID, true, uni.rootContract, nativePayment)
@@ -1399,7 +1396,7 @@ func testSingleConsumerMultipleGasLanes(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, expensiveRequestID, subID, uni.backend, db, vrfVersion)
+	mine(t, expensiveRequestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, expensiveRequestID, true, uni.rootContract, nativePayment)
@@ -1430,7 +1427,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 ) {
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_alwaysrevertingcallback", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key.EIP55Address),
@@ -1479,7 +1476,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, false, uni.rootContract, nativePayment)
@@ -1498,7 +1495,7 @@ func testConsumerProxyHappyPath(
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_consumerproxy_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
@@ -1554,7 +1551,7 @@ func testConsumerProxyHappyPath(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID1, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID1, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID1, true, uni.rootContract, nativePayment)
@@ -1578,7 +1575,7 @@ func testConsumerProxyHappyPath(
 		t.Log("runs", len(runs))
 		return len(runs) == 2
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-	mine(t, requestID2, subID, uni.backend, db, vrfVersion)
+	mine(t, requestID2, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 	assertRandomWordsFulfilled(t, requestID2, true, uni.rootContract, nativePayment)
 
 	// Assert correct number of random words sent by coordinator.
@@ -1626,7 +1623,7 @@ func testMaliciousConsumer(
 	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 ) {
-	config, _ := heavyweight.FullTestDBV2(t, "vrf_v2plus_integration_malicious", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](2_000_000)
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
 		c.EVM[0].GasEstimator.PriceDefault = assets.GWei(1)

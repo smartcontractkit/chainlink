@@ -3,10 +3,11 @@ package evm_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )

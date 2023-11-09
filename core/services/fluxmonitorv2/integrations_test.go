@@ -21,9 +21,10 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -205,7 +206,7 @@ func startApplication(
 	fa fluxAggregatorUniverse,
 	overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) *cltest.TestApplication {
-	config, _ := heavyweight.FullTestDBV2(t, dbName(t.Name()), overrides)
+	config, _ := heavyweight.FullTestDBV2(t, overrides)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	return app
@@ -523,8 +524,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			initialBalance := currentBalance(t, &fa).Int64()
 
 			jobResponse := cltest.CreateJobViaWeb2(t, app, string(requestBody))
-			jobId, err := strconv.Atoi(jobResponse.ID)
+			i, err := strconv.ParseInt(jobResponse.ID, 10, 32)
 			require.NoError(t, err)
+			jobID := int32(i)
 
 			// Waiting for flux monitor to finish Register process in log broadcaster
 			// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
@@ -559,7 +561,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig().Database())
+			checkLogWasConsumed(t, fa, app.GetSqlxDB(), jobID, receiptBlock, app.GetConfig().Database())
 
 			lggr.Info("Updating price to 103")
 			// Change reported price to a value outside the deviation
@@ -588,7 +590,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig().Database())
+			checkLogWasConsumed(t, fa, app.GetSqlxDB(), jobID, receiptBlock, app.GetConfig().Database())
 
 			// Should not received a submission as it is inside the deviation
 			reportPrice.Store(104)

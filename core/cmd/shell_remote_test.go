@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -57,7 +58,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 		fn(sopts)
 	}
 
-	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
 		f := false
 		c.EVM[0].Enabled = &f
@@ -220,7 +221,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 
 	token := auth.NewToken()
 	exi, err := bridges.NewExternalInitiator(token,
-		&bridges.ExternalInitiatorRequest{Name: "name"},
+		&bridges.ExternalInitiatorRequest{Name: uuid.New().String()},
 	)
 	require.NoError(t, err)
 	err = app.BridgeORM().CreateExternalInitiator(exi)
@@ -257,7 +258,7 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 func TestShell_RemoteLogin(t *testing.T) {
 
 	app := startNewApplicationV2(t, nil)
-	orm := app.SessionORM()
+	orm := app.AuthenticationProvider()
 
 	u := cltest.NewUserWithSession(t, orm)
 
@@ -300,7 +301,7 @@ func TestShell_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	u := cltest.NewUserWithSession(t, app.SessionORM())
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: append(enteredStrings, enteredStrings...)}
 	client := app.NewAuthenticatingShell(prompter)
@@ -339,7 +340,7 @@ func TestShell_CheckRemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	u := cltest.NewUserWithSession(t, app.SessionORM())
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 	tests := []struct {
 		name                         string
 		remoteVersion, remoteSha     string
@@ -415,7 +416,7 @@ func TestShell_ChangePassword(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	u := cltest.NewUserWithSession(t, app.SessionORM())
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 
 	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
@@ -465,7 +466,7 @@ func TestShell_Profile_InvalidSecondsParam(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	u := cltest.NewUserWithSession(t, app.SessionORM())
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
@@ -496,7 +497,7 @@ func TestShell_Profile(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	u := cltest.NewUserWithSession(t, app.SessionORM())
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
@@ -647,7 +648,7 @@ func TestShell_AutoLogin(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
 
 	sr := sessions.SessionRequest{
 		Email:    user.Email,
@@ -675,7 +676,7 @@ func TestShell_AutoLogin_AuthFails(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
 
 	sr := sessions.SessionRequest{
 		Email:    user.Email,

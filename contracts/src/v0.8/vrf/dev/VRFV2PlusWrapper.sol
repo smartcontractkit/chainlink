@@ -6,7 +6,7 @@ import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.
 import {IVRFV2PlusMigrate} from "./interfaces/IVRFV2PlusMigrate.sol";
 import {VRFConsumerBaseV2Plus} from "./VRFConsumerBaseV2Plus.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
-import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
 import {VRFV2PlusClient} from "./libraries/VRFV2PlusClient.sol";
 import {IVRFV2PlusWrapper} from "./interfaces/IVRFV2PlusWrapper.sol";
 import {VRFV2PlusWrapperConsumerBase} from "./VRFV2PlusWrapperConsumerBase.sol";

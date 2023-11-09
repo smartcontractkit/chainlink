@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -68,7 +70,7 @@ type FunctionsHandlerConfig struct {
 }
 
 type functionsHandler struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	handlerConfig   FunctionsHandlerConfig
 	donConfig       *config.DONConfig
@@ -177,8 +179,15 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 		return ErrRateLimited
 	}
 	if h.subscriptions != nil && h.minimumBalance != nil {
-		if balance, err := h.subscriptions.GetMaxUserBalance(sender); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
-			h.lggr.Debug("received a message from a user having insufficient balance", "sender", msg.Body.Sender, "balance", balance.String())
+		balance, err := h.subscriptions.GetMaxUserBalance(sender)
+		if err != nil {
+			h.lggr.Debugw("error getting max user balance", "sender", msg.Body.Sender, "err", err)
+		}
+		if balance == nil {
+			balance = big.NewInt(0)
+		}
+		if err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
+			h.lggr.Debugw("received a message from a user having insufficient balance", "sender", msg.Body.Sender, "balance", balance.String())
 			return fmt.Errorf("sender has insufficient balance: %v juels", balance.String())
 		}
 	}

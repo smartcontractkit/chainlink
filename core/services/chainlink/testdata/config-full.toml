@@ -67,6 +67,7 @@ MaxAgeDays = 17
 MaxBackups = 9
 
 [WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
 BridgeCacheTTL = '10s'
@@ -78,6 +79,25 @@ SessionReaperExpiration = '168h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
 ListenIP = '192.158.1.37'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = 'dc=custom,dc=example,dc=com'
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = 'organizationalStatus'
+ActiveAttributeAllowedValue = 'ACTIVE'
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -148,7 +168,7 @@ PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
 
 [P2P.V1]
-Enabled = false
+Enabled = true
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 1234
 BootstrapCheckInterval = '1m0s'
@@ -161,7 +181,7 @@ NewStreamTimeout = '1s'
 PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
-Enabled = true
+Enabled = false
 AnnounceAddresses = ['a', 'b', 'c']
 DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
 DeltaDial = '1m0s'
@@ -213,6 +233,16 @@ OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
 
+[Tracing]
+Enabled = true
+CollectorTarget = 'localhost:4317'
+NodeID = 'clc-ocr-sol-devnet-node-1'
+SamplingRatio = 1.0
+
+[Tracing.Attributes]
+env = 'dev'
+test = 'load'
+
 [[EVM]]
 ChainID = '1'
 Enabled = false
@@ -247,7 +277,7 @@ ResendAfterThreshold = '1h0m0s'
 Enabled = true
 
 [EVM.GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '9.223372036854775807 ether'
 PriceMax = '281.474976710655 micro'
 PriceMin = '13 wei'

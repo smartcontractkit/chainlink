@@ -1098,7 +1098,7 @@ func setupKeeperTest(t *testing.T) (
 	contracts.LinkToken,
 	*test_env.CLClusterTestEnv,
 ) {
-	clNodeConfig := node.NewConfig(node.NewBaseConfig())
+	clNodeConfig := node.NewConfig(node.NewBaseConfig(), node.WithP2Pv1())
 	turnLookBack := int64(0)
 	syncInterval := models.MustMakeDuration(5 * time.Second)
 	performGasOverhead := uint32(150000)
@@ -1112,6 +1112,7 @@ func setupKeeperTest(t *testing.T) (
 		WithCLNodes(5).
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(.5)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 

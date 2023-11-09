@@ -14,13 +14,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -28,7 +28,7 @@ import (
 //go:generate mockery --quiet --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
-	services.ServiceCtx
+	services.Service
 
 	// Run is a blocking call that will execute the run until no further progress can be made.
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
@@ -52,6 +52,7 @@ type Runner interface {
 }
 
 type runner struct {
+	services.StateMachine
 	orm                    ORM
 	btORM                  bridges.ORM
 	config                 Config
@@ -67,7 +68,6 @@ type runner struct {
 	// test helper
 	runFinished func(*Run)
 
-	utils.StartStopOnce
 	chStop utils.StopChan
 	wgDone sync.WaitGroup
 }
@@ -98,7 +98,7 @@ var (
 		Name: "pipeline_tasks_total_finished",
 		Help: "The total number of pipeline tasks which have finished",
 	},
-		[]string{"job_id", "job_name", "task_id", "task_type", "status"},
+		[]string{"job_id", "job_name", "task_id", "task_type", "bridge_name", "status"},
 	)
 )
 
@@ -150,7 +150,7 @@ func (r *runner) Name() string {
 }
 
 func (r *runner) HealthReport() map[string]error {
-	return map[string]error{r.Name(): r.StartStopOnce.Healthy()}
+	return map[string]error{r.Name(): r.Healthy()}
 }
 
 func (r *runner) destroy() {
@@ -488,7 +488,13 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 	} else {
 		status = "completed"
 	}
-	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), status).Inc()
+
+	bridgeName := ""
+	if bridgeTask, ok := trr.Task.(*BridgeTask); ok {
+		bridgeName = bridgeTask.Name
+	}
+
+	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), bridgeName, status).Inc()
 }
 
 // ExecuteAndInsertFinishedRun executes a run in memory then inserts the finished run/task run records, returning the final result

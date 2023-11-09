@@ -252,9 +252,9 @@ func (_m *ChainScopedConfig) Log() coreconfig.Log {
 	return r0
 }
 
-// LogConfiguration provides a mock function with given fields: log
-func (_m *ChainScopedConfig) LogConfiguration(log coreconfig.LogfFn) {
-	_m.Called(log)
+// LogConfiguration provides a mock function with given fields: log, warn
+func (_m *ChainScopedConfig) LogConfiguration(log coreconfig.LogfFn, warn coreconfig.LogfFn) {
+	_m.Called(log, warn)
 }
 
 // Mercury provides a mock function with given fields:
@@ -491,6 +491,22 @@ func (_m *ChainScopedConfig) Threshold() coreconfig.Threshold {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(coreconfig.Threshold)
+		}
+	}
+
+	return r0
+}
+
+// Tracing provides a mock function with given fields:
+func (_m *ChainScopedConfig) Tracing() coreconfig.Tracing {
+	ret := _m.Called()
+
+	var r0 coreconfig.Tracing
+	if rf, ok := ret.Get(0).(func() coreconfig.Tracing); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Tracing)
 		}
 	}
 

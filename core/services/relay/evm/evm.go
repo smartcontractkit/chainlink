@@ -13,20 +13,20 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -42,10 +42,9 @@ import (
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ relaytypes.Relayer = &Relayer{}
+var _ relaytypes.Relayer = &Relayer{} //nolint:staticcheck
 
 type Relayer struct {
 	db               *sqlx.DB
@@ -238,7 +237,7 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 }
 
 type configWatcher struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lggr             logger.Logger
 	contractAddress  common.Address
 	contractABI      abi.ABI
@@ -263,7 +262,6 @@ func newConfigWatcher(lggr logger.Logger,
 ) *configWatcher {
 	replayCtx, replayCancel := context.WithCancel(context.Background())
 	return &configWatcher{
-		StartStopOnce:    utils.StartStopOnce{},
 		lggr:             lggr.Named("ConfigWatcher").Named(contractAddress.String()),
 		contractAddress:  contractAddress,
 		contractABI:      contractABI,
@@ -274,7 +272,6 @@ func newConfigWatcher(lggr logger.Logger,
 		fromBlock:        fromBlock,
 		replayCtx:        replayCtx,
 		replayCancel:     replayCancel,
-		wg:               sync.WaitGroup{},
 	}
 
 }
@@ -312,7 +309,7 @@ func (c *configWatcher) Close() error {
 }
 
 func (c *configWatcher) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	return map[string]error{c.Name(): c.Healthy()}
 }
 
 func (c *configWatcher) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {

@@ -78,11 +78,18 @@ func AuthenticateByToken(c *gin.Context, authr Authenticator) error {
 		AccessKey: c.GetHeader(APIKey),
 		Secret:    c.GetHeader(APISecret),
 	}
+	if token.AccessKey == "" {
+		return auth.ErrorAuthFailed
+	}
+
+	if token.AccessKey == "" {
+		return auth.ErrorAuthFailed
+	}
 
 	// We need to first load the user row so we can compare tokens using the stored salt
 	user, err := authr.FindUserByAPIToken(token.AccessKey)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, clsessions.ErrUserSessionExpired) {
 			return auth.ErrorAuthFailed
 		}
 		return err

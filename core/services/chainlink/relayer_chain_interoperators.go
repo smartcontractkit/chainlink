@@ -7,11 +7,12 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
@@ -24,10 +25,6 @@ var ErrNoSuchRelayer = errors.New("relayer does not exist")
 // encapsulates relayers and chains and is the primary entry point for
 // the node to access relayers, get legacy chains associated to a relayer
 // and get status about the chains and nodes
-//
-// note the generated mockery code incorrectly resolves dependencies and needs to be manually edited
-// therefore this interface is not auto-generated. for reference use and edit the result:
-// `go:generate mockery --quiet --name RelayerChainInteroperators --output ./mocks/ --case=underscore“`
 type RelayerChainInteroperators interface {
 	Services() []services.ServiceCtx
 
@@ -50,7 +47,7 @@ type LoopRelayerStorer interface {
 // on the relayer interface.
 type LegacyChainer interface {
 	LegacyEVMChains() evm.LegacyChainContainer
-	LegacyCosmosChains() cosmos.LegacyChainContainer
+	LegacyCosmosChains() LegacyCosmosContainer
 }
 
 type ChainStatuser interface {
@@ -135,7 +132,7 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 			op.loopRelayers[id] = a
 			legacyMap[id.ChainID] = a.Chain()
 		}
-		op.legacyChains.CosmosChains = cosmos.NewLegacyChains(legacyMap)
+		op.legacyChains.CosmosChains = NewLegacyCosmos(legacyMap)
 
 		return nil
 	}
@@ -144,9 +141,9 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 // InitSolana is a option for instantiating Solana relayers
 func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
-		solRelayers, err2 := factory.NewSolana(config.Keystore, config.SolanaConfigs)
-		if err2 != nil {
-			return fmt.Errorf("failed to setup Solana relayer: %w", err2)
+		solRelayers, err := factory.NewSolana(config.Keystore, config.TOMLConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to setup Solana relayer: %w", err)
 		}
 
 		for id, relayer := range solRelayers {
@@ -161,9 +158,9 @@ func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactor
 // InitStarknet is a option for instantiating Starknet relayers
 func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		starkRelayers, err2 := factory.NewStarkNet(config.Keystore, config.StarknetConfigs)
-		if err2 != nil {
-			return fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
+		starkRelayers, err := factory.NewStarkNet(config.Keystore, config.TOMLConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to setup StarkNet relayer: %w", err)
 		}
 
 		for id, relayer := range starkRelayers {
@@ -196,7 +193,7 @@ func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() evm.LegacyChainConta
 
 // LegacyCosmosChains returns a container with all the cosmos chains
 // TODO BCF-2511
-func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() cosmos.LegacyChainContainer {
+func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() LegacyCosmosContainer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.legacyChains.CosmosChains
@@ -355,5 +352,44 @@ func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 // deprecated when chain-specific logic is removed from products.
 type legacyChains struct {
 	EVMChains    evm.LegacyChainContainer
-	CosmosChains cosmos.LegacyChainContainer
+	CosmosChains LegacyCosmosContainer
 }
+
+// LegacyCosmosContainer is container interface for Cosmos chains
+type LegacyCosmosContainer interface {
+	Get(id string) (adapters.Chain, error)
+	Len() int
+	List(ids ...string) ([]adapters.Chain, error)
+	Slice() []adapters.Chain
+}
+
+type LegacyCosmos = chains.ChainsKV[adapters.Chain]
+
+var _ LegacyCosmosContainer = &LegacyCosmos{}
+
+func NewLegacyCosmos(m map[string]adapters.Chain) *LegacyCosmos {
+	return chains.NewChainsKV[adapters.Chain](m)
+}
+
+type CosmosLoopRelayerChainer interface {
+	loop.Relayer
+	Chain() adapters.Chain
+}
+
+type CosmosLoopRelayerChain struct {
+	loop.Relayer
+	chain adapters.Chain
+}
+
+func NewCosmosLoopRelayerChain(r *cosmos.Relayer, s adapters.Chain) *CosmosLoopRelayerChain {
+	ra := relay.NewServerAdapter(r, s)
+	return &CosmosLoopRelayerChain{
+		Relayer: ra,
+		chain:   s,
+	}
+}
+func (r *CosmosLoopRelayerChain) Chain() adapters.Chain {
+	return r.chain
+}
+
+var _ CosmosLoopRelayerChainer = &CosmosLoopRelayerChain{}

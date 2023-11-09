@@ -2,13 +2,15 @@
 pragma solidity ^0.8.19;
 
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
-import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 
 import {Routable} from "./Routable.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
-import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+
+import {ChainSpecificUtil} from "./ChainSpecificUtil.sol";
 
 /// @title Functions Billing contract
 /// @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).
@@ -123,10 +125,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return uint256(weiPerUnitLink);
   }
 
-  function _getJuelsPerGas(uint256 gasPriceWei) private view returns (uint96) {
-    // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
+  function _getJuelsFromWei(uint256 amountWei) private view returns (uint96) {
+    // (1e18 juels/link) * wei / (wei/link) = juels
     // There are only 1e9*1e18 = 1e27 juels in existence, should not exceed uint96 (2^96 ~ 7e28)
-    return SafeCast.toUint96((1e18 * gasPriceWei) / getWeiPerUnitLink());
+    return SafeCast.toUint96((1e18 * amountWei) / getWeiPerUnitLink());
   }
 
   // ================================================================
@@ -159,8 +161,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint72 donFee,
     uint72 adminFee
   ) internal view returns (uint96) {
-    uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
-
     // If gas price is less than the minimum fulfillment gas price, override to using the minimum
     if (gasPriceWei < s_config.minimumEstimateGasPriceWei) {
       gasPriceWei = s_config.minimumEstimateGasPriceWei;
@@ -170,11 +170,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       ((gasPriceWei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
     /// @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
 
-    uint96 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
-    uint256 estimatedGasReimbursement = juelsPerGas * executionGas;
-    uint96 fees = uint96(donFee) + uint96(adminFee);
+    uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
+    uint256 l1FeeWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
+    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei((gasPriceWithOverestimation * executionGas) + l1FeeWei);
 
-    return SafeCast.toUint96(estimatedGasReimbursement + fees);
+    uint96 feesJuels = uint96(donFee) + uint96(adminFee);
+
+    return estimatedGasReimbursementJuels + feesJuels;
   }
 
   // ================================================================
@@ -208,11 +210,21 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InsufficientBalance();
     }
 
-    bytes32 requestId = _computeRequestId(
-      address(this),
-      request.requestingContract,
-      request.subscriptionId,
-      request.initiatedRequests + 1
+    uint32 timeoutTimestamp = uint32(block.timestamp + config.requestTimeoutSeconds);
+    bytes32 requestId = keccak256(
+      abi.encode(
+        address(this),
+        request.requestingContract,
+        request.subscriptionId,
+        request.initiatedRequests + 1,
+        keccak256(request.data),
+        request.dataVersion,
+        request.callbackGasLimit,
+        estimatedTotalCostJuels,
+        timeoutTimestamp,
+        // solhint-disable-next-line avoid-tx-origin
+        tx.origin
+      )
     );
 
     commitment = FunctionsResponse.Commitment({
@@ -222,7 +234,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       subscriptionId: request.subscriptionId,
       callbackGasLimit: request.callbackGasLimit,
       estimatedTotalCostJuels: estimatedTotalCostJuels,
-      timeoutTimestamp: uint32(block.timestamp + config.requestTimeoutSeconds),
+      timeoutTimestamp: timeoutTimestamp,
       requestId: requestId,
       donFee: donFee,
       gasOverheadBeforeCallback: config.gasOverheadBeforeCallback,
@@ -234,21 +246,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return commitment;
   }
 
-  /// @notice Generate a keccak hash request ID
-  /// @dev uses the number of requests that the consumer of a subscription has sent as a nonce
-  function _computeRequestId(
-    address don,
-    address client,
-    uint64 subscriptionId,
-    uint64 nonce
-  ) private pure returns (bytes32) {
-    return keccak256(abi.encode(don, client, subscriptionId, nonce));
-  }
-
   /// @notice Finalize billing process for an Functions request by sending a callback to the Client contract and then charging the subscription
   /// @param requestId identifier for the request that was generated by the Registry in the beginBilling commitment
   /// @param response response data from DON consensus
   /// @param err error from DON consensus
+  /// @param reportBatchSize the number of fulfillments in the transmitter's report
   /// @return result fulfillment result
   /// @dev Only callable by a node that has been approved on the Coordinator
   /// @dev simulated offchain to determine if sufficient balance is present to fulfill the request
@@ -257,21 +259,22 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     bytes memory response,
     bytes memory err,
     bytes memory onchainMetadata,
-    bytes memory /* offchainMetadata TODO: use in getDonFee() for dynamic billing */
+    bytes memory /* offchainMetadata TODO: use in getDonFee() for dynamic billing */,
+    uint8 reportBatchSize
   ) internal returns (FunctionsResponse.FulfillResult) {
     FunctionsResponse.Commitment memory commitment = abi.decode(onchainMetadata, (FunctionsResponse.Commitment));
 
-    uint96 juelsPerGas = _getJuelsPerGas(tx.gasprice);
+    uint256 gasOverheadWei = (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback) * tx.gasprice;
+    uint256 l1FeeShareWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data) / reportBatchSize;
     // Gas overhead without callback
-    uint96 gasOverheadJuels = juelsPerGas *
-      (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback);
+    uint96 gasOverheadJuels = _getJuelsFromWei(gasOverheadWei + l1FeeShareWei);
 
     // The Functions Router will perform the callback to the client contract
     (FunctionsResponse.FulfillResult resultCode, uint96 callbackCostJuels) = _getRouter().fulfill(
       response,
       err,
-      juelsPerGas,
-      gasOverheadJuels + commitment.donFee, // costWithoutFulfillment
+      _getJuelsFromWei(tx.gasprice), // Juels Per Gas conversion rate
+      gasOverheadJuels + commitment.donFee, // cost without callback or admin fee, those will be added by the Router
       msg.sender,
       commitment
     );

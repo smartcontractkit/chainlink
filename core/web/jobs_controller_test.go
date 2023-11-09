@@ -2,10 +2,12 @@ package web_test
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -18,13 +20,15 @@ import (
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -43,7 +47,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 		contractAddress = cltest.NewEIP55Address()
 	)
 
-	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
+	peerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
 	require.NoError(t, err)
 	randomBytes := testutils.Random32Byte()
 
@@ -143,18 +147,21 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 
 	jorm := app.JobORM()
 	var tt = []struct {
-		name      string
-		toml      string
-		assertion func(t *testing.T, r *http.Response)
+		name         string
+		tomlTemplate func(nameAndExternalJobID string) string
+		assertion    func(t *testing.T, nameAndExternalJobID string, r *http.Response)
 	}{
 		{
 			name: "offchain reporting",
-			toml: testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-				TransmitterAddress: app.Keys[0].Address.Hex(),
-				DS1BridgeName:      b1,
-				DS2BridgeName:      b2,
-			}).Toml(),
-			assertion: func(t *testing.T, r *http.Response) {
+			tomlTemplate: func(nameAndExternalJobID string) string {
+				return testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+					TransmitterAddress: app.Keys[0].Address.Hex(),
+					DS1BridgeName:      b1,
+					DS2BridgeName:      b2,
+					Name:               nameAndExternalJobID,
+				}).Toml()
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 
 				resource := presenters.JobResource{}
@@ -165,7 +172,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, resource.OffChainReportingSpec)
 
-				assert.Equal(t, "web oracle spec", jb.Name.ValueOrZero())
+				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
 				assert.Equal(t, jb.OCROracleSpec.P2PBootstrapPeers, resource.OffChainReportingSpec.P2PBootstrapPeers)
 				assert.Equal(t, jb.OCROracleSpec.IsBootstrapPeer, resource.OffChainReportingSpec.IsBootstrapPeer)
 				assert.Equal(t, jb.OCROracleSpec.EncryptedOCRKeyBundleID, resource.OffChainReportingSpec.EncryptedOCRKeyBundleID)
@@ -182,17 +189,19 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		},
 		{
 			name: "keeper",
-			toml: `
+			tomlTemplate: func(nameAndExternalJobID string) string {
+				return fmt.Sprintf(`
                                   type                        = "keeper"
                                   schemaVersion               = 1
-                                  name                        = "example keeper spec"
+                                  name                        = "%s"
                                   contractAddress             = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
                                   fromAddress                 = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
                                   evmChainID                  = 0
                                   minIncomingConfigurations   = 1
-                                  externalJobID               = "123e4567-e89b-12d3-a456-426655440002"
-                             `,
-			assertion: func(t *testing.T, r *http.Response) {
+                                  externalJobID               = "%s"
+                             `, nameAndExternalJobID, nameAndExternalJobID)
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
 
 				errs := cltest.ParseJSONAPIErrors(t, r.Body)
@@ -201,13 +210,13 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				// services failed to start
 				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
 				// but the job should still exist
-				jb, err := jorm.FindJobByExternalJobID(uuid.MustParse(("123e4567-e89b-12d3-a456-426655440002")))
+				jb, err := jorm.FindJobByExternalJobID(uuid.MustParse(nameAndExternalJobID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.KeeperSpec)
 
 				require.Equal(t, ethkey.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
 				require.Equal(t, ethkey.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
-				assert.Equal(t, "example keeper spec", jb.Name.ValueOrZero())
+				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
 
 				// Sanity check to make sure it inserted correctly
 				require.Equal(t, ethkey.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
@@ -216,8 +225,10 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		},
 		{
 			name: "cron",
-			toml: testspecs.CronSpec,
-			assertion: func(t *testing.T, r *http.Response) {
+			tomlTemplate: func(nameAndExternalJobID string) string {
+				return fmt.Sprintf(testspecs.CronSpecTemplate, nameAndExternalJobID)
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
@@ -233,8 +244,10 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		},
 		{
 			name: "cron-dot-separator",
-			toml: testspecs.CronSpecDotSep,
-			assertion: func(t *testing.T, r *http.Response) {
+			tomlTemplate: func(nameAndExternalJobID string) string {
+				return fmt.Sprintf(testspecs.CronSpecDotSepTemplate, nameAndExternalJobID)
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
@@ -250,8 +263,10 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		},
 		{
 			name: "directrequest",
-			toml: testspecs.DirectRequestSpec,
-			assertion: func(t *testing.T, r *http.Response) {
+			tomlTemplate: func(nameAndExternalJobID string) string {
+				return testspecs.GetDirectRequestSpecWithUUID(uuid.MustParse(nameAndExternalJobID))
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
@@ -261,17 +276,19 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, jb.DirectRequestSpec)
 
-				assert.Equal(t, "example eth request event spec", jb.Name.ValueOrZero())
+				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
 				require.Equal(t, ethkey.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
-				require.NotZero(t, jb.ExternalJobID[:])
+				require.Equal(t, jb.ExternalJobID.String(), nameAndExternalJobID)
 			},
 		},
 		{
 			name: "directrequest-with-requesters-and-min-contract-payment",
-			toml: testspecs.DirectRequestSpecWithRequestersAndMinContractPayment,
-			assertion: func(t *testing.T, r *http.Response) {
+			tomlTemplate: func(nameAndExternalJobID string) string {
+				return fmt.Sprintf(testspecs.DirectRequestSpecWithRequestersAndMinContractPaymentTemplate, nameAndExternalJobID, nameAndExternalJobID)
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
@@ -281,20 +298,22 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, jb.DirectRequestSpec)
 
-				assert.Equal(t, "example eth request event spec with requesters and min contract payment", jb.Name.ValueOrZero())
+				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				assert.NotNil(t, resource.DirectRequestSpec.Requesters)
 				assert.Equal(t, "1000000000000000000000", resource.DirectRequestSpec.MinContractPayment.String())
 				// Check requesters got saved properly
 				require.EqualValues(t, []common.Address{common.HexToAddress("0xAaAA1F8ee20f5565510b84f9353F1E333e753B7a"), common.HexToAddress("0xBbBb70f0E81c6F3430dfDc9fa02fB22bDD818c4E")}, jb.DirectRequestSpec.Requesters)
 				require.Equal(t, "1000000000000000000000", jb.DirectRequestSpec.MinContractPayment.String())
-				require.NotZero(t, jb.ExternalJobID[:])
+				require.Equal(t, jb.ExternalJobID.String(), nameAndExternalJobID)
 			},
 		},
 		{
 			name: "fluxmonitor",
-			toml: testspecs.FluxMonitorSpec,
-			assertion: func(t *testing.T, r *http.Response) {
+			tomlTemplate: func(nameAndExternalJobID string) string {
+				return fmt.Sprintf(testspecs.FluxMonitorSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 
 				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
 
@@ -304,11 +323,11 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				// services failed to start
 				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
 				// but the job should still exist
-				jb, err := jorm.FindJobByExternalJobID(uuid.MustParse(("123e4567-e89b-12d3-a456-426655440005")))
+				jb, err := jorm.FindJobByExternalJobID(uuid.MustParse(nameAndExternalJobID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.FluxMonitorSpec)
 
-				assert.Equal(t, "example flux monitor spec", jb.Name.ValueOrZero())
+				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
 				assert.NotNil(t, jb.PipelineSpec.DotDagSource)
 				assert.Equal(t, ethkey.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
 				assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
@@ -319,8 +338,10 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		},
 		{
 			name: "vrf",
-			toml: testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pks[0].PublicKey.String()}).Toml(),
-			assertion: func(t *testing.T, r *http.Response) {
+			tomlTemplate: func(_ string) string {
+				return testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pks[0].PublicKey.String()}).Toml()
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resp := cltest.ParseResponseBody(t, r)
 				resource := presenters.JobResource{}
@@ -342,13 +363,15 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 	for _, tc := range tt {
 		c := tc
 		t.Run(c.name, func(t *testing.T) {
+			nameAndExternalJobID := uuid.New().String()
+			toml := c.tomlTemplate(nameAndExternalJobID)
 			body, err := json.Marshal(web.CreateJobRequest{
-				TOML: c.toml,
+				TOML: toml,
 			})
 			require.NoError(t, err)
 			response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 			defer cleanup()
-			c.assertion(t, response)
+			c.assertion(t, nameAndExternalJobID, response)
 		})
 	}
 }
@@ -362,7 +385,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 
-	tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, fetchBridge.Name.String(), submitBridge.Name.String())
+	tomlStr := testspecs.GetWebhookSpecNoBody(uuid.New(), fetchBridge.Name.String(), submitBridge.Name.String())
 	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: tomlStr,
 	})
@@ -379,16 +402,21 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	require.NoError(t, err)
 }
 
+//go:embed webhook-spec-template.yml
+var webhookSpecTemplate string
+
 func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(nil)
 
-	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-with-empty-json.toml")
-	body, _ := json.Marshal(web.CreateJobRequest{
-		TOML: string(tomlBytes),
+	nameAndExternalJobID := uuid.New()
+	spec := fmt.Sprintf(webhookSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
+	body, err := json.Marshal(web.CreateJobRequest{
+		TOML: spec,
 	})
+	require.NoError(t, err)
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 
@@ -633,7 +661,8 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 		c.P2P.V1.Enabled = ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
-	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
+	ec := setupEthClientForControllerTests(t)
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(nil)
@@ -641,6 +670,14 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 	_, err := vrfKeyStore.Create()
 	require.NoError(t, err)
 	return app, client
+}
+
+func setupEthClientForControllerTests(t *testing.T) *evmclimocks.Client {
+	ec := cltest.NewEthMocksWithStartupAssertions(t)
+	ec.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(100), nil).Maybe()
+	ec.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Once().Return(big.NewInt(0), nil).Maybe()
+	return ec
 }
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {

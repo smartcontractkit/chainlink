@@ -2,7 +2,6 @@ package v1_test
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -46,7 +45,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), func(c *chainlink.Config, s *chainlink.Secrets) {
+			config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
 				c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
 			})
@@ -129,7 +128,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 
 func TestIntegration_VRF_WithBHS(t *testing.T) {
 	t.Parallel()
-	config, _ := heavyweight.FullTestDBV2(t, "vrf_with_bhs", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 		c.EVM[0].BlockBackfillDepth = ptr[uint32](500)
 		c.Feature.LogPoller = ptr(true)
@@ -182,10 +181,9 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 			return true
 		} else if strings.Contains(err2.Error(), "execution reverted") {
 			return false
-		} else {
-			t.Fatal(err2)
-			return false
 		}
+		t.Fatal(err2)
+		return false
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Wait another 160 blocks so that the request is outside the 256 block window

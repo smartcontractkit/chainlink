@@ -16,7 +16,7 @@ jobs:
       changes: ${{ steps.changes.outputs.src }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
@@ -24,6 +24,7 @@ jobs:
             src:
               - 'contracts/**/*'
               - '.github/workflows/solidity.yml'
+              - '.github/workflows/solidity-foundry.yml'
 
   prepublish-test:
     needs: [changes]
@@ -32,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Run Prepublish test
@@ -40,7 +41,7 @@ jobs:
         run: pnpm prepublishOnly
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -54,9 +55,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Checkout diff-so-fancy
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: so-fancy/diff-so-fancy
           ref: a673cb4d2707f64d92b86498a2f5f71c8e2643d5 # v1.4.3
@@ -84,33 +85,38 @@ jobs:
         run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make wrappers-all` command'
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Native Compilation
         continue-on-error: true
 
+  # The if statements for steps after checkout repo is a workaround for
+  # passing required check for PRs that don't have filtered changes.
   lint:
     defaults:
       run:
         working-directory: contracts
     needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
     name: Lint ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup NodeJS
+        if: needs.changes.outputs.changes == 'true'
         uses: ./.github/actions/setup-nodejs
       - name: Run pnpm lint
+        if: needs.changes.outputs.changes == 'true'
         run: pnpm lint
       - name: Run solhint
+        if: needs.changes.outputs.changes == 'true'
         run: pnpm solhint
       - name: Collect Metrics
+        if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -126,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup NodeJS
         if: needs.changes.outputs.changes == 'true'
         uses: ./.github/actions/setup-nodejs
@@ -136,7 +142,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

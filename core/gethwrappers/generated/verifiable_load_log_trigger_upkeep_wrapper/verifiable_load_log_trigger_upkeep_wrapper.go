@@ -76,7 +76,7 @@ func DeployVerifiableLoadLogTriggerUpkeep(auth *bind.TransactOpts, backend bind.
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VerifiableLoadLogTriggerUpkeep{VerifiableLoadLogTriggerUpkeepCaller: VerifiableLoadLogTriggerUpkeepCaller{contract: contract}, VerifiableLoadLogTriggerUpkeepTransactor: VerifiableLoadLogTriggerUpkeepTransactor{contract: contract}, VerifiableLoadLogTriggerUpkeepFilterer: VerifiableLoadLogTriggerUpkeepFilterer{contract: contract}}, nil
+	return address, tx, &VerifiableLoadLogTriggerUpkeep{address: address, abi: *parsed, VerifiableLoadLogTriggerUpkeepCaller: VerifiableLoadLogTriggerUpkeepCaller{contract: contract}, VerifiableLoadLogTriggerUpkeepTransactor: VerifiableLoadLogTriggerUpkeepTransactor{contract: contract}, VerifiableLoadLogTriggerUpkeepFilterer: VerifiableLoadLogTriggerUpkeepFilterer{contract: contract}}, nil
 }
 
 type VerifiableLoadLogTriggerUpkeep struct {

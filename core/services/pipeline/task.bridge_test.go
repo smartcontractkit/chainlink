@@ -24,8 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -208,7 +207,7 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 
 	s1 := httptest.NewServer(fakeIntermittentlyFailingPriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
@@ -270,7 +269,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.WebServer.BridgeCacheTTL = models.MustNewDuration(30 * time.Second)
 	})
 	queryer := pg.NewQ(db, logger.TestLogger(t), cfg.Database())
@@ -336,7 +335,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	require.NoError(t, result2.Error)
 	require.Equal(t, string(big.NewInt(9700).Bytes()), result2.Value)
 
-	cfg2 := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg2 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.WebServer.BridgeCacheTTL = models.MustNewDuration(0 * time.Second)
 	})
 	task.HelperSetDependencies(cfg2.JobPipeline(), cfg2.WebServer(), orm, specID, uuid.UUID{}, c)

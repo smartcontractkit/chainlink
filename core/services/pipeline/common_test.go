@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -323,7 +323,7 @@ func TestTaskRunResult_IsPending(t *testing.T) {
 func TestSelectGasLimit(t *testing.T) {
 	t.Parallel()
 
-	gcfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(999))
 		c.EVM[0].GasEstimator.LimitJobType = toml.GasLimitJobType{
 			DR:     ptr(uint32(100)),

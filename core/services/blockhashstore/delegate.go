@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -172,7 +173,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			if err != nil {
 				return 0, errors.Wrap(err, "getting chain head")
 			}
-			return uint64(head), nil
+			return uint64(head.BlockNumber), nil
 		})
 
 	return []job.ServiceCtx{&service{
@@ -197,7 +198,7 @@ func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {
-	utils.StartStopOnce
+	services.StateMachine
 	feeder     *Feeder
 	wg         sync.WaitGroup
 	pollPeriod time.Duration

@@ -29,7 +29,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -46,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -290,7 +290,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	s.Config.SetPasswords(pwd, vrfpwd)
 
-	s.Config.LogConfiguration(lggr.Debugf)
+	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
 	if err := s.Config.Validate(); err != nil {
 		return errors.Wrap(err, "config validation failed")
@@ -362,7 +362,8 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
-	sessionORM := app.SessionORM()
+	// Local shell initialization always uses local auth users table for admin auth
+	authProviderORM := app.BasicAdminUsersORM()
 	keyStore := app.GetKeyStore()
 	err = s.KeyStoreAuthenticator.authenticate(keyStore, s.Config.Password())
 	if err != nil {
@@ -449,11 +450,11 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	var user sessions.User
-	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil {
+	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(authProviderORM, lggr); err != nil {
 		if !errors.Is(err, ErrNoCredentialFile) {
 			return errors.Wrap(err, "error creating api initializer")
 		}
-		if user, err = s.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
+		if user, err = s.FallbackAPIInitializer.Initialize(authProviderORM, lggr); err != nil {
 			if errors.Is(err, ErrorNoAPICredentialsAvailable) {
 				return errors.WithStack(err)
 			}
@@ -656,9 +657,9 @@ func (p *HealthCheckPresenter) ToRow() []string {
 	var status string
 
 	switch p.Status {
-	case services.StatusFailing:
+	case web.HealthStatusFailing:
 		status = red(p.Status)
-	case services.StatusPassing:
+	case web.HealthStatusPassing:
 		status = green(p.Status)
 	}
 
@@ -689,7 +690,8 @@ var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or p
 
 // ConfigValidate validate the client configuration and pretty-prints results
 func (s *Shell) ConfigFileValidate(_ *cli.Context) error {
-	s.Config.LogConfiguration(func(f string, params ...any) { fmt.Printf(f, params...) })
+	fn := func(f string, params ...any) { fmt.Printf(f, params...) }
+	s.Config.LogConfiguration(fn, fn)
 	if err := s.configExitErr(s.Config.Validate); err != nil {
 		return err
 	}

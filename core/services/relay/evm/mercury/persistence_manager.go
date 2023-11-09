@@ -7,6 +7,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
@@ -22,7 +23,7 @@ type PersistenceManager struct {
 	lggr logger.Logger
 	orm  ORM
 
-	once   utils.StartStopOnce
+	once   services.StateMachine
 	stopCh utils.StopChan
 	wg     sync.WaitGroup
 
@@ -78,7 +79,7 @@ func (pm *PersistenceManager) AsyncDelete(req *pb.TransmitRequest) {
 }
 
 func (pm *PersistenceManager) Load(ctx context.Context) ([]*Transmission, error) {
-	return pm.orm.GetTransmitRequests(pg.WithParentCtx(ctx))
+	return pm.orm.GetTransmitRequests(pm.jobID, pg.WithParentCtx(ctx))
 }
 
 func (pm *PersistenceManager) runFlushDeletesLoop() {
@@ -118,7 +119,7 @@ func (pm *PersistenceManager) runPruneLoop() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			if err := pm.orm.PruneTransmitRequests(pm.maxTransmitQueueSize, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout()); err != nil {
+			if err := pm.orm.PruneTransmitRequests(pm.jobID, pm.maxTransmitQueueSize, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout()); err != nil {
 				pm.lggr.Errorw("Failed to prune transmit requests table", "err", err)
 			} else {
 				pm.lggr.Debugw("Pruned transmit requests table")

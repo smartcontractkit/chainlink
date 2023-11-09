@@ -15,7 +15,7 @@ runs:
       with:
         version: ^7.0.0
 
-    - uses: actions/setup-node@v3
+    - uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.0.0
       with:
         node-version: "16"
         cache: "pnpm"

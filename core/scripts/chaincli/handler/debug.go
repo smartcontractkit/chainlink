@@ -70,7 +70,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	// verify contract is correct
 	typeAndVersion, err := keeperRegistry21.TypeAndVersion(latestCallOpts)
 	if err != nil {
-		failCheckConfig("failed to get typeAndVersion: are you sure you have the correct contract address?", err)
+		failCheckConfig("failed to get typeAndVersion: make sure your registry contract address and archive node are valid", err)
 	}
 	if typeAndVersion != expectedTypeAndVersion {
 		failCheckConfig(fmt.Sprintf("invalid registry contract: this command can only debug %s, got: %s", expectedTypeAndVersion, typeAndVersion), nil)
@@ -148,10 +148,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failCheckArgs("unable to parse log index", err)
 		}
-		// find transaciton receipt
+		// find transaction receipt
 		_, isPending, err := k.client.TransactionByHash(ctx, txHash)
 		if err != nil {
-			log.Fatal("failed to fetch tx receipt", err)
+			log.Fatal("failed to get tx by hash", err)
 		}
 		if isPending {
 			resolveIneligible(fmt.Sprintf("tx %s is still pending confirmation", txHash))
@@ -162,12 +162,18 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		}
 		addLink("trigger", common.ExplorerLink(chainID, txHash))
 		blockNum = receipt.BlockNumber.Uint64()
-		if len(receipt.Logs) <= int(logIndex) {
-			failCheckArgs(fmt.Sprintf("the provided transaction has %d logs but index %d was requested", len(receipt.Logs), logIndex), err)
+		// find matching log event in tx
+		var triggeringEvent *types.Log
+		for i, log := range receipt.Logs {
+			if log.Index == uint(logIndex) {
+				triggeringEvent = receipt.Logs[i]
+			}
 		}
-		triggeringEvent := receipt.Logs[logIndex]
-		message(fmt.Sprintf("log #%d found in transaction", logIndex))
+		if triggeringEvent == nil {
+			failCheckArgs(fmt.Sprintf("unable to find log with index %d in transaction", logIndex), nil)
+		}
 		// check that tx for this upkeep / tx was not already performed
+		message(fmt.Sprintf("LogTrigger{blockNum: %d, blockHash: %s, txHash: %s, logIndex: %d}", blockNum, receipt.BlockHash.Hex(), txHash, logIndex))
 		workID := mustUpkeepWorkID(upkeepID, blockNum, receipt.BlockHash, txHash, logIndex)
 		message(fmt.Sprintf("workID computed: %s", hex.EncodeToString(workID[:])))
 		hasKey, err := keeperRegistry21.HasDedupKey(latestCallOpts, workID)
@@ -204,12 +210,14 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failUnknown("failed to check upkeep", err)
 		}
-		// do tenderly simulation
+		// do tenderly simulations
 		rawCall, err := core.RegistryABI.Pack("checkUpkeep", upkeepID, triggerData)
 		if err != nil {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
 		addLink("checkUpkeep simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+		rawCall = append(core.ILogAutomationABI.Methods["checkLog"].ID, triggerData...)
+		addLink("checkLog (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
 	} else {
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))
 	}
@@ -222,6 +230,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		streamsLookupErr, err := packer.DecodeStreamsLookupRequest(checkResult.PerformData)
 		if err == nil {
 			message("upkeep reverted with StreamsLookup")
+			message(fmt.Sprintf("StreamsLookup data: {FeedParamKey: %s, Feeds: %v, TimeParamKey: %s, Time: %d, ExtraData: %s}", streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time.Uint64(), hexutil.Encode(streamsLookupErr.ExtraData)))
 			if streamsLookupErr.FeedParamKey == feedIdHex && streamsLookupErr.TimeParamKey == blockNumber {
 				message("using mercury lookup v0.2")
 				// handle v0.2
@@ -247,6 +256,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				message("using mercury lookup v0.3")
 			}
 			streamsLookup := &StreamsLookup{streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time, streamsLookupErr.ExtraData, upkeepID, blockNum}
+
+			if k.cfg.MercuryLegacyURL == "" || k.cfg.MercuryURL == "" || k.cfg.MercuryID == "" || k.cfg.MercuryKey == "" {
+				failCheckConfig("Mercury configs not set properly, check your MERCURY_LEGACY_URL, MERCURY_URL, MERCURY_ID and MERCURY_KEY", nil)
+			}
 			handler := NewMercuryLookupHandler(&MercuryCredentials{k.cfg.MercuryLegacyURL, k.cfg.MercuryURL, k.cfg.MercuryID, k.cfg.MercuryKey}, k.rpcClient)
 			state, failureReason, values, _, err := handler.doMercuryRequest(ctx, streamsLookup)
 			if failureReason == UpkeepFailureReasonInvalidRevertDataInput {
@@ -262,13 +275,23 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			if err != nil {
 				failUnknown("failed to execute mercury callback ", err)
 			}
+			if callbackResult.UpkeepFailureReason != 0 {
+				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
+			}
 			upkeepNeeded, performData = callbackResult.UpkeepNeeded, callbackResult.PerformData
-			// do tenderly simulation
+			// do tenderly simulations
 			rawCall, err := core.RegistryABI.Pack("checkCallback", upkeepID, values, streamsLookup.extraData)
 			if err != nil {
-				failUnknown("failed to pack raw checkUpkeep call", err)
+				failUnknown("failed to pack raw checkCallback call", err)
 			}
 			addLink("checkCallback simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+			rawCall, err = core.StreamsCompatibleABI.Pack("checkCallback", values, streamsLookup.extraData)
+			if err != nil {
+				failUnknown("failed to pack raw checkCallback (direct) call", err)
+			}
+			addLink("checkCallback (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
+		} else {
+			message("did not revert with StreamsLookup error")
 		}
 	}
 	if !upkeepNeeded {

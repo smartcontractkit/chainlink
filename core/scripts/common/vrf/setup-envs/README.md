@@ -35,7 +35,9 @@ go run . \
 --min-confs=3 \
 --num-eth-keys=1 \
 --num-vrf-keys=1 \
---sending-key-funding-amount="1e17"
+--sending-key-funding-amount="1e17" \
+--register-vrf-key-against-address=<vrf key will be registered against this address 
+in order to call oracleWithdraw from this address>
 ```
 
 Optional parameters - will not be deployed if specified (NOT WORKING YET)

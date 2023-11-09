@@ -51,6 +51,33 @@ AllowSimplePasswords skips the password complexity check normally enforced on UR
 
 Environment variable: `CL_DATABASE_ALLOW_SIMPLE_PASSWORDS`
 
+## WebServer.LDAP
+```toml
+[WebServer.LDAP]
+ServerAddress = 'ldaps://127.0.0.1' # Example
+ReadOnlyUserLogin = 'viewer@example.com' # Example
+ReadOnlyUserPass = 'password' # Example
+```
+Optional LDAP config
+
+### ServerAddress
+```toml
+ServerAddress = 'ldaps://127.0.0.1' # Example
+```
+ServerAddress is the full ldaps:// address of the ldap server to authenticate with and query
+
+### ReadOnlyUserLogin
+```toml
+ReadOnlyUserLogin = 'viewer@example.com' # Example
+```
+ReadOnlyUserLogin is the username of the read only root user used to authenticate the requested LDAP queries
+
+### ReadOnlyUserPass
+```toml
+ReadOnlyUserPass = 'password' # Example
+```
+ReadOnlyUserPass is the password for the above account
+
 ## Password
 ```toml
 [Password]

@@ -15,7 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
@@ -273,7 +273,9 @@ func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 }
 
 func (q Q) newQueryLogger(query string, args []interface{}) *queryLogger {
-	return &queryLogger{Q: q, query: query, args: args}
+	return &queryLogger{Q: q, query: query, args: args, str: sync.OnceValue(func() string {
+		return sprintQ(query, args)
+	})}
 }
 
 // sprintQ formats the query with the given args and returns the resulting string.
@@ -315,15 +317,11 @@ type queryLogger struct {
 	query string
 	args  []interface{}
 
-	str     string
-	strOnce sync.Once
+	str func() string
 }
 
 func (q *queryLogger) String() string {
-	q.strOnce.Do(func() {
-		q.str = sprintQ(q.query, q.args)
-	})
-	return q.str
+	return q.str()
 }
 
 func (q *queryLogger) logSqlQuery() {

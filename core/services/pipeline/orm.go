@@ -11,13 +11,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/smartcontractkit/sqlx"
 )
 
 // KeepersObservationSource is the same for all keeper jobs and it is not persisted in DB
@@ -74,7 +74,7 @@ const KeepersObservationSource = `
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	services.ServiceCtx
+	services.Service
 	CreateSpec(pipeline Pipeline, maxTaskTimeout models.Interval, qopts ...pg.QOpt) (int32, error)
 	CreateRun(run *Run, qopts ...pg.QOpt) (err error)
 	InsertRun(run *Run, qopts ...pg.QOpt) error
@@ -95,7 +95,7 @@ type ORM interface {
 }
 
 type orm struct {
-	utils.StartStopOnce
+	services.StateMachine
 	q                 pg.Q
 	lggr              logger.Logger
 	maxSuccessfulRuns uint64
@@ -111,7 +111,7 @@ var _ ORM = (*orm)(nil)
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, jobPipelineMaxSuccessfulRuns uint64) *orm {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &orm{
-		utils.StartStopOnce{},
+		services.StateMachine{},
 		pg.NewQ(db, lggr, cfg),
 		lggr.Named("PipelineORM"),
 		jobPipelineMaxSuccessfulRuns,

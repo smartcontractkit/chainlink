@@ -20,10 +20,11 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
@@ -31,13 +32,13 @@ import (
 
 //go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
-	services.ServiceCtx
+	services.Service
 	Replay(ctx context.Context, fromBlock int64) error
 	ReplayAsync(fromBlock int64)
 	RegisterFilter(filter Filter, qopts ...pg.QOpt) error
 	UnregisterFilter(name string, qopts ...pg.QOpt) error
 	HasFilter(name string) bool
-	LatestBlock(qopts ...pg.QOpt) (int64, error)
+	LatestBlock(qopts ...pg.QOpt) (LogPollerBlock, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
 	// General querying
@@ -73,6 +74,7 @@ type LogPollerTest interface {
 	BackupPollAndSaveLogs(ctx context.Context, backupPollerBlockDelay int64)
 	Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery
 	GetReplayFromBlock(ctx context.Context, requested int64) (int64, error)
+	PruneOldBlocks(ctx context.Context) error
 }
 
 type Client interface {
@@ -91,7 +93,7 @@ var (
 )
 
 type logPoller struct {
-	utils.StartStopOnce
+	services.StateMachine
 	ec                       Client
 	orm                      ORM
 	lggr                     logger.Logger
@@ -464,6 +466,7 @@ func (lp *logPoller) run() {
 					// Serially process replay requests.
 					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
 					lp.PollAndSaveLogs(lp.ctx, fromBlock)
+					lp.lggr.Infow("Executing replay finished", "fromBlock", fromBlock, "requested", fromBlockReq)
 				}
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
@@ -535,7 +538,7 @@ func (lp *logPoller) run() {
 			lp.BackupPollAndSaveLogs(lp.ctx, backupPollerBlockDelay)
 		case <-blockPruneTick:
 			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
-			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
+			if err := lp.PruneOldBlocks(lp.ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
 			}
 		case <-logPruneTick:
@@ -572,13 +575,14 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context, backupPollerBloc
 
 	lastSafeBackfillBlock := latestFinalizedBlockNumber - 1
 	if lastSafeBackfillBlock >= lp.backupPollerNextBlock {
-		lp.lggr.Infow("Backup poller backfilling logs", "start", lp.backupPollerNextBlock, "end", lastSafeBackfillBlock)
+		lp.lggr.Infow("Backup poller started backfilling logs", "start", lp.backupPollerNextBlock, "end", lastSafeBackfillBlock)
 		if err = lp.backfill(ctx, lp.backupPollerNextBlock, lastSafeBackfillBlock); err != nil {
 			// If there's an error backfilling, we can just return and retry from the last block saved
 			// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
 			lp.lggr.Warnw("Backup poller failed", "err", err)
 			return
 		}
+		lp.lggr.Infow("Backup poller finished backfilling", "start", lp.backupPollerNextBlock, "end", lastSafeBackfillBlock)
 		lp.backupPollerNextBlock = lastSafeBackfillBlock + 1
 	}
 }
@@ -944,19 +948,23 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 	return nil, rerr
 }
 
-// pruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the latest finalized block.
-func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
-	_, latestFinalizedBlock, err := lp.latestBlocks(ctx)
+// PruneOldBlocks removes blocks that are > lp.keepFinalizedBlocksDepth behind the latest finalized block.
+func (lp *logPoller) PruneOldBlocks(ctx context.Context) error {
+	latestBlock, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}
-	if latestFinalizedBlock <= lp.keepFinalizedBlocksDepth {
+	if latestBlock == nil {
+		// No blocks saved yet.
+		return nil
+	}
+	if latestBlock.FinalizedBlockNumber <= lp.keepFinalizedBlocksDepth {
 		// No-op, keep all blocks
 		return nil
 	}
 	// 1-2-3-4-5(finalized)-6-7(latest), keepFinalizedBlocksDepth=3
 	// Remove <= 2
-	return lp.orm.DeleteBlocksBefore(latestFinalizedBlock-lp.keepFinalizedBlocksDepth, pg.WithParentCtx(ctx))
+	return lp.orm.DeleteBlocksBefore(latestBlock.FinalizedBlockNumber-lp.keepFinalizedBlocksDepth, pg.WithParentCtx(ctx))
 }
 
 // Logs returns logs matching topics and address (exactly) in the given block range,
@@ -1013,13 +1021,13 @@ func (lp *logPoller) IndexedLogsTopicRange(eventSig common.Hash, address common.
 
 // LatestBlock returns the latest block the log poller is on. It tracks blocks to be able
 // to detect reorgs.
-func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
+func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (LogPollerBlock, error) {
 	b, err := lp.orm.SelectLatestBlock(qopts...)
 	if err != nil {
-		return 0, err
+		return LogPollerBlock{}, err
 	}
 
-	return b.BlockNumber, nil
+	return *b, nil
 }
 
 func (lp *logPoller) BlockByNumber(n int64, qopts ...pg.QOpt) (*LogPollerBlock, error) {

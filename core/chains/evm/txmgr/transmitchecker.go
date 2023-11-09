@@ -217,7 +217,7 @@ func (v *VRFV1Checker) Check(
 	requestTransactionReceipt := &gethtypes.Receipt{}
 	batch := []rpc.BatchElem{{
 		Method: "eth_getBlockByNumber",
-		Args:   []interface{}{nil},
+		Args:   []interface{}{"latest", false},
 		Result: mostRecentHead,
 	}, {
 		Method: "eth_getTransactionReceipt",
@@ -259,10 +259,9 @@ func (v *VRFV1Checker) Check(
 			"meta", tx.Meta,
 			"reqID", reqID)
 		return errors.New("request already fulfilled")
-	} else {
-		// Request not fulfilled
-		return nil
 	}
+	// Request not fulfilled
+	return nil
 }
 
 // VRFV2Checker is an implementation of TransmitChecker that checks whether a VRF V2 fulfillment
@@ -351,11 +350,11 @@ func (v *VRFV2Checker) Check(
 			"meta", tx.Meta,
 			"vrfRequestId", vrfRequestID)
 		return errors.New("request already fulfilled")
-	} else {
-		l.Debugw("Request not yet fulfilled",
-			"ethTxID", tx.ID,
-			"meta", tx.Meta,
-			"vrfRequestId", vrfRequestID)
-		return nil
 	}
+	l.Debugw("Request not yet fulfilled",
+		"ethTxID", tx.ID,
+		"meta", tx.Meta,
+		"vrfRequestId", vrfRequestID)
+	return nil
+
 }

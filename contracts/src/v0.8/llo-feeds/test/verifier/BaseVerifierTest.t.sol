@@ -3,15 +3,15 @@ pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
-import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
+import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {IVerifier} from "../../interfaces/IVerifier.sol";
 import {ErroredVerifier} from "../mocks/ErroredVerifier.sol";
 import {Verifier} from "../../Verifier.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
 import {FeeManager} from "../../FeeManager.sol";
-import {Common} from "../../../libraries/Common.sol";
-import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
+import {Common} from "../../libraries/Common.sol";
+import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
 import {FeeManager} from "../../FeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";

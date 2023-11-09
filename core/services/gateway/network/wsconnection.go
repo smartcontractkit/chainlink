@@ -5,13 +5,12 @@ import (
 	"errors"
 	"sync/atomic"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/gorilla/websocket"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // WSConnectionWrapper is a websocket connection abstraction that supports re-connects.
@@ -30,7 +29,7 @@ import (
 // All methods are thread-safe.
 type WSConnectionWrapper interface {
 	job.ServiceCtx
-	services.Checkable
+	services.HealthReporter
 
 	// Update underlying connection object. Return a channel that gets an error on connection close.
 	// Cannot be called after Close().
@@ -42,7 +41,7 @@ type WSConnectionWrapper interface {
 }
 
 type wsConnectionWrapper struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lggr logger.Logger
 
 	conn atomic.Pointer[websocket.Conn]

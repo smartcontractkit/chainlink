@@ -70,6 +70,17 @@ build_test_image:
 build_push_docker_image:
 	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../ ; docker push localhost:5000/chainlink:develop
 
+#Build a chainlink docker image in plugin mode for local testing and push to k3d registry
+.PHONY: build_push_plugin_docker_image
+build_push_plugin_docker_image:
+	docker build -f ../plugins/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../ ; docker push localhost:5000/chainlink:develop
+
+# Spins up containers needed to collect traces for local testing
+.PHONY: run_tracing
+run_tracing:
+	cd ../.github/tracing
+	docker compose -f ../.github/tracing/local-smoke-docker-compose.yaml up
+
 ## Test Runner
 .PHONY: run
 run: # Need to set network first in case it's unset. Doesn't matter for the runner
@@ -107,7 +118,7 @@ test_chaos_verbose: ## Run all smoke tests with verbose logging
 
 # Performance
 .PHONY: test_perf
-test_perf: test_need_operator_assets ## Run core node performance tests.
+test_perf: ## Run core node performance tests.
 	TEST_LOG_LEVEL="disabled" \
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 1h -count=1 -json $(args) ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt

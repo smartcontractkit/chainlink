@@ -69,7 +69,7 @@ func TestBlockTimeResolver_BlockTime(t *testing.T) {
 			lp := new(lpmocks.LogPoller)
 			resolver := newBlockTimeResolver(lp)
 
-			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, tc.latestBlockErr)
+			lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: tc.latestBlock}, tc.latestBlockErr)
 			lp.On("GetBlocksRange", mock.Anything, mock.Anything).Return(tc.blocksRange, tc.blocksRangeErr)
 
 			blockTime, err := resolver.BlockTime(ctx, tc.blockSampleSize)

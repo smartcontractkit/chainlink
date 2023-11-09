@@ -11,15 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/chaos"
-	"github.com/smartcontractkit/chainlink-env/environment"
-	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -53,7 +52,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	defaultOCRSettings["toml"] = client.AddNetworksConfig(config.BaseOCRP2PV1Config, networks.SelectedNetwork)
+	defaultOCRSettings["toml"] = client.AddNetworksConfig(config.BaseOCRP2PV1Config, networks.MustGetSelectedNetworksFromEnv()[0])
 	os.Exit(m.Run())
 }
 
@@ -75,14 +74,14 @@ func TestOCRChaos(t *testing.T) {
 		// and chaos.NewNetworkPartition method (https://chaos-mesh.org/docs/simulate-network-chaos-on-kubernetes/)
 		// in order to regenerate Go bindings if k8s version will be updated
 		// you can pull new CRD spec from your current cluster and check README here
-		// https://github.com/smartcontractkit/chainlink-env/blob/master/README.md
+		// https://github.com/smartcontractkit/chainlink-testing-framework/k8s/blob/master/README.md
 		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(nil),
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
-				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-				ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+				FromLabels:  &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMinority: utils.Ptr("1")},
 				DurationStr: "1m",
 			},
 		},
@@ -91,8 +90,8 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
-				FromLabels:  &map[string]*string{"app": a.Str("geth")},
-				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
+				FromLabels:  &map[string]*string{"app": utils.Ptr("geth")},
+				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: utils.Ptr("1")},
 				DurationStr: "1m",
 			},
 		},
@@ -101,7 +100,7 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMinority: utils.Ptr("1")},
 				DurationStr:    "1m",
 			},
 		},
@@ -110,7 +109,7 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
 				DurationStr:    "1m",
 			},
 		},
@@ -119,9 +118,9 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
 				DurationStr:    "1m",
-				ContainerNames: &[]*string{a.Str("chainlink-db")},
+				ContainerNames: &[]*string{utils.Ptr("chainlink-db")},
 			},
 		},
 	}

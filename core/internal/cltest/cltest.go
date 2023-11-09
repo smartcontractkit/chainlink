@@ -39,12 +39,12 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
 
+	"github.com/jmoiron/sqlx"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -61,7 +61,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
@@ -98,10 +97,6 @@ import (
 )
 
 const (
-	// APIKey of the fixture API user
-	APIKey = "2d25e62eaf9143e993acaf48691564b2"
-	// APISecret of the fixture API user.
-	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
 	// Collection of test fixture DB user emails per role
 	APIEmailAdmin    = "apiuser@chainlink.test"
 	APIEmailEdit     = "apiuser-edit@chainlink.test"
@@ -112,7 +107,7 @@ const (
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 	// DefaultPeerID is the peer ID of the default p2p key
-	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
+	DefaultPeerID = configtest.DefaultPeerID
 	// DefaultOCRKeyBundleID is the ID of the default ocr key bundle
 	DefaultOCRKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 	// DefaultOCR2KeyBundleID is the ID of the fixture ocr2 key bundle
@@ -196,7 +191,7 @@ func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipeline
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, dbCfg, jpcfg.MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, dbCfg)
-	jrm := job.NewORM(db, legacyChains, prm, btORM, keyStore, lggr, dbCfg)
+	jrm := job.NewORM(db, prm, btORM, keyStore, lggr, dbCfg)
 	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, legacyChains, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
@@ -244,7 +239,7 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
-	c := configtest2.NewGeneralConfig(t, nil)
+	c := configtest.NewGeneralConfig(t, nil)
 
 	return NewApplicationWithConfig(t, c)
 }
@@ -254,7 +249,7 @@ func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	c := configtest2.NewGeneralConfig(t, nil)
+	c := configtest.NewGeneralConfig(t, nil)
 
 	return NewApplicationWithConfig(t, c, flagsAndDeps...)
 }
@@ -264,7 +259,7 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	config := configtest2.NewGeneralConfig(t, nil)
+	config := configtest.NewGeneralConfig(t, nil)
 	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
@@ -382,7 +377,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
-	loopRegistry := plugins.NewLoopRegistry(lggr)
+	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
 
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,
@@ -419,25 +414,24 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
-			Keystore:         keyStore.Cosmos(),
-			CosmosConfigs:    cfg.CosmosConfigs(),
-			EventBroadcaster: eventBroadcaster,
-			DB:               db,
-			QConfig:          cfg.Database(),
+			Keystore:    keyStore.Cosmos(),
+			TOMLConfigs: cfg.CosmosConfigs(),
+			DB:          db,
+			QConfig:     cfg.Database(),
 		}
 		initOps = append(initOps, chainlink.InitCosmos(testCtx, relayerFactory, cosmosCfg))
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := chainlink.SolanaFactoryConfig{
-			Keystore:      keyStore.Solana(),
-			SolanaConfigs: cfg.SolanaConfigs(),
+			Keystore:    keyStore.Solana(),
+			TOMLConfigs: cfg.SolanaConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitSolana(testCtx, relayerFactory, solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
 		starkCfg := chainlink.StarkNetFactoryConfig{
-			Keystore:        keyStore.StarkNet(),
-			StarknetConfigs: cfg.StarknetConfigs(),
+			Keystore:    keyStore.StarkNet(),
+			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
 
@@ -461,7 +455,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		RestrictedHTTPClient:       c,
 		UnrestrictedHTTPClient:     c,
 		SecretGenerator:            MockSecretGenerator{},
-		LoopRegistry:               plugins.NewLoopRegistry(lggr),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, nil),
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
@@ -524,7 +518,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
-	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
+	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(client.Successful, nil)
 	// Construct chain
 	h2 := Head(2)
 	h1 := HeadWithHash(1, h2.ParentHash)
@@ -634,7 +628,7 @@ func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	u, err := clsessions.NewUser(user.Email, Password, user.Role)
 	require.NoError(ta.t, err)
 
-	err = ta.SessionORM().CreateUser(&u)
+	err = ta.BasicAdminUsersORM().CreateUser(&u)
 	require.NoError(ta.t, err)
 
 	sessionID := ta.MustSeedNewSession(user.Email)
@@ -1338,8 +1332,7 @@ func BatchElemMustMatchParams(t *testing.T, req rpc.BatchElem, hash common.Hash,
 // SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
 func SimulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...httypes.HeadTrackable) (done chan struct{}) {
 	// Build the full chain of heads
-	ctx, cancel := context.WithTimeout(context.Background(), testutils.WaitTimeout(t))
-	t.Cleanup(cancel)
+	ctx := testutils.Context(t)
 	done = make(chan struct{})
 	go func(t *testing.T) {
 		defer close(done)
@@ -1622,7 +1615,7 @@ func AssertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
 }
 
 func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
-	cfg := configtest2.NewGeneralConfig(t, nil)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
