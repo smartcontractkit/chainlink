@@ -108,6 +108,8 @@ func WithOCR2() NodeConfigOpt {
 	}
 }
 
+// Deprecated: P2Pv1 is soon to be fully deprecated
+// WithP2Pv1 enables P2Pv1 and disables P2Pv2
 func WithP2Pv1() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V1 = toml.P2PV1{
