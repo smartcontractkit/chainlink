@@ -50,6 +50,8 @@ type OCR interface {
 	ContractTransmitterTransmitTimeout() time.Duration
 	ObservationGracePeriod() time.Duration
 	DatabaseTimeout() time.Duration
+	DeltaCOverride() time.Duration
+	DeltaCJitterOverride() time.Duration
 }
 
 type OCR2 interface {
