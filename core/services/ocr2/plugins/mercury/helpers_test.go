@@ -163,7 +163,7 @@ func setupNode(
 
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// [JobPipeline]
 		// MaxSuccessfulRuns = 0
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))

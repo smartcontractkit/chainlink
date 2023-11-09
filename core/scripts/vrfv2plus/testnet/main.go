@@ -6,11 +6,12 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 	"log"
 	"math/big"
 	"os"
 	"strings"
+
+	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_specific_util_helper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
@@ -25,7 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"

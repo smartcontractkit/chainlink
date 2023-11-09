@@ -37,6 +37,7 @@ type Context struct {
 	PullRequestURL string `json:"pull_request_url,omitempty"`
 	Repository     string `json:"repository"`
 	Type           string `json:"event_type"`
+	RunURL         string `json:"run_url,omitempty"`
 }
 
 type LokiReporter struct {

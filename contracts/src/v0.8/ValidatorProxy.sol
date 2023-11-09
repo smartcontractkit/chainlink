@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {ConfirmedOwner} from "./shared/access/ConfirmedOwner.sol";
-import {AggregatorValidatorInterface} from "./interfaces/AggregatorValidatorInterface.sol";
+import {AggregatorValidatorInterface} from "./shared/interfaces/AggregatorValidatorInterface.sol";
 import {TypeAndVersionInterface} from "./interfaces/TypeAndVersionInterface.sol";
 
 // solhint-disable custom-errors

@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
