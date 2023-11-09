@@ -5,24 +5,21 @@ package evm_test
 import (
 	"context"
 	"crypto/ecdsa"
-	_ "embed"
 	"encoding/json"
 	"math"
 	"math/big"
 	"reflect"
-	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-	. "github.com/smartcontractkit/chainlink-relay/pkg/types/interfacetests"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types/interfacetests"
+	"github.com/smartcontractkit/libocr/commontypes"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,12 +36,6 @@ const anyMethodName = "method"
 
 const commonGasLimitOnEvms = uint64(4712388)
 
-//go:embed chain_reader_test_contract.abi
-var contractAbi string
-
-//go:embed chain_reader_test_contract.bin
-var contractHex string
-
 var inner = []abi.ArgumentMarshaling{
 	{Name: "I", Type: "int64"},
 	{Name: "S", Type: "string"},
@@ -58,7 +49,7 @@ var nested = []abi.ArgumentMarshaling{
 const sizeItemType = "item for size"
 
 var defs = map[string][]abi.ArgumentMarshaling{
-	TestItemType: {
+	interfacetests.TestItemType: {
 		{Name: "Field", Type: "int32"},
 		{Name: "DifferentField", Type: "string"},
 		{Name: "OracleId", Type: "uint8"},
@@ -68,7 +59,7 @@ var defs = map[string][]abi.ArgumentMarshaling{
 		{Name: "BigField", Type: "int192"},
 		{Name: "NestedStruct", Type: "tuple", Components: nested},
 	},
-	TestItemSliceType: {
+	interfacetests.TestItemSliceType: {
 		{Name: "Field", Type: "int32[]"},
 		{Name: "DifferentField", Type: "string[]"},
 		{Name: "OracleId", Type: "uint8[]"},
@@ -78,7 +69,7 @@ var defs = map[string][]abi.ArgumentMarshaling{
 		{Name: "BigField", Type: "int192[]"},
 		{Name: "NestedStruct", Type: "tuple[]", Components: nested},
 	},
-	TestItemArray1Type: {
+	interfacetests.TestItemArray1Type: {
 		{Name: "Field", Type: "int32[1]"},
 		{Name: "DifferentField", Type: "string[1]"},
 		{Name: "OracleId", Type: "uint8[1]"},
@@ -88,7 +79,7 @@ var defs = map[string][]abi.ArgumentMarshaling{
 		{Name: "BigField", Type: "int192[1]"},
 		{Name: "NestedStruct", Type: "tuple[1]", Components: nested},
 	},
-	TestItemArray2Type: {
+	interfacetests.TestItemArray2Type: {
 		{Name: "Field", Type: "int32[2]"},
 		{Name: "DifferentField", Type: "string[2]"},
 		{Name: "OracleId", Type: "uint8[2]"},
@@ -105,7 +96,7 @@ var defs = map[string][]abi.ArgumentMarshaling{
 }
 
 func TestChainReader(t *testing.T) {
-	RunChainReaderInterfaceTests(t, &interfaceTester{})
+	interfacetests.RunChainReaderInterfaceTests(t, &interfaceTester{})
 	t.Run("GetMaxEncodingSize delegates to GetMaxSize", func(t *testing.T) {
 		runSizeDelegationTest(t, func(reader relaytypes.ChainReader, ctx context.Context, i int, s string) (int, error) {
 			return reader.GetMaxEncodingSize(ctx, i, s)
@@ -120,14 +111,14 @@ func TestChainReader(t *testing.T) {
 }
 
 type interfaceTester struct {
-	chain          *mocks.Chain
-	contract       relaytypes.BoundContract
-	ropts          *types.RelayOpts
-	defs           map[string]abi.Arguments
-	parsedContract abi.ABI
-	auth           *bind.TransactOpts
-	sim            *backends.SimulatedBackend
-	pk             *ecdsa.PrivateKey
+	chain    *mocks.Chain
+	contract relaytypes.BoundContract
+	ropts    *types.RelayOpts
+	defs     map[string]abi.Arguments
+	auth     *bind.TransactOpts
+	sim      *backends.SimulatedBackend
+	pk       *ecdsa.PrivateKey
+	evmTest  *EvmTest
 }
 
 func (it *interfaceTester) Setup(t *testing.T) {
@@ -144,7 +135,7 @@ func (it *interfaceTester) Setup(t *testing.T) {
 			ChainReader: &types.ChainReaderConfig{
 				ChainContractReaders: map[string]types.ChainContractReader{
 					"LatestValueHolder": {
-						ContractABI: contractAbi,
+						ContractABI: EvmTestMetaData.ABI,
 						ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
 							anyMethodName: {
 								ChainSpecificName: "GetElementAtIndex",
@@ -190,8 +181,8 @@ func (it *interfaceTester) Name() string {
 	return "EVM"
 }
 
-func (it *interfaceTester) EncodeFields(t *testing.T, request *EncodeRequest) ocr2types.Report {
-	if request.TestOn == TestItemType {
+func (it *interfaceTester) EncodeFields(t *testing.T, request *interfacetests.EncodeRequest) ocr2types.Report {
+	if request.TestOn == interfacetests.TestItemType {
 		return it.encodeFieldsOnItem(t, request)
 	}
 	return it.encodeFieldsOnSliceOrArray(t, request)
@@ -214,7 +205,7 @@ func (it *interfaceTester) IncludeArrayEncodingSizeEnforcement() bool {
 	return true
 }
 
-func (it *interfaceTester) SetLatestValue(t *testing.T, ctx context.Context, testStruct *TestStruct) (relaytypes.BoundContract, string) {
+func (it *interfaceTester) SetLatestValue(t *testing.T, ctx context.Context, testStruct *interfacetests.TestStruct) (relaytypes.BoundContract, string) {
 	// Since most tests don't use the contract, it's set up lazily to save time
 	if it.contract.Address == "" {
 		it.contract.Address = it.deployNewContract(t, ctx)
@@ -222,40 +213,29 @@ func (it *interfaceTester) SetLatestValue(t *testing.T, ctx context.Context, tes
 		it.contract.Pending = false
 	}
 
-	data, err := it.parsedContract.Pack("AddTestStruct", argsFromTestStruct(*testStruct)...)
+	tx, err := it.evmTest.AddTestStruct(
+		it.auth,
+		testStruct.Field,
+		testStruct.DifferentField,
+		uint8(testStruct.OracleId),
+		convertOracleIds(testStruct.OracleIds),
+		[32]byte(testStruct.Account),
+		convertAccounts(testStruct.Accounts),
+		testStruct.BigField,
+		toInternalType(testStruct.NestedStruct),
+	)
 	require.NoError(t, err)
-	gasPrice, err := it.sim.SuggestGasPrice(context.Background())
-	require.NoError(t, err)
-
-	contractAddress := common.HexToAddress(it.contract.Address)
-	msg := ethereum.CallMsg{From: it.auth.From, To: &contractAddress, Data: data}
-	gasLimit, err := it.sim.EstimateGas(context.Background(), msg)
-	require.NoError(t, err)
-
-	tx := &evmtypes.DynamicFeeTx{
-		ChainID:   big.NewInt(1337),
-		Nonce:     it.auth.Nonce.Uint64(),
-		GasTipCap: gasPrice,
-		GasFeeCap: gasPrice,
-		Gas:       gasLimit,
-		To:        &contractAddress,
-		Data:      data,
-	}
-
-	signedTx, err := evmtypes.SignNewTx(it.pk, evmtypes.LatestSignerForChainID(big.NewInt(1337)), tx)
-
-	require.NoError(t, it.sim.SendTransaction(context.Background(), signedTx))
 	it.sim.Commit()
 	it.incNonce()
-	it.awaitTx(t, ctx, signedTx)
+	it.awaitTx(t, ctx, tx)
 	return it.contract, anyMethodName
 }
 
-func (it *interfaceTester) encodeFieldsOnItem(t *testing.T, request *EncodeRequest) ocr2types.Report {
-	return packArgs(t, argsFromTestStruct(request.TestStructs[0]), it.defs[TestItemType], request)
+func (it *interfaceTester) encodeFieldsOnItem(t *testing.T, request *interfacetests.EncodeRequest) ocr2types.Report {
+	return packArgs(t, argsFromTestStruct(request.TestStructs[0]), it.defs[interfacetests.TestItemType], request)
 }
 
-func (it *interfaceTester) encodeFieldsOnSliceOrArray(t *testing.T, request *EncodeRequest) []byte {
+func (it *interfaceTester) encodeFieldsOnSliceOrArray(t *testing.T, request *interfacetests.EncodeRequest) []byte {
 	oargs := it.defs[request.TestOn]
 
 	var field []int32
@@ -265,25 +245,18 @@ func (it *interfaceTester) encodeFieldsOnSliceOrArray(t *testing.T, request *Enc
 	var account [][32]byte
 	var accounts [][][32]byte
 	var bigField []*big.Int
-	var nested []midLevelTestStruct
+	var nested []MidLevelTestStruct
 
 	for _, testStruct := range request.TestStructs {
 		field = append(field, testStruct.Field)
 		differentField = append(differentField, testStruct.DifferentField)
 		oracleId = append(oracleId, byte(testStruct.OracleId))
-		convertedIds := [32]byte{}
-		for i, id := range testStruct.OracleIds {
-			convertedIds[i] = byte(id)
-		}
-		convertedAccount := [32]byte(testStruct.Account)
+		convertedIds := convertOracleIds(testStruct.OracleIds)
 
-		convertedAccounts := make([][32]byte, len(testStruct.Accounts))
-		for i, a := range testStruct.Accounts {
-			convertedAccounts[i] = [32]byte(a)
-		}
+		convertedAccounts := convertAccounts(testStruct.Accounts)
 
 		oracleIds = append(oracleIds, convertedIds)
-		account = append(account, convertedAccount)
+		account = append(account, [32]byte(testStruct.Account))
 		accounts = append(accounts, convertedAccounts)
 		bigField = append(bigField, testStruct.BigField)
 		nested = append(nested, toInternalType(testStruct.NestedStruct))
@@ -292,17 +265,33 @@ func (it *interfaceTester) encodeFieldsOnSliceOrArray(t *testing.T, request *Enc
 	allArgs := []any{field, differentField, oracleId, oracleIds, account, accounts, bigField, nested}
 
 	switch request.TestOn {
-	case TestItemArray1Type:
+	case interfacetests.TestItemArray1Type:
 		for i, arg := range allArgs {
 			allArgs[i] = toFixedSized(arg, 1)
 		}
-	case TestItemArray2Type:
+	case interfacetests.TestItemArray2Type:
 		for i, arg := range allArgs {
 			allArgs[i] = toFixedSized(arg, 2)
 		}
 	}
 
 	return packArgs(t, allArgs, oargs, request)
+}
+
+func convertOracleIds(oracleIds [32]commontypes.OracleID) [32]byte {
+	convertedIds := [32]byte{}
+	for i, id := range oracleIds {
+		convertedIds[i] = byte(id)
+	}
+	return convertedIds
+}
+
+func convertAccounts(accounts [][]byte) [][32]byte {
+	convertedAccounts := make([][32]byte, len(accounts))
+	for i, a := range accounts {
+		convertedAccounts[i] = [32]byte(a)
+	}
+	return convertedAccounts
 }
 
 func (it *interfaceTester) setupChain(t *testing.T) {
@@ -316,10 +305,6 @@ func (it *interfaceTester) setupChain(t *testing.T) {
 	it.sim = backends.NewSimulatedBackend(core.GenesisAlloc{it.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms)
 	it.sim.Commit()
 	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
-
-	parsedContract, err := abi.JSON(strings.NewReader(contractAbi))
-	require.NoError(t, err)
-	it.parsedContract = parsedContract
 }
 
 func (it *interfaceTester) deployNewContract(t *testing.T, ctx context.Context) string {
@@ -331,9 +316,11 @@ func (it *interfaceTester) deployNewContract(t *testing.T, ctx context.Context) 
 	// Not sure if there's a better way to get it.
 	it.auth.GasLimit = 105528
 
-	address, tx, _, err := bind.DeployContract(it.auth, it.parsedContract, common.FromHex(contractHex), it.sim)
+	address, tx, ts, err := DeployEvmTest(it.auth, it.sim)
+
 	require.NoError(t, err)
 	it.sim.Commit()
+	it.evmTest = ts
 	it.incNonce()
 	it.awaitTx(t, ctx, tx)
 	return address.String()
@@ -353,7 +340,7 @@ func (it *interfaceTester) incNonce() {
 	}
 }
 
-func packArgs(t *testing.T, allArgs []any, oargs abi.Arguments, request *EncodeRequest) []byte {
+func packArgs(t *testing.T, allArgs []any, oargs abi.Arguments, request *interfacetests.EncodeRequest) []byte {
 	// extra capacity in case we add an argument
 	args := make(abi.Arguments, len(oargs), len(oargs)+1)
 	copy(args, oargs)
@@ -375,7 +362,7 @@ func packArgs(t *testing.T, allArgs []any, oargs abi.Arguments, request *EncodeR
 	return bytes
 }
 
-func getAccounts(first TestStruct) [][32]byte {
+func getAccounts(first interfacetests.TestStruct) [][32]byte {
 	accountBytes := make([][32]byte, len(first.Accounts))
 	for i, account := range first.Accounts {
 		accountBytes[i] = [32]byte(account)
@@ -383,7 +370,7 @@ func getAccounts(first TestStruct) [][32]byte {
 	return accountBytes
 }
 
-func argsFromTestStruct(ts TestStruct) []any {
+func argsFromTestStruct(ts interfacetests.TestStruct) []any {
 	return []any{
 		ts.Field,
 		ts.DifferentField,
@@ -396,7 +383,7 @@ func argsFromTestStruct(ts TestStruct) []any {
 	}
 }
 
-func getOracleIds(first TestStruct) [32]byte {
+func getOracleIds(first interfacetests.TestStruct) [32]byte {
 	oracleIds := [32]byte{}
 	for i, oracleId := range first.OracleIds {
 		oracleIds[i] = byte(oracleId)
@@ -410,24 +397,14 @@ func toFixedSized(item any, size int) any {
 	return rItem.Convert(arrayType).Interface()
 }
 
-func toInternalType(m MidLevelTestStruct) midLevelTestStruct {
-	return midLevelTestStruct{
+func toInternalType(m interfacetests.MidLevelTestStruct) MidLevelTestStruct {
+	return MidLevelTestStruct{
 		FixedBytes: m.FixedBytes,
-		Inner: innerTestStruct{
+		Inner: InnerTestStruct{
 			I: int64(m.Inner.I),
 			S: m.Inner.S,
 		},
 	}
-}
-
-type innerTestStruct struct {
-	I int64
-	S string
-}
-
-type midLevelTestStruct struct {
-	FixedBytes [2]byte
-	Inner      innerTestStruct
 }
 
 func runSizeDelegationTest(t *testing.T, run func(relaytypes.ChainReader, context.Context, int, string) (int, error)) {
