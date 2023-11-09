@@ -30,31 +30,19 @@ contract FunctionsRequest_EncodeCBOR is Test {
 }
 
 /// @notice #initializeRequest
-contract FunctionsRequest_InitializeRequest is Test {
-
-}
+contract FunctionsRequest_InitializeRequest is Test {}
 
 /// @notice #initializeRequestForInlineJavaScript
-contract FunctionsRequest_InitializeRequestForInlineJavaScript is Test {
-
-}
+contract FunctionsRequest_InitializeRequestForInlineJavaScript is Test {}
 
 /// @notice #addSecretsReference
-contract FunctionsRequest_AddSecretsReference is Test {
-
-}
+contract FunctionsRequest_AddSecretsReference is Test {}
 
 /// @notice #addDONHostedSecrets
-contract FunctionsRequest_AddDONHostedSecrets is Test {
-
-}
+contract FunctionsRequest_AddDONHostedSecrets is Test {}
 
 /// @notice #setArgs
-contract FunctionsRequest_SetArgs is Test {
-
-}
+contract FunctionsRequest_SetArgs is Test {}
 
 /// @notice #setBytesArgs
-contract FunctionsRequest_SetBytesArgs is Test {
-
-}
+contract FunctionsRequest_SetBytesArgs is Test {}

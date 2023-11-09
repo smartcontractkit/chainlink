@@ -85,6 +85,8 @@ func main() {
 	batchBHSAddressString := flag.String("batch-bhs-address", "", "address of Batch BHS contract")
 	coordinatorAddressString := flag.String("coordinator-address", "", "address of VRF Coordinator contract")
 	batchCoordinatorAddressString := flag.String("batch-coordinator-address", "", "address Batch VRF Coordinator contract")
+	registerVRFKeyAgainstAddress := flag.String("register-vrf-key-against-address", "", "VRF Key registration against address - "+
+		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
@@ -171,6 +173,11 @@ func main() {
 			BatchCoordinatorAddress: common.HexToAddress(*batchCoordinatorAddressString),
 		}
 
+		vrfKeyRegistrationConfig := model.VRFKeyRegistrationConfig{
+			VRFKeyUncompressedPubKey: nodesMap[model.VRFPrimaryNodeName].VrfKeys[0],
+			RegisterAgainstAddress:   *registerVRFKeyAgainstAddress,
+		}
+
 		var jobSpecs model.JobSpecs
 
 		switch *vrfVersion {
@@ -188,10 +195,10 @@ func main() {
 			}
 
 			coordinatorConfigV2 := v2scripts.CoordinatorConfigV2{
-				MinConfs:               minConfs,
-				MaxGasLimit:            &constants.MaxGasLimit,
-				StalenessSeconds:       &constants.StalenessSeconds,
-				GasAfterPayment:        &constants.GasAfterPayment,
+				MinConfs:               *minConfs,
+				MaxGasLimit:            constants.MaxGasLimit,
+				StalenessSeconds:       constants.StalenessSeconds,
+				GasAfterPayment:        constants.GasAfterPayment,
 				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
 				FeeConfig:              feeConfigV2,
 			}
@@ -199,7 +206,7 @@ func main() {
 			jobSpecs = v2scripts.VRFV2DeployUniverse(
 				e,
 				subscriptionBalanceJuels,
-				&nodesMap[model.VRFPrimaryNodeName].VrfKeys[0],
+				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2,
 				*batchFulfillmentEnabled,
@@ -211,10 +218,10 @@ func main() {
 				FulfillmentFlatFeeNativePPM: uint32(constants.FlatFeeNativePPM),
 			}
 			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
-				MinConfs:               minConfs,
-				MaxGasLimit:            &constants.MaxGasLimit,
-				StalenessSeconds:       &constants.StalenessSeconds,
-				GasAfterPayment:        &constants.GasAfterPayment,
+				MinConfs:               *minConfs,
+				MaxGasLimit:            constants.MaxGasLimit,
+				StalenessSeconds:       constants.StalenessSeconds,
+				GasAfterPayment:        constants.GasAfterPayment,
 				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
 				FeeConfig:              feeConfigV2Plus,
 			}
@@ -223,7 +230,7 @@ func main() {
 				e,
 				subscriptionBalanceJuels,
 				subscriptionBalanceNativeWei,
-				&nodesMap[model.VRFPrimaryNodeName].VrfKeys[0],
+				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2Plus,
 				*batchFulfillmentEnabled,

@@ -528,6 +528,74 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 	})
 
+	t.Run("test enhanced telemetry service creation", func(t *testing.T) {
+		testCases := []struct {
+			jbCaptureEATelemetry   bool
+			specCaptureEATelemetry bool
+			expected               bool
+		}{{false, false, false},
+			{true, false, false},
+			{false, true, true},
+			{true, true, true},
+		}
+
+		for _, tc := range testCases {
+
+			config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.P2P.V1.Enabled = ptr(true)
+				c.OCR.CaptureEATelemetry = ptr(tc.specCaptureEATelemetry)
+			})
+
+			relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+			legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+
+			kb, err := keyStore.OCR().Create()
+			require.NoError(t, err)
+
+			s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
+			jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+			require.NoError(t, err)
+			err = toml.Unmarshal([]byte(s), &jb)
+			require.NoError(t, err)
+
+			jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
+			err = jobORM.CreateJob(&jb)
+			require.NoError(t, err)
+			assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
+
+			lggr := logger.TestLogger(t)
+			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+			require.NoError(t, pw.Start(testutils.Context(t)))
+			sd := ocr.NewDelegate(
+				db,
+				jobORM,
+				keyStore,
+				nil,
+				pw,
+				monitoringEndpoint,
+				legacyChains,
+				lggr,
+				config.Database(),
+				srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			)
+
+			jb.OCROracleSpec.CaptureEATelemetry = tc.jbCaptureEATelemetry
+			services, err := sd.ServicesForSpec(jb)
+			require.NoError(t, err)
+
+			enhancedTelemetryServiceCreated := false
+			for _, service := range services {
+				_, ok := service.(*ocrcommon.EnhancedTelemetryService[ocrcommon.EnhancedTelemetryData])
+				enhancedTelemetryServiceCreated = ok
+				if enhancedTelemetryServiceCreated {
+					break
+				}
+			}
+
+			require.Equal(t, tc.expected, enhancedTelemetryServiceCreated)
+		}
+	})
+
 	t.Run("test job spec error is created", func(t *testing.T) {
 		// Create a keystore with an ocr key bundle and p2p key.
 		kb, err := keyStore.OCR().Create()
