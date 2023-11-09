@@ -16,20 +16,16 @@ linters-settings:
   goimports:
     local-prefixes: github.com/smartcontractkit/chainlink
   golint:
-    min-confidence: 1.0
+    min-confidence: 0.999
   gosec:
     excludes:
       - G101
-      - G104
-      # - G204
-      # - G304
-      # - G404
   govet:
     # report about shadowed variables
     check-shadowing: true
-  errorlint:
-    # Allow formatting of errors without %w
-    errorf: false
+  # errorlint:
+  #   # Allow formatting of errors without %w
+  #   errorf: false
   revive:
     confidence: 0.8
     rules:
@@ -42,37 +38,37 @@ linters-settings:
       - name: error-naming
       - name: if-return
       - name: increment-decrement
-      # - name: var-naming
+      # - name: var-naming // doesn't work with some generated names
       - name: var-declaration
       - name: package-comments
       - name: range
       - name: receiver-naming
       - name: time-naming
-      # - name: unexported-return
+      - name: unexported-return
       - name: indent-error-flow
       - name: errorf
       - name: empty-block
       - name: superfluous-else
-      # - name: unused-parameter
+      - name: unused-parameter
       - name: unreachable-code
       - name: redefines-builtin-id
       - name: waitgroup-by-value
       - name: unconditional-recursion
       - name: struct-tag
-      # - name: string-format
+      - name: string-format
       - name: string-of-int
-      # - name: range-val-address
+      - name: range-val-address
       - name: range-val-in-closure
       - name: modifies-value-receiver
       - name: modifies-parameter
       - name: identical-branches
       - name: get-return
-      # - name: flag-parameter
-      # - name: early-return
+      # - name: flag-parameter // probably one we should work on doing better at in the future
+      # - name: early-return // probably one we should work on doing better at in the future
       - name: defer
       - name: constant-logical-expr
-      # - name: confusing-naming
-      # - name: confusing-results
+      - name: confusing-naming
+      - name: confusing-results
       - name: bool-literal-in-expr
       - name: atomic
 issues:

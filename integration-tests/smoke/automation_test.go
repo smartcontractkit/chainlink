@@ -109,7 +109,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				upgradeImage   string
 				upgradeVersion string
 				err            error
-				testName       = "basic-upkeep"
 			)
 			if nodeUpgrade {
 				upgradeImage = os.Getenv("UPGRADE_IMAGE")
@@ -117,7 +116,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				if len(upgradeImage) == 0 || len(upgradeVersion) == 0 {
 					t.Fatal("UPGRADE_IMAGE and UPGRADE_VERSION must be set to upgrade nodes")
 				}
-				testName = "node-upgrade"
 			}
 
 			// Use the name to determine if this is a log trigger or mercury
@@ -127,7 +125,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			isMercury := isMercuryV02 || isMercuryV03
 
 			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
-				t, testName, registryVersion, defaultOCRRegistryConfig, nodeUpgrade, isMercuryV02, isMercuryV03,
+				t, registryVersion, defaultOCRRegistryConfig, isMercuryV02, isMercuryV03,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -241,7 +239,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-		t, "set-trigger-config", ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, false, false,
+		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, false,
 	)
 
 	consumers, upkeepIDs := actions.DeployConsumers(
@@ -416,7 +414,7 @@ func TestAutomationAddFunds(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "add-funds", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false, false)
@@ -467,7 +465,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "pause-unpause", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
@@ -550,7 +548,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "register-upkeep", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
@@ -621,7 +619,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "pause-registry", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
@@ -679,7 +677,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "keeper-nodes-down", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
@@ -764,7 +762,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "perform-simulation", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumersPerformance, _ := actions.DeployPerformanceConsumers(
@@ -828,7 +826,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "gas-limit", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
@@ -942,7 +940,7 @@ func TestUpdateCheckData(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "update-check-data", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
@@ -1007,10 +1005,8 @@ type TestConfig struct {
 
 func setupAutomationTestDocker(
 	t *testing.T,
-	testName string,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
-	statefulDb bool,
 	isMercuryV02 bool,
 	isMercuryV03 bool,
 ) (

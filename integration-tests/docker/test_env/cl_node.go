@@ -120,7 +120,7 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 }
 
 // UpgradeVersion restarts the cl node with new image and version
-func (n *ClNode) UpgradeVersion(cfg *chainlink.Config, newImage, newVersion string) error {
+func (n *ClNode) UpgradeVersion(newImage, newVersion string) error {
 	if newVersion == "" {
 		return fmt.Errorf("new version is empty")
 	}
@@ -136,9 +136,9 @@ func (n *ClNode) PrimaryETHAddress() (string, error) {
 	return n.API.PrimaryEthAddress()
 }
 
-func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
+func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, chainId int64,
 	feedId [32]byte) (*client.Job, error) {
-	spec := utils.BuildBootstrapSpec(verifierAddr, chainId, fromBlock, feedId)
+	spec := utils.BuildBootstrapSpec(verifierAddr, chainId, feedId)
 	return n.API.MustCreateJob(spec)
 }
 

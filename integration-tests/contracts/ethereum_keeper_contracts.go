@@ -1859,7 +1859,7 @@ func (v *EthereumKeeperConsumerPerformance) GetUpkeepCount(ctx context.Context) 
 	return eligible, err
 }
 
-func (v *EthereumKeeperConsumerPerformance) SetCheckGasToBurn(ctx context.Context, gas *big.Int) error {
+func (v *EthereumKeeperConsumerPerformance) SetCheckGasToBurn(_ context.Context, gas *big.Int) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1871,7 +1871,7 @@ func (v *EthereumKeeperConsumerPerformance) SetCheckGasToBurn(ctx context.Contex
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(ctx context.Context, gas *big.Int) error {
+func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(_ context.Context, gas *big.Int) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1906,7 +1906,7 @@ func (v *EthereumKeeperPerformDataCheckerConsumer) Counter(ctx context.Context) 
 	return cnt, nil
 }
 
-func (v *EthereumKeeperPerformDataCheckerConsumer) SetExpectedData(ctx context.Context, expectedData []byte) error {
+func (v *EthereumKeeperPerformDataCheckerConsumer) SetExpectedData(_ context.Context, expectedData []byte) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err

@@ -173,7 +173,7 @@ func FundVRFCoordinatorV3Subscription(t *testing.T, linkToken contracts.LinkToke
 	require.NoError(t, err, "Error waiting for TXs to complete")
 }
 
-func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDeployer, chainClient blockchain.EVMClient, linkToken contracts.LinkToken, mockETHLinkFeed contracts.MockETHLINKFeed, beaconPeriodBlocksCount *big.Int, keyID string) (contracts.DKG, contracts.VRFCoordinatorV3, contracts.VRFBeacon, contracts.VRFBeaconConsumer) {
+func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDeployer, chainClient blockchain.EVMClient, linkToken contracts.LinkToken, beaconPeriodBlocksCount *big.Int, keyID string) (contracts.DKG, contracts.VRFCoordinatorV3, contracts.VRFBeacon, contracts.VRFBeaconConsumer) {
 	dkg, err := contractDeployer.DeployDKG()
 	require.NoError(t, err, "Error deploying DKG Contract")
 
@@ -306,7 +306,6 @@ func SetupOCR2VRFUniverse(
 		contractDeployer,
 		chainClient,
 		linkToken,
-		mockETHLinkFeed,
 		ocr2vrf_constants.BeaconPeriodBlocksCount,
 		ocr2vrf_constants.KeyID,
 	)

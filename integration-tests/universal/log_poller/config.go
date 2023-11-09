@@ -132,33 +132,33 @@ func (c *Config) validate() error {
 
 	err := c.General.validate()
 	if err != nil {
-		return fmt.Errorf("General config validation failed: %v", err)
+		return fmt.Errorf("General config validation failed: %w", err)
 	}
 
 	switch c.General.Generator {
 	case GeneratorType_WASP:
 		if c.Wasp == nil {
-			return fmt.Errorf("Wasp config is nil")
+			return fmt.Errorf("wasp config is nil")
 		}
 		if c.Wasp.Load == nil {
-			return fmt.Errorf("Wasp load config is nil")
+			return fmt.Errorf("wasp load config is nil")
 		}
 
 		err = c.Wasp.validate()
 		if err != nil {
-			return fmt.Errorf("Wasp config validation failed: %v", err)
+			return fmt.Errorf("wasp config validation failed: %w", err)
 		}
 	case GeneratorType_Looped:
 		if c.LoopedConfig == nil {
-			return fmt.Errorf("Looped config is nil")
+			return fmt.Errorf("looped config is nil")
 		}
 
 		err = c.LoopedConfig.validate()
 		if err != nil {
-			return fmt.Errorf("Looped config validation failed: %v", err)
+			return fmt.Errorf("looped config validation failed: %w", err)
 		}
 	default:
-		return fmt.Errorf("Unknown generator type: %s", c.General.Generator)
+		return fmt.Errorf("unknown generator type: %s", c.General.Generator)
 	}
 
 	return nil
@@ -166,15 +166,15 @@ func (c *Config) validate() error {
 
 func (g *General) validate() error {
 	if g.Generator == "" {
-		return fmt.Errorf("Generator is empty")
+		return fmt.Errorf("generator is empty")
 	}
 
 	if g.Contracts == 0 {
-		return fmt.Errorf("Contracts is 0, but must be > 0")
+		return fmt.Errorf("contracts is 0, but must be > 0")
 	}
 
 	if g.EventsPerTx == 0 {
-		return fmt.Errorf("Events_per_tx is 0, but must be > 0")
+		return fmt.Errorf("events_per_tx is 0, but must be > 0")
 	}
 
 	return nil
@@ -187,7 +187,7 @@ func (w *WaspConfig) validate() error {
 
 	err := w.Load.validate()
 	if err != nil {
-		return fmt.Errorf("Load config validation failed: %v", err)
+		return fmt.Errorf("Load config validation failed: %w", err)
 	}
 
 	return nil
@@ -195,11 +195,11 @@ func (w *WaspConfig) validate() error {
 
 func (l *Load) validate() error {
 	if l.RPS == 0 && l.LPS == 0 {
-		return fmt.Errorf("Either RPS or LPS needs to be set")
+		return fmt.Errorf("either RPS or LPS needs to be set")
 	}
 
 	if l.RPS != 0 && l.LPS != 0 {
-		return fmt.Errorf("Only one of RPS or LPS can be set")
+		return fmt.Errorf("only one of RPS or LPS can be set")
 	}
 
 	if l.Duration == nil {

@@ -32,12 +32,11 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 
 	var (
 		err           error
-		testName      = "basic-log-poller"
 		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(500*time.Millisecond), cfg.General.UseFinalityTag,
+		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(500*time.Millisecond), cfg.General.UseFinalityTag,
 	)
 
 	_, upkeepIDs := actions.DeployConsumers(
@@ -195,13 +194,12 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 	var (
 		err           error
-		testName      = "replay-log-poller"
 		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	// we set blockBackfillDepth to 0, to make sure nothing will be backfilled and won't interfere with our test
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag)
+		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag)
 
 	_, upkeepIDs := actions.DeployConsumers(
 		t,
@@ -353,12 +351,11 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 
 	var (
 		err           error
-		testName      = "ci-log-poller"
 		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag,
+		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag,
 	)
 
 	_, upkeepIDs := actions.DeployConsumers(

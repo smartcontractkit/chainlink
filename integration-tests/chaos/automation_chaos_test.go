@@ -224,7 +224,7 @@ func TestAutomationChaos(t *testing.T) {
 						if chainClient != nil {
 							chainClient.GasStats().PrintStats()
 						}
-						err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+						err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 						require.NoError(t, err, "Error tearing down environment")
 					})
 

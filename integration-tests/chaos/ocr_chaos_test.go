@@ -164,7 +164,7 @@ func TestOCRChaos(t *testing.T) {
 				if chainClient != nil {
 					chainClient.GasStats().PrintStats()
 				}
-				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
@@ -180,7 +180,7 @@ func TestOCRChaos(t *testing.T) {
 			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
 			require.NoError(t, err)
 
-			ocrInstances, err := actions.DeployOCRContracts(1, lt, cd, bootstrapNode, workerNodes, chainClient)
+			ocrInstances, err := actions.DeployOCRContracts(1, lt, cd, workerNodes, chainClient)
 			require.NoError(t, err)
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err)

@@ -940,7 +940,7 @@ func (f *EthereumFluxAggregator) PaymentAmount(ctx context.Context) (*big.Int, e
 	return payment, nil
 }
 
-func (f *EthereumFluxAggregator) RequestNewRound(ctx context.Context) error {
+func (f *EthereumFluxAggregator) RequestNewRound(_ context.Context) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -979,7 +979,7 @@ func (f *EthereumFluxAggregator) WatchSubmissionReceived(ctx context.Context, ev
 	}
 }
 
-func (f *EthereumFluxAggregator) SetRequesterPermissions(ctx context.Context, addr common.Address, authorized bool, roundsDelay uint32) error {
+func (f *EthereumFluxAggregator) SetRequesterPermissions(_ context.Context, addr common.Address, authorized bool, roundsDelay uint32) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1020,7 +1020,7 @@ func (f *EthereumFluxAggregator) LatestRoundID(ctx context.Context) (*big.Int, e
 }
 
 func (f *EthereumFluxAggregator) WithdrawPayment(
-	ctx context.Context,
+	_ context.Context,
 	from common.Address,
 	to common.Address,
 	amount *big.Int) error {

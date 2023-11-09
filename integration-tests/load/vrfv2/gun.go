@@ -22,7 +22,7 @@ func SingleFeedGun(contracts *vrfv2_actions.VRFV2Contracts, keyHash [32]byte) *S
 }
 
 // Call implements example gun call, assertions on response bodies should be done here
-func (m *SingleHashGun) Call(l *wasp.Generator) *wasp.CallResult {
+func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
 	err := m.contracts.LoadTestConsumer.RequestRandomness(
 		m.keyHash,
 		vrfConst.SubID,

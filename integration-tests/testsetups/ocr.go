@@ -164,7 +164,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 }
 
 // LoadEnvironment loads an existing test environment using the provided URLs
-func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, chainURL, mockServerURL string) {
+func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, mockServerURL string) {
 	var (
 		network = networks.MustGetSelectedNetworksFromEnv()[0]
 		err     error
@@ -242,7 +242,6 @@ func (o *OCRSoakTest) Setup() {
 			o.Inputs.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
-			o.bootstrapNode,
 			o.workerNodes,
 			o.chainClient,
 		)

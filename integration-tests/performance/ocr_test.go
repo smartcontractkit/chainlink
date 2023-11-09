@@ -53,7 +53,7 @@ func TestOCRBasic(t *testing.T) {
 	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	ocrInstances, err := actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, bootstrapNode, workerNodes, chainClient)
+	ocrInstances, err := actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, workerNodes, chainClient)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")

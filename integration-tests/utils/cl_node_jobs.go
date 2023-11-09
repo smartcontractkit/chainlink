@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, fromBlock uint64, feedId [32]byte) *coreClient.OCR2TaskJobSpec {
+func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]byte) *coreClient.OCR2TaskJobSpec {
 	hash := common.BytesToHash(feedId[:])
 	return &coreClient.OCR2TaskJobSpec{
 		Name:    fmt.Sprintf("bootstrap-%s", uuid.NewString()),

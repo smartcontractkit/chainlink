@@ -305,6 +305,8 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackC
 }
 
 // intListStats helper calculates some statistics on an int list: avg, median, 90pct, 99pct, max
+//
+//nolint:revive
 func intListStats(in []int64) (float64, int64, int64, int64, int64) {
 	length := len(in)
 	if length == 0 {

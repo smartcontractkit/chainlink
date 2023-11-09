@@ -82,13 +82,11 @@ func AcceptAuthorizedReceiversOperator(
 
 func ProcessNewEvent(
 	t *testing.T,
-	eventSub geth.Subscription,
 	operatorCreated chan *operator_factory.OperatorFactoryOperatorCreated,
 	authorizedForwarderCreated chan *operator_factory.OperatorFactoryAuthorizedForwarderCreated,
 	event *types.Log,
 	eventDetails *abi.Event,
 	operatorFactoryInstance contracts.OperatorFactory,
-	contractABI *abi.ABI,
 	chainClient blockchain.EVMClient,
 ) {
 	l := logging.GetTestLogger(t)
@@ -166,8 +164,8 @@ func SubscribeOperatorFactoryEvents(
 				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
 				require.NoError(t, err, "Getting event details for OperatorFactory instance shouldn't fail")
 				go ProcessNewEvent(
-					t, sub, operatorCreated, authorizedForwarderCreated, &vLog,
-					eventDetails, operatorFactoryInstance, contractABI, chainClient,
+					t, operatorCreated, authorizedForwarderCreated, &vLog,
+					eventDetails, operatorFactoryInstance, chainClient,
 				)
 				if eventDetails.Name == "AuthorizedForwarderCreated" || eventDetails.Name == "OperatorCreated" {
 					remainingExpectedEvents--
