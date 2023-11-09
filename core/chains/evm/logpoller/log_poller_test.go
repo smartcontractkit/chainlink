@@ -85,7 +85,7 @@ func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (commo
 
 func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 	chainId := big.NewInt(137)
-	_, db := heavyweight.FullTestDBV2(b, "logs_scale", nil)
+	_, db := heavyweight.FullTestDBV2(b, nil)
 	o := logpoller.NewORM(chainId, db, logger.TestLogger(b), pgtest.NewQConfig(false))
 	event, address, _ := populateDatabase(b, o, chainId)
 
@@ -103,7 +103,7 @@ func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 
 func TestPopulateLoadedDB(t *testing.T) {
 	t.Skip("Only for local load testing and query analysis")
-	_, db := heavyweight.FullTestDBV2(t, "logs_scale", nil)
+	_, db := heavyweight.FullTestDBV2(t, nil)
 	chainID := big.NewInt(137)
 
 	o := logpoller.NewORM(big.NewInt(137), db, logger.TestLogger(t), pgtest.NewQConfig(true))
@@ -1328,7 +1328,7 @@ func TestNotifyAfterInsert(t *testing.T) {
 	// Use a non-transactional db for this test because notify events
 	// are not delivered until the transaction is committed.
 	var dbURL string
-	_, sqlxDB := heavyweight.FullTestDBV2(t, "notify_after_insert_log", func(c *chainlink.Config, s *chainlink.Secrets) {
+	_, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		dbURL = s.Database.URL.URL().String()
 	})
 
