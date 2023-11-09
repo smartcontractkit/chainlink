@@ -221,6 +221,10 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) rebroadcast
 	ctx context.Context,
 	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 
+	if len(tx.TxAttempts) == 0 {
+		return errors.New("no TxAttempts for tx")
+	}
+
 	err := tr.txStore.UpdateTxUnstartedToInProgress(ctx, tx, &tx.TxAttempts[0])
 	if err != nil {
 		return errors.Wrap(err, "failed to rebroadcast transaction")

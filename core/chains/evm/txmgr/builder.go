@@ -55,7 +55,7 @@ func NewTxm(
 	ethConfirmer := NewEvmConfirmer(txStore, txmClient, ethTracker, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
 	var ethResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
-		ethResender = NewEvmResender(lggr, txStore, txmClient, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig, ethTracker)
+		ethResender = NewEvmResender(lggr, txStore, txmClient, ethTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
 	}
 	txm = NewEvmTxm(txmClient.ConfiguredChainID(), txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender, ethTracker)
 	return txm, nil
@@ -86,11 +86,11 @@ func NewEvmResender(
 	lggr logger.Logger,
 	txStore TransactionStore,
 	client TransactionClient,
+	tracker *Tracker,
 	ks KeyStore,
 	pollInterval time.Duration,
 	config EvmResenderConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
-	tracker *Tracker,
 ) *Resender {
 	return txmgr.NewResender(lggr, txStore, client, tracker, ks, pollInterval, config, txConfig)
 }
