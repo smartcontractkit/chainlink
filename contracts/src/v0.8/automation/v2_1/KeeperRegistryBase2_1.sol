@@ -11,7 +11,7 @@ import {StreamsLookupCompatibleInterface} from "../interfaces/StreamsLookupCompa
 import {ILogAutomation, Log} from "../interfaces/ILogAutomation.sol";
 import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../interfaces/KeeperCompatibleInterface.sol";
 import {UpkeepFormat} from "../interfaces/UpkeepTranscoderInterface.sol";

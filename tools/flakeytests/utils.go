@@ -2,6 +2,7 @@ package flakeytests
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -29,7 +30,7 @@ func DigString(mp map[string]interface{}, path []string) (string, error) {
 	return vs, nil
 }
 
-func getGithubMetadata(repo string, eventName string, sha string, e io.Reader) Context {
+func getGithubMetadata(repo string, eventName string, sha string, e io.Reader, runID string) Context {
 	d, err := io.ReadAll(e)
 	if err != nil {
 		log.Fatal("Error reading gh event into string")
@@ -41,7 +42,8 @@ func getGithubMetadata(repo string, eventName string, sha string, e io.Reader) C
 		log.Fatalf("Error unmarshaling gh event at path")
 	}
 
-	basicCtx := &Context{Repository: repo, CommitSHA: sha, Type: eventName}
+	runURL := fmt.Sprintf("%s/actions/%s", repo, runID)
+	basicCtx := &Context{Repository: repo, CommitSHA: sha, Type: eventName, RunURL: runURL}
 	switch eventName {
 	case "pull_request":
 		prURL := ""
@@ -68,10 +70,10 @@ func getGithubMetadata(repo string, eventName string, sha string, e io.Reader) C
 	}
 }
 
-func GetGithubMetadata(repo string, eventName string, sha string, path string) Context {
+func GetGithubMetadata(repo string, eventName string, sha string, path string, runID string) Context {
 	event, err := os.Open(path)
 	if err != nil {
 		log.Fatalf("Error reading gh event at path: %s", path)
 	}
-	return getGithubMetadata(repo, eventName, sha, event)
+	return getGithubMetadata(repo, eventName, sha, event, runID)
 }
