@@ -11,7 +11,7 @@ require (
 	github.com/docker/docker v24.0.6+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/ethereum/go-ethereum v1.12.0
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.3.1
 	github.com/joho/godotenv v1.4.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
