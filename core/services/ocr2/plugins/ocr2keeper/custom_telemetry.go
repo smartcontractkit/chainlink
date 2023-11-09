@@ -104,7 +104,10 @@ func (e *AutomationCustomTelemetryService) Close() error {
 	return e.StopOnce("AutomationCustomTelemetryService", func() error {
 		e.lggr.Infof("Stopping: custom telemetry service")
 		e.threadCtrl.Close()
-		e.blockSubscriber.Unsubscribe(e.blockSubChanID)
+		err := e.blockSubscriber.Unsubscribe(e.blockSubChanID)
+		if err != nil {
+			return err
+		}
 		e.lggr.Infof("Stopped: Custom telemetry service")
 		return nil
 	})
