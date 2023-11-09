@@ -106,3 +106,11 @@ func (d disabled) IndexedLogsCreatedAfter(eventSig common.Hash, address common.A
 func (d disabled) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations, qopts ...pg.QOpt) (int64, error) {
 	return 0, ErrDisabled
 }
+
+func (d disabled) FetchAnyLogs(queryName string, query string, args QueryArgs, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
+}
+
+func (d disabled) FetchAnyResults(queryName string, query string, args QueryArgs, dest interface{}, qopts ...pg.QOpt) error {
+	return ErrDisabled
+}

@@ -51,6 +51,9 @@ type ORM interface {
 	SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordRange(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
+
+	SelectAnyLogs(queryName string, query string, args QueryArgs, qopts ...pg.QOpt) ([]Log, error)
+	SelectAnyRows(queryName string, query string, args QueryArgs, dest interface{}, qopts ...pg.QOpt) error
 }
 
 type DbORM struct {
@@ -72,11 +75,11 @@ func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *
 
 // InsertBlock is idempotent to support replays.
 func (o *DbORM) InsertBlock(blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64, qopts ...pg.QOpt) error {
-	args, err := newQueryArgs(o.chainID).
-		withCustomHashArg("block_hash", blockHash).
-		withCustomArg("block_number", blockNumber).
-		withCustomArg("block_timestamp", blockTimestamp).
-		withCustomArg("finalized_block_number", finalizedBlock).
+	args, err := newQueryArgsForChain(o.chainID).
+		WithNamedHash("block_hash", blockHash).
+		WithNamedArg("block_number", blockNumber).
+		WithNamedArg("block_timestamp", blockTimestamp).
+		WithNamedArg("finalized_block_number", finalizedBlock).
 		toArgs()
 	if err != nil {
 		return err
@@ -93,9 +96,9 @@ func (o *DbORM) InsertBlock(blockHash common.Hash, blockNumber int64, blockTimes
 // Each address/event pair must have a unique job id, so it may be removed when the job is deleted.
 // If a second job tries to overwrite the same pair, this should fail.
 func (o *DbORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
-	args, err := newQueryArgs(o.chainID).
-		withCustomArg("name", filter.Name).
-		withCustomArg("retention", filter.Retention).
+	args, err := newQueryArgsForChain(o.chainID).
+		WithNamedArg("name", filter.Name).
+		WithNamedArg("retention", filter.Retention).
 		withAddressArray(filter.Addresses).
 		withEventSigArray(filter.EventSigs).
 		toArgs()
@@ -168,7 +171,7 @@ func (o *DbORM) SelectLatestBlock(qopts ...pg.QOpt) (*LogPollerBlock, error) {
 
 func (o *DbORM) SelectLatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs Confirmations, qopts ...pg.QOpt) (*Log, error) {
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
-		withConfs(confs).
+		WithConfs(confs).
 		toArgs()
 	if err != nil {
 		return nil, err
@@ -179,7 +182,7 @@ func (o *DbORM) SelectLatestLogByEventSigWithConfs(eventSig common.Hash, address
 			AND event_sig = :event_sig
 			AND address = :address
 			AND block_number <= %s
-			ORDER BY (block_number, log_index) DESC LIMIT 1`, nestedBlockNumberQuery(confs))
+			ORDER BY (block_number, log_index) DESC LIMIT 1`, NestedBlockNumberQuery(confs))
 	var l Log
 	if err := o.q.WithOpts(qopts...).GetNamed(query, &l, args); err != nil {
 		return nil, err
@@ -198,7 +201,7 @@ func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
 	// These deletes are bounded by reorg depth, so they are
 	// fast and should not slow down the log readers.
 	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
-		args, err := newQueryArgs(o.chainID).
+		args, err := newQueryArgsForChain(o.chainID).
 			withStartBlock(start).
 			toArgs()
 		if err != nil {
@@ -313,7 +316,7 @@ func (o *DbORM) validateLogs(logs []Log) error {
 }
 
 func (o *DbORM) SelectLogsByBlockRange(start, end int64) ([]Log, error) {
-	args, err := newQueryArgs(o.chainID).
+	args, err := newQueryArgsForChain(o.chainID).
 		withStartBlock(start).
 		withEndBlock(end).
 		toArgs()
@@ -362,7 +365,7 @@ func (o *DbORM) SelectLogs(start, end int64, address common.Address, eventSig co
 func (o *DbORM) SelectLogsCreatedAfter(address common.Address, eventSig common.Hash, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
 		withBlockTimestampAfter(after).
-		withConfs(confs).
+		WithConfs(confs).
 		toArgs()
 	if err != nil {
 		return nil, err
@@ -375,7 +378,7 @@ func (o *DbORM) SelectLogsCreatedAfter(address common.Address, eventSig common.H
 				AND event_sig = :event_sig
 				AND block_timestamp > :block_timestamp_after
 				AND block_number <= %s
-				ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+				ORDER BY (block_number, log_index)`, NestedBlockNumberQuery(confs))
 
 	var logs []Log
 	if err = o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
@@ -387,7 +390,7 @@ func (o *DbORM) SelectLogsCreatedAfter(address common.Address, eventSig common.H
 // SelectLogsWithSigsByBlockRangeFilter finds the logs in the given block range with the given event signatures
 // emitted from the given address.
 func (o *DbORM) SelectLogsWithSigs(start, end int64, address common.Address, eventSigs []common.Hash, qopts ...pg.QOpt) (logs []Log, err error) {
-	args, err := newQueryArgs(o.chainID).
+	args, err := newQueryArgsForChain(o.chainID).
 		withAddress(address).
 		withEventSigArray(eventSigs).
 		withStartBlock(start).
@@ -412,7 +415,7 @@ func (o *DbORM) SelectLogsWithSigs(start, end int64, address common.Address, eve
 }
 
 func (o *DbORM) GetBlocksRange(start int64, end int64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
-	args, err := newQueryArgs(o.chainID).
+	args, err := newQueryArgsForChain(o.chainID).
 		withStartBlock(start).
 		withEndBlock(end).
 		toArgs()
@@ -434,11 +437,11 @@ func (o *DbORM) GetBlocksRange(start int64, end int64, qopts ...pg.QOpt) ([]LogP
 
 // SelectLatestLogEventSigsAddrsWithConfs finds the latest log by (address, event) combination that matches a list of Addresses and list of events
 func (o *DbORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
-	args, err := newQueryArgs(o.chainID).
+	args, err := newQueryArgsForChain(o.chainID).
 		withAddressArray(addresses).
 		withEventSigArray(eventSigs).
 		withStartBlock(fromBlock).
-		withConfs(confs).
+		WithConfs(confs).
 		toArgs()
 	if err != nil {
 		return nil, err
@@ -453,7 +456,7 @@ func (o *DbORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresse
 				AND block_number <= %s
 			GROUP BY event_sig, address
 		)
-		ORDER BY block_number ASC`, nestedBlockNumberQuery(confs))
+		ORDER BY block_number ASC`, NestedBlockNumberQuery(confs))
 	var logs []Log
 	if err := o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
 		return nil, errors.Wrap(err, "failed to execute query")
@@ -463,11 +466,11 @@ func (o *DbORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresse
 
 // SelectLatestBlockNumberEventSigsAddrsWithConfs finds the latest block number that matches a list of Addresses and list of events. It returns 0 if there is no matching block
 func (o *DbORM) SelectLatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations, qopts ...pg.QOpt) (int64, error) {
-	args, err := newQueryArgs(o.chainID).
+	args, err := newQueryArgsForChain(o.chainID).
 		withEventSigArray(eventSigs).
 		withAddressArray(addresses).
 		withStartBlock(fromBlock).
-		withConfs(confs).
+		WithConfs(confs).
 		toArgs()
 	if err != nil {
 		return 0, err
@@ -478,7 +481,7 @@ func (o *DbORM) SelectLatestBlockByEventSigsAddrsWithConfs(fromBlock int64, even
 			AND event_sig = ANY(:event_sig_array) 
 			AND address = ANY(:address_array) 
 			AND block_number > :start_block 
-			AND block_number <= %s`, nestedBlockNumberQuery(confs))
+			AND block_number <= %s`, NestedBlockNumberQuery(confs))
 	var blockNumber int64
 	if err := o.q.WithOpts(qopts...).GetNamed(query, &blockNumber, args); err != nil {
 		return 0, err
@@ -491,7 +494,7 @@ func (o *DbORM) SelectLogsDataWordRange(address common.Address, eventSig common.
 		withWordIndex(wordIndex).
 		withWordValueMin(wordValueMin).
 		withWordValueMax(wordValueMax).
-		withConfs(confs).
+		WithConfs(confs).
 		toArgs()
 	if err != nil {
 		return nil, err
@@ -503,7 +506,7 @@ func (o *DbORM) SelectLogsDataWordRange(address common.Address, eventSig common.
 			AND substring(data from 32*:word_index+1 for 32) >= :word_value_min
 			AND substring(data from 32*:word_index+1 for 32) <= :word_value_max
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY (block_number, log_index)`, NestedBlockNumberQuery(confs))
 	var logs []Log
 	if err := o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
 		return nil, err
@@ -515,7 +518,7 @@ func (o *DbORM) SelectLogsDataWordGreaterThan(address common.Address, eventSig c
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
 		withWordIndex(wordIndex).
 		withWordValueMin(wordValueMin).
-		withConfs(confs).
+		WithConfs(confs).
 		toArgs()
 	if err != nil {
 		return nil, err
@@ -527,7 +530,7 @@ func (o *DbORM) SelectLogsDataWordGreaterThan(address common.Address, eventSig c
 			AND event_sig = :event_sig
 			AND substring(data from 32*:word_index+1 for 32) >= :word_value_min
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY (block_number, log_index)`, NestedBlockNumberQuery(confs))
 	var logs []Log
 	if err = o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
 		return nil, err
@@ -539,7 +542,7 @@ func (o *DbORM) SelectIndexedLogsTopicGreaterThan(address common.Address, eventS
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
 		withTopicIndex(topicIndex).
 		withTopicValueMin(topicValueMin).
-		withConfs(confs).
+		WithConfs(confs).
 		toArgs()
 	if err != nil {
 		return nil, err
@@ -551,7 +554,7 @@ func (o *DbORM) SelectIndexedLogsTopicGreaterThan(address common.Address, eventS
 			AND event_sig = :event_sig
 			AND topics[:topic_index] >= :topic_value_min
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY (block_number, log_index)`, NestedBlockNumberQuery(confs))
 	var logs []Log
 	if err = o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
 		return nil, err
@@ -564,7 +567,7 @@ func (o *DbORM) SelectIndexedLogsTopicRange(address common.Address, eventSig com
 		withTopicIndex(topicIndex).
 		withTopicValueMin(topicValueMin).
 		withTopicValueMax(topicValueMax).
-		withConfs(confs).
+		WithConfs(confs).
 		toArgs()
 	if err != nil {
 		return nil, err
@@ -577,7 +580,7 @@ func (o *DbORM) SelectIndexedLogsTopicRange(address common.Address, eventSig com
 				AND topics[:topic_index] >= :topic_value_min
 				AND topics[:topic_index] <= :topic_value_max
 				AND block_number <= %s
-			ORDER BY (evm.logs.block_number, evm.logs.log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY (evm.logs.block_number, evm.logs.log_index)`, NestedBlockNumberQuery(confs))
 	var logs []Log
 	if err := o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
 		return nil, err
@@ -589,7 +592,7 @@ func (o *DbORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, 
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
 		withTopicIndex(topicIndex).
 		withTopicValues(topicValues).
-		withConfs(confs).
+		WithConfs(confs).
 		toArgs()
 	if err != nil {
 		return nil, err
@@ -601,7 +604,7 @@ func (o *DbORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, 
 			AND event_sig = :event_sig
 			AND topics[:topic_index] = ANY(:topic_values)
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY (block_number, log_index)`, NestedBlockNumberQuery(confs))
 	var logs []Log
 	if err := o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
 		return nil, err
@@ -639,7 +642,7 @@ func (o *DbORM) SelectIndexedLogsByBlockRange(start, end int64, address common.A
 func (o *DbORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
 		withBlockTimestampAfter(after).
-		withConfs(confs).
+		WithConfs(confs).
 		withTopicIndex(topicIndex).
 		withTopicValues(topicValues).
 		toArgs()
@@ -655,7 +658,7 @@ func (o *DbORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig c
 			AND topics[:topic_index] = ANY(:topic_values)
 			AND block_timestamp > :block_timestamp_after
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY (block_number, log_index)`, NestedBlockNumberQuery(confs))
 
 	var logs []Log
 	if err = o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
@@ -665,7 +668,7 @@ func (o *DbORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig c
 }
 
 func (o *DbORM) SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
-	args, err := newQueryArgs(o.chainID).
+	args, err := newQueryArgsForChain(o.chainID).
 		withTxHash(txHash).
 		withEventSig(eventSig).
 		toArgs()
@@ -687,20 +690,20 @@ func (o *DbORM) SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Ha
 
 // SelectIndexedLogsWithSigsExcluding query's for logs that have signature A and exclude logs that have a corresponding signature B, matching is done based on the topic index both logs should be inside the block range and have the minimum number of confirmations
 func (o *DbORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
-	args, err := newQueryArgs(o.chainID).
+	args, err := newQueryArgsForChain(o.chainID).
 		withAddress(address).
 		withTopicIndex(topicIndex).
 		withStartBlock(startBlock).
 		withEndBlock(endBlock).
-		withCustomHashArg("sigA", sigA).
-		withCustomHashArg("sigB", sigB).
-		withConfs(confs).
+		WithNamedHash("sigA", sigA).
+		WithNamedHash("sigB", sigB).
+		WithConfs(confs).
 		toArgs()
 	if err != nil {
 		return nil, err
 	}
 
-	nestedQuery := nestedBlockNumberQuery(confs)
+	nestedQuery := NestedBlockNumberQuery(confs)
 	query := fmt.Sprintf(`
 		SELECT * FROM   evm.logs
 		WHERE   evm_chain_id = :evm_chain_id
@@ -726,20 +729,22 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topic
 	return logs, nil
 }
 
-func nestedBlockNumberQuery(confs Confirmations) string {
-	if confs == Finalized {
-		return `
-				(SELECT finalized_block_number 
-				FROM evm.log_poller_blocks 
-				WHERE evm_chain_id = :evm_chain_id 
-				ORDER BY block_number DESC LIMIT 1) `
+func (o *DbORM) SelectAnyRows(queryName string, query string, args QueryArgs, dest interface{}, qopts ...pg.QOpt) error {
+	// It always injects `evm_chain_id` into the query args, because it's encapsulated within a DbORM instance.
+	// User can always pass a custom evm_chain_id by using different name for that argument (no use cases for that so far)
+	parsedArgs, err := args.withChainId(o.chainID).toArgs()
+	if err != nil {
+		return err
 	}
-	// Intentionally wrap with greatest() function and don't return negative block numbers when :confs > :block_number
-	// It doesn't impact logic of the outer query, because block numbers are never less or equal to 0 (guarded by log_poller_blocks_block_number_check)
-	return `
-			(SELECT greatest(block_number - :confs, 0) 
-			FROM evm.log_poller_blocks 	
-			WHERE evm_chain_id = :evm_chain_id 
-			ORDER BY block_number DESC LIMIT 1) `
 
+	return o.q.WithOpts(qopts...).
+		SelectNamed(dest, query, parsedArgs)
+}
+
+func (o *DbORM) SelectAnyLogs(queryName string, query string, args QueryArgs, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	if err := o.SelectAnyRows(queryName, query, args, &logs, qopts...); err != nil {
+		return nil, err
+	}
+	return logs, nil
 }

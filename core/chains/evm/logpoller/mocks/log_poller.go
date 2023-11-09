@@ -35,6 +35,60 @@ func (_m *LogPoller) Close() error {
 	return r0
 }
 
+// FetchAnyLogs provides a mock function with given fields: queryName, query, args, qopts
+func (_m *LogPoller) FetchAnyLogs(queryName string, query string, args logpoller.QueryArgs, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, queryName, query, args)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []logpoller.Log
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string, string, logpoller.QueryArgs, ...pg.QOpt) ([]logpoller.Log, error)); ok {
+		return rf(queryName, query, args, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(string, string, logpoller.QueryArgs, ...pg.QOpt) []logpoller.Log); ok {
+		r0 = rf(queryName, query, args, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]logpoller.Log)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string, string, logpoller.QueryArgs, ...pg.QOpt) error); ok {
+		r1 = rf(queryName, query, args, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FetchAnyResults provides a mock function with given fields: queryName, query, args, dest, qopts
+func (_m *LogPoller) FetchAnyResults(queryName string, query string, args logpoller.QueryArgs, dest interface{}, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, queryName, query, args, dest)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string, logpoller.QueryArgs, interface{}, ...pg.QOpt) error); ok {
+		r0 = rf(queryName, query, args, dest, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetBlocksRange provides a mock function with given fields: ctx, numbers, qopts
 func (_m *LogPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
 	_va := make([]interface{}, len(qopts))

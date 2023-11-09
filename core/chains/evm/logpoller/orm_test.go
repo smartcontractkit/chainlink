@@ -1434,3 +1434,64 @@ func TestInsertLogsInTx(t *testing.T) {
 		})
 	}
 }
+
+func TestSelectAny(t *testing.T) {
+	th := SetupTH(t, false, 2, 3, 2, 1000)
+
+	confs := logpoller.Confirmations(1)
+	commitStore := utils.RandomAddress()
+	commitStoreEvent := utils.RandomHash()
+	offramp := utils.RandomAddress()
+	offrampEvent := utils.RandomHash()
+
+	commiReportLog := GenLog(th.ChainID, 1, 1, utils.RandomHash().String(), commitStoreEvent[:], commitStore)
+	data := make([]byte, 64)
+	data = append(data, logpoller.EvmWord(uint64(1)).Bytes()...)
+	data = append(data, logpoller.EvmWord(uint64(10)).Bytes()...)
+	commiReportLog.Data = data
+
+	offrampExecutedLog := GenLog(th.ChainID, 1, 2, utils.RandomHash().String(), offrampEvent[:], offramp)
+	offrampExecutedLog.Topics[1] = logpoller.EvmWord(uint64(5)).Bytes()
+
+	require.NoError(t, th.ORM.InsertLogsWithBlock(
+		[]logpoller.Log{commiReportLog, offrampExecutedLog},
+		logpoller.NewLogPollerBlock(utils.RandomBytes32(), 10, time.Now(), 10),
+	))
+
+	args := logpoller.NewQueryArgs().
+		WithNamedHash("commit_store_addr", commitStore).
+		WithNamedHash("commit_store_event", commitStoreEvent).
+		WithNamedHash("offramp_addr", offramp).
+		WithNamedHash("offramp_event", offrampEvent).
+		WithNamedTopicIndex("topic_index", 2).
+		WithNamedArg("min_seq_word_index", 2).
+		WithNamedArg("max_seq_word_index", 3).
+		WithNamedArg("after", time.Now().Add(-time.Hour)).
+		WithConfs(confs)
+
+	query := fmt.Sprintf(`
+		SELECT reports.* FROM evm.logs reports
+		    WHERE reports.evm_chain_id = :evm_chain_id 
+			AND reports.address = :commit_store_addr
+			AND reports.event_sig = :commit_store_event
+			AND reports.block_timestamp > :after
+			AND (SELECT count(*)
+          		FROM evm.logs executed
+          		WHERE executed.topics[:topic_index] 
+          		    	BETWEEN substring(reports.data from 32 * :min_seq_word_index + 1 for 32) 
+          		    	AND substring(reports.data from 32 * :max_seq_word_index + 1 for 32)
+            		AND executed.evm_chain_id = :evm_chain_id 
+            		AND executed.address = :offramp_addr
+            		AND executed.event_sig = :offramp_event
+          			AND executed.block_number <= %s
+         	) < ('x' || encode(substring(reports.data from 32*:max_seq_word_index+25 for 8), 'hex'))::::bit(64)::::bigint - ('x' || encode(substring(reports.data from 32*:min_seq_word_index+25 for 8), 'hex'))::::bit(64)::::bigint + 1
+		    ORDER BY (reports.block_number, reports.log_index)`,
+		logpoller.NestedBlockNumberQuery(confs),
+	)
+
+	logs, err := th.ORM.SelectAnyLogs("ccipUnexpiredRoots", query, *args)
+
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+	require.Equal(t, logs[0].BlockHash, commiReportLog.BlockHash)
+}

@@ -59,6 +59,16 @@ type LogPoller interface {
 	IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
+
+	// FetchAnyLogs gets any logs matching the query and provided args. Data is decoded and returned as slice of Log.
+	// queryName is used for monitoring and debugging purposes. It's also pushed as a label to Prometheus, so use
+	// a fixed set of values for it (e.g. don't generate new value with every call).
+	// Otherwise, it will increase cardinality and affect Prometheus performance
+	FetchAnyLogs(queryName string, query string, args QueryArgs, qopts ...pg.QOpt) ([]Log, error)
+	// FetchAnyResults similar to FetchAnyLogs will get data from LogPoller but will unmarshall that according to the type passed as dest.
+	// This gives user more flexibility when using advanced queries that not necessary match Log struct. (e.g. pick only a single value from the log)
+	// Results will be returned in a dest interface{}, it's up to user to pass struct fitting the query result.
+	FetchAnyResults(queryName string, query string, args QueryArgs, dest interface{}, qopts ...pg.QOpt) error
 }
 
 type Confirmations int
@@ -1170,6 +1180,14 @@ func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []str
 // The order of events is not significant. Both logs must be inside the block range and have the minimum number of confirmations
 func (lp *logPoller) IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, topicIndex, address, fromBlock, toBlock, confs, qopts...)
+}
+
+func (lp *logPoller) FetchAnyLogs(queryName string, query string, args QueryArgs, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectAnyLogs(queryName, query, args, qopts...)
+}
+
+func (lp *logPoller) FetchAnyResults(queryName string, query string, args QueryArgs, dest interface{}, qopts ...pg.QOpt) error {
+	return lp.orm.SelectAnyRows(queryName, query, args, dest, qopts...)
 }
 
 func EvmWord(i uint64) common.Hash {

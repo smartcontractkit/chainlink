@@ -224,6 +224,18 @@ func (o *ObservedORM) SelectIndexedLogsTopicRange(address common.Address, eventS
 	})
 }
 
+func (o *ObservedORM) SelectAnyLogs(queryName string, query string, args QueryArgs, qopts ...pg.QOpt) ([]Log, error) {
+	return withObservedQueryAndResults(o, queryName, func() ([]Log, error) {
+		return o.ORM.SelectAnyLogs(queryName, query, args, qopts...)
+	})
+}
+
+func (o *ObservedORM) SelectAnyRows(queryName string, query string, args QueryArgs, dest interface{}, qopts ...pg.QOpt) error {
+	return withObservedQueryAndMaybeResults(o, queryName, func() (interface{}, error) {
+		return dest, o.ORM.SelectAnyRows(queryName, query, args, dest, qopts...)
+	})
+}
+
 func withObservedQueryAndResults[T any](o *ObservedORM, queryName string, query func() ([]T, error)) ([]T, error) {
 	results, err := withObservedQuery(o, queryName, query)
 	if err == nil {
@@ -232,6 +244,20 @@ func withObservedQueryAndResults[T any](o *ObservedORM, queryName string, query 
 			Set(float64(len(results)))
 	}
 	return results, err
+}
+
+func withObservedQueryAndMaybeResults(o *ObservedORM, queryName string, query func() (interface{}, error)) error {
+	results, err := withObservedQuery(o, queryName, query)
+	if err != nil {
+		return err
+	}
+
+	if resultsSlice, ok := results.([]interface{}); ok {
+		o.datasetSize.
+			WithLabelValues(o.chainId, queryName).
+			Set(float64(len(resultsSlice)))
+	}
+	return nil
 }
 
 func withObservedQuery[T any](o *ObservedORM, queryName string, query func() (T, error)) (T, error) {

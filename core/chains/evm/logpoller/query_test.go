@@ -14,13 +14,13 @@ import (
 func Test_QueryArgs(t *testing.T) {
 	tests := []struct {
 		name      string
-		queryArgs *queryArgs
+		queryArgs *QueryArgs
 		want      map[string]interface{}
 		wantErr   bool
 	}{
 		{
 			name:      "valid arguments",
-			queryArgs: newQueryArgs(big.NewInt(20)).withAddress(utils.ZeroAddress),
+			queryArgs: newQueryArgsForChain(big.NewInt(20)).withAddress(utils.ZeroAddress),
 			want: map[string]interface{}{
 				"evm_chain_id": utils.NewBigI(20),
 				"address":      utils.ZeroAddress,
@@ -28,19 +28,19 @@ func Test_QueryArgs(t *testing.T) {
 		},
 		{
 			name:      "invalid topic index",
-			queryArgs: newQueryArgs(big.NewInt(20)).withTopicIndex(0),
+			queryArgs: newQueryArgsForChain(big.NewInt(20)).withTopicIndex(0),
 			wantErr:   true,
 		},
 		{
 			name:      "custom argument",
-			queryArgs: newEmptyArgs().withCustomArg("arg", "value"),
+			queryArgs: newEmptyArgs().WithNamedArg("arg", "value"),
 			want: map[string]interface{}{
 				"arg": "value",
 			},
 		},
 		{
 			name:      "hash converted to bytes",
-			queryArgs: newEmptyArgs().withCustomHashArg("hash", common.Hash{}),
+			queryArgs: newEmptyArgs().WithNamedHash("hash", common.Hash{}),
 			want: map[string]interface{}{
 				"hash": make([]byte, 32),
 			},
@@ -74,8 +74,8 @@ func Test_QueryArgs(t *testing.T) {
 	}
 }
 
-func newEmptyArgs() *queryArgs {
-	return &queryArgs{
+func newEmptyArgs() *QueryArgs {
+	return &QueryArgs{
 		args: map[string]interface{}{},
 		err:  []error{},
 	}
