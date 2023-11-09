@@ -16,7 +16,6 @@ import (
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -67,7 +66,7 @@ type datasource struct {
 	mu sync.RWMutex
 
 	chEnhancedTelem    chan<- ocrcommon.EnhancedTelemetryMercuryData
-	chainHeadTracker   types.ChainHeadTracker
+	chainReader        relaymercury.ChainReader
 	fetcher            Fetcher
 	initialBlockNumber *int64
 
@@ -77,8 +76,8 @@ type datasource struct {
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID mercuryutils.FeedID) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainReader relaymercury.ChainReader, fetcher Fetcher, initialBlockNumber *int64, feedID mercuryutils.FeedID) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainReader, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
 }
 
 type ErrEmptyLatestReport struct {
@@ -291,7 +290,7 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 }
 
 func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.Observation) {
-	latestBlocks := ds.getLatestBlocks(ctx, nBlocksObservation)
+	latestBlocks, err := ds.chainReader.LatestBlocks(ctx, nBlocksObservation)
 	if len(latestBlocks) < nBlocksObservation {
 		ds.insufficientBlocksCounter.Inc()
 		ds.lggr.Warnw("Insufficient blocks", "latestBlocks", latestBlocks, "lenLatestBlocks", len(latestBlocks), "nBlocksObservation", nBlocksObservation)
@@ -300,30 +299,18 @@ func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.O
 	// TODO: remove with https://smartcontract-it.atlassian.net/browse/BCF-2209
 	if len(latestBlocks) == 0 {
 		ds.zeroBlocksCounter.Inc()
-		err := errors.New("no blocks available")
 		obs.CurrentBlockNum.Err = err
 		obs.CurrentBlockHash.Err = err
 		obs.CurrentBlockTimestamp.Err = err
 	} else {
-		obs.CurrentBlockNum.Val = latestBlocks[0].Number
-		obs.CurrentBlockHash.Val = latestBlocks[0].Hash.Bytes()
-		if latestBlocks[0].Timestamp.IsZero() {
-			obs.CurrentBlockTimestamp.Val = 0
-		} else {
-			obs.CurrentBlockTimestamp.Val = uint64(latestBlocks[0].Timestamp.Unix())
-		}
+		obs.CurrentBlockNum.Val = int64(latestBlocks[0].Number)
+		obs.CurrentBlockHash.Val = latestBlocks[0].Hash
+		obs.CurrentBlockTimestamp.Val = latestBlocks[0].Timestamp
 	}
 
 	for _, block := range latestBlocks {
-		obs.LatestBlocks = append(obs.LatestBlocks, relaymercuryv1.NewBlock(block.Number, block.Hash.Bytes(), uint64(block.Timestamp.Unix())))
+		obs.LatestBlocks = append(
+			obs.LatestBlocks,
+			relaymercuryv1.NewBlock(int64(block.Number), block.Hash, block.Timestamp))
 	}
-}
-
-func (ds *datasource) getLatestBlocks(ctx context.Context, k int) (blocks []*evmtypes.Head) {
-	// Use the headtracker's view of the chain, this is very fast since
-	// it doesn't make any external network requests, and it is the
-	// headtracker's job to ensure it has an up-to-date view of the chain based
-	// on responses from all available RPC nodes
-	latestHead := ds.chainHeadTracker.HeadTracker().LatestChain()
-	return latestHead.AsSlice(k)
 }
