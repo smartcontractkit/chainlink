@@ -115,7 +115,8 @@ func TestAutomationChaos(t *testing.T) {
 		"registry_2_1": eth_contracts.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for name, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
