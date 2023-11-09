@@ -4,16 +4,17 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
+
 	headtracker "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/stretchr/testify/assert"
 )
 
-const historySize = 4
-const blockSize = int64(4)
+// const historySize = 4
+// const blockSize = int64(4)
 const finality = uint32(4)
 
 func TestNewAutomationCustomTelemetryService(t *testing.T) {
