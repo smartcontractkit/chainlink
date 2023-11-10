@@ -107,19 +107,6 @@ contract FunctionsCoordinator_SetDONPublicKey is FunctionsDONSetup {
   }
 }
 
-/// @notice #_isTransmitter
-contract FunctionsCoordinator__IsTransmitter is FunctionsDONSetup {
-  function test__IsTransmitter_SuccessFound() public {
-    bool isTransmitter = s_functionsCoordinator.isTransmitter_HARNESS(NOP_TRANSMITTER_ADDRESS_1);
-    assertEq(isTransmitter, true);
-  }
-
-  function test__IsTransmitter_SuccessNotFound() public {
-    bool isTransmitter = s_functionsCoordinator.isTransmitter_HARNESS(STRANGER_ADDRESS);
-    assertEq(isTransmitter, false);
-  }
-}
-
 /// @notice #startRequest
 contract FunctionsCoordinator_StartRequest is FunctionsSubscriptionSetup {
   function test_StartRequest_RevertIfNotRouter() public {

@@ -20,10 +20,6 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
     s_router_HARNESS = router;
   }
 
-  function isTransmitter_HARNESS(address node) external view returns (bool) {
-    return super._isTransmitter(node);
-  }
-
   function beforeSetConfig_HARNESS(uint8 _f, bytes memory _onchainConfig) external {
     return super._beforeSetConfig(_f, _onchainConfig);
   }

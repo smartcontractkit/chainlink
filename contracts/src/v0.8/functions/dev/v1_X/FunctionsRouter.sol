@@ -130,7 +130,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     address linkToken,
     Config memory config
   ) FunctionsSubscriptions(linkToken) ConfirmedOwner(msg.sender) Pausable() {
-    // Set the intial configuration
+    // Set the initial configuration
     updateConfig(config);
   }
 
