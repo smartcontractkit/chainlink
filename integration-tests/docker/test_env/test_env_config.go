@@ -8,11 +8,11 @@ import (
 )
 
 type TestEnvConfig struct {
-	Networks              []string                   `json:"networks"`
-	Geth                  GethConfig                 `json:"geth"`
-	MockAdapter           MockAdapterConfig          `json:"mock_adapter"`
-	ClCluster             *ClCluster                 `json:"clCluster"`
-	PrivateEthereumConfig *cte.EthereumNetworkConfig `json:"private_ethereum_config"`
+	Networks        []string             `json:"networks"`
+	Geth            GethConfig           `json:"geth"`
+	MockAdapter     MockAdapterConfig    `json:"mock_adapter"`
+	ClCluster       *ClCluster           `json:"clCluster"`
+	EthereumNetwork *cte.EthereumNetwork `json:"private_ethereum_config"`
 }
 
 type MockAdapterConfig struct {

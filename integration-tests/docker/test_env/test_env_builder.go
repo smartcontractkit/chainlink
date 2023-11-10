@@ -49,7 +49,7 @@ type CLTestEnvBuilder struct {
 	cleanUpCustomFn        func()
 	chainOptionsFn         []ChainOption
 	evmClientNetworkOption []EVMClientNetworkOption
-	ethereumNetworkBuilder *test_env.EthereumNetworkBuilder
+	ethereumNetwork        *test_env.EthereumNetwork
 
 	/* funding */
 	ETHFunds *big.Float
@@ -122,20 +122,24 @@ func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
 // deprecated
 // left only for backward compatibility
 func (b *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
-	ethBuilder := test_env.NewEthereumNetworkBuilder(b.t)
-	err := ethBuilder.
+	ethBuilder := test_env.NewEthereumNetworkBuilder()
+	cfg, err := ethBuilder.
 		WithConsensusType(test_env.ConsensusType_PoW).
 		WithExecutionLayer(test_env.ExecutionLayer_Geth).
+		WithTest(b.t).
 		Build()
 
 	if err != nil {
 		panic(err)
 	}
+
+	b.ethereumNetwork = &cfg
+
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(enb test_env.EthereumNetworkBuilder) *CLTestEnvBuilder {
-	b.ethereumNetworkBuilder = &enb
+func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(en test_env.EthereumNetwork) *CLTestEnvBuilder {
+	b.ethereumNetwork = &en
 	return b
 }
 
@@ -268,14 +272,16 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 		return b.te, nil
 	}
+
 	networkConfig := networks.MustGetSelectedNetworksFromEnv()[0]
 	var rpcProvider test_env.RpcProvider
-	if b.ethereumNetworkBuilder != nil && networkConfig.Simulated {
+	if b.ethereumNetwork != nil && networkConfig.Simulated {
 		// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point
 		// in general it seems we have no methods for saving config to file and we only load it from file
 		// but I don't know how that config file is to be created or whether anyone ever done that
-		var enCfg test_env.EthereumNetworkConfig
-		networkConfig, rpcProvider, enCfg, err = b.te.StartEthereumNetwork(b.ethereumNetworkBuilder)
+		var enCfg test_env.EthereumNetwork
+		b.ethereumNetwork.DockerNetworkNames = []string{b.te.Network.Name}
+		networkConfig, rpcProvider, err = b.te.StartEthereumNetwork(b.ethereumNetwork)
 		if err != nil {
 			return nil, err
 		}
@@ -356,7 +362,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
-	if b.ethereumNetworkBuilder != nil && b.clNodesCount > 0 && b.ETHFunds != nil {
+	if b.ethereumNetwork != nil && b.clNodesCount > 0 && b.ETHFunds != nil {
 		b.te.ParallelTransactions(true)
 		defer b.te.ParallelTransactions(false)
 		if err := b.te.FundChainlinkNodes(b.ETHFunds); err != nil {

@@ -22,7 +22,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/segmentio/ksuid v1.0.4
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-testing-framework v1.18.5-0.20231107160228-1f5f24b6b4ab
+	github.com/smartcontractkit/chainlink-testing-framework v1.18.6-0.20231110182956-23751e7533b8
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20231020123319-d255366a6545
 	github.com/smartcontractkit/ocr2keepers v0.7.27
@@ -42,7 +42,6 @@ require (
 
 // Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 replace (
-	github.com/smartcontractkit/chainlink-testing-framework => ../../chainlink-testing-framework
 	k8s.io/api => k8s.io/api v0.25.11
 	k8s.io/client-go => k8s.io/client-go v0.25.11
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d

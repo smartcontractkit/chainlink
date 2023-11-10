@@ -47,7 +47,7 @@ type CLClusterTestEnv struct {
 	ContractDeployer      contracts.ContractDeployer
 	ContractLoader        contracts.ContractLoader
 	RpcProvider           test_env.RpcProvider
-	PrivateEthereumConfig *test_env.EthereumNetworkConfig // new approach to private chains, supporting eth1 and eth2
+	PrivateEthereumConfig *test_env.EthereumNetwork // new approach to private chains, supporting eth1 and eth2
 	l                     zerolog.Logger
 	t                     *testing.T
 }
@@ -126,27 +126,26 @@ func (te *CLClusterTestEnv) StartPrivateChain() error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) StartEthereumNetwork(b *test_env.EthereumNetworkBuilder) (blockchain.EVMNetwork, test_env.RpcProvider, test_env.EthereumNetworkConfig, error) {
+func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *test_env.EthereumNetwork) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
 	// if environment is being restored from a previous state, use the existing config
 	// this might fail terribly if temporary folders with chain data on the host machine were removed
-	if te.Cfg != nil && te.Cfg.PrivateEthereumConfig != nil {
-		b.WithExistingConfig(*te.Cfg.PrivateEthereumConfig)
+	if te.Cfg != nil && te.Cfg.EthereumNetwork != nil {
+		builder := test_env.NewEthereumNetworkBuilder()
+		c, err := builder.WithExistingConfig(*te.Cfg.EthereumNetwork).
+			WithTest(te.t).
+			Build()
+		if err != nil {
+			return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
+		}
+		cfg = &c
 	}
+	n, rpc, err := cfg.Start()
 
-	// use Docker Network created or loaded so that all containers are on the same network
-	b.UsingDockerNetworks([]string{te.Network.Name})
-	err := b.Build()
 	if err != nil {
-		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, test_env.EthereumNetworkConfig{}, err
+		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
 	}
 
-	n, rpc, config, err := b.Start()
-
-	if err != nil {
-		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, test_env.EthereumNetworkConfig{}, err
-	}
-
-	return n, rpc, config, nil
+	return n, rpc, nil
 }
 
 func (te *CLClusterTestEnv) StartMockAdapter() error {
