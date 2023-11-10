@@ -93,7 +93,11 @@ func (e ErrEmptyLatestReport) Error() string {
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, pipelineExecutionErr error) {
 	// setLatestBlocks must come chronologically before observations, along
 	// with observationTimestamp, to avoid front-running
-	ds.setLatestBlocks(ctx, &obs)
+
+	// Errors are not expected when reading from the underlying ChainReader
+	if err := ds.setLatestBlocks(ctx, &obs); err != nil {
+		return obs, err
+	}
 
 	var wg sync.WaitGroup
 	if fetchMaxFinalizedBlockNum {
@@ -289,10 +293,11 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 	return run, trrs, err
 }
 
-func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.Observation) {
+func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.Observation) error {
 	latestBlocks, err := ds.chainReader.LatestHeads(ctx, nBlocksObservation)
 	if err != nil {
 		ds.lggr.Errorw("failed to read latest blocks", "error", err)
+		return err
 	}
 
 	if len(latestBlocks) < nBlocksObservation {
@@ -302,13 +307,11 @@ func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.O
 
 	// TODO: remove with https://smartcontract-it.atlassian.net/browse/BCF-2209
 	if len(latestBlocks) == 0 {
-		if err == nil {
-			err = fmt.Errorf("no blocks available")
-		}
+		obsErr := fmt.Errorf("no blocks available")
 		ds.zeroBlocksCounter.Inc()
-		obs.CurrentBlockNum.Err = err
-		obs.CurrentBlockHash.Err = err
-		obs.CurrentBlockTimestamp.Err = err
+		obs.CurrentBlockNum.Err = obsErr
+		obs.CurrentBlockHash.Err = obsErr
+		obs.CurrentBlockTimestamp.Err = obsErr
 	} else {
 		obs.CurrentBlockNum.Val = int64(latestBlocks[0].Number)
 		obs.CurrentBlockHash.Val = latestBlocks[0].Hash
@@ -320,4 +323,6 @@ func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.O
 			obs.LatestBlocks,
 			relaymercuryv1.NewBlock(int64(block.Number), block.Hash, block.Timestamp))
 	}
+
+	return nil
 }
