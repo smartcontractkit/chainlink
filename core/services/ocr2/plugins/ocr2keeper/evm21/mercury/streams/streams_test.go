@@ -141,6 +141,19 @@ func (m *MockIKeeperRegistryMaster) GetUpkeepPrivilegeConfig(opts *bind.CallOpts
 	return args.Get(0).([]byte), args.Error(1)
 }
 
+type mockRegistry struct {
+	GetUpkeepPrivilegeConfigFn func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
+	CheckCallbackFn            func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error)
+}
+
+func (r *mockRegistry) GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+	return r.GetUpkeepPrivilegeConfigFn(opts, upkeepId)
+}
+
+func (r *mockRegistry) CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
+	return r.CheckCallbackFn(opts, id, values, extraData)
+}
+
 //// Your function using the registry
 //func YourFunctionUsingRegistry(s *IKeeperRegistryMaster, opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 //	upkeepPrivilegeConfigBytes, err := s.GetUpkeepPrivilegeConfig(opts, upkeepId)
@@ -155,7 +168,14 @@ func setupStreams(t *testing.T) *streams {
 	packer := encoding.NewAbiPacker()
 	mercuryConfig := new(MockMercuryConfigProvider)
 	blockSubscriber := new(MockBlockSubscriber)
-	registry := new(MockIKeeperRegistryMaster)
+	registry := &mockRegistry{
+		GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+			return []byte{}, nil
+		},
+		CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
+			return iregistry21.CheckCallback{}, nil
+		},
+	}
 	//registry := &iregistry21.IKeeperRegistryMaster{}
 
 	streams := NewStreamsLookup(
@@ -289,6 +309,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		err        error
 		state      mercury.MercuryUpkeepState
 		reason     mercury.MercuryUpkeepFailureReason
+		registry   streamsRegistry
 		retryable  bool
 		config     []byte
 	}{
@@ -296,25 +317,79 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 			name:    "success - allowed via cache",
 			cached:  true,
 			allowed: true,
+			registry: &mockRegistry{
+				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+					return nil, nil
+				},
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
+					return iregistry21.CheckCallback{}, nil
+				},
+			},
 		},
 		{
 			name:    "success - allowed via fetching privilege config",
 			allowed: true,
+			registry: &mockRegistry{
+				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+					return nil, nil
+				},
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
+					return iregistry21.CheckCallback{}, nil
+				},
+			},
 		},
 		{
 			name:    "success - not allowed via cache",
 			cached:  true,
 			allowed: false,
+			registry: &mockRegistry{
+				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+					return nil, nil
+				},
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
+					return iregistry21.CheckCallback{}, nil
+				},
+			},
 		},
 		{
 			name:    "success - not allowed via fetching privilege config",
 			allowed: false,
+			registry: &mockRegistry{
+				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+					return nil, nil
+				},
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
+					return iregistry21.CheckCallback{}, nil
+				},
+			},
 		},
 		{
 			name:   "failure - cannot unmarshal privilege config",
 			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
 			state:  mercury.MercuryUnmarshalError,
 			config: []byte{0, 1},
+			registry: &mockRegistry{
+				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+					return []byte(`{`), nil
+				},
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
+					return iregistry21.CheckCallback{}, nil
+				},
+			},
+		},
+		{
+			name:   "failure - cannot get privilege config",
+			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
+			state:  mercury.MercuryUnmarshalError,
+			config: []byte{0, 1},
+			registry: &mockRegistry{
+				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+					return nil, errors.New("unable to get upkeep privilege config")
+				},
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
+					return iregistry21.CheckCallback{}, nil
+				},
+			},
 		},
 		{
 			name:       "failure - flaky RPC",
@@ -334,6 +409,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := setupStreams(t)
+			s.registry = tt.registry
 
 			client := new(evmClientMocks.Client)
 			s.client = client

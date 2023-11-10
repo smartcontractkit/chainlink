@@ -196,9 +196,7 @@ func (_IKeeperRegistryMaster *IKeeperRegistryMasterTransactorRaw) Transact(opts 
 	return _IKeeperRegistryMaster.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_IKeeperRegistryMaster *IKeeperRegistryMasterCaller) CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (CheckCallback,
-
-	error) {
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterCaller) CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (CheckCallback, error) {
 	var out []interface{}
 	err := _IKeeperRegistryMaster.contract.Call(opts, &out, "checkCallback", id, values, extraData)
 

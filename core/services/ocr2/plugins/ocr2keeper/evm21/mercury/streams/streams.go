@@ -35,12 +35,17 @@ type contextCaller interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
+type streamsRegistry interface {
+	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
+	CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error)
+}
+
 type streams struct {
 	packer          mercury.Packer
 	mercuryConfig   mercury.MercuryConfigProvider
 	abi             abi.ABI
 	blockSubscriber latestBlockProvider
-	registry        *iregistry21.IKeeperRegistryMaster
+	registry        streamsRegistry
 	lggr            logger.Logger
 	v02Client       mercury.MercuryClient
 	v03Client       mercury.MercuryClient
@@ -56,7 +61,7 @@ func NewStreamsLookup(
 	packer mercury.Packer,
 	mercuryConfig mercury.MercuryConfigProvider,
 	blockSubscriber latestBlockProvider,
-	registry *iregistry21.IKeeperRegistryMaster,
+	registry streamsRegistry,
 	lggr logger.Logger) *streams {
 	httpClient := http.DefaultClient
 	return &streams{

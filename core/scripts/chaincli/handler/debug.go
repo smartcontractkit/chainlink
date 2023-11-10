@@ -237,7 +237,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		lggr, _ := logger.NewLogger()
 		blockSub := &blockSubscriber{k.client}
 
-		_ = streams.NewStreamsLookup(packer, mercuryConfig, blockSub, keeperRegistry21, k.rpcClient, lggr)
+		_ = streams.NewStreamsLookup(packer, mercuryConfig, blockSub, keeperRegistry21, lggr)
 
 		streamsLookupErr, err := packer.DecodeStreamsLookupRequest(checkResult.PerformData)
 		if err == nil {
