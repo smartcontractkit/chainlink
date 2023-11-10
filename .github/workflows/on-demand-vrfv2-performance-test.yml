@@ -13,6 +13,7 @@ on:
           - "OPTIMISM_GOERLI"
           - "ARBITRUM_MAINNET"
           - "ARBITRUM_GOERLI"
+          - "ARBITRUM_SEPOLIA"
           - "BSC_MAINNET"
           - "BSC_TESTNET"
           - "POLYGON_MAINNET"
