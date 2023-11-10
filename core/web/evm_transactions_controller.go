@@ -143,7 +143,6 @@ func (tc *EvmTransactionController) Create(c *gin.Context) {
 	}
 
 	if tx.FeeLimit == 0 {
-		// TODO: is it a right place to get default limit?
 		tx.FeeLimit = chain.Config().EVM().GasEstimator().LimitDefault()
 	}
 
