@@ -1216,8 +1216,6 @@ github.com/mitchellh/gox v0.4.0/go.mod h1:Sd9lOJ0+aimLBi73mGofS1ycjY8lL3uZM3JPS4
 github.com/mitchellh/iochan v1.0.0/go.mod h1:JwYml1nuB7xOzsp52dPpHFffvOCDupsG0QubkSMEySY=
 github.com/mitchellh/mapstructure v0.0.0-20160808181253-ca63d7c062ee/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
-github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
-github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/pointerstructure v1.2.0 h1:O+i9nHnXS3l/9Wu7r4NrEdwA2VFTicjUEN1uBnDo34A=
 github.com/mitchellh/pointerstructure v1.2.0/go.mod h1:BRAsLI5zgXmw97Lf6s25bs8ohIXc3tViBH44KcwB2g4=
 github.com/mitchellh/reflectwalk v1.0.0/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
@@ -1300,6 +1298,8 @@ github.com/nats-io/nkeys v0.1.0/go.mod h1:xpnFELMwJABBLVhffcfd1MZx6VsNRFpEugbxzi
 github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OSON2c=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nkovacs/streamquote v0.0.0-20170412213628-49af9bddb229/go.mod h1:0aYXnNPJ8l7uZxf45rWW1a/uME32OF0rhiYGNQ2oF2E=
+github.com/nolag/mapstructure v1.5.1 h1:jEMB2AM8NXEosSMTPXlbycOpBsqttEBh5owT0gJs9/I=
+github.com/nolag/mapstructure v1.5.1/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/nsf/jsondiff v0.0.0-20210926074059-1e845ec5d249 h1:NHrXEjTNQY7P0Zfx1aMrNhpgxHmow66XQtm0aQLY0AE=
 github.com/nsf/jsondiff v0.0.0-20210926074059-1e845ec5d249/go.mod h1:mpRZBD8SJ55OIICQ3iWH0Yz3cjzA61JdqMLoWXeB2+8=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
@@ -1466,8 +1466,6 @@ github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 h1:T3lFWumv
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
 github.com/smartcontractkit/chainlink-cosmos v0.0.0-20231102020720-36bfe1e78327 h1:xK/s3uOJ/61f8Uft0dmdzcP/mAur3EW7r+enB30E7QE=
 github.com/smartcontractkit/chainlink-cosmos v0.0.0-20231102020720-36bfe1e78327/go.mod h1:O+lgu0V2gxAjT2iFUQbR5VmIwKBodc18t/GqMcM5DpY=
-github.com/smartcontractkit/chainlink-relay v0.0.0-20231107215547-ee2e975fb9d9 h1:Hcf/XrETO4AJLrgYxS9k2Nm1oOf2CouWNnWdx+cOL8M=
-github.com/smartcontractkit/chainlink-relay v0.0.0-20231107215547-ee2e975fb9d9/go.mod h1:Mjha9nHB4BUvHvLKVQ5uko42sahSMjbLoznqjnjxEUQ=
 github.com/smartcontractkit/chainlink-solana v0.0.0-20231101173529-89dcfddba1e5 h1:uySFwg07nbs/klbSpTP/JVvMALhaHwSK3ZBfIaISu1s=
 github.com/smartcontractkit/chainlink-solana v0.0.0-20231101173529-89dcfddba1e5/go.mod h1:s8/Dcey8y1C88zap2G2hAjO0sN8LbxW/t3PZ1Y2T/xk=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20231102015854-0056a86b5f79 h1:nVgHp+0dX8q+m+wWGJiBsSkgktarMx2iV+G0qEKEpmU=
