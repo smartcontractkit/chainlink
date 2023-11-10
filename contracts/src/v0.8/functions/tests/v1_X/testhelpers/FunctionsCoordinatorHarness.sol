@@ -51,7 +51,7 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
     uint72 donFee,
     uint72 adminFee
   ) external view returns (uint96) {
-    return super._calculateCostEstimate(callbackGasLimit, gasPriceWei, donFee, adminFee);
+    return super._calculateCostEstimate(callbackGasLimit, gasPriceWei) + uint96(donFee) + uint96(adminFee);
   }
 
   function startBilling_HARNESS(

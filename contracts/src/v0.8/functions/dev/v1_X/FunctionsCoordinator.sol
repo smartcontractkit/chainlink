@@ -294,20 +294,13 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, Routable, IFun
     if (gasPriceWei > REASONABLE_GAS_PRICE_CEILING) {
       revert InvalidCalldata();
     }
-    uint72 adminFee = getAdminFee();
-    uint72 donFee = getDONFee(data);
-    return _calculateCostEstimate(callbackGasLimit, gasPriceWei, donFee, adminFee);
+    return _calculateCostEstimate(callbackGasLimit, gasPriceWei) + uint96(getDONFee(data)) + uint96(getAdminFee());
   }
 
   /// @notice Estimate the cost in Juels of LINK
   // that will be charged to a subscription to fulfill a Functions request
   // Gas Price can be overestimated to account for flucuations between request and response time
-  function _calculateCostEstimate(
-    uint32 callbackGasLimit,
-    uint256 gasPriceWei,
-    uint72 donFee,
-    uint72 adminFee
-  ) internal view returns (uint96) {
+  function _calculateCostEstimate(uint32 callbackGasLimit, uint256 gasPriceWei) internal view returns (uint96) {
     // If gas price is less than the minimum fulfillment gas price, override to using the minimum
     if (gasPriceWei < s_config.minimumEstimateGasPriceWei) {
       gasPriceWei = s_config.minimumEstimateGasPriceWei;
@@ -319,11 +312,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, Routable, IFun
 
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
     uint256 l1FeeWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
-    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei((gasPriceWithOverestimation * executionGas) + l1FeeWei);
-
-    uint96 feesJuels = uint96(donFee) + uint96(adminFee);
-
-    return estimatedGasReimbursementJuels + feesJuels;
+    return _getJuelsFromWei((gasPriceWithOverestimation * executionGas) + l1FeeWei);
   }
 
   // ================================================================
@@ -345,12 +334,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, Routable, IFun
     }
 
     uint72 donFee = getDONFee(request.data);
-    uint96 estimatedTotalCostJuels = _calculateCostEstimate(
-      request.callbackGasLimit,
-      tx.gasprice,
-      donFee,
-      request.adminFee
-    );
+    uint96 estimatedTotalCostJuels = _calculateCostEstimate(request.callbackGasLimit, tx.gasprice) +
+      uint96(donFee) +
+      uint96(request.adminFee);
 
     // Check that subscription can afford the estimated cost
     if ((request.availableBalance) < estimatedTotalCostJuels) {
