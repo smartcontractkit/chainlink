@@ -9,7 +9,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	relayservices "github.com/smartcontractkit/chainlink-relay/pkg/services"
 

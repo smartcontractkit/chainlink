@@ -16,7 +16,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	relayservices "github.com/smartcontractkit/chainlink-relay/pkg/services"

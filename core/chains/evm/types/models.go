@@ -76,6 +76,10 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 	return h.Parent
 }
 
+func (h *Head) GetTimestamp() time.Time {
+	return h.Timestamp
+}
+
 func (h *Head) BlockDifficulty() *utils.Big {
 	return h.Difficulty
 }

@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/scylladb/go-reflectx"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
