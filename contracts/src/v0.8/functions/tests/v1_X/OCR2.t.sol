@@ -6,39 +6,25 @@ pragma solidity ^0.8.19;
 // ================================================================
 
 /// @notice #constructor
-contract OCR2Base_Constructor {
-
-}
+contract OCR2Base_Constructor {}
 
 /// @notice #checkConfigValid
-contract OCR2Base_CheckConfigValid {
-
-}
+contract OCR2Base_CheckConfigValid {}
 
 /// @notice #latestConfigDigestAndEpoch
-contract OCR2Base_LatestConfigDigestAndEpoch {
-
-}
+contract OCR2Base_LatestConfigDigestAndEpoch {}
 
 /// @notice #setConfig
-contract OCR2Base_SetConfig {
-
-}
+contract OCR2Base_SetConfig {}
 
 /// @notice #configDigestFromConfigData
-contract OCR2Base_ConfigDigestFromConfigData {
-
-}
+contract OCR2Base_ConfigDigestFromConfigData {}
 
 /// @notice #latestConfigDetails
-contract OCR2Base_LatestConfigDetails {
-
-}
+contract OCR2Base_LatestConfigDetails {}
 
 /// @notice #transmitters
-contract OCR2Base_Transmitters {
-
-}
+contract OCR2Base_Transmitters {}
 
 /// @notice #_report
 contract OCR2Base__Report {
@@ -46,11 +32,7 @@ contract OCR2Base__Report {
 }
 
 /// @notice #requireExpectedMsgDataLength
-contract OCR2Base_RequireExpectedMsgDataLength {
-
-}
+contract OCR2Base_RequireExpectedMsgDataLength {}
 
 /// @notice #transmit
-contract OCR2Base_Transmit {
-
-}
+contract OCR2Base_Transmit {}

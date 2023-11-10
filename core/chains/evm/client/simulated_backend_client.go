@@ -25,6 +25,41 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+func init() {
+	var err error
+
+	balanceOfABI, err = abi.JSON(strings.NewReader(balanceOfABIString))
+	if err != nil {
+		panic(fmt.Errorf("%w: while parsing erc20ABI", err))
+	}
+}
+
+var (
+	balanceOfABIString = `[
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "name": "_owner",
+        "type": "address"
+      }
+    ],
+    "name": "balanceOf",
+    "outputs": [
+      {
+        "name": "balance",
+        "type": "uint256"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  }
+]`
+
+	balanceOfABI abi.ABI
+)
+
 // SimulatedBackendClient is an Client implementation using a simulated
 // blockchain backend. Note that not all RPC methods are implemented here.
 type SimulatedBackendClient struct {
@@ -51,69 +86,6 @@ func (c *SimulatedBackendClient) Dial(context.Context) error {
 // other simulated clients might still be using it
 func (c *SimulatedBackendClient) Close() {}
 
-// checkEthCallArgs extracts and verifies the arguments for an eth_call RPC
-func (c *SimulatedBackendClient) checkEthCallArgs(
-	args []interface{}) (*CallArgs, *big.Int, error) {
-	if len(args) != 2 {
-		return nil, nil, fmt.Errorf(
-			"should have two arguments after \"eth_call\", got %d", len(args))
-	}
-	callArgs, ok := args[0].(map[string]interface{})
-	if !ok {
-		return nil, nil, fmt.Errorf("third arg to SimulatedBackendClient.Call "+
-			"must be an eth.CallArgs, got %+#v", args[0])
-	}
-	blockNumber, err := c.blockNumber(args[1])
-	if err != nil {
-		return nil, nil, fmt.Errorf("fourth arg to SimulatedBackendClient.Call "+
-			"must be the string \"latest\", or a *big.Int, got %#+v", args[1])
-	}
-
-	// to and from need to map to a common.Address but could come in as a string
-	var (
-		toAddr  common.Address
-		frmAddr common.Address
-	)
-
-	toAddr, err = interfaceToAddress(callArgs["to"])
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// from is optional in the standard client; default to 0x when missing
-	if value, ok := callArgs["from"]; ok {
-		addr, err := interfaceToAddress(value)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		frmAddr = addr
-	} else {
-		frmAddr = common.HexToAddress("0x")
-	}
-
-	ca := CallArgs{
-		To:   toAddr,
-		From: frmAddr,
-		Data: callArgs["data"].(hexutil.Bytes),
-	}
-
-	return &ca, blockNumber, nil
-}
-
-func interfaceToAddress(value interface{}) (common.Address, error) {
-	switch v := value.(type) {
-	case common.Address:
-		return v, nil
-	case string:
-		return common.HexToAddress(v), nil
-	case *big.Int:
-		return common.BigToAddress(v), nil
-	default:
-		return common.HexToAddress("0x"), fmt.Errorf("unrecognized value type for converting value to common.Address; try string, *big.Int, or common.Address")
-	}
-}
-
 // CallContext mocks the ethereum client RPC calls used by chainlink, copying the
 // return value into result.
 // The simulated client avoids the old block error from the simulated backend by
@@ -121,41 +93,16 @@ func interfaceToAddress(value interface{}) (common.Address, error) {
 // and will not return an error when an old block is used.
 func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	switch method {
+	case "eth_getTransactionReceipt":
+		return c.ethGetTransactionReceipt(ctx, result, args...)
+	case "eth_getBlockByNumber":
+		return c.ethGetBlockByNumber(ctx, result, args...)
 	case "eth_call":
-		var (
-			callArgs *CallArgs
-			b        []byte
-			err      error
-		)
-
-		if callArgs, _, err = c.checkEthCallArgs(args); err != nil {
-			return err
-		}
-
-		callMsg := ethereum.CallMsg{From: callArgs.From, To: &callArgs.To, Data: callArgs.Data}
-
-		if b, err = c.b.CallContract(ctx, callMsg, nil /* always latest block */); err != nil {
-			return fmt.Errorf("%w: while calling contract at address %x with "+
-				"data %x", err, callArgs.To, callArgs.Data)
-		}
-
-		switch r := result.(type) {
-		case *hexutil.Bytes:
-			*r = append(*r, b...)
-
-			if !bytes.Equal(*r, b) {
-				return fmt.Errorf("was passed a non-empty array, or failed to copy "+
-					"answer. Expected %x = %x", *r, b)
-			}
-			return nil
-		default:
-			return fmt.Errorf("first arg to SimulatedBackendClient.Call is an "+
-				"unrecognized type: %T; add processing logic for it here", result)
-		}
+		return c.ethCall(ctx, result, args...)
+	case "eth_getHeaderByNumber":
+		return c.ethGetHeaderByNumber(ctx, result, args...)
 	default:
-		return fmt.Errorf("second arg to SimulatedBackendClient.Call is an RPC "+
-			"API method which has not yet been implemented: %s. Add processing for "+
-			"it here", method)
+		return fmt.Errorf("second arg to SimulatedBackendClient.Call is an RPC API method which has not yet been implemented: %s. Add processing for it here", method)
 	}
 }
 
@@ -173,38 +120,6 @@ func (c *SimulatedBackendClient) SubscribeFilterLogs(ctx context.Context, q ethe
 // currentBlockNumber returns index of *pending* block in simulated blockchain
 func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number
-}
-
-var balanceOfABIString = `[
-  {
-    "constant": true,
-    "inputs": [
-      {
-        "name": "_owner",
-        "type": "address"
-      }
-    ],
-    "name": "balanceOf",
-    "outputs": [
-      {
-        "name": "balance",
-        "type": "uint256"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  }
-]`
-
-var balanceOfABI abi.ABI
-
-func init() {
-	var err error
-	balanceOfABI, err = abi.JSON(strings.NewReader(balanceOfABIString))
-	if err != nil {
-		panic(fmt.Errorf("%w: while parsing erc20ABI", err))
-	}
 }
 
 func (c *SimulatedBackendClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
@@ -251,13 +166,12 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 		case "earliest":
 			return big.NewInt(0), nil
 		case "pending":
-			panic("not implemented") // I don't understand the semantics of this.
+			panic("pending block not supported by simulated backend client") // I don't understand the semantics of this.
 			// return big.NewInt(0).Add(c.currentBlockNumber(), big.NewInt(1)), nil
 		default:
-			blockNumber, err = utils.HexToUint256(n)
+			blockNumber, err := hexutil.DecodeBig(n)
 			if err != nil {
-				return nil, fmt.Errorf("%w: while parsing '%s' as hex-encoded"+
-					"block number", err, n)
+				return nil, fmt.Errorf("%w: while parsing '%s' as hex-encoded block number", err, n)
 			}
 			return blockNumber, nil
 		}
@@ -387,7 +301,7 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 			case h := <-ch:
 				var head *evmtypes.Head
 				if h != nil {
-					head = &evmtypes.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: utils.NewBig(c.chainId)}
+					head = &evmtypes.Head{Difficulty: (*utils.Big)(h.Difficulty), Timestamp: time.Unix(int64(h.Time), 0), Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: utils.NewBig(c.chainId)}
 					lastHead = head
 				}
 				select {
@@ -521,114 +435,18 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 	for i, elem := range b {
 		switch elem.Method {
 		case "eth_getTransactionReceipt":
-			if _, ok := elem.Result.(*evmtypes.Receipt); !ok {
-				return fmt.Errorf("SimulatedBackendClient expected return type of *evmtypes.Receipt for eth_getTransactionReceipt, got type %T", elem.Result)
-			}
-			if len(elem.Args) != 1 {
-				return fmt.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_getTransactionReceipt", len(elem.Args))
-			}
-			hash, is := elem.Args[0].(common.Hash)
-			if !is {
-				return fmt.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", elem.Args[0])
-			}
-			receipt, err := c.b.TransactionReceipt(ctx, hash)
-			if receipt != nil {
-				*(b[i].Result.(*evmtypes.Receipt)) = *evmtypes.FromGethReceipt(receipt)
-			}
-			b[i].Error = err
+			b[i].Error = c.ethGetTransactionReceipt(ctx, b[i].Result, b[i].Args...)
 		case "eth_getBlockByNumber":
-			switch v := elem.Result.(type) {
-			case *evmtypes.Head:
-			case *evmtypes.Block:
-			default:
-				return fmt.Errorf("SimulatedBackendClient expected return type of [*evmtypes.Head] or [*evmtypes.Block] for eth_getBlockByNumber, got type %T", v)
-			}
-			if len(elem.Args) != 2 {
-				return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(elem.Args))
-			}
-			blockNumOrTag, is := elem.Args[0].(string)
-			if !is {
-				return fmt.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getBlockByNumber, got: %T", elem.Args[0])
-			}
-			_, is = elem.Args[1].(bool)
-			if !is {
-				return fmt.Errorf("SimulatedBackendClient expected second arg to be a boolean for eth_getBlockByNumber, got: %T", elem.Args[1])
-			}
-			header, err := c.fetchHeader(ctx, blockNumOrTag)
-			if err != nil {
-				return err
-			}
-			switch res := elem.Result.(type) {
-			case *evmtypes.Head:
-				res.Number = header.Number.Int64()
-				res.Hash = header.Hash()
-				res.ParentHash = header.ParentHash
-				res.Timestamp = time.Unix(int64(header.Time), 0).UTC()
-			case *evmtypes.Block:
-				res.Number = header.Number.Int64()
-				res.Hash = header.Hash()
-				res.ParentHash = header.ParentHash
-				res.Timestamp = time.Unix(int64(header.Time), 0).UTC()
-			default:
-				return fmt.Errorf("SimulatedBackendClient Unexpected Type %T", elem.Result)
-			}
-			b[i].Error = err
+			b[i].Error = c.ethGetBlockByNumber(ctx, b[i].Result, b[i].Args...)
 		case "eth_call":
-			if len(elem.Args) != 2 {
-				return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_call", len(elem.Args))
-			}
-
-			_, ok := elem.Result.(*string)
-			if !ok {
-				return fmt.Errorf("SimulatedBackendClient expected result to be *string for eth_call, got: %T", elem.Result)
-			}
-
-			params, ok := elem.Args[0].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("SimulatedBackendClient expected first arg to be map[string]interface{} for eth_call, got: %T", elem.Args[0])
-			}
-
-			blockNum, ok := elem.Args[1].(string)
-			if !ok {
-				return fmt.Errorf("SimulatedBackendClient expected second arg to be a string for eth_call, got: %T", elem.Args[1])
-			}
-
-			if blockNum != "" {
-				if _, ok = new(big.Int).SetString(blockNum, 0); !ok {
-					return fmt.Errorf("error while converting block number string: %s to big.Int ", blockNum)
-				}
-			}
-
-			callMsg := toCallMsg(params)
-			resp, err := c.b.CallContract(ctx, callMsg, nil)
-			*(b[i].Result.(*string)) = hexutil.Encode(resp)
-			b[i].Error = err
+			b[i].Error = c.ethCall(ctx, b[i].Result, b[i].Args...)
 		case "eth_getHeaderByNumber":
-			if len(elem.Args) != 1 {
-				return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getHeaderByNumber", len(elem.Args))
-			}
-			blockNum, is := elem.Args[0].(string)
-			if !is {
-				return fmt.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getHeaderByNumber, got: %T", elem.Args[0])
-			}
-			n, err := hexutil.DecodeBig(blockNum)
-			if err != nil {
-				return fmt.Errorf("error while converting hex block number %s to big.Int ", blockNum)
-			}
-			header, err := c.b.HeaderByNumber(ctx, n)
-			if err != nil {
-				return err
-			}
-			switch v := elem.Result.(type) {
-			case *types.Header:
-				b[i].Result = header
-			default:
-				return fmt.Errorf("SimulatedBackendClient Unexpected Type %T", v)
-			}
+			b[i].Error = c.ethGetHeaderByNumber(ctx, b[i].Result, b[i].Args...)
 		default:
 			return fmt.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
 	}
+
 	return nil
 }
 
@@ -655,60 +473,6 @@ func (c *SimulatedBackendClient) Commit() common.Hash {
 	return c.b.Commit()
 }
 
-func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
-	var callMsg ethereum.CallMsg
-
-	switch to := params["to"].(type) {
-	case string:
-		toAddr := common.HexToAddress(to)
-		callMsg.To = &toAddr
-	case common.Address:
-		callMsg.To = &to
-	case *common.Address:
-		callMsg.To = to
-	default:
-		panic("unexpected type of 'to' parameter")
-	}
-
-	switch from := params["from"].(type) {
-	case nil:
-		// This parameter is not required so nil is acceptable
-	case string:
-		callMsg.From = common.HexToAddress(from)
-	case common.Address:
-		callMsg.From = from
-	case *common.Address:
-		callMsg.From = *from
-	default:
-		panic("unexpected type of 'from' parameter")
-	}
-
-	switch data := params["data"].(type) {
-	case nil:
-		// This parameter is not required so nil is acceptable
-	case hexutil.Bytes:
-		callMsg.Data = data
-	case []byte:
-		callMsg.Data = data
-	default:
-		panic("unexpected type of 'data' parameter")
-	}
-
-	if value, ok := params["value"].(*big.Int); ok {
-		callMsg.Value = value
-	}
-
-	if gas, ok := params["gas"].(uint64); ok {
-		callMsg.Gas = gas
-	}
-
-	if gasPrice, ok := params["gasPrice"].(*big.Int); ok {
-		callMsg.GasPrice = gasPrice
-	}
-
-	return callMsg
-}
-
 func (c *SimulatedBackendClient) IsL2() bool {
 	return false
 }
@@ -727,5 +491,202 @@ func (c *SimulatedBackendClient) fetchHeader(ctx context.Context, blockNumOrTag 
 			return nil, fmt.Errorf("error while converting block number string: %s to big.Int ", blockNumOrTag)
 		}
 		return c.b.HeaderByNumber(ctx, blockNum)
+	}
+}
+
+func (c *SimulatedBackendClient) ethGetTransactionReceipt(ctx context.Context, result interface{}, args ...interface{}) error {
+	if len(args) != 1 {
+		return fmt.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_getTransactionReceipt", len(args))
+	}
+
+	hash, is := args[0].(common.Hash)
+	if !is {
+		return fmt.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", args[0])
+	}
+
+	receipt, err := c.b.TransactionReceipt(ctx, hash)
+	if err != nil {
+		return err
+	}
+
+	// strongly typing the result here has the consequence of not being flexible in
+	// custom types where a real-world RPC client would allow for custom types with
+	// custom marshalling.
+	switch typed := result.(type) {
+	case *types.Receipt:
+		*typed = *receipt
+	case *evmtypes.Receipt:
+		*typed = *evmtypes.FromGethReceipt(receipt)
+	default:
+		return fmt.Errorf("SimulatedBackendClient expected return type of *evmtypes.Receipt for eth_getTransactionReceipt, got type %T", result)
+	}
+
+	return nil
+}
+
+func (c *SimulatedBackendClient) ethGetBlockByNumber(ctx context.Context, result interface{}, args ...interface{}) error {
+	if len(args) != 2 {
+		return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(args))
+	}
+
+	blockNumOrTag, is := args[0].(string)
+	if !is {
+		return fmt.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getBlockByNumber, got: %T", args[0])
+	}
+
+	_, is = args[1].(bool)
+	if !is {
+		return fmt.Errorf("SimulatedBackendClient expected second arg to be a boolean for eth_getBlockByNumber, got: %T", args[1])
+	}
+
+	header, err := c.fetchHeader(ctx, blockNumOrTag)
+	if err != nil {
+		return err
+	}
+
+	switch res := result.(type) {
+	case *evmtypes.Head:
+		res.Number = header.Number.Int64()
+		res.Hash = header.Hash()
+		res.ParentHash = header.ParentHash
+		res.Timestamp = time.Unix(int64(header.Time), 0).UTC()
+	case *evmtypes.Block:
+		res.Number = header.Number.Int64()
+		res.Hash = header.Hash()
+		res.ParentHash = header.ParentHash
+		res.Timestamp = time.Unix(int64(header.Time), 0).UTC()
+	default:
+		return fmt.Errorf("SimulatedBackendClient Unexpected Type %T", res)
+	}
+
+	return nil
+}
+
+func (c *SimulatedBackendClient) ethCall(ctx context.Context, result interface{}, args ...interface{}) error {
+	if len(args) != 2 {
+		return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_call", len(args))
+	}
+
+	params, ok := args[0].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("SimulatedBackendClient expected first arg to be map[string]interface{} for eth_call, got: %T", args[0])
+	}
+
+	if _, err := c.blockNumber(args[1]); err != nil {
+		return fmt.Errorf("SimulatedBackendClient expected second arg to be the string 'latest' or a *big.Int for eth_call, got: %T", args[1])
+	}
+
+	resp, err := c.b.CallContract(ctx, toCallMsg(params), nil /* always latest block on simulated backend */)
+	if err != nil {
+		return err
+	}
+
+	switch typedResult := result.(type) {
+	case *hexutil.Bytes:
+		*typedResult = append(*typedResult, resp...)
+
+		if !bytes.Equal(*typedResult, resp) {
+			return fmt.Errorf("SimulatedBackendClient was passed a non-empty array, or failed to copy answer. Expected %x = %x", *typedResult, resp)
+		}
+	case *string:
+		*typedResult = hexutil.Encode(resp)
+	default:
+		return fmt.Errorf("SimulatedBackendClient unexpected type %T", result)
+	}
+
+	return nil
+}
+
+func (c *SimulatedBackendClient) ethGetHeaderByNumber(ctx context.Context, result interface{}, args ...interface{}) error {
+	if len(args) != 1 {
+		return fmt.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_getHeaderByNumber", len(args))
+	}
+
+	blockNumber, err := c.blockNumber(args[0])
+	if err != nil {
+		return fmt.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getHeaderByNumber: %w", err)
+	}
+
+	header, err := c.b.HeaderByNumber(ctx, blockNumber)
+	if err != nil {
+		return err
+	}
+
+	switch typedResult := result.(type) {
+	case *types.Header:
+		*typedResult = *header
+	default:
+		return fmt.Errorf("SimulatedBackendClient unexpected Type %T", typedResult)
+	}
+
+	return nil
+}
+
+func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
+	var callMsg ethereum.CallMsg
+
+	toAddr, err := interfaceToAddress(params["to"])
+	if err != nil {
+		panic(fmt.Errorf("unexpected 'to' parameter: %s", err))
+	}
+
+	callMsg.To = &toAddr
+
+	// from is optional in the standard client; default to 0x when missing
+	if value, ok := params["from"]; ok {
+		addr, err := interfaceToAddress(value)
+		if err != nil {
+			panic(fmt.Errorf("unexpected 'from' parameter: %s", err))
+		}
+
+		callMsg.From = addr
+	} else {
+		callMsg.From = common.HexToAddress("0x")
+	}
+
+	switch data := params["data"].(type) {
+	case nil:
+		// This parameter is not required so nil is acceptable
+	case hexutil.Bytes:
+		callMsg.Data = data
+	case []byte:
+		callMsg.Data = data
+	default:
+		panic("unexpected type of 'data' parameter; try hexutil.Bytes, []byte, or nil")
+	}
+
+	if value, ok := params["value"].(*big.Int); ok {
+		callMsg.Value = value
+	}
+
+	if gas, ok := params["gas"].(uint64); ok {
+		callMsg.Gas = gas
+	}
+
+	if gasPrice, ok := params["gasPrice"].(*big.Int); ok {
+		callMsg.GasPrice = gasPrice
+	}
+
+	return callMsg
+}
+
+func interfaceToAddress(value interface{}) (common.Address, error) {
+	switch v := value.(type) {
+	case common.Address:
+		return v, nil
+	case string:
+		if ok := common.IsHexAddress(v); !ok {
+			return common.Address{}, fmt.Errorf("string not formatted as a hex encoded evm address")
+		}
+
+		return common.HexToAddress(v), nil
+	case *big.Int:
+		if v.Uint64() > 0 || len(v.Bytes()) > 20 {
+			return common.Address{}, fmt.Errorf("invalid *big.Int; value must be larger than 0 with a byte length <= 20")
+		}
+
+		return common.BigToAddress(v), nil
+	default:
+		return common.Address{}, fmt.Errorf("unrecognized value type for converting value to common.Address; use hex encoded string, *big.Int, or common.Address")
 	}
 }

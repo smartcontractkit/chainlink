@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -206,7 +206,7 @@ func startApplication(
 	fa fluxAggregatorUniverse,
 	overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) *cltest.TestApplication {
-	config, _ := heavyweight.FullTestDBV2(t, dbName(t.Name()), overrides)
+	config, _ := heavyweight.FullTestDBV2(t, overrides)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	return app

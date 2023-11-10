@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -204,6 +203,10 @@ func (n *ClNode) GetContainerName() string {
 	return strings.Replace(name, "/", "", -1)
 }
 
+func (n *ClNode) GetAPIClient() *client.ChainlinkClient {
+	return n.API
+}
+
 func (n *ClNode) GetPeerUrl() (string, error) {
 	p2pKeys, err := n.API.MustReadP2PKeys()
 	if err != nil {
@@ -282,7 +285,7 @@ func (n *ClNode) StartContainer() error {
 		Logger:           l,
 	})
 	if err != nil {
-		return errors.Wrap(err, ErrStartCLNodeContainer)
+		return fmt.Errorf("%s err: %w", ErrStartCLNodeContainer, err)
 	}
 	if n.lw != nil {
 		if err := n.lw.ConnectContainer(context.Background(), container, "cl-node", true); err != nil {
@@ -314,7 +317,7 @@ func (n *ClNode) StartContainer() error {
 	},
 		n.l)
 	if err != nil {
-		return errors.Wrap(err, ErrConnectNodeClient)
+		return fmt.Errorf("%s err: %w", ErrConnectNodeClient, err)
 	}
 	clClient.Config.InternalIP = n.ContainerName
 	n.Container = container

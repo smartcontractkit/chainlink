@@ -39,8 +39,8 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
 
+	"github.com/jmoiron/sqlx"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 

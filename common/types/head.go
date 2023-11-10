@@ -1,6 +1,10 @@
 package types
 
-import "github.com/smartcontractkit/chainlink/v2/core/utils"
+import (
+	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+)
 
 // Head provides access to a chain's head, as needed by the TxManager.
 // This is a generic interface which ALL chains will implement.
@@ -9,6 +13,9 @@ import "github.com/smartcontractkit/chainlink/v2/core/utils"
 type Head[BLOCK_HASH Hashable] interface {
 	// BlockNumber is the head's block number
 	BlockNumber() int64
+
+	// Timestamp the time of mining of the block
+	GetTimestamp() time.Time
 
 	// ChainLength returns the length of the chain followed by recursively looking up parents
 	ChainLength() uint32
