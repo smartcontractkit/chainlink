@@ -7,11 +7,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestBroadcaster_OnNewLog(t *testing.T) {
@@ -255,6 +258,88 @@ func TestBroadcaster_OnNewLog(t *testing.T) {
 				shouldResubscribe := lb.onNewLog(tc.logs[i])
 				require.Equal(tt, tc.shouldResubscribe[i], shouldResubscribe)
 			}
+			tc.assertions(tt, lb)
+		})
+	}
+}
+
+func TestBroadcaster_EventLoop(t *testing.T) {
+	addressToWatch := common.Address{1}
+	testCases := []struct {
+		name       string
+		setup      func() (lb *broadcaster)
+		assertions func(t *testing.T, lb *broadcaster)
+		logs       []types.Log
+		expected   struct {
+			shouldResubscribe bool
+			err               error
+		}
+	}{
+		{
+			"raw log must resubscribe",
+			func() (lb *broadcaster) {
+				lggr := logger.TestLogger(t)
+				regs := newRegistrations(lggr, *big.NewInt(1337))
+				listener := &mockListener{}
+				listener.On("JobID").Return(int32(1))
+				o := &mockORM{}
+				o.On("SetPendingMinBlock", mock.AnythingOfType("*int64"), mock.Anything).Return(nil).Once()
+				sub := &subscriber{
+					listener: listener,
+					opts: ListenerOpts{
+						Contract:                 addressToWatch,
+						MinIncomingConfirmations: 1,
+						LogsWithTopics: map[common.Hash][][]Topic{
+							common.Hash{1}: {},
+						},
+					},
+				}
+				regs.addSubscriber(sub)
+				return &broadcaster{
+					logger:                 lggr,
+					logPool:                newLogPool(lggr),
+					registrations:          regs,
+					orm:                    o,
+					newHeads:               utils.NewHighCapacityMailbox[*evmtypes.Head](),
+					changeSubscriberStatus: utils.NewHighCapacityMailbox[changeSubscriberStatus](),
+				}
+			},
+			func(t *testing.T, lb *broadcaster) {
+
+			},
+			[]types.Log{
+				{
+					Address:     addressToWatch,
+					BlockNumber: 0,
+					BlockHash:   common.Hash{0},
+					Data:        hexutil.MustDecode("0xdeadbeef"),
+					TxHash:      common.Hash{1},
+					Index:       0,
+					TxIndex:     1,
+					Topics:      []common.Hash{{1}},
+					Removed:     true,
+				},
+			},
+			struct {
+				shouldResubscribe bool
+				err               error
+			}{
+				true,
+				errors.New("issue processing new log"),
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(tt *testing.T) {
+			lb := tc.setup()
+			chRawLogs := make(chan types.Log, len(tc.logs))
+			chErr := make(chan error, 1)
+			for i := range tc.logs {
+				chRawLogs <- tc.logs[i]
+			}
+			shouldResubscribe, err := lb.eventLoop(chRawLogs, chErr)
+			require.Equal(tt, tc.expected.shouldResubscribe, shouldResubscribe)
+			require.EqualError(tt, err, tc.expected.err.Error())
 			tc.assertions(tt, lb)
 		})
 	}
