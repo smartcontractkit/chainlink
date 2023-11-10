@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {FunctionsCoordinator} from "../../../dev/v1_X/FunctionsCoordinator.sol";
-import {FunctionsBilling} from "../../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsResponse} from "../../../dev/v1_X/libraries/FunctionsResponse.sol";
 
 /// @title Functions Coordinator Test Harness
@@ -13,7 +12,7 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
 
   constructor(
     address router,
-    FunctionsBilling.Config memory config,
+    FunctionsCoordinator.Config memory config,
     address linkToNativeFeed
   ) FunctionsCoordinator(router, config, linkToNativeFeed) {
     s_linkToNativeFeed_HARNESS = linkToNativeFeed;
@@ -24,11 +23,6 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
     return super._beforeSetConfig(_f, _onchainConfig);
   }
 
-  /// @dev Used by FunctionsBilling.sol
-  function getTransmitters_HARNESS() external view returns (address[] memory) {
-    return super._getTransmitters();
-  }
-
   function report_HARNESS(
     uint256 initialGas,
     address transmitter,
@@ -37,10 +31,6 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
     bytes calldata report
   ) external {
     return super._report(initialGas, transmitter, signerCount, signers, report);
-  }
-
-  function onlyOwner_HARNESS() external view {
-    return super._onlyOwner();
   }
 
   // ================================================================

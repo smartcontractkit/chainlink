@@ -5,7 +5,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsClientHarness} from "./testhelpers/FunctionsClientHarness.sol";
 import {FunctionsRouterHarness, FunctionsRouter} from "./testhelpers/FunctionsRouterHarness.sol";
 import {FunctionsCoordinatorHarness} from "./testhelpers/FunctionsCoordinatorHarness.sol";
-import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
+import {FunctionsCoordinator} from "../../dev/v1_X/FunctionsCoordinator.sol";
 import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {TermsOfServiceAllowList} from "../../dev/v1_X/accessControl/TermsOfServiceAllowList.sol";
@@ -64,9 +64,9 @@ contract FunctionsRouterSetup is BaseTest {
       });
   }
 
-  function getCoordinatorConfig() public view returns (FunctionsBilling.Config memory) {
+  function getCoordinatorConfig() public view returns (FunctionsCoordinator.Config memory) {
     return
-      FunctionsBilling.Config({
+      FunctionsCoordinator.Config({
         feedStalenessSeconds: 24 * 60 * 60, // 1 day
         gasOverheadAfterCallback: 93_942,
         gasOverheadBeforeCallback: 105_000,

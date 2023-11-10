@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import {FunctionsRouter} from "../../dev/v1_X/FunctionsRouter.sol";
 import {FunctionsSubscriptions} from "../../dev/v1_X/FunctionsSubscriptions.sol";
 import {FunctionsCoordinator} from "../../dev/v1_X/FunctionsCoordinator.sol";
-import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
 import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {FunctionsCoordinatorTestHelper} from "./testhelpers/FunctionsCoordinatorTestHelper.sol";
@@ -373,7 +372,7 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint32 callbackGasLimit = 5000;
-    vm.expectRevert(FunctionsBilling.InsufficientBalance.selector);
+    vm.expectRevert(FunctionsCoordinator.InsufficientBalance.selector);
 
     s_functionsRouter.sendRequest(
       subscriptionId,
@@ -713,7 +712,7 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint32 callbackGasLimit = 5000;
-    vm.expectRevert(FunctionsBilling.InsufficientBalance.selector);
+    vm.expectRevert(FunctionsCoordinator.InsufficientBalance.selector);
 
     s_functionsRouter.sendRequestToProposed(
       subscriptionId,

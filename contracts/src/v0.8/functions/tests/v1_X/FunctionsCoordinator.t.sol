@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {FunctionsCoordinator} from "../../dev/v1_X/FunctionsCoordinator.sol";
-import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
 import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {FunctionsRouter} from "../../dev/v1_X/FunctionsRouter.sol";

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {FunctionsCoordinator} from "../../dev/v1_X/FunctionsCoordinator.sol";
-import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
 import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {FunctionsSubscriptions} from "../../dev/v1_X/FunctionsSubscriptions.sol";
@@ -25,7 +24,7 @@ contract FunctionsBilling_GetConfig is FunctionsRouterSetup {
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
-    FunctionsBilling.Config memory config = s_functionsCoordinator.getConfig();
+    FunctionsCoordinator.Config memory config = s_functionsCoordinator.getConfig();
     assertEq(config.feedStalenessSeconds, getCoordinatorConfig().feedStalenessSeconds);
     assertEq(config.gasOverheadBeforeCallback, getCoordinatorConfig().gasOverheadBeforeCallback);
     assertEq(config.gasOverheadAfterCallback, getCoordinatorConfig().gasOverheadAfterCallback);
@@ -39,12 +38,12 @@ contract FunctionsBilling_GetConfig is FunctionsRouterSetup {
 
 /// @notice #updateConfig
 contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
-  FunctionsBilling.Config internal configToSet;
+  FunctionsCoordinator.Config internal configToSet;
 
   function setUp() public virtual override {
     FunctionsRouterSetup.setUp();
 
-    configToSet = FunctionsBilling.Config({
+    configToSet = FunctionsCoordinator.Config({
       feedStalenessSeconds: getCoordinatorConfig().feedStalenessSeconds * 2,
       gasOverheadAfterCallback: getCoordinatorConfig().gasOverheadAfterCallback * 2,
       gasOverheadBeforeCallback: getCoordinatorConfig().gasOverheadBeforeCallback * 2,
@@ -66,7 +65,7 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
     s_functionsCoordinator.updateConfig(configToSet);
   }
 
-  event ConfigUpdated(FunctionsBilling.Config config);
+  event ConfigUpdated(FunctionsCoordinator.Config config);
 
   function test_UpdateConfig_Success() public {
     // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
@@ -79,7 +78,7 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
 
     s_functionsCoordinator.updateConfig(configToSet);
 
-    FunctionsBilling.Config memory config = s_functionsCoordinator.getConfig();
+    FunctionsCoordinator.Config memory config = s_functionsCoordinator.getConfig();
     assertEq(config.feedStalenessSeconds, configToSet.feedStalenessSeconds);
     assertEq(config.gasOverheadAfterCallback, configToSet.gasOverheadAfterCallback);
     assertEq(config.gasOverheadBeforeCallback, configToSet.gasOverheadBeforeCallback);
@@ -155,7 +154,7 @@ contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
     uint32 callbackGasLimit = 5_500;
     uint256 gasPriceWei = REASONABLE_GAS_PRICE_CEILING + 1;
 
-    vm.expectRevert(FunctionsBilling.InvalidCalldata.selector);
+    vm.expectRevert(FunctionsCoordinator.InvalidCalldata.selector);
 
     s_functionsCoordinator.estimateCost(s_subscriptionId, requestData, callbackGasLimit, gasPriceWei);
   }
@@ -327,7 +326,7 @@ contract FunctionsBilling_OracleWithdraw is FunctionsMultipleFulfillmentsSetup {
     vm.stopPrank();
     vm.startPrank(NOP_TRANSMITTER_ADDRESS_1);
 
-    vm.expectRevert(FunctionsBilling.InsufficientBalance.selector);
+    vm.expectRevert(FunctionsCoordinator.InsufficientBalance.selector);
 
     // Attempt to withdraw more than the Coordinator has assigned
     s_functionsCoordinator.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, s_fulfillmentCoordinatorBalance + 1);
@@ -420,7 +419,7 @@ contract FunctionsBilling__DisperseFeePool is FunctionsRouterSetup {
     // Manually set s_feePool (at slot 11) to 1 to get past first check in _disperseFeePool
     vm.store(address(s_functionsCoordinator), bytes32(uint256(11)), bytes32(uint256(1)));
 
-    vm.expectRevert(FunctionsBilling.NoTransmittersSet.selector);
+    vm.expectRevert(FunctionsCoordinator.NoTransmittersSet.selector);
     s_functionsCoordinator.disperseFeePool_HARNESS();
   }
 }
