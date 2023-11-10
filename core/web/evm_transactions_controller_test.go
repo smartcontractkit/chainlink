@@ -25,9 +25,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmEvmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	ksMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -221,7 +223,7 @@ func TestTransactionsController_Create(t *testing.T) {
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
 		require.Equal(t, "toAddress must be set", respError.Error())
 	})
-	chainID := utils.NewBigI(rand.Int64())
+	chainID := utils.NewBigI(673728)
 	t.Run("Fails if requested chain that is not available", func(t *testing.T) {
 		request := models.CreateEVMTransactionRequest{
 			ToAddress:      ptr(common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371")),
@@ -298,18 +300,21 @@ func TestTransactionsController_Create(t *testing.T) {
 	newChain := func(t *testing.T, txm txmgr.TxManager, limitDefault uint32) evm.Chain {
 		chain := evmMocks.NewChain(t)
 		chain.On("TxManager").Return(txm)
-		config := evmConfigMocks.NewChainScopedConfig(t)
+		// gas estimator default limit
 		gasEstimator := evmConfigMocks.NewGasEstimator(t)
-		gasEstimator.On("LimitDefault").Return(limitDefault)
+		gasEstimator.On("LimitDefault").Return(limitDefault).Maybe()
 		evmConfig := evmConfigMocks.NewEVM(t)
-		evmConfig.On("GasEstimator").Return(gasEstimator)
-		config.On("EVM").Return(evmConfig)
-		chain.On("Config").Return(config)
+		evmConfig.On("GasEstimator").Return(gasEstimator).Maybe()
+		config := evmConfigMocks.NewChainScopedConfig(t)
+		config.On("EVM").Return(evmConfig).Maybe()
+		chain.On("Config").Return(config).Maybe()
+
 		return chain
 	}
-	t.Run("Populates feeLimit if one is not set", func(t *testing.T) {
+	t.Run("Correctly populates fields for TxRequest", func(t *testing.T) {
 		payload := []byte("tx_payload")
 		value := big.NewInt(rand.Int64())
+		feeLimit := rand.Uint32()
 		request := models.CreateEVMTransactionRequest{
 			ToAddress:        ptr(common.HexToAddress("0xEA746B853DcFFA7535C64882E191eE31BE8CE711")),
 			FromAddress:      common.HexToAddress("0x39364605296d7c77e7C2089F0e48D527bb309d38"),
@@ -318,11 +323,11 @@ func TestTransactionsController_Create(t *testing.T) {
 			ChainID:          chainID,
 			Value:            utils.NewBig(value),
 			ForwarderAddress: common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2"),
+			FeeLimit:         feeLimit,
 		}
 
 		txm := txmMocks.NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee](t)
-		expectedError := errors.New("failed to create tx")
-		const feeLimit = uint32(158124)
+		expectedError := errors.New("stub error to shortcut execution")
 		txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 			IdempotencyKey:   &request.IdempotencyKey,
 			FromAddress:      request.FromAddress,
@@ -335,7 +340,7 @@ func TestTransactionsController_Create(t *testing.T) {
 		}).Return(txmgr.Tx{}, expectedError).Once()
 
 		chainContainer := evmMocks.NewLegacyChainContainer(t)
-		chain := newChain(t, txm, feeLimit)
+		chain := newChain(t, txm, 0)
 		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
 
 		ethKeystore := ksMocks.NewEth(t)
@@ -349,5 +354,106 @@ func TestTransactionsController_Create(t *testing.T) {
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
 		require.Equal(t, fmt.Sprintf("transaction failed: %v", expectedError),
 			respError.Error())
+	})
+	t.Run("Correctly populates fields for TxRequest with defaults", func(t *testing.T) {
+		request := models.CreateEVMTransactionRequest{
+			ToAddress:      ptr(common.HexToAddress("0xEA746B853DcFFA7535C64882E191eE31BE8CE711")),
+			IdempotencyKey: "idempotency_key",
+			EncodedPayload: "0x",
+			ChainID:        chainID,
+		}
+
+		expectedFromAddress := common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2")
+		ethKeystore := ksMocks.NewEth(t)
+		ethKeystore.On("GetRoundRobinAddress", chainID.ToInt()).Return(expectedFromAddress, nil).Once()
+
+		txm := txmMocks.NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee](t)
+		expectedError := errors.New("stub error to shortcut execution")
+		expectedFeeLimit := rand.Uint32()
+		txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
+			IdempotencyKey: &request.IdempotencyKey,
+			FromAddress:    expectedFromAddress,
+			ToAddress:      *request.ToAddress,
+			EncodedPayload: []byte{},
+			Value:          big.Int{},
+			FeeLimit:       expectedFeeLimit,
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
+		}).Return(txmgr.Tx{}, expectedError).Once()
+
+		chainContainer := evmMocks.NewLegacyChainContainer(t)
+		chain := newChain(t, txm, expectedFeeLimit)
+		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
+
+		resp := createTx(&web.EvmTransactionController{
+			Chains:   chainContainer,
+			KeyStore: ethKeystore,
+		}, request).Result()
+
+		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t, fmt.Sprintf("transaction failed: %v", expectedError),
+			respError.Error())
+	})
+	t.Run("Happy path", func(t *testing.T) {
+		payload := []byte("tx_payload")
+		request := models.CreateEVMTransactionRequest{
+			ToAddress:      ptr(common.HexToAddress("0xEA746B853DcFFA7535C64882E191eE31BE8CE711")),
+			IdempotencyKey: "idempotency_key",
+			EncodedPayload: "0x" + hexutils.BytesToHex(payload),
+			ChainID:        chainID,
+			Value:          utils.NewBigI(6838712),
+		}
+
+		expectedFromAddress := common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2")
+		ethKeystore := ksMocks.NewEth(t)
+		ethKeystore.On("GetRoundRobinAddress", chainID.ToInt()).Return(expectedFromAddress, nil).Once()
+
+		txm := txmMocks.NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee](t)
+		expectedFeeLimit := uint32(2235235)
+
+		expectedValue := request.Value.ToInt()
+		tx := txmgr.Tx{
+			ID:             54323,
+			EncodedPayload: payload,
+			FromAddress:    expectedFromAddress,
+			FeeLimit:       expectedFeeLimit,
+			State:          txmgrcommon.TxInProgress,
+			ToAddress:      *request.ToAddress,
+			Value:          *expectedValue,
+			ChainID:        chainID.ToInt(),
+		}
+		txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
+			IdempotencyKey: &request.IdempotencyKey,
+			FromAddress:    expectedFromAddress,
+			ToAddress:      *request.ToAddress,
+			EncodedPayload: payload,
+			Value:          *expectedValue,
+			FeeLimit:       expectedFeeLimit,
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
+		}).Return(tx, nil).Once()
+
+		chainContainer := evmMocks.NewLegacyChainContainer(t)
+		chain := newChain(t, txm, expectedFeeLimit)
+		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
+		block := int64(56345431)
+		txWithAttempts := tx
+		txWithAttempts.TxAttempts = []txmgr.TxAttempt{
+			{
+				Hash:                    common.HexToHash("0xa1ce83ee556cbcfc6541d5909b0d7f28f6a77399d3bd4340246f684a0f25a7f5"),
+				BroadcastBeforeBlockNum: &block,
+			},
+		}
+
+		txmStorage := txmEvmMocks.NewEvmTxStore(t)
+		txmStorage.On("FindTxWithAttempts", tx.ID).Return(txWithAttempts, nil)
+
+		resp := createTx(&web.EvmTransactionController{
+			AuditLogger: audit.NoopLogger,
+			Chains:      chainContainer,
+			KeyStore:    ethKeystore,
+			TxmStorage:  txmStorage,
+		}, request).Result()
+
+		cltest.AssertServerResponse(t, resp, http.StatusOK)
 	})
 }

@@ -3,6 +3,7 @@ package web
 import (
 	"database/sql"
 	"fmt"
+	"math/big"
 	"net/http"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -60,16 +62,20 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 }
 
 type EvmTransactionController struct {
-	App      chainlink.Application
-	Chains   evm.LegacyChainContainer
-	KeyStore keystore.Eth
+	Logger      logger.SugaredLogger
+	TxmStorage  txmgr.EvmTxStore
+	AuditLogger audit.AuditLogger
+	Chains      evm.LegacyChainContainer
+	KeyStore    keystore.Eth
 }
 
 func NewEVMTransactionController(app chainlink.Application) *EvmTransactionController {
 	return &EvmTransactionController{
-		App:      app,
-		Chains:   app.GetRelayers().LegacyEVMChains(),
-		KeyStore: app.GetKeyStore().Eth(),
+		TxmStorage:  app.TxmStorageService(),
+		Logger:      app.GetLogger(),
+		AuditLogger: app.GetAuditLogger(),
+		Chains:      app.GetRelayers().LegacyEVMChains(),
+		KeyStore:    app.GetKeyStore().Eth(),
 	}
 }
 
@@ -110,7 +116,7 @@ func (tc *EvmTransactionController) Create(c *gin.Context) {
 			return
 		}
 
-		tc.App.GetLogger().Errorf("Failed to get chain", "err", err)
+		tc.Logger.Errorf("Failed to get chain", "err", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -136,6 +142,9 @@ func (tc *EvmTransactionController) Create(c *gin.Context) {
 	}
 
 	value := tx.Value.ToInt()
+	if value == nil {
+		value = big.NewInt(0)
+	}
 	etx, err := chain.TxManager().CreateTransaction(c, txmgr.TxRequest{
 		IdempotencyKey:   &tx.IdempotencyKey,
 		FromAddress:      tx.FromAddress,
@@ -151,7 +160,7 @@ func (tc *EvmTransactionController) Create(c *gin.Context) {
 		return
 	}
 
-	tc.App.GetAuditLogger().Audit(audit.EthTransactionCreated, map[string]interface{}{
+	tc.AuditLogger.Audit(audit.EthTransactionCreated, map[string]interface{}{
 		"ethTX": etx,
 	})
 
@@ -167,7 +176,7 @@ func (tc *EvmTransactionController) Create(c *gin.Context) {
 	}
 
 	// wait and retrieve tx attempt matching tx ID
-	attempt, err := FindTxAttempt(c, timeout, etx, tc.App.TxmStorageService().FindTxWithAttempts)
+	attempt, err := FindTxAttempt(c, timeout, etx, tc.TxmStorage.FindTxWithAttempts)
 	if err != nil {
 		jsonAPIError(c, http.StatusGatewayTimeout, fmt.Errorf("failed to find transaction within timeout: %w", err))
 		return
