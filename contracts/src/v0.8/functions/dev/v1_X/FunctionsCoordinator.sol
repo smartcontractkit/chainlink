@@ -6,9 +6,9 @@ import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
+import {IOwnableFunctionsRouter} from "./interfaces/IOwnableFunctionsRouter.sol";
 
 import {ChainSpecificUtil} from "./libraries/ChainSpecificUtil.sol";
-import {Routable} from "./Routable.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
@@ -16,7 +16,7 @@ import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/u
 
 /// @title Functions Coordinator contract
 /// @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
-contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, Routable, IFunctionsBilling {
+contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, IFunctionsBilling {
   using FunctionsResponse for FunctionsResponse.RequestMeta;
   using FunctionsResponse for FunctionsResponse.Commitment;
   using FunctionsResponse for FunctionsResponse.FulfillResult;
@@ -107,10 +107,36 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, Routable, IFun
   bytes private s_donPublicKey;
   bytes private s_thresholdPublicKey;
 
-  constructor(address router, Config memory config, address linkToNativeFeed) OCR2Base() Routable(router) {
+  IOwnableFunctionsRouter private immutable i_router;
+
+  error RouterMustBeSet();
+  error OnlyCallableByRouter();
+  error OnlyCallableByRouterOwner();
+
+  constructor(address router, Config memory config, address linkToNativeFeed) OCR2Base() {
+    if (router == address(0)) {
+      revert RouterMustBeSet();
+    }
+    i_router = IOwnableFunctionsRouter(router);
     s_linkToNativeFeed = AggregatorV3Interface(linkToNativeFeed);
 
     updateConfig(config);
+  }
+
+  /// @notice Reverts if called by anyone other than the router.
+  modifier onlyRouter() {
+    if (msg.sender != address(i_router)) {
+      revert OnlyCallableByRouter();
+    }
+    _;
+  }
+
+  /// @notice Reverts if called by anyone other than the router owner.
+  modifier onlyRouterOwner() {
+    if (msg.sender != i_router.owner()) {
+      revert OnlyCallableByRouterOwner();
+    }
+    _;
   }
 
   /// @inheritdoc IFunctionsCoordinator
@@ -255,7 +281,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, Routable, IFun
 
   /// @inheritdoc IFunctionsBilling
   function getAdminFee() public view returns (uint72) {
-    return _getRouter().getAdminFee();
+    return i_router.getAdminFee();
   }
 
   /// @inheritdoc IFunctionsBilling
@@ -289,7 +315,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, Routable, IFun
     uint32 callbackGasLimit,
     uint256 gasPriceWei
   ) external view returns (uint96) {
-    _getRouter().isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
+    i_router.isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
     // Reasonable ceilings to prevent integer overflows
     if (gasPriceWei > REASONABLE_GAS_PRICE_CEILING) {
       revert InvalidCalldata();
@@ -404,7 +430,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, Routable, IFun
     uint96 juelsPerGas = _getJuelsFromWei(tx.gasprice);
 
     // The Functions Router will perform the callback to the client contract
-    (FunctionsResponse.FulfillResult resultCode, uint96 callbackCostJuels) = _getRouter().fulfill(
+    (FunctionsResponse.FulfillResult resultCode, uint96 callbackCostJuels) = i_router.fulfill(
       response,
       err,
       juelsPerGas,
@@ -465,7 +491,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, Routable, IFun
       revert InsufficientBalance();
     }
     s_withdrawableTokens[msg.sender] -= amount;
-    IFunctionsSubscriptions(address(_getRouter())).oracleWithdraw(recipient, amount);
+    IFunctionsSubscriptions(address(i_router)).oracleWithdraw(recipient, amount);
   }
 
   /// @inheritdoc IFunctionsBilling
@@ -480,7 +506,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, Routable, IFun
       uint96 balance = s_withdrawableTokens[transmitters[i]];
       if (balance > 0) {
         s_withdrawableTokens[transmitters[i]] = 0;
-        IFunctionsSubscriptions(address(_getRouter())).oracleWithdraw(transmitters[i], balance);
+        IFunctionsSubscriptions(address(i_router)).oracleWithdraw(transmitters[i], balance);
       }
     }
   }

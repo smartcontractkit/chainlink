@@ -5,7 +5,6 @@ import {FunctionsCoordinator} from "../../dev/v1_X/FunctionsCoordinator.sol";
 import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
 import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {FunctionsSubscriptions} from "../../dev/v1_X/FunctionsSubscriptions.sol";
-import {Routable} from "../../dev/v1_X/Routable.sol";
 
 import {FunctionsRouterSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup, FunctionsMultipleFulfillmentsSetup} from "./Setup.t.sol";
 
@@ -279,7 +278,7 @@ contract FunctionsBilling_DeleteCommitment is FunctionsClientRequestSetup {
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
-    vm.expectRevert(Routable.OnlyCallableByRouter.selector);
+    vm.expectRevert(FunctionsCoordinator.OnlyCallableByRouter.selector);
     s_functionsCoordinator.deleteCommitment(s_requests[1].requestId);
   }
 

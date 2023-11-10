@@ -5,7 +5,6 @@ import {FunctionsCoordinator} from "../../dev/v1_X/FunctionsCoordinator.sol";
 import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
 import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {FunctionsRouter} from "../../dev/v1_X/FunctionsRouter.sol";
-import {Routable} from "../../dev/v1_X/Routable.sol";
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsRouterSetup, FunctionsDONSetup, FunctionsSubscriptionSetup} from "./Setup.t.sol";
@@ -113,7 +112,7 @@ contract FunctionsCoordinator_StartRequest is FunctionsSubscriptionSetup {
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
-    vm.expectRevert(Routable.OnlyCallableByRouter.selector);
+    vm.expectRevert(FunctionsCoordinator.OnlyCallableByRouter.selector);
 
     s_functionsCoordinator.startRequest(
       FunctionsResponse.RequestMeta({
