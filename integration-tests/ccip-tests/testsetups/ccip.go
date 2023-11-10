@@ -824,7 +824,7 @@ func CCIPDefaultTestSetUp(
 			return setUpArgs.AddLanesForNetworkPair(
 				lggr, n.NetworkA, n.NetworkB,
 				chainByChainID[n.NetworkA.ChainID], chainByChainID[n.NetworkB.ChainID], transferAmounts,
-				inputs.TestGroupInput.NumberOfCommitNodes,
+				inputs.TestGroupInput.NoOfCommitNodes,
 				pointer.GetBool(inputs.TestGroupInput.CommitAndExecuteOnSameDON),
 				pointer.GetBool(inputs.TestGroupInput.BiDirectionalLane),
 			)

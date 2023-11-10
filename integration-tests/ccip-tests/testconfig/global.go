@@ -267,12 +267,14 @@ func (c *Chainlink) Validate() error {
 }
 
 type Node struct {
-	Name       string `toml:",omitempty"`
-	Image      string `toml:",omitempty"`
-	Tag        string `toml:",omitempty"`
-	NodeConfig string `toml:",omitempty"`
-	DBImage    string `toml:",omitempty"`
-	DBTag      string `toml:",omitempty"`
+	Name                   string            `toml:",omitempty"`
+	Image                  string            `toml:",omitempty"`
+	Tag                    string            `toml:",omitempty"`
+	BaseConfigTOML         string            `toml:",omitempty"`
+	CommonChainConfigTOML  string            `toml:",omitempty"`
+	ChainConfigTOMLByChain map[string]string `toml:",omitempty"` // key is chainID
+	DBImage                string            `toml:",omitempty"`
+	DBTag                  string            `toml:",omitempty"`
 }
 
 func (n *Node) ApplyOverrides(from *Node) {
@@ -298,7 +300,20 @@ func (n *Node) ApplyOverrides(from *Node) {
 	if from.DBTag != "" {
 		n.DBTag = from.DBTag
 	}
-	if from.NodeConfig != "" {
-		n.NodeConfig = from.NodeConfig
+	if from.BaseConfigTOML != "" {
+		n.BaseConfigTOML = from.BaseConfigTOML
+	}
+	if from.CommonChainConfigTOML != "" {
+		n.CommonChainConfigTOML = from.CommonChainConfigTOML
+	}
+	if from.ChainConfigTOMLByChain != nil {
+		if n.ChainConfigTOMLByChain == nil {
+			n.ChainConfigTOMLByChain = from.ChainConfigTOMLByChain
+		} else {
+			for chainID, toml := range from.ChainConfigTOMLByChain {
+				n.ChainConfigTOMLByChain[chainID] = toml
+			}
+		}
+
 	}
 }

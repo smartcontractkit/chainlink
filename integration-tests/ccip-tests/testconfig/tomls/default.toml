@@ -27,7 +27,7 @@ DBArgs = ['shared_buffers=1536MB', 'effective_cache_size=4096MB', 'work_mem=64MB
 Name = 'node1'
 DBImage = 'postgres'
 DBTag = '13.12'
-NodeConfig = """
+BaseConfigTOML = """
 [Feature]
 LogPoller = true
 CCIP = true
@@ -78,13 +78,77 @@ DeltaDial = '500ms'
 DeltaReconcile = '5s'
 """
 
+CommonChainConfigTOML = """
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+
+[CCIP.Env.Chainlink.Common.ChainConfigTOMLByChain]
+421613 = """
+[GasEstimator]
+PriceMax = '400 gwei'
+LimitDefault = 100000000
+FeeCapDefault = '200 gwei'
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 gwei'
+"""
+
+420 = """
+[GasEstimator]
+PriceMax = '150 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '150 gwei'
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 gwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 200
+EIP1559FeeCapBufferBlocks = 0
+"""
+
+84531 = """
+[GasEstimator]
+PriceMax = '150 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '150 gwei'
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 gwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 200
+EIP1559FeeCapBufferBlocks = 0
+"""
+
+43113 = """
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+BumpThreshold = 60
+"""
+
+11155111 = """
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 200
+EIP1559FeeCapBufferBlocks = 0
+"""
 
 [CCIP.Groups]
 [CCIP.Groups.smoke]
 KeepEnvAlive = false
 BiDirectionalLane = true
 CommitAndExecuteOnSameDON = true
-NumberOfCommitNodes = 5
+NoOfCommitNodes = 5
 MsgType = 'WithToken'
 PhaseTimeout = '10m'
 LocalCluster = true
@@ -103,7 +167,7 @@ NoOfSendsInMulticall = 5
 KeepEnvAlive = false
 BiDirectionalLane = true
 CommitAndExecuteOnSameDON = true
-NumberOfCommitNodes = 5
+NoOfCommitNodes = 5
 MsgType = 'WithToken'
 PhaseTimeout = '50m'
 TestDuration = '10m'
@@ -125,7 +189,7 @@ NoOfSendsInMulticall = 5
 KeepEnvAlive = false
 BiDirectionalLane = true
 CommitAndExecuteOnSameDON = false
-NumberOfCommitNodes = 5
+NoOfCommitNodes = 5
 MsgType = 'WithToken'
 PhaseTimeout = '50m'
 TestDuration = '10m'
