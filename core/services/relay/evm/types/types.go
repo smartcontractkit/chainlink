@@ -31,7 +31,15 @@ type ChainReaderConfig struct {
 	// key being contract name
 	ChainContractReaders map[string]ChainContractReader `json:"chainContractReaders"`
 
+	// key being the type for the codec
+	ChainCodecConfigs map[string]ChainCodedConfig `json:"chainCodecConfig"`
+
 	// ..reserved for any global config options chainreader might need..
+}
+
+type ChainCodedConfig struct {
+	TypeAbi string `json:"typeAbi"`
+	// TODO transform configs that allow hard-coding values or transforming them (max, min, median etc)
 }
 
 type ChainContractReader struct {
