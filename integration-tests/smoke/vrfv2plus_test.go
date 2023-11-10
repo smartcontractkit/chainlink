@@ -50,7 +50,16 @@ func TestVRFv2Plus(t *testing.T) {
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
 	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
 
-	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, vrfv2PlusConfig, linkToken, mockETHLinkFeed, defaultWalletAddress, 1, 1, l)
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(
+		env,
+		vrfv2PlusConfig,
+		linkToken,
+		mockETHLinkFeed,
+		defaultWalletAddress,
+		1,
+		1,
+		l,
+	)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
 
 	subID := subIDs[0]

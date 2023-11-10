@@ -1,4 +1,4 @@
-package ocr2vrf_actions
+package ocr2vrf
 
 import ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 

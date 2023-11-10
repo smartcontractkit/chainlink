@@ -48,9 +48,9 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 	}
 
 	testFailed := t.Failed()
-	headerText := fmt.Sprintf(":white_check_mark: VRF %s Test PASSED :white_check_mark:", o.TestType)
+	headerText := fmt.Sprintf(":white_check_mark: VRF V2 Plus %s Test PASSED :white_check_mark:", o.TestType)
 	if testFailed {
-		headerText = fmt.Sprintf(":x: VRF %s Test FAILED :x:", o.TestType)
+		headerText = fmt.Sprintf(":x: VRF V2 Plus %s Test FAILED :x:", o.TestType)
 	}
 
 	messageBlocks := testreporters.SlackNotifyBlocks(headerText, fmt.Sprintf("%s", os.Getenv("SELECTED_NETWORKS")), []string{

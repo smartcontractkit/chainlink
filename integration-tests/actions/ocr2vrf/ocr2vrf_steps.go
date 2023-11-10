@@ -1,4 +1,4 @@
-package ocr2vrf_actions
+package ocr2vrf
 
 import (
 	"math/big"
@@ -19,7 +19,7 @@ import (
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf/ocr2vrf_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )

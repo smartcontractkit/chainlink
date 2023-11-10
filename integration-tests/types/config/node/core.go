@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
 	utils2 "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
@@ -219,8 +218,8 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 	}
 }
 
-func WithVRFv2EVMEstimator(addr string) NodeConfigOpt {
-	est := assets.GWei(vrfv2_constants.MaxGasPriceGWei)
+func WithVRFv2EVMEstimator(addr string, maxGasPriceGWei int64) NodeConfigOpt {
+	est := assets.GWei(maxGasPriceGWei)
 	return func(c *chainlink.Config) {
 		c.EVM[0].KeySpecific = evmcfg.KeySpecificConfig{
 			{
