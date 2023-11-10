@@ -17,8 +17,17 @@ import (
 var (
 	// maxLogsPerUpkeepInBlock is the maximum number of logs allowed per upkeep in a block.
 	maxLogsPerUpkeepInBlock = 32
-	// maxLogsPerBlock is the maximum number of blocks in the buffer.
-	maxLogsPerBlock = 1024
+	// maxLogsPerBlock is the maximum number of log per block for all upkeeps in the buffer.
+	//
+	// using this limit, we can calculate the maximum number of upkeeps per block
+	// that we can support in the buffer:
+	// maxLogsPerBlock / logs per upkeep = number of supported upkeeps per block
+	//
+	// 1. ideal case (a single log per upkeep):
+	// 8192 / 1 = 8192 upkeeps per block
+	// 2. worst case (32 logs per upkeep):
+	// 8192 / maxLogsPerUpkeepInBlock = 256 upkeeps per block
+	maxLogsPerBlock = 8192
 )
 
 // fetchedLog holds the log and the ID of the upkeep
