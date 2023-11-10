@@ -65,7 +65,7 @@ func TestChainOpts_Validate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := Opts{
+			o := evm.ChainOpts{
 				AppConfig:        tt.fields.AppConfig,
 				EventBroadcaster: tt.fields.EventBroadcaster,
 				MailMon:          tt.fields.MailMon,

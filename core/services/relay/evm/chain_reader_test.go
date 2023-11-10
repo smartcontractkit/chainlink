@@ -1,423 +1,268 @@
 package evm_test
 
-//go:generate ./testfiles/chainlink_reader_test_setup.sh
-
 import (
-	"context"
-	"crypto/ecdsa"
 	"encoding/json"
-	"math"
-	"math/big"
-	"reflect"
+	"fmt"
+	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/core"
-	evmtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-	. "github.com/smartcontractkit/chainlink-relay/pkg/types/interfacetests"
-	"github.com/smartcontractkit/libocr/commontypes"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	mocklogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/testfiles"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-const anyMethodName = "method"
-
-const commonGasLimitOnEvms = uint64(4712388)
-
-var inner = []abi.ArgumentMarshaling{
-	{Name: "I", Type: "int64"},
-	{Name: "S", Type: "string"},
+func TestChainReaderStartClose(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	lp := mocklogpoller.NewLogPoller(t)
+	chainReader, err := evm.NewChainReaderService(lggr, lp)
+	require.NoError(t, err)
+	require.NotNil(t, chainReader)
+	err = chainReader.Start(testutils.Context(t))
+	assert.NoError(t, err)
+	err = chainReader.Close()
+	assert.NoError(t, err)
 }
 
-var nested = []abi.ArgumentMarshaling{
-	{Name: "FixedBytes", Type: "bytes2"},
-	{Name: "Inner", Type: "tuple", Components: inner},
-}
+func TestValidateChainReaderConfig(t *testing.T) {
+	chainReaderConfigTemplate := `{
+	   "chainContractReaders": {
+	     "testContract": {
+			   "contractName": "testContract",
+			   "contractABI":  "[%s]",
+			   "chainReaderDefinitions": {
+					%s
+				}
+	     }
+	   }
+	}`
 
-const sizeItemType = "item for size"
+	type testCase struct {
+		name                    string
+		abiInput                string
+		chainReadingDefinitions string
+	}
 
-var defs = map[string][]abi.ArgumentMarshaling{
-	TestItemType: {
-		{Name: "Field", Type: "int32"},
-		{Name: "DifferentField", Type: "string"},
-		{Name: "OracleId", Type: "uint8"},
-		{Name: "OracleIds", Type: "uint8[32]"},
-		{Name: "Account", Type: "bytes32"},
-		{Name: "Accounts", Type: "bytes32[]"},
-		{Name: "BigField", Type: "int192"},
-		{Name: "NestedStruct", Type: "tuple", Components: nested},
-	},
-	TestItemSliceType: {
-		{Name: "Field", Type: "int32[]"},
-		{Name: "DifferentField", Type: "string[]"},
-		{Name: "OracleId", Type: "uint8[]"},
-		{Name: "OracleIds", Type: "bytes32[]"},
-		{Name: "Account", Type: "bytes32[]"},
-		{Name: "Accounts", Type: "bytes32[][]"},
-		{Name: "BigField", Type: "int192[]"},
-		{Name: "NestedStruct", Type: "tuple[]", Components: nested},
-	},
-	TestItemArray1Type: {
-		{Name: "Field", Type: "int32[1]"},
-		{Name: "DifferentField", Type: "string[1]"},
-		{Name: "OracleId", Type: "uint8[1]"},
-		{Name: "OracleIds", Type: "bytes32[1]"},
-		{Name: "Account", Type: "bytes32[1]"},
-		{Name: "Accounts", Type: "bytes32[][1]"},
-		{Name: "BigField", Type: "int192[1]"},
-		{Name: "NestedStruct", Type: "tuple[1]", Components: nested},
-	},
-	TestItemArray2Type: {
-		{Name: "Field", Type: "int32[2]"},
-		{Name: "DifferentField", Type: "string[2]"},
-		{Name: "OracleId", Type: "uint8[2]"},
-		{Name: "OracleIds", Type: "bytes32[2]"},
-		{Name: "Account", Type: "bytes32[2]"},
-		{Name: "Accounts", Type: "bytes32[][2]"},
-		{Name: "BigField", Type: "int192[2]"},
-		{Name: "NestedStruct", Type: "tuple[2]", Components: nested},
-	},
-	sizeItemType: {
-		{Name: "Stuff", Type: "int256[]"},
-		{Name: "OtherStuff", Type: "int256"},
-	},
-}
-
-func TestChainReader(t *testing.T) {
-	RunChainReaderInterfaceTests(t, &interfaceTester{})
-	t.Run("GetMaxEncodingSize delegates to GetMaxSize", func(t *testing.T) {
-		runSizeDelegationTest(t, func(reader relaytypes.ChainReader, ctx context.Context, i int, s string) (int, error) {
-			return reader.GetMaxEncodingSize(ctx, i, s)
-		})
+	var testCases []testCase
+	testCases = append(testCases, testCase{
+		name:     "median abi",
+		abiInput: `{"inputs":[{"internalType":"uint32","name":"_maximumGasPrice","type":"uint32"},{"internalType":"uint32","name":"_reasonableGasPrice","type":"uint32"},{"internalType":"uint32","name":"_microLinkPerEth","type":"uint32"},{"internalType":"uint32","name":"_linkGweiPerObservation","type":"uint32"},{"internalType":"uint32","name":"_linkGweiPerTransmission","type":"uint32"},{"internalType":"address","name":"_link","type":"address"},{"internalType":"address","name":"_validator","type":"address"},{"internalType":"int192","name":"_minAnswer","type":"int192"},{"internalType":"int192","name":"_maxAnswer","type":"int192"},{"internalType":"contractAccessControllerInterface","name":"_billingAccessController","type":"address"},{"internalType":"contractAccessControllerInterface","name":"_requesterAccessController","type":"address"},{"internalType":"uint8","name":"_decimals","type":"uint8"},{"internalType":"string","name":"_description","type":"string"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"int256","name":"current","type":"int256"},{"indexed":true,"internalType":"uint256","name":"roundId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"updatedAt","type":"uint256"}],"name":"AnswerUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"contractAccessControllerInterface","name":"old","type":"address"},{"indexed":false,"internalType":"contractAccessControllerInterface","name":"current","type":"address"}],"name":"BillingAccessControllerSet","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint32","name":"maximumGasPrice","type":"uint32"},{"indexed":false,"internalType":"uint32","name":"reasonableGasPrice","type":"uint32"},{"indexed":false,"internalType":"uint32","name":"microLinkPerEth","type":"uint32"},{"indexed":false,"internalType":"uint32","name":"linkGweiPerObservation","type":"uint32"},{"indexed":false,"internalType":"uint32","name":"linkGweiPerTransmission","type":"uint32"}],"name":"BillingSet","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint32","name":"previousConfigBlockNumber","type":"uint32"},{"indexed":false,"internalType":"uint64","name":"configCount","type":"uint64"},{"indexed":false,"internalType":"address[]","name":"signers","type":"address[]"},{"indexed":false,"internalType":"address[]","name":"transmitters","type":"address[]"},{"indexed":false,"internalType":"uint8","name":"threshold","type":"uint8"},{"indexed":false,"internalType":"uint64","name":"encodedConfigVersion","type":"uint64"},{"indexed":false,"internalType":"bytes","name":"encoded","type":"bytes"}],"name":"ConfigSet","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"roundId","type":"uint256"},{"indexed":true,"internalType":"address","name":"startedBy","type":"address"},{"indexed":false,"internalType":"uint256","name":"startedAt","type":"uint256"}],"name":"NewRound","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint32","name":"aggregatorRoundId","type":"uint32"},{"indexed":false,"internalType":"int192","name":"answer","type":"int192"},{"indexed":false,"internalType":"address","name":"transmitter","type":"address"},{"indexed":false,"internalType":"int192[]","name":"observations","type":"int192[]"},{"indexed":false,"internalType":"bytes","name":"observers","type":"bytes"},{"indexed":false,"internalType":"bytes32","name":"rawReportContext","type":"bytes32"}],"name":"NewTransmission","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"transmitter","type":"address"},{"indexed":false,"internalType":"address","name":"payee","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"OraclePaid","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"}],"name":"OwnershipTransferRequested","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"transmitter","type":"address"},{"indexed":true,"internalType":"address","name":"current","type":"address"},{"indexed":true,"internalType":"address","name":"proposed","type":"address"}],"name":"PayeeshipTransferRequested","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"transmitter","type":"address"},{"indexed":true,"internalType":"address","name":"previous","type":"address"},{"indexed":true,"internalType":"address","name":"current","type":"address"}],"name":"PayeeshipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"contractAccessControllerInterface","name":"old","type":"address"},{"indexed":false,"internalType":"contractAccessControllerInterface","name":"current","type":"address"}],"name":"RequesterAccessControllerSet","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"requester","type":"address"},{"indexed":false,"internalType":"bytes16","name":"configDigest","type":"bytes16"},{"indexed":false,"internalType":"uint32","name":"epoch","type":"uint32"},{"indexed":false,"internalType":"uint8","name":"round","type":"uint8"}],"name":"RoundRequested","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previous","type":"address"},{"indexed":true,"internalType":"address","name":"current","type":"address"}],"name":"ValidatorUpdated","type":"event"},{"inputs":[],"name":"LINK","outputs":[{"internalType":"contractLinkTokenInterface","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"acceptOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_transmitter","type":"address"}],"name":"acceptPayeeship","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"billingAccessController","outputs":[{"internalType":"contractAccessControllerInterface","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"description","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_roundId","type":"uint256"}],"name":"getAnswer","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getBilling","outputs":[{"internalType":"uint32","name":"maximumGasPrice","type":"uint32"},{"internalType":"uint32","name":"reasonableGasPrice","type":"uint32"},{"internalType":"uint32","name":"microLinkPerEth","type":"uint32"},{"internalType":"uint32","name":"linkGweiPerObservation","type":"uint32"},{"internalType":"uint32","name":"linkGweiPerTransmission","type":"uint32"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint80","name":"_roundId","type":"uint80"}],"name":"getRoundData","outputs":[{"internalType":"uint80","name":"roundId","type":"uint80"},{"internalType":"int256","name":"answer","type":"int256"},{"internalType":"uint256","name":"startedAt","type":"uint256"},{"internalType":"uint256","name":"updatedAt","type":"uint256"},{"internalType":"uint80","name":"answeredInRound","type":"uint80"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_roundId","type":"uint256"}],"name":"getTimestamp","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"latestAnswer","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"latestConfigDetails","outputs":[{"internalType":"uint32","name":"configCount","type":"uint32"},{"internalType":"uint32","name":"blockNumber","type":"uint32"},{"internalType":"bytes16","name":"configDigest","type":"bytes16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"latestRound","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"latestRoundData","outputs":[{"internalType":"uint80","name":"roundId","type":"uint80"},{"internalType":"int256","name":"answer","type":"int256"},{"internalType":"uint256","name":"startedAt","type":"uint256"},{"internalType":"uint256","name":"updatedAt","type":"uint256"},{"internalType":"uint80","name":"answeredInRound","type":"uint80"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"latestTimestamp","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"latestTransmissionDetails","outputs":[{"internalType":"bytes16","name":"configDigest","type":"bytes16"},{"internalType":"uint32","name":"epoch","type":"uint32"},{"internalType":"uint8","name":"round","type":"uint8"},{"internalType":"int192","name":"latestAnswer","type":"int192"},{"internalType":"uint64","name":"latestTimestamp","type":"uint64"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"linkAvailableForPayment","outputs":[{"internalType":"int256","name":"availableBalance","type":"int256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"maxAnswer","outputs":[{"internalType":"int192","name":"","type":"int192"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"minAnswer","outputs":[{"internalType":"int192","name":"","type":"int192"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_signerOrTransmitter","type":"address"}],"name":"oracleObservationCount","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_transmitter","type":"address"}],"name":"owedPayment","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"addresspayable","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"requestNewRound","outputs":[{"internalType":"uint80","name":"","type":"uint80"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"requesterAccessController","outputs":[{"internalType":"contractAccessControllerInterface","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint32","name":"_maximumGasPrice","type":"uint32"},{"internalType":"uint32","name":"_reasonableGasPrice","type":"uint32"},{"internalType":"uint32","name":"_microLinkPerEth","type":"uint32"},{"internalType":"uint32","name":"_linkGweiPerObservation","type":"uint32"},{"internalType":"uint32","name":"_linkGweiPerTransmission","type":"uint32"}],"name":"setBilling","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"contractAccessControllerInterface","name":"_billingAccessController","type":"address"}],"name":"setBillingAccessController","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address[]","name":"_signers","type":"address[]"},{"internalType":"address[]","name":"_transmitters","type":"address[]"},{"internalType":"uint8","name":"_threshold","type":"uint8"},{"internalType":"uint64","name":"_encodedConfigVersion","type":"uint64"},{"internalType":"bytes","name":"_encoded","type":"bytes"}],"name":"setConfig","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address[]","name":"_transmitters","type":"address[]"},{"internalType":"address[]","name":"_payees","type":"address[]"}],"name":"setPayees","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"contractAccessControllerInterface","name":"_requesterAccessController","type":"address"}],"name":"setRequesterAccessController","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_newValidator","type":"address"}],"name":"setValidator","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_to","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_transmitter","type":"address"},{"internalType":"address","name":"_proposed","type":"address"}],"name":"transferPayeeship","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes","name":"_report","type":"bytes"},{"internalType":"bytes32[]","name":"_rs","type":"bytes32[]"},{"internalType":"bytes32[]","name":"_ss","type":"bytes32[]"},{"internalType":"bytes32","name":"_rawVs","type":"bytes32"}],"name":"transmit","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"transmitters","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"validator","outputs":[{"internalType":"contractAggregatorValidatorInterface","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"version","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_recipient","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"}],"name":"withdrawFunds","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_transmitter","type":"address"}],"name":"withdrawPayment","outputs":[],"stateMutability":"nonpayable","type":"function"}`,
+		chainReadingDefinitions: ` "latestTransmissionDetails":{
+											"chainSpecificName": "latestTransmissionDetails",
+											"returnValues": [
+												"configDigest",
+												"epoch",
+												"round",
+												"latestAnswer",
+												"latestTimestamp"
+											],
+											"readType": 0
+											},
+									"latestRoundRequested":{
+											"chainSpecificName": "RoundRequested",
+											"params": {
+												"requester": ""
+											},
+											"returnValues": [
+												"requester",
+												"configDigest",
+												"epoch",
+												"round"
+											],
+											"readType": 1
+										}`,
 	})
-
-	t.Run("GetMaxDecodingSize delegates to GetMaxSize", func(t *testing.T) {
-		runSizeDelegationTest(t, func(reader relaytypes.ChainReader, ctx context.Context, i int, s string) (int, error) {
-			return reader.GetMaxDecodingSize(ctx, i, s)
+	testCases = append(testCases,
+		testCase{
+			name:     "eventWithNoIndexedTopics",
+			abiInput: `{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint112","name":"reserve0","type":"uint112"},{"indexed":false,"internalType":"uint112","name":"reserve1","type":"uint112"}],"name":"Sync","type":"event"}`,
+			chainReadingDefinitions: ` "Sync":{
+											"chainSpecificName": "Sync",
+											"returnValues": [
+												"reserve0",
+												"reserve1"
+											],
+											"readType": 1
+										}`,
 		})
+
+	testCases = append(testCases,
+		testCase{
+			name:     "eventWithMultipleIndexedTopics",
+			abiInput: `{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"sender","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount0In","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"amount1In","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"amount0Out","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"amount1Out","type":"uint256"},{"indexed":true,"internalType":"address","name":"to","type":"address"}],"name":"Swap","type":"event"}`,
+			chainReadingDefinitions: `"Swap":{
+											"chainSpecificName": "Swap",
+											"params":{
+												"sender": "0x0",
+												"to": "0x0"
+											},
+											"returnValues": [
+												"sender",
+												"amount0In",
+												"amount1In",
+												"amount0Out",
+												"amount1Out",
+												"to"
+											],
+											"readType": 1
+										}`,
+		})
+
+	testCases = append(testCases,
+		testCase{
+			name:     "functionWithOneParamAndMultipleResponses",
+			abiInput: `{"constant":true,"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserAccountData","outputs":[{"internalType":"uint256","name":"totalLiquidityETH","type":"uint256"},{"internalType":"uint256","name":"totalCollateralETH","type":"uint256"},{"internalType":"uint256","name":"totalBorrowsETH","type":"uint256"},{"internalType":"uint256","name":"totalFeesETH","type":"uint256"},{"internalType":"uint256","name":"availableBorrowsETH","type":"uint256"},{"internalType":"uint256","name":"currentLiquidationThreshold","type":"uint256"},{"internalType":"uint256","name":"ltv","type":"uint256"},{"internalType":"uint256","name":"healthFactor","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"}`,
+			chainReadingDefinitions: `"getUserAccountData":{
+											"chainSpecificName": "getUserAccountData",
+											"params":{
+												"_user": "0x0"
+											},
+											"returnValues": [
+												"totalLiquidityETH",
+												"totalCollateralETH",
+												"totalBorrowsETH",
+												"totalFeesETH",
+												"availableBorrowsETH",
+												"currentLiquidationThreshold",
+												"healthFactor"
+											],
+											"readType": 0
+										}`,
+		})
+
+	testCases = append(testCases,
+		testCase{
+			name:     "functionWithNoParamsAndOneResponseWithNoName",
+			abiInput: `{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}`,
+			chainReadingDefinitions: `"name":{
+											"chainSpecificName": "name",
+											"returnValues": [
+												""
+											],
+											"readType": 0
+										}`,
+		})
+
+	testCases = append(testCases,
+		testCase{
+			name:     "functionWithMultipleParamsAndOneResult",
+			abiInput: `{"inputs":[{"internalType":"address","name":"_input","type":"address"},{"internalType":"address","name":"_output","type":"address"},{"internalType":"uint256","name":"_inputQuantity","type":"uint256"}],"name":"getSwapOutput","outputs":[{"internalType":"uint256","name":"swapOutput","type":"uint256"}],"stateMutability":"view","type":"function"}`,
+			chainReadingDefinitions: `"getSwapOutput":{
+											"chainSpecificName": "getSwapOutput",
+											"params":{
+												"_input":"0x0",
+												"_output":"0x0",
+												"_inputQuantity":"0x0"
+											},
+											"returnValues": [
+												"swapOutput"
+											],
+											"readType": 0
+										}`,
+		})
+
+	// TODO how to handle return values for tuples
+	/*testCases = append(testCases,
+	testCase{
+		name: "functionWithOneParamAndMultipleTupleResponse",
+		 struct BassetPersonal {
+		    // Address of the bAsset
+		    address addr;
+		    // Address of the bAsset
+		    address integrator;
+		    // An ERC20 can charge transfer fee, for example USDT, DGX tokens.
+		    bool hasTxFee; // takes a byte in storage
+		    // Status of the bAsset
+		    BassetStatus status;
+		}
+
+		// Status of the Basset - has it broken its peg?
+		enum BassetStatus {
+		    Default,
+		    Normal,
+		    BrokenBelowPeg,
+		    BrokenAbovePeg,
+		    Blacklisted,
+		    Liquidating,
+		    Liquidated,
+		    Failed
+		}
+
+		struct BassetData {
+		    // 1 Basset * ratio / ratioScale == x Masset (relative value)
+		    // If ratio == 10e8 then 1 bAsset = 10 mAssets
+		    // A ratio is divised as 10^(18-tokenDecimals) * measurementMultiple(relative value of 1 base unit)
+		    uint128 ratio;
+		    // Amount of the Basset that is held in Collateral
+		    uint128 vaultBalance;
+		}
+		abiInput: `{"inputs":[{"internalType":"address","name":"_bAsset","type":"address"}],"name":"getBasset","outputs":[{"components":[{"internalType":"address","name":"addr","type":"address"},{"internalType":"address","name":"integrator","type":"address"},{"internalType":"bool","name":"hasTxFee","type":"bool"},{"internalType":"enum BassetStatus","name":"status","type":"uint8"}],"internalType":"struct BassetPersonal","name":"personal","type":"tuple"},{"components":[{"internalType":"uint128","name":"ratio","type":"uint128"},{"internalType":"uint128","name":"vaultBalance","type":"uint128"}],"internalType":"struct BassetData","name":"vaultData","type":"tuple"}],"stateMutability":"view","type":"function"}`,
+		chainReadingDefinitions: `getBasset:{
+										chainSpecificName: getBasset,
+										params:{
+											_bAsset:"0x0",
+										},
+										returnValues: [
+											TODO,
+										]
+										readType: 0,
+									}`,
 	})
-}
+	*/
 
-type interfaceTester struct {
-	chain    *mocks.Chain
-	contract relaytypes.BoundContract
-	ropts    *types.RelayOpts
-	defs     map[string]abi.Arguments
-	auth     *bind.TransactOpts
-	sim      *backends.SimulatedBackend
-	pk       *ecdsa.PrivateKey
-	evmTest  *testfiles.Testfiles
-}
+	// TODO how to handle return values for tuples
+	/*
+		testCases = append(testCases,
+			testCase{
+				name: "functionWithNoParamsAndTupleResponse",
+				 struct FeederConfig {
+					uint256 supply;
+					uint256 a;
+					WeightLimits limits;
+				}
 
-func (it *interfaceTester) Setup(t *testing.T) {
-	// can re-use the same chain for tests, just make new contract for each test
-	if it.chain == nil {
-		defBytes, err := json.Marshal(defs)
-		require.NoError(t, err)
-		require.NoError(t, json.Unmarshal(defBytes, &it.defs))
-		it.chain = &mocks.Chain{}
-		it.setupChain(t)
-		it.chain.On("LogPoller").Return(lpmocks.NewLogPoller(t))
+				struct WeightLimits {
+					uint128 min;
+					uint128 max;
+				}
+				abiInput: `{"inputs":[],"name":"getConfig","outputs":[{"components":[{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"uint256","name":"a","type":"uint256"},{"components":[{"internalType":"uint128","name":"min","type":"uint128"},{"internalType":"uint128","name":"max","type":"uint128"}],"internalType":"struct WeightLimits","name":"limits","type":"tuple"}],"internalType":"struct FeederConfig","name":"config","type":"tuple"}],"stateMutability":"view","type":"function"}`,
+				chainReadingDefinitions: `getConfig:{
+												chainSpecificName: getConfig,
+												params:{},
+												returnValues: [
+													TODO,
+												]
+												readType: 0,
+											}`,
+			})*/
 
-		relayConfig := types.RelayConfig{
-			ChainReader: &types.ChainReaderConfig{
-				ChainContractReaders: map[string]types.ChainContractReader{
-					"LatestValueHolder": {
-						ContractABI: testfiles.TestfilesMetaData.ABI,
-						ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
-							anyMethodName: {
-								ChainSpecificName: "GetElementAtIndex",
-								ReturnValues: []string{
-									"Field",
-									"DifferentField",
-									"OracleId",
-									"OracleIds",
-									"Account",
-									"Accounts",
-									"BigField",
-									"NestedStruct",
-								},
-							},
-						},
-					},
-				},
-				ChainCodecConfigs: map[string]types.ChainCodedConfig{},
-			},
+	var cfg types.ChainReaderConfig
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			abiString := strings.Replace(tc.abiInput, `"`, `\"`, -1)
+			formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, abiString, tc.chainReadingDefinitions)
+			assert.NoError(t, json.Unmarshal([]byte(formattedCfgJsonString), &cfg))
+			assert.NoError(t, evm.ValidateChainReaderConfig(cfg))
+		})
+	}
+
+	t.Run("large config with all test cases", func(t *testing.T) {
+		var largeABI string
+		var manyChainReadingDefinitions string
+		for _, tc := range testCases {
+			largeABI += tc.abiInput + ","
+			manyChainReadingDefinitions += tc.chainReadingDefinitions + ","
 		}
 
-		for k, v := range defs {
-			defBytes, err := json.Marshal(v)
-			require.NoError(t, err)
-			entry := relayConfig.ChainReader.ChainCodecConfigs[k]
-			entry.TypeAbi = string(defBytes)
-			relayConfig.ChainReader.ChainCodecConfigs[k] = entry
-		}
-
-		relayBytes, err := json.Marshal(relayConfig)
-		require.NoError(t, err)
-		it.ropts = &types.RelayOpts{
-			RelayArgs: relaytypes.RelayArgs{RelayConfig: relayBytes},
-		}
-	}
-}
-
-func (it *interfaceTester) Teardown(_ *testing.T) {
-	it.contract.Address = ""
-}
-
-func (it *interfaceTester) Name() string {
-	return "EVM"
-}
-
-func (it *interfaceTester) EncodeFields(t *testing.T, request *EncodeRequest) ocr2types.Report {
-	if request.TestOn == TestItemType {
-		return it.encodeFieldsOnItem(t, request)
-	}
-	return it.encodeFieldsOnSliceOrArray(t, request)
-}
-
-func (it *interfaceTester) GetAccountBytes(i int) []byte {
-	account := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2}
-	account[i%32] += byte(i)
-	account[(i+3)%32] += byte(i + 3)
-	return account
-}
-
-func (it *interfaceTester) GetChainReader(t *testing.T) relaytypes.ChainReader {
-	cr, err := evm.NewChainReader(logger.TestLogger(t), it.chain, it.ropts)
-	require.NoError(t, err)
-	return cr
-}
-
-func (it *interfaceTester) IncludeArrayEncodingSizeEnforcement() bool {
-	return true
-}
-
-func (it *interfaceTester) SetLatestValue(t *testing.T, ctx context.Context, testStruct *TestStruct) (relaytypes.BoundContract, string) {
-	// Since most tests don't use the contract, it's set up lazily to save time
-	if it.contract.Address == "" {
-		it.contract.Address = it.deployNewContract(t, ctx)
-		it.contract.Name = anyMethodName
-		it.contract.Pending = false
-	}
-
-	tx, err := it.evmTest.AddTestStruct(
-		it.auth,
-		testStruct.Field,
-		testStruct.DifferentField,
-		uint8(testStruct.OracleId),
-		convertOracleIds(testStruct.OracleIds),
-		[32]byte(testStruct.Account),
-		convertAccounts(testStruct.Accounts),
-		testStruct.BigField,
-		toInternalType(testStruct.NestedStruct),
-	)
-	require.NoError(t, err)
-	it.sim.Commit()
-	it.incNonce()
-	it.awaitTx(t, ctx, tx)
-	return it.contract, anyMethodName
-}
-
-func (it *interfaceTester) encodeFieldsOnItem(t *testing.T, request *EncodeRequest) ocr2types.Report {
-	return packArgs(t, argsFromTestStruct(request.TestStructs[0]), it.defs[TestItemType], request)
-}
-
-func (it *interfaceTester) encodeFieldsOnSliceOrArray(t *testing.T, request *EncodeRequest) []byte {
-	oargs := it.defs[request.TestOn]
-
-	var field []int32
-	var differentField []string
-	var oracleId []byte
-	var oracleIds [][32]byte
-	var account [][32]byte
-	var accounts [][][32]byte
-	var bigField []*big.Int
-	var nested []testfiles.MidLevelTestStruct
-
-	for _, testStruct := range request.TestStructs {
-		field = append(field, testStruct.Field)
-		differentField = append(differentField, testStruct.DifferentField)
-		oracleId = append(oracleId, byte(testStruct.OracleId))
-		convertedIds := convertOracleIds(testStruct.OracleIds)
-
-		convertedAccounts := convertAccounts(testStruct.Accounts)
-
-		oracleIds = append(oracleIds, convertedIds)
-		account = append(account, [32]byte(testStruct.Account))
-		accounts = append(accounts, convertedAccounts)
-		bigField = append(bigField, testStruct.BigField)
-		nested = append(nested, toInternalType(testStruct.NestedStruct))
-	}
-
-	allArgs := []any{field, differentField, oracleId, oracleIds, account, accounts, bigField, nested}
-
-	switch request.TestOn {
-	case TestItemArray1Type:
-		for i, arg := range allArgs {
-			allArgs[i] = toFixedSized(arg, 1)
-		}
-	case TestItemArray2Type:
-		for i, arg := range allArgs {
-			allArgs[i] = toFixedSized(arg, 2)
-		}
-	}
-
-	return packArgs(t, allArgs, oargs, request)
-}
-
-func convertOracleIds(oracleIds [32]commontypes.OracleID) [32]byte {
-	convertedIds := [32]byte{}
-	for i, id := range oracleIds {
-		convertedIds[i] = byte(id)
-	}
-	return convertedIds
-}
-
-func convertAccounts(accounts [][]byte) [][32]byte {
-	convertedAccounts := make([][32]byte, len(accounts))
-	for i, a := range accounts {
-		convertedAccounts[i] = [32]byte(a)
-	}
-	return convertedAccounts
-}
-
-func (it *interfaceTester) setupChain(t *testing.T) {
-	privateKey, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	it.pk = privateKey
-
-	it.auth, err = bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
-	require.NoError(t, err)
-
-	it.sim = backends.NewSimulatedBackend(core.GenesisAlloc{it.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
-	it.sim.Commit()
-	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
-}
-
-func (it *interfaceTester) deployNewContract(t *testing.T, ctx context.Context) string {
-	gasPrice, err := it.sim.SuggestGasPrice(ctx)
-	require.NoError(t, err)
-	it.auth.GasPrice = gasPrice
-
-	// 105528 was in the error: gas too low: have 0, want 105528
-	// Not sure if there's a better way to get it.
-	it.auth.GasLimit = 1055280000
-
-	address, tx, ts, err := testfiles.DeployTestfiles(it.auth, it.sim)
-
-	require.NoError(t, err)
-	it.sim.Commit()
-	it.evmTest = ts
-	it.incNonce()
-	it.awaitTx(t, ctx, tx)
-	return address.String()
-}
-
-func (it *interfaceTester) awaitTx(t *testing.T, ctx context.Context, tx *evmtypes.Transaction) {
-	receipt, err := it.sim.TransactionReceipt(ctx, tx.Hash())
-	require.NoError(t, err)
-	require.Equal(t, evmtypes.ReceiptStatusSuccessful, receipt.Status)
-}
-
-func (it *interfaceTester) incNonce() {
-	if it.auth.Nonce == nil {
-		it.auth.Nonce = big.NewInt(1)
-	} else {
-		it.auth.Nonce = it.auth.Nonce.Add(it.auth.Nonce, big.NewInt(1))
-	}
-}
-
-func packArgs(t *testing.T, allArgs []any, oargs abi.Arguments, request *EncodeRequest) []byte {
-	// extra capacity in case we add an argument
-	args := make(abi.Arguments, len(oargs), len(oargs)+1)
-	copy(args, oargs)
-	// decoding has extra field to decode
-	if request.ExtraField {
-		fakeType, err := abi.NewType("int32", "", []abi.ArgumentMarshaling{})
-		require.NoError(t, err)
-		args = append(args, abi.Argument{Name: "FakeField", Type: fakeType})
-		allArgs = append(allArgs)
-	}
-
-	if request.MissingField {
-		args = args[1:]
-		allArgs = allArgs[1:]
-	}
-
-	bytes, err := args.Pack(allArgs...)
-	require.NoError(t, err)
-	return bytes
-}
-
-func getAccounts(first TestStruct) [][32]byte {
-	accountBytes := make([][32]byte, len(first.Accounts))
-	for i, account := range first.Accounts {
-		accountBytes[i] = [32]byte(account)
-	}
-	return accountBytes
-}
-
-func argsFromTestStruct(ts TestStruct) []any {
-	return []any{
-		ts.Field,
-		ts.DifferentField,
-		uint8(ts.OracleId),
-		getOracleIds(ts),
-		[32]byte(ts.Account),
-		getAccounts(ts),
-		ts.BigField,
-		toInternalType(ts.NestedStruct),
-	}
-}
-
-func getOracleIds(first TestStruct) [32]byte {
-	oracleIds := [32]byte{}
-	for i, oracleId := range first.OracleIds {
-		oracleIds[i] = byte(oracleId)
-	}
-	return oracleIds
-}
-
-func toFixedSized(item any, size int) any {
-	rItem := reflect.ValueOf(item)
-	arrayType := reflect.ArrayOf(size, rItem.Type().Elem())
-	return rItem.Convert(arrayType).Interface()
-}
-
-func toInternalType(m MidLevelTestStruct) testfiles.MidLevelTestStruct {
-	return testfiles.MidLevelTestStruct{
-		FixedBytes: m.FixedBytes,
-		Inner: testfiles.InnerTestStruct{
-			I: int64(m.Inner.I),
-			S: m.Inner.S,
-		},
-	}
-}
-
-func runSizeDelegationTest(t *testing.T, run func(relaytypes.ChainReader, context.Context, int, string) (int, error)) {
-	it := &interfaceTester{}
-	it.Setup(t)
-
-	cr := it.GetChainReader(t)
-
-	ctx := context.Background()
-	actual, err := run(cr, ctx, 10, sizeItemType)
-	require.NoError(t, err)
-
-	expected, _ := evm.GetMaxSize(10, it.defs[sizeItemType])
-	assert.Equal(t, expected, actual)
+		largeABI = largeABI[:len(largeABI)-1]
+		manyChainReadingDefinitions = manyChainReadingDefinitions[:len(manyChainReadingDefinitions)-1]
+		formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, strings.Replace(largeABI, `"`, `\"`, -1), manyChainReadingDefinitions)
+		assert.NoError(t, json.Unmarshal([]byte(formattedCfgJsonString), &cfg))
+		assert.NoError(t, evm.ValidateChainReaderConfig(cfg))
+	})
 }
