@@ -44,7 +44,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     address router,
     Config memory config,
     address linkToNativeFeed
-  ) OCR2Base(true) FunctionsBilling(router, config, linkToNativeFeed) {}
+  ) OCR2Base() FunctionsBilling(router, config, linkToNativeFeed) {}
 
   /// @inheritdoc IFunctionsCoordinator
   function getThresholdPublicKey() external view override returns (bytes memory) {
@@ -151,7 +151,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       numberOfFulfillments != onchainMetadata.length ||
       numberOfFulfillments != offchainMetadata.length
     ) {
-      revert ReportInvalid();
+      revert ReportInvalid(
+        "All fields on the report must be of equal length: requestIds, results, errors, onchainMetadata, offchainMetadata"
+      );
     }
 
     // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
