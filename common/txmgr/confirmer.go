@@ -619,10 +619,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reb
 
 	// It is safe to process separate keys concurrently
 	// NOTE: This design will block one key if another takes a really long time to execute
-	wg.Add(len(ec.enabledAddresses))
+	rebroadcastAddrs := ec.enabledAddresses
+	rebroadcastAddrs = append(rebroadcastAddrs, ec.tracker.GetAbandonedAddresses()...)
+	wg.Add(len(rebroadcastAddrs))
 	errors := []error{}
 	var errMu sync.Mutex
-	for _, address := range ec.enabledAddresses {
+	for _, address := range rebroadcastAddrs {
 		go func(fromAddress ADDR) {
 			if err := ec.rebroadcastWhereNecessary(ctx, fromAddress, blockHeight); err != nil {
 				errMu.Lock()
@@ -953,8 +955,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	var wg sync.WaitGroup
 	errors := []error{}
 	var errMu sync.Mutex
-	wg.Add(len(ec.enabledAddresses))
-	for _, address := range ec.enabledAddresses {
+	handleAddresses := ec.enabledAddresses
+	handleAddresses = append(handleAddresses, ec.tracker.GetAbandonedAddresses()...)
+	wg.Add(len(handleAddresses))
+	for _, address := range handleAddresses {
 		go func(fromAddress ADDR) {
 			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber()); err != nil {
 				errMu.Lock()

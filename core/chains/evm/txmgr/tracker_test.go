@@ -102,4 +102,22 @@ func TestEthTracker_ExceedingTTL(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, fatalTxes[0].ID, tx1.ID)
 	})
+
+	t.Run("unconfirmed transaction exceeding ttl", func(t *testing.T) {
+		tracker.XXXTestSetTTL(time.Nanosecond)
+
+		addr1 := cltest.MustGenerateRandomKey(t).Address
+		tx1 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr1)
+
+		err := tracker.TrackAbandonedTxes(ctx)
+		assert.NoError(t, err)
+
+		// Ensure tx1 is finalized as fatal for exceeding ttl
+		tracker.HandleAbandonedTxes(ctx)
+		assert.NotContains(t, tracker.GetAbandonedAddresses(), addr1)
+
+		fatalTxes, err := txStore.GetFatalTransactions(ctx)
+		assert.NoError(t, err)
+		assert.Equal(t, fatalTxes[0].ID, tx1.ID)
+	})
 }

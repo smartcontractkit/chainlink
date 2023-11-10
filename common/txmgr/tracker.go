@@ -173,19 +173,20 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) getTx(
 }
 
 // finalizeTx tries to finalize a transaction based on its current state.
+// Transactions exceeding ttl are either marked fatal.
 // Returns true if the transaction was finalized.
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) finalizeTx(
 	ctx context.Context, atx AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 	tx, err := tr.getTx(ctx, atx)
 	if err != nil {
-		tr.lggr.Errorw(err.Error())
+		tr.lggr.Errorw(errors.Wrap(err, "failed to get Tx").Error())
 		return false
 	}
 
 	switch tx.State {
 	case TxConfirmed, TxConfirmedMissingReceipt, TxFatalError:
 		return true
-	case TxInProgress:
+	case TxInProgress, TxUnstarted, TxUnconfirmed:
 		if atx.isValid() {
 			break
 		}
@@ -194,21 +195,6 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) finalizeTx(
 			break
 		}
 		return true
-	case TxUnstarted:
-		if err := tr.rebroadcastTx(ctx, tx); err != nil {
-			tr.lggr.Errorw(err.Error())
-		}
-		if atx.isValid() {
-			break
-		}
-
-		if err := tr.finalizeFatal(ctx, tx); err != nil {
-			tr.lggr.Errorw(err.Error())
-			break
-		}
-		return true
-	case TxUnconfirmed:
-		// TODO: Handle TxUnconfirmed
 	default:
 		tr.lggr.Panicw(fmt.Sprintf("unhandled transaction state: %v", tx.State))
 	}
@@ -216,32 +202,14 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) finalizeTx(
 	return false
 }
 
-// rebroadcastTx sets a transaction's state for rebroadcasting
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) rebroadcastTx(
-	ctx context.Context,
-	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-
-	if len(tx.TxAttempts) == 0 {
-		return errors.New("no TxAttempts for tx")
-	}
-
-	err := tr.txStore.UpdateTxUnstartedToInProgress(ctx, tx, &tx.TxAttempts[0])
-	if err != nil {
-		return errors.Wrap(err, "failed to rebroadcast transaction")
-	}
-
-	tr.lggr.Infow(fmt.Sprintf("tx %v set for rebroadcasting", tx.ID))
-	return nil
-}
-
 // finalizeFatal sets a transaction's state to fatal_error
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) finalizeFatal(
 	ctx context.Context,
 	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-
 	tx.Error.SetValid(fmt.Sprintf(
 		"abandoned transaction exceeded time to live of %d hours", int(tr.ttl.Hours())))
 
+	tx.State = TxInProgress
 	err := tr.txStore.UpdateTxFatalError(ctx, tx)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to mark tx %v as fatal", tx.ID))
