@@ -134,7 +134,7 @@ func (r *chainReader) LatestHeads(ctx context.Context, k int) ([]relaymercury.He
 	for x := 0; x < len(evmBlocks); x++ {
 		blocks[x] = relaymercury.Head{
 			Number:    uint64(evmBlocks[x].BlockNumber()),
-			Hash:      evmBlocks[x].Hash[:],
+			Hash:      evmBlocks[x].Hash.Bytes(),
 			Timestamp: uint64(evmBlocks[x].Timestamp.Unix()),
 		}
 	}
