@@ -36,6 +36,13 @@ var (
 	// MaxPayloadsPerUpkeep is the maximum number of logs allowed per upkeep every single call to the log provider.
 	MaxPayloadsPerUpkeep = 5
 	// MaxPayloads is the maximum number of payloads to return per call for all upkeeps.
+	//
+	// using this limit, we can calculate the maximum number of logs to return per upkeep:
+	// MaxPayloads / logsPerUpkeep = number of upkeeps that we can process each second
+	// 1. ideal case (a single log per upkeep)
+	// MaxPayloads / 1 = 500
+	// 2. worst case (all logs are for the same upkeep)
+	// MaxPayloads / MaxPayloadsPerUpkeep = 100
 	MaxPayloads = 500
 
 	readJobQueueSize = 64
