@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/smartcontractkit/chainlink-relay/pkg/codec"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
@@ -82,7 +81,7 @@ func (i *uint24) UnmarshalText(input []byte) error {
 func (i *uint24) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(24, bi) {
+	if bi.BitLen() > 24 {
 		return types.InvalidTypeError{}
 	}
 
@@ -160,7 +159,7 @@ func (i *uint40) UnmarshalText(input []byte) error {
 func (i *uint40) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(40, bi) {
+	if bi.BitLen() > 40 {
 		return types.InvalidTypeError{}
 	}
 
@@ -238,7 +237,7 @@ func (i *uint48) UnmarshalText(input []byte) error {
 func (i *uint48) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(48, bi) {
+	if bi.BitLen() > 48 {
 		return types.InvalidTypeError{}
 	}
 
@@ -316,7 +315,7 @@ func (i *uint56) UnmarshalText(input []byte) error {
 func (i *uint56) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(56, bi) {
+	if bi.BitLen() > 56 {
 		return types.InvalidTypeError{}
 	}
 
@@ -394,7 +393,7 @@ func (i *uint72) UnmarshalText(input []byte) error {
 func (i *uint72) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(72, bi) {
+	if bi.BitLen() > 72 {
 		return types.InvalidTypeError{}
 	}
 
@@ -472,7 +471,7 @@ func (i *uint80) UnmarshalText(input []byte) error {
 func (i *uint80) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(80, bi) {
+	if bi.BitLen() > 80 {
 		return types.InvalidTypeError{}
 	}
 
@@ -550,7 +549,7 @@ func (i *uint88) UnmarshalText(input []byte) error {
 func (i *uint88) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(88, bi) {
+	if bi.BitLen() > 88 {
 		return types.InvalidTypeError{}
 	}
 
@@ -628,7 +627,7 @@ func (i *uint96) UnmarshalText(input []byte) error {
 func (i *uint96) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(96, bi) {
+	if bi.BitLen() > 96 {
 		return types.InvalidTypeError{}
 	}
 
@@ -706,7 +705,7 @@ func (i *uint104) UnmarshalText(input []byte) error {
 func (i *uint104) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(104, bi) {
+	if bi.BitLen() > 104 {
 		return types.InvalidTypeError{}
 	}
 
@@ -784,7 +783,7 @@ func (i *uint112) UnmarshalText(input []byte) error {
 func (i *uint112) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(112, bi) {
+	if bi.BitLen() > 112 {
 		return types.InvalidTypeError{}
 	}
 
@@ -862,7 +861,7 @@ func (i *uint120) UnmarshalText(input []byte) error {
 func (i *uint120) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(120, bi) {
+	if bi.BitLen() > 120 {
 		return types.InvalidTypeError{}
 	}
 
@@ -940,7 +939,7 @@ func (i *uint128) UnmarshalText(input []byte) error {
 func (i *uint128) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(128, bi) {
+	if bi.BitLen() > 128 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1018,7 +1017,7 @@ func (i *uint136) UnmarshalText(input []byte) error {
 func (i *uint136) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(136, bi) {
+	if bi.BitLen() > 136 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1096,7 +1095,7 @@ func (i *uint144) UnmarshalText(input []byte) error {
 func (i *uint144) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(144, bi) {
+	if bi.BitLen() > 144 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1174,7 +1173,7 @@ func (i *uint152) UnmarshalText(input []byte) error {
 func (i *uint152) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(152, bi) {
+	if bi.BitLen() > 152 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1252,7 +1251,7 @@ func (i *uint160) UnmarshalText(input []byte) error {
 func (i *uint160) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(160, bi) {
+	if bi.BitLen() > 160 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1330,7 +1329,7 @@ func (i *uint168) UnmarshalText(input []byte) error {
 func (i *uint168) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(168, bi) {
+	if bi.BitLen() > 168 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1408,7 +1407,7 @@ func (i *uint176) UnmarshalText(input []byte) error {
 func (i *uint176) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(176, bi) {
+	if bi.BitLen() > 176 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1486,7 +1485,7 @@ func (i *uint184) UnmarshalText(input []byte) error {
 func (i *uint184) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(184, bi) {
+	if bi.BitLen() > 184 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1564,7 +1563,7 @@ func (i *uint192) UnmarshalText(input []byte) error {
 func (i *uint192) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(192, bi) {
+	if bi.BitLen() > 192 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1642,7 +1641,7 @@ func (i *uint200) UnmarshalText(input []byte) error {
 func (i *uint200) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(200, bi) {
+	if bi.BitLen() > 200 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1720,7 +1719,7 @@ func (i *uint208) UnmarshalText(input []byte) error {
 func (i *uint208) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(208, bi) {
+	if bi.BitLen() > 208 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1798,7 +1797,7 @@ func (i *uint216) UnmarshalText(input []byte) error {
 func (i *uint216) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(216, bi) {
+	if bi.BitLen() > 216 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1876,7 +1875,7 @@ func (i *uint224) UnmarshalText(input []byte) error {
 func (i *uint224) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(224, bi) {
+	if bi.BitLen() > 224 {
 		return types.InvalidTypeError{}
 	}
 
@@ -1954,7 +1953,7 @@ func (i *uint232) UnmarshalText(input []byte) error {
 func (i *uint232) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(232, bi) {
+	if bi.BitLen() > 232 {
 		return types.InvalidTypeError{}
 	}
 
@@ -2032,7 +2031,7 @@ func (i *uint240) UnmarshalText(input []byte) error {
 func (i *uint240) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(240, bi) {
+	if bi.BitLen() > 240 {
 		return types.InvalidTypeError{}
 	}
 
@@ -2110,7 +2109,7 @@ func (i *uint248) UnmarshalText(input []byte) error {
 func (i *uint248) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(248, bi) {
+	if bi.BitLen() > 248 {
 		return types.InvalidTypeError{}
 	}
 
@@ -2188,7 +2187,7 @@ func (i *uint256) UnmarshalText(input []byte) error {
 func (i *uint256) Verify() error {
 	bi := (*big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(256, bi) {
+	if bi.BitLen() > 256 {
 		return types.InvalidTypeError{}
 	}
 

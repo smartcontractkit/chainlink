@@ -31,13 +31,8 @@ func genInts() {
 			continue
 		}
 
-		signed := &IntType{Size: i}
-
-		unsigned := &IntType{
-			Prefix: "u",
-			Size:   i,
-			Signed: true,
-		}
+		signed := &IntType{Size: i, Signed: false}
+		unsigned := &IntType{Prefix: "u", Size: i}
 		intTypes = append(intTypes, signed, unsigned)
 	}
 	runTemplate("ints", intsTemplate, "int_types_gen.go", intTypes)
@@ -77,7 +72,7 @@ import "reflect"
 {{ range . }}
 type bytes{{.Size}} [{{.Size}}]byte
 func init() {
-	typeMap["bytes{{.Size}}"] = &abiEncodingType {
+	typeMap["bytes{{.Size}}"] = &AbiEncodingType {
 		Native: reflect.TypeOf([{{.Size}}]byte{}),
 		Checked: reflect.TypeOf(bytes{{.Size}}{}),
 	}
@@ -95,7 +90,6 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink-relay/pkg/codec"
 )
 
 type SizedBigInt interface {
@@ -145,7 +139,7 @@ func (i *{{.Prefix}}int{{.Size}}) Verify() error {
 func (i *{{.Prefix}}int{{.Size}}) private() {}
 
 func init() {
-	typeMap["{{.Prefix}}int{{.Size}}"] = &abiEncodingType {
+	typeMap["{{.Prefix}}int{{.Size}}"] = &AbiEncodingType {
 		Native: reflect.TypeOf((*big.Int)(nil)),
 		Checked: reflect.TypeOf((*{{.Prefix}}int{{.Size}})(nil)),
 	}
