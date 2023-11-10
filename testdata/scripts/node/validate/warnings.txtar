@@ -282,6 +282,9 @@ CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
 
+[TxmAsService]
+Enabled = false
+
 # Configuration warning:
 2 errors:
 	- P2P.V1: is deprecated and will be removed in a future version

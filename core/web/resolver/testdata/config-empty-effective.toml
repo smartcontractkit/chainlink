@@ -232,3 +232,6 @@ Enabled = false
 CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
+
+[TxmAsService]
+Enabled = false

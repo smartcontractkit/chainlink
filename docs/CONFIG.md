@@ -1638,6 +1638,20 @@ env = "test" # Example
 ```
 env is an example user specified key-value pair
 
+## TxmAsService
+```toml
+[TxmAsService]
+Enabled = false # Default
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled turns Transaction Manager as a service feature on or off. When enabled exposes endpoint to submit arbitrary EVM transaction
+using one of the keys enabled for the specified chain.
+
 ## EVM
 EVM defaults depend on ChainID:
 

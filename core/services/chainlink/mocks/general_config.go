@@ -591,6 +591,22 @@ func (_m *GeneralConfig) Tracing() config.Tracing {
 	return r0
 }
 
+// TxmAsService provides a mock function with given fields:
+func (_m *GeneralConfig) TxmAsService() config.TxmAsService {
+	ret := _m.Called()
+
+	var r0 config.TxmAsService
+	if rf, ok := ret.Get(0).(func() config.TxmAsService); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.TxmAsService)
+		}
+	}
+
+	return r0
+}
+
 // Validate provides a mock function with given fields:
 func (_m *GeneralConfig) Validate() error {
 	ret := _m.Called()

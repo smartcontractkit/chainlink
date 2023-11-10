@@ -597,3 +597,8 @@ SamplingRatio = 1.0 # Example
 [Tracing.Attributes]
 # env is an example user specified key-value pair
 env = "test" # Example
+
+[TxmAsService]
+# Enabled turns Transaction Manager as a service feature on or off. When enabled exposes endpoint to submit arbitrary EVM transaction
+# using one of the keys enabled for the specified chain.
+Enabled = false # Default
