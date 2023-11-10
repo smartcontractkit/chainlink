@@ -20,6 +20,15 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   using FunctionsResponse for FunctionsResponse.FulfillResult;
 
   uint256 private constant REASONABLE_GAS_PRICE_CEILING = 1_000_000_000_000_000; // 1 million gwei
+
+  event RequestBilled(
+    bytes32 indexed requestId,
+    uint96 juelsPerGas,
+    uint256 l1FeeShareWei,
+    uint96 callbackCostJuels,
+    uint96 totalCostJuels
+  );
+
   // ================================================================
   // |                  Request Commitment state                    |
   // ================================================================
@@ -268,12 +277,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint256 l1FeeShareWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data) / reportBatchSize;
     // Gas overhead without callback
     uint96 gasOverheadJuels = _getJuelsFromWei(gasOverheadWei + l1FeeShareWei);
+    uint96 juelsPerGas = _getJuelsFromWei(tx.gasprice);
 
     // The Functions Router will perform the callback to the client contract
     (FunctionsResponse.FulfillResult resultCode, uint96 callbackCostJuels) = _getRouter().fulfill(
       response,
       err,
-      _getJuelsFromWei(tx.gasprice), // Juels Per Gas conversion rate
+      juelsPerGas,
       gasOverheadJuels + commitment.donFee, // cost without callback or admin fee, those will be added by the Router
       msg.sender,
       commitment
@@ -292,6 +302,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       // Put donFee into the pool of fees, to be split later
       // Saves on storage writes that would otherwise be charged to the user
       s_feePool += commitment.donFee;
+      emit RequestBilled({
+        requestId: requestId,
+        juelsPerGas: juelsPerGas,
+        l1FeeShareWei: l1FeeShareWei,
+        callbackCostJuels: callbackCostJuels,
+        totalCostJuels: gasOverheadJuels + callbackCostJuels + commitment.donFee + commitment.adminFee
+      });
     }
 
     return resultCode;
@@ -357,15 +374,16 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // All transmitters are assumed to also be observers
     // Pay out the DON fee to all transmitters
     address[] memory transmitters = _getTransmitters();
-    if (transmitters.length == 0) {
+    uint256 numberOfTransmitters = transmitters.length;
+    if (numberOfTransmitters == 0) {
       revert NoTransmittersSet();
     }
-    uint96 feePoolShare = s_feePool / uint96(transmitters.length);
+    uint96 feePoolShare = s_feePool / uint96(numberOfTransmitters);
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
-    for (uint256 i = 0; i < transmitters.length; ++i) {
+    for (uint256 i = 0; i < numberOfTransmitters; ++i) {
       s_withdrawableTokens[transmitters[i]] += feePoolShare;
     }
-    s_feePool -= feePoolShare * uint96(transmitters.length);
+    s_feePool -= feePoolShare * uint96(numberOfTransmitters);
   }
 
   // Overriden in FunctionsCoordinator.sol
