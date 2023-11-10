@@ -155,7 +155,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HandleAband
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 	if !tr.isTracking {
-		return errors.New("not isTracking abandoned txes")
+		return errors.New("not tracking abandoned txes")
 	}
 
 	for id, atx := range tr.txCache {
