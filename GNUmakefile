@@ -61,6 +61,10 @@ chainlink-local-start:
 install-median: ## Build & install the chainlink-median binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
 
+.PHONY: install-medianpoc
+install-medianpoc: ## Build & install the chainlink-medianpoc binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \

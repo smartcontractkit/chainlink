@@ -37,12 +37,13 @@ var prEventTemplate = `
 
 func TestGetGithubMetadata(t *testing.T) {
 	repo, eventName, sha, event, runID := "chainlink", "merge_group", "a-sha", `{}`, "1234"
+	expectedRunURL := fmt.Sprintf("github.com/%s/actions/runs/%s", repo, runID)
 	ctx := getGithubMetadata(repo, eventName, sha, strings.NewReader(event), runID)
-	assert.Equal(t, Context{Repository: repo, CommitSHA: sha, Type: eventName, RunURL: fmt.Sprintf("%s/actions/%s", repo, runID)}, ctx)
+	assert.Equal(t, Context{Repository: repo, CommitSHA: sha, Type: eventName, RunURL: expectedRunURL}, ctx)
 
 	anotherSha, eventName, url := "another-sha", "pull_request", "a-url"
 	event = fmt.Sprintf(prEventTemplate, anotherSha, url)
 	sha = "302eb05d592132309b264e316f443f1ceb81b6c3"
 	ctx = getGithubMetadata(repo, eventName, sha, strings.NewReader(event), runID)
-	assert.Equal(t, Context{Repository: repo, CommitSHA: anotherSha, Type: eventName, PullRequestURL: url, RunURL: fmt.Sprintf("%s/actions/%s", repo, runID)}, ctx)
+	assert.Equal(t, Context{Repository: repo, CommitSHA: anotherSha, Type: eventName, PullRequestURL: url, RunURL: expectedRunURL}, ctx)
 }

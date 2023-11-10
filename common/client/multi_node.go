@@ -30,25 +30,6 @@ var (
 	ErroringNodeError = fmt.Errorf("no live nodes available")
 )
 
-const (
-	NodeSelectionModeHighestHead     = "HighestHead"
-	NodeSelectionModeRoundRobin      = "RoundRobin"
-	NodeSelectionModeTotalDifficulty = "TotalDifficulty"
-	NodeSelectionModePriorityLevel   = "PriorityLevel"
-)
-
-type NodeSelector[
-	CHAIN_ID types.ID,
-	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
-] interface {
-	// Select returns a Node, or nil if none can be selected.
-	// Implementation must be thread-safe.
-	Select() Node[CHAIN_ID, HEAD, RPC]
-	// Name returns the strategy name, e.g. "HighestHead" or "RoundRobin"
-	Name() string
-}
-
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
 // It also handles multiple node RPC connections simultaneously.
 type MultiNode[
@@ -113,6 +94,7 @@ type multiNode[
 	leaseDuration       time.Duration
 	leaseTicker         *time.Ticker
 	chainFamily         string
+	reportInterval      time.Duration
 
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, HEAD, RPC_CLIENT]
@@ -148,23 +130,13 @@ func NewMultiNode[
 	chainFamily string,
 	sendOnlyErrorParser func(err error) SendTxReturnCode,
 ) MultiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT] {
-	nodeSelector := func() NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT] {
-		switch selectionMode {
-		case NodeSelectionModeHighestHead:
-			return NewHighestHeadNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		case NodeSelectionModeRoundRobin:
-			return NewRoundRobinSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		case NodeSelectionModeTotalDifficulty:
-			return NewTotalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		case NodeSelectionModePriorityLevel:
-			return NewPriorityLevelNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
-		default:
-			panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", selectionMode))
-		}
-	}()
+	nodeSelector := newNodeSelector(selectionMode, nodes)
 
 	lggr := logger.Named("MultiNode").With("chainID", chainID.String())
 
+	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
+	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
+	const reportInterval = 6500 * time.Millisecond
 	c := &multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]{
 		nodes:               nodes,
 		sendonlys:           sendonlys,
@@ -178,6 +150,7 @@ func NewMultiNode[
 		leaseDuration:       leaseDuration,
 		chainFamily:         chainFamily,
 		sendOnlyErrorParser: sendOnlyErrorParser,
+		reportInterval:      reportInterval,
 	}
 
 	c.logger.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
@@ -341,10 +314,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 
 	c.report()
 
-	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
-	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
-	reportInterval := 6500 * time.Millisecond
-	monitor := time.NewTicker(utils.WithJitter(reportInterval))
+	monitor := time.NewTicker(utils.WithJitter(c.reportInterval))
 	defer monitor.Stop()
 
 	for {
