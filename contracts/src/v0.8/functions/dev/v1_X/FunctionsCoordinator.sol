@@ -7,7 +7,7 @@ import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Inte
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 
-import {ChainSpecificUtil} from "./ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "./libraries/ChainSpecificUtil.sol";
 import {Routable} from "./Routable.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
