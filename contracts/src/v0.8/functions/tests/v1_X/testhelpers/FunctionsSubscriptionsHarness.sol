@@ -27,8 +27,7 @@ contract FunctionsSubscriptionsHarness is FunctionsSubscriptions {
         estimatedTotalCostJuels,
         client,
         adminFee,
-        juelsPerGas,
-        gasUsed,
+        juelsPerGas * gasUsed,
         costWithoutCallbackJuels
       );
   }

@@ -109,11 +109,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     uint96 estimatedTotalCostJuels,
     address client,
     uint96 adminFee,
-    uint96 juelsPerGas,
-    uint96 gasUsed,
+    uint96 callbackGasCostJuels,
     uint96 costWithoutCallbackJuels
   ) internal returns (Receipt memory) {
-    uint96 callbackGasCostJuels = juelsPerGas * gasUsed;
     uint96 totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels;
 
     if (

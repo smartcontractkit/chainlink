@@ -375,8 +375,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       commitment.estimatedTotalCostJuels,
       commitment.client,
       commitment.adminFee,
-      juelsPerGas,
-      SafeCast.toUint96(result.gasUsed),
+      juelsPerGas * SafeCast.toUint96(result.gasUsed),
       costWithoutCallback
     );
 
