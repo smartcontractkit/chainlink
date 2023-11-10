@@ -3,6 +3,7 @@ package mercury_v1
 import (
 	"context"
 	"fmt"
+	"io"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -58,6 +59,15 @@ type mockORM struct {
 
 func (m *mockORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
 	return m.report, m.err
+}
+
+type mockChainReader struct {
+	err error
+	obs []relaymercury.Head
+}
+
+func (m *mockChainReader) LatestHeads(context.Context, int) ([]relaymercury.Head, error) {
+	return m.obs, m.err
 }
 
 func TestMercury_Observe(t *testing.T) {
@@ -385,6 +395,18 @@ func TestMercury_Observe(t *testing.T) {
 			assert.Equal(t, 2, int(obs.LatestBlocks[4].Num))
 
 			ht2.AssertExpectations(t)
+		})
+
+		t.Run("when chain reader returns an error", func(t *testing.T) {
+
+			ds.chainReader = &mockChainReader{
+				err: io.EOF,
+				obs: nil,
+			}
+
+			obs, err := ds.Observe(ctx, repts, true)
+			assert.Error(t, err)
+			assert.Equal(t, obs, relaymercuryv1.Observation{})
 		})
 	})
 }
