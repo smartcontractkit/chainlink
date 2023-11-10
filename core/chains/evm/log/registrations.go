@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+//go:generate mockery --quiet --inpackage --name Listener --output ./ --case=underscore --structname mockListener
+
 // 1. Each listener being registered can specify a custom NumConfirmations - number of block confirmations required for any log being sent to it.
 //
 // 2. All received logs are kept in an array and deleted ONLY after they are outside the confirmation range for all subscribers

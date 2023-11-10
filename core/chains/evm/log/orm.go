@@ -21,6 +21,8 @@ import (
 //   - Pending broadcast block numbers are synced to the min from the pool (or deleted when empty)
 //   - On reboot, backfill considers the min block number from unconsumed and pending broadcasts. Additionally, unconsumed
 //     entries are removed and the pending broadcasts number updated.
+//
+//go:generate mockery --quiet --inpackage --name ORM --output ./mocks --case underscore --structname mockORM
 type ORM interface {
 	// FindBroadcasts returns broadcasts for a range of block numbers, both consumed and unconsumed.
 	FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadcast, error)
