@@ -964,7 +964,7 @@ func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64
 	AND evm.receipts.block_number <= ($1 - evm.txes.min_confirmations) AND evm.txes.evm_chain_id = $2
 	`, blockNum, chainID.String())
 	if err != nil {
-		return nil, fmt.Errorf("FindTxesPendingCallback failed: %w", err)
+		return nil, fmt.Errorf("failed to retrieve transactions pending pipeline resume callback: %w", err)
 	}
 	receiptsPlus = fromDBReceiptsPlus(rs)
 	return
@@ -978,7 +978,7 @@ func (o *evmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTask
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	_, err := qq.Exec(`UPDATE evm.txes SET callback_completed = TRUE WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, pipelineTaskRunId, chainId.String())
 	if err != nil {
-		return fmt.Errorf("UpdateTxCallbackCompleted failed: %w", err)
+		return fmt.Errorf("failed to mark callback completed for transaction: %w", err)
 	}
 	return nil
 }

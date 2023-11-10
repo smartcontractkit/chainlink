@@ -1086,7 +1086,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 	receiptsPlus, err := ec.txStore.FindTxesPendingCallback(ctx, head.BlockNumber(), ec.chainID)
 
 	if err != nil {
-		return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
+		return err
 	}
 
 	if len(receiptsPlus) > 0 {
@@ -1105,11 +1105,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 
 		ec.lggr.Debugw("Callback: resuming tx with receipt", "output", output, "taskErr", taskErr, "pipelineTaskRunID", data.ID)
 		if err := ec.resumeCallback(data.ID, output, taskErr); err != nil {
-			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
+			return fmt.Errorf("failed to resume suspended pipeline run: %w", err)
 		}
 		// Mark tx as having completed callback
 		if err := ec.txStore.UpdateTxCallbackCompleted(ctx, data.ID, ec.chainID); err != nil {
-			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
+			return err
 		}
 	}
 
