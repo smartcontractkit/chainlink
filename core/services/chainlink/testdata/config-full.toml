@@ -243,6 +243,9 @@ SamplingRatio = 1.0
 env = 'dev'
 test = 'load'
 
+[TxmAsService]
+Enabled = true
+
 [[EVM]]
 ChainID = '1'
 Enabled = false

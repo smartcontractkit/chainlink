@@ -62,6 +62,7 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 }
 
 type EvmTransactionController struct {
+	Enabled     bool
 	Logger      logger.SugaredLogger
 	TxmStorage  txmgr.EvmTxStore
 	AuditLogger audit.AuditLogger
@@ -71,6 +72,7 @@ type EvmTransactionController struct {
 
 func NewEVMTransactionController(app chainlink.Application) *EvmTransactionController {
 	return &EvmTransactionController{
+		Enabled:     app.GetConfig().TxmAsService().Enabled(),
 		TxmStorage:  app.TxmStorageService(),
 		Logger:      app.GetLogger(),
 		AuditLogger: app.GetAuditLogger(),
@@ -82,6 +84,10 @@ func NewEVMTransactionController(app chainlink.Application) *EvmTransactionContr
 // Create signs and sends transaction from specified address. If address is not provided uses one of enabled keys for
 // specified chain.
 func (tc *EvmTransactionController) Create(c *gin.Context) {
+	if !tc.Enabled {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("transactions creation disabled. To enable set TxmAsService.Enabled=true"))
+		return
+	}
 	var tx models.CreateEVMTransactionRequest
 	if err := c.ShouldBindJSON(&tx); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)

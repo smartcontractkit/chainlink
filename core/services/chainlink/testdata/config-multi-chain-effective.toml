@@ -233,6 +233,9 @@ CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
 
+[TxmAsService]
+Enabled = false
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true

@@ -152,6 +152,19 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 func TestTransactionsController_Create(t *testing.T) {
 	t.Parallel()
 	const txCreatePath = "/v2/transactions/evm"
+	t.Run("Returns error if endpoint is disabled", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodPost, txCreatePath, nil)
+		router := gin.New()
+		controller := &web.EvmTransactionController{
+			Enabled: false,
+		}
+		router.POST(txCreatePath, controller.Create)
+		resp := httptest.NewRecorder()
+		router.ServeHTTP(resp, req)
+		cltest.AssertServerResponse(t, resp.Result(), http.StatusUnprocessableEntity)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t, "transactions creation disabled. To enable set TxmAsService.Enabled=true", respError.Error())
+	})
 
 	createTx := func(controller *web.EvmTransactionController, request interface{}) *httptest.ResponseRecorder {
 		body, err := json.Marshal(&request)
@@ -160,6 +173,7 @@ func TestTransactionsController_Create(t *testing.T) {
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest(http.MethodPost, txCreatePath, bytes.NewBuffer(body))
 		router := gin.New()
+		controller.Enabled = true
 		router.POST(txCreatePath, controller.Create)
 		router.ServeHTTP(w, req)
 		return w

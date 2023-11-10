@@ -518,4 +518,8 @@ func (g *generalConfig) Tracing() coreconfig.Tracing {
 	return &tracingConfig{s: g.c.Tracing}
 }
 
+func (g *generalConfig) TxmAsService() config.TxmAsService {
+	return &txmAsServiceConfig{c: g.c.TxmAsService}
+}
+
 var zeroSha256Hash = models.Sha256Hash{}

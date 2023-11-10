@@ -665,6 +665,7 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
+	full.TxmAsService = toml.TxmAsService{Enabled: ptr(true)}
 
 	for _, tt := range []struct {
 		name   string

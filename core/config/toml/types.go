@@ -54,6 +54,7 @@ type Core struct {
 	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
+	TxmAsService     TxmAsService     `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -88,6 +89,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
+	c.TxmAsService.setFrom(&f.TxmAsService)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -1529,4 +1531,14 @@ func isValidURI(uri string) bool {
 
 func isValidHostname(hostname string) bool {
 	return hostnameRegex.MatchString(hostname)
+}
+
+type TxmAsService struct {
+	Enabled *bool
+}
+
+func (t *TxmAsService) setFrom(f *TxmAsService) {
+	if v := f.Enabled; v != nil {
+		t.Enabled = f.Enabled
+	}
 }
