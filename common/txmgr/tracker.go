@@ -127,10 +127,9 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) TrackAbando
 
 	for _, tx := range nonFinalizedTxes {
 		// Check if tx is abandoned
-		if tr.enabledAddrs[tx.FromAddress] {
-			continue
+		if !tr.enabledAddrs[tx.FromAddress] {
+			tr.insertTx(tx)
 		}
-		tr.insertTx(tx)
 	}
 
 	return nil
