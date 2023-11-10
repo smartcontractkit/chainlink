@@ -88,7 +88,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetEnabledA
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 	if tr.isTracking {
-		return errors.New("cannot set enabled addresses while already isTracking")
+		return errors.New("cannot set enabled addresses while already tracking")
 	}
 
 	if len(enabledAddrs) == 0 {
@@ -108,7 +108,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) TrackAbando
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 	if tr.isTracking {
-		return errors.New("already isTracking abandoned txes")
+		return errors.New("already tracking abandoned txes")
 	}
 	defer func() {
 		if err == nil {
@@ -172,7 +172,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandone
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 	if !tr.isTracking {
-		tr.lggr.Warn("not isTracking abandoned txes")
+		tr.lggr.Warn("not tracking abandoned txes")
 	}
 
 	addrs := make([]ADDR, len(tr.txCache))
