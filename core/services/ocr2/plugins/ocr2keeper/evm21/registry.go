@@ -38,7 +38,7 @@ import (
 const (
 	defaultPluginRetryExpiration = 30 * time.Minute
 	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
-	DefaultAllowListExpiration = 10 * time.Minute
+	defaultAllowListExpiration = 10 * time.Minute
 	// cleanupInterval decides when the expired items in cache will be deleted.
 	cleanupInterval            = 5 * time.Minute
 	logTriggerRefreshBatchSize = 32
@@ -88,9 +88,9 @@ func NewEvmRegistry(
 	finalityDepth uint32,
 ) *EvmRegistry {
 	mercuryConfig := &MercuryConfig{
-		cred:             mc,
+		Cred:             mc,
 		Abi:              core.StreamsCompatibleABI,
-		AllowListCache:   cache.New(DefaultAllowListExpiration, cleanupInterval),
+		AllowListCache:   cache.New(defaultAllowListExpiration, cleanupInterval),
 		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
 	}
 
@@ -114,7 +114,7 @@ func NewEvmRegistry(
 		logEventProvider: logEventProvider,
 		bs:               blockSub,
 		finalityDepth:    finalityDepth,
-		streams:          streams.NewStreamsLookup(packer, mercuryConfig, core.RegistryABI, blockSub, addr, client.Client(), hc, lggr),
+		streams:          streams.NewStreamsLookup(packer, mercuryConfig, blockSub, registry, lggr),
 	}
 }
 
@@ -129,16 +129,25 @@ var upkeepStateEvents = []common.Hash{
 }
 
 type MercuryConfig struct {
-	cred *models.MercuryCredentials
+	Cred *models.MercuryCredentials
 	Abi  abi.ABI
 	// AllowListCache stores the upkeeps privileges. In 2.1, this only includes a JSON bytes for allowed to use mercury
-	AllowListCache *cache.Cache
-
+	AllowListCache   *cache.Cache
 	pluginRetryCache *cache.Cache
 }
 
+func NewMercuryConfig(credentials *models.MercuryCredentials, abi abi.ABI) *MercuryConfig {
+	return &MercuryConfig{
+		Cred:             credentials,
+		Abi:              abi,
+		AllowListCache:   cache.New(defaultPluginRetryExpiration, cleanupInterval),
+		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
+	}
+}
+
+// TODO since Cred is now exposed, we should remove this method and use Cred directly
 func (c *MercuryConfig) Credentials() *models.MercuryCredentials {
-	return c.cred
+	return c.Cred
 }
 
 func (c *MercuryConfig) IsUpkeepAllowed(k string) (interface{}, bool) {

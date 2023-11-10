@@ -12,25 +12,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/stretchr/testify/assert"
 
+	//"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury"
 	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/v02"
 	v03 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/v03"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
@@ -85,27 +88,81 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 	return args.Get(0).(*http.Response), args.Error(1)
 }
 
+//type MockRegistry struct {
+//	mock.Mock
+//}
+//
+//func (r *MockRegistry) GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+//	args := r.Called(opts, upkeepId)
+//	return args.Get(0).([]byte), args.Error(1)
+//}
+//
+//func (r *MockRegistry) CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
+//	args := r.Called(opts, id, values, extraData)
+//	return args.Get(0).(iregistry21.CheckCallback), args.Error(1)
+//}
+
+//type IKeeperRegistryMasterCaller interface {
+//	// Define your methods if not already done in your code
+//}
+//
+//type IKeeperRegistryMasterTransactor interface {
+//	// Define your methods if not already done in your code
+//}
+//
+//type IKeeperRegistryMasterFilterer interface {
+//	// Define your methods if not already done in your code
+//}
+//
+//type IKeeperRegistryMaster struct {
+//	address common.Address
+//	abi     abi.ABI
+//	IKeeperRegistryMasterCaller
+//	IKeeperRegistryMasterTransactor
+//	IKeeperRegistryMasterFilterer
+//}
+
+type MockIKeeperRegistryMaster struct {
+	mock.Mock
+	iregistry21.IKeeperRegistryMaster
+}
+
+func (_IKeeperRegistryMaster *MockIKeeperRegistryMaster) Address() common.Address {
+	return common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
+}
+
+func (m *MockIKeeperRegistryMaster) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	args := m.Called(log)
+	return args.Get(0).(generated.AbigenLog), args.Error(1)
+}
+
+func (m *MockIKeeperRegistryMaster) GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+	args := m.Called(opts, upkeepId)
+	return args.Get(0).([]byte), args.Error(1)
+}
+
+//// Your function using the registry
+//func YourFunctionUsingRegistry(s *IKeeperRegistryMaster, opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+//	upkeepPrivilegeConfigBytes, err := s.GetUpkeepPrivilegeConfig(opts, upkeepId)
+//	// Your remaining logic...
+//	return upkeepPrivilegeConfigBytes, err
+//}
+
 // setups up a streams object for tests.
 func setupStreams(t *testing.T) *streams {
 	lggr := logger.TestLogger(t)
-	addr := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
-	require.Nil(t, err, "need registry abi")
-	mockHttpClient := new(MockHttpClient)
-	client := evmClientMocks.NewClient(t)
+	//addr := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	packer := encoding.NewAbiPacker()
 	mercuryConfig := new(MockMercuryConfigProvider)
-	abi := keeperRegistryABI
 	blockSubscriber := new(MockBlockSubscriber)
+	registry := new(MockIKeeperRegistryMaster)
+	//registry := &iregistry21.IKeeperRegistryMaster{}
 
 	streams := NewStreamsLookup(
 		packer,
 		mercuryConfig,
-		abi,
 		blockSubscriber,
-		addr,
-		client,
-		mockHttpClient,
+		registry,
 		lggr,
 	)
 	return streams

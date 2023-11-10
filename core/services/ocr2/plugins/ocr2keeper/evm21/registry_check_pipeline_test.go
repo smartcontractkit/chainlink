@@ -684,14 +684,14 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		headFunc:     func(ocr2keepers.BlockKey) {},
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
-			cred: &models.MercuryCredentials{
+			Cred: &models.MercuryCredentials{
 				LegacyURL: "https://google.old.com",
 				URL:       "https://google.com",
 				Username:  "FakeClientID",
 				Password:  "FakeClientKey",
 			},
 			Abi:            streamsLookupCompatibleABI,
-			AllowListCache: cache.New(DefaultAllowListExpiration, cleanupInterval),
+			AllowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc: mockHttpClient,
 	}
