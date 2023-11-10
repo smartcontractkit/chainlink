@@ -6,6 +6,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -36,7 +37,7 @@ var (
 	testType = os.Getenv("TEST_TYPE")
 )
 
-func TestVRFV2Load(t *testing.T) {
+func TestVRFV2Performance(t *testing.T) {
 	cfg, err := ReadConfig()
 	require.NoError(t, err)
 	var vrfv2Config vrfv2_config.VRFV2Config
@@ -158,7 +159,65 @@ func TestVRFV2Load(t *testing.T) {
 		}
 
 	} else {
-		//todo
+		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
+		vrfv2Config.ChainlinkNodeFunding = cfg.NewEnvConfig.NodeFunds
+		vrfv2Config.SubscriptionFundingAmountLink = cfg.NewEnvConfig.Funding.SubFundsLink
+		env, err = test_env.NewCLTestEnvBuilder().
+			WithTestLogger(t).
+			WithGeth().
+			WithCLNodes(1).
+			WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).
+			WithCustomCleanup(
+				func() {
+					teardown(t, vrfv2Contracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2Config)
+
+					if env.EVMClient.NetworkSimulated() {
+						l.Info().
+							Str("Network Name", env.EVMClient.GetNetworkName()).
+							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+					} else {
+						for _, subID := range subIDs {
+							l.Info().
+								Uint64("Returning funds from SubID", subID).
+								Str("Returning funds to", eoaWalletAddress).
+								Msg("Canceling subscription and returning funds to subscription owner")
+							_, err := vrfv2Contracts.Coordinator.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
+							if err != nil {
+								l.Error().Err(err).Msg("Error canceling subscription")
+							}
+						}
+						//err = vrfv2.ReturnFundsForFulfilledRequests(env.EVMClient, vrfv2Contracts.Coordinator, l)
+						//l.Error().Err(err).Msg("Error returning funds for fulfilled requests")
+					}
+					if err := env.Cleanup(); err != nil {
+						l.Error().Err(err).Msg("Error cleaning up test environment")
+					}
+				}).
+			WithLogWatcher().
+			Build()
+
+		require.NoError(t, err, "error creating test env")
+
+		env.ParallelTransactions(true)
+
+		mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(vrfv2Config.LinkNativeFeedResponse))
+		require.NoError(t, err, "error deploying mock ETH/LINK feed")
+
+		linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+		require.NoError(t, err, "error deploying LINK contract")
+
+		vrfv2Contracts, subIDs, vrfv2Data, err = vrfv2.SetupVRFV2Environment(
+			env,
+			vrfv2Config,
+			linkToken,
+			mockETHLinkFeed,
+			//register proving key against EOA address in order to return funds to this address
+			env.EVMClient.GetDefaultWallet().Address(),
+			1,
+			vrfv2Config.NumberOfSubToCreate,
+			l,
+		)
+		require.NoError(t, err, "error setting up VRF v2 env")
 	}
 	eoaWalletAddress = env.EVMClient.GetDefaultWallet().Address()
 
