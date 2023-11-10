@@ -198,25 +198,14 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) insertTx(
 	tr.lggr.Debugw(fmt.Sprintf("inserted tx %v", tx.ID))
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) getTx(
-	ctx context.Context,
-	atx AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (
-	*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	tx, err := tr.txStore.GetTxByID(ctx, atx.id)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get tx by ID from txStore")
-	}
-	return tx, nil
-}
-
 // finalizeTx tries to finalize a transaction based on its current state.
 // Transactions exceeding ttl are marked fatal.
 // Returns true if the transaction was finalized.
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) finalizeTx(
 	ctx context.Context, atx AbandonedTx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-	tx, err := tr.getTx(ctx, atx)
+	tx, err := tr.txStore.GetTxByID(ctx, atx.id)
 	if err != nil {
-		tr.lggr.Errorw(errors.Wrap(err, "failed to get Tx").Error())
+		tr.lggr.Errorw(errors.Wrap(err, "failed to get tx by ID").Error())
 		return false
 	}
 
