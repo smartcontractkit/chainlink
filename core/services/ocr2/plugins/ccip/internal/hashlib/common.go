@@ -1,7 +1,8 @@
 package hashlib
 
 import (
-	"strconv"
+	"bytes"
+	"encoding/binary"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -12,16 +13,31 @@ func BytesOfBytesKeccak(b [][]byte) ([32]byte, error) {
 		return [32]byte{}, nil
 	}
 
-	joinedBytes := make([]byte, 0)
-	joinedBytes = append(joinedBytes, intToBytes(int64(len(b)))...)
-	for i := range b {
-		joinedBytes = append(joinedBytes, intToBytes(int64(len(b[i])))...)
-		joinedBytes = append(joinedBytes, b[i]...)
+	encodedArr, err := encodeBytesOfBytes(b)
+	if err != nil {
+		return [32]byte{}, err
 	}
 
-	return utils.Keccak256Fixed(joinedBytes), nil
+	return utils.Keccak256Fixed(encodedArr), nil
 }
 
-func intToBytes(v int64) []byte {
-	return []byte(strconv.FormatInt(v, 10))
+// encodeBytesOfBytes encodes the nested byte arrays into a single byte array as follows
+//  1. total number of nested arrays is encoded into fix-size 8 bytes at the front of the result
+//  2. for each nested array
+//     encode the array length into fixed-size 8 bytes, append to result
+//     append the array contents to result
+func encodeBytesOfBytes(b [][]byte) ([]byte, error) {
+	var buffer bytes.Buffer
+	if err := binary.Write(&buffer, binary.BigEndian, uint64(len(b))); err != nil {
+		return nil, err
+	}
+	for _, arr := range b {
+		if err := binary.Write(&buffer, binary.BigEndian, uint64(len(arr))); err != nil {
+			return nil, err
+		}
+		if _, err := buffer.Write(arr); err != nil {
+			return nil, err
+		}
+	}
+	return buffer.Bytes(), nil
 }
