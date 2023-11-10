@@ -390,6 +390,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, pendingRequestsExist, "Pending requests should not exist")
 
+		randomWordsFulfilledEventTimeout := 5 * time.Second
 		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			vrfv2PlusContracts.LoadTestConsumers[0],
 			vrfv2PlusContracts.Coordinator,
@@ -398,7 +399,7 @@ func TestVRFv2Plus(t *testing.T) {
 			false,
 			testConfig.RandomnessRequestCountPerRequest,
 			testConfig,
-			5*time.Second,
+			randomWordsFulfilledEventTimeout,
 			l,
 		)
 
@@ -412,7 +413,7 @@ func TestVRFv2Plus(t *testing.T) {
 			true,
 			testConfig.RandomnessRequestCountPerRequest,
 			testConfig,
-			testConfig.RandomWordsFulfilledEventTimeout,
+			randomWordsFulfilledEventTimeout,
 			l,
 		)
 
@@ -496,7 +497,7 @@ func TestVRFv2Plus(t *testing.T) {
 			Msg("Sub funds returned")
 
 		//todo - need to use different wallet for each test to verify exact amount of Native/LINK returned
-		//todo - as defaultWallet is used in other tests in parallel which might affect the balance
+		//todo - as defaultWallet is used in other tests in parallel which might affect the balance - TT-684
 		//require.Equal(t, 1, walletBalanceNativeAfterSubCancelling.Cmp(walletBalanceNativeBeforeSubCancelling), "Native funds were not returned after sub cancellation")
 
 		//todo - this fails on SIMULATED env as tx cost is calculated different as for testnets and it's not receipt.EffectiveGasPrice*receipt.GasUsed
