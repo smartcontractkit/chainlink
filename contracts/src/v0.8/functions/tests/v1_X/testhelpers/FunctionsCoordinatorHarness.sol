@@ -79,9 +79,10 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
     bytes memory response,
     bytes memory err,
     bytes memory onchainMetadata,
-    bytes memory offchainMetadata
+    bytes memory offchainMetadata,
+    uint8 reportBatchSize
   ) external returns (FunctionsResponse.FulfillResult) {
-    return super._fulfillAndBill(requestId, response, err, onchainMetadata, offchainMetadata);
+    return super._fulfillAndBill(requestId, response, err, onchainMetadata, offchainMetadata, reportBatchSize);
   }
 
   function disperseFeePool_HARNESS() external {
