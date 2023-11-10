@@ -50,7 +50,6 @@ func SetupTH(t testing.TB, useFinalityTag bool, finalityDepth, backfillBatchSize
 	chainID := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
-
 	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 	o2 := logpoller.NewORM(chainID2, db, lggr, pgtest.NewQConfig(true))
 	owner := testutils.MustNewSimTransactor(t)
