@@ -3,7 +3,6 @@ package vrfv2
 import (
 	"context"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -13,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"math/big"
-	"strings"
 	"sync"
 	"time"
 
@@ -409,11 +407,6 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts
 		return 0, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 
-	txOutputMapData, txOutputsData, txOutputValuesData, err := DecodeTxOutputData(vrf_coordinator_v2.VRFCoordinatorV2ABI, receipt.Logs[0].Data)
-	fmt.Println("txOutputMapData", txOutputMapData)
-	fmt.Println("txOutputsData", txOutputsData)
-	fmt.Println("txOutputValuesData", txOutputValuesData)
-
 	//SubscriptionsCreated Log should be emitted with the subscription ID
 	subID := receipt.Logs[0].Topics[1].Big().Uint64()
 
@@ -622,28 +615,4 @@ func logRandRequest(
 		Uint16("RandomnessRequestCountPerRequest", vrfv2Config.RandomnessRequestCountPerRequest).
 		Uint16("RandomnessRequestCountPerRequestDeviation", vrfv2Config.RandomnessRequestCountPerRequestDeviation).
 		Msg("Requesting randomness")
-}
-
-func DecodeTxOutputData(abiString string, data []byte) (map[string]interface{}, []interface{}, []interface{}, error) {
-	jsonABI, err := abi.JSON(strings.NewReader(abiString))
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	methodSigData := data[:4]
-	inputsSigData := data[4:]
-	method, err := jsonABI.MethodById(methodSigData)
-	outputsMap := make(map[string]interface{})
-	if err := method.Outputs.UnpackIntoMap(outputsMap, inputsSigData); err != nil {
-		return nil, nil, nil, err
-	}
-	var outputs []interface{}
-	if outputs, err = method.Outputs.Unpack(inputsSigData); err != nil {
-		return nil, nil, nil, err
-	}
-
-	var outputValues []interface{}
-	if outputValues, err = method.Outputs.UnpackValues(inputsSigData); err != nil {
-		return nil, nil, nil, err
-	}
-	return outputsMap, outputs, outputValues, nil
 }
