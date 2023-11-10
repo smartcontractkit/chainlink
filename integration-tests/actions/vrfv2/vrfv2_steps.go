@@ -166,13 +166,14 @@ func FundVRFCoordinatorV2Subscription(
 	if err != nil {
 		return fmt.Errorf("%s, err %w", ErrABIEncodingFunding, err)
 	}
-	_, err = linkToken.TransferAndCall(coordinator.Address(), big.NewInt(0).Mul(linkFundingAmountJuels, big.NewInt(1e18)), encodedSubId)
+	_, err = linkToken.TransferAndCall(coordinator.Address(), linkFundingAmountJuels, encodedSubId)
 	if err != nil {
 		return fmt.Errorf("%s, err %w", ErrSendingLinkToken, err)
 	}
 	return chainClient.WaitForEvents()
 }
 
+// SetupVRFV2Environment will create specified number of subscriptions and add the same conumer/s to each of them
 func SetupVRFV2Environment(
 	env *test_env.CLClusterTestEnv,
 	vrfv2Config vrfv2_config.VRFV2Config,
