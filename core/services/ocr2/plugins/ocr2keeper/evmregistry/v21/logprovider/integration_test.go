@@ -533,7 +533,7 @@ func collectPayloads(ctx context.Context, t *testing.T, logProvider logprovider.
 	for ctx.Err() == nil && len(allPayloads) < n && rounds > 0 {
 		logs, err := logProvider.GetLatestPayloads(ctx)
 		require.NoError(t, err)
-		require.LessOrEqual(t, len(logs), logprovider.AllowedLogsPerUpkeep, "failed to get all logs")
+		require.LessOrEqual(t, len(logs), logprovider.MaxPayloadsPerUpkeep, "failed to get all logs")
 		allPayloads = append(allPayloads, logs...)
 		rounds--
 	}

@@ -38,6 +38,8 @@ var (
 	RecoveryCacheTTL = 10 * time.Minute
 	// GCInterval is the interval at which the recovery cache is cleaned up
 	GCInterval = RecoveryCacheTTL - time.Second
+	// MaxProposalsPerUpkeep is the maximum number of logs allowed per upkeep every single call to log recoverer.
+	MaxProposalsPerUpkeep = 5
 	// MaxProposals is the maximum number of proposals that can be returned by GetRecoveryProposals
 	MaxProposals = 20
 	// recoveryBatchSize is the number of filters to recover in a single batch
@@ -308,7 +310,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 			continue
 		}
 		uid := payload.UpkeepID.String()
-		if logsCount[uid] >= AllowedLogsPerUpkeep {
+		if logsCount[uid] >= MaxProposalsPerUpkeep {
 			// we have enough proposals for this upkeep, the rest are pushed back to pending
 			pending = append(pending, payload)
 			continue
