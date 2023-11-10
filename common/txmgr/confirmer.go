@@ -207,10 +207,15 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sta
 		return errors.Wrap(err, "Confirmer: failed to load EnabledAddressesForChain")
 	}
 
-	ec.tracker.SetEnabledAddresses(ec.enabledAddresses)
+	ec.tracker.Reset()
+	err = ec.tracker.SetEnabledAddresses(ec.enabledAddresses)
+	if err != nil {
+		return errors.Wrap(err, "Confirmer: failed to set tracker enabled addresses")
+	}
+
 	err = ec.tracker.TrackAbandonedTxes(context.Background())
 	if err != nil {
-		ec.lggr.Warnw("Confirmer: failed to track abandoned transactions", "err", err)
+		return errors.Wrap(err, "Confirmer: failed to track abandoned transactions")
 	}
 
 	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
@@ -317,7 +322,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
-	ec.tracker.HandleAbandonedTxes(ctx)
+	if err := ec.tracker.HandleAbandonedTxes(ctx); err != nil {
+		return errors.Wrap(err, "HandleAbandonedTxes failed")
+	}
+
 	ec.lggr.Debugw("Finished HandleAbandonedTxes", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 
 	if ec.resumeCallback != nil {
