@@ -601,13 +601,13 @@ func (d *Delegate) newServicesGenericPlugin(
 		//TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
 		d.lggr.Info("provider is not a LOOPP provider, switching to provider server")
 
-		ps, err := relay.NewProviderServer(provider, types.OCR2PluginType(cconf.ProviderType), d.lggr)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("cannot start EVM provider server: %s", err))
+		ps, err2 := relay.NewProviderServer(provider, types.OCR2PluginType(cconf.ProviderType), d.lggr)
+		if err2 != nil {
+			return nil, fmt.Errorf("cannot start EVM provider server: %s", err)
 		}
-		providerClientConn, err = ps.GetConn()
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("cannot connect to EVM provider server: %s", err))
+		providerClientConn, err2 = ps.GetConn()
+		if err2 != nil {
+			return nil, fmt.Errorf("cannot connect to EVM provider server: %s", err)
 		}
 		srvs = append(srvs, ps)
 	}

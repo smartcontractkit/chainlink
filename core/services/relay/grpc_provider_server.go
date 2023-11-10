@@ -28,7 +28,7 @@ func (p *ProviderServer) Start(ctx context.Context) error {
 func (p *ProviderServer) Close() error {
 	var err error
 	for _, c := range p.conns {
-		multierr.Combine(err, c.Close())
+		err = multierr.Combine(err, c.Close())
 	}
 	p.s.Stop()
 	return err
@@ -42,7 +42,7 @@ func (p *ProviderServer) GetConn() (*grpc.ClientConn, error) {
 
 // NewProviderServer creates a GRPC server that will wrap a provider, this is a workaround to test the Node API PoC until the EVM relayer is loopifyed
 func NewProviderServer(p types.PluginProvider, pType types.OCR2PluginType, lggr logger.Logger) (*ProviderServer, error) {
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
 	}
