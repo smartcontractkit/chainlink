@@ -19,6 +19,9 @@ RUN make install-chainlink
 # Build LOOP Plugins
 RUN make install-median
 
+# Install medianpoc binary
+RUN make install-medianpoc
+
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xargs -I % ln -s % /chainlink-solana
 RUN mkdir /chainlink-starknet
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer | xargs -I % ln -s % /chainlink-starknet/relayer
@@ -49,6 +52,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && apt-get clean all
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
+COPY --from=buildgo /go/bin/chainlink-medianpoc /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-median /usr/local/bin/
 ENV CL_MEDIAN_CMD chainlink-median
 

@@ -20,11 +20,29 @@ jobs:
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
+          list-files: "csv"
           filters: |
             src:
               - 'contracts/**/*'
               - '.github/workflows/solidity.yml'
               - '.github/workflows/solidity-foundry.yml'
+            old_sol:
+              - 'contracts/src/v0.4/**/*'
+              - 'contracts/src/v0.5/**/*'
+              - 'contracts/src/v0.6/**/*'
+              - 'contracts/src/v0.7/**/*'
+
+
+      - name: Fail if read-only files have changed
+        if: ${{ steps.changes.outputs.old_sol == 'true' }}
+        run: |
+          echo "One or more read-only Solidity file(s) has changed."
+          for file in ${{ steps.changes.outputs.old_sol_files }}; do
+            echo "$file was changed"
+          done
+          exit 1
+
+
 
   prepublish-test:
     needs: [changes]
