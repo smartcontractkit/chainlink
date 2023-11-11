@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
@@ -63,26 +62,12 @@ func TestStartHeartbeats(t *testing.T) {
 	heartbeatPeriod := 5 * time.Second
 
 	t.Run("bhs_feeder_startheartbeats_happy_path", func(tt *testing.T) {
-		coordinatorAddress := uni.rootContractAddress
-		vrfVersion := vrfcommon.V2
-
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
-		var (
-			v2CoordinatorAddress     string
-			v2PlusCoordinatorAddress string
-		)
-
-		if vrfVersion == vrfcommon.V2 {
-			v2CoordinatorAddress = coordinatorAddress.String()
-		} else if vrfVersion == vrfcommon.V2Plus {
-			v2PlusCoordinatorAddress = coordinatorAddress.String()
-		}
-
 		_ = vrftesthelpers.CreateAndStartBHSJob(
 			t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
-			v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, heartbeatPeriod, 100)
+			uni.rootContractAddress.String(), "", "", 0, 200, heartbeatPeriod, 100)
 
 		// Ensure log poller is ready and has all logs.
 		require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
@@ -97,9 +82,10 @@ func TestStartHeartbeats(t *testing.T) {
 		t.Logf("Sleeping %.2f seconds before checking blockhash in BHS added by BHS_Heartbeats_Service\n", diff.Seconds())
 		time.Sleep(diff)
 		// storeEarliest in BHS contract stores blocktip - 256 in the Blockhash Store (BHS)
-		// before the initTxns:260 txns sent by the loop above, 18 txns are sent by
-		// newVRFCoordinatorV2Universe method. block tip is initTxns + 18
-		blockTip := initTxns + 18
-		verifyBlockhashStored(t, uni.coordinatorV2UniverseCommon, uint64(blockTip-256))
+		tipHeader, err := uni.backend.HeaderByNumber(testutils.Context(t), nil)
+		require.NoError(t, err)
+		// the storeEarliest transaction will end up in a new block, hence the + 1 below.
+		blockNumberStored := tipHeader.Number.Uint64() - 256 + 1
+		verifyBlockhashStored(t, uni.coordinatorV2UniverseCommon, blockNumberStored)
 	})
 }

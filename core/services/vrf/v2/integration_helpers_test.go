@@ -1,6 +1,7 @@
 package v2_test
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -12,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -72,6 +75,7 @@ func testSingleConsumerHappyPath(
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 
@@ -355,6 +359,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 		c.EVM[0].LogPollInterval = models.MustNewDuration(time.Second)
+		c.Feature.LogPoller = ptr(true)
 	})
 	keys = append(keys, ownerKey, vrfKey)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
@@ -539,6 +544,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
+		c.Feature.LogPoller = ptr(true)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 
@@ -641,6 +647,7 @@ func testSingleConsumerNeedsTopUp(
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
 
@@ -904,6 +911,7 @@ func testSingleConsumerForcedFulfillment(
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 
@@ -1068,6 +1076,7 @@ func testSingleConsumerEIP150(
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1136,6 +1145,7 @@ func testSingleConsumerEIP150Revert(
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1199,6 +1209,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1319,6 +1330,7 @@ func testSingleConsumerMultipleGasLanes(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.Feature.LogPoller = ptr(true)
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, cheapKey, expensiveKey)
@@ -1434,6 +1446,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
 	consumer := uni.reverter
@@ -1505,6 +1518,7 @@ func testConsumerProxyHappyPath(
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 	consumerOwner := uni.neil
@@ -1629,6 +1643,7 @@ func testMaliciousConsumer(
 		c.EVM[0].GasEstimator.PriceDefault = assets.GWei(1)
 		c.EVM[0].GasEstimator.FeeCapDefault = assets.GWei(1)
 		c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
+		c.Feature.LogPoller = ptr(true)
 	})
 	carol := uni.vrfConsumers[0]
 
@@ -1719,4 +1734,43 @@ func testMaliciousConsumer(
 		requests = append(requests, it2.Event())
 	}
 	require.Equal(t, 1, len(requests))
+}
+
+func getMetricInt64(c prometheus.Collector) (int64, error) {
+	var (
+		m      prometheus.Metric
+		mCount int
+		mChan  = make(chan prometheus.Metric)
+		done   = make(chan struct{})
+	)
+
+	go func() {
+		for m = range mChan {
+			mCount++
+		}
+		close(done)
+	}()
+
+	c.Collect(mChan)
+	close(mChan)
+	<-done
+
+	if mCount != 1 {
+		return 0.0, fmt.Errorf("collected %d metrics instead of exactly 1", mCount)
+	}
+
+	pb := &dto.Metric{}
+	if err := m.Write(pb); err != nil {
+		panic(fmt.Errorf("error happened while collecting metrics: %w", err))
+	}
+	if pb.Gauge != nil {
+		return int64(pb.Gauge.GetValue()), nil
+	}
+	if pb.Counter != nil {
+		return int64(pb.Counter.GetValue()), nil
+	}
+	if pb.Untyped != nil {
+		return int64(pb.Untyped.GetValue()), nil
+	}
+	panic(fmt.Errorf("collected a non-gauge/counter/untyped metric: %s", pb))
 }
