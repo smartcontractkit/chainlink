@@ -1090,7 +1090,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx,
@@ -1109,9 +1109,9 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		return nil, err
 	}
 
-	keeperProvider, ok := provider.(types.AutomationProvider)
+	keeperProvider, ok := provider.(types.OCR2KeepersProvider)
 	if !ok {
-		return nil, errors.New("could not coerce PluginProvider to AutomationProvider")
+		return nil, errors.New("could not coerce PluginProvider to OCR2KeepersProvider")
 	}
 
 	chain, err := d.legacyChains.Get(rid.ChainID)
@@ -1123,6 +1123,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	if err != nil {
 		return nil, errors.Wrap(err, "could not build dependencies for ocr2 keepers")
 	}
+
 	// set some defaults
 	conf := ocr2keepers21config.ReportingFactoryConfig{
 		CacheExpiration:       ocr2keepers21config.DefaultCacheExpiration,
@@ -1238,30 +1239,21 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, errors.Errorf("ServicesForSpec: keepers job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
 	}
 
-	relayer, err := d.RelayGetter.Get(rid)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
-	}
+	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(d.db, chain, d.pipelineRunner, jb, lggr.Named("OCR2KeeperRelayer"))
 
-	provider, err := relayer.NewPluginProvider(ctx,
+	keeperProvider, err2 := ocr2keeperRelayer.NewOCR2KeeperProvider(
 		types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
 			RelayConfig:   spec.RelayConfig.Bytes(),
-			ProviderType:  string(spec.PluginType),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
 		})
-	if err != nil {
-		return nil, err
-	}
-
-	keeperProvider, ok := provider.(types.AutomationProvider)
-	if !ok {
-		return nil, errors.New("could not coerce PluginProvider to AutomationProvider")
+	if err2 != nil {
+		return nil, errors.Wrap(err2, "new keeper provider")
 	}
 
 	rgstry, encoder, logProvider, err := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.pipelineRunner)

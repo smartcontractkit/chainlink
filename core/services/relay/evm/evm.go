@@ -199,6 +199,14 @@ func (r *Relayer) NewFunctionsProvider(rargs relaytypes.RelayArgs, pargs relayty
 	return NewFunctionsProvider(r.chain, rargs, pargs, lggr, r.ks.Eth(), functions.FunctionsPlugin)
 }
 
+func (r *Relayer) NewOCR2KeepersProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.OCR2KeepersProvider, error) {
+	//lggr := r.lggr.Named("OCR2KeepersProvider").Named(rargs.ExternalJobID.String())
+	//ocr2keeperRelayer := NewOCR2KeeperRelayer(r.db, r.chain, r.pr, spec, lggr.Named("OCR2KeeperRelayer"))
+
+	//return NewOC(r.chain, rargs, pargs, lggr, r.ks.Eth(), functions.FunctionsPlugin)
+	return nil, nil
+}
+
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {
 	lggr := r.lggr.Named("ConfigProvider").Named(args.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(args)
