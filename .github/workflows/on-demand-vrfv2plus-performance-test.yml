@@ -1,4 +1,4 @@
-name: On Demand VRFV2 Plus Performance Test
+name: On Demand VRFV2 Performance Test
 on:
   workflow_dispatch:
     inputs:
@@ -60,8 +60,8 @@ on:
         description: TOML config in base64 (Needed when overriding config or providing contract addresses for existing env)
         required: false
 jobs:
-  vrfv2plus_performance_test:
-    name: ${{ inputs.network }} VRFV2 Plus Performance Test
+  vrfv2_performance_test:
+    name: ${{ inputs.network }} VRFV2  Performance Test
     environment: integration
     runs-on: ubuntu20.04-8cores-32GB
     permissions:
@@ -74,8 +74,8 @@ jobs:
       LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
       SELECTED_NETWORKS: ${{ inputs.network }}
       TEST_TYPE: ${{ inputs.performanceTestType }}
-      VRFV2PLUS_TEST_DURATION: ${{ inputs.testDuration }}
-      VRFV2PLUS_USE_EXISTING_ENV: ${{ inputs.useExistingEnv }}
+      VRFV2_TEST_DURATION: ${{ inputs.testDuration }}
+      VRFV2_USE_EXISTING_ENV: ${{ inputs.useExistingEnv }}
       CONFIG: ${{ inputs.configBase64 }}
       TEST_LOG_LEVEL: debug
       REF_NAME: ${{ github.head_ref || github.ref_name }}
@@ -91,7 +91,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ${{ inputs.network }} VRFV2 Plus Performance Test
+          this-job-name: ${{ inputs.network }} VRFV2  Performance Test
         continue-on-error: true
       - name: Setup Push Tag
         shell: bash
@@ -121,7 +121,7 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 6h -run TestVRFV2PlusPerformance/vrfv2plus_performance_test ./load/vrfv2plus
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 24h -run TestVRFV2Performance/vrfv2_performance_test ./load/vrfv2
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
