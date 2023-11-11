@@ -2,10 +2,14 @@ package loadvrfv2
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -141,6 +145,9 @@ func TestVRFV2Performance(t *testing.T) {
 			subIDs = append(subIDs, vrfv2Config.SubID)
 		}
 
+		err = FundNodesIfNeeded(cfg, env.EVMClient, l)
+		require.NoError(t, err)
+
 		vrfv2Contracts = &vrfv2.VRFV2Contracts{
 			Coordinator:       coordinator,
 			LoadTestConsumers: consumers,
@@ -160,7 +167,7 @@ func TestVRFV2Performance(t *testing.T) {
 
 	} else {
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
-		vrfv2Config.ChainlinkNodeFunding = cfg.NewEnvConfig.NodeFunds
+		vrfv2Config.ChainlinkNodeFunding = cfg.NewEnvConfig.NodeSendingKeyFunding
 		vrfv2Config.SubscriptionFundingAmountLink = cfg.NewEnvConfig.Funding.SubFundsLink
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestLogger(t).
@@ -275,6 +282,46 @@ func TestVRFV2Performance(t *testing.T) {
 			Msg("Final Request/Fulfilment Stats")
 	})
 
+}
+
+func FundNodesIfNeeded(cfg *PerformanceConfig, client blockchain.EVMClient, l zerolog.Logger) error {
+	if cfg.ExistingEnvConfig.NodeSendingKeyFundingMin > 0 {
+		for _, sendingKey := range cfg.ExistingEnvConfig.NodeSendingKeys {
+			address := common.HexToAddress(sendingKey)
+			sendingKeyBalance, err := client.BalanceAt(context.Background(), address)
+			if err != nil {
+				return err
+			}
+			fundingAtLeast := utils.EtherToWei(big.NewFloat(cfg.ExistingEnvConfig.NodeSendingKeyFundingMin))
+			fundingToSendWei := new(big.Int).Sub(fundingAtLeast, sendingKeyBalance)
+			fundingToSendEth := utils.WeiToEther(fundingToSendWei)
+			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {
+				l.Info().
+					Str("Sending Key", sendingKey).
+					Str("Sending Key Current Balance", sendingKeyBalance.String()).
+					Str("Should have at least", fundingAtLeast.String()).
+					Str("Funding Amount in ETH", fundingToSendEth.String()).
+					Msg("Funding Node's Sending Key")
+				gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+					To: &address,
+				})
+				if err != nil {
+					return err
+				}
+				err = client.Fund(sendingKey, fundingToSendEth, gasEstimates)
+				if err != nil {
+					return err
+				}
+			} else {
+				l.Info().
+					Str("Sending Key", sendingKey).
+					Str("Sending Key Current Balance", sendingKeyBalance.String()).
+					Str("Should have at least", fundingAtLeast.String()).
+					Msg("Skipping Node's Sending Key funding as it has enough funds")
+			}
+		}
+	}
+	return nil
 }
 
 func teardown(

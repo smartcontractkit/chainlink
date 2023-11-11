@@ -40,8 +40,9 @@ type ExistingEnvConfig struct {
 	LinkAddress        string `toml:"link_address"`
 	SubID              uint64 `toml:"sub_id"`
 	KeyHash            string `toml:"key_hash"`
-	SubFunding
-	CreateFundSubsAndAddConsumers bool `toml:"create_fund_subs_and_add_consumers"`
+	Funding
+	CreateFundSubsAndAddConsumers bool     `toml:"create_fund_subs_and_add_consumers"`
+	NodeSendingKeys               []string `toml:"node_sending_keys"`
 }
 
 type NewEnvConfig struct {
@@ -53,13 +54,13 @@ type Common struct {
 }
 
 type Funding struct {
-	NodeFunds float64 `toml:"node_funds"`
 	SubFunding
+	NodeSendingKeyFunding    float64 `toml:"node_sending_key_funding"`
+	NodeSendingKeyFundingMin float64 `toml:"node_sending_key_funding_min"`
 }
 
 type SubFunding struct {
-	SubFundsLink   float64 `toml:"sub_funds_link"`
-	SubFundsNative float64 `toml:"sub_funds_native"`
+	SubFundsLink float64 `toml:"sub_funds_link"`
 }
 
 type Soak struct {
