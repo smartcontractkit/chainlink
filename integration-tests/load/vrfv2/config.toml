@@ -13,8 +13,8 @@ coordinator_address = "0x50d47e4142598E3411aA864e08a44284e471AC6f"
 key_hash = "0x027f94ff1465b3525f9fc03e9ff7d6d2c0953482246dd6ae07570c45d6631414"
 create_fund_subs_and_add_consumers = true
 link_address = "0xb1D4538B4571d411F07960EF2838Ce337FE1E80E"
-sub_funds_link = 3
-node_sending_key_funding_min = 2
+sub_funds_link = 50
+node_sending_key_funding_min = 3
 node_sending_keys = [
     "0x3d659dE506d3b22e7660d579327126221EfB2651",
     "0x7cAF21fA7423b3f4Ec15f87C7BBa83aE8cA4bDf3",
