@@ -73,7 +73,7 @@ func (lsn *listenerV2) runLogListener(
 			}
 
 			// process pending requests and insert any fulfillments into the inflight cache
-			lsn.processPendingVRFRequests(ctx, pending)
+			go lsn.processPendingVRFRequests(ctx, pending)
 
 			lastProcessedBlock, err = lsn.updateLastProcessedBlock(ctx, lastProcessedBlock)
 			if err != nil {
