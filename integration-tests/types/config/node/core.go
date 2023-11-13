@@ -238,3 +238,9 @@ func WithVRFv2EVMEstimator(addr string) NodeConfigOpt {
 		}
 	}
 }
+
+func WithLogPollInterval(interval time.Duration) NodeConfigOpt {
+	return func(c *chainlink.Config) {
+		c.EVM[0].Chain.LogPollInterval = models.MustNewDuration(interval)
+	}
+}
