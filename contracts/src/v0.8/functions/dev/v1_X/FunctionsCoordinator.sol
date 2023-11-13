@@ -4,12 +4,7 @@ pragma solidity ^0.8.19;
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 
-<<<<<<< HEAD
 import {FunctionsBilling} from "./FunctionsBilling.sol";
-=======
-import {ChainSpecificUtil} from "./libraries/ChainSpecificUtil.sol";
-import {Routable} from "./Routable.sol";
->>>>>>> 49d26b4eca (mv ChainSpecificUtil to lib)
 import {OCR2Base} from "./ocr/OCR2Base.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
