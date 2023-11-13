@@ -5,13 +5,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -173,6 +179,29 @@ type chainReader struct {
 	// key being contract name
 	chainContractReaders map[string]types.ChainContractReader
 	chain                evm.Chain
+}
+
+func registerLogPollerFilters(cr chainReader, contractAddress common.Address, contractName string) error {
+	chainContractReader, exists := cr.chainContractReaders[contractName]
+	if !exists {
+		return fmt.Errorf("%s contract is not defined in chain reader config", contractName)
+	}
+
+	abiEvents := chainContractReader.ParsedContractABI.Events
+	for _, crd := range chainContractReader.ChainReaderDefinitions {
+		if crd.ReadType == types.Event {
+			eventSig := abiEvents[crd.ChainSpecificName].ID
+			err := cr.lp.RegisterFilter(logpoller.Filter{
+				Name:      crd.ChainSpecificName,
+				EventSigs: evmtypes.HashArray{eventSig},
+				Addresses: evmtypes.AddressArray{contractAddress},
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (cr *chainReader) Encode(ctx context.Context, item any, itemType string) (ocrtypes.Report, error) {
