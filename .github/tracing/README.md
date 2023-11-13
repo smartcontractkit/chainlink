@@ -7,7 +7,7 @@ As part of the LOOP plugin effort, we've added distributed tracing to the core n
 One way to generate traces locally today is with the OCR2 basic smoke test. 
 
 1. navigate to `.github/tracing/` and then run `docker compose --file local-smoke-docker-compose.yaml up`
-2. setup a local docker registry at `127.0.0.1:5000`
+2. setup a local docker registry at `127.0.0.1:5000` (https://www.docker.com/blog/how-to-use-your-own-registry-2/)
 3. run `make build_push_plugin_docker_image` in `chainlink/integration-tests/Makefile`
 4. run `SELECTED_NETWORKS=SIMULATED CHAINLINK_IMAGE="127.0.0.1:5000/chainlink" CHAINLINK_VERSION="develop" go test -run TestOCRv2Basic ./smoke/ocr2_test.go`
 5. navigate to `localhost:3000/explore` in a web browser to query for traces
@@ -25,7 +25,7 @@ Another way to generate traces is by enabling traces for PRs. This will instrume
 3. Navigate to `Integration Tests / ETH Smoke Tests ocr2-plugins (pull_request)` details
 4. Navigate to the summary of the integration tests
 5. After the test completes, the generated trace data will be saved as an artifact, currently called `trace-data`
-6. Download this artifact to this directory
+6. Download the artifact to this directory (`chainlink/.github/tracing`)
 7. `docker compose --file local-smoke-docker-compose.yaml up`
 8. Run `sh replay.sh` to replay those traces to the otel-collector container that was spun up in the last step. 
 9. navigate to `localhost:3000/explore` in a web browser to query for traces
