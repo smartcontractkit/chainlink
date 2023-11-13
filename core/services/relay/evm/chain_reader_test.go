@@ -20,7 +20,7 @@ func TestChainReaderStartClose(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lp := mocklogpoller.NewLogPoller(t)
 	var lp2 logpoller.LogPoller = lp
-	var r error = nil
+	var r error
 	chainReader, err := &chainReader{lggr.Named("ChainReader"), lp2, nil, nil}, r
 	require.NoError(t, err)
 	require.NotNil(t, chainReader)
