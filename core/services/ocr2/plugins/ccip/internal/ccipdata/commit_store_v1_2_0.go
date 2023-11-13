@@ -287,7 +287,7 @@ func (c *CommitStoreV1_2_0) GetAcceptedCommitReportsGteSeqNum(ctx context.Contex
 		c.address,
 		c.reportAcceptedMaxSeqIndex,
 		logpoller.EvmWord(seqNum),
-		confs,
+		logpoller.Confirmations(confs),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
@@ -306,7 +306,7 @@ func (c *CommitStoreV1_2_0) GetAcceptedCommitReportsGteTimestamp(ctx context.Con
 		c.reportAcceptedSig,
 		c.address,
 		ts,
-		confs,
+		logpoller.Confirmations(confs),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
