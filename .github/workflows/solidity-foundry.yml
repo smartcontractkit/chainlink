@@ -142,7 +142,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           # Has to match the `make foundry` version.
-          version: nightly-ca67d15f4abd46394b324c50e21e66f306a1162d
+          version: nightly-09fe3e041369a816365a020f715ad6f94dbce9f2
 
       - name: Run Forge build
         run: |
