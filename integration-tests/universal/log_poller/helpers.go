@@ -1068,9 +1068,20 @@ func setupLogPollerTestDocker(
 		return network
 	}
 
+	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
+	cfg, err := ethBuilder.
+		WithConsensusType(ctf_test_env.ConsensusType_PoS).
+		WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
+		WithBeaconChainConfig(ctf_test_env.BeaconChainConfig{
+			SecondsPerSlot: 8,
+			SlotsPerEpoch:  2,
+		}).
+		Build()
+
 	env, err = test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
-		WithGeth().
+		WithPrivateEthereumNetwork(cfg).
 		WithCLNodes(clNodesCount).
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(chainlinkNodeFunding)).

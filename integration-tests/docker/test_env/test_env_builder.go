@@ -31,8 +31,8 @@ const (
 )
 
 type CLTestEnvBuilder struct {
-	hasLogWatch            bool
-	hasGeth                bool
+	hasLogWatch bool
+	// hasGeth                bool
 	hasKillgrave           bool
 	hasForwarders          bool
 	clNodeConfig           *chainlink.Config
@@ -49,6 +49,7 @@ type CLTestEnvBuilder struct {
 	cleanUpCustomFn        func()
 	chainOptionsFn         []ChainOption
 	evmClientNetworkOption []EVMClientNetworkOption
+	ethereumNetwork        *test_env.EthereumNetwork
 
 	/* funding */
 	ETHFunds *big.Float
@@ -118,8 +119,27 @@ func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
 	return b
 }
 
+// deprecated
+// left only for backward compatibility
 func (b *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
-	b.hasGeth = true
+	ethBuilder := test_env.NewEthereumNetworkBuilder()
+	cfg, err := ethBuilder.
+		WithConsensusType(test_env.ConsensusType_PoW).
+		WithExecutionLayer(test_env.ExecutionLayer_Geth).
+		WithTest(b.t).
+		Build()
+
+	if err != nil {
+		panic(err)
+	}
+
+	b.ethereumNetwork = &cfg
+
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(en test_env.EthereumNetwork) *CLTestEnvBuilder {
+	b.ethereumNetwork = &en
 	return b
 }
 
@@ -191,13 +211,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 	}
-	b.l.Info().
-		Bool("hasGeth", b.hasGeth).
-		Bool("hasKillgrave", b.hasKillgrave).
-		Int("clNodesCount", b.clNodesCount).
-		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
-		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
-		Msg("Building CL cluster test environment..")
 
 	var err error
 	if b.t != nil {
@@ -259,13 +272,21 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 		return b.te, nil
 	}
+
 	networkConfig := networks.MustGetSelectedNetworksFromEnv()[0]
-	var internalDockerUrls test_env.InternalDockerUrls
-	if b.hasGeth && networkConfig.Simulated {
-		networkConfig, internalDockerUrls, err = b.te.StartGeth()
+	var rpcProvider test_env.RpcProvider
+	if b.ethereumNetwork != nil && networkConfig.Simulated {
+		// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point
+		// in general it seems we have no methods for saving config to file and we only load it from file
+		// but I don't know how that config file is to be created or whether anyone ever done that
+		var enCfg test_env.EthereumNetwork
+		b.ethereumNetwork.DockerNetworkNames = []string{b.te.Network.Name}
+		networkConfig, rpcProvider, err = b.te.StartEthereumNetwork(b.ethereumNetwork)
 		if err != nil {
 			return nil, err
 		}
+		b.te.RpcProvider = rpcProvider
+		b.te.PrivateEthereumConfig = &enCfg
 	}
 
 	if !b.isNonEVM {
@@ -311,8 +332,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			var httpUrls []string
 			var wsUrls []string
 			if networkConfig.Simulated {
-				httpUrls = []string{internalDockerUrls.HttpUrl}
-				wsUrls = []string{internalDockerUrls.WsUrl}
+				httpUrls = rpcProvider.PrivateHttpUrls()
+				wsUrls = rpcProvider.PrivateWsUrsl()
 			} else {
 				httpUrls = networkConfig.HTTPURLs
 				wsUrls = networkConfig.URLs
@@ -341,13 +362,28 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
-	if b.hasGeth && b.clNodesCount > 0 && b.ETHFunds != nil {
+	if b.ethereumNetwork != nil && b.clNodesCount > 0 && b.ETHFunds != nil {
 		b.te.ParallelTransactions(true)
 		defer b.te.ParallelTransactions(false)
 		if err := b.te.FundChainlinkNodes(b.ETHFunds); err != nil {
 			return nil, err
 		}
 	}
+
+	var enDesc string
+	if b.te.PrivateEthereumConfig != nil {
+		enDesc = b.te.PrivateEthereumConfig.Describe()
+	} else {
+		enDesc = "none"
+	}
+
+	b.l.Info().
+		Str("privateEthereumNetwork", enDesc).
+		Bool("hasKillgrave", b.hasKillgrave).
+		Int("clNodesCount", b.clNodesCount).
+		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
+		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
+		Msg("Building CL cluster test environment..")
 
 	return b.te, nil
 }
