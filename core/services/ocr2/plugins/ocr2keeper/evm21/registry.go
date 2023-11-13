@@ -114,7 +114,7 @@ func NewEvmRegistry(
 		logEventProvider: logEventProvider,
 		bs:               blockSub,
 		finalityDepth:    finalityDepth,
-		streams:          streams.NewStreamsLookup(packer, mercuryConfig, blockSub, registry, lggr),
+		streams:          streams.NewStreamsLookup(packer, mercuryConfig, blockSub, client.Client(), registry, lggr),
 	}
 }
 
