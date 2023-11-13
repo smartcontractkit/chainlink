@@ -64,6 +64,36 @@ jobs:
     outputs:
       src: ${{ steps.changes.outputs.src }}
 
+  build-lint-integration-tests:
+    name: Build and Lint integration-tests
+    runs-on: ubuntu20.04-16cores-64GB
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup Go
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        with:
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+      - name: Build Go
+        run: |
+          cd ./integration-tests
+          go build ./...
+          SELECTED_NETWORKS=SIMULATED go test -run=^# ./...
+      - name: Lint Go
+        uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
+        with:
+          version: v1.55.2
+          # We already cache these directories in setup-go
+          skip-pkg-cache: true
+          skip-build-cache: true
+          # only-new-issues is only applicable to PRs, otherwise it is always set to false
+          only-new-issues: false # disabled for PRs due to unreliability
+          args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
+          working-directory: ./integration-tests
+
   build-chainlink:
     environment: integration
     permissions:
@@ -174,7 +204,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes, compare-tests]
+    needs: [build-chainlink, changes, compare-tests, build-lint-integration-tests]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -242,7 +272,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
+    needs: [build-chainlink, changes, build-lint-integration-tests]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -356,16 +386,16 @@ jobs:
         run: |
           PORT_BASE=3001
           MAX_PORT=8000 
-  
+
           # Use PR number as offset. Given GitHub PRs are incremental, this guarantees uniqueness for at least 5000 PRs.
           OFFSET=$GITHUB_PR_NUMBER
           echo "PR Number: $OFFSET"
-  
+
           # Ensure that we don't exceed the max port
           if (( OFFSET > (MAX_PORT - PORT_BASE) )); then
               OFFSET=$((OFFSET % (MAX_PORT - PORT_BASE)))
           fi
-  
+
           # Map the offset to the port range
           REMOTE_PORT=$((PORT_BASE + OFFSET))
           echo "REMOTE_PORT=$REMOTE_PORT" >> $GITHUB_OUTPUT
@@ -376,25 +406,25 @@ jobs:
           TRACING_SSH_SERVER: ${{ secrets.TRACING_SSH_SERVER }}
           REMOTE_PORT: ${{ steps.generate-port.outputs.REMOTE_PORT }}
         run: |
-            eval $(ssh-agent)
-            echo "test"
-            echo "$TRACING_SSH_KEY" | wc -c
-            echo "$TRACING_SSH_KEY" | tr -d '\r' | wc -c
-            echo "$TRACING_SSH_KEY" | tr -d '\r' | base64 --decode | ssh-add -
-            # f: background process
-            # N: do not execute a remote command
-            # R: remote port forwarding
-            ssh -o StrictHostKeyChecking=no -f -N -R $REMOTE_PORT:127.0.0.1:3000 user-gha@$TRACING_SSH_SERVER
-            echo "To view Grafana locally:"
-            echo "ssh -N -L 8000:localhost:$REMOTE_PORT user-gha@$TRACING_SSH_SERVER"
-            echo "Then visit http://localhost:8000 in a browser."
-            echo "If you are unable to connect, check with the security team that you have access to the tracing server."
+          eval $(ssh-agent)
+          echo "test"
+          echo "$TRACING_SSH_KEY" | wc -c
+          echo "$TRACING_SSH_KEY" | tr -d '\r' | wc -c
+          echo "$TRACING_SSH_KEY" | tr -d '\r' | base64 --decode | ssh-add -
+          # f: background process
+          # N: do not execute a remote command
+          # R: remote port forwarding
+          ssh -o StrictHostKeyChecking=no -f -N -R $REMOTE_PORT:127.0.0.1:3000 user-gha@$TRACING_SSH_SERVER
+          echo "To view Grafana locally:"
+          echo "ssh -N -L 8000:localhost:$REMOTE_PORT user-gha@$TRACING_SSH_SERVER"
+          echo "Then visit http://localhost:8000 in a browser."
+          echo "If you are unable to connect, check with the security team that you have access to the tracing server."
       - name: Show Grafana Logs
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
-            docker logs grafana
-            docker logs tempo
-            docker logs otel-collector
+          docker logs grafana
+          docker logs tempo
+          docker logs otel-collector
       - name: Set sleep time to use in future steps
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |

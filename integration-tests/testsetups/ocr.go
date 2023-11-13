@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 const (
@@ -163,7 +164,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 }
 
 // LoadEnvironment loads an existing test environment using the provided URLs
-func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, chainURL, mockServerURL string) {
+func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, mockServerURL string) {
 	var (
 		network = networks.MustGetSelectedNetworksFromEnv()[0]
 		err     error
@@ -241,7 +242,6 @@ func (o *OCRSoakTest) Setup() {
 			o.Inputs.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
-			o.bootstrapNode,
 			o.workerNodes,
 			o.chainClient,
 		)
@@ -258,7 +258,7 @@ func (o *OCRSoakTest) Setup() {
 
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(utils.TestContext(o.t), time.Second*5)
 	latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
 	cancel()
 	require.NoError(o.t, err, "Error getting current block number")
@@ -343,7 +343,7 @@ func (o *OCRSoakTest) SaveState() error {
 	if err != nil {
 		return err
 	}
-	// #nosec G306 - let everyone read
+	//nolint:gosec // G306 - let everyone read
 	if err = os.WriteFile(saveFileLocation, data, 0644); err != nil {
 		return err
 	}
@@ -468,6 +468,7 @@ func (o *OCRSoakTest) Interrupted() bool {
 func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	endTest := time.After(testDuration)
 	interruption := make(chan os.Signal, 1)
+	//nolint:staticcheck //ignore SA1016 we need to send the os.Kill signal
 	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
 	lastValue := 0
 	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
@@ -558,7 +559,7 @@ func (o *OCRSoakTest) setFilterQuery() {
 // WARNING: Should only be used for observation and logging. This is not a reliable way to collect events.
 func (o *OCRSoakTest) observeOCREvents() error {
 	eventLogs := make(chan types.Log)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(utils.TestContext(o.t), 5*time.Second)
 	eventSub, err := o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
 	cancel()
 	if err != nil {
@@ -592,7 +593,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 						Str("Backoff", backoff.String()).
 						Interface("Query", o.filterQuery).
 						Msg("Error while subscribed to OCR Logs. Resubscribing")
-					ctx, cancel = context.WithTimeout(context.Background(), backoff)
+					ctx, cancel = context.WithTimeout(utils.TestContext(o.t), backoff)
 					eventSub, err = o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
 					cancel()
 					if err != nil {
@@ -645,12 +646,12 @@ func (o *OCRSoakTest) collectEvents() error {
 	timeout := time.Second * 15
 	o.log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(utils.TestContext(o.t), timeout)
 	contractEvents, err := o.chainClient.FilterLogs(ctx, o.filterQuery)
 	cancel()
 	for err != nil {
 		o.log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(utils.TestContext(o.t), timeout)
 		contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
 		cancel()
 		if err != nil {

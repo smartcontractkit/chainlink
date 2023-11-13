@@ -254,7 +254,6 @@ func GetMockserverInitializerDataForOTPE(
 func TeardownSuite(
 	t *testing.T,
 	env *environment.Environment,
-	logsFolderPath string,
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level

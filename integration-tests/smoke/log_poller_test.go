@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	logpoller "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
 )
 

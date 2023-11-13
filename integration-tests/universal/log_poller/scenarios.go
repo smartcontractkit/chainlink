@@ -1,19 +1,20 @@
 package logpoller
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/stretchr/testify/require"
 )
 
 func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
@@ -31,12 +32,11 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 
 	var (
 		err           error
-		testName      = "basic-log-poller"
 		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(500*time.Millisecond), cfg.General.UseFinalityTag,
+		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(500*time.Millisecond), cfg.General.UseFinalityTag,
 	)
 
 	_, upkeepIDs := actions.DeployConsumers(
@@ -100,7 +100,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
-	sb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
+	sb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
 	require.NoError(t, err, "Error getting latest block number")
 	startBlock := int64(sb)
 
@@ -122,7 +122,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
-	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
+	eb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
 	require.NoError(t, err, "Error getting latest block number")
 
 	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
@@ -194,13 +194,12 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 	var (
 		err           error
-		testName      = "replay-log-poller"
 		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	// we set blockBackfillDepth to 0, to make sure nothing will be backfilled and won't interfere with our test
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag)
+		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag)
 
 	_, upkeepIDs := actions.DeployConsumers(
 		t,
@@ -230,7 +229,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	time.Sleep(5 * time.Second)
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
-	sb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
+	sb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
 	require.NoError(t, err, "Error getting latest block number")
 	startBlock := int64(sb)
 
@@ -244,7 +243,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
-	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
+	eb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
 	require.NoError(t, err, "Error getting latest block number")
 
 	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
@@ -352,12 +351,11 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 
 	var (
 		err           error
-		testName      = "ci-log-poller"
 		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, testName, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag,
+		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag,
 	)
 
 	_, upkeepIDs := actions.DeployConsumers(
@@ -421,7 +419,7 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
-	sb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
+	sb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
 	require.NoError(t, err, "Error getting latest block number")
 	startBlock := int64(sb)
 
@@ -443,7 +441,7 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
-	eb, err := testEnv.EVMClient.LatestBlockNumber(context.Background())
+	eb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
 	require.NoError(t, err, "Error getting latest block number")
 
 	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
