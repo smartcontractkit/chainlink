@@ -7,8 +7,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -32,7 +35,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	usdcReader, err := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, nil)
 	require.NoError(t, err)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI)
+	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0)
 
 	attestation, err := usdcService.callAttestationApi(context.Background(), [32]byte(common.FromHex(usdcMessageHash)))
 	require.NoError(t, err)
@@ -57,7 +60,7 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 	usdcReader, err := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, lp)
 	require.NoError(t, err)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI)
+	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0)
 	attestation, err := usdcService.callAttestationApi(context.Background(), utils.RandomBytes32())
 	require.NoError(t, err)
 
@@ -66,21 +69,93 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 }
 
 func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer ts.Close()
-	attestationURI, err := url.ParseRequestURI(ts.URL)
-	require.NoError(t, err)
+	t.Parallel()
 
-	lggr := logger.TestLogger(t)
-	lp := mocks.NewLogPoller(t)
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	usdcReader, err := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, lp)
-	require.NoError(t, err)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI)
-	_, err = usdcService.callAttestationApi(context.Background(), utils.RandomBytes32())
-	require.Error(t, err)
+	tests := []struct {
+		name                 string
+		getTs                func() *httptest.Server
+		customTimeoutSeconds int
+		expectedError        error
+	}{
+		{
+			name: "server error",
+			getTs: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusInternalServerError)
+				}))
+			},
+			expectedError: nil,
+		},
+		{
+			name: "default timeout",
+			getTs: func() *httptest.Server {
+				response := attestationResponse{
+					Status:      attestationStatusSuccess,
+					Attestation: "720502893578a89a8a87982982ef781c18b193",
+				}
+				responseBytes, _ := json.Marshal(response)
+
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					time.Sleep(defaultAttestationTimeout + time.Second)
+					_, err := w.Write(responseBytes)
+					require.NoError(t, err)
+				}))
+
+			},
+			expectedError: tokendata.ErrTimeout,
+		},
+		{
+			name: "custom timeout",
+			getTs: func() *httptest.Server {
+				response := attestationResponse{
+					Status:      attestationStatusSuccess,
+					Attestation: "720502893578a89a8a87982982ef781c18b193",
+				}
+				responseBytes, _ := json.Marshal(response)
+
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					time.Sleep(2*time.Second + time.Second)
+					_, err := w.Write(responseBytes)
+					require.NoError(t, err)
+				}))
+
+			},
+			customTimeoutSeconds: 2,
+			expectedError:        tokendata.ErrTimeout,
+		},
+		{
+			name: "rate limit",
+			getTs: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusTooManyRequests)
+				}))
+			},
+			expectedError: tokendata.ErrRateLimit,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ts := test.getTs()
+			defer ts.Close()
+
+			attestationURI, err := url.ParseRequestURI(ts.URL)
+			require.NoError(t, err)
+
+			lggr := logger.TestLogger(t)
+			lp := mocks.NewLogPoller(t)
+			lp.On("RegisterFilter", mock.Anything).Return(nil)
+			usdcReader, err := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, lp)
+			require.NoError(t, err)
+			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds)
+			_, err = usdcService.callAttestationApi(context.Background(), utils.RandomBytes32())
+			require.Error(t, err)
+
+			if test.expectedError != nil {
+				require.True(t, errors.Is(err, test.expectedError))
+			}
+		})
+	}
 }
 
 func getMockUSDCEndpoint(t *testing.T, response attestationResponse) *httptest.Server {
@@ -99,7 +174,7 @@ func TestGetUSDCMessageBody(t *testing.T) {
 	usdcReader.On("GetLastUSDCMessagePriorToLogIndexInTx", mock.Anything, mock.Anything, mock.Anything).Return(expectedBody, nil)
 
 	lggr := logger.TestLogger(t)
-	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil)
+	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0)
 
 	// Make the first call and assert the underlying function is called
 	body, err := usdcService.getUSDCMessageBody(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{})
