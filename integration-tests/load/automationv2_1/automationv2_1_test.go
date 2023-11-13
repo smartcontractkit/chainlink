@@ -23,6 +23,8 @@ import (
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"math/big"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -42,18 +44,39 @@ AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 )
 
+func getEnv(key, fallback string) string {
+	if inputs, ok := os.LookupEnv("TEST_INPUTS"); ok {
+		values := strings.Split(inputs, ",")
+		for _, value := range values {
+			if strings.Contains(value, key) {
+				return strings.Split(value, "=")[1]
+			}
+		}
+	}
+	return fallback
+}
+
+var (
+	numberofNodes, _   = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))
+	numberOfUpkeeps, _ = strconv.Atoi(getEnv("NUMBEROFUPKEEPS", "500"))
+	duration, _        = strconv.Atoi(getEnv("DURATION", "300"))
+	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))
+)
+
 func TestLogTrigger(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	l.Info().Msg("Starting basic log trigger test")
+	l.Info().Str("TEST_INPUTS", os.Getenv("TEST_INPUTS")).Int("Number of Nodes", numberofNodes).
+		Int("Number of Upkeeps", numberOfUpkeeps).
+		Int("Duration", duration).
+		Int("Block Time", blockTime).
+		Msg("Test Config")
 
 	testNetwork := networks.MustGetSelectedNetworksFromEnv()[0]
 	testType := "load"
-	numberofNodes := 6
 	networkDetailTOML := `MinIncomingConfirmations = 1`
-	blockTime := "1"
-	numberOfUpkeeps := 500
-	const durationInSeconds = 300
+	loadDuration := time.Duration(duration) * time.Second
 	automationDefaultLinkFunds := big.NewInt(int64(9e18))
 	automationDefaultUpkeepGasLimit := uint32(2500000)
 
@@ -110,6 +133,9 @@ func TestLogTrigger(t *testing.T) {
 	require.NoError(t, err, "Error launching test environment")
 
 	if testEnvironment.WillUseRemoteRunner() {
+		key := "TEST_INPUTS"
+		err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+		require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
 		return
 	}
 
@@ -273,7 +299,7 @@ func TestLogTrigger(t *testing.T) {
 			CallTimeout: time.Minute * 3,
 			Schedule: wasp.Plain(
 				1,
-				time.Second*durationInSeconds,
+				loadDuration,
 			),
 			Gun: NewLogTriggerUser(
 				triggerContract,
