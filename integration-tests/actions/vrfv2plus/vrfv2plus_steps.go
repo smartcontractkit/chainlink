@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
@@ -343,10 +346,15 @@ func SetupVRFV2_5Environment(
 		configOpts = append(configOpts, node.WithVRFv2EVMEstimator(sk))
 	}
 	configOpts = append(configOpts, node.WithLogPollInterval(time.Second))
+	configOpts = append(configOpts, node.WithLogFile("../logs/vrf-test-logs"))
 	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
 		configOpts...,
 	)
-	l.Info().Msg("Restarting Node with new sending key PriceMax configuration and log poll period configuration")
+	currEx, err := os.Executable()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("error getting executable path: %s", err.Error())
+	}
+	l.Info().Str("currEx", currEx).Msg("Restarting Node with new sending key PriceMax configuration and log poll period configuration")
 	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrRestartCLNode, err)
@@ -892,7 +900,7 @@ func LogRandomnessRequestedEventUpgraded(
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
 		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
 		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
-		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
+		Str("Keyhash", hexutil.Encode(randomWordsRequestedEvent.KeyHash[:])).
 		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
 		Uint32("Number of Words", randomWordsRequestedEvent.NumWords).
 		Uint16("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).

@@ -244,3 +244,9 @@ func WithLogPollInterval(interval time.Duration) NodeConfigOpt {
 		c.EVM[0].Chain.LogPollInterval = models.MustNewDuration(interval)
 	}
 }
+
+func WithLogFile(logFile string) NodeConfigOpt {
+	return func(c *chainlink.Config) {
+		c.Core.Log.File.Dir = utils2.Ptr(logFile)
+	}
+}
