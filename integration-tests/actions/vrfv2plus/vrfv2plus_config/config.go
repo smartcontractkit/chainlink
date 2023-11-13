@@ -4,6 +4,7 @@ import "time"
 
 type VRFV2PlusConfig struct {
 	ChainlinkNodeFunding            float64 `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"`                     // Amount of native currency to fund each chainlink node with
+	NumSendingKeys                  int     `envconfig:"NUM_SENDING_KEYS" default:"1"`                            // Amount of sending keys to create on the newly created node
 	IsNativePayment                 bool    `envconfig:"IS_NATIVE_PAYMENT" default:"false"`                       // Whether to use native payment or LINK token
 	LinkNativeFeedResponse          int64   `envconfig:"LINK_NATIVE_FEED_RESPONSE" default:"1000000000000000000"` // Response of the LINK/ETH feed
 	MinimumConfirmations            uint16  `envconfig:"MINIMUM_CONFIRMATIONS" default:"3"`                       // Minimum number of confirmations for the VRF Coordinator

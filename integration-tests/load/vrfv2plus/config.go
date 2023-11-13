@@ -7,6 +7,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -46,6 +47,9 @@ type ExistingEnvConfig struct {
 
 type NewEnvConfig struct {
 	Funding
+	// NumSendingKeys is the number of sending keys to create on the newly created node
+	// each sending key is funded by the amount specified in NodeFunds
+	NumSendingKeys int `toml:"num_sending_keys"`
 }
 
 type Common struct {

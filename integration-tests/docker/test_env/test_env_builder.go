@@ -39,6 +39,7 @@ type CLTestEnvBuilder struct {
 	secretsConfig          string
 	nonDevGethNetworks     []blockchain.EVMNetwork
 	clNodesCount           int
+	ethKeysCount           int
 	customNodeCsaKeys      []string
 	defaultNodeCsaKeys     []string
 	l                      zerolog.Logger
@@ -105,6 +106,11 @@ func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
 
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	b.clNodesCount = clNodesCount
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithNumEthKeys(num int) *CLTestEnvBuilder {
+	b.ethKeysCount = num
 	return b
 }
 
@@ -342,6 +348,18 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.hasGeth && b.clNodesCount > 0 && b.ETHFunds != nil {
+		// create the specified number of eth keys
+		// each node has one key by default
+		if b.ethKeysCount >= 1 {
+			for _, nodeAPI := range b.te.ClCluster.NodeAPIs() {
+				for i := 0; i < b.ethKeysCount-1; i++ {
+					_, _, err := nodeAPI.CreateTxKey("evm", b.te.EVMClient.GetChainID().String())
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		b.te.ParallelTransactions(true)
 		defer b.te.ParallelTransactions(false)
 		if err := b.te.FundChainlinkNodes(b.ETHFunds); err != nil {

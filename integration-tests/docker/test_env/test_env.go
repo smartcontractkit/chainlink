@@ -162,11 +162,17 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
 func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
-	for _, cl := range te.ClCluster.Nodes {
-		if err := cl.Fund(te.EVMClient, amount); err != nil {
-			return fmt.Errorf("%s, err: %w", ErrFundCLNode, err)
+	for i, cl := range te.ClCluster.Nodes {
+		keys, err := te.ClCluster.NodeAPIs()[i].MustReadETHKeys()
+		if err != nil {
+			return fmt.Errorf("failed to read ETH keys from node %s, err: %w", cl.ContainerName, err)
 		}
-		time.Sleep(5 * time.Second)
+		for _, key := range keys.Data {
+			if err := cl.Fund(te.EVMClient, amount, key.Attributes.Address); err != nil {
+				return fmt.Errorf("%s, err: %w", ErrFundCLNode, err)
+			}
+			time.Sleep(5 * time.Second)
+		}
 	}
 	return te.EVMClient.WaitForEvents()
 }
