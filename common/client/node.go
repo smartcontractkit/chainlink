@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -45,6 +44,7 @@ type NodeConfig interface {
 	SyncThreshold() uint32
 }
 
+//go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
 type Node[
 	CHAIN_ID types.ID,
 	HEAD Head,
@@ -136,7 +136,7 @@ func NewNode[
 	}
 	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
 	lggr = lggr.Named("Node").With(
-		"nodeTier", client.Primary.String(),
+		"nodeTier", Primary.String(),
 		"nodeName", name,
 		"node", n.String(),
 		"chainID", chainID,
@@ -150,7 +150,7 @@ func NewNode[
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) String() string {
-	s := fmt.Sprintf("(%s)%s:%s", client.Primary.String(), n.name, n.ws.String())
+	s := fmt.Sprintf("(%s)%s:%s", Primary.String(), n.name, n.ws.String())
 	if n.http != nil {
 		s = s + fmt.Sprintf(":%s", n.http.String())
 	}
@@ -178,19 +178,21 @@ func (n *node[CHAIN_ID, HEAD, RPC]) UnsubscribeAllExceptAliveLoop() {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Close() error {
-	return n.StopOnce(n.name, func() error {
-		defer func() {
-			n.wg.Wait()
-			n.rpc.Close()
-		}()
+	return n.StopOnce(n.name, n.close)
+}
 
-		n.stateMu.Lock()
-		defer n.stateMu.Unlock()
+func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
+	defer func() {
+		n.wg.Wait()
+		n.rpc.Close()
+	}()
 
-		n.cancelNodeCtx()
-		n.state = nodeStateClosed
-		return nil
-	})
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+
+	n.cancelNodeCtx()
+	n.state = nodeStateClosed
+	return nil
 }
 
 // Start dials and verifies the node

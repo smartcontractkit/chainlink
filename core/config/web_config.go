@@ -32,7 +32,31 @@ type MFA interface {
 	RPOrigin() string
 }
 
+type LDAP interface {
+	ServerAddress() string
+	ReadOnlyUserLogin() string
+	ReadOnlyUserPass() string
+	ServerTLS() bool
+	SessionTimeout() models.Duration
+	QueryTimeout() time.Duration
+	BaseUserAttr() string
+	BaseDN() string
+	UsersDN() string
+	GroupsDN() string
+	ActiveAttribute() string
+	ActiveAttributeAllowedValue() string
+	AdminUserGroupCN() string
+	EditUserGroupCN() string
+	RunUserGroupCN() string
+	ReadUserGroupCN() string
+	UserApiTokenEnabled() bool
+	UserAPITokenDuration() models.Duration
+	UpstreamSyncInterval() models.Duration
+	UpstreamSyncRateLimit() models.Duration
+}
+
 type WebServer interface {
+	AuthenticationMethod() string
 	AllowOrigins() string
 	BridgeCacheTTL() time.Duration
 	BridgeResponseURL() *url.URL
@@ -49,4 +73,5 @@ type WebServer interface {
 	TLS() TLS
 	RateLimit() RateLimit
 	MFA() MFA
+	LDAP() LDAP
 }

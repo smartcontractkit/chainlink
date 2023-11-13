@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -65,8 +66,9 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 				Username:  "FakeClientID",
 				Password:  "FakeClientKey",
 			},
-			abi:            streamsLookupCompatibleABI,
-			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
+			abi:              streamsLookupCompatibleABI,
+			allowListCache:   cache.New(defaultAllowListExpiration, cleanupInterval),
+			pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
 		},
 		hc: mockHttpClient,
 	}
@@ -427,15 +429,18 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 
 	tests := []struct {
-		name               string
-		lookup             *StreamsLookup
-		mockHttpStatusCode int
-		mockChainlinkBlobs []string
-		expectedValues     [][]byte
-		expectedRetryable  bool
-		expectedError      error
-		state              encoding.PipelineExecutionState
-		reason             encoding.UpkeepFailureReason
+		name                  string
+		lookup                *StreamsLookup
+		mockHttpStatusCode    int
+		mockChainlinkBlobs    []string
+		pluginRetries         int
+		pluginRetryKey        string
+		expectedValues        [][]byte
+		expectedRetryable     bool
+		expectedRetryInterval time.Duration
+		expectedError         error
+		state                 encoding.PipelineExecutionState
+		reason                encoding.UpkeepFailureReason
 	}{
 		{
 			name: "success",
@@ -456,7 +461,7 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 			expectedError:      nil,
 		},
 		{
-			name: "failure - retryable",
+			name: "failure - retryable and interval is 1s",
 			lookup: &StreamsLookup{
 				StreamsLookupError: &encoding.StreamsLookupError{
 					FeedParamKey: feedIdHex,
@@ -467,6 +472,49 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 				},
 				upkeepId: upkeepId,
 			},
+			mockHttpStatusCode:    http.StatusInternalServerError,
+			mockChainlinkBlobs:    []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
+			expectedValues:        [][]byte{nil},
+			expectedRetryable:     true,
+			pluginRetries:         0,
+			expectedRetryInterval: 1 * time.Second,
+			expectedError:         errors.New("failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 500\n#2: 500\n#3: 500"),
+			state:                 encoding.MercuryFlakyFailure,
+		},
+		{
+			name: "failure - retryable and interval is 5s",
+			lookup: &StreamsLookup{
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(25880526),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				upkeepId: upkeepId,
+			},
+			pluginRetries:         5,
+			mockHttpStatusCode:    http.StatusInternalServerError,
+			mockChainlinkBlobs:    []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
+			expectedValues:        [][]byte{nil},
+			expectedRetryable:     true,
+			expectedRetryInterval: 5 * time.Second,
+			expectedError:         errors.New("failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 500\n#2: 500\n#3: 500"),
+			state:                 encoding.MercuryFlakyFailure,
+		},
+		{
+			name: "failure - not retryable because there are many plugin retries already",
+			lookup: &StreamsLookup{
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(25880526),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				upkeepId: upkeepId,
+			},
+			pluginRetries:      10,
 			mockHttpStatusCode: http.StatusInternalServerError,
 			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
 			expectedValues:     [][]byte{nil},
@@ -486,11 +534,11 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 				},
 				upkeepId: upkeepId,
 			},
-			mockHttpStatusCode: http.StatusBadGateway,
+			mockHttpStatusCode: http.StatusTooManyRequests,
 			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
 			expectedValues:     [][]byte{nil},
 			expectedRetryable:  false,
-			expectedError:      errors.New("failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: at block 25880526 upkeep 88786950015966611018675766524283132478093844178961698330929478019253453382042 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+			expectedError:      errors.New("failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: at block 25880526 upkeep 88786950015966611018675766524283132478093844178961698330929478019253453382042 received status code 429 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
 			state:              encoding.InvalidMercuryRequest,
 		},
 		{
@@ -528,6 +576,9 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
+			if tt.pluginRetries != 0 {
+				r.mercury.pluginRetryCache.Set(tt.pluginRetryKey, tt.pluginRetries, cache.DefaultExpiration)
+			}
 			hc := mocks.NewHttpClient(t)
 
 			for _, blob := range tt.mockChainlinkBlobs {
@@ -539,7 +590,7 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 					StatusCode: tt.mockHttpStatusCode,
 					Body:       io.NopCloser(bytes.NewReader(b)),
 				}
-				if tt.expectedError != nil && tt.expectedRetryable {
+				if tt.expectedError != nil && tt.expectedRetryable || tt.pluginRetries > 0 {
 					hc.On("Do", mock.Anything).Return(resp, nil).Times(totalAttempt)
 				} else {
 					hc.On("Do", mock.Anything).Return(resp, nil).Once()
@@ -547,13 +598,18 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 			}
 			r.hc = hc
 
-			state, reason, values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, r.lggr)
+			state, reason, values, retryable, ri, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, tt.pluginRetryKey, r.lggr)
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
+			if retryable {
+				newRetries, _ := r.mercury.pluginRetryCache.Get(tt.pluginRetryKey)
+				assert.Equal(t, tt.pluginRetries+1, newRetries.(int))
+			}
+			assert.Equal(t, tt.expectedRetryInterval, ri)
 			assert.Equal(t, tt.state, state)
 			assert.Equal(t, tt.reason, reason)
 			if tt.expectedError != nil {
-				assert.Equal(t, tt.expectedError.Error(), reqErr.Error())
+				assert.True(t, strings.HasPrefix(reqErr.Error(), "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"))
 			}
 		})
 	}
@@ -563,15 +619,17 @@ func TestEvmRegistry_DoMercuryRequestV03(t *testing.T) {
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 
 	tests := []struct {
-		name               string
-		lookup             *StreamsLookup
-		mockHttpStatusCode int
-		mockChainlinkBlobs []string
-		expectedValues     [][]byte
-		expectedRetryable  bool
-		expectedError      error
-		state              encoding.PipelineExecutionState
-		reason             encoding.UpkeepFailureReason
+		name                  string
+		lookup                *StreamsLookup
+		mockHttpStatusCode    int
+		mockChainlinkBlobs    []string
+		pluginRetryKey        string
+		expectedValues        [][]byte
+		expectedRetryable     bool
+		expectedRetryInterval time.Duration
+		expectedError         error
+		state                 encoding.PipelineExecutionState
+		reason                encoding.UpkeepFailureReason
 	}{
 		{
 			name: "success v0.3",
@@ -622,9 +680,10 @@ func TestEvmRegistry_DoMercuryRequestV03(t *testing.T) {
 			}
 			r.hc = hc
 
-			state, reason, values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, r.lggr)
+			state, reason, values, retryable, ri, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, tt.pluginRetryKey, r.lggr)
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
+			assert.Equal(t, tt.expectedRetryInterval, ri)
 			assert.Equal(t, tt.state, state)
 			assert.Equal(t, tt.reason, reason)
 			if tt.expectedError != nil {
@@ -640,6 +699,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		name           string
 		index          int
 		lookup         *StreamsLookup
+		pluginRetryKey string
 		blob           string
 		statusCode     int
 		lastStatusCode int
@@ -728,8 +788,8 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			blob:           "0xab2123dc",
 			retryNumber:    1,
 			statusCode:     http.StatusNotFound,
-			lastStatusCode: http.StatusBadGateway,
-			errorMessage:   "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 404\n#2: at block 123456 upkeep 123456789 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+			lastStatusCode: http.StatusTooManyRequests,
+			errorMessage:   "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 404\n#2: at block 123456 upkeep 123456789 received status code 429 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 		},
 		{
 			name:  "failure - returns not retryable",
@@ -744,8 +804,8 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				upkeepId: upkeepId,
 			},
 			blob:         "0xab2123dc",
-			statusCode:   http.StatusBadGateway,
-			errorMessage: "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: at block 123456 upkeep 123456789 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+			statusCode:   http.StatusConflict,
+			errorMessage: "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: at block 123456 upkeep 123456789 received status code 409 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 		},
 	}
 
@@ -819,6 +879,8 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		lookup         *StreamsLookup
 		statusCode     int
 		lastStatusCode int
+		pluginRetries  int
+		pluginRetryKey string
 		retryNumber    int
 		retryable      bool
 		errorMessage   string
@@ -884,6 +946,47 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name: "success - retry 206",
+			lookup: &StreamsLookup{
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
+			},
+			firstResponse: &MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
+					},
+				},
+			},
+			response: &MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
+					},
+					{
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            "0xab2123dc00000019",
+					},
+				},
+			},
+			retryNumber:    1,
+			statusCode:     http.StatusPartialContent,
+			lastStatusCode: http.StatusOK,
+		},
+		{
 			name: "success - retry for 500",
 			lookup: &StreamsLookup{
 				StreamsLookupError: &encoding.StreamsLookupError{
@@ -946,7 +1049,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			errorMessage: "All attempts fail:\n#1: hex string without 0x prefix",
 		},
 		{
-			name: "failure - returns retryable",
+			name: "failure - returns retryable with 1s plugin retry interval",
 			lookup: &StreamsLookup{
 				StreamsLookupError: &encoding.StreamsLookupError{
 					FeedParamKey: feedIDs,
@@ -960,6 +1063,23 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			statusCode:   http.StatusInternalServerError,
 			retryable:    true,
 			errorMessage: "All attempts fail:\n#1: 500\n#2: 500\n#3: 500",
+		},
+		{
+			name: "failure - returns retryable with 5s plugin retry interval",
+			lookup: &StreamsLookup{
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
+			},
+			pluginRetries: 6,
+			retryNumber:   totalAttempt,
+			statusCode:    http.StatusInternalServerError,
+			retryable:     true,
+			errorMessage:  "All attempts fail:\n#1: 500\n#2: 500\n#3: 500",
 		},
 		{
 			name: "failure - returns retryable and then non-retryable",
@@ -978,7 +1098,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			errorMessage:   "All attempts fail:\n#1: 500\n#2: at timestamp 123456 upkeep 123456789 received status code 401 from mercury v0.3, most likely this is caused by unauthorized upkeep",
 		},
 		{
-			name: "failure - returns status code 420 not retryable",
+			name: "failure - returns status code 422 not retryable",
 			lookup: &StreamsLookup{
 				StreamsLookupError: &encoding.StreamsLookupError{
 					FeedParamKey: feedIDs,
@@ -988,22 +1108,8 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				},
 				upkeepId: upkeepId,
 			},
-			statusCode:   420,
-			errorMessage: "All attempts fail:\n#1: at timestamp 123456 upkeep 123456789 received status code 420 from mercury v0.3, most likely this is caused by missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds",
-		},
-		{
-			name: "failure - returns status code 502 not retryable",
-			lookup: &StreamsLookup{
-				StreamsLookupError: &encoding.StreamsLookupError{
-					FeedParamKey: feedIDs,
-					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-					TimeParamKey: timestamp,
-					Time:         big.NewInt(123456),
-				},
-				upkeepId: upkeepId,
-			},
-			statusCode:   http.StatusBadGateway,
-			errorMessage: "All attempts fail:\n#1: at timestamp 123456 upkeep 123456789 received status code 502 from mercury v0.3",
+			statusCode:   http.StatusUnprocessableEntity,
+			errorMessage: "All attempts fail:\n#1: at timestamp 123456 upkeep 123456789 received status code 422 from mercury v0.3",
 		},
 		{
 			name: "success - retry when reports length does not match feeds length",
@@ -1042,14 +1148,19 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					},
 				},
 			},
-			retryNumber: 1,
-			statusCode:  http.StatusOK,
+			retryNumber:    1,
+			statusCode:     http.StatusOK,
+			lastStatusCode: http.StatusOK,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
+			if tt.pluginRetries != 0 {
+				r.mercury.pluginRetryCache.Set(tt.pluginRetryKey, tt.pluginRetries, cache.DefaultExpiration)
+			}
+
 			hc := mocks.NewHttpClient(t)
 			b, err := json.Marshal(tt.response)
 			assert.Nil(t, err)
@@ -1071,7 +1182,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					b1, err := json.Marshal(tt.response)
 					assert.Nil(t, err)
 					resp1 := &http.Response{
-						StatusCode: tt.statusCode,
+						StatusCode: tt.lastStatusCode,
 						Body:       io.NopCloser(bytes.NewReader(b1)),
 					}
 					hc.On("Do", mock.Anything).Return(resp0, nil).Once().On("Do", mock.Anything).Return(resp1, nil).Once()

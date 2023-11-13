@@ -15,7 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )

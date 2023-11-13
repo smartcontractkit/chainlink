@@ -2,6 +2,28 @@
 LeaseRefreshInterval='6s'
 LeaseDuration='10s'
 
+[WebServer]
+AuthenticationMethod = 'ldap'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = ''
+BaseDN = ''
+UsersDN = ''
+GroupsDN = ''
+ActiveAttribute = ''
+ActiveAttributeAllowedValue = ''
+AdminUserGroupCN = ''
+EditUserGroupCN = ''
+RunUserGroupCN = ''
+ReadUserGroupCN = ''
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
+
 [[EVM]]
 ChainID = '1'
 Transactions.MaxInFlight= 10

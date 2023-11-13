@@ -31,7 +31,7 @@ import (
 
 	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 
-	sqlx "github.com/smartcontractkit/sqlx"
+	sqlx "github.com/jmoiron/sqlx"
 
 	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
@@ -58,6 +58,38 @@ func (_m *Application) AddJobV2(ctx context.Context, _a1 *job.Job) error {
 		r0 = rf(ctx, _a1)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// AuthenticationProvider provides a mock function with given fields:
+func (_m *Application) AuthenticationProvider() sessions.AuthenticationProvider {
+	ret := _m.Called()
+
+	var r0 sessions.AuthenticationProvider
+	if rf, ok := ret.Get(0).(func() sessions.AuthenticationProvider); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(sessions.AuthenticationProvider)
+		}
+	}
+
+	return r0
+}
+
+// BasicAdminUsersORM provides a mock function with given fields:
+func (_m *Application) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
+	ret := _m.Called()
+
+	var r0 sessions.BasicAdminUsersORM
+	if rf, ok := ret.Get(0).(func() sessions.BasicAdminUsersORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(sessions.BasicAdminUsersORM)
+		}
 	}
 
 	return r0
@@ -433,22 +465,6 @@ func (_m *Application) SecretGenerator() chainlink.SecretGenerator {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(chainlink.SecretGenerator)
-		}
-	}
-
-	return r0
-}
-
-// SessionORM provides a mock function with given fields:
-func (_m *Application) SessionORM() sessions.ORM {
-	ret := _m.Called()
-
-	var r0 sessions.ORM
-	if rf, ok := ret.Get(0).(func() sessions.ORM); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sessions.ORM)
 		}
 	}
 

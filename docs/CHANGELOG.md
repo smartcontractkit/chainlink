@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Added
+
+- Added a new, optional WebServer authentication option that supports LDAP as a user identity provider. This enables user login access and user roles to be managed and provisioned via a centralized remote server that supports the LDAP protocol, which can be helpful when running multiple nodes. See the documentation for more information and config setup instructions. There is a new `[WebServer].AuthenticationMethod` config option, when set to `ldap` requires the new `[WebServer.LDAP]` config section to be defined, see the reference `docs/core.toml`.
+- New prom metrics for mercury:
+    `mercury_transmit_queue_delete_error_count`
+    `mercury_transmit_queue_insert_error_count`
+    `mercury_transmit_queue_push_error_count`
+    Nops should consider alerting on these.
+
+
 ### Changed
 
 - `L2Suggested` mode is now called `SuggestedPrice`
@@ -16,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed `Optimism2` as a supported gas estimator mode
+
+### Added
+
+- Mercury v0.2 has improved consensus around current block that uses the most recent 5 blocks instead of only the latest one
+- Two new prom metrics for mercury, nops should consider adding alerting on these:
+    - `mercury_insufficient_blocks_count`
+    - `mercury_zero_blocks_count`
 
 ...
 

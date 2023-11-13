@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"

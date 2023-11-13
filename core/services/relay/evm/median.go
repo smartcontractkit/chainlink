@@ -7,12 +7,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"

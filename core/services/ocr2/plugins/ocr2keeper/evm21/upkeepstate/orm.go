@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"

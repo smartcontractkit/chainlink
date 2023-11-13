@@ -22,11 +22,11 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
@@ -51,7 +51,7 @@ import (
 func NewTestEthBroadcaster(
 	t testing.TB,
 	txStore txmgr.TestEvmTxStore,
-	ethClient evmclient.Client,
+	ethClient client.Client,
 	keyStore keystore.Eth,
 	config evmconfig.ChainScopedConfig,
 	checkerFactory txmgr.TransmitCheckerFactory,
@@ -75,7 +75,7 @@ func NewTestEthBroadcaster(
 }
 
 func TestEthBroadcaster_Lifecycle(t *testing.T) {
-	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
+	cfg, db := heavyweight.FullTestDBV2(t, nil)
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -217,7 +217,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		}
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(2) && tx.Value().Cmp(big.NewInt(242)) == 0
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Earlier
 		tr := int32(99)
@@ -245,7 +245,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			require.Equal(t, value.String(), tx.Value().String())
 			require.Equal(t, earlierEthTx.EncodedPayload, tx.Data())
 			return true
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Later
 		laterEthTx := txmgr.Tx{
@@ -268,7 +268,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			require.Equal(t, value.String(), tx.Value().String())
 			require.Equal(t, laterEthTx.EncodedPayload, tx.Data())
 			return true
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Insertion order deliberately reversed to test ordering
 		require.NoError(t, txStore.InsertTx(&expensiveEthTx))
@@ -349,7 +349,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	t.Run("sends transactions with type 0x2 in EIP-1559 mode", func(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(343) && tx.Value().Cmp(big.NewInt(242)) == 0
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		etx := cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, []byte{42, 42, 0}, gasLimit, big.Int(assets.NewEthValue(242)), &cltest.FixtureChainID)
 		// Do the thing
@@ -400,7 +400,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			}
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 				return tx.Nonce() == uint64(344) && tx.Value().Cmp(big.NewInt(442)) == 0
-			}), fromAddress).Return(clienttypes.Successful, nil).Once()
+			}), fromAddress).Return(commonclient.Successful, nil).Once()
 			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]interface{}) bool {
 				if fmt.Sprintf("%s", callarg["value"]) == "0x1ba" { // 442
 					assert.Equal(t, txRequest.FromAddress, callarg["from"])
@@ -433,7 +433,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		t.Run("with unknown error, sends tx as normal", func(t *testing.T) {
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 				return tx.Nonce() == uint64(345) && tx.Value().Cmp(big.NewInt(542)) == 0
-			}), fromAddress).Return(clienttypes.Successful, nil).Once()
+			}), fromAddress).Return(commonclient.Successful, nil).Once()
 			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]interface{}) bool {
 				return fmt.Sprintf("%s", callarg["value"]) == "0x21e" // 542
 			}), "latest").Return(errors.New("this is not a revert, something unexpected went wrong")).Once()
@@ -454,7 +454,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})
 
 		t.Run("on revert, marks tx as fatally errored and does not send", func(t *testing.T) {
-			jerr := evmclient.JsonError{
+			jerr := client.JsonError{
 				Code:    42,
 				Message: "oh no, it reverted",
 				Data:    []byte{42, 166, 34},
@@ -503,7 +503,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == 0 && tx.Value().Cmp(big.NewInt(442)) == 0
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		ethTx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID,
 			cltest.EvmTxRequestWithValue(big.Int(assets.NewEthValue(442))),
@@ -526,7 +526,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == 1 && tx.Value().Cmp(big.NewInt(442)) == 0
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		ethTx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID,
 			cltest.EvmTxRequestWithValue(big.Int(assets.NewEthValue(442))),
@@ -565,7 +565,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
 	// non-transactional DB needed because we deliberately test for FK violation
-	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
+	cfg, db := heavyweight.FullTestDBV2(t, nil)
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 	evmcfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
@@ -646,7 +646,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 	ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 		assert.Equal(t, int(1600), int(tx.Gas()))
 		return true
-	}), fromAddress).Return(clienttypes.Successful, nil).Once()
+	}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 	txRequest := txmgr.TxRequest{
 		FromAddress:    fromAddress,
@@ -730,7 +730,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(firstNonce)
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
 		{
@@ -766,7 +766,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(firstNonce)
-		}), fromAddress).Return(clienttypes.Fatal, errors.New("exceeds block gas limit")).Once()
+		}), fromAddress).Return(commonclient.Fatal, errors.New("exceeds block gas limit")).Once()
 
 		// Do the thing
 		{
@@ -802,7 +802,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(firstNonce)
-		}), fromAddress).Return(clienttypes.Successful, errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
+		}), fromAddress).Return(commonclient.Successful, errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
 
 		// Do the thing
 		{
@@ -837,7 +837,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(firstNonce)
-		}), fromAddress).Return(clienttypes.TransactionAlreadyKnown, errors.New("nonce too low")).Once()
+		}), fromAddress).Return(commonclient.TransactionAlreadyKnown, errors.New("nonce too low")).Once()
 
 		// Do the thing
 		{
@@ -874,7 +874,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(firstNonce)
-		}), fromAddress).Return(clienttypes.Retryable, failedToReachNodeError).Once()
+		}), fromAddress).Return(commonclient.Retryable, failedToReachNodeError).Once()
 
 		// Do the thing
 		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
@@ -920,7 +920,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			s, e := txmgr.GetGethSignedTx(attempt.SignedRawTx)
 			require.NoError(t, e)
 			return tx.Nonce() == uint64(firstNonce) && tx.GasPrice().Int64() == s.GasPrice().Int64()
-		}), fromAddress).Return(clienttypes.Successful, errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
+		}), fromAddress).Return(commonclient.Successful, errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
 
 		// Do the thing
 		{
@@ -980,7 +980,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// First send, replacement underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(0)
-		}), fromAddress).Return(clienttypes.Successful, errors.New("replacement transaction underpriced")).Once()
+		}), fromAddress).Return(commonclient.Successful, errors.New("replacement transaction underpriced")).Once()
 
 		// Do the thing
 		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
@@ -1017,7 +1017,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			etx := cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, &cltest.FixtureChainID)
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 				return tx.Nonce() == localNextNonce
-			}), fromAddress).Return(clienttypes.Fatal, errors.New(fatalErrorExample)).Once()
+			}), fromAddress).Return(commonclient.Fatal, errors.New(fatalErrorExample)).Once()
 
 			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
@@ -1067,7 +1067,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 					return tx.Nonce() == localNextNonce
-				}), fromAddress).Return(clienttypes.Fatal, errors.New(fatalErrorExample)).Once()
+				}), fromAddress).Return(commonclient.Fatal, errors.New(fatalErrorExample)).Once()
 
 				retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 				require.Error(t, err)
@@ -1088,7 +1088,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 					return tx.Nonce() == localNextNonce
-				}), fromAddress).Return(clienttypes.Fatal, errors.New(fatalErrorExample)).Once()
+				}), fromAddress).Return(commonclient.Fatal, errors.New(fatalErrorExample)).Once()
 
 				{
 					retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
@@ -1120,7 +1120,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		etx := cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, &cltest.FixtureChainID)
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(clienttypes.ExceedsMaxFee, errors.New(TxFeeExceedsCapError)).Twice()
+		}), fromAddress).Return(commonclient.ExceedsMaxFee, errors.New(TxFeeExceedsCapError)).Twice()
 		// In the first case, the tx was NOT accepted into the mempool. In the case
 		// of multiple RPC nodes, it is possible that it can be accepted by
 		// another node even if the primary one returns "exceeds the configured
@@ -1178,7 +1178,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		etx := cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, &cltest.FixtureChainID)
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(localNextNonce)
-		}), fromAddress).Return(clienttypes.Unknown, errors.New(retryableErrorExample)).Once()
+		}), fromAddress).Return(commonclient.Unknown, errors.New(retryableErrorExample)).Once()
 		// Nonce is the same as localNextNonce, implying that this sent transaction has not been accepted
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(localNextNonce), nil).Once()
 
@@ -1204,7 +1204,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Now on the second run, it is successful
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		retryable, err = eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		assert.NoError(t, err)
@@ -1230,7 +1230,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		etx := cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, &cltest.FixtureChainID)
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(localNextNonce)
-		}), fromAddress).Return(clienttypes.Unknown, errors.New(retryableErrorExample)).Once()
+		}), fromAddress).Return(commonclient.Unknown, errors.New(retryableErrorExample)).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), errors.New("pending nonce fetch failed")).Once()
 
 		// Do the thing
@@ -1256,7 +1256,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Now on the second run, it is successful
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		retryable, err = eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		assert.NoError(t, err)
@@ -1282,7 +1282,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		etx := cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, &cltest.FixtureChainID)
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(clienttypes.Unknown, errors.New(retryableErrorExample)).Once()
+		}), fromAddress).Return(commonclient.Unknown, errors.New(retryableErrorExample)).Once()
 		// Nonce is one higher than localNextNonce, implying that despite the error, this sent transaction has been accepted into the mempool
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(localNextNonce+1), nil).Once()
 
@@ -1316,17 +1316,17 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// First was underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(evmcfg.EVM().GasEstimator().PriceDefault().ToInt()) == 0
-		}), fromAddress).Return(clienttypes.Underpriced, errors.New(underpricedError)).Once()
+		}), fromAddress).Return(commonclient.Underpriced, errors.New(underpricedError)).Once()
 
 		// Second with gas bump was still underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(big.NewInt(25000000000)) == 0
-		}), fromAddress).Return(clienttypes.Underpriced, errors.New(underpricedError)).Once()
+		}), fromAddress).Return(commonclient.Underpriced, errors.New(underpricedError)).Once()
 
 		// Third succeeded
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(big.NewInt(30000000000)) == 0
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
 		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
@@ -1362,7 +1362,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(clienttypes.Retryable, failedToReachNodeError).Once()
+		}), fromAddress).Return(commonclient.Retryable, failedToReachNodeError).Once()
 
 		// Do the thing
 		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
@@ -1393,7 +1393,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(clienttypes.Successful, errors.New(temporarilyUnderpricedError)).Once()
+		}), fromAddress).Return(commonclient.Successful, errors.New(temporarilyUnderpricedError)).Once()
 
 		// Do the thing
 		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
@@ -1433,7 +1433,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// First was underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(evmcfg2.EVM().GasEstimator().PriceDefault().ToInt()) == 0
-		}), fromAddress).Return(clienttypes.Underpriced, errors.New(underpricedError)).Once()
+		}), fromAddress).Return(commonclient.Underpriced, errors.New(underpricedError)).Once()
 
 		// Do the thing
 		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
@@ -1451,7 +1451,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		etx := cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, &cltest.FixtureChainID)
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(clienttypes.InsufficientFunds, errors.New(insufficientEthError)).Once()
+		}), fromAddress).Return(commonclient.InsufficientFunds, errors.New(insufficientEthError)).Once()
 
 		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
@@ -1481,7 +1481,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		etx := cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, &cltest.FixtureChainID)
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(clienttypes.Retryable, errors.New(nonceGapError)).Once()
+		}), fromAddress).Return(commonclient.Retryable, errors.New(nonceGapError)).Once()
 
 		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
@@ -1525,7 +1525,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		localNextNonce = getLocalNextNonce(t, eb, fromAddress)
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(1)) == 0
-		}), fromAddress).Return(clienttypes.Underpriced, errors.New(underpricedError)).Once()
+		}), fromAddress).Return(commonclient.Underpriced, errors.New(underpricedError)).Once()
 
 		// Check gas tip cap verification
 		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
@@ -1569,15 +1569,15 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Second was underpriced but above minimum
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(gasTipCapDefault.ToInt()) == 0
-		}), fromAddress).Return(clienttypes.Underpriced, errors.New(underpricedError)).Once()
+		}), fromAddress).Return(commonclient.Underpriced, errors.New(underpricedError)).Once()
 		// Resend at the bumped price
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), evmcfg2.EVM().GasEstimator().BumpMin().ToInt())) == 0
-		}), fromAddress).Return(clienttypes.Underpriced, errors.New(underpricedError)).Once()
+		}), fromAddress).Return(commonclient.Underpriced, errors.New(underpricedError)).Once()
 		// Final bump succeeds
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), big.NewInt(0).Mul(evmcfg2.EVM().GasEstimator().BumpMin().ToInt(), big.NewInt(2)))) == 0
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		retryable, err = eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.NoError(t, err)

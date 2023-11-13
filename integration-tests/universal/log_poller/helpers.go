@@ -17,36 +17,36 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
+	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_blockchain "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/wasp"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
 
-	"github.com/scylladb/go-reflectx"
-	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
-	utils2 "github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_blockchain "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/wasp"
+
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpEvm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
+	utils2 "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -1074,7 +1074,7 @@ func setupLogPollerTestDocker(
 		WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
 		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
 		WithBeaconChainConfig(ctf_test_env.BeaconChainConfig{
-			SecondsPerSlot: 4,
+			SecondsPerSlot: 8,
 			SlotsPerEpoch:  2,
 		}).
 		Build()
