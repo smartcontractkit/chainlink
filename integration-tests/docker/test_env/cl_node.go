@@ -203,6 +203,10 @@ func (n *ClNode) GetContainerName() string {
 	return strings.Replace(name, "/", "", -1)
 }
 
+func (n *ClNode) GetAPIClient() *client.ChainlinkClient {
+	return n.API
+}
+
 func (n *ClNode) GetPeerUrl() (string, error) {
 	p2pKeys, err := n.API.MustReadP2PKeys()
 	if err != nil {
