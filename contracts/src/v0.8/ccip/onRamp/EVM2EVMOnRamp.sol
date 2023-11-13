@@ -541,19 +541,21 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     premiumFee = premiumFee * feeTokenConfig.premiumMultiplierWeiPerEth;
 
     // Calculate execution gas fee on destination chain in USD with 36 decimals.
-    // We add the message gas limit, the overhead gas, and the data availability gas together.
-    // We then multiply this destination gas total with the gas multiplier and convert it into USD.
+    // We add the message gas limit, the overhead gas, the gas of passing message data to receiver, and token transfer gas together.
+    // We then multiply this gas total with the gas multiplier and gas price, converting it into USD with 36 decimals.
     uint256 executionCost = executionGasPrice *
       ((gasLimit +
         s_dynamicConfig.destGasOverhead +
         (message.data.length * s_dynamicConfig.destGasPerPayloadByte) +
         tokenTransferGas) * feeTokenConfig.gasMultiplierWeiPerEth);
 
-    // Calculate data availability cost in USD with 36 decimals.
+    // Calculate data availability cost in USD with 36 decimals. Data availability cost exists on rollups that need to post
+    // transaction calldata onto another storage layer, e.g. Eth mainnet, incurring additional storage gas costs.
     uint256 dataAvailabilityCost = 0;
     // Only calculate data availability cost if data availability multiplier is non-zero.
     // The multiplier should be set to 0 if destination chain does not charge data availability cost.
     if (s_dynamicConfig.destDataAvailabilityMultiplierBps > 0) {
+      // Parse the dava availability gas price stored in the higher-order 112 bits of encoded gas price.
       uint112 dataAvailabilityGasPrice = uint112(packedGasPrice >> Internal.GAS_PRICE_BITS);
 
       dataAvailabilityCost = _getDataAvailabilityCost(
@@ -583,17 +585,20 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     uint256 numberOfTokens,
     uint32 tokenTransferBytesOverhead
   ) internal view returns (uint256 dataAvailabilityCostUSD36Decimal) {
+    // dataAvailabilityLengthBytes sums up byte lengths of fixed message fields and dynamic message fields.
+    // Fixed message fields does account for the offset and length slot of the dynamic fields.
     uint256 dataAvailabilityLengthBytes = Internal.MESSAGE_FIXED_BYTES +
       messageDataLength +
       (numberOfTokens * Internal.MESSAGE_FIXED_BYTES_PER_TOKEN) +
       tokenTransferBytesOverhead;
 
     // destDataAvailabilityOverheadGas is a separate config value for flexibility to be updated independently of message cost.
+    // Its value is determined by CCIP lane implementation, e.g. the overhead data posted for OCR.
     uint256 dataAvailabilityGas = (dataAvailabilityLengthBytes * s_dynamicConfig.destGasPerDataAvailabilityByte) +
       s_dynamicConfig.destDataAvailabilityOverheadGas;
 
     // dataAvailabilityGasPrice is in 18 decimals, destDataAvailabilityMultiplierBps is in 4 decimals
-    // we pad 14 decimals to bring the result to 36 decimals, in line with token bps and execution fee.
+    // We pad 14 decimals to bring the result to 36 decimals, in line with token bps and execution fee.
     return
       ((dataAvailabilityGas * dataAvailabilityGasPrice) * s_dynamicConfig.destDataAvailabilityMultiplierBps) * 1e14;
   }

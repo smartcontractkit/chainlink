@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/AlekSi/pointer"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -368,7 +369,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 		SourceNetworkName: actions.NetworkName(networkA.Name),
 		DestNetworkName:   actions.NetworkName(networkB.Name),
 		ValidationTimeout: o.Cfg.TestGroupInput.PhaseTimeout.Duration(),
-		SentReqs:          make(map[int64]actions.CCIPRequest),
+		SentReqs:          make(map[common.Hash][]actions.CCIPRequest),
 		TotalFee:          big.NewInt(0),
 		Balance:           o.Balance,
 		Context:           ctx,
@@ -422,7 +423,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 			DestChain:         destChainClientB2A,
 			ValidationTimeout: o.Cfg.TestGroupInput.PhaseTimeout.Duration(),
 			Balance:           o.Balance,
-			SentReqs:          make(map[int64]actions.CCIPRequest),
+			SentReqs:          make(map[common.Hash][]actions.CCIPRequest),
 			TotalFee:          big.NewInt(0),
 			Context:           ctx,
 			SrcNetworkLaneCfg: ccipLaneA2B.DstNetworkLaneCfg,
@@ -456,7 +457,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	setUpFuncs.Go(func() error {
 		lggr.Info().Msgf("Setting up lane %s to %s", networkA.Name, networkB.Name)
 		srcConfig, destConfig, err := ccipLaneA2B.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, networkACmn, networkBCmn,
-			transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp)
+			transferAmounts, pointer.GetBool(o.Cfg.TestGroupInput.MulticallInOneTx), o.BootstrapAdded, configureCLNode, o.JobAddGrp)
 		if err != nil {
 			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %+v", networkA.Name, networkB.Name, err)))
 			return err
@@ -480,7 +481,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 		if bidirectional {
 			lggr.Info().Msgf("Setting up lane %s to %s", networkB.Name, networkA.Name)
 			srcConfig, destConfig, err := ccipLaneB2A.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, networkBCmn, networkACmn,
-				transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp)
+				transferAmounts, pointer.GetBool(o.Cfg.TestGroupInput.MulticallInOneTx), o.BootstrapAdded, configureCLNode, o.JobAddGrp)
 			if err != nil {
 				lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkB.Name, networkA.Name)
 				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err -  %+v", networkB.Name, networkA.Name, err)))
@@ -526,8 +527,10 @@ func (o *CCIPTestSetUpOutputs) StartEventWatchers() {
 	for _, lane := range o.ReadLanes() {
 		err := lane.ForwardLane.StartEventWatchers()
 		require.NoError(o.Cfg.Test, err)
-		err = lane.ReverseLane.StartEventWatchers()
-		require.NoError(o.Cfg.Test, err)
+		if lane.ReverseLane != nil {
+			err = lane.ReverseLane.StartEventWatchers()
+			require.NoError(o.Cfg.Test, err)
+		}
 	}
 }
 
@@ -574,9 +577,11 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates(ctx context.Context) {
 		priceUpdateGrp.Go(func() error {
 			return waitForUpdate(*lanes.ForwardLane)
 		})
-		priceUpdateGrp.Go(func() error {
-			return waitForUpdate(*lanes.ReverseLane)
-		})
+		if lanes.ReverseLane != nil {
+			priceUpdateGrp.Go(func() error {
+				return waitForUpdate(*lanes.ReverseLane)
+			})
+		}
 	}
 
 	require.NoError(t, priceUpdateGrp.Wait())
@@ -819,7 +824,7 @@ func CCIPDefaultTestSetUp(
 			return setUpArgs.AddLanesForNetworkPair(
 				lggr, n.NetworkA, n.NetworkB,
 				chainByChainID[n.NetworkA.ChainID], chainByChainID[n.NetworkB.ChainID], transferAmounts,
-				inputs.TestGroupInput.NumberOfCommitNodes,
+				inputs.TestGroupInput.NoOfCommitNodes,
 				pointer.GetBool(inputs.TestGroupInput.CommitAndExecuteOnSameDON),
 				pointer.GetBool(inputs.TestGroupInput.BiDirectionalLane),
 			)

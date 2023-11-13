@@ -18,6 +18,8 @@ test_load_ccip: override_config
     TEST_SUITE=load \
     TEST_ARGS="-test.timeout 900h" \
     DETACH_RUNNER=true \
+    RR_MEM=16Gi \
+    RR_CPU=4 \
 	go test -timeout 24h -count=1 -v -run ^$(testname)$$ ./load
 
 

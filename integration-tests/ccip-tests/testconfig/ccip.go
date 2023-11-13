@@ -10,8 +10,10 @@ type CCIPTestConfig struct {
 	KeepEnvAlive               *bool              `toml:",omitempty"`
 	BiDirectionalLane          *bool              `toml:",omitempty"`
 	CommitAndExecuteOnSameDON  *bool              `toml:",omitempty"`
-	NumberOfCommitNodes        int                `toml:",omitempty"`
+	NoOfCommitNodes            int                `toml:",omitempty"`
 	MsgType                    string             `toml:",omitempty"`
+	MulticallInOneTx           *bool              `toml:",omitempty"`
+	NoOfSendsInMulticall       int                `toml:",omitempty"`
 	PhaseTimeout               *models.Duration   `toml:",omitempty"`
 	TestDuration               *models.Duration   `toml:",omitempty"`
 	LocalCluster               *bool              `toml:",omitempty"`
@@ -44,6 +46,9 @@ func (c *CCIPTestConfig) ApplyOverrides(fromCfg *CCIPTestConfig) error {
 	}
 	if fromCfg.KeepEnvAlive != nil {
 		c.KeepEnvAlive = fromCfg.KeepEnvAlive
+	}
+	if fromCfg.NoOfCommitNodes > 0 && fromCfg.NoOfCommitNodes != c.NoOfCommitNodes {
+		c.NoOfCommitNodes = fromCfg.NoOfCommitNodes
 	}
 	if fromCfg.MsgType != "" {
 		c.MsgType = fromCfg.MsgType
@@ -111,6 +116,12 @@ func (c *CCIPTestConfig) ApplyOverrides(fromCfg *CCIPTestConfig) error {
 	if fromCfg.AmountPerToken != 0 {
 		c.AmountPerToken = fromCfg.AmountPerToken
 	}
+	if fromCfg.MulticallInOneTx != nil {
+		c.MulticallInOneTx = fromCfg.MulticallInOneTx
+	}
+	if fromCfg.NoOfSendsInMulticall != 0 {
+		c.NoOfSendsInMulticall = fromCfg.NoOfSendsInMulticall
+	}
 
 	return nil
 }
@@ -143,6 +154,11 @@ func (c *CCIPTestConfig) Validate() error {
 		}
 	}
 
+	if c.MulticallInOneTx != nil {
+		if c.NoOfSendsInMulticall == 0 {
+			return errors.Errorf("number of sends in multisend should be greater than 0 if multisend is true")
+		}
+	}
 	return nil
 }
 

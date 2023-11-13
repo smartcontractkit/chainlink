@@ -92,17 +92,15 @@ func (te *CLClusterTestEnv) WithPrivateChain(evmNetworks []blockchain.EVMNetwork
 	var chains []test_env.PrivateChain
 	for _, evmNetwork := range evmNetworks {
 		n := evmNetwork
-		pgc := test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
-		if te.t != nil {
-			pgc.GetPrimaryNode().WithTestLogger(te.t)
-		}
-		chains = append(chains, pgc)
 		var privateChain test_env.PrivateChain
 		switch n.SimulationType {
 		case "besu":
 			privateChain = test_env.NewPrivateBesuChain(&n, []string{te.Network.Name})
 		default:
 			privateChain = test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
+		}
+		if te.t != nil {
+			privateChain.GetPrimaryNode().WithTestLogger(te.t)
 		}
 		chains = append(chains, privateChain)
 	}

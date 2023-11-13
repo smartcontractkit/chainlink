@@ -58,12 +58,14 @@ type PhaseStat struct {
 }
 
 type RequestStat struct {
-	reqNo         int64
+	ReqNo         int64
+	SeqNum        uint64
 	StatusByPhase map[Phase]PhaseStat `json:"status_by_phase,omitempty"`
 }
 
 func (stat *RequestStat) UpdateState(lggr zerolog.Logger, seqNum uint64, step Phase, duration time.Duration, state Status, sendTransactionStats ...TransactionStats) {
 	durationInSec := duration.Seconds()
+	stat.SeqNum = seqNum
 	phaseDetails := PhaseStat{
 		SeqNum:   seqNum,
 		Duration: durationInSec,
@@ -85,10 +87,10 @@ func (stat *RequestStat) UpdateState(lggr zerolog.Logger, seqNum uint64, step Ph
 		}
 		lggr.Info().
 			Str(fmt.Sprint(E2E), fmt.Sprintf("%s", Failure)).
-			Msgf("reqNo %d", stat.reqNo)
-		event.Str(fmt.Sprint(step), fmt.Sprintf("%s", Failure)).Msgf("reqNo %d", stat.reqNo)
+			Msgf("reqNo %d", stat.ReqNo)
+		event.Str(fmt.Sprint(step), fmt.Sprintf("%s", Failure)).Msgf("reqNo %d", stat.ReqNo)
 	} else {
-		event.Str(fmt.Sprint(step), fmt.Sprintf("%s", Success)).Msgf("reqNo %d", stat.reqNo)
+		event.Str(fmt.Sprint(step), fmt.Sprintf("%s", Success)).Msgf("reqNo %d", stat.ReqNo)
 		if step == Commit || step == ReportBlessed || step == ExecStateChanged {
 			stat.StatusByPhase[E2E] = PhaseStat{
 				SeqNum:   seqNum,
@@ -98,7 +100,7 @@ func (stat *RequestStat) UpdateState(lggr zerolog.Logger, seqNum uint64, step Ph
 			if step == ExecStateChanged {
 				lggr.Info().
 					Str(fmt.Sprint(E2E), fmt.Sprintf("%s", Success)).
-					Msgf("reqNo %d", stat.reqNo)
+					Msgf("reqNo %d", stat.ReqNo)
 			}
 		}
 	}
@@ -106,7 +108,7 @@ func (stat *RequestStat) UpdateState(lggr zerolog.Logger, seqNum uint64, step Ph
 
 func NewCCIPRequestStats(reqNo int64) *RequestStat {
 	return &RequestStat{
-		reqNo:         reqNo,
+		ReqNo:         reqNo,
 		StatusByPhase: make(map[Phase]PhaseStat),
 	}
 }
@@ -122,7 +124,7 @@ type CCIPLaneStats struct {
 }
 
 func (testStats *CCIPLaneStats) UpdatePhaseStatsForReq(stat *RequestStat) {
-	testStats.statusByPhaseByRequests.Store(stat.reqNo, stat.StatusByPhase)
+	testStats.statusByPhaseByRequests.Store(stat.ReqNo, stat.StatusByPhase)
 }
 
 func (testStats *CCIPLaneStats) Aggregate(phase Phase, durationInSec float64) {

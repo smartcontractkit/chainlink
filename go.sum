@@ -1538,8 +1538,8 @@ github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 h1:T3lFWumvbfM1u/etVq42Afwq/jtNSBSOA8n5jntnNPo=
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
-github.com/smartcontractkit/chain-selectors v1.0.2 h1:IglJrBajHJ6uAFm1b2qwUcHZldcrnNnaqZbQtt+X6Wg=
-github.com/smartcontractkit/chain-selectors v1.0.2/go.mod h1:WBhLlODF5b95vvx2tdKK55vGACg1+qZpuBhOGu1UXVo=
+github.com/smartcontractkit/chain-selectors v1.0.3 h1:wVED4QEvATtSRi95Ow77C9Cu6GgSonze9oVjht0gG1E=
+github.com/smartcontractkit/chain-selectors v1.0.3/go.mod h1:WBhLlODF5b95vvx2tdKK55vGACg1+qZpuBhOGu1UXVo=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230913032705-f924d753cc47 h1:vdieOW3CZGdD2R5zvCSMS+0vksyExPN3/Fa1uVfld/A=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230913032705-f924d753cc47/go.mod h1:xMwqRdj5vqYhCJXgKVqvyAwdcqM6ZAEhnwEQ4Khsop8=
 github.com/smartcontractkit/chainlink-env v0.38.3 h1:ZtOnwkG622R0VCTxL5V09AnT/QXhlFwkGTjd0Lsfpfg=

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -23,8 +24,9 @@ import (
 )
 
 const (
-	apiVersion      = "v1"
-	attestationPath = "attestations"
+	apiVersion                = "v1"
+	attestationPath           = "attestations"
+	defaultAttestationTimeout = 5 * time.Second
 )
 
 type attestationStatus string
@@ -63,9 +65,10 @@ func (m messageAndAttestation) Validate() error {
 }
 
 type TokenDataReader struct {
-	lggr           logger.Logger
-	usdcReader     ccipdata.USDCReader
-	attestationApi *url.URL
+	lggr                  logger.Logger
+	usdcReader            ccipdata.USDCReader
+	attestationApi        *url.URL
+	attestationApiTimeout time.Duration
 }
 
 type attestationResponse struct {
@@ -75,11 +78,17 @@ type attestationResponse struct {
 
 var _ tokendata.Reader = &TokenDataReader{}
 
-func NewUSDCTokenDataReader(lggr logger.Logger, usdcReader ccipdata.USDCReader, usdcAttestationApi *url.URL) *TokenDataReader {
+func NewUSDCTokenDataReader(lggr logger.Logger, usdcReader ccipdata.USDCReader, usdcAttestationApi *url.URL, usdcAttestationApiTimeoutSeconds int) *TokenDataReader {
+	timeout := time.Duration(usdcAttestationApiTimeoutSeconds) * time.Second
+	if usdcAttestationApiTimeoutSeconds == 0 {
+		timeout = defaultAttestationTimeout
+	}
+
 	return &TokenDataReader{
-		lggr:           lggr,
-		usdcReader:     usdcReader,
-		attestationApi: usdcAttestationApi,
+		lggr:                  lggr,
+		usdcReader:            usdcReader,
+		attestationApi:        usdcAttestationApi,
+		attestationApiTimeout: timeout,
 	}
 }
 
@@ -135,16 +144,30 @@ func (s *TokenDataReader) getUSDCMessageBody(ctx context.Context, msg internal.E
 
 func (s *TokenDataReader) callAttestationApi(ctx context.Context, usdcMessageHash [32]byte) (attestationResponse, error) {
 	fullAttestationUrl := fmt.Sprintf("%s/%s/%s/0x%x", s.attestationApi, apiVersion, attestationPath, usdcMessageHash)
-	req, err := http.NewRequestWithContext(ctx, "GET", fullAttestationUrl, nil)
+
+	// Use a timeout to guard against attestation API hanging, causing observation timeout and failing to make any progress.
+	timeoutCtx, cancel := context.WithTimeout(ctx, s.attestationApiTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(timeoutCtx, "GET", fullAttestationUrl, nil)
+
 	if err != nil {
 		return attestationResponse{}, err
 	}
 	req.Header.Add("accept", "application/json")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return attestationResponse{}, tokendata.ErrTimeout
+		}
 		return attestationResponse{}, err
 	}
 	defer res.Body.Close()
+
+	// Explicitly signal if the API is being rate limited
+	if res.StatusCode == http.StatusTooManyRequests {
+		return attestationResponse{}, tokendata.ErrRateLimit
+	}
+
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return attestationResponse{}, err

@@ -21,7 +21,7 @@ require (
 	github.com/rs/zerolog v1.30.0
 	github.com/segmentio/ksuid v1.0.4
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chain-selectors v1.0.2
+	github.com/smartcontractkit/chain-selectors v1.0.3
 	github.com/smartcontractkit/chainlink-env v0.38.3
 	github.com/smartcontractkit/chainlink-testing-framework v1.17.12-0.20231021045507-b80c9afbc467
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20230828183543-6d0939746966

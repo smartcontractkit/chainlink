@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/AlekSi/pointer"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/ccip/integration-tests/ccip-tests/testconfig"
+	"github.com/smartcontractkit/ccip/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
@@ -226,7 +226,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			failedTx, _, _, err := tc.lane.Source.SendRequest(
 				tc.lane.Dest.ReceiverDapp.EthAddress,
 				actions.TokenTransfer, "msg with token more than aggregated capacity",
-				common.HexToAddress(tc.lane.Source.Common.FeeToken.Address()))
+			)
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err := tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, evm_2_evm_onramp.EVM2EVMOnRampABI)
@@ -256,7 +256,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			failedTx, _, _, err = tc.lane.Source.SendRequest(
 				tc.lane.Dest.ReceiverDapp.EthAddress,
 				actions.TokenTransfer, "msg with token more than aggregated rate",
-				common.HexToAddress(tc.lane.Source.Common.FeeToken.Address()))
+			)
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err = tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, evm_2_evm_onramp.EVM2EVMOnRampABI)
@@ -309,7 +309,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			failedTx, _, _, err = tc.lane.Source.SendRequest(
 				tc.lane.Dest.ReceiverDapp.EthAddress,
 				actions.TokenTransfer, "msg with token more than token pool capacity",
-				common.HexToAddress(tc.lane.Source.Common.FeeToken.Address()))
+			)
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err = tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, lock_release_token_pool.LockReleaseTokenPoolABI)
@@ -339,7 +339,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			failedTx, _, _, err = tc.lane.Source.SendRequest(
 				tc.lane.Dest.ReceiverDapp.EthAddress,
 				actions.TokenTransfer, "msg with token more than token pool rate",
-				common.HexToAddress(tc.lane.Source.Common.FeeToken.Address()))
+			)
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err = tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, lock_release_token_pool.LockReleaseTokenPoolABI)
@@ -354,6 +354,61 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			require.Equal(t, "TokenRateLimitReached", errReason)
 
 			// validate that the successful transfers are reflected in destination
+			tc.lane.ValidateRequests()
+		})
+	}
+}
+
+func TestSmokeCCIPMulticall(t *testing.T) {
+	t.Parallel()
+	type subtestInput struct {
+		testName string
+		lane     *actions.CCIPLane
+	}
+	l := logging.GetTestLogger(t)
+	TestCfg := testsetups.NewCCIPTestConfig(t, l, testconfig.Smoke)
+	// enable multicall in one tx for this test
+	TestCfg.TestGroupInput.MulticallInOneTx = utils.Ptr(true)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", nil, TestCfg)
+	var tcs []subtestInput
+	if len(setUpOutput.Lanes) == 0 {
+		return
+	}
+
+	t.Cleanup(func() {
+		if TestCfg.TestGroupInput.MsgType == actions.TokenTransfer {
+			setUpOutput.Balance.Verify(t)
+		}
+		require.NoError(t, setUpOutput.TearDown())
+	})
+	for i := range setUpOutput.Lanes {
+		tcs = append(tcs, subtestInput{
+			testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
+				setUpOutput.Lanes[i].ForwardLane.SourceNetworkName, setUpOutput.Lanes[i].ForwardLane.DestNetworkName),
+			lane: setUpOutput.Lanes[i].ForwardLane,
+		})
+		if setUpOutput.Lanes[i].ReverseLane != nil {
+			tcs = append(tcs, subtestInput{
+				testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
+					setUpOutput.Lanes[i].ReverseLane.SourceNetworkName, setUpOutput.Lanes[i].ReverseLane.DestNetworkName),
+				lane: setUpOutput.Lanes[i].ReverseLane,
+			})
+		}
+	}
+	l.Info().Int("Total Lanes", len(tcs)).Msg("Starting CCIP test")
+	for _, testcase := range tcs {
+		tc := testcase
+		t.Run(tc.testName, func(t *testing.T) {
+			t.Parallel()
+			tc.lane.Test = t
+			l.Info().
+				Str("Source", tc.lane.SourceNetworkName).
+				Str("Destination", tc.lane.DestNetworkName).
+				Msgf("Starting lane %s -> %s", tc.lane.SourceNetworkName, tc.lane.DestNetworkName)
+
+			tc.lane.RecordStateBeforeTransfer()
+			err := tc.lane.Multicall(TestCfg.TestGroupInput.NoOfSendsInMulticall, TestCfg.TestGroupInput.MsgType, tc.lane.Source.MulticallContract)
+			require.NoError(t, err)
 			tc.lane.ValidateRequests()
 		})
 	}

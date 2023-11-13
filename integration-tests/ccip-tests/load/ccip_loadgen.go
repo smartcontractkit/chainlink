@@ -240,13 +240,15 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 		})
 	// wait for
 	// - CCIPSendRequested Event log to be generated,
-	msgLog, sourceLogTime, err := c.Lane.Source.AssertEventCCIPSendRequested(lggr, sendTx.Hash().Hex(), c.CallTimeOut, txConfirmationTime, stats)
-	if err != nil || msgLog == nil {
+	msgLogs, sourceLogTime, err := c.Lane.Source.AssertEventCCIPSendRequested(lggr, sendTx.Hash().Hex(), c.CallTimeOut, txConfirmationTime, []*testreporters.RequestStat{stats})
+
+	if err != nil || msgLogs == nil || len(msgLogs) == 0 {
 		res.Error = err.Error()
 		res.Data = stats.StatusByPhase
 		res.Failed = true
 		return res
 	}
+	msgLog := msgLogs[0]
 	sentMsg := msgLog.Message
 	seqNum := sentMsg.SequenceNumber
 	lggr = lggr.With().Str("msgId ", fmt.Sprintf("0x%x", sentMsg.MessageId[:])).Logger()
@@ -275,7 +277,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 	} else {
 		var finalizingBlock uint64
 		sourceLogFinalizedAt, finalizingBlock, err = c.Lane.Source.AssertSendRequestedLogFinalized(
-			lggr, seqNum, msgLog, sourceLogTime, stats)
+			lggr, sendTx.Hash(), sourceLogTime, []*testreporters.RequestStat{stats})
 		if err != nil {
 			res.Error = err.Error()
 			res.Data = stats.StatusByPhase

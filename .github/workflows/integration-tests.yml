@@ -268,6 +268,12 @@ jobs:
             os: ubuntu20.04-16cores-64GB
             file: ccip
             run: -run ^TestSmokeCCIPRateLimit$
+          - name: ccip-smoke-multicall
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu20.04-16cores-64GB
+            file: ccip
+            run: -run ^TestSmokeCCIPMulticall$
           - name: cron
             nodes: 1
             os: ubuntu-latest

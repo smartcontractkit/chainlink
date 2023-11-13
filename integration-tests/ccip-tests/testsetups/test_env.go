@@ -1,6 +1,7 @@
 package testsetups
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"testing"
@@ -17,7 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	integrationnodes "github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 func SetResourceProfile(cpu, mem string) map[string]interface{} {
@@ -31,6 +34,45 @@ func SetResourceProfile(cpu, mem string) map[string]interface{} {
 			"memory": mem,
 		},
 	}
+}
+
+func setNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*corechainlink.Config, string, error) {
+	var tomlCfg *corechainlink.Config
+	var err error
+	var commonChainConfig *evmcfg.Chain
+	if commonChain != "" {
+		err = config.DecodeTOML(bytes.NewReader([]byte(commonChain)), &commonChainConfig)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	configByChainMap := make(map[int64]evmcfg.Chain)
+	if configByChain != nil {
+		for k, v := range configByChain {
+			var chain evmcfg.Chain
+			err = config.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
+			if err != nil {
+				return nil, "", err
+			}
+			chainId, err := strconv.ParseInt(k, 10, 64)
+			if err != nil {
+				return nil, "", err
+			}
+			configByChainMap[chainId] = chain
+		}
+	}
+	if nodeConfig == "" {
+		tomlCfg = integrationnodes.NewConfig(
+			integrationnodes.NewBaseConfig(),
+			node.WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
+	} else {
+		tomlCfg, err = node.NewConfigFromToml([]byte(nodeConfig), node.WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	tomlStr, err := tomlCfg.TOMLString()
+	return tomlCfg, tomlStr, err
 }
 
 func ChainlinkChart(
@@ -67,29 +109,24 @@ func ChainlinkChart(
 	}
 
 	require.NotNil(t, testInputs.EnvInput, "no env test input specified")
-	setNodeConfig := func(nodeConfig string) (string, error) {
-		var tomlCfg *corechainlink.Config
-		var err error
-		if nodeConfig == "" {
-			tomlCfg = integrationnodes.NewConfig(integrationnodes.NewBaseConfig(), node.WithPrivateEVMs(nets))
-		} else {
-			tomlCfg, err = node.NewConfigFromToml([]byte(nodeConfig), node.WithPrivateEVMs(nets))
-			if err != nil {
-				return "", err
-			}
-		}
-		return tomlCfg.TOMLString()
-	}
 
 	if len(testInputs.EnvInput.Chainlink.Nodes) > 0 {
 		var nodesMap []map[string]any
 		for _, clNode := range testInputs.EnvInput.Chainlink.Nodes {
-			nodeConfig := clNode.NodeConfig
+			nodeConfig := clNode.BaseConfigTOML
+			commonChainConfig := clNode.CommonChainConfigTOML
+			chainConfigByChain := clNode.ChainConfigTOMLByChain
 			if nodeConfig == "" {
-				nodeConfig = testInputs.EnvInput.Chainlink.Common.NodeConfig
+				nodeConfig = testInputs.EnvInput.Chainlink.Common.BaseConfigTOML
+			}
+			if commonChainConfig == "" {
+				commonChainConfig = testInputs.EnvInput.Chainlink.Common.CommonChainConfigTOML
+			}
+			if chainConfigByChain == nil {
+				chainConfigByChain = testInputs.EnvInput.Chainlink.Common.ChainConfigTOMLByChain
 			}
 
-			tomlStr, err := setNodeConfig(nodeConfig)
+			_, tomlStr, err := setNodeConfig(nets, nodeConfig, commonChainConfig, chainConfigByChain)
 			require.NoError(t, err)
 			nodesMap = append(nodesMap, map[string]any{
 				"name": clNode.Name,
@@ -112,7 +149,12 @@ func ChainlinkChart(
 		return chainlink.New(0, clProps)
 	}
 	clProps["replicas"] = pointer.GetInt(testInputs.EnvInput.Chainlink.NoOfNodes)
-	tomlStr, err := setNodeConfig(testInputs.EnvInput.Chainlink.Common.NodeConfig)
+	_, tomlStr, err := setNodeConfig(
+		nets,
+		testInputs.EnvInput.Chainlink.Common.BaseConfigTOML,
+		testInputs.EnvInput.Chainlink.Common.CommonChainConfigTOML,
+		testInputs.EnvInput.Chainlink.Common.ChainConfigTOMLByChain,
+	)
 	require.NoError(t, err)
 	clProps["toml"] = tomlStr
 	return chainlink.New(0, clProps)
@@ -139,16 +181,19 @@ func DeployLocalCluster(
 			}
 		}
 	}
-	configOpts := []integrationnodes.NodeConfigOpt{
-		node.WithPrivateEVMs(selectedNetworks),
-	}
 
 	// a func to start the CL nodes asynchronously
 	deployCL := func() error {
-		toml, err := node.NewConfigFromToml([]byte(testInputs.EnvInput.Chainlink.Common.NodeConfig), configOpts...)
+		toml, _, err := setNodeConfig(
+			selectedNetworks,
+			testInputs.EnvInput.Chainlink.Common.BaseConfigTOML,
+			testInputs.EnvInput.Chainlink.Common.CommonChainConfigTOML,
+			testInputs.EnvInput.Chainlink.Common.ChainConfigTOMLByChain,
+		)
 		if err != nil {
 			return err
 		}
+
 		noOfNodes := pointer.GetInt(testInputs.EnvInput.Chainlink.NoOfNodes)
 		return env.StartClCluster(toml, noOfNodes, "")
 	}

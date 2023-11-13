@@ -9,7 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-...
+### Added
+
+- Added new configuration field named `LeaseDuration` for `EVM.NodePool` that will periodically check if internal subscriptions are connected to the "best" (as defined by the `SelectionMode`) node and switch to it if necessary. Setting this value to `0s` will disable this feature.
+- Added multichain telemetry support. Each network/chainID pair must be configured using the new fields:
+```toml
+[[TelemetryIngress.Endpoints]]
+Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+URL = '...'
+ServerPubKey = '...'
+```
+These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Setting `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` alongside `[[TelemetryIngress.Endpoints]]` will prevent the node from booting. Only one way of configuring telemetry endpoints is supported.
+
+### Upcoming Required Configuration Change
+
+- Starting in 2.8.0, chainlink nodes will no longer allow `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
+
+### Removed
+
+- Removed the ability to set a next nonce value for an address through CLI
 
 ## 2.7.0 - UNRELEASED
 

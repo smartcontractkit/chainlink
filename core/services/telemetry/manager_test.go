@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -305,7 +304,7 @@ func TestLegacyMode(t *testing.T) {
 	require.Equal(t, true, tm.legacyMode)
 	require.Len(t, tm.endpoints, 1)
 
-	var clientSent []synchronization.TelemPayload
+	clientSent := make([]synchronization.TelemPayload, 0)
 	clientMock := mocks2.NewTelemetryService(t)
 	clientMock.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
 		clientSent = append(clientSent, synchronization.TelemPayload{
@@ -331,11 +330,16 @@ func TestLegacyMode(t *testing.T) {
 	e2.SendLog([]byte("endpoint-2-message-2"))
 	e2.SendLog([]byte("endpoint-2-message-3"))
 	require.Len(t, clientSent, 6)
-	assert.Equal(t, []byte("endpoint-1-message-1"), clientSent[0].Telemetry)
-	assert.Equal(t, []byte("endpoint-1-message-2"), clientSent[1].Telemetry)
-	assert.Equal(t, []byte("endpoint-1-message-3"), clientSent[2].Telemetry)
-	assert.Equal(t, []byte("endpoint-2-message-1"), clientSent[3].Telemetry)
-	assert.Equal(t, []byte("endpoint-2-message-2"), clientSent[4].Telemetry)
-	assert.Equal(t, []byte("endpoint-2-message-3"), clientSent[5].Telemetry)
-	assert.Equal(t, 1, obsLogs.Len()) // Deprecation warning for TelemetryIngress.URL and TelemetryIngress.ServerPubKey
+
+	require.Equal(t, 1, obsLogs.Len()) // Deprecation warning for TelemetryIngress.URL and TelemetryIngress.ServerPubKey
+	// disable false positive linter, it misses the size check above
+	// nolint: gosec
+	if len(clientSent) >= 6 {
+		require.Equal(t, []byte("endpoint-1-message-1"), clientSent[0].Telemetry)
+		require.Equal(t, []byte("endpoint-1-message-2"), clientSent[1].Telemetry)
+		require.Equal(t, []byte("endpoint-1-message-3"), clientSent[2].Telemetry)
+		require.Equal(t, []byte("endpoint-2-message-1"), clientSent[3].Telemetry)
+		require.Equal(t, []byte("endpoint-2-message-2"), clientSent[4].Telemetry)
+		require.Equal(t, []byte("endpoint-2-message-3"), clientSent[5].Telemetry)
+	}
 }
