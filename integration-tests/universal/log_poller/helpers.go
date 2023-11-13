@@ -1051,6 +1051,7 @@ func setupLogPollerTestDocker(
 			SlotsPerEpoch:  2,
 		}).
 		Build()
+	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err = test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
