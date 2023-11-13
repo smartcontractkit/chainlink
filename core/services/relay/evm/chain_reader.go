@@ -194,9 +194,13 @@ func (cr *chainReader) GetMaxDecodingSize(ctx context.Context, n int, itemType s
 	return 0, fmt.Errorf("Unimplemented method GetMaxDecodingSize called %w", relaytypes.ErrorChainReaderUnsupported{})
 }
 
-// GetLatestValue calls given contract method and returns current value.
+// GetLatestValue retrieves latest  value from contract.
 func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) (err error) {
-	chainContractReader := cr.chainContractReaders[bc.Name]
+	var response []byte
+	chainContractReader, exists := cr.chainContractReaders[bc.Name]
+	if !exists {
+		return fmt.Errorf("chain reading not defined for:%s on contract:%s", method, bc.Name)
+	}
 	chainReadingDefinition := chainContractReader.ChainReaderDefinitions[method]
 	chainSpecificName := chainReadingDefinition.ChainSpecificName
 	contractAddr := common.HexToAddress(bc.Address)
@@ -221,29 +225,21 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundCo
 			Data: callData,
 		}
 
-		response, err := cr.chain.Client().CallContract(ctx, ethCallMsg, nil)
+		response, err = cr.chain.Client().CallContract(ctx, ethCallMsg, nil)
 		if err != nil {
 			return err
 		}
+		return chainContractReader.ParsedContractABI.UnpackIntoInterface(returnVal, chainSpecificName, response)
+	}
 
-		if err = chainContractReader.ParsedContractABI.UnpackIntoInterface(returnVal, chainSpecificName, response); err != nil {
-			return errors.Wrap(err, "failed to unpack response")
-		}
-	} //else {
-	//	event := chainContractReader.ParsedContractABI.Events[chainSpecificName]
-	//	if err != nil {
-	//		return err
-	//	}
-	//	for _, input := range event.Inputs {
-	//		overrideVal := chainReadingDefinition.Params[input.Name]
-	//		if overrideVal != nil {
-	//			params = overrideVal
-	//		}
-	//	}
-	//	cr.lp.IndexedLogs(event.ID, common.HexToAddress(), contractAddr, params)
-	//}
+	event := chainContractReader.ParsedContractABI.Events[chainSpecificName]
+	log, err := cr.lp.LatestLogByEventSigWithConfs(event.ID, contractAddr, logpoller.Finalized)
+	if err != nil {
+		return err
+	}
+	response = log.Data
 
-	return nil
+	return chainContractReader.ParsedContractABI.UnpackIntoInterface(returnVal, chainSpecificName, response)
 }
 
 func (cr *chainReader) Start(ctx context.Context) error {
