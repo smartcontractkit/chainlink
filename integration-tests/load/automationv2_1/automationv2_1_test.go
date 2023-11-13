@@ -107,6 +107,12 @@ func TestLogTrigger(t *testing.T) {
 		PreventPodEviction: true,
 	})
 
+	if testEnvironment.WillUseRemoteRunner() {
+		key := "TEST_INPUTS"
+		err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+		require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
+	}
+
 	testEnvironment.
 		AddHelm(ethereum.New(&ethereum.Props{
 			NetworkName: testNetwork.Name,
@@ -133,9 +139,6 @@ func TestLogTrigger(t *testing.T) {
 	require.NoError(t, err, "Error launching test environment")
 
 	if testEnvironment.WillUseRemoteRunner() {
-		key := "TEST_INPUTS"
-		err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-		require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
 		return
 	}
 
