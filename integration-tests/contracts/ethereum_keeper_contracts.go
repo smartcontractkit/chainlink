@@ -250,25 +250,25 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 		encodedOnchainConfig, err := utilsABI.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
 
 		return encodedOnchainConfig, err
-	} else {
-		configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-		onchainConfig, err := goabi.Encode(map[string]interface{}{
-			"paymentPremiumPPB":    rcs.PaymentPremiumPPB,
-			"flatFeeMicroLink":     rcs.FlatFeeMicroLINK,
-			"checkGasLimit":        rcs.CheckGasLimit,
-			"stalenessSeconds":     rcs.StalenessSeconds,
-			"gasCeilingMultiplier": rcs.GasCeilingMultiplier,
-			"minUpkeepSpend":       rcs.MinUpkeepSpend,
-			"maxPerformGas":        rcs.MaxPerformGas,
-			"maxCheckDataSize":     rcs.MaxCheckDataSize,
-			"maxPerformDataSize":   rcs.MaxPerformDataSize,
-			"fallbackGasPrice":     rcs.FallbackGasPrice,
-			"fallbackLinkPrice":    rcs.FallbackLinkPrice,
-			"transcoder":           common.Address{},
-			"registrar":            registrar,
-		}, configType)
-		return onchainConfig, err
 	}
+	configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
+	onchainConfig, err := goabi.Encode(map[string]interface{}{
+		"paymentPremiumPPB":    rcs.PaymentPremiumPPB,
+		"flatFeeMicroLink":     rcs.FlatFeeMicroLINK,
+		"checkGasLimit":        rcs.CheckGasLimit,
+		"stalenessSeconds":     rcs.StalenessSeconds,
+		"gasCeilingMultiplier": rcs.GasCeilingMultiplier,
+		"minUpkeepSpend":       rcs.MinUpkeepSpend,
+		"maxPerformGas":        rcs.MaxPerformGas,
+		"maxCheckDataSize":     rcs.MaxCheckDataSize,
+		"maxPerformDataSize":   rcs.MaxPerformDataSize,
+		"fallbackGasPrice":     rcs.FallbackGasPrice,
+		"fallbackLinkPrice":    rcs.FallbackLinkPrice,
+		"transcoder":           common.Address{},
+		"registrar":            registrar,
+	}, configType)
+	return onchainConfig, err
+
 }
 
 func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
@@ -276,6 +276,7 @@ func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
 		Pending: false,
 	}
 
+	//nolint: exhaustive
 	switch v.version {
 	case ethereum.RegistryVersion_2_1:
 		ownerAddress, _ := v.registry2_1.Owner(callOpts)
@@ -283,6 +284,8 @@ func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
 	case ethereum.RegistryVersion_2_0:
 		ownerAddress, _ := v.registry2_0.Owner(callOpts)
 		return ownerAddress
+	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1, ethereum.RegistryVersion_1_2, ethereum.RegistryVersion_1_3:
+		return common.HexToAddress(v.client.GetDefaultWallet().Address())
 	}
 
 	return common.HexToAddress(v.client.GetDefaultWallet().Address())
@@ -664,7 +667,7 @@ func (v *EthereumKeeperRegistry) GetKeeperInfo(ctx context.Context, keeperAddr s
 		info, err = v.registry1_2.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
 	case ethereum.RegistryVersion_1_3:
 		info, err = v.registry1_3.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
-	case ethereum.RegistryVersion_2_0:
+	case ethereum.RegistryVersion_2_0, ethereum.RegistryVersion_2_1:
 		// this is not used anywhere
 		return nil, fmt.Errorf("not supported")
 	}
@@ -710,6 +713,8 @@ func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string, o
 			ocrConfig.OffchainConfigVersion,
 			ocrConfig.OffchainConfig,
 		)
+	case ethereum.RegistryVersion_2_1:
+		return fmt.Errorf("not supported")
 	}
 
 	if err != nil {
@@ -760,6 +765,8 @@ func (v *EthereumKeeperRegistry) RegisterUpkeep(target string, gasLimit uint32, 
 			checkData,
 			nil, //offchain config
 		)
+	case ethereum.RegistryVersion_2_1:
+		return fmt.Errorf("not supported")
 	}
 
 	if err != nil {
@@ -877,6 +884,8 @@ func (v *EthereumKeeperRegistry) GetKeeperList(ctx context.Context) ([]string, e
 			return []string{}, err
 		}
 		list = state.Transmitters
+	case ethereum.RegistryVersion_2_1:
+		return nil, fmt.Errorf("not supported")
 	}
 
 	if err != nil {
@@ -1112,6 +1121,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 
 // ParseStaleUpkeepReportLog Parses Stale upkeep report log
 func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error) {
+	//nolint:exhaustive
 	switch v.version {
 	case ethereum.RegistryVersion_2_0:
 		parsedLog, err := v.registry2_0.ParseStaleUpkeepReport(*log)
@@ -1129,7 +1139,6 @@ func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*Sta
 		return &StaleUpkeepReportLog{
 			Id: parsedLog.Id,
 		}, nil
-
 	}
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 }
@@ -1850,7 +1859,7 @@ func (v *EthereumKeeperConsumerPerformance) GetUpkeepCount(ctx context.Context) 
 	return eligible, err
 }
 
-func (v *EthereumKeeperConsumerPerformance) SetCheckGasToBurn(ctx context.Context, gas *big.Int) error {
+func (v *EthereumKeeperConsumerPerformance) SetCheckGasToBurn(_ context.Context, gas *big.Int) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1862,7 +1871,7 @@ func (v *EthereumKeeperConsumerPerformance) SetCheckGasToBurn(ctx context.Contex
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(ctx context.Context, gas *big.Int) error {
+func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(_ context.Context, gas *big.Int) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1897,7 +1906,7 @@ func (v *EthereumKeeperPerformDataCheckerConsumer) Counter(ctx context.Context) 
 	return cnt, nil
 }
 
-func (v *EthereumKeeperPerformDataCheckerConsumer) SetExpectedData(ctx context.Context, expectedData []byte) error {
+func (v *EthereumKeeperPerformDataCheckerConsumer) SetExpectedData(_ context.Context, expectedData []byte) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -2041,31 +2050,23 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 				common.HexToAddress(senderAddr),
 			)
 
-			if err != nil {
-				return nil, err
-			}
-			return req, nil
-		} else {
-			req, err := registrarABI.Pack(
-				"register",
-				name,
-				email,
-				common.HexToAddress(upkeepAddr),
-				gasLimit,
-				common.HexToAddress(adminAddr),
-				uint8(0), // trigger type
-				checkData,
-				[]byte{}, // triggerConfig
-				[]byte{}, // offchainConfig
-				amount,
-				common.HexToAddress(senderAddr),
-			)
-
-			if err != nil {
-				return nil, err
-			}
-			return req, nil
+			return req, err
 		}
+		req, err := registrarABI.Pack(
+			"register",
+			name,
+			email,
+			common.HexToAddress(upkeepAddr),
+			gasLimit,
+			common.HexToAddress(adminAddr),
+			uint8(0), // trigger type
+			checkData,
+			[]byte{}, // triggerConfig
+			[]byte{}, // offchainConfig
+			amount,
+			common.HexToAddress(senderAddr),
+		)
+		return req, err
 	}
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registrar_wrapper1_2.KeeperRegistrarMetaData.ABI))
 	if err != nil {
