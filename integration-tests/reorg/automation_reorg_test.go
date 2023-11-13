@@ -1,6 +1,5 @@
 package reorg
 
-//revive:disable:dot-imports
 import (
 	"fmt"
 	"math/big"
@@ -15,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
+	k8s_reorg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
@@ -47,54 +46,6 @@ HistoryDepth = 400
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
-	activeEVMNetwork          = networks.MustGetSelectedNetworksFromEnv()[0]
-	defaultAutomationSettings = map[string]interface{}{
-		"toml": client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
-		"db": map[string]interface{}{
-			"stateful": false,
-			"capacity": "1Gi",
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
-					"cpu":    "250m",
-					"memory": "256Mi",
-				},
-				"limits": map[string]interface{}{
-					"cpu":    "250m",
-					"memory": "256Mi",
-				},
-			},
-		},
-	}
-
-	defaultReorgEthereumSettings = &reorg.Props{
-		NetworkName: activeEVMNetwork.Name,
-		NetworkType: "geth-reorg",
-		Values: map[string]interface{}{
-			"geth": map[string]interface{}{
-				"genesis": map[string]interface{}{
-					"networkId": "1337",
-				},
-				"miner": map[string]interface{}{
-					"replicas": 2,
-				},
-			},
-		},
-	}
-
-	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    uint32(200000000),
-		FlatFeeMicroLINK:     uint32(0),
-		BlockCountPerTurn:    big.NewInt(10),
-		CheckGasLimit:        uint32(2500000),
-		StalenessSeconds:     big.NewInt(90000),
-		GasCeilingMultiplier: uint16(1),
-		MinUpkeepSpend:       big.NewInt(0),
-		MaxPerformGas:        uint32(5000000),
-		FallbackGasPrice:     big.NewInt(2e11),
-		FallbackLinkPrice:    big.NewInt(2e18),
-		MaxCheckDataSize:     uint32(5000),
-		MaxPerformDataSize:   uint32(5000),
-	}
 )
 
 const (
@@ -131,6 +82,55 @@ func TestAutomationReorg(t *testing.T) {
 		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
 	}
 
+	activeEVMNetwork := networks.MustGetSelectedNetworksFromEnv()[0]
+	defaultAutomationSettings := map[string]interface{}{
+		"toml": client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
+		"db": map[string]interface{}{
+			"stateful": false,
+			"capacity": "1Gi",
+			"resources": map[string]interface{}{
+				"requests": map[string]interface{}{
+					"cpu":    "250m",
+					"memory": "256Mi",
+				},
+				"limits": map[string]interface{}{
+					"cpu":    "250m",
+					"memory": "256Mi",
+				},
+			},
+		},
+	}
+
+	defaultReorgEthereumSettings := &k8s_reorg.Props{
+		NetworkName: activeEVMNetwork.Name,
+		NetworkType: "geth-reorg",
+		Values: map[string]interface{}{
+			"geth": map[string]interface{}{
+				"genesis": map[string]interface{}{
+					"networkId": "1337",
+				},
+				"miner": map[string]interface{}{
+					"replicas": 2,
+				},
+			},
+		},
+	}
+
+	defaultOCRRegistryConfig := contracts.KeeperRegistrySettings{
+		PaymentPremiumPPB:    uint32(200000000),
+		FlatFeeMicroLINK:     uint32(0),
+		BlockCountPerTurn:    big.NewInt(10),
+		CheckGasLimit:        uint32(2500000),
+		StalenessSeconds:     big.NewInt(90000),
+		GasCeilingMultiplier: uint16(1),
+		MinUpkeepSpend:       big.NewInt(0),
+		MaxPerformGas:        uint32(5000000),
+		FallbackGasPrice:     big.NewInt(2e11),
+		FallbackLinkPrice:    big.NewInt(2e18),
+		MaxCheckDataSize:     uint32(5000),
+		MaxPerformDataSize:   uint32(5000),
+	}
+
 	for name, registryVersion := range registryVersions {
 		name := name
 		registryVersion := registryVersion
@@ -145,7 +145,7 @@ func TestAutomationReorg(t *testing.T) {
 					NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
 					TTL:             time.Hour * 1,
 					Test:            t}).
-				AddHelm(reorg.New(defaultReorgEthereumSettings)).
+				AddHelm(k8s_reorg.New(defaultReorgEthereumSettings)).
 				AddChart(blockscout.New(&blockscout.Props{
 					Name:    "geth-blockscout",
 					WsURL:   activeEVMNetwork.URL,
@@ -223,8 +223,8 @@ func TestAutomationReorg(t *testing.T) {
 
 			rc, err := NewReorgController(
 				&ReorgConfig{
-					FromPodLabel:            reorg.TXNodesAppLabel,
-					ToPodLabel:              reorg.MinerNodesAppLabel,
+					FromPodLabel:            "geth-ethereum-geth",
+					ToPodLabel:              "geth-ethereum-miner-node",
 					Network:                 chainClient,
 					Env:                     testEnvironment,
 					BlockConsensusThreshold: 3,

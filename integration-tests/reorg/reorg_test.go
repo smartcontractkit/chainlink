@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -19,12 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
+	helm_reorg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
-	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -55,21 +53,6 @@ const (
 	minIncomingConfirmations = "200"
 	timeout                  = "15m"
 	interval                 = "2s"
-)
-
-var (
-	networkSettings = blockchain.EVMNetwork{
-		Name:      "geth",
-		Simulated: true,
-		ChainID:   1337,
-		PrivateKeys: []string{
-			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-		},
-		ChainlinkTransactionLimit: 500000,
-		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
-		MinimumConfirmations:      1,
-		GasEstimationBuffer:       10000,
-	}
 )
 
 func TestMain(m *testing.M) {
@@ -103,7 +86,7 @@ func TestDirectRequestReorg(t *testing.T) {
 			WsURL:   "ws://geth-ethereum-geth:8546",
 			HttpURL: "http://geth-ethereum-geth:8544",
 		})).
-		AddHelm(reorg.New(&reorg.Props{
+		AddHelm(helm_reorg.New(&helm_reorg.Props{
 			NetworkName: "geth",
 			NetworkType: "geth-reorg",
 			Values: map[string]interface{}{
@@ -120,10 +103,13 @@ func TestDirectRequestReorg(t *testing.T) {
 		return
 	}
 
-	// related https://app.shortcut.com/chainlinklabs/story/38295/creating-an-evm-chain-via-cli-or-api-immediately-polling-the-nodes-and-returning-an-error
-	// node must work and reconnect even if network is not working
-	time.Sleep(90 * time.Second)
-	activeEVMNetwork = networks.SimulatedEVMNonDev
+	// It's hard to a get a good wait for all the different reorg network nodes to be ready.
+	// We also need the network to be up and healthy before the Chainlink nodes come up.
+	// I don't like it either.
+	waitTime := 90 * time.Second
+	l.Info().Str("Wait time", waitTime.String()).Msg("Waiting for healthy network")
+	time.Sleep(waitTime)
+	activeEVMNetwork := networks.SimulatedEVMNonDev
 	netCfg := fmt.Sprintf(networkDRTOML, EVMFinalityDepth, EVMTrackerHistoryDepth)
 	chainlinkDeployment := chainlink.New(0, map[string]interface{}{
 		"replicas": 1,
@@ -133,7 +119,7 @@ func TestDirectRequestReorg(t *testing.T) {
 	err = testEnvironment.AddHelm(chainlinkDeployment).Run()
 	require.NoError(t, err, "Error adding to test environment")
 
-	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment, l)
+	chainClient, err := blockchain.NewEVMClient(activeEVMNetwork, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
 	cd, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
@@ -191,8 +177,8 @@ func TestDirectRequestReorg(t *testing.T) {
 
 	rc, err := NewReorgController(
 		&ReorgConfig{
-			FromPodLabel:            reorg.TXNodesAppLabel,
-			ToPodLabel:              reorg.MinerNodesAppLabel,
+			FromPodLabel:            helm_reorg.TXNodesAppLabel,
+			ToPodLabel:              helm_reorg.MinerNodesAppLabel,
 			Network:                 chainClient,
 			Env:                     testEnvironment,
 			BlockConsensusThreshold: 3,
