@@ -662,7 +662,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	_, err = vrfv2plus.CreateVRFV2PlusJob(
 		env.ClCluster.NodeAPIs()[0],
 		newCoordinator.Address(),
-		vrfv2PlusData.PrimaryEthAddress,
+		[]string{vrfv2PlusData.PrimaryEthAddress},
 		vrfv2PlusData.VRFKey.Data.ID,
 		vrfv2PlusData.ChainID.String(),
 		vrfv2PlusConfig.MinimumConfirmations,

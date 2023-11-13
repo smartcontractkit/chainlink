@@ -153,7 +153,7 @@ func DeployVRFV2PlusWrapperConsumers(contractDeployer contracts.ContractDeployer
 func CreateVRFV2PlusJob(
 	chainlinkNode *client.ChainlinkClient,
 	coordinatorAddress string,
-	nativeTokenPrimaryKeyAddress string,
+	sendingKeys []string,
 	pubKeyCompressed string,
 	chainID string,
 	minIncomingConfirmations uint16,
@@ -170,7 +170,7 @@ func CreateVRFV2PlusJob(
 	job, err := chainlinkNode.MustCreateJob(&client.VRFV2PlusJobSpec{
 		Name:                     fmt.Sprintf("vrf-v2-plus-%s", jobUUID),
 		CoordinatorAddress:       coordinatorAddress,
-		FromAddresses:            []string{nativeTokenPrimaryKeyAddress},
+		FromAddresses:            sendingKeys,
 		EVMChainID:               chainID,
 		MinIncomingConfirmations: int(minIncomingConfirmations),
 		PublicKey:                pubKeyCompressed,
@@ -313,16 +313,20 @@ func SetupVRFV2_5Environment(
 
 	chainID := env.EVMClient.GetChainID()
 
-	nativeTokenPrimaryKeyAddress, err := env.ClCluster.NodeAPIs()[0].PrimaryEthAddress()
+	sendingKeys, err := env.ClCluster.NodeAPIs()[0].MustReadETHKeys()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrNodePrimaryKey, err)
+		return nil, nil, nil, fmt.Errorf("failed to read eth keys from node, err %w", err)
+	}
+	var sendingKeyAddresses []string
+	for _, key := range sendingKeys.Data {
+		sendingKeyAddresses = append(sendingKeyAddresses, key.Attributes.Address)
 	}
 
-	l.Info().Msg("Creating VRFV2 Plus Job")
+	l.Info().Strs("sendingKeys", sendingKeyAddresses).Msg("Creating VRFV2 Plus Job")
 	job, err := CreateVRFV2PlusJob(
 		env.ClCluster.NodeAPIs()[0],
 		vrfv2_5Contracts.Coordinator.Address(),
-		nativeTokenPrimaryKeyAddress,
+		sendingKeyAddresses,
 		pubKeyCompressed,
 		chainID.String(),
 		vrfv2PlusConfig.MinimumConfirmations,
@@ -334,13 +338,13 @@ func SetupVRFV2_5Environment(
 	// this part is here because VRFv2 can work with only a specific key
 	// [[EVM.KeySpecific]]
 	//	Key = '...'
-	addr, err := env.ClCluster.Nodes[0].API.PrimaryEthAddress()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrGetPrimaryKey, err)
+	var configOpts []node.NodeConfigOpt
+	for _, sk := range sendingKeyAddresses {
+		configOpts = append(configOpts, node.WithVRFv2EVMEstimator(sk))
 	}
+	configOpts = append(configOpts, node.WithLogPollInterval(time.Second))
 	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
-		node.WithVRFv2EVMEstimator(addr),
-		node.WithLogPollInterval(1*time.Second),
+		configOpts...,
 	)
 	l.Info().Msg("Restarting Node with new sending key PriceMax configuration and log poll period configuration")
 	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
@@ -357,7 +361,7 @@ func SetupVRFV2_5Environment(
 	data := VRFV2PlusData{
 		vrfv2PlusKeyData,
 		job,
-		nativeTokenPrimaryKeyAddress,
+		sendingKeyAddresses[0],
 		chainID,
 	}
 
