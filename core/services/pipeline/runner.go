@@ -609,7 +609,7 @@ func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error
 		Error: err,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update task run result: %w", err)
 	}
 
 	// TODO: Should probably replace this with a listener to update events
