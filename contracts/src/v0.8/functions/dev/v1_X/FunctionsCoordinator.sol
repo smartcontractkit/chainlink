@@ -133,15 +133,13 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     address[MAX_NUM_ORACLES] memory /*signers*/,
     bytes calldata report
   ) internal override {
-    bytes32[] memory requestIds;
-    bytes[] memory results;
-    bytes[] memory errors;
-    bytes[] memory onchainMetadata;
-    bytes[] memory offchainMetadata;
-    (requestIds, results, errors, onchainMetadata, offchainMetadata) = abi.decode(
-      report,
-      (bytes32[], bytes[], bytes[], bytes[], bytes[])
-    );
+    (
+      bytes32[] memory requestIds,
+      bytes[] memory results,
+      bytes[] memory errors,
+      bytes[] memory onchainMetadata,
+      bytes[] memory offchainMetadata
+    ) = abi.decode(report, (bytes32[], bytes[], bytes[], bytes[], bytes[]));
     uint256 numberOfFulfillments = uint8(requestIds.length);
 
     if (
@@ -151,9 +149,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       numberOfFulfillments != onchainMetadata.length ||
       numberOfFulfillments != offchainMetadata.length
     ) {
-      revert ReportInvalid(
-        "All fields on the report must be of equal length: requestIds, results, errors, onchainMetadata, offchainMetadata"
-      );
+      revert ReportInvalid("Fields must be equal length");
     }
 
     // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
