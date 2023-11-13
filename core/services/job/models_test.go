@@ -71,3 +71,69 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 		})
 	}
 }
+
+func TestJSONConfig_BytesWithPreservedJson(t *testing.T) {
+	type testCases struct {
+		name     string
+		Input    JSONConfig
+		Expected []byte
+	}
+	tests := []testCases{
+		{
+			name: "json",
+			Input: JSONConfig{
+				"key": "{\"nestedKey\": {\"nestedValue\":123}}",
+			},
+			// regular Bytes marshals to this: {"key":"{\"nestedKey\": {\"nestedValue\":123}}"}
+			Expected: []byte(`{"key":{"nestedKey":{"nestedValue":123}}}`),
+		},
+		{
+			name: "broken json gets treated as a regular string",
+			Input: JSONConfig{
+				"key": "2324{\"nes4tedKey\":\"nestedValue\"}",
+			},
+			Expected: []byte(`{"key":"2324{\"nes4tedKey\":\"nestedValue\"}"}`),
+		},
+		{
+			name: "number",
+			Input: JSONConfig{
+				"key": 1,
+			},
+			Expected: []byte(`{"key":1}`),
+		},
+		{
+			name: "string",
+			Input: JSONConfig{
+				"key": "abc",
+			},
+			Expected: []byte(`{"key":"abc"}`),
+		},
+		{
+			name: "string number stays string number",
+			Input: JSONConfig{
+				"key1": "1",
+			},
+			Expected: []byte(`{"key1":"1"}`),
+		},
+		{
+			name: "all together",
+			Input: JSONConfig{
+				"key1": "{\"nestedKey\": {\"nestedValue\":123}}",
+				"key2": "2324{\"key\":\"value\"}",
+				"key3": 1,
+				"key4": "abc",
+			},
+			Expected: []byte(`{"key1":{"nestedKey":{"nestedValue":123}},"key2":"2324{\"key\":\"value\"}","key3":1,"key4":"abc"}`),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := tc.Input.BytesWithPreservedJson()
+			if !reflect.DeepEqual(result, tc.Expected) {
+				t.Errorf("Input: %v, BytesWithPreservedJson() returned unexpected result. Expected: %s, Got: %s", tc.Input, tc.Expected, result)
+			}
+		})
+
+	}
+}

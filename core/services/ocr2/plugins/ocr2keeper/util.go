@@ -52,7 +52,7 @@ func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job,
 			ExternalJobID: spec.ExternalJobID,
 			JobID:         oSpec.ID,
 			ContractID:    oSpec.ContractID,
-			RelayConfig:   oSpec.RelayConfig.Bytes(),
+			RelayConfig:   oSpec.RelayConfig.BytesWithPreservedJson(),
 		},
 		types.PluginArgs{
 			TransmitterID: oSpec.TransmitterID.String,
