@@ -1,8 +1,11 @@
 package automationv2_1
 
 import (
+	"context"
 	"fmt"
+	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
@@ -13,10 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -49,7 +52,8 @@ func TestLogTrigger(t *testing.T) {
 	numberofNodes := 6
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 	blockTime := "1"
-	numberOfUpkeeps := 2
+	numberOfUpkeeps := 500
+	const durationInSeconds = 300
 	automationDefaultLinkFunds := big.NewInt(int64(9e18))
 	automationDefaultUpkeepGasLimit := uint32(2500000)
 
@@ -132,12 +136,6 @@ func TestLogTrigger(t *testing.T) {
 	linkToken, err := contractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Error deploying link token contract")
 
-	//linkFeed, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
-	//require.NoError(t, err, "Error deploying link feed contract")
-	//
-	//gasFeed, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
-	//require.NoError(t, err, "Error deploying gas feed contract")
-
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Failed waiting for contracts to deploy")
 
@@ -166,38 +164,20 @@ func TestLogTrigger(t *testing.T) {
 	consumerContracts := make([]contracts.KeeperConsumer, 0)
 	triggerContracts := make([]contracts.LogEmitter, 0)
 
-	var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
-	var registrarABI = cltypes.MustGetABI(registrar21.AutomationRegistrarABI)
-	var emitterABI = cltypes.MustGetABI(log_emitter.LogEmitterABI)
+	utilsABI, err := automation_utils_2_1.AutomationUtilsMetaData.GetAbi()
+	require.NoError(t, err, "Error getting automation utils abi")
+	registrarABI, err := registrar21.AutomationRegistrarMetaData.GetAbi()
+	require.NoError(t, err, "Error getting automation registrar abi")
+	emitterABI, err := log_emitter.LogEmitterMetaData.GetAbi()
+	require.NoError(t, err, "Error getting log emitter abi")
+	consumerABI, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
+	require.NoError(t, err, "Error getting consumer abi")
+
 	var bytes0 = [32]byte{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	}
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
-
-	//counterContract, err := contractDeployer.DeployUpkeepCounter(big.NewInt(99999), big.NewInt(1))
-	//require.NoError(t, err, "Error deploying upkeep counter contract")
-	//err = chainClient.WaitForEvents()
-	//require.NoError(t, err, "Failed waiting for contracts to deploy")
-	//
-	//registrationRequest, err := registrarABI.Pack(
-	//	"register",
-	//	"UpkeepCounter",
-	//	[]byte("test@mail.com"),
-	//	common.HexToAddress(counterContract.Address()),
-	//	automationDefaultUpkeepGasLimit,
-	//	common.HexToAddress(chainClient.GetDefaultWallet().Address()),
-	//	uint8(0),
-	//	[]byte("0"),
-	//	[]byte("0"),
-	//	[]byte("0"),
-	//	automationDefaultLinkFunds,
-	//	common.HexToAddress(chainClient.GetDefaultWallet().Address()),
-	//)
-	//require.NoError(t, err, "Error encoding upkeep registration request")
-	//tx, err := linkToken.TransferAndCall(registrar.Address(), automationDefaultLinkFunds, registrationRequest)
-	//require.NoError(t, err, "Error sending upkeep registration request")
-	//registrationTxHashes = append(registrationTxHashes, tx.Hash())
 
 	for i := 0; i < numberOfUpkeeps; i++ {
 		consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
@@ -278,7 +258,10 @@ func TestLogTrigger(t *testing.T) {
 	}
 	l.Info().Msg("Successfully registered all Automation Consumer Contracts")
 	l.Info().Interface("Upkeep IDs", upkeepIds).Msg("Upkeep IDs")
-	time.Sleep(time.Second * 90)
+	time.Sleep(time.Second * 30)
+
+	startingBlock, err := chainClient.LatestBlockNumber(context.Background())
+	require.NoError(t, err, "Error getting latest block number")
 
 	p := wasp.NewProfile()
 
@@ -290,19 +273,82 @@ func TestLogTrigger(t *testing.T) {
 			CallTimeout: time.Minute * 3,
 			Schedule: wasp.Plain(
 				1,
-				time.Second*30,
+				time.Second*durationInSeconds,
 			),
 			Gun: NewLogTriggerUser(
-				&triggerContract,
-				&consumerContracts[i],
+				triggerContract,
+				consumerContracts[i],
 				l,
 			),
 		})
 		p.Add(g, err)
 	}
 
+	l.Info().Msg("Starting load generators")
 	_, err = p.Run(true)
 	require.NoError(t, err, "Error running load generators")
+
+	l.Info().Msg("Finished load generators")
+	l.Info().Msg("Waiting for upkeeps to be performed")
+	time.Sleep(time.Second * 60)
+	l.Info().Msg("Finished waiting for upkeeps to be performed")
+
+	upkeepCounters := make([]int64, 0)
+	upkeepDelays := make([][]int64, 0)
+
+	for i, consumerContract := range consumerContracts {
+		count, err := consumerContract.Counter(nil)
+		require.NoError(t, err, "Error getting counter value")
+		upkeepCounters = append(upkeepCounters, count.Int64())
+		l.Debug().
+			Int("Count", int(count.Int64())).
+			Int("Number", i+1).
+			Int("Out Of", numberOfUpkeeps).
+			Msg("Counter Value")
+		//assert.GreaterOrEqual(t, count.Int64(), int64(durationInSeconds+1), "Counter should be greater than 2")
+	}
+
+	for _, consumerContract := range consumerContracts {
+		var (
+			logs        []types.Log
+			address     = common.HexToAddress(consumerContract.Address())
+			timeout     = 5 * time.Second
+			filterQuery = geth.FilterQuery{
+				Addresses: []common.Address{address},
+				FromBlock: big.NewInt(0).SetUint64(startingBlock),
+				Topics:    [][]common.Hash{{consumerABI.Events["PerformingUpkeep"].ID}},
+			}
+		)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		logs, err = chainClient.FilterLogs(ctx, filterQuery)
+		cancel()
+		if err != nil {
+			l.Error().Err(err).
+				Interface("FilterQuery", filterQuery).
+				Str("Contract Address", consumerContract.Address()).
+				Str("Timeout", timeout.String()).
+				Msg("Error getting logs")
+		} else {
+			delay := make([]int64, 0)
+			for _, log := range logs {
+				eventDetails, err := consumerABI.EventByID(log.Topics[0])
+				require.NoError(t, err, "Error getting event details")
+				consumer, err := simple_log_upkeep_counter_wrapper.NewSimpleLogUpkeepCounter(
+					address, chainClient.Backend(),
+				)
+				require.NoError(t, err, "Error getting consumer contract")
+				if eventDetails.Name == "PerformingUpkeep" {
+					parsedLog, err := consumer.ParsePerformingUpkeep(log)
+					require.NoError(t, err, "Error parsing log")
+					delay = append(delay, parsedLog.TimeToPerform.Int64())
+				}
+			}
+			upkeepDelays = append(upkeepDelays, delay)
+		}
+	}
+
+	l.Info().Interface("Upkeep Counters", upkeepCounters).Msg("Upkeep Counters")
+	l.Info().Interface("Upkeep Delays", upkeepDelays).Msg("Upkeep Delays")
 
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(t, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, chainClient); err != nil {
