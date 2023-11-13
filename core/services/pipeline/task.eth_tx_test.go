@@ -95,6 +95,7 @@ func TestETHTxTask(t *testing.T) {
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &addr,
 					},
+					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -138,6 +139,7 @@ func TestETHTxTask(t *testing.T) {
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
+					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -215,6 +217,7 @@ func TestETHTxTask(t *testing.T) {
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
+					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -260,6 +263,7 @@ func TestETHTxTask(t *testing.T) {
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
+					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -290,6 +294,7 @@ func TestETHTxTask(t *testing.T) {
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
+					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -324,6 +329,7 @@ func TestETHTxTask(t *testing.T) {
 					FeeLimit:       drJobTypeGasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
+					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -358,6 +364,7 @@ func TestETHTxTask(t *testing.T) {
 					FeeLimit:       specGasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
+					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -423,6 +430,7 @@ func TestETHTxTask(t *testing.T) {
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
+					SignalCallback: true,
 				}).Return(txmgr.Tx{}, errors.New("uh oh"))
 			},
 			nil, pipeline.ErrTaskRunFailed, "while creating transaction", pipeline.RunInfo{IsRetryable: true},

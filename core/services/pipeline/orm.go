@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
@@ -306,13 +306,13 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, sta
 		WHERE pipeline_task_runs.id = $1 AND pipeline_runs.state in ('running', 'suspended')
 		FOR UPDATE`
 		if err = tx.Get(&run, sql, taskID); err != nil {
-			return err
+			return fmt.Errorf("failed to find pipeline run for ID %s: %w", taskID.String(), err)
 		}
 
 		// Update the task with result
 		sql = `UPDATE pipeline_task_runs SET output = $2, error = $3, finished_at = $4 WHERE id = $1`
 		if _, err = tx.Exec(sql, taskID, result.OutputDB(), result.ErrorDB(), time.Now()); err != nil {
-			return errors.Wrap(err, "UpdateTaskRunResult")
+			return fmt.Errorf("failed to update pipeline task run: %w", err)
 		}
 
 		if run.State == RunStatusSuspended {
@@ -321,7 +321,7 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, sta
 
 			sql = `UPDATE pipeline_runs SET state = $2 WHERE id = $1`
 			if _, err = tx.Exec(sql, run.ID, run.State); err != nil {
-				return errors.Wrap(err, "UpdateTaskRunResult")
+				return fmt.Errorf("failed to update pipeline run state: %w", err)
 			}
 		}
 

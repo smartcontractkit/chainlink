@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
@@ -44,7 +43,7 @@ func CleanupPerformanceTest(
 	if chainClient != nil {
 		chainClient.GasStats().PrintStats()
 	}
-	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, &testReporter, zapcore.PanicLevel, chainClient)
+	err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, &testReporter, zapcore.PanicLevel, chainClient)
 	require.NoError(t, err, "Error tearing down environment")
 }
 

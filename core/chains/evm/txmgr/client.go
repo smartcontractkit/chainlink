@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -24,10 +24,10 @@ import (
 var _ TxmClient = (*evmTxmClient)(nil)
 
 type evmTxmClient struct {
-	client evmclient.Client
+	client client.Client
 }
 
-func NewEvmTxmClient(c evmclient.Client) *evmTxmClient {
+func NewEvmTxmClient(c client.Client) *evmTxmClient {
 	return &evmTxmClient{client: c}
 }
 
@@ -45,14 +45,14 @@ func (c *evmTxmClient) BatchSendTransactions(
 	batchSize int,
 	lggr logger.Logger,
 ) (
-	codes []clienttypes.SendTxReturnCode,
+	codes []commonclient.SendTxReturnCode,
 	txErrs []error,
 	broadcastTime time.Time,
 	successfulTxIDs []int64,
 	err error,
 ) {
 	// preallocate
-	codes = make([]clienttypes.SendTxReturnCode, len(attempts))
+	codes = make([]commonclient.SendTxReturnCode, len(attempts))
 	txErrs = make([]error, len(attempts))
 
 	reqs, broadcastTime, successfulTxIDs, batchErr := batchSendTransactions(ctx, attempts, batchSize, lggr, c.client)
@@ -80,7 +80,7 @@ func (c *evmTxmClient) BatchSendTransactions(
 				processingErr[i] = fmt.Errorf("failed to process tx (index %d): %w", i, signedErr)
 				return
 			}
-			codes[i], txErrs[i] = evmclient.NewSendErrorReturnCode(reqs[i].Error, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
+			codes[i], txErrs[i] = client.ClassifySendError(reqs[i].Error, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
 		}(index)
 	}
 	wg.Wait()
@@ -88,11 +88,11 @@ func (c *evmTxmClient) BatchSendTransactions(
 	return
 }
 
-func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.Logger) (clienttypes.SendTxReturnCode, error) {
+func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.Logger) (commonclient.SendTxReturnCode, error) {
 	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
 	if err != nil {
 		lggr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
-		return clienttypes.Fatal, err
+		return commonclient.Fatal, err
 	}
 	return c.client.SendTransactionReturnCode(ctx, signedTx, etx.FromAddress)
 }
@@ -174,5 +174,5 @@ func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumbe
 		Data:       a.Tx.EncodedPayload,
 		AccessList: nil,
 	}, blockNumber)
-	return evmclient.ExtractRPCError(errCall)
+	return client.ExtractRPCError(errCall)
 }

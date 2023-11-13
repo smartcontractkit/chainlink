@@ -1,31 +1,21 @@
 package smoke
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 // Tests a basic OCRv2 median feed
@@ -83,7 +73,7 @@ func TestOCRv2Basic(t *testing.T) {
 
 	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err, "Error starting new OCR2 round")
-	roundData, err := aggregatorContracts[0].GetRound(context.Background(), big.NewInt(1))
+	roundData, err := aggregatorContracts[0].GetRound(utils.TestContext(t), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), roundData.Answer.Int64(),
 		"Expected latest answer from OCR contract to be 5 but got %d",
@@ -95,49 +85,10 @@ func TestOCRv2Basic(t *testing.T) {
 	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err)
 
-	roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(2))
+	roundData, err = aggregatorContracts[0].GetRound(utils.TestContext(t), big.NewInt(2))
 	require.NoError(t, err, "Error getting latest OCR answer")
 	require.Equal(t, int64(10), roundData.Answer.Int64(),
 		"Expected latest answer from OCR contract to be 10 but got %d",
 		roundData.Answer.Int64(),
 	)
-}
-
-func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
-	testEnvironment *environment.Environment,
-	testNetwork blockchain.EVMNetwork,
-) {
-	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
-	evmConfig := ethereum.New(nil)
-	if !testNetwork.Simulated {
-		evmConfig = ethereum.New(&ethereum.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
-	}
-
-	var toml string
-	if forwardersEnabled {
-		toml = client.AddNetworkDetailedConfig(config.BaseOCR2Config, config.ForwarderNetworkDetailConfig, testNetwork)
-	} else {
-		toml = client.AddNetworksConfig(config.BaseOCR2Config, testNetwork)
-	}
-
-	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"replicas": 6,
-		"toml":     toml,
-	})
-
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-ocr2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
-	}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelm(chainlinkChart)
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-	return testEnvironment, testNetwork
 }

@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v4/stdlib" // need to make sure pgx driver is registered before opening connection
+	"github.com/jmoiron/sqlx"
 	"github.com/scylladb/go-reflectx"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )

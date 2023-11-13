@@ -30,6 +30,13 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Get CTF Version
+      id: version
+      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+      with:
+        go-project-path: ./integration-tests
+        module-name: github.com/smartcontractkit/chainlink-testing-framework
+        enforce-semantic-tag: "true" # it has to be in the form of v1.2.3 or the image won't exist
     - name: Check if image exists
       id: check-image
       uses: smartcontractkit/chainlink-github-actions/docker/image-exists@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
@@ -48,7 +55,7 @@ runs:
         file: ./integration-tests/test.Dockerfile
         build-args: |
           BASE_IMAGE=${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
-          IMAGE_VERSION=v0.38.2
+          IMAGE_VERSION=${{ steps.version.outputs.version }}
           SUITES="${{ inputs.suites }}"
         AWS_REGION: ${{ inputs.QA_AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}

@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -43,15 +42,15 @@ func DeployVRFV2Contracts(
 ) (*VRFV2Contracts, error) {
 	bhs, err := contractDeployer.DeployBlockhashStore()
 	if err != nil {
-		return nil, errors.Wrap(err, ErrDeployBlockHashStore)
+		return nil, fmt.Errorf("%s, err %w", ErrDeployBlockHashStore, err)
 	}
 	coordinator, err := contractDeployer.DeployVRFCoordinatorV2(linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
 	if err != nil {
-		return nil, errors.Wrap(err, ErrDeployCoordinator)
+		return nil, fmt.Errorf("%s, err %w", ErrDeployCoordinator, err)
 	}
 	loadTestConsumer, err := contractDeployer.DeployVRFv2LoadTestConsumer(coordinator.Address())
 	if err != nil {
-		return nil, errors.Wrap(err, ErrAdvancedConsumer)
+		return nil, fmt.Errorf("%s, err %w", ErrAdvancedConsumer, err)
 	}
 	err = chainClient.WaitForEvents()
 	if err != nil {
@@ -70,7 +69,7 @@ func CreateVRFV2Jobs(
 	for _, chainlinkNode := range chainlinkNodes {
 		vrfKey, err := chainlinkNode.MustCreateVRFKey()
 		if err != nil {
-			return nil, errors.Wrap(err, ErrCreatingVRFv2Key)
+			return nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2Key, err)
 		}
 		pubKeyCompressed := vrfKey.Data.ID
 		jobUUID := uuid.New()
@@ -79,11 +78,11 @@ func CreateVRFV2Jobs(
 		}
 		ost, err := os.String()
 		if err != nil {
-			return nil, errors.Wrap(err, ErrParseJob)
+			return nil, fmt.Errorf("%s, err %w", ErrParseJob, err)
 		}
 		nativeTokenPrimaryKeyAddress, err := chainlinkNode.PrimaryEthAddress()
 		if err != nil {
-			return nil, errors.Wrap(err, ErrNodePrimaryKey)
+			return nil, fmt.Errorf("%s, err %w", ErrNodePrimaryKey, err)
 		}
 		job, err := chainlinkNode.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
@@ -97,15 +96,15 @@ func CreateVRFV2Jobs(
 			BatchFulfillmentEnabled:  false,
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, ErrCreatingVRFv2Job)
+			return nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2Job, err)
 		}
 		provingKey, err := VRFV2RegisterProvingKey(vrfKey, nativeTokenPrimaryKeyAddress, coordinator)
 		if err != nil {
-			return nil, errors.Wrap(err, ErrCreatingProvingKey)
+			return nil, fmt.Errorf("%s, err %w", ErrCreatingProvingKey, err)
 		}
 		keyHash, err := coordinator.HashOfKey(context.Background(), provingKey)
 		if err != nil {
-			return nil, errors.Wrap(err, ErrCreatingProvingKeyHash)
+			return nil, fmt.Errorf("%s, err %w", ErrCreatingProvingKeyHash, err)
 		}
 		ji := VRFV2JobInfo{
 			Job:               job,
@@ -125,14 +124,14 @@ func VRFV2RegisterProvingKey(
 ) (VRFV2EncodedProvingKey, error) {
 	provingKey, err := actions.EncodeOnChainVRFProvingKey(*vrfKey)
 	if err != nil {
-		return VRFV2EncodedProvingKey{}, errors.Wrap(err, ErrEncodingProvingKey)
+		return VRFV2EncodedProvingKey{}, fmt.Errorf("%s, err %w", ErrEncodingProvingKey, err)
 	}
 	err = coordinator.RegisterProvingKey(
 		oracleAddress,
 		provingKey,
 	)
 	if err != nil {
-		return VRFV2EncodedProvingKey{}, errors.Wrap(err, ErrRegisterProvingKey)
+		return VRFV2EncodedProvingKey{}, fmt.Errorf("%s, err %w", ErrRegisterProvingKey, err)
 	}
 	return provingKey, nil
 }
@@ -140,11 +139,11 @@ func VRFV2RegisterProvingKey(
 func FundVRFCoordinatorV2Subscription(linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV2, chainClient blockchain.EVMClient, subscriptionID uint64, linkFundingAmount *big.Int) error {
 	encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
 	if err != nil {
-		return errors.Wrap(err, ErrABIEncodingFunding)
+		return fmt.Errorf("%s, err %w", ErrABIEncodingFunding, err)
 	}
 	_, err = linkToken.TransferAndCall(coordinator.Address(), big.NewInt(0).Mul(linkFundingAmount, big.NewInt(1e18)), encodedSubId)
 	if err != nil {
-		return errors.Wrap(err, ErrSendingLinkToken)
+		return fmt.Errorf("%s, err %w", ErrSendingLinkToken, err)
 	}
 	return chainClient.WaitForEvents()
 }

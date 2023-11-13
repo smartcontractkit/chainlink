@@ -56,9 +56,10 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
       uint256 gasUsed,
-      uint256 gasLimit,
-      uint256 fastGasWei,
-      uint256 linkNative
+      uint256 gasLimit//,
+      // likely these 2 values don't need to be returned anymore. otherwise, we can just pass the values from chain config here.
+      // uint256 fastGasWei,
+      // uint256 linkNative
     )
   {
     Trigger triggerType = _getTriggerType(id);
@@ -70,7 +71,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas, 0, 0);
     if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);
 
-    (fastGasWei, linkNative) = _getFeedData(hotVars);
+    // (fastGasWei, linkNative) = _getFeedData(hotVars);
     uint96 maxLinkPayment = _getMaxLinkPayment(
       hotVars,
       cfg,
@@ -99,9 +100,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
           bytes(""),
           UpkeepFailureReason.REVERT_DATA_EXCEEDS_LIMIT,
           gasUsed,
-          upkeep.performGas,
-          fastGasWei,
-          linkNative
+          upkeep.performGas//,
+          //fastGasWei,
+          //linkNative
         );
       }
       return (
@@ -109,9 +110,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
         result,
         UpkeepFailureReason.TARGET_CHECK_REVERTED,
         gasUsed,
-        upkeep.performGas,
-        fastGasWei,
-        linkNative
+        upkeep.performGas//,
+        //fastGasWei,
+        //linkNative
       );
     }
 
@@ -122,9 +123,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
         bytes(""),
         UpkeepFailureReason.UPKEEP_NOT_NEEDED,
         gasUsed,
-        upkeep.performGas,
-        fastGasWei,
-        linkNative
+        upkeep.performGas//,
+        //fastGasWei,
+        //linkNative
       );
 
     if (performData.length > s_storage.maxPerformDataSize)
@@ -133,12 +134,12 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
         bytes(""),
         UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
         gasUsed,
-        upkeep.performGas,
-        fastGasWei,
-        linkNative
+        upkeep.performGas//,
+        //fastGasWei,
+        //linkNative
       );
 
-    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, upkeep.performGas, fastGasWei, linkNative);
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, upkeep.performGas/*, fastGasWei, linkNative*/);
   }
 
   /**
@@ -155,9 +156,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
       uint256 gasUsed,
-      uint256 gasLimit,
-      uint256 fastGasWei,
-      uint256 linkNative
+      uint256 gasLimit//,
+      //uint256 fastGasWei,
+      //uint256 linkNative
     )
   {
     return checkUpkeep(id, bytes(""), cfg);

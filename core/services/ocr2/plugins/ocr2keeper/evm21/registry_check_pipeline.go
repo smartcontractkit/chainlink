@@ -41,7 +41,10 @@ func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.Upke
 	}
 
 	chResult := make(chan checkResult, 1)
-	go r.doCheck(ctx, keys, chResult)
+
+	r.threadCtrl.Go(func(ctx context.Context) {
+		r.doCheck(ctx, keys, chResult)
+	})
 
 	select {
 	case rs := <-chResult:
@@ -187,11 +190,11 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			continue
 		}
 
-		// call gas estimator (ge) component to get L2 gas cost
-		// l1GasCost = ge.getL1GasCost(chain_id, block_id, block_hash, tx_call_data)
-		// fast_gas = ...
+		// call gas estimator (GE) component to get L2 gas cost
+		// estimatedL1GasCost = GE.getL1GasCost(chain_id, block_number, block_hash, estimated_tx_call_data)
+		// fast_gas = GE.getFastGas(chain_id, block_number)
 		// link_native = ...
-		// results[i].l1GasCost = l1GasCost
+		// results[i].estimatedL1GasCost = estimatedL1GasCost
 		// results[i].fastGas = fastGas
 		// results[i].linkNative = linkNative
 
@@ -209,7 +212,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			}
 
 			// check data will include the log trigger config
-			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData /* ChainConfig(l1GasCost, fast_gas, link_native) */)
+			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData /* ChainConfig(estimatedL1GasCost, fast_gas, link_native) */)
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack log trigger checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
@@ -219,7 +222,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		default:
 			// checkUpkeep is overloaded on the contract for conditionals and log upkeeps
 			// Need to use the first function (checkUpkeep0) for conditionals
-			payload, err = r.abi.Pack("checkUpkeep0", upkeepId /* ChainConfig(l1GasCost, fast_gas, link_native) */)
+			payload, err = r.abi.Pack("checkUpkeep0", upkeepId /* ChainConfig(estimatedL1GasCost, fast_gas, link_native) */)
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack conditional checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
@@ -367,8 +370,11 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			checkResults[performToKeyIdx[i]].Eligible = false
 			checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
 		} else {
-			// actualL1GasCost = GE.getL1GasCost(checkResults[performToKeyIdx[i]].PerformData + bytes padding);
-			// checkResults[performToKeyIdx[i]].executionL1GasCost = actualL1GasCost
+			// at this point, the core node knows the exact perform data of the upkeep and the call data to L1.
+			// it can calculate a relatively accurate L1 gas cost
+			// executionL1GasCost = GE.getL1GasCost(checkResults[performToKeyIdx[i]].PerformData + bytes padding);
+			// checkResults[performToKeyIdx[i]].fastGas = GE.getFastGas(chain_id, block_number)
+			// checkResults[performToKeyIdx[i]].executionL1GasCost = executionL1GasCost
 		}
 	}
 

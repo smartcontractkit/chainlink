@@ -466,6 +466,7 @@ func (lp *logPoller) run() {
 					// Serially process replay requests.
 					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
 					lp.PollAndSaveLogs(lp.ctx, fromBlock)
+					lp.lggr.Infow("Executing replay finished", "fromBlock", fromBlock, "requested", fromBlockReq)
 				}
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
@@ -574,13 +575,14 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context, backupPollerBloc
 
 	lastSafeBackfillBlock := latestFinalizedBlockNumber - 1
 	if lastSafeBackfillBlock >= lp.backupPollerNextBlock {
-		lp.lggr.Infow("Backup poller backfilling logs", "start", lp.backupPollerNextBlock, "end", lastSafeBackfillBlock)
+		lp.lggr.Infow("Backup poller started backfilling logs", "start", lp.backupPollerNextBlock, "end", lastSafeBackfillBlock)
 		if err = lp.backfill(ctx, lp.backupPollerNextBlock, lastSafeBackfillBlock); err != nil {
 			// If there's an error backfilling, we can just return and retry from the last block saved
 			// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
 			lp.lggr.Warnw("Backup poller failed", "err", err)
 			return
 		}
+		lp.lggr.Infow("Backup poller finished backfilling", "start", lp.backupPollerNextBlock, "end", lastSafeBackfillBlock)
 		lp.backupPollerNextBlock = lastSafeBackfillBlock + 1
 	}
 }
@@ -677,9 +679,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		}
 
 		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs), "blocks", blocks)
-		err = lp.orm.Q().WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			return lp.orm.InsertLogs(convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ConfiguredChainID()), pg.WithQueryer(tx))
-		})
+		err = lp.orm.InsertLogs(convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ConfiguredChainID()), pg.WithParentCtx(ctx))
 		if err != nil {
 			lp.lggr.Warnw("Unable to insert logs, retrying", "err", err, "from", from, "to", to)
 			return err
@@ -748,21 +748,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// the canonical set per read. Typically, if an application took action on a log
 		// it would be saved elsewhere e.g. evm.txes, so it seems better to just support the fast reads.
 		// Its also nicely analogous to reading from the chain itself.
-		err2 = lp.orm.Q().WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			// These deletes are bounded by reorg depth, so they are
-			// fast and should not slow down the log readers.
-			err3 := lp.orm.DeleteBlocksAfter(blockAfterLCA.Number, pg.WithQueryer(tx))
-			if err3 != nil {
-				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err3)
-				return err3
-			}
-			err3 = lp.orm.DeleteLogsAfter(blockAfterLCA.Number, pg.WithQueryer(tx))
-			if err3 != nil {
-				lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err3)
-				return err3
-			}
-			return nil
-		})
+		err2 = lp.orm.DeleteLogsAndBlocksAfter(blockAfterLCA.Number, pg.WithParentCtx(ctx))
 		if err2 != nil {
 			// If we error on db commit, we can't know if the tx went through or not.
 			// We return an error here which will cause us to restart polling from lastBlockSaved + 1
@@ -847,20 +833,11 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			return
 		}
 		lp.lggr.Debugw("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash, "timestamp", currentBlock.Timestamp.Unix())
-		err = lp.orm.Q().WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, currentBlock.Timestamp, latestFinalizedBlockNumber, pg.WithQueryer(tx)); err2 != nil {
-				return err2
-			}
-			if len(logs) == 0 {
-				return nil
-			}
-			return lp.orm.InsertLogs(convertLogs(logs,
-				[]LogPollerBlock{{BlockNumber: currentBlockNumber,
-					BlockTimestamp: currentBlock.Timestamp}},
-				lp.lggr,
-				lp.ec.ConfiguredChainID(),
-			), pg.WithQueryer(tx))
-		})
+		block := NewLogPollerBlock(h, currentBlockNumber, currentBlock.Timestamp, latestFinalizedBlockNumber)
+		err = lp.orm.InsertLogsWithBlock(
+			convertLogs(logs, []LogPollerBlock{block}, lp.lggr, lp.ec.ConfiguredChainID()),
+			block,
+		)
 		if err != nil {
 			lp.lggr.Warnw("Unable to save logs resuming from last saved block + 1", "err", err, "block", currentBlockNumber)
 			return

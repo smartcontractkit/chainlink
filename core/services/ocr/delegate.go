@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
@@ -95,7 +95,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config().EVM().OCR(), chain.Config().OCR(), *jb.OCROracleSpec)
+	concreteSpec, err := job.LoadConfigVarsOCR(chain.Config().EVM().OCR(), chain.Config().OCR(), *jb.OCROracleSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -295,10 +295,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			configOverrider = configOverriderService
 		}
 
+		jb.OCROracleSpec.CaptureEATelemetry = chain.Config().OCR().CaptureEATelemetry()
 		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
 		if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
-			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA, "EVM", chain.ID().String()), lggr.Named("EnhancedTelemetry"))
+			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), concreteSpec.ContractAddress.String(), synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
 			services = append(services, enhancedTelemService)
+		} else {
+			lggr.Infow("Enhanced telemetry is disabled for job", "job", jb.Name)
 		}
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
@@ -319,7 +322,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              v1BootstrapPeers,
 			V2Bootstrappers:              v2Bootstrappers,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.OCR, "EVM", chain.ID().String()),
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), concreteSpec.ContractAddress.String(), synchronization.OCR),
 			ConfigOverrider:              configOverrider,
 		})
 		if err != nil {

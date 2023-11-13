@@ -2,7 +2,6 @@ package reorg
 
 //revive:disable:dot-imports
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -19,12 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -133,6 +132,8 @@ func TestAutomationReorg(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			network := networks.MustGetSelectedNetworksFromEnv()[0]
@@ -167,7 +168,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			// Register cleanup for any test
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
@@ -209,7 +210,7 @@ func TestAutomationReorg(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 5
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(it_utils.TestContext(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 5
 					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
@@ -240,7 +241,7 @@ func TestAutomationReorg(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 10
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(it_utils.TestContext(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 10
 					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
@@ -250,13 +251,14 @@ func TestAutomationReorg(t *testing.T) {
 			}, "5m", "1s").Should(gomega.Succeed())
 
 			l.Info().Msg("Upkeep performed during unstable chain, waiting for reorg to finish")
-			rc.WaitDepthReached()
+			err = rc.WaitDepthReached()
+			require.NoError(t, err)
 
 			l.Info().Msg("Reorg finished, chain should be stable now. Expecting upkeeps to keep getting performed")
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 20
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(it_utils.TestContext(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 20
 					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")

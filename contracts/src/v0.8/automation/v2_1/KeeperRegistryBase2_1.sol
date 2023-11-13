@@ -11,7 +11,7 @@ import {StreamsLookupCompatibleInterface} from "../interfaces/StreamsLookupCompa
 import {ILogAutomation, Log} from "../interfaces/ILogAutomation.sol";
 import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../interfaces/KeeperCompatibleInterface.sol";
 import {UpkeepFormat} from "../interfaces/UpkeepTranscoderInterface.sol";
@@ -407,8 +407,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   struct ChainConfig {
     uint256 fastGas;
     uint256 linkNative;
-    uint256 l1GasCost; // 0 for L1
     uint256 executionL1GasCost;
+    uint256 estimatedL1GasCost;
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
@@ -533,29 +533,29 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * for gas it takes the min of gas price in the transaction or the fast gas
    * price in order to reduce costs for the upkeep clients.
    */
-  function _getFeedData(HotVars memory hotVars) internal view returns (uint256 gasWei, uint256 linkNative) {
-    uint32 stalenessSeconds = hotVars.stalenessSeconds;
-    bool staleFallback = stalenessSeconds > 0;
-    uint256 timestamp;
-    int256 feedValue;
-    (, feedValue, , timestamp, ) = i_fastGasFeed.latestRoundData();
-    if (
-      feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
-    ) {
-      gasWei = s_fallbackGasPrice;
-    } else {
-      gasWei = uint256(feedValue);
-    }
-    (, feedValue, , timestamp, ) = i_linkNativeFeed.latestRoundData();
-    if (
-      feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
-    ) {
-      linkNative = s_fallbackLinkPrice;
-    } else {
-      linkNative = uint256(feedValue);
-    }
-    return (gasWei, linkNative);
-  }
+//  function _getFeedData(HotVars memory hotVars) internal view returns (uint256 gasWei, uint256 linkNative) {
+//    uint32 stalenessSeconds = hotVars.stalenessSeconds;
+//    bool staleFallback = stalenessSeconds > 0;
+//    uint256 timestamp;
+//    int256 feedValue;
+//    (, feedValue, , timestamp, ) = i_fastGasFeed.latestRoundData();
+//    if (
+//      feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
+//    ) {
+//      gasWei = s_fallbackGasPrice;
+//    } else {
+//      gasWei = uint256(feedValue);
+//    }
+//    (, feedValue, , timestamp, ) = i_linkNativeFeed.latestRoundData();
+//    if (
+//      feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
+//    ) {
+//      linkNative = s_fallbackLinkPrice;
+//    } else {
+//      linkNative = uint256(feedValue);
+//    }
+//    return (gasWei, linkNative);
+//  }
 
   /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
@@ -581,7 +581,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 l1CostWei;
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
-      l1CostWei = hotVars.gasCeilingMultiplier * cfg.l1CostWei;
+      l1CostWei = hotVars.gasCeilingMultiplier * cfg.estimatedL1GasCost;
     } else {
       l1CostWei = cfg.executionL1GasCost;
     }

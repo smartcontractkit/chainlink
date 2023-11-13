@@ -39,12 +39,12 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
 
+	"github.com/jmoiron/sqlx"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -191,7 +191,7 @@ func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipeline
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, dbCfg, jpcfg.MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, dbCfg)
-	jrm := job.NewORM(db, legacyChains, prm, btORM, keyStore, lggr, dbCfg)
+	jrm := job.NewORM(db, prm, btORM, keyStore, lggr, dbCfg)
 	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, legacyChains, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
@@ -414,11 +414,10 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
-			Keystore:         keyStore.Cosmos(),
-			TOMLConfigs:      cfg.CosmosConfigs(),
-			EventBroadcaster: eventBroadcaster,
-			DB:               db,
-			QConfig:          cfg.Database(),
+			Keystore:    keyStore.Cosmos(),
+			TOMLConfigs: cfg.CosmosConfigs(),
+			DB:          db,
+			QConfig:     cfg.Database(),
 		}
 		initOps = append(initOps, chainlink.InitCosmos(testCtx, relayerFactory, cosmosCfg))
 	}
@@ -519,7 +518,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
-	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
+	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(client.Successful, nil)
 	// Construct chain
 	h2 := Head(2)
 	h1 := HeadWithHash(1, h2.ParentHash)
@@ -629,7 +628,7 @@ func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	u, err := clsessions.NewUser(user.Email, Password, user.Role)
 	require.NoError(ta.t, err)
 
-	err = ta.SessionORM().CreateUser(&u)
+	err = ta.BasicAdminUsersORM().CreateUser(&u)
 	require.NoError(ta.t, err)
 
 	sessionID := ta.MustSeedNewSession(user.Email)

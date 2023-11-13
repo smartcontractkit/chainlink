@@ -12,10 +12,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
@@ -45,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
@@ -138,6 +140,7 @@ type ContractDeployer interface {
 	DeployMercuryVerifierProxyContract(accessControllerAddr common.Address) (MercuryVerifierProxy, error)
 	DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error)
 	DeployMercuryRewardManager(linkAddress common.Address) (MercuryRewardManager, error)
+	DeployLogEmitterContract() (LogEmitter, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -171,6 +174,10 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 		return &LineaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.FantomClient:
 		return &FantomContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.KromaClient:
+		return &KromaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.WeMixClient:
+		return &WeMixContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -235,6 +242,14 @@ type LineaContractDeployer struct {
 }
 
 type FantomContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type KromaContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type WeMixContractDeployer struct {
 	*EthereumContractDeployer
 }
 
@@ -854,34 +869,41 @@ func (e *EthereumContractDeployer) LoadKeeperRegistrar(address common.Address, r
 			client:      e.client,
 			registrar20: instance.(*keeper_registrar_wrapper2_0.KeeperRegistrar),
 		}, err
-	} else {
-		instance, err := e.client.LoadContract("AutomationRegistrar", address, func(
-			address common.Address,
-			backend bind.ContractBackend,
-		) (interface{}, error) {
-			return registrar21.NewAutomationRegistrar(address, backend)
-		})
-		if err != nil {
-			return nil, err
-		}
-		return &EthereumKeeperRegistrar{
-			address:     &address,
-			client:      e.client,
-			registrar21: instance.(*registrar21.AutomationRegistrar),
-		}, err
 	}
+	instance, err := e.client.LoadContract("AutomationRegistrar", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return registrar21.NewAutomationRegistrar(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperRegistrar{
+		address:     &address,
+		client:      e.client,
+		registrar21: instance.(*registrar21.AutomationRegistrar),
+	}, err
 }
 
 func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	opts *KeeperRegistryOpts,
 ) (KeeperRegistry, error) {
 	var mode uint8
-	switch e.client.GetChainID() {
+	switch e.client.GetChainID().Int64() {
 	//Arbitrum payment model
-	case big.NewInt(421613):
+	//Goerli Arbitrum
+	case 421613:
+		mode = uint8(1)
+	//Sepolia Arbitrum
+	case 421614:
 		mode = uint8(1)
 	//Optimism payment model
-	case big.NewInt(420):
+	//Goerli Optimism
+	case 420:
+		mode = uint8(2)
+	//Goerli Base
+	case 84531:
 		mode = uint8(2)
 	default:
 		mode = uint8(0)
@@ -1601,6 +1623,24 @@ func (e *EthereumContractDeployer) DeployWERC20Mock() (WERC20Mock, error) {
 	return &EthereumWERC20Mock{
 		client:   e.client,
 		instance: instance.(*werc20_mock.WERC20Mock),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployLogEmitterContract() (LogEmitter, error) {
+	address, _, instance, err := e.client.DeployContract("Log Emitter", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return le.DeployLogEmitter(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &LogEmitterContract{
+		client:   e.client,
+		instance: instance.(*le.LogEmitter),
 		address:  *address,
 		l:        e.l,
 	}, err

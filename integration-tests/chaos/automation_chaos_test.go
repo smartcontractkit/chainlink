@@ -1,7 +1,6 @@
 package chaos
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	a "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/alias"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
@@ -26,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -117,6 +116,7 @@ func TestAutomationChaos(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -132,7 +132,7 @@ func TestAutomationChaos(t *testing.T) {
 					chainlink.New(0, defaultAutomationSettings),
 					chaos.NewFailPods,
 					&chaos.Props{
-						LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+						LabelsSelector: &map[string]*string{ChaosGroupMinority: utils.Ptr("1")},
 						DurationStr:    "1m",
 					},
 				},
@@ -141,7 +141,7 @@ func TestAutomationChaos(t *testing.T) {
 					chainlink.New(0, defaultAutomationSettings),
 					chaos.NewFailPods,
 					&chaos.Props{
-						LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+						LabelsSelector: &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
 						DurationStr:    "1m",
 					},
 				},
@@ -150,9 +150,9 @@ func TestAutomationChaos(t *testing.T) {
 					chainlink.New(0, defaultAutomationSettings),
 					chaos.NewFailPods,
 					&chaos.Props{
-						LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+						LabelsSelector: &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
 						DurationStr:    "1m",
-						ContainerNames: &[]*string{a.Str("chainlink-db")},
+						ContainerNames: &[]*string{utils.Ptr("chainlink-db")},
 					},
 				},
 				NetworkChaosFailMajorityNetwork: {
@@ -160,8 +160,8 @@ func TestAutomationChaos(t *testing.T) {
 					chainlink.New(0, defaultAutomationSettings),
 					chaos.NewNetworkPartition,
 					&chaos.Props{
-						FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-						ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+						FromLabels:  &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
+						ToLabels:    &map[string]*string{ChaosGroupMinority: utils.Ptr("1")},
 						DurationStr: "1m",
 					},
 				},
@@ -170,16 +170,16 @@ func TestAutomationChaos(t *testing.T) {
 					chainlink.New(0, defaultAutomationSettings),
 					chaos.NewNetworkPartition,
 					&chaos.Props{
-						FromLabels:  &map[string]*string{"app": a.Str("geth")},
-						ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
+						FromLabels:  &map[string]*string{"app": utils.Ptr("geth")},
+						ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: utils.Ptr("1")},
 						DurationStr: "1m",
 					},
 				},
 			}
 
-			for n, tst := range testCases {
-				name := n
-				testCase := tst
+			for name, testCase := range testCases {
+				name := name
+				testCase := testCase
 				t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 					t.Parallel()
 					network := networks.MustGetSelectedNetworksFromEnv()[0] // Need a new copy of the network for each test
@@ -224,7 +224,7 @@ func TestAutomationChaos(t *testing.T) {
 						if chainClient != nil {
 							chainClient.GasStats().PrintStats()
 						}
-						err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+						err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 						require.NoError(t, err, "Error tearing down environment")
 					})
 
@@ -269,7 +269,7 @@ func TestAutomationChaos(t *testing.T) {
 					gom.Eventually(func(g gomega.Gomega) {
 						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 						for i := 0; i < len(upkeepIDs); i++ {
-							counter, err := consumers[i].Counter(context.Background())
+							counter, err := consumers[i].Counter(it_utils.TestContext(t))
 							require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 							expect := 5
 							l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
@@ -284,7 +284,7 @@ func TestAutomationChaos(t *testing.T) {
 					gom.Eventually(func(g gomega.Gomega) {
 						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 						for i := 0; i < len(upkeepIDs); i++ {
-							counter, err := consumers[i].Counter(context.Background())
+							counter, err := consumers[i].Counter(it_utils.TestContext(t))
 							require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 							expect := 10
 							l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")

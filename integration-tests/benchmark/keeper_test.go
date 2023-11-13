@@ -37,6 +37,7 @@ Enabled = true
 
 [P2P]
 [P2P.V2]
+Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]
 [Keeper]
@@ -161,6 +162,7 @@ func TestAutomationBenchmark(t *testing.T) {
 			RegistryVersions: registryVersions,
 			KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 				PaymentPremiumPPB:    uint32(0),
+				FlatFeeMicroLINK:     uint32(40000),
 				BlockCountPerTurn:    big.NewInt(100),
 				CheckGasLimit:        uint32(45_000_000), //45M
 				StalenessSeconds:     big.NewInt(90_000),
@@ -225,7 +227,7 @@ func addRegistry(registryToTest string) []eth_contracts.KeeperRegistryVersion {
 	case "2_0-Multiple":
 		return repeatRegistries(eth_contracts.RegistryVersion_2_0, NumberOfRegistries)
 	case "2_1-Multiple":
-		return repeatRegistries(eth_contracts.RegistryVersion_1_0, NumberOfRegistries)
+		return repeatRegistries(eth_contracts.RegistryVersion_2_1, NumberOfRegistries)
 	default:
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0}
 	}
@@ -241,13 +243,13 @@ func repeatRegistries(registryVersion eth_contracts.KeeperRegistryVersion, numbe
 
 var networkConfig = map[string]NetworkConfig{
 	"SimulatedGeth": {
-		upkeepSLA:  int64(20),
+		upkeepSLA:  int64(120), //2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
 	"geth": {
-		upkeepSLA:  int64(20),
+		upkeepSLA:  int64(120), //2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
@@ -280,6 +282,18 @@ var networkConfig = map[string]NetworkConfig{
 		upkeepSLA:  int64(4),
 		blockTime:  12 * time.Second,
 		deltaStage: time.Duration(0),
+		funding:    big.NewFloat(ChainlinkNodeFunding),
+	},
+	"BaseGoerli": {
+		upkeepSLA:  int64(60),
+		blockTime:  2 * time.Second,
+		deltaStage: 20 * time.Second,
+		funding:    big.NewFloat(ChainlinkNodeFunding),
+	},
+	"ArbitrumSepolia": {
+		upkeepSLA:  int64(120),
+		blockTime:  time.Second,
+		deltaStage: 20 * time.Second,
 		funding:    big.NewFloat(ChainlinkNodeFunding),
 	},
 }

@@ -8,7 +8,7 @@ import "../../vendor/@eth-optimism/contracts/v0.8.6/contracts/L2/predeploys/OVM_
 import "../ExecutionPrevention.sol";
 import {Config, Upkeep} from "../interfaces/v1_3/AutomationRegistryInterface1_3.sol";
 import "../../shared/access/ConfirmedOwner.sol";
-import "../../interfaces/AggregatorV3Interface.sol";
+import "../../shared/interfaces/AggregatorV3Interface.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
