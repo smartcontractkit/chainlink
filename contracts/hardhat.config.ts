@@ -56,6 +56,9 @@ let config = {
       ),
       hardfork: 'merge',
     },
+    optimism_goerli: {
+      url: 'https://op.getblock.io/608a6708-d787-4ba8-bcbd-493001ea7fd9/goerli/',
+    },
   },
   solidity: {
     compilers: [
@@ -141,6 +144,16 @@ if (process.env.NETWORK_NAME && process.env.EXPLORER_API_KEY) {
       apiKey: {
         [process.env.NETWORK_NAME]: process.env.EXPLORER_API_KEY,
       },
+      customChains: [
+        {
+          network: 'optimism_goerli',
+          chainId: 420,
+          urls: {
+            apiURL: 'https://api-goerli-optimistic.etherscan.io/api',
+            browserURL: 'https://goerli-optimism.etherscan.io/',
+          },
+        },
+      ],
     },
   }
 }

@@ -22,6 +22,10 @@ src = 'src/v0.8/functions/dev/v1_X'
 test = 'src/v0.8/functions/tests/v1_X'
 gas_price = 3_000_000_000 # 3 gwei
 
+[profile.automationexp]
+auto_detect_solc = true
+src = 'src/v0.8/automation/'
+
 [profile.vrf]
 optimizer_runs = 1000
 src = 'src/v0.8/vrf'

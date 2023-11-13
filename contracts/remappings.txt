@@ -1,6 +1,6 @@
 ds-test/=foundry-lib/forge-std/lib/ds-test/src
 forge-std/=foundry-lib/forge-std/src
 
-@openzeppelin/=node_modules/@openzeppelin/
+@openzeppelin/=src/v0.8/vendor/openzeppelin-solidity/v4.9.3
 hardhat/=node_modules/hardhat/
 @eth-optimism/=node_modules/@eth-optimism
