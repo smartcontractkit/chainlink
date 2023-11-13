@@ -47,6 +47,62 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
+
+	minimumNodeSpec = map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "4Gi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "4Gi",
+			},
+		},
+	}
+
+	minimumDbSpec = map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "1Gi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "1Gi",
+			},
+		},
+		"stateful": true,
+		"capacity": "5Gi",
+	}
+
+	recNodeSpec = map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "4000m",
+				"memory": "8Gi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "4000m",
+				"memory": "8Gi",
+			},
+		},
+	}
+
+	recDbSpec = map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2Gi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2Gi",
+			},
+		},
+		"stateful": true,
+		"capacity": "10Gi",
+	}
 )
 
 func getEnv(key, fallback string) string {
@@ -67,6 +123,7 @@ var (
 	duration, _        = strconv.Atoi(getEnv("DURATION", "900"))
 	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))
 	numberOfEvents, _  = strconv.Atoi(getEnv("NUMBEROFEVENTS", "1"))
+	specType           = getEnv("SPECTYPE", "minimum")
 	debug, _           = strconv.ParseBool(getEnv("DEBUG", "false"))
 )
 
@@ -84,7 +141,7 @@ func TestLogTrigger(t *testing.T) {
 	testType := "load"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 	loadDuration := time.Duration(duration) * time.Second
-	automationDefaultLinkFunds := big.NewInt(int64(9e18))
+	automationDefaultLinkFunds := big.NewInt(int64(9e18) * 100)
 	automationDefaultUpkeepGasLimit := uint32(2500000)
 
 	registrySettings := &contracts.KeeperRegistrySettings{
@@ -104,7 +161,7 @@ func TestLogTrigger(t *testing.T) {
 	}
 
 	testEnvironment := environment.New(&environment.Config{
-		TTL: time.Hour * 720, // 30 days,
+		TTL: time.Hour * 24, // 1 day,
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s",
 			testType,
@@ -132,8 +189,8 @@ func TestLogTrigger(t *testing.T) {
 						"memory": "4Gi",
 					},
 					"limits": map[string]interface{}{
-						"cpu":    "4000m",
-						"memory": "4Gi",
+						"cpu":    "8000m",
+						"memory": "8Gi",
 					},
 				},
 				"geth": map[string]interface{}{
@@ -149,9 +206,29 @@ func TestLogTrigger(t *testing.T) {
 		return
 	}
 
+	var (
+		nodeSpec = minimumNodeSpec
+		dbSpec   = minimumDbSpec
+	)
+
+	switch specType {
+	case "recommended":
+		nodeSpec = recNodeSpec
+		dbSpec = recDbSpec
+	default:
+		// minimum:
+
+	}
+	if debug {
+		nodeSpec = map[string]interface{}{}
+		dbSpec = map[string]interface{}{"stateful": true}
+	}
+
 	for i := 0; i < numberofNodes; i++ {
 		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-			"toml": client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, testNetwork),
+			"toml":      client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, testNetwork),
+			"chainlink": nodeSpec,
+			"db":        dbSpec,
 		}))
 	}
 
@@ -179,7 +256,7 @@ func TestLogTrigger(t *testing.T) {
 		t, contractseth.RegistryVersion_2_1, *registrySettings, linkToken, contractDeployer, chainClient,
 	)
 
-	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(1.5), 0)
+	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(100), 0)
 	require.NoError(t, err, "Error funding chainlink nodes")
 
 	actions.CreateOCRKeeperJobs(
