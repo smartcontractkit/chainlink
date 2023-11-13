@@ -98,6 +98,7 @@ func (m *mfaConfig) RPOrigin() string {
 
 type webServerConfig struct {
 	c       toml.WebServer
+	s       toml.WebServerSecrets
 	rootDir func() string
 }
 
@@ -111,6 +112,14 @@ func (w *webServerConfig) RateLimit() config.RateLimit {
 
 func (w *webServerConfig) MFA() config.MFA {
 	return &mfaConfig{c: w.c.MFA}
+}
+
+func (w *webServerConfig) LDAP() config.LDAP {
+	return &ldapConfig{c: w.c.LDAP, s: w.s.LDAP}
+}
+
+func (w *webServerConfig) AuthenticationMethod() string {
+	return *w.c.AuthenticationMethod
 }
 
 func (w *webServerConfig) AllowOrigins() string {
@@ -167,4 +176,140 @@ func (w *webServerConfig) SessionTimeout() models.Duration {
 
 func (w *webServerConfig) ListenIP() net.IP {
 	return *w.c.ListenIP
+}
+
+type ldapConfig struct {
+	c toml.WebServerLDAP
+	s toml.WebServerLDAPSecrets
+}
+
+func (l *ldapConfig) ServerAddress() string {
+	if l.s.ServerAddress == nil {
+		return ""
+	}
+	return l.s.ServerAddress.URL().String()
+}
+
+func (l *ldapConfig) ReadOnlyUserLogin() string {
+	if l.s.ReadOnlyUserLogin == nil {
+		return ""
+	}
+	return string(*l.s.ReadOnlyUserLogin)
+}
+
+func (l *ldapConfig) ReadOnlyUserPass() string {
+	if l.s.ReadOnlyUserPass == nil {
+		return ""
+	}
+	return string(*l.s.ReadOnlyUserPass)
+}
+
+func (l *ldapConfig) ServerTLS() bool {
+	if l.c.ServerTLS == nil {
+		return false
+	}
+	return *l.c.ServerTLS
+}
+
+func (l *ldapConfig) SessionTimeout() models.Duration {
+	return *l.c.SessionTimeout
+}
+
+func (l *ldapConfig) QueryTimeout() time.Duration {
+	return l.c.QueryTimeout.Duration()
+}
+
+func (l *ldapConfig) UserAPITokenDuration() models.Duration {
+	return *l.c.UserAPITokenDuration
+}
+
+func (l *ldapConfig) BaseUserAttr() string {
+	if l.c.BaseUserAttr == nil {
+		return ""
+	}
+	return *l.c.BaseUserAttr
+}
+
+func (l *ldapConfig) BaseDN() string {
+	if l.c.BaseDN == nil {
+		return ""
+	}
+	return *l.c.BaseDN
+}
+
+func (l *ldapConfig) UsersDN() string {
+	if l.c.UsersDN == nil {
+		return ""
+	}
+	return *l.c.UsersDN
+}
+
+func (l *ldapConfig) GroupsDN() string {
+	if l.c.GroupsDN == nil {
+		return ""
+	}
+	return *l.c.GroupsDN
+}
+
+func (l *ldapConfig) ActiveAttribute() string {
+	if l.c.ActiveAttribute == nil {
+		return ""
+	}
+	return *l.c.ActiveAttribute
+}
+
+func (l *ldapConfig) ActiveAttributeAllowedValue() string {
+	if l.c.ActiveAttributeAllowedValue == nil {
+		return ""
+	}
+	return *l.c.ActiveAttributeAllowedValue
+}
+
+func (l *ldapConfig) AdminUserGroupCN() string {
+	if l.c.AdminUserGroupCN == nil {
+		return ""
+	}
+	return *l.c.AdminUserGroupCN
+}
+
+func (l *ldapConfig) EditUserGroupCN() string {
+	if l.c.EditUserGroupCN == nil {
+		return ""
+	}
+	return *l.c.EditUserGroupCN
+}
+
+func (l *ldapConfig) RunUserGroupCN() string {
+	if l.c.RunUserGroupCN == nil {
+		return ""
+	}
+	return *l.c.RunUserGroupCN
+}
+
+func (l *ldapConfig) ReadUserGroupCN() string {
+	if l.c.ReadUserGroupCN == nil {
+		return ""
+	}
+	return *l.c.ReadUserGroupCN
+}
+
+func (l *ldapConfig) UserApiTokenEnabled() bool {
+	if l.c.UserApiTokenEnabled == nil {
+		return false
+	}
+	return *l.c.UserApiTokenEnabled
+}
+
+func (l *ldapConfig) UpstreamSyncInterval() models.Duration {
+	if l.c.UpstreamSyncInterval == nil {
+		return models.Duration{}
+	}
+	return *l.c.UpstreamSyncInterval
+}
+
+func (l *ldapConfig) UpstreamSyncRateLimit() models.Duration {
+	if l.c.UpstreamSyncRateLimit == nil {
+		return models.Duration{}
+	}
+	return *l.c.UpstreamSyncRateLimit
 }

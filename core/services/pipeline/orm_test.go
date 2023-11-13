@@ -10,21 +10,19 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -35,11 +33,11 @@ type ormconfig struct {
 
 func (ormconfig) JobPipelineMaxSuccessfulRuns() uint64 { return 123456 }
 
-func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
+func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM) {
 	t.Helper()
 
-	if name != "" {
-		_, db = heavyweight.FullTestDBV2(t, name, nil)
+	if heavy {
+		_, db = heavyweight.FullTestDBV2(t, nil)
 	} else {
 		db = pgtest.NewSqlxDB(t)
 	}
@@ -49,12 +47,12 @@ func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
 	return
 }
 
-func setupHeavyORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
-	return setupORM(t, name)
+func setupHeavyORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM) {
+	return setupORM(t, true)
 }
 
 func setupLiteORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM) {
-	return setupORM(t, "")
+	return setupORM(t, false)
 }
 
 func Test_PipelineORM_CreateSpec(t *testing.T) {
@@ -466,7 +464,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
-	_, orm := setupHeavyORM(t, "pipeline_runs_reaper")
+	_, orm := setupHeavyORM(t)
 
 	var runsIds []int64
 
@@ -522,9 +520,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
+	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
@@ -624,9 +620,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
+	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()

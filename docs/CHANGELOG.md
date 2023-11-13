@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Added
+
+- Added a new, optional WebServer authentication option that supports LDAP as a user identity provider. This enables user login access and user roles to be managed and provisioned via a centralized remote server that supports the LDAP protocol, which can be helpful when running multiple nodes. See the documentation for more information and config setup instructions. There is a new `[WebServer].AuthenticationMethod` config option, when set to `ldap` requires the new `[WebServer.LDAP]` config section to be defined, see the reference `docs/core.toml`.
+- New prom metrics for mercury:
+    `mercury_transmit_queue_delete_error_count`
+    `mercury_transmit_queue_insert_error_count`
+    `mercury_transmit_queue_push_error_count`
+    Nops should consider alerting on these.
+
+
+### Changed
+
+- `L2Suggested` mode is now called `SuggestedPrice`
+
+### Removed
+
+- Removed `Optimism2` as a supported gas estimator mode
+
+### Added
+
+- Mercury v0.2 has improved consensus around current block that uses the most recent 5 blocks instead of only the latest one
+- Two new prom metrics for mercury, nops should consider adding alerting on these:
+    - `mercury_insufficient_blocks_count`
+    - `mercury_zero_blocks_count`
+
 ...
 
 ## 2.7.0 - UNRELEASED
@@ -29,9 +54,15 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 
 - LogPoller will now use finality tags to dynamically determine finality on evm chains if `UseFinalityTags=true`, rather than the fixed `FinalityDepth` specified in toml config
 
-### Upcoming Required Configuration Change
+### Changed
 
-- Starting in 2.9.0, chainlink nodes will no longer allow `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
+- `P2P.V1` is now disabled (`Enabled = false`) by default. It must be explicitly enabled with `true` to be used. However, it is deprecated and will be removed in the future.
+- `P2P.V2` is now enabled (`Enabled = true`) by default.
+
+### Upcoming Required Configuration Changes
+Starting in `v2.9.0`:
+- `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` will no longer be allowed. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
+- `P2P.V1` will no longer be supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
 
 ### Removed
 

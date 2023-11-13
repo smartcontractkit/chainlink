@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -96,7 +97,7 @@ type estimatorGasEstimatorConfig interface {
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
 	BlockHistoryEstimator struct {
-		utils.StartStopOnce
+		services.StateMachine
 		ethClient evmclient.Client
 		chainID   big.Int
 		config    chainConfig
@@ -162,7 +163,7 @@ func (b *BlockHistoryEstimator) setLatest(head *evmtypes.Head) {
 	if baseFee := head.BaseFeePerGas; baseFee != nil {
 		promBlockHistoryEstimatorCurrentBaseFee.WithLabelValues(b.chainID.String()).Set(float64(baseFee.Int64()))
 	}
-	b.logger.Debugw("Set latest block", "blockNum", head.Number, "blockHash", head.Hash, "baseFee", head.BaseFeePerGas)
+	b.logger.Debugw("Set latest block", "blockNum", head.Number, "blockHash", head.Hash, "baseFee", head.BaseFeePerGas, "baseFeeWei", head.BaseFeePerGas.ToInt())
 	b.latestMu.Lock()
 	defer b.latestMu.Unlock()
 	b.latest = head

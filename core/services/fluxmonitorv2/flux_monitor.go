@@ -13,7 +13,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -55,6 +57,7 @@ const DefaultHibernationPollPeriod = 24 * time.Hour
 
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
 type FluxMonitor struct {
+	services.StateMachine
 	contractAddress   common.Address
 	oracleAddress     common.Address
 	jobSpec           job.Job
@@ -80,7 +83,6 @@ type FluxMonitor struct {
 	backlog       *utils.BoundedPriorityQueue[log.Broadcast]
 	chProcessLogs chan struct{}
 
-	utils.StartStopOnce
 	chStop     chan struct{}
 	waitOnStop chan struct{}
 }
@@ -134,7 +136,6 @@ func NewFluxMonitor(
 			PriorityAnswerUpdatedLog: 1,
 			PriorityFlagChangedLog:   2,
 		}),
-		StartStopOnce: utils.StartStopOnce{},
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
 		waitOnStop:    make(chan struct{}),

@@ -9,21 +9,22 @@ import (
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+
+	"github.com/jmoiron/sqlx"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrnetworkingtypes "github.com/smartcontractkit/libocr/networking/types"
 	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/multierr"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type PeerWrapperOCRConfig interface {
@@ -43,7 +44,7 @@ type (
 
 	// SingletonPeerWrapper manages all libocr peers for the application
 	SingletonPeerWrapper struct {
-		utils.StartStopOnce
+		services.StateMachine
 		keyStore      keystore.Master
 		p2pCfg        config.P2P
 		ocrCfg        PeerWrapperOCRConfig
@@ -97,9 +98,7 @@ func NewSingletonPeerWrapper(keyStore keystore.Master, p2pCfg config.P2P, ocrCfg
 	}
 }
 
-func (p *SingletonPeerWrapper) IsStarted() bool {
-	return p.State() == utils.StartStopOnce_Started
-}
+func (p *SingletonPeerWrapper) IsStarted() bool { return p.Ready() == nil }
 
 // Start starts SingletonPeerWrapper.
 func (p *SingletonPeerWrapper) Start(context.Context) error {

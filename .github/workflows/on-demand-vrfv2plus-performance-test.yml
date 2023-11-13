@@ -54,7 +54,7 @@ on:
       useExistingEnv:
         description: Set `true` to use existing environment or `false` to deploy CL node and all contracts
         required: false
-        default: false
+        default: "false"
       configBase64:
         description: TOML config in base64 (Needed when overriding config or providing contract addresses for existing env)
         required: false
@@ -86,7 +86,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -118,7 +118,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         with:
           test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 6h -run TestVRFV2PlusPerformance/vrfv2plus_performance_test ./load/vrfv2plus
           test_download_vendor_packages_command: cd ./integration-tests && go mod download

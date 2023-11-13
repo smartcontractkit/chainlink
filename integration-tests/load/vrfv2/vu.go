@@ -1,13 +1,15 @@
 package loadvrfv2
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+	"time"
+
+	"github.com/smartcontractkit/wasp"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	vrfConst "github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/wasp"
-	"time"
 )
 
 /* JobVolumeVU is a "virtual user" that creates a VRFv2 job and constantly requesting new randomness only for this job instance  */
@@ -54,7 +56,7 @@ func (m *JobVolumeVU) Clone(_ *wasp.Generator) wasp.VirtualUser {
 func (m *JobVolumeVU) Setup(_ *wasp.Generator) error {
 	jobs, err := vrfv2_actions.CreateVRFV2Jobs(m.nodes, m.contracts.Coordinator, m.bc, m.minIncomingConfirmations)
 	if err != nil {
-		return errors.Wrap(err, "failed to create VRFv2 jobs in setup")
+		return fmt.Errorf("failed to create VRFv2 jobs in setup: %w", err)
 	}
 	m.jobs = jobs
 	m.keyHash = jobs[0].KeyHash

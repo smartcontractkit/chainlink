@@ -9,15 +9,17 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ConfigOverriderImpl struct {
-	utils.StartStopOnce
+	services.StateMachine
 	logger          logger.Logger
 	flags           *ContractFlags
 	contractAddress ethkey.EIP55Address
@@ -56,7 +58,7 @@ func NewConfigOverriderImpl(
 
 	ctx, cancel := context.WithCancel(context.Background())
 	co := ConfigOverriderImpl{
-		utils.StartStopOnce{},
+		services.StateMachine{},
 		logger,
 		flags,
 		contractAddress,

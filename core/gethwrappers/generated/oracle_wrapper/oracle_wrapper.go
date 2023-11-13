@@ -52,7 +52,7 @@ func DeployOracle(auth *bind.TransactOpts, backend bind.ContractBackend, _link c
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &Oracle{OracleCaller: OracleCaller{contract: contract}, OracleTransactor: OracleTransactor{contract: contract}, OracleFilterer: OracleFilterer{contract: contract}}, nil
+	return address, tx, &Oracle{address: address, abi: *parsed, OracleCaller: OracleCaller{contract: contract}, OracleTransactor: OracleTransactor{contract: contract}, OracleFilterer: OracleFilterer{contract: contract}}, nil
 }
 
 type Oracle struct {

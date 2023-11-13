@@ -423,7 +423,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("testnet", func(t *testing.T) {
 			cfg := configWithChains(t, 421611, &toml.Chain{
 				GasEstimator: toml.GasEstimator{
-					Mode: ptr("L2Suggested"),
+					Mode: ptr("SuggestedPrice"),
 				},
 			})
 			assert.NoError(t, cfg.Validate())

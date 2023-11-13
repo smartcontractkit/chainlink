@@ -1,7 +1,8 @@
 package vrfv1
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -21,15 +22,15 @@ type Contracts struct {
 func DeployVRFContracts(cd contracts.ContractDeployer, bc blockchain.EVMClient, lt contracts.LinkToken) (*Contracts, error) {
 	bhs, err := cd.DeployBlockhashStore()
 	if err != nil {
-		return nil, errors.Wrap(err, ErrDeployBHSV1)
+		return nil, fmt.Errorf("%s, err %w", ErrDeployBHSV1, err)
 	}
 	coordinator, err := cd.DeployVRFCoordinator(lt.Address(), bhs.Address())
 	if err != nil {
-		return nil, errors.Wrap(err, ErrDeployVRFCootrinatorV1)
+		return nil, fmt.Errorf("%s, err %w", ErrDeployVRFCootrinatorV1, err)
 	}
 	consumer, err := cd.DeployVRFConsumer(lt.Address(), coordinator.Address())
 	if err != nil {
-		return nil, errors.Wrap(err, ErrDeployVRFConsumerV1)
+		return nil, fmt.Errorf("%s, err %w", ErrDeployVRFConsumerV1, err)
 	}
 	if err := bc.WaitForEvents(); err != nil {
 		return nil, err

@@ -15,10 +15,10 @@ import (
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -35,10 +35,12 @@ import (
 type generalConfig struct {
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
-	secretsTOML   string // with env overdies includes, redacted
+	secretsTOML   string // with env overrides includes, redacted
 
 	c       *Config // all fields non-nil (unless the legacy method signature return a pointer)
 	secrets *Secrets
+
+	warning error // warnings about inputTOML, e.g. deprecated fields
 
 	logLevelDefault zapcore.Level
 
@@ -123,7 +125,7 @@ func (o *GeneralConfigOpts) parseSecrets(secrets string) error {
 	return nil
 }
 
-// New returns a coreconfig.GeneralConfig for the given options.
+// New returns a GeneralConfig for the given options.
 func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 	err := o.parse()
 	if err != nil {
@@ -134,6 +136,8 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	_, warning := utils.MultiErrorList(o.Config.deprecationWarnings())
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
@@ -163,6 +167,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		secretsTOML:   secrets,
 		c:             &o.Config,
 		secrets:       &o.Secrets,
+		warning:       warning,
 	}
 	if lvl := o.Config.Log.Level; lvl != nil {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
@@ -194,7 +199,7 @@ func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
 	return g.c.EVM
 }
 
-func (g *generalConfig) CosmosConfigs() cosmos.CosmosConfigs {
+func (g *generalConfig) CosmosConfigs() coscfg.TOMLConfigs {
 	return g.c.Cosmos
 }
 
@@ -253,10 +258,13 @@ func validateEnv() (err error) {
 	return
 }
 
-func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
+func (g *generalConfig) LogConfiguration(log, warn coreconfig.LogfFn) {
 	log("# Secrets:\n%s\n", g.secretsTOML)
 	log("# Input Configuration:\n%s\n", g.inputTOML)
 	log("# Effective Configuration, with defaults applied:\n%s\n", g.effectiveTOML)
+	if g.warning != nil {
+		warn("# Configuration warning:\n%s\n", g.warning)
+	}
 }
 
 // ConfigTOML implements chainlink.ConfigV2
@@ -340,7 +348,7 @@ func (g *generalConfig) StarkNetEnabled() bool {
 }
 
 func (g *generalConfig) WebServer() config.WebServer {
-	return &webServerConfig{c: g.c.WebServer, rootDir: g.RootDir}
+	return &webServerConfig{c: g.c.WebServer, s: g.secrets.WebServer, rootDir: g.RootDir}
 }
 
 func (g *generalConfig) AutoPprofBlockProfileRate() int {

@@ -64,9 +64,7 @@ HTTPSPort = 0
 LogPoller = true
 [OCR2]
 Enabled = true
-[P2P]
-[P2P.V2]
-Enabled = true
+
 [Keeper]
 TurnLookBack = 0
 [[EVM]]

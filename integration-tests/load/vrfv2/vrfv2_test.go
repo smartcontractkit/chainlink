@@ -3,9 +3,10 @@ package loadvrfv2
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 )
 
 func TestVRFV2Load(t *testing.T) {

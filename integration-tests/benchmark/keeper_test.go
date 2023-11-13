@@ -11,13 +11,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	env_client "github.com/smartcontractkit/chainlink-env/client"
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	env_client "github.com/smartcontractkit/chainlink-testing-framework/k8s/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
@@ -162,6 +162,7 @@ func TestAutomationBenchmark(t *testing.T) {
 			RegistryVersions: registryVersions,
 			KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 				PaymentPremiumPPB:    uint32(0),
+				FlatFeeMicroLINK:     uint32(40000),
 				BlockCountPerTurn:    big.NewInt(100),
 				CheckGasLimit:        uint32(45_000_000), //45M
 				StalenessSeconds:     big.NewInt(90_000),
@@ -226,7 +227,7 @@ func addRegistry(registryToTest string) []eth_contracts.KeeperRegistryVersion {
 	case "2_0-Multiple":
 		return repeatRegistries(eth_contracts.RegistryVersion_2_0, NumberOfRegistries)
 	case "2_1-Multiple":
-		return repeatRegistries(eth_contracts.RegistryVersion_1_0, NumberOfRegistries)
+		return repeatRegistries(eth_contracts.RegistryVersion_2_1, NumberOfRegistries)
 	default:
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0}
 	}
@@ -242,13 +243,13 @@ func repeatRegistries(registryVersion eth_contracts.KeeperRegistryVersion, numbe
 
 var networkConfig = map[string]NetworkConfig{
 	"SimulatedGeth": {
-		upkeepSLA:  int64(20),
+		upkeepSLA:  int64(120), //2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
 	"geth": {
-		upkeepSLA:  int64(20),
+		upkeepSLA:  int64(120), //2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
@@ -283,6 +284,18 @@ var networkConfig = map[string]NetworkConfig{
 		deltaStage: time.Duration(0),
 		funding:    big.NewFloat(ChainlinkNodeFunding),
 	},
+	"BaseGoerli": {
+		upkeepSLA:  int64(60),
+		blockTime:  2 * time.Second,
+		deltaStage: 20 * time.Second,
+		funding:    big.NewFloat(ChainlinkNodeFunding),
+	},
+	"ArbitrumSepolia": {
+		upkeepSLA:  int64(120),
+		blockTime:  time.Second,
+		deltaStage: 20 * time.Second,
+		funding:    big.NewFloat(ChainlinkNodeFunding),
+	},
 }
 
 func getEnv(key, fallback string) string {
@@ -299,7 +312,7 @@ func getEnv(key, fallback string) string {
 
 func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork) {
 	l := logging.GetTestLogger(t)
-	testNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
+	testNetwork := networks.MustGetSelectedNetworksFromEnv()[0] // Environment currently being used to run benchmark test on
 	blockTime := "1"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 

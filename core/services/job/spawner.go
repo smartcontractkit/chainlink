@@ -9,7 +9,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	relayservices "github.com/smartcontractkit/chainlink-relay/pkg/services"
 
@@ -43,6 +43,7 @@ type (
 	}
 
 	spawner struct {
+		relayservices.StateMachine
 		orm              ORM
 		config           Config
 		checker          services.Checker
@@ -52,7 +53,6 @@ type (
 		q                pg.Q
 		lggr             logger.Logger
 
-		utils.StartStopOnce
 		chStop              utils.StopChan
 		lbDependentAwaiters []utils.DependentAwaiter
 	}

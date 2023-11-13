@@ -1,17 +1,17 @@
-name: 'Build Chainlink and Publish'
+name: "Build Chainlink and Publish"
 
 on:
   # Mimics old circleci behaviour
   push:
     tags:
-      - 'v*'
+      - "v*"
     branches:
       - master
-      - 'release/**'
+      - "release/**"
 
 jobs:
   checks:
-    name: 'Checks'
+    name: "Checks"
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
@@ -42,15 +42,17 @@ jobs:
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
           sign-images: true
-          sign-method: 'keypair'
+          sign-method: "keypair"
           cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
           cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
           cosign-password: ${{ secrets.COSIGN_PASSWORD }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           verify-signature: true
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

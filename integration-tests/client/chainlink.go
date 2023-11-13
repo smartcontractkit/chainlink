@@ -1213,3 +1213,23 @@ func (c *ChainlinkClient) GetForwarders() (*Forwarders, *http.Response, error) {
 	}
 	return response, resp.RawResponse, err
 }
+
+// Replays log poller from block number
+func (c *ChainlinkClient) ReplayLogPollerFromBlock(fromBlock, evmChainID int64) (*ReplayResponse, *http.Response, error) {
+	specObj := &ReplayResponse{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Int64("From block", fromBlock).Int64("EVM chain ID", evmChainID).Msg("Replaying Log Poller from block")
+	resp, err := c.APIClient.R().
+		SetResult(&specObj).
+		SetQueryParams(map[string]string{
+			"evmChainID": fmt.Sprint(evmChainID),
+		}).
+		SetPathParams(map[string]string{
+			"fromBlock": fmt.Sprint(fromBlock),
+		}).
+		Post("/v2/replay_from_block/{fromBlock}")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return specObj, resp.RawResponse, err
+}

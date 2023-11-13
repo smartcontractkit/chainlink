@@ -52,7 +52,7 @@ func DeployFunctionsLoadTestClient(auth *bind.TransactOpts, backend bind.Contrac
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &FunctionsLoadTestClient{FunctionsLoadTestClientCaller: FunctionsLoadTestClientCaller{contract: contract}, FunctionsLoadTestClientTransactor: FunctionsLoadTestClientTransactor{contract: contract}, FunctionsLoadTestClientFilterer: FunctionsLoadTestClientFilterer{contract: contract}}, nil
+	return address, tx, &FunctionsLoadTestClient{address: address, abi: *parsed, FunctionsLoadTestClientCaller: FunctionsLoadTestClientCaller{contract: contract}, FunctionsLoadTestClientTransactor: FunctionsLoadTestClientTransactor{contract: contract}, FunctionsLoadTestClientFilterer: FunctionsLoadTestClientFilterer{contract: contract}}, nil
 }
 
 type FunctionsLoadTestClient struct {

@@ -2,12 +2,14 @@ package loadvrfv2plus
 
 import (
 	"encoding/base64"
+	"fmt"
+	"os"
+
 	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"os"
 )
 
 const (
@@ -36,8 +38,11 @@ type PerformanceConfig struct {
 type ExistingEnvConfig struct {
 	CoordinatorAddress string `toml:"coordinator_address"`
 	ConsumerAddress    string `toml:"consumer_address"`
+	LinkAddress        string `toml:"link_address"`
 	SubID              string `toml:"sub_id"`
 	KeyHash            string `toml:"key_hash"`
+	SubFunding
+	CreateFundSubsAndAddConsumers bool `toml:"create_fund_subs_and_add_consumers"`
 }
 
 type NewEnvConfig struct {
@@ -49,9 +54,13 @@ type Common struct {
 }
 
 type Funding struct {
-	NodeFunds      float64 `toml:"node_funds"`
-	SubFundsLink   int64   `toml:"sub_funds_link"`
-	SubFundsNative int64   `toml:"sub_funds_native"`
+	NodeFunds float64 `toml:"node_funds"`
+	SubFunding
+}
+
+type SubFunding struct {
+	SubFundsLink   float64 `toml:"sub_funds_link"`
+	SubFundsNative float64 `toml:"sub_funds_native"`
 }
 
 type Soak struct {
@@ -88,18 +97,21 @@ func ReadConfig() (*PerformanceConfig, error) {
 	if rawConfig == "" {
 		d, err = os.ReadFile(DefaultConfigFilename)
 		if err != nil {
-			return nil, errors.Wrap(err, ErrReadPerfConfig)
+			return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
 		}
 	} else {
 		d, err = base64.StdEncoding.DecodeString(rawConfig)
+		if err != nil {
+			return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
+		}
 	}
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
+		return nil, fmt.Errorf("%s, err: %w", ErrUnmarshalPerfConfig, err)
 	}
 
 	if cfg.Soak.RandomnessRequestCountPerRequest <= cfg.Soak.RandomnessRequestCountPerRequestDeviation {
-		return nil, errors.Wrap(err, ErrDeviationShouldBeLessThanOriginal)
+		return nil, fmt.Errorf("%s, err: %w", ErrDeviationShouldBeLessThanOriginal, err)
 	}
 
 	log.Debug().Interface("Config", cfg).Msg("Parsed config")

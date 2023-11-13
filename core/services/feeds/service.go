@@ -15,7 +15,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -98,7 +100,7 @@ type Service interface {
 }
 
 type service struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	orm          ORM
 	jobORM       job.ORM

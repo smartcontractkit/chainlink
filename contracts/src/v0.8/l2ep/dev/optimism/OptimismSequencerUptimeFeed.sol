@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import {AggregatorInterface} from "../../../interfaces/AggregatorInterface.sol";
-import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
-import {AggregatorV2V3Interface} from "../../../interfaces/AggregatorV2V3Interface.sol";
+import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
+import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
+import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {OptimismSequencerUptimeFeedInterface} from "./../interfaces/OptimismSequencerUptimeFeedInterface.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
