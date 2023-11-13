@@ -26,6 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
+const ContractName = "offchain_aggregator"
+
 type MedianConfig interface {
 	JobPipelineMaxSuccessfulRuns() uint64
 	plugins.RegistrarConfig
@@ -185,17 +187,17 @@ type medianContract struct {
 }
 
 type latestTransmissionDetailsResponse struct {
-	configDigest    ocr2types.ConfigDigest
-	epoch           uint32
-	round           uint8
-	latestAnswer    *big.Int
-	latestTimestamp time.Time
+	ConfigDigest    ocr2types.ConfigDigest
+	Epoch           uint32
+	Round           uint8
+	LatestAnswer    *big.Int
+	LatestTimestamp uint64
 }
 
 type latestRoundRequested struct {
-	configDigest ocr2types.ConfigDigest
-	epoch        uint32
-	round        uint8
+	ConfigDigest ocr2types.ConfigDigest
+	Epoch        uint32
+	Round        uint8
 }
 
 func (m *medianContract) LatestTransmissionDetails(ctx context.Context) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, latestAnswer *big.Int, latestTimestamp time.Time, err error) {
@@ -205,8 +207,7 @@ func (m *medianContract) LatestTransmissionDetails(ctx context.Context) (configD
 	if err != nil {
 		return
 	}
-
-	return resp.configDigest, resp.epoch, resp.round, resp.latestAnswer, resp.latestTimestamp, err
+	return resp.ConfigDigest, resp.Epoch, resp.Round, resp.LatestAnswer, time.Unix(int64(resp.LatestTimestamp), 0), err
 }
 
 func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, err error) {
@@ -217,10 +218,10 @@ func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time
 		return
 	}
 
-	return resp.configDigest, resp.epoch, resp.round, err
+	return resp.ConfigDigest, resp.Epoch, resp.Round, err
 }
 
 func newMedianContract(chainReader types.ChainReader, address common.Address) *medianContract {
-	contract := types.BoundContract{Address: address.String(), Name: "median", Pending: true}
+	contract := types.BoundContract{Address: address.String(), Name: ContractName, Pending: true}
 	return &medianContract{chainReader, contract}
 }
