@@ -1,7 +1,6 @@
 package loadvrfv2plus
 
 import (
-	"context"
 	"math/big"
 	"os"
 	"sync"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
@@ -99,7 +99,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 								Str("Returning funds from SubID", subID.String()).
 								Str("Returning funds to", eoaWalletAddress).
 								Msg("Canceling subscription and returning funds to subscription owner")
-							pendingRequestsExist, err := vrfv2PlusContracts.Coordinator.PendingRequestsExist(context.Background(), subID)
+							pendingRequestsExist, err := vrfv2PlusContracts.Coordinator.PendingRequestsExist(utils.TestContext(t), subID)
 							if err != nil {
 								l.Error().Err(err).Msg("Error checking if pending requests exist")
 							}
@@ -230,7 +230,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 	for _, subID := range subIDs {
-		subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
+		subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(utils.TestContext(t), subID)
 		require.NoError(t, err, "error getting subscription information for subscription %s", subID.String())
 		vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 	}

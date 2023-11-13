@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
@@ -59,6 +61,30 @@ func TestNewID(t *testing.T) {
 
 type staticMedianProvider struct {
 	types.MedianProvider
+}
+
+func (s staticMedianProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
+	return nil
+}
+
+func (s staticMedianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
+	return nil
+}
+
+func (s staticMedianProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
+	return nil
+}
+
+func (s staticMedianProvider) ReportCodec() median.ReportCodec {
+	return nil
+}
+
+func (s staticMedianProvider) MedianContract() median.MedianContract {
+	return nil
+}
+
+func (s staticMedianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
+	return nil
 }
 
 type staticFunctionsProvider struct {

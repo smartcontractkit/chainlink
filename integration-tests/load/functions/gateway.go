@@ -14,10 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 )
 
 type RPCResponse struct {
@@ -115,7 +116,7 @@ func UploadS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) (uint8, uint64, erro
 	log.Debug().Interface("Result", result).Msg("S4 secrets_set response result")
 	for _, nodeResponse := range result.Result.Body.Payload.NodeResponses {
 		if !nodeResponse.Body.Payload.Success {
-			return 0, 0, fmt.Errorf("node response was not succesful")
+			return 0, 0, fmt.Errorf("node response was not successful")
 		}
 	}
 	return uint8(envelope.SlotID), envelope.Version, nil
