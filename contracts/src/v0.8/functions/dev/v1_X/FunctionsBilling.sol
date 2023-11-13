@@ -10,7 +10,7 @@ import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
-import {ChainSpecificUtil} from "./ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "./libraries/ChainSpecificUtil.sol";
 
 /// @title Functions Billing contract
 /// @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).

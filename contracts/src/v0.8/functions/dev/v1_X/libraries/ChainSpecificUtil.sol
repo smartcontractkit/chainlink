@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {ArbGasInfo} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import {OVM_GasPriceOracle} from "../../../vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
+import {ArbGasInfo} from "../../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
+import {OVM_GasPriceOracle} from "../../../../vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 
 /// @dev A library that abstracts out opcodes that behave differently across chains.
 /// @dev The methods below return values that are pertinent to the given chain.
