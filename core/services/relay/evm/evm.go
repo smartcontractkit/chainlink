@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
@@ -25,11 +25,14 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	coremedianplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -538,6 +541,25 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		medianProvider.chainReader = nil
 	} else {
 		medianProvider.chainReader = chainReader
+		contractAddress := common.HexToAddress(rargs.ContractID)
+		cr, exists := chainReader.chainContractReaders[coremedianplugin.ContractName]
+		if !exists {
+			return nil, errors.New("median contract is not defined in chain reader config")
+		}
+		abiEvents := cr.ParsedContractABI.Events
+		for _, crd := range cr.ChainReaderDefinitions {
+			if crd.ReadType == types.Event {
+				eventSig := abiEvents[crd.ChainSpecificName].ID
+				err = chainReader.lp.RegisterFilter(logpoller.Filter{
+					Name:      crd.ChainSpecificName,
+					EventSigs: evmtypes.HashArray{eventSig},
+					Addresses: evmtypes.AddressArray{contractAddress},
+				})
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 
 	return &medianProvider, nil
