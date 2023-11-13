@@ -60,7 +60,7 @@ var (
 	grpcOpts        loop.GRPCOpts
 )
 
-func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing) error {
+func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, logger logger.Logger) error {
 	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
 	var err error
 	initGlobalsOnce.Do(func() {
@@ -71,6 +71,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing) error {
 			CollectorTarget: cfgTracing.CollectorTarget(),
 			NodeAttributes:  cfgTracing.Attributes(),
 			SamplingRatio:   cfgTracing.SamplingRatio(),
+			OnDialError:     func(error) { logger.Errorw("Failed to dial", "err", err) },
 		})
 	})
 	return err
@@ -134,7 +135,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	err = initGlobals(cfg.Prometheus(), cfg.Tracing())
+	err = initGlobals(cfg.Prometheus(), cfg.Tracing(), appLggr)
 	if err != nil {
 		appLggr.Errorf("Failed to initialize globals: %v", err)
 	}
