@@ -11,13 +11,15 @@ contract SimpleLogUpkeepCounter is ILogAutomation {
     uint256 initialBlock,
     uint256 lastBlock,
     uint256 previousBlock,
-    uint256 counter
+    uint256 counter,
+    uint256 timeToPerform
   );
 
   uint256 public lastBlock;
   uint256 public previousPerformBlock;
   uint256 public initialBlock;
   uint256 public counter;
+  uint256 public timeToPerform;
 
   constructor() {
     previousPerformBlock = 0;
@@ -37,6 +39,8 @@ contract SimpleLogUpkeepCounter is ILogAutomation {
     lastBlock = block.number;
     counter = counter + 1;
     previousPerformBlock = lastBlock;
-    emit PerformingUpkeep(tx.origin, initialBlock, lastBlock, previousPerformBlock, counter);
+    Log memory log = abi.decode(performData, (Log));
+    timeToPerform = block.timestamp - log.timestamp;
+    emit PerformingUpkeep(tx.origin, initialBlock, lastBlock, previousPerformBlock, counter, timeToPerform);
   }
 }
