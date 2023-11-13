@@ -291,6 +291,9 @@ func (k *KeeperBenchmarkTest) Run() {
 	err = k.chainClient.WaitForEvents()
 	require.NoError(k.t, err, "Error waiting for keeper subscriptions")
 
+	k.log.Info().
+		Int64("Block Range", inputs.Upkeeps.BlockRange+inputs.UpkeepSLA).
+		Msg("Test Concluded, Collecting Logs for Test Report")
 	// Collect logs for each registry to calculate test metrics
 	registryLogs := make([][]types.Log, len(k.keeperRegistries))
 	for rIndex := range k.keeperRegistries {
@@ -313,6 +316,7 @@ func (k *KeeperBenchmarkTest) Run() {
 					Interface("Filter Query", filterQuery).
 					Str("Timeout", timeout.String()).
 					Msg("Error getting logs from chain, trying again")
+				timeout = time.Duration(math.Min(float64(timeout)*2, float64(5*time.Minute))) // Exponential backoff up to 5 minutes
 			} else {
 				k.log.Info().Int("Log Count", len(logs)).Str("Registry Address", addr).Msg("Collected logs")
 			}
