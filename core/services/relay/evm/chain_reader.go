@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-// constructor for ChainReader, returns nil if there is any error
+// newChainReader validates config and initializes chainReader, returns nil if there is any error.
 func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts) (*chainReader, error) {
 	relayConfig, err := ropts.RelayConfig()
 	if err != nil {
@@ -28,31 +28,46 @@ func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts)
 		return nil, relaytypes.ErrorChainReaderUnsupported{}
 	}
 
-	if err = ValidateChainReaderConfig(*relayConfig.ChainReader); err != nil {
+	if err = parseChainContractReadersABIs(relayConfig.ChainReader.ChainContractReaders); err != nil {
+		return nil, err
+	}
+
+	if err = validateChainReaderConfig(*relayConfig.ChainReader); err != nil {
 		return nil, fmt.Errorf("invalid ChainReader configuration: %w", err)
 	}
 
-	return NewChainReaderService(lggr, chain.LogPoller())
+	return &chainReader{lggr.Named("ChainReader"), chain.LogPoller(), relayConfig.ChainReader.ChainContractReaders, chain}, nil
 }
 
-func ValidateChainReaderConfig(cfg types.ChainReaderConfig) error {
-	for contractName, chainContractReader := range cfg.ChainContractReaders {
-		abi, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
+func parseChainContractReadersABIs(chainContractReaders map[string]types.ChainContractReader) error {
+	for key, chainContractReader := range chainContractReaders {
+		parsedABI, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
 		if err != nil {
-			return err
+			return fmt.Errorf("falied to parse contract:%s abi:%s, err:%w", key, chainContractReader.ContractABI, err)
+		}
+		chainContractReader.ParsedContractABI = &parsedABI
+		chainContractReaders[key] = chainContractReader
+	}
+	return nil
+}
+
+func validateChainReaderConfig(cfg types.ChainReaderConfig) (err error) {
+	for contractName, chainContractReader := range cfg.ChainContractReaders {
+		if chainContractReader.ParsedContractABI == nil {
+			return fmt.Errorf("contract: %s ABI is not parsed", contractName)
 		}
 
 		for chainReadingDefinitionName, chainReaderDefinition := range chainContractReader.ChainReaderDefinitions {
 			switch chainReaderDefinition.ReadType {
 			case types.Method:
-				err = validateMethods(abi, chainReaderDefinition)
+				err = validateMethods(*chainContractReader.ParsedContractABI, chainReaderDefinition)
 			case types.Event:
-				err = validateEvents(abi, chainReaderDefinition)
+				err = validateEvents(*chainContractReader.ParsedContractABI, chainReaderDefinition)
 			default:
 				return fmt.Errorf("invalid chain reader definition read type: %d", chainReaderDefinition.ReadType)
 			}
 			if err != nil {
-				return fmt.Errorf("invalid chain reader config for contract: %q chain reading definition: %q, err: %w", contractName, chainReadingDefinitionName, err)
+				return errors.Wrap(err, fmt.Sprintf("invalid chain reader config for contract: %q chain reading definition: %q", contractName, chainReadingDefinitionName))
 			}
 		}
 	}
@@ -155,11 +170,9 @@ type ChainReaderService interface {
 type chainReader struct {
 	lggr logger.Logger
 	lp   logpoller.LogPoller
-}
-
-// chainReader constructor
-func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller) (*chainReader, error) {
-	return &chainReader{lggr.Named("ChainReader"), lp}, nil
+	// key being contract name
+	chainContractReaders map[string]types.ChainContractReader
+	chain                evm.Chain
 }
 
 func (cr *chainReader) Encode(ctx context.Context, item any, itemType string) (ocrtypes.Report, error) {
