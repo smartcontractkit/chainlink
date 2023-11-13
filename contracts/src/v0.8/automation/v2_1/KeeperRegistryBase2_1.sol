@@ -14,7 +14,7 @@ import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../interfaces/KeeperCompatibleInterface.sol";
-import {UpkeepTranscoderInterface, UpkeepFormat} from "../interfaces/UpkeepTranscoderInterface.sol";
+import {UpkeepFormat} from "../interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between

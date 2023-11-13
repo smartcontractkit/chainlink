@@ -95,8 +95,7 @@ type Delegate struct {
 	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon           *utils.MailboxMonitor
 	eventBroadcaster  pg.EventBroadcaster
-
-	legacyChains evm.LegacyChainContainer // legacy: use relayers instead
+	legacyChains      evm.LegacyChainContainer // legacy: use relayers instead
 }
 
 type DelegateConfig interface {
@@ -215,7 +214,7 @@ func NewDelegate(
 		monitoringEndpointGen: monitoringEndpointGen,
 		legacyChains:          legacyChains,
 		cfg:                   cfg,
-		lggr:                  lggr,
+		lggr:                  lggr.Named("OCR2"),
 		ks:                    ks,
 		dkgSignKs:             dkgSignKs,
 		dkgEncryptKs:          dkgEncryptKs,
@@ -329,7 +328,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 }
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.OCR2OracleSpec to be present, got %v", jb)
@@ -349,7 +348,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		lggrCtx.FeedID = *spec.FeedID
 		spec.RelayConfig["feedID"] = spec.FeedID
 	}
-	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
+	lggr := logger.Sugared(d.lggr.Named(jb.ExternalJobID.String()).With(lggrCtx.Args()...))
 
 	rid, err := spec.RelayID()
 	if err != nil {
@@ -1330,11 +1329,11 @@ func (d *Delegate) newServicesCCIPCommit(lggr logger.SugaredLogger, jb job.Job, 
 	if err != nil {
 		return nil, fmt.Errorf("ccip services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
-
 	chain, err := d.legacyChains.Get(rid.ChainID)
 	if err != nil {
 		return nil, fmt.Errorf("ccip services; failed to get chain %s: %w", rid.ChainID, err)
 	}
+
 	ccipProvider, err2 := evmrelay.NewCCIPCommitProvider(
 		lggr.Named("CCIPCommit"),
 		chain,

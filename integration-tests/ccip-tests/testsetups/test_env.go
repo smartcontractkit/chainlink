@@ -168,6 +168,7 @@ func DeployLocalCluster(
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithPrivateGethChains(selectedNetworks).
+		WithoutCleanup().
 		Build()
 	require.NoError(t, err)
 	for _, n := range env.PrivateChain {

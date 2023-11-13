@@ -361,6 +361,8 @@ TraceLogging = false # Default
 # automatically fall back to V1. If V2 starts working again later, it will automatically be preferred again. This is useful
 # for migrating networks without downtime. Note that the two networking stacks _must not_ be configured to bind to the same IP/port.
 #
+# Note: P2P.V1 is deprecated will be removed in the future.
+#
 # All nodes in the OCR network should share the same networking stack.
 [P2P]
 # IncomingMessageBufferSize is the per-remote number of incoming
@@ -379,9 +381,10 @@ PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
 
+# P2P.V1 is deprecated and will be removed in a future version.
 [P2P.V1]
 # Enabled enables P2P V1.
-Enabled = true # Default
+Enabled = false # Default
 # AnnounceIP should be set as the externally reachable IP address of the Chainlink node.
 AnnounceIP = '1.2.3.4' # Example
 # AnnouncePort should be set as the externally reachable port of the Chainlink node.
@@ -425,7 +428,7 @@ PeerstoreWriteInterval = '5m' # Default
 [P2P.V2]
 # Enabled enables P2P V2.
 # Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
-Enabled = false # Default
+Enabled = true # Default
 # AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`. 
 # The addresses should be reachable by other nodes on the network. When attempting to connect to another node, 
 # a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
@@ -542,3 +545,17 @@ InfiniteDepthQueries = false # Default
 # DisableRateLimiting skips ratelimiting on asset requests.
 DisableRateLimiting = false # Default
 
+[Tracing]
+# Enabled turns trace collection on or off. On requires an OTEL Tracing Collector.
+Enabled = false # Default
+# CollectorTarget is the logical address of the OTEL Tracing Collector.
+CollectorTarget = "localhost:4317" # Example
+# NodeID is an unique name for this node relative to any other node traces are collected for.
+NodeID = "NodeID" # Example
+# SamplingRatio is the ratio of traces to sample for this node.
+SamplingRatio = 1.0 # Example
+
+# Tracing.Attributes are user specified key-value pairs to associate in the context of the traces
+[Tracing.Attributes]
+# env is an example user specified key-value pair
+env = "test" # Example

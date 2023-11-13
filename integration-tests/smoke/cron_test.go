@@ -24,6 +24,7 @@ func TestCronBasic(t *testing.T) {
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(1).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
 

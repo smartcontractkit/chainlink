@@ -28,7 +28,7 @@ type AppConfig interface {
 
 	Validate() error
 	ValidateDB() error
-	LogConfiguration(log LogfFn)
+	LogConfiguration(log, warn LogfFn)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
@@ -53,6 +53,7 @@ type AppConfig interface {
 	TelemetryIngress() TelemetryIngress
 	Threshold() Threshold
 	WebServer() WebServer
+	Tracing() Tracing
 }
 
 type DatabaseBackupMode string

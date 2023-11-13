@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	relayservices "github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -68,7 +69,6 @@ type Application interface {
 	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
-	GetEventBroadcaster() pg.EventBroadcaster
 	WakeSessionReaper()
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
@@ -183,7 +183,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// we need to initialize in case we serve OCR2 LOOPs
 	loopRegistry := opts.LoopRegistry
 	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger)
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing())
 	}
 
 	// If the audit logger is enabled
@@ -387,7 +387,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
-	healthChecker := services.NewChecker()
+	healthChecker := relayservices.NewChecker()
 
 	var lbs []utils.DependentAwaiter
 	for _, c := range legacyEVMChains.Slice() {

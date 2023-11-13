@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 

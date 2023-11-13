@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// solhint-disable chainlink-solidity/all-caps-constant-storage-variables
 library CallWithExactGas {
   error NoContract();
   error NoGasForCallExactCheck();

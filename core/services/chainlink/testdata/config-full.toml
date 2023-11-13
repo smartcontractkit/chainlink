@@ -149,7 +149,7 @@ PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
 
 [P2P.V1]
-Enabled = false
+Enabled = true
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 1234
 BootstrapCheckInterval = '1m0s'
@@ -162,7 +162,7 @@ NewStreamTimeout = '1s'
 PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
-Enabled = true
+Enabled = false
 AnnounceAddresses = ['a', 'b', 'c']
 DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
 DeltaDial = '1m0s'
@@ -213,6 +213,16 @@ DevWebServer = false
 OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
+
+[Tracing]
+Enabled = true
+CollectorTarget = 'localhost:4317'
+NodeID = 'clc-ocr-sol-devnet-node-1'
+SamplingRatio = 1.0
+
+[Tracing.Attributes]
+env = 'dev'
+test = 'load'
 
 [[EVM]]
 ChainID = '1'
@@ -297,6 +307,7 @@ PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
+LeaseDuration = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 11

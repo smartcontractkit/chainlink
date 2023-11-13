@@ -306,7 +306,7 @@ func (o *OffRampV1_0_0) GetExecutionStateChangesBetweenSeqNums(ctx context.Conte
 		o.eventIndex,
 		logpoller.EvmWord(seqNumMin),
 		logpoller.EvmWord(seqNumMax),
-		confs,
+		logpoller.Confirmations(confs),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {

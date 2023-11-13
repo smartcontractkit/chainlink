@@ -98,7 +98,6 @@ var _ OnRampReader = &OnRampV1_0_0{}
 type OnRampV1_0_0 struct {
 	address                    common.Address
 	onRamp                     *evm_2_evm_onramp_1_0_0.EVM2EVMOnRamp
-	finalityTags               bool
 	lp                         logpoller.LogPoller
 	lggr                       logger.Logger
 	client                     client.Client
@@ -138,7 +137,7 @@ func (o *OnRampV1_0_0) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context
 	return nil, errors.New("USDC not supported in < 1.2.0")
 }
 
-func NewOnRampV1_0_0(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAddress common.Address, sourceLP logpoller.LogPoller, source client.Client, finalityTags bool) (*OnRampV1_0_0, error) {
+func NewOnRampV1_0_0(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAddress common.Address, sourceLP logpoller.LogPoller, source client.Client) (*OnRampV1_0_0, error) {
 	onRamp, err := evm_2_evm_onramp_1_0_0.NewEVM2EVMOnRamp(onRampAddress, source)
 	if err != nil {
 		return nil, err
@@ -156,14 +155,13 @@ func NewOnRampV1_0_0(lggr logger.Logger, sourceSelector, destSelector uint64, on
 		return nil, err
 	}
 	return &OnRampV1_0_0{
-		lggr:         lggr,
-		address:      onRampAddress,
-		onRamp:       onRamp,
-		client:       source,
-		lp:           sourceLP,
-		finalityTags: finalityTags,
-		leafHasher:   NewLeafHasherV1_0_0(sourceSelector, destSelector, onRampAddress, hashlib.NewKeccakCtx(), onRamp),
-		filterName:   name,
+		lggr:       lggr,
+		address:    onRampAddress,
+		onRamp:     onRamp,
+		client:     source,
+		lp:         sourceLP,
+		leafHasher: NewLeafHasherV1_0_0(sourceSelector, destSelector, onRampAddress, hashlib.NewKeccakCtx(), onRamp),
+		filterName: name,
 		// offset || sourceChainID || seqNum || ...
 		sendRequestedSeqNumberWord: 2,
 		sendRequestedEventSig:      eventSig,
@@ -205,34 +203,16 @@ func (o *OnRampV1_0_0) logToMessage(log types.Log) (*internal.EVM2EVMMessage, er
 }
 
 func (o *OnRampV1_0_0) GetSendRequestsGteSeqNum(ctx context.Context, seqNum uint64, confs int) ([]Event[internal.EVM2EVMMessage], error) {
-	if !o.finalityTags {
-		logs, err2 := o.lp.LogsDataWordGreaterThan(
-			o.sendRequestedEventSig,
-			o.address,
-			o.sendRequestedSeqNumberWord,
-			abihelpers.EvmWord(seqNum),
-			confs,
-			pg.WithParentCtx(ctx),
-		)
-		if err2 != nil {
-			return nil, fmt.Errorf("logs data word greater than: %w", err2)
-		}
-		return parseLogs[internal.EVM2EVMMessage](logs, o.lggr, o.logToMessage)
-	}
-	latestFinalizedHash, err := latestFinalizedBlockHash(ctx, o.client)
-	if err != nil {
-		return nil, err
-	}
-	logs, err := o.lp.LogsUntilBlockHashDataWordGreaterThan(
+	logs, err2 := o.lp.LogsDataWordGreaterThan(
 		o.sendRequestedEventSig,
 		o.address,
 		o.sendRequestedSeqNumberWord,
 		abihelpers.EvmWord(seqNum),
-		latestFinalizedHash,
+		logpoller.Confirmations(confs),
 		pg.WithParentCtx(ctx),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("logs until block hash data word greater than: %w", err)
+	if err2 != nil {
+		return nil, fmt.Errorf("logs data word greater than: %w", err2)
 	}
 	return parseLogs[internal.EVM2EVMMessage](logs, o.lggr, o.logToMessage)
 }
@@ -252,7 +232,7 @@ func (o *OnRampV1_0_0) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNum
 		o.sendRequestedSeqNumberWord,
 		logpoller.EvmWord(seqNumMin),
 		logpoller.EvmWord(seqNumMax),
-		confs,
+		logpoller.Confirmations(confs),
 		pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err

@@ -1,11 +1,11 @@
 package toml
 
 import (
-	_ "embed"
 	"errors"
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -52,6 +52,7 @@ type Core struct {
 	Pyroscope        Pyroscope        `toml:",omitempty"`
 	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
+	Tracing          Tracing          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -85,6 +86,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Pyroscope.setFrom(&f.Pyroscope)
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
+	c.Tracing.setFrom(&f.Tracing)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -141,9 +143,13 @@ func validateDBURL(dbURI url.URL) error {
 }
 
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
+	return d.validateConfig(build.Mode())
+}
+
+func (d *DatabaseSecrets) validateConfig(buildMode string) (err error) {
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
-	} else if *d.AllowSimplePasswords && build.IsProd() {
+	} else if *d.AllowSimplePasswords && buildMode == build.Prod {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
 	} else if !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
@@ -1172,14 +1178,18 @@ type Insecure struct {
 }
 
 func (ins *Insecure) ValidateConfig() (err error) {
-	if build.IsDev() {
+	return ins.validateConfig(build.Mode())
+}
+
+func (ins *Insecure) validateConfig(buildMode string) (err error) {
+	if buildMode == build.Dev {
 		return
 	}
 	if ins.DevWebServer != nil && *ins.DevWebServer {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
 	}
-	// OCRDevelopmentMode is allowed on test builds.
-	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && !build.IsTest() {
+	// OCRDevelopmentMode is allowed on dev/test builds.
+	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && buildMode == build.Prod {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	if ins.InfiniteDepthQueries != nil && *ins.InfiniteDepthQueries {
@@ -1296,4 +1306,85 @@ func (t *ThresholdKeyShareSecrets) validateMerge(f *ThresholdKeyShareSecrets) (e
 	}
 
 	return err
+}
+
+type Tracing struct {
+	Enabled         *bool
+	CollectorTarget *string
+	NodeID          *string
+	SamplingRatio   *float64
+	Attributes      map[string]string `toml:",omitempty"`
+}
+
+func (t *Tracing) setFrom(f *Tracing) {
+	if v := f.Enabled; v != nil {
+		t.Enabled = f.Enabled
+	}
+	if v := f.CollectorTarget; v != nil {
+		t.CollectorTarget = f.CollectorTarget
+	}
+	if v := f.NodeID; v != nil {
+		t.NodeID = f.NodeID
+	}
+	if v := f.Attributes; v != nil {
+		t.Attributes = f.Attributes
+	}
+	if v := f.SamplingRatio; v != nil {
+		t.SamplingRatio = f.SamplingRatio
+	}
+}
+
+func (t *Tracing) ValidateConfig() (err error) {
+	if t.Enabled == nil || !*t.Enabled {
+		return err
+	}
+
+	if t.SamplingRatio != nil {
+		if *t.SamplingRatio < 0 || *t.SamplingRatio > 1 {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "SamplingRatio", Value: *t.SamplingRatio, Msg: "must be between 0 and 1"})
+		}
+	}
+
+	if t.CollectorTarget != nil {
+		ok := isValidURI(*t.CollectorTarget)
+		if !ok {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+		}
+	}
+
+	return err
+}
+
+var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)
+
+func isValidURI(uri string) bool {
+	if strings.Contains(uri, "://") {
+		// Standard URI check
+		_, _ = url.ParseRequestURI(uri)
+		// TODO: BCF-2703. Handle error. All external addresses currently fail validation until we have secure transport to external networks.
+		return false
+	}
+
+	// For URIs like "otel-collector:4317"
+	parts := strings.Split(uri, ":")
+	if len(parts) == 2 {
+		host, port := parts[0], parts[1]
+
+		// Validating hostname
+		if !isValidHostname(host) {
+			return false
+		}
+
+		// Validating port
+		if _, err := net.LookupPort("tcp", port); err != nil {
+			return false
+		}
+
+		return true
+	}
+	return false
+}
+
+func isValidHostname(hostname string) bool {
+	return hostnameRegex.MatchString(hostname)
 }

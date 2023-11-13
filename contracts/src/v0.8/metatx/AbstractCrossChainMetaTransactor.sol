@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import {IERC2771Recipient} from "../vendor/IERC2771Recipient.sol";
-import {Context} from "../vendor/Context.sol";
 import {IRouterClient} from "../ccip/interfaces/IRouterClient.sol";
 import {Client} from "../ccip/libraries/Client.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";

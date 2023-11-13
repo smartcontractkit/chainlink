@@ -60,7 +60,7 @@ func (c *CachedChain[T]) Get(ctx context.Context) (T, error) {
 		return c.initializeCache(ctx)
 	}
 
-	currentBlockNumber, err := c.logPoller.LatestBlockByEventSigsAddrsWithConfs(lastChangeBlock, c.observedEvents, c.address, int(c.optimisticConfirmations), pg.WithParentCtx(ctx))
+	currentBlockNumber, err := c.logPoller.LatestBlockByEventSigsAddrsWithConfs(lastChangeBlock, c.observedEvents, c.address, logpoller.Confirmations(c.optimisticConfirmations), pg.WithParentCtx(ctx))
 
 	if err != nil {
 		return empty, err

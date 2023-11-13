@@ -30,7 +30,6 @@ func (NoopTelemetryIngressBatchClient) Close() error { return nil }
 // Send is a no-op
 func (NoopTelemetryIngressBatchClient) Send(TelemPayload) {}
 
-// Healthy is a no-op
 func (NoopTelemetryIngressBatchClient) HealthReport() map[string]error { return map[string]error{} }
 func (NoopTelemetryIngressBatchClient) Name() string                   { return "NoopTelemetryIngressBatchClient" }
 
@@ -153,7 +152,7 @@ func (tc *telemetryIngressBatchClient) Name() string {
 }
 
 func (tc *telemetryIngressBatchClient) HealthReport() map[string]error {
-	return map[string]error{tc.Name(): tc.StartStopOnce.Healthy()}
+	return map[string]error{tc.Name(): tc.Healthy()}
 }
 
 // getCSAPrivateKey gets the client's CSA private key

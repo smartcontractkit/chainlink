@@ -3,12 +3,12 @@ package functions
 import (
 	"encoding/json"
 	"math/big"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
-	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -110,9 +110,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		pluginORM,
 		pluginConfig,
 		s4Storage,
-		conf.Chain.LogBroadcaster(),
 		listenerLogger,
-		conf.MailMon,
 		conf.URLsMonEndpoint,
 		decryptor,
 		conf.LogPollerWrapper,

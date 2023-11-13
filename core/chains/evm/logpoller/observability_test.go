@@ -22,84 +22,81 @@ import (
 
 func TestMultipleMetricsArePublished(t *testing.T) {
 	ctx := testutils.Context(t)
-	lp := createObservedPollLogger(t, 100)
-	require.Equal(t, 0, testutil.CollectAndCount(lp.queryDuration))
+	orm := createObservedORM(t, 100)
+	t.Cleanup(func() { resetMetrics(*orm) })
+	require.Equal(t, 0, testutil.CollectAndCount(orm.queryDuration))
 
-	_, _ = lp.SelectIndexedLogs(common.Address{}, common.Hash{}, 1, []common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectIndexedLogsByBlockRange(0, 1, common.Address{}, common.Hash{}, 1, []common.Hash{}, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectIndexedLogsTopicGreaterThan(common.Address{}, common.Hash{}, 1, common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectIndexedLogsTopicRange(common.Address{}, common.Hash{}, 1, common.Hash{}, common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectIndexedLogsWithSigsExcluding(common.Hash{}, common.Hash{}, 1, common.Address{}, 0, 1, 1, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectLogsDataWordRange(common.Address{}, common.Hash{}, 0, common.Hash{}, common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectLogsDataWordGreaterThan(common.Address{}, common.Hash{}, 0, common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectLogsCreatedAfter(common.Address{}, common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectLatestLogByEventSigWithConfs(common.Hash{}, common.Address{}, 0, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{{}}, []common.Hash{{}}, 1, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectIndexedLogsCreatedAfter(common.Address{}, common.Hash{}, 0, []common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectLogsUntilBlockHashDataWordGreaterThan(common.Address{}, common.Hash{}, 0, common.Hash{}, common.Hash{}, pg.WithParentCtx(ctx))
-	_ = lp.InsertLogs([]Log{}, pg.WithParentCtx(ctx))
-	_ = lp.InsertBlock(common.Hash{}, 0, time.Now(), pg.WithParentCtx(ctx))
+	_, _ = orm.SelectIndexedLogs(common.Address{}, common.Hash{}, 1, []common.Hash{}, 1, pg.WithParentCtx(ctx))
+	_, _ = orm.SelectIndexedLogsByBlockRange(0, 1, common.Address{}, common.Hash{}, 1, []common.Hash{}, pg.WithParentCtx(ctx))
+	_, _ = orm.SelectIndexedLogsTopicGreaterThan(common.Address{}, common.Hash{}, 1, common.Hash{}, 1, pg.WithParentCtx(ctx))
+	_, _ = orm.SelectIndexedLogsTopicRange(common.Address{}, common.Hash{}, 1, common.Hash{}, common.Hash{}, 1, pg.WithParentCtx(ctx))
+	_, _ = orm.SelectIndexedLogsWithSigsExcluding(common.Hash{}, common.Hash{}, 1, common.Address{}, 0, 1, 1, pg.WithParentCtx(ctx))
+	_, _ = orm.SelectLogsDataWordRange(common.Address{}, common.Hash{}, 0, common.Hash{}, common.Hash{}, 1, pg.WithParentCtx(ctx))
+	_, _ = orm.SelectLogsDataWordGreaterThan(common.Address{}, common.Hash{}, 0, common.Hash{}, 1, pg.WithParentCtx(ctx))
+	_, _ = orm.SelectLogsCreatedAfter(common.Address{}, common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
+	_, _ = orm.SelectLatestLogByEventSigWithConfs(common.Hash{}, common.Address{}, 0, pg.WithParentCtx(ctx))
+	_, _ = orm.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{{}}, []common.Hash{{}}, 1, pg.WithParentCtx(ctx))
+	_, _ = orm.SelectIndexedLogsCreatedAfter(common.Address{}, common.Hash{}, 1, []common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
+	_ = orm.InsertLogs([]Log{}, pg.WithParentCtx(ctx))
+	_ = orm.InsertBlock(common.Hash{}, 1, time.Now(), 0, pg.WithParentCtx(ctx))
 
-	require.Equal(t, 14, testutil.CollectAndCount(lp.queryDuration))
-	require.Equal(t, 10, testutil.CollectAndCount(lp.datasetSize))
-	resetMetrics(*lp)
+	require.Equal(t, 13, testutil.CollectAndCount(orm.queryDuration))
+	require.Equal(t, 10, testutil.CollectAndCount(orm.datasetSize))
 }
 
 func TestShouldPublishDurationInCaseOfError(t *testing.T) {
 	ctx := testutils.Context(t)
-	lp := createObservedPollLogger(t, 200)
-	require.Equal(t, 0, testutil.CollectAndCount(lp.queryDuration))
+	orm := createObservedORM(t, 200)
+	t.Cleanup(func() { resetMetrics(*orm) })
+	require.Equal(t, 0, testutil.CollectAndCount(orm.queryDuration))
 
-	_, err := lp.SelectLatestLogByEventSigWithConfs(common.Hash{}, common.Address{}, 0, pg.WithParentCtx(ctx))
+	_, err := orm.SelectLatestLogByEventSigWithConfs(common.Hash{}, common.Address{}, 0, pg.WithParentCtx(ctx))
 	require.Error(t, err)
 
-	require.Equal(t, 1, testutil.CollectAndCount(lp.queryDuration))
-	require.Equal(t, 1, counterFromHistogramByLabels(t, lp.queryDuration, "200", "SelectLatestLogByEventSigWithConfs"))
-
-	resetMetrics(*lp)
+	require.Equal(t, 1, testutil.CollectAndCount(orm.queryDuration))
+	require.Equal(t, 1, counterFromHistogramByLabels(t, orm.queryDuration, "200", "SelectLatestLogByEventSigWithConfs"))
 }
 
 func TestMetricsAreProperlyPopulatedWithLabels(t *testing.T) {
-	lp := createObservedPollLogger(t, 420)
+	orm := createObservedORM(t, 420)
+	t.Cleanup(func() { resetMetrics(*orm) })
 	expectedCount := 9
 	expectedSize := 2
 
 	for i := 0; i < expectedCount; i++ {
-		_, err := withObservedQueryAndResults(lp, "query", func() ([]string, error) { return []string{"value1", "value2"}, nil })
+		_, err := withObservedQueryAndResults(orm, "query", func() ([]string, error) { return []string{"value1", "value2"}, nil })
 		require.NoError(t, err)
 	}
 
-	require.Equal(t, expectedCount, counterFromHistogramByLabels(t, lp.queryDuration, "420", "query"))
-	require.Equal(t, expectedSize, counterFromGaugeByLabels(lp.datasetSize, "420", "query"))
+	require.Equal(t, expectedCount, counterFromHistogramByLabels(t, orm.queryDuration, "420", "query"))
+	require.Equal(t, expectedSize, counterFromGaugeByLabels(orm.datasetSize, "420", "query"))
 
-	require.Equal(t, 0, counterFromHistogramByLabels(t, lp.queryDuration, "420", "other_query"))
-	require.Equal(t, 0, counterFromHistogramByLabels(t, lp.queryDuration, "5", "query"))
+	require.Equal(t, 0, counterFromHistogramByLabels(t, orm.queryDuration, "420", "other_query"))
+	require.Equal(t, 0, counterFromHistogramByLabels(t, orm.queryDuration, "5", "query"))
 
-	require.Equal(t, 0, counterFromGaugeByLabels(lp.datasetSize, "420", "other_query"))
-	require.Equal(t, 0, counterFromGaugeByLabels(lp.datasetSize, "5", "query"))
-
-	resetMetrics(*lp)
+	require.Equal(t, 0, counterFromGaugeByLabels(orm.datasetSize, "420", "other_query"))
+	require.Equal(t, 0, counterFromGaugeByLabels(orm.datasetSize, "5", "query"))
 }
 
 func TestNotPublishingDatasetSizeInCaseOfError(t *testing.T) {
-	lp := createObservedPollLogger(t, 420)
+	orm := createObservedORM(t, 420)
 
-	_, err := withObservedQueryAndResults(lp, "errorQuery", func() ([]string, error) { return nil, fmt.Errorf("error") })
+	_, err := withObservedQueryAndResults(orm, "errorQuery", func() ([]string, error) { return nil, fmt.Errorf("error") })
 	require.Error(t, err)
 
-	require.Equal(t, 1, counterFromHistogramByLabels(t, lp.queryDuration, "420", "errorQuery"))
-	require.Equal(t, 0, counterFromGaugeByLabels(lp.datasetSize, "420", "errorQuery"))
+	require.Equal(t, 1, counterFromHistogramByLabels(t, orm.queryDuration, "420", "errorQuery"))
+	require.Equal(t, 0, counterFromGaugeByLabels(orm.datasetSize, "420", "errorQuery"))
 }
 
 func TestMetricsAreProperlyPopulatedForWrites(t *testing.T) {
-	lp := createObservedPollLogger(t, 420)
-	require.NoError(t, withObservedExec(lp, "execQuery", func() error { return nil }))
-	require.Error(t, withObservedExec(lp, "execQuery", func() error { return fmt.Errorf("error") }))
+	orm := createObservedORM(t, 420)
+	require.NoError(t, withObservedExec(orm, "execQuery", func() error { return nil }))
+	require.Error(t, withObservedExec(orm, "execQuery", func() error { return fmt.Errorf("error") }))
 
-	require.Equal(t, 2, counterFromHistogramByLabels(t, lp.queryDuration, "420", "execQuery"))
+	require.Equal(t, 2, counterFromHistogramByLabels(t, orm.queryDuration, "420", "execQuery"))
 }
 
-func createObservedPollLogger(t *testing.T, chainId int64) *ObservedORM {
+func createObservedORM(t *testing.T, chainId int64) *ObservedORM {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	db := pgtest.NewSqlxDB(t)
 	return NewObservedORM(

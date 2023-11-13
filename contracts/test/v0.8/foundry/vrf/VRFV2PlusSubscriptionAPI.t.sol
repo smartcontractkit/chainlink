@@ -1,8 +1,8 @@
 pragma solidity 0.8.6;
 
 import "../BaseTest.t.sol";
-import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2_5.sol";
-import {SubscriptionAPI} from "../../../../src/v0.8/dev/vrf/SubscriptionAPI.sol";
+import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
+import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import "@openzeppelin/contracts/utils/Strings.sol"; // for Strings.toString

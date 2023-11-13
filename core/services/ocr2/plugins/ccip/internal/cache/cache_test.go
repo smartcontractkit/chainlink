@@ -137,7 +137,7 @@ func newCachedContract(lp logpoller.LogPoller, cacheValue string, originValue []
 }
 
 func mockLogPollerQuery(lp *lpMocks.LogPoller, latestBlock int64) *mock.Call {
-	return lp.On("LatestBlockByEventSigsAddrsWithConfs", mock.Anything, []common.Hash{{}}, []common.Address{{}}, 0, mock.Anything).
+	return lp.On("LatestBlockByEventSigsAddrsWithConfs", mock.Anything, []common.Hash{{}}, []common.Address{{}}, logpoller.Confirmations(0), mock.Anything).
 		Maybe().Return(latestBlock, nil)
 }
 
@@ -147,7 +147,7 @@ type ProgressingLogPoller struct {
 	lock        sync.Mutex
 }
 
-func (lp *ProgressingLogPoller) LatestBlockByEventSigsAddrsWithConfs(int64, []common.Hash, []common.Address, int, ...pg.QOpt) (int64, error) {
+func (lp *ProgressingLogPoller) LatestBlockByEventSigsAddrsWithConfs(int64, []common.Hash, []common.Address, logpoller.Confirmations, ...pg.QOpt) (int64, error) {
 	lp.lock.Lock()
 	defer lp.lock.Unlock()
 	lp.latestBlock++
