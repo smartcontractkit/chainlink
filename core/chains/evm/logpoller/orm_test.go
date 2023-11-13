@@ -1313,7 +1313,7 @@ func TestInsertLogsWithBlock(t *testing.T) {
 	// We need full db here, because we want to test transaction rollbacks.
 	// Using pgtest.NewSqlxDB(t) will run all tests in TXs which is not desired for this type of test
 	// (inner tx rollback will rollback outer tx, blocking rest of execution)
-	_, db := heavyweight.FullTestDBV2(t, "logpoller_tx", nil)
+	_, db := heavyweight.FullTestDBV2(t, nil)
 	o := logpoller.NewORM(chainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	correctLog := GenLog(chainID, 1, 1, utils.RandomAddress().String(), event[:], address)
@@ -1377,6 +1377,59 @@ func TestInsertLogsWithBlock(t *testing.T) {
 
 				assert.NoError(t, blockErr)
 				assert.Equal(t, block.BlockNumber, tt.block.BlockNumber)
+			}
+		})
+	}
+}
+
+func TestInsertLogsInTx(t *testing.T) {
+	chainID := testutils.NewRandomEVMChainID()
+	event := utils.RandomBytes32()
+	address := utils.RandomAddress()
+	maxLogsSize := 9000
+
+	// We need full db here, because we want to test transaction rollbacks.
+	_, db := heavyweight.FullTestDBV2(t, nil)
+	o := logpoller.NewORM(chainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
+
+	logs := make([]logpoller.Log, maxLogsSize, maxLogsSize+1)
+	for i := 0; i < maxLogsSize; i++ {
+		logs[i] = GenLog(chainID, int64(i+1), int64(i+1), utils.RandomAddress().String(), event[:], address)
+	}
+	invalidLog := GenLog(chainID, -10, -10, utils.RandomAddress().String(), event[:], address)
+
+	tests := []struct {
+		name           string
+		logs           []logpoller.Log
+		shouldRollback bool
+	}{
+		{
+			name:           "all logs persisted",
+			logs:           logs,
+			shouldRollback: false,
+		},
+		{
+			name:           "rollback when invalid log is passed",
+			logs:           append(logs, invalidLog),
+			shouldRollback: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// clean all logs and blocks between test cases
+			defer func() { _ = o.DeleteLogsAndBlocksAfter(0) }()
+
+			insertErr := o.InsertLogs(tt.logs)
+			logsFromDb, err := o.SelectLogs(0, math.MaxInt, address, event)
+			assert.NoError(t, err)
+
+			if tt.shouldRollback {
+				assert.Error(t, insertErr)
+				assert.Len(t, logsFromDb, 0)
+			} else {
+				assert.NoError(t, insertErr)
+				assert.Len(t, logsFromDb, len(tt.logs))
 			}
 		})
 	}
