@@ -220,8 +220,52 @@ func (cr *chainReader) GetMaxDecodingSize(ctx context.Context, n int, itemType s
 	return 0, fmt.Errorf("Unimplemented method GetMaxDecodingSize called %w", relaytypes.ErrorChainReaderUnsupported{})
 }
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) error {
-	return fmt.Errorf("Unimplemented method GetLatestValue called %w", relaytypes.ErrorChainReaderUnsupported{})
+// GetLatestValue retrieves latest  value from contract.
+func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) (err error) {
+	var response []byte
+	chainContractReader, exists := cr.chainContractReaders[bc.Name]
+	if !exists {
+		return fmt.Errorf("chain reading not defined for:%s on contract:%s", method, bc.Name)
+	}
+	chainReadingDefinition := chainContractReader.ChainReaderDefinitions[method]
+	chainSpecificName := chainReadingDefinition.ChainSpecificName
+	contractAddr := common.HexToAddress(bc.Address)
+
+	if chainReadingDefinition.ReadType == types.Method {
+		var callData []byte
+		if params != nil {
+			callData, err = chainContractReader.ParsedContractABI.Pack(chainSpecificName, params)
+			if err != nil {
+				return err
+			}
+		} else {
+			callData, err = chainContractReader.ParsedContractABI.Pack(chainSpecificName)
+			if err != nil {
+				return err
+			}
+		}
+
+		ethCallMsg := ethereum.CallMsg{
+			From: common.Address{},
+			To:   &contractAddr,
+			Data: callData,
+		}
+
+		response, err = cr.chain.Client().CallContract(ctx, ethCallMsg, nil)
+		if err != nil {
+			return err
+		}
+		return chainContractReader.ParsedContractABI.UnpackIntoInterface(returnVal, chainSpecificName, response)
+	}
+
+	event := chainContractReader.ParsedContractABI.Events[chainSpecificName]
+	log, err := cr.lp.LatestLogByEventSigWithConfs(event.ID, contractAddr, logpoller.Finalized)
+	if err != nil {
+		return err
+	}
+	response = log.Data
+
+	return chainContractReader.ParsedContractABI.UnpackIntoInterface(returnVal, chainSpecificName, response)
 }
 
 func (cr *chainReader) Start(ctx context.Context) error {
