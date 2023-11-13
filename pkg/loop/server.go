@@ -73,6 +73,7 @@ func (s *Server) start() error {
 		CollectorTarget: envCfg.TracingCollectorTarget,
 		NodeAttributes:  envCfg.TracingAttributes,
 		SamplingRatio:   envCfg.TracingSamplingRatio,
+		OnDialError:     func(err error) { s.Logger.Errorw("Failed to dial", "err", err) },
 	}); err != nil {
 		// non blocking to server start
 		s.Logger.Errorf("Failed to setup tracing: %s", err)

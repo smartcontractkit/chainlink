@@ -2,8 +2,10 @@ package loop
 
 import (
 	"context"
+	"net"
 	"os"
 	"runtime/debug"
+	"time"
 
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -36,6 +38,9 @@ type TracingConfig struct {
 
 	// SamplingRatio is the ratio of traces to sample. 1.0 means sample all traces.
 	SamplingRatio float64
+
+	// OnDialError is called when the dialer fails, providing an opportunity to log.
+	OnDialError func(error)
 }
 
 // NewGRPCOpts initializes open telemetry and returns GRPCOpts with telemetry interceptors.
@@ -58,13 +63,24 @@ func SetupTracing(config TracingConfig) error {
 	}
 
 	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
-	// Set up a trace exporter
-	// Shutting down the traceExporter will not shutdown the underlying connection.
-	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(config.CollectorTarget), otlptracegrpc.WithDialOption(
+	conn, err := grpc.DialContext(ctx, config.CollectorTarget,
 		// Note the use of insecure transport here. TLS is recommended in production.
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	))
+		grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
+			conn, err := net.Dial("tcp", s)
+			if err != nil {
+				config.OnDialError(err)
+			}
+			return conn, err
+		}))
+	if err != nil {
+		return err
+	}
+
+	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
 		return err
 	}
