@@ -279,24 +279,32 @@ func (r JSONConfig) Bytes() []byte {
 	return b
 }
 
+// BytesWithPreservedJson returns raw bytes and properly marshals any potential json structure strings.
 func (r JSONConfig) BytesWithPreservedJson() []byte {
 	var retCopy = make(JSONConfig, 0)
 	for key, value := range r {
 		copiedVal := value
-		// If the value is a string, unmarshal it first to preserve potential JSON structure
+		// If the value is a json structure string, unmarshal it to preserve JSON structure
+		// e.g. instead of this {"key":"{\"nestedKey\":{\"nestedValue\":123}}"}
+		//      we want this    {"key":{"nestedKey":{"nestedValue":123}}},
 		if strValue, ok := copiedVal.(string); ok {
-			var parsedValue interface{}
-			err := json.Unmarshal([]byte(strValue), &parsedValue)
-			if err == nil {
-				copiedVal = parsedValue
+			if isValidJSONStruct(strValue) {
+				var parsedValue interface{}
+				if err := json.Unmarshal([]byte(strValue), &parsedValue); err == nil {
+					copiedVal = parsedValue
+				}
 			}
-
 		}
 		retCopy[key] = copiedVal
 	}
 
 	b, _ := json.Marshal(retCopy)
 	return b
+}
+
+func isValidJSONStruct(s string) bool {
+	var js map[string]interface{}
+	return json.Unmarshal([]byte(s), &js) == nil
 }
 
 // Value returns this instance serialized for database storage.

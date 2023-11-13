@@ -84,6 +84,7 @@ func TestJSONConfig_BytesWithPreservedJson(t *testing.T) {
 			Input: JSONConfig{
 				"key": "{\"nestedKey\": {\"nestedValue\":123}}",
 			},
+			// regular Bytes marshals to this: {"key":"{\"nestedKey\": {\"nestedValue\":123}}"}
 			Expected: []byte(`{"key":{"nestedKey":{"nestedValue":123}}}`),
 		},
 		{
@@ -106,6 +107,13 @@ func TestJSONConfig_BytesWithPreservedJson(t *testing.T) {
 				"key": "abc",
 			},
 			Expected: []byte(`{"key":"abc"}`),
+		},
+		{
+			name: "string number stays string number",
+			Input: JSONConfig{
+				"key1": "1",
+			},
+			Expected: []byte(`{"key1":"1"}`),
 		},
 		{
 			name: "all together",

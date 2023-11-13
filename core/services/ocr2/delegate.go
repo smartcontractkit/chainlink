@@ -552,7 +552,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		JobID:         spec.ID,
 		ContractID:    spec.ContractID,
 		New:           d.isNewlyCreatedJob,
-		RelayConfig:   spec.RelayConfig.Bytes(),
+		RelayConfig:   spec.RelayConfig.BytesWithPreservedJson(),
 		ProviderType:  cconf.ProviderType,
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
