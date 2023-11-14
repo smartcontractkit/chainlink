@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 func (lsn *listenerV2) runLogListener(
@@ -62,7 +64,7 @@ func (lsn *listenerV2) runLogListener(
 			// on startup we want to initialize the last processed block
 			if startingUp {
 				lsn.l.Debugw("initializing last processed block on startup")
-				lastProcessedBlock, err = lsn.initializeLastProcessedBlock()
+				lastProcessedBlock, err = lsn.initializeLastProcessedBlock(ctx)
 				if err != nil {
 					lsn.l.Errorw("error initializing last processed block, retrying",
 						"err", err,
@@ -99,7 +101,7 @@ func (lsn *listenerV2) runLogListener(
 // process requests for. This is the block number of the earliest unfulfilled request
 // or the latest finalized block, if there are no unfulfilled requests.
 // TODO: add tests
-func (lsn *listenerV2) initializeLastProcessedBlock() (lastProcessedBlock int64, err error) {
+func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastProcessedBlock int64, err error) {
 	lp := lsn.chain.LogPoller()
 	start := time.Now()
 
@@ -117,6 +119,13 @@ func (lsn *listenerV2) initializeLastProcessedBlock() (lastProcessedBlock int64,
 	defer func() {
 		ll.Debugw("Done initializing last processed block", "elapsed", time.Since(start))
 	}()
+
+	numBlocksToReplay := numReplayBlocks(lsn.job.VRFSpec.RequestTimeout, lsn.chain.ID())
+	ll.Debugw("running replay on log poller")
+	err = lp.Replay(ctx, mathutil.Max(latestBlock.FinalizedBlockNumber-numBlocksToReplay, 1))
+	if err != nil {
+		return 0, errors.Wrap(err, "LogPoller.Replay")
+	}
 
 	// get randomness requested logs with the appropriate keyhash
 	// keyhash is specified in topic1
@@ -387,4 +396,56 @@ func (lsn *listenerV2) handleRequested(requested []RandomWordsRequested, request
 	}
 
 	return pendingRequests
+}
+
+// numReplayBlocks returns the number of blocks to replay on startup
+// given the request timeout and the chain ID.
+// if the chain ID is not recognized it assumes a block time of 1 second
+// and returns the number of blocks in a day.
+func numReplayBlocks(requestTimeout time.Duration, chainID *big.Int) int64 {
+	var timeoutSeconds = int64(requestTimeout.Seconds())
+	switch chainID.String() {
+	case "1": // eth mainnet
+	case "3": // eth ropsten
+	case "4": // eth rinkeby
+	case "5": // eth goerli
+	case "11155111": // eth sepolia
+		// block time is 12s
+		return timeoutSeconds / 12
+	case "137": // polygon mainnet
+	case "80001": // polygon mumbai
+		// block time is 2s
+		return timeoutSeconds / 2
+	case "56": // bsc mainnet
+	case "97": // bsc testnet
+		// block time is 2s
+		return timeoutSeconds / 2
+	case "43114": // avalanche mainnet
+	case "43113": // avalanche fuji
+		// block time is 1s
+		return timeoutSeconds
+	case "250": // fantom mainnet
+	case "4002": // fantom testnet
+		// block time is 1s
+		return timeoutSeconds
+	case "42161": // arbitrum mainnet
+	case "421613": // arbitrum goerli
+	case "421614": // arbitrum sepolia
+		// block time is 0.25s in the worst case
+		return timeoutSeconds * 4
+	case "10": // optimism mainnet
+	case "69": // optimism kovan
+	case "420": // optimism goerli
+	case "11155420": // optimism sepolia
+	case "8453": // base mainnet
+	case "84531": // base goerli
+	case "84532": // base sepolia
+		// block time is 2s
+		return timeoutSeconds / 2
+	default:
+		// assume block time of 1s
+		return timeoutSeconds
+	}
+	// assume block time of 1s
+	return timeoutSeconds
 }
