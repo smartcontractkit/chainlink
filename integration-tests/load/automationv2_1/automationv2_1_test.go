@@ -492,9 +492,11 @@ func TestLogTrigger(t *testing.T) {
 		l.Info().Interface("Upkeep Counters", upkeepCounters).Msg("Upkeep Counters")
 	}
 
-	var (
-		batchSize = 100
-	)
+	var batchSize = 100
+
+	if endBlock-startingBlock < uint64(batchSize) {
+		batchSize = int(endBlock - startingBlock)
+	}
 
 	for cIter, consumerContract := range consumerContracts {
 		var (
@@ -503,7 +505,7 @@ func TestLogTrigger(t *testing.T) {
 			timeout = 5 * time.Second
 		)
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		for fromBlock := startingBlock; fromBlock < endBlock; fromBlock += uint64(batchSize) {
+		for fromBlock := startingBlock; fromBlock < endBlock; fromBlock += uint64(batchSize) + 1 {
 			filterQuery := geth.FilterQuery{
 				Addresses: []common.Address{address},
 				FromBlock: big.NewInt(0).SetUint64(fromBlock),
@@ -516,12 +518,11 @@ func TestLogTrigger(t *testing.T) {
 				l.Error().Err(err).
 					Interface("FilterQuery", filterQuery).
 					Str("Contract Address", consumerContract.Address()).
-					Uint64("Starting Block", startingBlock).
-					Uint64("Ending Block", endBlock).
 					Str("Timeout", timeout.String()).
 					Msg("Error getting logs")
 			}
 			logs = append(logs, logsInBatch...)
+			time.Sleep(time.Second * 1)
 		}
 
 		if len(logs) > 0 {
