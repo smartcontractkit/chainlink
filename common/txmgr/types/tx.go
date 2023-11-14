@@ -91,6 +91,9 @@ type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 
 	// Checker defines the check that should be run before a transaction is submitted on chain.
 	Checker TransmitCheckerSpec[ADDR]
+
+	// Mark tx requiring callback
+	SignalCallback bool
 }
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
@@ -217,6 +220,11 @@ type Tx[
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
 	TransmitChecker *datatypes.JSON
+
+	// Marks tx requiring callback
+	SignalCallback bool
+	// Marks tx callback as signaled
+	CallbackCompleted bool
 }
 
 func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetError() error {
