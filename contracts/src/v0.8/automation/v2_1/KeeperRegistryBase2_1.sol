@@ -528,40 +528,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @dev retrieves feed data for fast gas/native and link/native prices. if the feed
-   * data is stale it uses the configured fallback price. Once a price is picked
-   * for gas it takes the min of gas price in the transaction or the fast gas
-   * price in order to reduce costs for the upkeep clients.
-   */
-//  function _getFeedData(HotVars memory hotVars) internal view returns (uint256 gasWei, uint256 linkNative) {
-//    uint32 stalenessSeconds = hotVars.stalenessSeconds;
-//    bool staleFallback = stalenessSeconds > 0;
-//    uint256 timestamp;
-//    int256 feedValue;
-//    (, feedValue, , timestamp, ) = i_fastGasFeed.latestRoundData();
-//    if (
-//      feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
-//    ) {
-//      gasWei = s_fallbackGasPrice;
-//    } else {
-//      gasWei = uint256(feedValue);
-//    }
-//    (, feedValue, , timestamp, ) = i_linkNativeFeed.latestRoundData();
-//    if (
-//      feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
-//    ) {
-//      linkNative = s_fallbackLinkPrice;
-//    } else {
-//      linkNative = uint256(feedValue);
-//    }
-//    return (gasWei, linkNative);
-//  }
-
-  /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
    * @param gasOverhead the amount of gas overhead
-   * @param numBatchedUpkeeps the number of upkeeps in this batch. Used to divide the L1 cost
    * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
@@ -569,7 +538,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     ChainConfig memory cfg,
     uint256 gasLimit,
     uint256 gasOverhead,
-    uint16 numBatchedUpkeeps,
     bool isExecution
   ) internal view returns (uint96, uint96) {
     uint256 gasWei = cfg.fastGas * hotVars.gasCeilingMultiplier;
@@ -585,8 +553,12 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     } else {
       l1CostWei = cfg.executionL1GasCost;
     }
-    // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
-    l1CostWei = l1CostWei / numBatchedUpkeeps;
+
+    // this calculation was for splitting the L1 gas cost evenly because the old way of calculation depends on msg.data
+    // since this transmit function's msg.data is the combined call data of all txs, we have to divide it by number of
+    // performs in this tx. this evens out L1 gas cost to all performs.
+    // in the new approach, L1 gas cost is calculated in offchain for individual upkeep, this division is not needed.
+    // l1CostWei = l1CostWei / numBatchedUpkeeps;
 
     uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / cfg.linkNative;
     uint256 premium = (((gasWei * gasLimit) + l1CostWei) * 1e9 * hotVars.paymentPremiumPPB) /
@@ -615,7 +587,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       cfg,
       performGas,
       gasOverhead,
-      1, // Consider only 1 upkeep in batch to get maxPayment
       isExecution
     );
 
@@ -855,15 +826,13 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     HotVars memory hotVars,
     ChainConfig memory cfg,
     uint256 upkeepId,
-    UpkeepTransmitInfo memory upkeepTransmitInfo,
-    uint16 numBatchedUpkeeps
+    UpkeepTransmitInfo memory upkeepTransmitInfo
   ) internal returns (uint96 gasReimbursement, uint96 premium) {
     (gasReimbursement, premium) = _calculatePaymentAmount(
       hotVars,
       cfg,
       upkeepTransmitInfo.gasUsed,
       upkeepTransmitInfo.gasOverhead,
-      numBatchedUpkeeps,
       true
     );
 
