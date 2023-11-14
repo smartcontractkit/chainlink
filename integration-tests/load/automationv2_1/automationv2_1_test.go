@@ -118,12 +118,13 @@ func getEnv(key, fallback string) string {
 }
 
 var (
-	numberofNodes, _   = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))
-	numberOfUpkeeps, _ = strconv.Atoi(getEnv("NUMBEROFUPKEEPS", "100"))
-	duration, _        = strconv.Atoi(getEnv("DURATION", "900"))
-	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))
-	numberOfEvents, _  = strconv.Atoi(getEnv("NUMBEROFEVENTS", "1"))
-	specType           = getEnv("SPECTYPE", "minimum")
+	numberofNodes, _   = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))     // Number of nodes in the DON
+	numberOfUpkeeps, _ = strconv.Atoi(getEnv("NUMBEROFUPKEEPS", "100")) // Number of log triggered upkeeps
+	duration, _        = strconv.Atoi(getEnv("DURATION", "900"))        // Test duration in seconds
+	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))         // Block time in seconds for geth simulated dev network
+	numberOfEvents, _  = strconv.Atoi(getEnv("NUMBEROFEVENTS", "1"))    // Number of events to emit per trigger
+	specType           = getEnv("SPECTYPE", "minimum")                  // minimum, recommended, local specs for the test
+	logLevel           = getEnv("LOGLEVEL", "warn")                     // log level for the chainlink nodes
 	debug, _           = strconv.ParseBool(getEnv("DEBUG", "false"))
 )
 
@@ -215,16 +216,16 @@ func TestLogTrigger(t *testing.T) {
 	case "recommended":
 		nodeSpec = recNodeSpec
 		dbSpec = recDbSpec
+	case "local":
+		nodeSpec = map[string]interface{}{}
+		dbSpec = map[string]interface{}{"stateful": true}
 	default:
 		// minimum:
 
 	}
-	if debug {
-		nodeSpec = map[string]interface{}{}
-		dbSpec = map[string]interface{}{"stateful": true}
-	}
+	baseTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, logLevel)
 
-	for i := 0; i < numberofNodes; i++ {
+	for i := 0; i < numberofNodes+1; i++ { // +1 for the OCR boot node
 		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
 			"toml":      client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, testNetwork),
 			"chainlink": nodeSpec,

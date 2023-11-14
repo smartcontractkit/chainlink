@@ -114,7 +114,7 @@ jobs:
         env:
           RR_CPU: 2000m
           RR_MEM: 2Gi
-          DETACH_RUNNER: false
+          DETACH_RUNNER: true
           TEST_SUITE: automationv2_1
           TEST_ARGS: -test.timeout 720h
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
