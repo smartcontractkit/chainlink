@@ -35,6 +35,7 @@ var (
 // 4. Transaction Manager prunes the Unstarted Queue based on the transaction prune strategy
 
 // NOTE(jtw): Only one transaction per address can be in_progress at a time
+// NOTE(jtw): Only one transaction attempt per transaction can be in_progress at a time
 // NOTE(jtw): Only one broadcasted attempt exists per transaction the rest are errored or abandoned
 // 1. Broadcaster assigns a sequence number to the transaction
 // 2. Broadcaster creates and persists a new transaction attempt (in_progress) from the transaction (in_progress)
@@ -65,10 +66,12 @@ type PersistentTxStore[
 	CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], chainID CHAIN_ID) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	FindLatestSequence(ctx context.Context, fromAddress ADDR, chainId CHAIN_ID) (SEQ, error)
 	UnstartedTransactions(limit, offset int, fromAddress ADDR, chainID CHAIN_ID) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)
+	UnconfirmedTransactions(limit, offset int, fromAddress ADDR, chainID CHAIN_ID) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)
 	UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], NewAttemptState txmgrtypes.TxAttemptState) error
 	SaveReplacementInProgressAttempt(ctx context.Context, oldAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], replacementAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	UpdateTxUnstartedToInProgress(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	UpdateTxFatalError(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
+	GetTxInProgress(ctx context.Context, fromAddress ADDR) (etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 }
 
 type InMemoryStore[
@@ -83,8 +86,7 @@ type InMemoryStore[
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	txStore  PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	pendingLock sync.RWMutex
-	// NOTE(jtw): we might need to watch out for txns that finish and are removed from the pending map
+	pendingLock            sync.RWMutex
 	pendingIdempotencyKeys map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 
 	addressStatesLock sync.RWMutex
@@ -119,23 +121,9 @@ func NewInMemoryStore[
 		return nil, fmt.Errorf("new_in_memory_store: %w", err)
 	}
 	for _, fromAddr := range addresses {
-		as := NewAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](fromAddr, maxUnstarted)
-		offset := 0
-		limit := 50
-		for {
-			txs, count, err := txStore.UnstartedTransactions(offset, limit, fromAddr, chainID)
-			if err != nil {
-				return nil, fmt.Errorf("new_in_memory_store: %w", err)
-			}
-			for _, tx := range txs {
-				if err := as.moveTxToUnstarted(&tx); err != nil {
-					return nil, fmt.Errorf("new_in_memory_store: %w", err)
-				}
-			}
-			if count <= offset+limit {
-				break
-			}
-			offset += limit
+		as := NewAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](chainID, fromAddr, maxUnstarted)
+		if err := as.Initialize(txStore); err != nil {
+			return nil, fmt.Errorf("new_in_memory_store: %w", err)
 		}
 
 		ms.addressStates[fromAddr] = as

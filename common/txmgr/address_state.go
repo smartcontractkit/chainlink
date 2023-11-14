@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"container/heap"
+	"context"
 	"fmt"
 	"sync"
 
@@ -19,11 +20,15 @@ type AddressState[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
+	chainID     CHAIN_ID
 	fromAddress ADDR
 
-	lock        sync.RWMutex
-	unstarted   *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	inprogress  *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	lock       sync.RWMutex
+	unstarted  *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	inprogress *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	// TODO(jtw): using the TX ID as the key for the map might not make sense since the ID is set by the
+	// postgres DB which creates a dependency on the postgres DB. We should consider creating a UUID or ULID
+	// TX ID -> TX
 	unconfirmed map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 }
 
@@ -34,8 +39,9 @@ func NewAddressState[
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
-](fromAddress ADDR, maxUnstarted int) *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+](chainID CHAIN_ID, fromAddress ADDR, maxUnstarted int) *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	as := AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
+		chainID:     chainID,
 		fromAddress: fromAddress,
 		unstarted:   NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
 		inprogress:  nil,
@@ -43,6 +49,54 @@ func NewAddressState[
 	}
 
 	return &as
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initialize(txStore PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) error {
+	// Load all unstarted transactions from persistent storage
+	offset := 0
+	limit := 50
+	for {
+		txs, count, err := txStore.UnstartedTransactions(offset, limit, as.fromAddress, as.chainID)
+		if err != nil {
+			return fmt.Errorf("address_state: initialization: %w", err)
+		}
+		for _, tx := range txs {
+			if err := as.moveTxToUnstarted(&tx); err != nil {
+				return fmt.Errorf("address_state: initialization: %w", err)
+			}
+		}
+		if count <= offset+limit {
+			break
+		}
+		offset += limit
+	}
+
+	// Load all in progress transactions from persistent storage
+	ctx := context.Background()
+	tx, err := txStore.GetTxInProgress(ctx, as.fromAddress)
+	if err != nil {
+		return fmt.Errorf("address_state: initialization: %w", err)
+	}
+	as.inprogress = tx
+
+	// Load all unconfirmed transactions from persistent storage
+	offset = 0
+	limit = 50
+	for {
+		txs, count, err := txStore.UnconfirmedTransactions(offset, limit, as.fromAddress, as.chainID)
+		if err != nil {
+			return fmt.Errorf("address_state: initialization: %w", err)
+		}
+		for _, tx := range txs {
+			as.unconfirmed[tx.ID] = &tx
+		}
+		if count <= offset+limit {
+			break
+		}
+		offset += limit
+	}
+
+	return nil
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) close() {

@@ -467,6 +467,23 @@ func (o *evmTxStore) UnstartedTransactions(offset, limit int, fromAddress common
 	return
 }
 
+// UnconfirmedTransactions returns all eth transactions that have at least one attempt and in the unconfirmed state.
+func (o *evmTxStore) UnconfirmedTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error) {
+	sql := `SELECT count(*) FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts) AND state = 'unconfirmed' AND from_address = $1 AND evm_chain_id = $2`
+	if err = o.q.Get(&count, sql, fromAddress, chainID.String()); err != nil {
+		return
+	}
+
+	sql = `SELECT * FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts) AND state = 'unconfirmed' AND from_address = $1 AND evm_chain_id = $2 ORDER BY id desc LIMIT $3 OFFSET $4`
+	var dbTxs []DbEthTx
+	if err = o.q.Select(&dbTxs, sql, fromAddress, chainID.String(), limit, offset); err != nil {
+		return
+	}
+	txs = dbEthTxsToEvmEthTxs(dbTxs)
+	err = o.preloadTxAttempts(txs)
+	return
+}
+
 // TxAttempts returns the last tx attempts sorted by created_at descending.
 func (o *evmTxStore) TxAttempts(offset, limit int) (txs []TxAttempt, count int, err error) {
 	sql := `SELECT count(*) FROM evm.tx_attempts`
