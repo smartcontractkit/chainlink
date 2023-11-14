@@ -14,12 +14,14 @@ func TestTracing_Config(t *testing.T) {
 	collectorTarget := "http://localhost:9000"
 	nodeID := "Node1"
 	samplingRatio := 0.5
+	tlsCertPath := "/path/to/cert.pem"
 	attributes := map[string]string{"key": "value"}
 	tracing := toml.Tracing{
 		Enabled:         &enabled,
 		CollectorTarget: &collectorTarget,
 		NodeID:          &nodeID,
 		SamplingRatio:   &samplingRatio,
+		TLSCertPath:     &tlsCertPath,
 		Attributes:      attributes,
 	}
 	tConfig := tracingConfig{s: tracing}
@@ -28,6 +30,7 @@ func TestTracing_Config(t *testing.T) {
 	assert.Equal(t, "http://localhost:9000", tConfig.CollectorTarget())
 	assert.Equal(t, "Node1", tConfig.NodeID())
 	assert.Equal(t, 0.5, tConfig.SamplingRatio())
+	assert.Equal(t, "/path/to/cert.pem", tConfig.TLSCertPath())
 	assert.Equal(t, map[string]string{"key": "value"}, tConfig.Attributes())
 
 	// Test when all fields are nil
@@ -38,5 +41,6 @@ func TestTracing_Config(t *testing.T) {
 	assert.Panics(t, func() { nilConfig.CollectorTarget() })
 	assert.Panics(t, func() { nilConfig.NodeID() })
 	assert.Panics(t, func() { nilConfig.SamplingRatio() })
+	assert.Panics(t, func() { nilConfig.TLSCertPath() })
 	assert.Nil(t, nilConfig.Attributes())
 }

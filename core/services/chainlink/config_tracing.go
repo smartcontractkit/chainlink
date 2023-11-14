@@ -18,10 +18,14 @@ func (t tracingConfig) NodeID() string {
 	return *t.s.NodeID
 }
 
-func (t tracingConfig) Attributes() map[string]string {
-	return t.s.Attributes
-}
-
 func (t tracingConfig) SamplingRatio() float64 {
 	return *t.s.SamplingRatio
+}
+
+func (t tracingConfig) TLSCertPath() string {
+	return *t.s.TLSCertPath
+}
+
+func (t tracingConfig) Attributes() map[string]string {
+	return t.s.Attributes
 }

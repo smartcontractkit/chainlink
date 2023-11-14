@@ -4,6 +4,7 @@ type Tracing interface {
 	Enabled() bool
 	CollectorTarget() string
 	NodeID() string
-	Attributes() map[string]string
 	SamplingRatio() float64
+	TLSCertPath() string
+	Attributes() map[string]string
 }

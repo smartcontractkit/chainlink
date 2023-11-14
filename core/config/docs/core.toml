@@ -587,13 +587,15 @@ DisableRateLimiting = false # Default
 # Enabled turns trace collection on or off. On requires an OTEL Tracing Collector.
 Enabled = false # Default
 # CollectorTarget is the logical address of the OTEL Tracing Collector.
-CollectorTarget = "localhost:4317" # Example
+CollectorTarget = 'localhost:4317' # Example
 # NodeID is an unique name for this node relative to any other node traces are collected for.
-NodeID = "NodeID" # Example
+NodeID = 'NodeID' # Example
 # SamplingRatio is the ratio of traces to sample for this node.
 SamplingRatio = 1.0 # Example
+# TLSCertPath is the file path to the TLS certificate used for secure communication with an OTEL Tracing Collector.
+TLSCertPath = '/path/to/cert.pem' # Example
 
 # Tracing.Attributes are user specified key-value pairs to associate in the context of the traces
 [Tracing.Attributes]
 # env is an example user specified key-value pair
-env = "test" # Example
+env = 'test' # Example

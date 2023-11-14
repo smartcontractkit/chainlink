@@ -29,13 +29,14 @@ func TestPluginPortManager(t *testing.T) {
 // Mock tracing config
 type MockCfgTracing struct{}
 
-func (m *MockCfgTracing) Enabled() bool           { return true }
-func (m *MockCfgTracing) CollectorTarget() string { return "http://localhost:9000" }
 func (m *MockCfgTracing) Attributes() map[string]string {
 	return map[string]string{"attribute": "value"}
 }
-func (m *MockCfgTracing) SamplingRatio() float64 { return 0.1 }
-func (m *MockCfgTracing) NodeID() string         { return "" }
+func (m *MockCfgTracing) Enabled() bool           { return true }
+func (m *MockCfgTracing) NodeID() string          { return "" }
+func (m *MockCfgTracing) CollectorTarget() string { return "http://localhost:9000" }
+func (m *MockCfgTracing) SamplingRatio() float64  { return 0.1 }
+func (m *MockCfgTracing) TLSCertPath() string     { return "path/to/cert.pem" }
 
 func TestLoopRegistry_Register(t *testing.T) {
 	mockCfgTracing := &MockCfgTracing{}
@@ -56,4 +57,5 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, "http://localhost:9000", registeredLoop.EnvCfg.TracingCollectorTarget)
 	require.Equal(t, map[string]string{"attribute": "value"}, registeredLoop.EnvCfg.TracingAttributes)
 	require.Equal(t, 0.1, registeredLoop.EnvCfg.TracingSamplingRatio)
+	require.Equal(t, "path/to/cert.pem", registeredLoop.EnvCfg.TracingTLSCertPath)
 }

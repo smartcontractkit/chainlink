@@ -1455,6 +1455,7 @@ type Tracing struct {
 	CollectorTarget *string
 	NodeID          *string
 	SamplingRatio   *float64
+	TLSCertPath     *string
 	Attributes      map[string]string `toml:",omitempty"`
 }
 
@@ -1474,6 +1475,9 @@ func (t *Tracing) setFrom(f *Tracing) {
 	if v := f.SamplingRatio; v != nil {
 		t.SamplingRatio = f.SamplingRatio
 	}
+	if v := f.TLSCertPath; v != nil {
+		t.TLSCertPath = f.TLSCertPath
+	}
 }
 
 func (t *Tracing) ValidateConfig() (err error) {
@@ -1491,6 +1495,13 @@ func (t *Tracing) ValidateConfig() (err error) {
 		ok := isValidURI(*t.CollectorTarget)
 		if !ok {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+		}
+	}
+
+	if t.TLSCertPath != nil {
+		ok := isValidFilePath(*t.TLSCertPath)
+		if !ok {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
 		}
 	}
 
@@ -1529,4 +1540,8 @@ func isValidURI(uri string) bool {
 
 func isValidHostname(hostname string) bool {
 	return hostnameRegex.MatchString(hostname)
+}
+
+func isValidFilePath(path string) bool {
+	return len(path) > 0 && len(path) < 4096
 }

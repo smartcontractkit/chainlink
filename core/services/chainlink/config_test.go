@@ -227,11 +227,12 @@ func TestConfig_Marshal(t *testing.T) {
 				Enabled:         ptr(true),
 				CollectorTarget: ptr("localhost:4317"),
 				NodeID:          ptr("clc-ocr-sol-devnet-node-1"),
+				SamplingRatio:   ptr(1.0),
+				TLSCertPath:     ptr("path/to/cert.pem"),
 				Attributes: map[string]string{
 					"test": "load",
 					"env":  "dev",
 				},
-				SamplingRatio: ptr(1.0),
 			},
 		},
 	}
@@ -688,6 +689,7 @@ Enabled = true
 CollectorTarget = 'localhost:4317'
 NodeID = 'clc-ocr-sol-devnet-node-1'
 SamplingRatio = 1.0
+TLSCertPath = 'path/to/cert.pem'
 
 [Tracing.Attributes]
 env = 'dev'
