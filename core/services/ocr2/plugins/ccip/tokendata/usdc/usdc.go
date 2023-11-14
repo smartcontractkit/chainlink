@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -19,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/http"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -67,6 +66,7 @@ func (m messageAndAttestation) Validate() error {
 type TokenDataReader struct {
 	lggr                  logger.Logger
 	usdcReader            ccipdata.USDCReader
+	httpClient            http.IHttpClient
 	attestationApi        *url.URL
 	attestationApiTimeout time.Duration
 }
@@ -83,12 +83,22 @@ func NewUSDCTokenDataReader(lggr logger.Logger, usdcReader ccipdata.USDCReader, 
 	if usdcAttestationApiTimeoutSeconds == 0 {
 		timeout = defaultAttestationTimeout
 	}
-
 	return &TokenDataReader{
 		lggr:                  lggr,
 		usdcReader:            usdcReader,
+		httpClient:            http.NewObservedIHttpClient(&http.HttpClient{}),
 		attestationApi:        usdcAttestationApi,
 		attestationApiTimeout: timeout,
+	}
+}
+
+func NewUSDCTokenDataReaderWithHttpClient(origin TokenDataReader, httpClient http.IHttpClient) *TokenDataReader {
+	return &TokenDataReader{
+		lggr:                  origin.lggr,
+		usdcReader:            origin.usdcReader,
+		httpClient:            httpClient,
+		attestationApi:        origin.attestationApi,
+		attestationApiTimeout: origin.attestationApiTimeout,
 	}
 }
 
@@ -144,45 +154,18 @@ func (s *TokenDataReader) getUSDCMessageBody(ctx context.Context, msg internal.E
 
 func (s *TokenDataReader) callAttestationApi(ctx context.Context, usdcMessageHash [32]byte) (attestationResponse, error) {
 	fullAttestationUrl := fmt.Sprintf("%s/%s/%s/0x%x", s.attestationApi, apiVersion, attestationPath, usdcMessageHash)
-
-	// Use a timeout to guard against attestation API hanging, causing observation timeout and failing to make any progress.
-	timeoutCtx, cancel := context.WithTimeout(ctx, s.attestationApiTimeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(timeoutCtx, "GET", fullAttestationUrl, nil)
-
+	body, _, err := s.httpClient.Get(ctx, fullAttestationUrl, s.attestationApiTimeout)
 	if err != nil {
 		return attestationResponse{}, err
 	}
-	req.Header.Add("accept", "application/json")
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return attestationResponse{}, tokendata.ErrTimeout
-		}
-		return attestationResponse{}, err
-	}
-	defer res.Body.Close()
-
-	// Explicitly signal if the API is being rate limited
-	if res.StatusCode == http.StatusTooManyRequests {
-		return attestationResponse{}, tokendata.ErrRateLimit
-	}
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return attestationResponse{}, err
-	}
-
 	var response attestationResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return attestationResponse{}, err
 	}
-
 	if response.Status == "" {
 		return attestationResponse{}, fmt.Errorf("invalid attestation response: %s", string(body))
 	}
-
 	return response, nil
 }
 
