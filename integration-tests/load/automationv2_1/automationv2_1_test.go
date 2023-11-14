@@ -124,7 +124,7 @@ var (
 	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))         // Block time in seconds for geth simulated dev network
 	numberOfEvents, _  = strconv.Atoi(getEnv("NUMBEROFEVENTS", "1"))    // Number of events to emit per trigger
 	specType           = getEnv("SPECTYPE", "minimum")                  // minimum, recommended, local specs for the test
-	logLevel           = getEnv("LOGLEVEL", "warn")                     // log level for the chainlink nodes
+	logLevel           = getEnv("LOGLEVEL", "info")                     // log level for the chainlink nodes
 	debug, _           = strconv.ParseBool(getEnv("DEBUG", "false"))
 )
 
@@ -196,6 +196,7 @@ func TestLogTrigger(t *testing.T) {
 				},
 				"geth": map[string]interface{}{
 					"blocktime": blockTime,
+					"capacity":  "10Gi",
 				},
 			},
 		}))
@@ -527,16 +528,12 @@ func TestLogTrigger(t *testing.T) {
 					delay = append(delay, parsedLog.TimeToPerform.Int64())
 				}
 				if (lIter+1)%batchSize == 0 {
-					err = chainClient.WaitForEvents()
-					require.NoError(t, err, "Failed to wait for chain events")
 					time.Sleep(time.Second * 1)
 				}
 			}
 			upkeepDelays = append(upkeepDelays, delay)
 		}
 		if (cIter+1)%batchSize == 0 {
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for chain events")
 			time.Sleep(time.Second * 1)
 		}
 	}
