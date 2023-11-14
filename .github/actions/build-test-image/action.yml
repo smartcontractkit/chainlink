@@ -17,6 +17,9 @@ inputs:
     description: The test suites to build into the image
     default: chaos migration performance reorg smoke soak benchmark
     required: false
+  base_image_tag:
+    description: The test base image version to use, if not provided it will use the version from the ./integration-tests/go.mod file
+    required: false
   QA_AWS_ROLE_TO_ASSUME:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
     required: true
@@ -31,6 +34,7 @@ runs:
   using: composite
   steps:
     - name: Get CTF Version
+      if: ${{ inputs.base_image_tag == '' }}
       id: version
       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
       with:
@@ -55,7 +59,7 @@ runs:
         file: ./integration-tests/test.Dockerfile
         build-args: |
           BASE_IMAGE=${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
-          IMAGE_VERSION=${{ steps.version.outputs.version }}
+          IMAGE_VERSION=${{ inputs.base_image_tag || steps.version.outputs.version }}
           SUITES="${{ inputs.suites }}"
         AWS_REGION: ${{ inputs.QA_AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
