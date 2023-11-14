@@ -2,10 +2,8 @@ package web
 
 import (
 	"database/sql"
-	"fmt"
 	"math/big"
 	"net/http"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
@@ -64,7 +62,6 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 type EvmTransactionController struct {
 	Enabled     bool
 	Logger      logger.SugaredLogger
-	TxmStorage  txmgr.EvmTxStore
 	AuditLogger audit.AuditLogger
 	Chains      evm.LegacyChainContainer
 	KeyStore    keystore.Eth
@@ -73,7 +70,6 @@ type EvmTransactionController struct {
 func NewEVMTransactionController(app chainlink.Application) *EvmTransactionController {
 	return &EvmTransactionController{
 		Enabled:     app.GetConfig().TxmAsService().Enabled(),
-		TxmStorage:  app.TxmStorageService(),
 		Logger:      app.GetLogger(),
 		AuditLogger: app.GetAuditLogger(),
 		Chains:      app.GetRelayers().LegacyEVMChains(),
@@ -134,7 +130,7 @@ func (tc *EvmTransactionController) Create(c *gin.Context) {
 			return
 		}
 	} else {
-		_, err = tc.KeyStore.GetRoundRobinAddress(tx.ChainID.ToInt(), tx.FromAddress)
+		err = tc.KeyStore.CheckEnabled(tx.FromAddress, tx.ChainID.ToInt())
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity,
 				errors.Errorf("fromAddress %v is not available: %v", tx.FromAddress, err))
@@ -169,22 +165,5 @@ func (tc *EvmTransactionController) Create(c *gin.Context) {
 		"ethTX": etx,
 	})
 
-	// skip waiting for txmgr to create TxAttempt
-	if tx.SkipWaitTxAttempt {
-		jsonAPIResponse(c, presenters.NewEthTxResource(etx), "eth_tx")
-		return
-	}
-
-	timeout := 10 * time.Second // default
-	if tx.WaitAttemptTimeout != nil {
-		timeout = *tx.WaitAttemptTimeout
-	}
-
-	// wait and retrieve tx attempt matching tx ID
-	attempt, err := FindTxAttempt(c, timeout, etx, tc.TxmStorage.FindTxWithAttempts)
-	if err != nil {
-		jsonAPIError(c, http.StatusGatewayTimeout, fmt.Errorf("failed to find transaction within timeout: %w", err))
-		return
-	}
-	jsonAPIResponse(c, presenters.NewEthTxResourceFromAttempt(attempt), "eth_tx")
+	jsonAPIResponse(c, presenters.NewEthTxResource(etx), "eth_tx")
 }

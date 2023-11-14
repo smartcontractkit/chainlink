@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	txmEvmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -297,8 +296,8 @@ func TestTransactionsController_Create(t *testing.T) {
 		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
 
 		ethKeystore := ksMocks.NewEth(t)
-		ethKeystore.On("GetRoundRobinAddress", chainID.ToInt(), fromAddr).Return(nil,
-			errors.New("failed to get key for specified whitelist")).Once()
+		ethKeystore.On("CheckEnabled", fromAddr, chainID.ToInt()).
+			Return(errors.New("no eth key exists with address")).Once()
 		resp := createTx(&web.EvmTransactionController{
 			Chains:   chainContainer,
 			KeyStore: ethKeystore,
@@ -307,7 +306,7 @@ func TestTransactionsController_Create(t *testing.T) {
 		cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
 		require.Equal(t,
-			"fromAddress 0xfa01fA015c8A5332987319823728982379128371 is not available: failed to get key for specified whitelist",
+			"fromAddress 0xfa01fA015c8A5332987319823728982379128371 is not available: no eth key exists with address",
 			respError.Error())
 	})
 
@@ -358,7 +357,7 @@ func TestTransactionsController_Create(t *testing.T) {
 		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
 
 		ethKeystore := ksMocks.NewEth(t)
-		ethKeystore.On("GetRoundRobinAddress", chainID.ToInt(), request.FromAddress).Return(request.FromAddress, nil).Once()
+		ethKeystore.On("CheckEnabled", request.FromAddress, chainID.ToInt()).Return(nil).Once()
 		resp := createTx(&web.EvmTransactionController{
 			Chains:   chainContainer,
 			KeyStore: ethKeystore,
@@ -449,23 +448,10 @@ func TestTransactionsController_Create(t *testing.T) {
 		chainContainer := evmMocks.NewLegacyChainContainer(t)
 		chain := newChain(t, txm, expectedFeeLimit)
 		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
-		block := int64(56345431)
-		txWithAttempts := tx
-		txWithAttempts.TxAttempts = []txmgr.TxAttempt{
-			{
-				Hash:                    common.HexToHash("0xa1ce83ee556cbcfc6541d5909b0d7f28f6a77399d3bd4340246f684a0f25a7f5"),
-				BroadcastBeforeBlockNum: &block,
-			},
-		}
-
-		txmStorage := txmEvmMocks.NewEvmTxStore(t)
-		txmStorage.On("FindTxWithAttempts", tx.ID).Return(txWithAttempts, nil)
-
 		resp := createTx(&web.EvmTransactionController{
 			AuditLogger: audit.NoopLogger,
 			Chains:      chainContainer,
 			KeyStore:    ethKeystore,
-			TxmStorage:  txmStorage,
 		}, request).Result()
 
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
