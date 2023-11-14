@@ -302,6 +302,19 @@ func (c *ChainlinkClient) ReadBridge(name string) (*BridgeType, *http.Response, 
 	return &bt, resp.RawResponse, err
 }
 
+// ReadBridges reads bridges from the Chainlink node
+func (c *ChainlinkClient) ReadBridges() (*ResponseSlice, *resty.Response, error) {
+	result := &ResponseSlice{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Getting all bridges")
+	resp, err := c.APIClient.R().
+		SetResult(&result).
+		Get("/v2/bridge_types")
+	if err != nil {
+		return nil, nil, err
+	}
+	return result, resp, err
+}
+
 // DeleteBridge deletes a bridge on the Chainlink node based on the provided name
 func (c *ChainlinkClient) DeleteBridge(name string) (*http.Response, error) {
 	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Deleting Bridge")
