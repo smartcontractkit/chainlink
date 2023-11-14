@@ -14,6 +14,7 @@ func TestTracing_Config(t *testing.T) {
 	collectorTarget := "http://localhost:9000"
 	nodeID := "Node1"
 	samplingRatio := 0.5
+	mode := "secure"
 	tlsCertPath := "/path/to/cert.pem"
 	attributes := map[string]string{"key": "value"}
 	tracing := toml.Tracing{
@@ -21,6 +22,7 @@ func TestTracing_Config(t *testing.T) {
 		CollectorTarget: &collectorTarget,
 		NodeID:          &nodeID,
 		SamplingRatio:   &samplingRatio,
+		Mode:            &mode,
 		TLSCertPath:     &tlsCertPath,
 		Attributes:      attributes,
 	}
@@ -30,6 +32,7 @@ func TestTracing_Config(t *testing.T) {
 	assert.Equal(t, "http://localhost:9000", tConfig.CollectorTarget())
 	assert.Equal(t, "Node1", tConfig.NodeID())
 	assert.Equal(t, 0.5, tConfig.SamplingRatio())
+	assert.Equal(t, "secure", tConfig.Mode())
 	assert.Equal(t, "/path/to/cert.pem", tConfig.TLSCertPath())
 	assert.Equal(t, map[string]string{"key": "value"}, tConfig.Attributes())
 
@@ -41,6 +44,7 @@ func TestTracing_Config(t *testing.T) {
 	assert.Panics(t, func() { nilConfig.CollectorTarget() })
 	assert.Panics(t, func() { nilConfig.NodeID() })
 	assert.Panics(t, func() { nilConfig.SamplingRatio() })
+	assert.Panics(t, func() { nilConfig.Mode() })
 	assert.Panics(t, func() { nilConfig.TLSCertPath() })
 	assert.Nil(t, nilConfig.Attributes())
 }

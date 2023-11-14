@@ -6,5 +6,6 @@ type Tracing interface {
 	NodeID() string
 	SamplingRatio() float64
 	TLSCertPath() string
+	Mode() string
 	Attributes() map[string]string
 }

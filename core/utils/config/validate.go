@@ -137,6 +137,8 @@ type ErrMissing = config.ErrMissing
 
 type ErrEmpty = config.ErrEmpty
 
+type ErrIncluded = config.ErrIncluded
+
 // UniqueStrings is a helper for tracking unique values in string form.
 type UniqueStrings = config.UniqueStrings
 

@@ -281,6 +281,8 @@ Enabled = false
 CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
+Mode = 'secure'
+TLSCertPath = ''
 
 # Configuration warning:
 2 errors:

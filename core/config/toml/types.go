@@ -1455,6 +1455,7 @@ type Tracing struct {
 	CollectorTarget *string
 	NodeID          *string
 	SamplingRatio   *float64
+	Mode            *string
 	TLSCertPath     *string
 	Attributes      map[string]string `toml:",omitempty"`
 }
@@ -1474,6 +1475,9 @@ func (t *Tracing) setFrom(f *Tracing) {
 	}
 	if v := f.SamplingRatio; v != nil {
 		t.SamplingRatio = f.SamplingRatio
+	}
+	if v := f.Mode; v != nil {
+		t.Mode = f.Mode
 	}
 	if v := f.TLSCertPath; v != nil {
 		t.TLSCertPath = f.TLSCertPath
@@ -1502,6 +1506,24 @@ func (t *Tracing) ValidateConfig() (err error) {
 		ok := isValidFilePath(*t.TLSCertPath)
 		if !ok {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
+		}
+	}
+
+	if t.Mode != nil {
+		switch *t.Mode {
+		case "secure":
+			// TLSCertPath must be set
+			if t.TLSCertPath == nil {
+				err = multierr.Append(err, configutils.ErrMissing{Name: "TLSCertPath", Msg: "must be set when Tracing.Mode is secure"})
+			}
+		case "insecure":
+			// TLSCertPath must not be set
+			if t.TLSCertPath != nil {
+				err = multierr.Append(err, configutils.ErrIncluded{Name: "TLSCertPath", Msg: "must not be set when Tracing.Mode is insecure"})
+			}
+		default:
+			// Mode must be either "secure" or "insecure"
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "Mode", Value: *t.Mode, Msg: "must be either 'secure' or 'insecure'"})
 		}
 	}
 

@@ -1598,6 +1598,7 @@ Enabled = false # Default
 CollectorTarget = 'localhost:4317' # Example
 NodeID = 'NodeID' # Example
 SamplingRatio = 1.0 # Example
+Mode = 'secure' # Default
 TLSCertPath = '/path/to/cert.pem' # Example
 ```
 
@@ -1625,6 +1626,12 @@ NodeID is an unique name for this node relative to any other node traces are col
 SamplingRatio = 1.0 # Example
 ```
 SamplingRatio is the ratio of traces to sample for this node.
+
+### Mode
+```toml
+Mode = 'secure' # Default
+```
+Mode is a string value. 'secure' or 'insecure' are the only values allowed. If set to 'insecure', TLSCertPath can be unset, meaning traces will be sent over plaintext to the collector.
 
 ### TLSCertPath
 ```toml

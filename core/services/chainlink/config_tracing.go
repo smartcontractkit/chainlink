@@ -22,6 +22,10 @@ func (t tracingConfig) SamplingRatio() float64 {
 	return *t.s.SamplingRatio
 }
 
+func (t tracingConfig) Mode() string {
+	return *t.s.Mode
+}
+
 func (t tracingConfig) TLSCertPath() string {
 	return *t.s.TLSCertPath
 }

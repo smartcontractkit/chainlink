@@ -364,5 +364,68 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 	}
 }
 
+func TestTracing_ValidateMode(t *testing.T) {
+	tests := []struct {
+		name        string
+		mode        *string
+		tlsCertPath *string
+		wantErr     bool
+		errMsg      string
+	}{
+		{
+			name:        "secure mode with valid TLS path",
+			mode:        ptr("secure"),
+			tlsCertPath: ptr("/path/to/cert.pem"),
+			wantErr:     false,
+		},
+		{
+			name:        "secure mode without TLS path",
+			mode:        ptr("secure"),
+			tlsCertPath: nil,
+			wantErr:     true,
+			errMsg:      "TLSCertPath: missing: must be set when Tracing.Mode is secure",
+		},
+		{
+			name:        "insecure mode with TLS path",
+			mode:        ptr("insecure"),
+			tlsCertPath: ptr("/path/to/cert.pem"),
+			wantErr:     true,
+			errMsg:      "TLSCertPath: included: must not be set when Tracing.Mode is insecure",
+		},
+		{
+			name:        "insecure mode without TLS path",
+			mode:        ptr("insecure"),
+			tlsCertPath: nil,
+			wantErr:     false,
+		},
+		{
+			name:        "invalid mode",
+			mode:        ptr("unknown"),
+			tlsCertPath: nil,
+			wantErr:     true,
+			errMsg:      "Mode: invalid value (unknown): must be either 'secure' or 'insecure'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tracing := &Tracing{
+				Enabled:     ptr(true),
+				Mode:        tt.mode,
+				TLSCertPath: tt.tlsCertPath,
+			}
+
+			err := tracing.ValidateConfig()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 // ptr is a utility function for converting a value to a pointer to the value.
 func ptr[T any](t T) *T { return &t }

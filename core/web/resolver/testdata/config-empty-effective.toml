@@ -232,4 +232,5 @@ Enabled = false
 CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
+Mode = 'secure'
 TLSCertPath = ''

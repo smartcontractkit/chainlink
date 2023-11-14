@@ -138,11 +138,12 @@ func WithTracing() NodeConfigOpt {
 			Enabled:         ptr.Ptr(true),
 			CollectorTarget: ptr.Ptr("otel-collector:4317"),
 			// ksortable unique id
-			NodeID: ptr.Ptr(ksuid.New().String()),
+			NodeID:        ptr.Ptr(ksuid.New().String()),
+			SamplingRatio: ptr.Ptr(1.0),
+			Mode:          ptr.Ptr("insecure"),
 			Attributes: map[string]string{
 				"env": "smoke",
 			},
-			SamplingRatio: ptr.Ptr(1.0),
 		}
 	}
 }
