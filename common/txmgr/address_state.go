@@ -60,7 +60,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initia
 		if err != nil {
 			return fmt.Errorf("address_state: initialization: %w", err)
 		}
-		for _, tx := range txs {
+		for i := 0; i < len(txs); i++ {
+			tx := txs[i]
 			if err := as.moveTxToUnstarted(&tx); err != nil {
 				return fmt.Errorf("address_state: initialization: %w", err)
 			}
@@ -87,7 +88,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initia
 		if err != nil {
 			return fmt.Errorf("address_state: initialization: %w", err)
 		}
-		for _, tx := range txs {
+		for i := 0; i < len(txs); i++ {
+			tx := txs[i]
 			as.unconfirmed[tx.ID] = &tx
 		}
 		if count <= offset+limit {
