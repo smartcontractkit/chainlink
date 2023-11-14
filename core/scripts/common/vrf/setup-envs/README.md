@@ -62,13 +62,13 @@ WIP - Not working yet:
 ```
 go run . \
 --vrf-version="v2" \
---vrf-primary-node-url=https://cln-vrfv2-matic-testnet-staging-node.main.stage.cldev.sh \
---vrf-primary-creds-file ./creds_my/polygon-mumbai-vrfv2-staging/vrf-primary-node.txt \
---bhs-node-url=https://cln-bhs-matic-testnet-staging-node.main.stage.cldev.sh \
---bhs-creds-file ./creds_my/polygon-mumbai-vrfv2-staging/bhs-node.txt \
+--vrf-primary-node-url=<url> \
+--vrf-primary-creds-file <path_to_file_with_creds> \
+--bhs-node-url=<url> \
+--bhs-creds-file <path_to_file_with_creds> \
 --num-eth-keys=3 \
 --num-vrf-keys=1 \
---sending-key-funding-amount="5e19" \
+--sending-key-funding-amount="1e17" \
 --deploy-contracts-and-create-jobs="false" 
 ```
 Then update corresponding deployment scripts with the new ETH addresses, specifying max gas price for each key
@@ -81,6 +81,7 @@ GasEstimator.PriceMax = '30 gwei'
 ```
 
 2. If the CL nodes already have needed amount of ETH and VRF keys, you can deploy contracts and create jobs with the following command:
+NOTE - nodes will be funded at least to the amount specified in `--sending-key-funding-amount` parameter.
 ```
 go run . \
 --vrf-version="v2" \
