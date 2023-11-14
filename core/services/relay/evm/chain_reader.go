@@ -229,6 +229,8 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundCo
 	chainSpecificName := chainReadingDefinition.ChainSpecificName
 	contractAddr := common.HexToAddress(bc.Address)
 
+	// TODO overriding params with params from config
+	// TODO overriding returnVal with returnVal from config
 	if chainReadingDefinition.ReadType == types.Method {
 		callData, err := chainContractReader.ParsedContractABI.Pack(chainSpecificName, params)
 		if err != nil {
