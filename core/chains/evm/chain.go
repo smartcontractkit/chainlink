@@ -13,11 +13,10 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	relaychains "github.com/smartcontractkit/chainlink-relay/pkg/chains"
+	"github.com/smartcontractkit/chainlink-relay/pkg/chains"
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -421,7 +420,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 	nodes := c.cfg.Nodes()
 	total := len(nodes)
 	if start >= total {
-		return nil, total, relaychains.ErrOutOfRange
+		return nil, total, chains.ErrOutOfRange
 	}
 	if end > total {
 		end = total
@@ -458,7 +457,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 }
 
 func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
-	return relaychains.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
+	return chains.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }
