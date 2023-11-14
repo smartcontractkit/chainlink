@@ -44,7 +44,7 @@ MigrateOnStartup = true # Default
 # `lite` - Dumps small tables including configuration and keys that are essential for the node to function, which excludes historical data like job runs, transaction history, etc.
 # `full` - Dumps the entire database.
 #
-# It will write to a file like `'Dir'/backup/cl_backup_<VERSION>.dump`. There is one backup dump file per version of the Chainlink node. If you upgrade the node, it will keep the backup taken right before the upgrade migration so you can restore to an older version if necessary.
+# It will write to a file like `'Dir'/backup/cl_backup_VERSION.dump`. There is one backup dump file per version of the Chainlink node. If you upgrade the node, it will keep the backup taken right before the upgrade migration so you can restore to an older version if necessary.
 Mode = 'none' # Default
 # Dir sets the directory to use for saving the backup file. Use this if you want to save the backup file in a directory other than the default ROOT directory.
 Dir = 'test/backup/dir' # Example
