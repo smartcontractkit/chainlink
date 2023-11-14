@@ -38,6 +38,8 @@ func (lsn *listenerV2) runLogListener(
 		case <-lsn.chStop:
 			return
 		case <-ticker.C:
+			start := time.Now()
+			lsn.l.Debugw("log listener loop")
 			// Filter registration is idempotent, so we can just call it every time
 			// and retry on errors using the ticker.
 			err := lsn.chain.LogPoller().RegisterFilter(logpoller.Filter{
@@ -51,24 +53,31 @@ func (lsn *listenerV2) runLogListener(
 				},
 			})
 			if err != nil {
-				lsn.l.Errorw("error registering filter in log poller, retrying", "err", err)
+				lsn.l.Errorw("error registering filter in log poller, retrying",
+					"err", err,
+					"elapsed", time.Since(start))
 				continue
 			}
 
 			// on startup we want to initialize the last processed block
 			if startingUp {
-				lsn.l.Infow("initializing last processed block on startup")
+				lsn.l.Debugw("initializing last processed block on startup")
 				lastProcessedBlock, err = lsn.initializeLastProcessedBlock()
 				if err != nil {
-					lsn.l.Errorw("error initializing last processed block, retrying", "err", err)
+					lsn.l.Errorw("error initializing last processed block, retrying",
+						"err", err,
+						"elapsed", time.Since(start))
 					continue
 				}
 				startingUp = false
+				lsn.l.Debugw("initialized last processed block", "lastProcessedBlock", lastProcessedBlock)
 			}
 
 			pending, err := lsn.pollLogs(ctx, minConfs, lastProcessedBlock)
 			if err != nil {
-				lsn.l.Errorw("error polling vrf logs, retrying", "err", err)
+				lsn.l.Errorw("error polling vrf logs, retrying",
+					"err", err,
+					"elapsed", time.Since(start))
 				continue
 			}
 
@@ -79,8 +88,9 @@ func (lsn *listenerV2) runLogListener(
 			if err != nil {
 				lsn.l.Errorw("error updating last processed block, continuing anyway", "err", err)
 			} else {
-				lsn.l.Infow("updated last processed block", "lastProcessedBlock", lastProcessedBlock)
+				lsn.l.Debugw("updated last processed block", "lastProcessedBlock", lastProcessedBlock)
 			}
+			lsn.l.Debugw("log listener loop done", "elapsed", time.Since(start))
 		}
 	}
 }
@@ -88,19 +98,26 @@ func (lsn *listenerV2) runLogListener(
 // initializeLastProcessedBlock returns the earliest block number that we need to
 // process requests for. This is the block number of the earliest unfulfilled request
 // or the latest finalized block, if there are no unfulfilled requests.
+// TODO: add tests
 func (lsn *listenerV2) initializeLastProcessedBlock() (lastProcessedBlock int64, err error) {
 	lp := lsn.chain.LogPoller()
+	start := time.Now()
 
 	// will retry on error in the runLogListener loop
 	latestBlock, err := lp.LatestBlock()
 	if err != nil {
 		return 0, errors.Wrap(err, "LogPoller.LatestBlock()")
 	}
-
-	ll := lsn.l.With("latestFinalizedBlock", latestBlock.FinalizedBlockNumber, "latestBlock", latestBlock.BlockNumber)
-	ll.Infow("Initializing last processed block")
-
 	fromTimestamp := time.Now().UTC().Add(-lsn.job.VRFSpec.RequestTimeout)
+	ll := lsn.l.With(
+		"latestFinalizedBlock", latestBlock.FinalizedBlockNumber,
+		"latestBlock", latestBlock.BlockNumber,
+		"fromTimestamp", fromTimestamp)
+	ll.Debugw("Initializing last processed block")
+	defer func() {
+		ll.Debugw("Done initializing last processed block", "elapsed", time.Since(start))
+	}()
+
 	// get randomness requested logs with the appropriate keyhash
 	// keyhash is specified in topic1
 	requests, err := lp.IndexedLogsCreatedAfter(
@@ -116,6 +133,7 @@ func (lsn *listenerV2) initializeLastProcessedBlock() (lastProcessedBlock int64,
 	}
 
 	// fulfillments don't have keyhash indexed, we'll have to get all of them
+	// TODO: can we instead write a single query that joins on request id's somehow?
 	fulfillments, err := lp.LogsCreatedAfter(
 		lsn.coordinator.RandomWordsFulfilledTopic(), // event sig
 		lsn.coordinator.Address(),                   // address
@@ -145,13 +163,21 @@ func (lsn *listenerV2) initializeLastProcessedBlock() (lastProcessedBlock int64,
 
 func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastProcessedBlock int64) (lastProcessedBlock int64, err error) {
 	lp := lsn.chain.LogPoller()
-	ll := lsn.l.With("currLastProcessedBlock", currLastProcessedBlock)
+	start := time.Now()
 
 	latestBlock, err := lp.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		lsn.l.Errorw("error getting latest block", "err", err)
 		return 0, errors.Wrap(err, "LogPoller.LatestBlock()")
 	}
+	ll := lsn.l.With(
+		"currLastProcessedBlock", currLastProcessedBlock,
+		"latestBlock", latestBlock.BlockNumber,
+		"latestFinalizedBlock", latestBlock.FinalizedBlockNumber)
+	ll.Debugw("updating last processed block")
+	defer func() {
+		ll.Debugw("done updating last processed block", "elapsed", time.Since(start))
+	}()
 
 	logs, err := lp.LogsWithSigs(
 		currLastProcessedBlock,
@@ -187,8 +213,8 @@ func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastPro
 
 // pollLogs uses the log poller to poll for the latest VRF logs
 func (lsn *listenerV2) pollLogs(ctx context.Context, minConfs uint32, lastProcessedBlock int64) (pending []pendingRequest, err error) {
+	start := time.Now()
 	lp := lsn.chain.LogPoller()
-	ll := lsn.l.With("lastProcessedBlock", lastProcessedBlock, "minConfs", minConfs)
 
 	// latest unfinalized block used on purpose to get bleeding edge logs
 	// we don't really have the luxury to wait for finalization on most chains
@@ -198,6 +224,15 @@ func (lsn *listenerV2) pollLogs(ctx context.Context, minConfs uint32, lastProces
 		return nil, errors.Wrap(err, "LogPoller.LatestBlock()")
 	}
 	lsn.setLatestHead(latestBlock)
+	ll := lsn.l.With(
+		"lastProcessedBlock", lastProcessedBlock,
+		"minConfs", minConfs,
+		"latestBlock", latestBlock.BlockNumber,
+		"latestFinalizedBlock", latestBlock.FinalizedBlockNumber)
+	ll.Debugw("polling for logs")
+	defer func() {
+		ll.Debugw("done polling for logs", "elapsed", time.Since(start))
+	}()
 
 	// We don't specify confs because each request can have a different conf above
 	// the minimum. So we do all conf handling in getConfirmedAt.
@@ -335,7 +370,14 @@ func (lsn *listenerV2) handleRequested(requested []RandomWordsRequested, request
 		}
 
 		confirmedAt := lsn.getConfirmedAt(req, minConfs)
-		lsn.l.Infow("VRFListenerV2: Received log request", "reqID", req.RequestID(), "confirmedAt", confirmedAt, "subID", req.SubID(), "sender", req.Sender())
+		lsn.l.Debugw("VRFListenerV2: Received log request",
+			"reqID", req.RequestID(),
+			"reqBlockNumber", req.Raw().BlockNumber,
+			"reqBlockHash", req.Raw().BlockHash,
+			"reqTxHash", req.Raw().TxHash,
+			"confirmedAt", confirmedAt,
+			"subID", req.SubID(),
+			"sender", req.Sender())
 		pendingRequests = append(pendingRequests, pendingRequest{
 			confirmedAtBlock: confirmedAt,
 			req:              req,
