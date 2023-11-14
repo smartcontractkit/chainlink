@@ -17,7 +17,7 @@ on:
           - "BSC_MAINNET"
           - "BSC_TESTNET"
           - "POLYGON_MAINNET"
-          - "MUMBAI"
+          - "POLYGON_MUMBAI"
           - "AVALANCHE_FUJI"
           - "AVALANCHE_MAINNET"
       fundingPrivateKey:

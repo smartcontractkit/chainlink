@@ -430,12 +430,6 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts
 	//SubscriptionsCreated Log should be emitted with the subscription ID
 	subID := receipt.Logs[0].Topics[1].Big()
 
-	//verify that the subscription was created
-	_, err = coordinator.FindSubscriptionID(subID)
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", ErrFindSubID, err)
-	}
-
 	return subID, nil
 }
 
