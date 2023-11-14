@@ -7,20 +7,16 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type TxOptions struct {
 	sql.TxOptions
-	LockTimeout            time.Duration
-	IdleInTxSessionTimeout time.Duration
 }
 
 // NOTE: In an ideal world the timeouts below would be set to something sane in
@@ -39,27 +35,14 @@ func OptReadOnlyTx() TxOptions {
 	return TxOptions{TxOptions: sql.TxOptions{ReadOnly: true}}
 }
 
-func applyDefaults(optss []TxOptions) (lockTimeout, idleInTxSessionTimeout time.Duration, txOpts sql.TxOptions) {
-	lockTimeout = defaultLockTimeout
-	idleInTxSessionTimeout = defaultIdleInTxSessionTimeout
-	txIsolation := DefaultIsolation
+func applyDefaults(optss []TxOptions) (txOpts sql.TxOptions) {
 	readOnly := false
 	if len(optss) > 0 {
 		opts := optss[0]
-		if opts.LockTimeout != 0 {
-			lockTimeout = opts.LockTimeout
-		}
-		if opts.IdleInTxSessionTimeout != 0 {
-			idleInTxSessionTimeout = opts.IdleInTxSessionTimeout
-		}
-		if opts.Isolation != 0 {
-			txIsolation = opts.Isolation
-		}
 		readOnly = opts.ReadOnly
 	}
 	txOpts = sql.TxOptions{
-		Isolation: txIsolation,
-		ReadOnly:  readOnly,
+		ReadOnly: readOnly,
 	}
 	return
 }
@@ -86,7 +69,7 @@ type TxBeginner interface {
 }
 
 func sqlxTransactionQ(ctx context.Context, db TxBeginner, lggr logger.Logger, fn func(q Queryer) error, optss ...TxOptions) (err error) {
-	lockTimeout, idleInTxSessionTimeout, txOpts := applyDefaults(optss)
+	txOpts := applyDefaults(optss)
 
 	var tx *sqlx.Tx
 	tx, err = db.BeginTxx(ctx, &txOpts)
@@ -125,19 +108,6 @@ func sqlxTransactionQ(ctx context.Context, db TxBeginner, lggr logger.Logger, fn
 			err = errors.WithStack(tx.Commit())
 		}
 	}()
-
-	if lockTimeout != defaultLockTimeout {
-		_, err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %d`, lockTimeout.Milliseconds()))
-		if err != nil {
-			return errors.Wrap(err, "error setting transaction local lock_timeout")
-		}
-	}
-	if idleInTxSessionTimeout != defaultIdleInTxSessionTimeout {
-		_, err = tx.Exec(fmt.Sprintf(`SET LOCAL idle_in_transaction_session_timeout = %d`, idleInTxSessionTimeout.Milliseconds()))
-		if err != nil {
-			return errors.Wrap(err, "error setting transaction local idle_in_transaction_session_timeout")
-		}
-	}
 
 	err = fn(tx)
 
