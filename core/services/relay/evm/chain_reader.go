@@ -8,8 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -73,7 +71,7 @@ func validateChainReaderConfig(cfg types.ChainReaderConfig) (err error) {
 				return fmt.Errorf("invalid chain reader definition read type: %d", chainReaderDefinition.ReadType)
 			}
 			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("invalid chain reader config for contract: %q chain reading definition: %q", contractName, chainReadingDefinitionName))
+				return fmt.Errorf("chain reader config validation failed with err: %w, for contract: %q with chain reading definition: %q", err, contractName, chainReadingDefinitionName)
 			}
 		}
 	}
