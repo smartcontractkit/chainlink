@@ -156,7 +156,7 @@ func (p *PriceRegistryV1_0_0) GetTokensDecimals(ctx context.Context, tokenAddres
 		return nil, fmt.Errorf("get latest block: %w", err)
 	}
 
-	results, err := p.evmBatchCaller.BatchCall(ctx, uint64(latestBlock), evmCalls)
+	results, err := p.evmBatchCaller.BatchCall(ctx, uint64(latestBlock.BlockNumber), evmCalls)
 	if err != nil {
 		return nil, fmt.Errorf("batch call limit: %w", err)
 	}

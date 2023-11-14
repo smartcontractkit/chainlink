@@ -164,7 +164,7 @@ func (o *OffRampV1_0_0) GetDestinationTokensFromSourceTokens(ctx context.Context
 		return nil, fmt.Errorf("get latest block: %w", err)
 	}
 
-	results, err := o.evmBatchCaller.BatchCall(ctx, uint64(latestBlock), evmCalls)
+	results, err := o.evmBatchCaller.BatchCall(ctx, uint64(latestBlock.BlockNumber), evmCalls)
 	if err != nil {
 		return nil, fmt.Errorf("batch call limit: %w", err)
 	}
@@ -207,7 +207,7 @@ func (o *OffRampV1_0_0) GetTokenPoolsRateLimits(ctx context.Context, poolAddress
 		return nil, fmt.Errorf("get latest block: %w", err)
 	}
 
-	results, err := o.evmBatchCaller.BatchCall(ctx, uint64(latestBlock), evmCalls)
+	results, err := o.evmBatchCaller.BatchCall(ctx, uint64(latestBlock.BlockNumber), evmCalls)
 	if err != nil {
 		return nil, fmt.Errorf("batch call limit: %w", err)
 	}

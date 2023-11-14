@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -36,5 +37,5 @@ type Closer interface {
 //go:generate mockery --quiet --name Reader --filename reader_mock.go --case=underscore
 type Reader interface {
 	// LatestBlock returns the latest known/parsed block of the underlying implementation.
-	LatestBlock(ctx context.Context) (int64, error)
+	LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error)
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
@@ -108,7 +109,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			p.config.commitStoreReader = commitStoreReader
 
 			destReader := ccipdatamocks.NewReader(t)
-			destReader.On("LatestBlock", ctx).Return(int64(1234), nil).Maybe()
+			destReader.On("LatestBlock", ctx).Return(logpoller.LogPollerBlock{BlockNumber: 1234}, nil).Maybe()
 			p.config.destReader = destReader
 
 			var executionEvents []ccipdata.Event[ccipdata.ExecutionStateChanged]
@@ -1014,7 +1015,7 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 			p.config.onRampReader = sourceReader
 
 			destReader := ccipdatamocks.NewReader(t)
-			destReader.On("LatestBlock", ctx).Return(tc.destLatestBlock, nil).Maybe()
+			destReader.On("LatestBlock", ctx).Return(logpoller.LogPollerBlock{BlockNumber: tc.destLatestBlock}, nil).Maybe()
 			var executedEvents []ccipdata.Event[ccipdata.ExecutionStateChanged]
 			for _, executedSeqNum := range tc.destExecutedSeqNums {
 				executedEvents = append(executedEvents, ccipdata.Event[ccipdata.ExecutionStateChanged]{

@@ -5,6 +5,7 @@ package mocks
 import (
 	context "context"
 
+	logpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -14,18 +15,18 @@ type Reader struct {
 }
 
 // LatestBlock provides a mock function with given fields: ctx
-func (_m *Reader) LatestBlock(ctx context.Context) (int64, error) {
+func (_m *Reader) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
 	ret := _m.Called(ctx)
 
-	var r0 int64
+	var r0 logpoller.LogPollerBlock
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int64, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (logpoller.LogPollerBlock, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) int64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) logpoller.LogPollerBlock); ok {
 		r0 = rf(ctx)
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Get(0).(logpoller.LogPollerBlock)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
