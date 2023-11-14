@@ -468,6 +468,9 @@ func TestLogTrigger(t *testing.T) {
 	endTime := time.Now()
 	testDuration := endTime.Sub(startTime)
 	l.Info().Dur("Duration", testDuration).Msg("Test Duration")
+	endBlock, err := chainClient.LatestBlockNumber(context.Background())
+	require.NoError(t, err, "Error getting latest block number")
+	l.Info().Uint64("Starting Block", startingBlock).Uint64("Ending Block", endBlock).Msg("Test Block Range")
 
 	upkeepCounters := make([]int64, 0)
 	upkeepDelays := make([][]int64, 0)
@@ -495,27 +498,35 @@ func TestLogTrigger(t *testing.T) {
 
 	for cIter, consumerContract := range consumerContracts {
 		var (
-			logs        []types.Log
-			address     = common.HexToAddress(consumerContract.Address())
-			timeout     = 5 * time.Second
-			filterQuery = geth.FilterQuery{
-				Addresses: []common.Address{address},
-				FromBlock: big.NewInt(0).SetUint64(startingBlock),
-				Topics:    [][]common.Hash{{consumerABI.Events["PerformingUpkeep"].ID}},
-			}
+			logs    []types.Log
+			address = common.HexToAddress(consumerContract.Address())
+			timeout = 5 * time.Second
 		)
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		logs, err = chainClient.FilterLogs(ctx, filterQuery)
-		cancel()
-		if err != nil {
-			l.Error().Err(err).
-				Interface("FilterQuery", filterQuery).
-				Str("Contract Address", consumerContract.Address()).
-				Str("Timeout", timeout.String()).
-				Msg("Error getting logs")
-		} else {
+		for fromBlock := startingBlock; fromBlock < endBlock; fromBlock += uint64(batchSize) {
+			filterQuery := geth.FilterQuery{
+				Addresses: []common.Address{address},
+				FromBlock: big.NewInt(0).SetUint64(fromBlock),
+				ToBlock:   big.NewInt(0).SetUint64(fromBlock + uint64(batchSize)),
+				Topics:    [][]common.Hash{{consumerABI.Events["PerformingUpkeep"].ID}},
+			}
+			logsInBatch, err := chainClient.FilterLogs(ctx, filterQuery)
+			cancel()
+			if err != nil {
+				l.Error().Err(err).
+					Interface("FilterQuery", filterQuery).
+					Str("Contract Address", consumerContract.Address()).
+					Uint64("Starting Block", startingBlock).
+					Uint64("Ending Block", endBlock).
+					Str("Timeout", timeout.String()).
+					Msg("Error getting logs")
+			}
+			logs = append(logs, logsInBatch...)
+		}
+
+		if len(logs) > 0 {
 			delay := make([]int64, 0)
-			for lIter, log := range logs {
+			for _, log := range logs {
 				eventDetails, err := consumerABI.EventByID(log.Topics[0])
 				require.NoError(t, err, "Error getting event details")
 				consumer, err := simple_log_upkeep_counter_wrapper.NewSimpleLogUpkeepCounter(
@@ -527,14 +538,11 @@ func TestLogTrigger(t *testing.T) {
 					require.NoError(t, err, "Error parsing log")
 					delay = append(delay, parsedLog.TimeToPerform.Int64())
 				}
-				if (lIter+1)%batchSize == 0 {
-					time.Sleep(time.Second * 1)
-				}
 			}
 			upkeepDelays = append(upkeepDelays, delay)
 		}
 		if (cIter+1)%batchSize == 0 {
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Millisecond * 500)
 		}
 	}
 
