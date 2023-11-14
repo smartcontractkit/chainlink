@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-relay/pkg/config"
 )
 
 func TestContextValues(t *testing.T) {
@@ -19,14 +19,14 @@ func TestContextValues(t *testing.T) {
 		{name: "full", vals: ContextValues{
 			JobID:         42,
 			JobName:       "name",
-			ContractID:    utils.MustParseURL("http://example.com"),
+			ContractID:    config.MustParseURL("http://example.com"),
 			FeedID:        big.NewInt(1234567890987654321),
 			TransmitterID: "0xfake-test-id",
 		}, len: 10},
 		{name: "feedless", vals: ContextValues{
 			JobID:      42,
 			JobName:    "name",
-			ContractID: utils.MustParseURL("http://example.com"),
+			ContractID: config.MustParseURL("http://example.com"),
 		}, len: 6},
 		{name: "empty", vals: ContextValues{}, len: 0},
 	} {

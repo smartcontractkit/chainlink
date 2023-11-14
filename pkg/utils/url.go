@@ -1,35 +1,12 @@
 package utils
 
-import "net/url"
+import "github.com/smartcontractkit/chainlink-relay/pkg/config"
 
-// URL extends url.URL to implement encoding.TextMarshaler.
-type URL url.URL
+// Deprecated: use config.URL
+type URL = config.URL
 
-func ParseURL(s string) (*URL, error) {
-	u, err := url.Parse(s)
-	if err != nil {
-		return nil, err
-	}
-	return (*URL)(u), nil
-}
+// Deprecated: use config.ParseURL
+func ParseURL(s string) (*URL, error) { return config.ParseURL(s) }
 
-func MustParseURL(s string) *URL {
-	u, err := ParseURL(s)
-	if err != nil {
-		panic(err)
-	}
-	return u
-}
-
-func (u *URL) MarshalText() ([]byte, error) {
-	return []byte((*url.URL)(u).String()), nil
-}
-
-func (u *URL) UnmarshalText(input []byte) error {
-	v, err := url.Parse(string(input))
-	if err != nil {
-		return err
-	}
-	*u = URL(*v)
-	return nil
-}
+// Deprecated: use config.MustParseURL
+func MustParseURL(s string) *URL { return config.MustParseURL(s) }
