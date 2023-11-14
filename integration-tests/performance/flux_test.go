@@ -1,7 +1,6 @@
 package performance
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestFluxPerformance(t *testing.T) {
@@ -83,7 +83,7 @@ func TestFluxPerformance(t *testing.T) {
 	require.NoError(t, err, "Setting oracle options in the Flux Aggregator contract shouldn't fail")
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
-	oracles, err := fluxInstance.GetOracles(context.Background())
+	oracles, err := fluxInstance.GetOracles(utils.TestContext(t))
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
@@ -120,7 +120,7 @@ func TestFluxPerformance(t *testing.T) {
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
-		data, err := fluxInstance.GetContractData(context.Background())
+		data, err := fluxInstance.GetContractData(utils.TestContext(t))
 		require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
 		l.Info().Interface("Data", data).Msg("Round data")
 		require.Equal(t, int64(1e5), data.LatestRoundData.Answer.Int64(),
@@ -140,7 +140,7 @@ func TestFluxPerformance(t *testing.T) {
 		require.NoError(t, err, "Setting value path in mock server shouldn't fail")
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
-		data, err = fluxInstance.GetContractData(context.Background())
+		data, err = fluxInstance.GetContractData(utils.TestContext(t))
 		require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
 		require.Equal(t, int64(1e10), data.LatestRoundData.Answer.Int64(),
 			"Expected latest round answer to be %d, but found %d", int64(1e10), data.LatestRoundData.Answer.Int64())
@@ -153,7 +153,7 @@ func TestFluxPerformance(t *testing.T) {
 		l.Info().Interface("data", data).Msg("Round data")
 
 		for _, oracleAddr := range nodeAddresses {
-			payment, _ := fluxInstance.WithdrawablePayment(context.Background(), oracleAddr)
+			payment, _ := fluxInstance.WithdrawablePayment(utils.TestContext(t), oracleAddr)
 			require.Equal(t, int64(2), payment.Int64(),
 				"Expected flux aggregator contract's withdrawable payment to be %d, but found %d", int64(2), payment.Int64())
 		}

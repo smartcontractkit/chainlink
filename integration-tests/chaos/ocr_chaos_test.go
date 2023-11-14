@@ -1,7 +1,6 @@
 package chaos
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"os"
@@ -15,7 +14,6 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	a "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/alias"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
@@ -28,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -81,8 +80,8 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
-				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-				ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+				FromLabels:  &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMinority: utils.Ptr("1")},
 				DurationStr: "1m",
 			},
 		},
@@ -91,8 +90,8 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
-				FromLabels:  &map[string]*string{"app": a.Str("geth")},
-				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
+				FromLabels:  &map[string]*string{"app": utils.Ptr("geth")},
+				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: utils.Ptr("1")},
 				DurationStr: "1m",
 			},
 		},
@@ -101,7 +100,7 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMinority: utils.Ptr("1")},
 				DurationStr:    "1m",
 			},
 		},
@@ -110,7 +109,7 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
 				DurationStr:    "1m",
 			},
 		},
@@ -119,9 +118,9 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
 				DurationStr:    "1m",
-				ContainerNames: &[]*string{a.Str("chainlink-db")},
+				ContainerNames: &[]*string{utils.Ptr("chainlink-db")},
 			},
 		},
 	}
@@ -165,7 +164,7 @@ func TestOCRChaos(t *testing.T) {
 				if chainClient != nil {
 					chainClient.GasStats().PrintStats()
 				}
-				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
@@ -181,7 +180,7 @@ func TestOCRChaos(t *testing.T) {
 			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
 			require.NoError(t, err)
 
-			ocrInstances, err := actions.DeployOCRContracts(1, lt, cd, bootstrapNode, workerNodes, chainClient)
+			ocrInstances, err := actions.DeployOCRContracts(1, lt, cd, workerNodes, chainClient)
 			require.NoError(t, err)
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err)
@@ -196,7 +195,7 @@ func TestOCRChaos(t *testing.T) {
 					err := ocr.RequestNewRound()
 					require.NoError(t, err, "Error requesting new round")
 				}
-				round, err := ocrInstances[0].GetLatestRound(context.Background())
+				round, err := ocrInstances[0].GetLatestRound(it_utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				l.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
 				if round.RoundId.Int64() == chaosStartRound && !chaosApplied {

@@ -5,10 +5,10 @@ import (
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -43,17 +43,16 @@ func TestResolver_Nodes(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
-				f.Mocks.relayerChainInterops.On("NodeStatuses", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]types.NodeStatus{
+				f.App.On("GetRelayers").Return(chainlink.RelayerChainInteroperators(f.Mocks.relayerChainInterops))
+				f.Mocks.relayerChainInterops.Nodes = []types.NodeStatus{
 					{
 						Name:    "node-name",
 						ChainID: chainID.String(),
 						Config:  `Name = 'node-name'`,
 					},
-				}, 1, nil)
+				}
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
-
 			},
 			query: query,
 			result: `
@@ -76,7 +75,7 @@ func TestResolver_Nodes(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.relayerChainInterops.On("NodeStatuses", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]types.NodeStatus{}, 0, gError)
+				f.Mocks.relayerChainInterops.NodesErr = gError
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
 			},
 			query:  query,

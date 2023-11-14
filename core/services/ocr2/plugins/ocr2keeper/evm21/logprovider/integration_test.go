@@ -3,7 +3,6 @@ package logprovider_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -18,7 +17,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/time/rate"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
@@ -693,7 +692,7 @@ func setupBackend(t *testing.T) (*backends.SimulatedBackend, func(), []*bind.Tra
 func ptr[T any](v T) *T { return &v }
 
 func setupDB(t *testing.T) *sqlx.DB {
-	_, db := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", "chainlink_test", 5432), func(c *chainlink.Config, s *chainlink.Secrets) {
+	_, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Feature.LogPoller = ptr(true)
 
 		c.OCR.Enabled = ptr(false)

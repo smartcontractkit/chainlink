@@ -69,10 +69,3 @@ func batchSendTransactions(
 	}
 	return reqs, now, successfulBroadcast, nil
 }
-
-func stringToGethAddress(s string) (common.Address, error) {
-	if !common.IsHexAddress(s) {
-		return common.Address{}, fmt.Errorf("invalid hex address: %s", s)
-	}
-	return common.HexToAddress(s), nil
-}

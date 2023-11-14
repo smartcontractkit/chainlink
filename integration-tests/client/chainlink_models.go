@@ -9,6 +9,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -1411,4 +1412,17 @@ type ForwarderAttributes struct {
 	ChainID   string    `json:"evmChainId"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type ReplayResponse struct {
+	Data ReplayResponseData `json:"data"`
+}
+
+type ReplayResponseData struct {
+	Attributes ReplayResponseAttributes `json:"attributes"`
+}
+
+type ReplayResponseAttributes struct {
+	Message    string     `json:"message"`
+	EVMChainID *utils.Big `json:"evmChainID"`
 }

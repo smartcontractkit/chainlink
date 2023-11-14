@@ -36,6 +36,7 @@ requestTimeoutSec = 300
 maxRequestSizesList = [30_720, 51_200, 102_400, 204_800, 512_000, 1_048_576, 2_097_152, 3_145_728, 5_242_880, 10_485_760]
 maxSecretsSizesList = [10_240, 20_480, 51_200, 102_400, 307_200, 512_000, 1_048_576, 2_097_152]
 minimumSubscriptionBalance = "2 link"
+pastBlocksToPoll = 25
 
 
   [pluginConfig.OnchainAllowlist]

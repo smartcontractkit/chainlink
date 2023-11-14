@@ -13,9 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	pkgerrors "github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	nullv4 "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -115,7 +115,7 @@ type rawOnchainReceipt = evmtypes.Receipt
 // Does not map to a single database table.
 // It's comprised of fields from different tables.
 type dbReceiptPlus struct {
-	ID           uuid.UUID        `db:"id"`
+	ID           uuid.UUID        `db:"pipeline_task_run_id"`
 	Receipt      evmtypes.Receipt `db:"receipt"`
 	FailOnRevert bool             `db:"FailOnRevert"`
 }
@@ -180,10 +180,15 @@ type DbEthTx struct {
 	// chain.
 	TransmitChecker    *datatypes.JSON
 	InitialBroadcastAt *time.Time
+	// Marks tx requiring callback
+	SignalCallback bool
+	// Marks tx callback as signaled
+	CallbackCompleted bool
 }
 
 func (db *DbEthTx) FromTx(tx *Tx) {
 	db.ID = tx.ID
+	db.IdempotencyKey = tx.IdempotencyKey
 	db.FromAddress = tx.FromAddress
 	db.ToAddress = tx.ToAddress
 	db.EncodedPayload = tx.EncodedPayload
@@ -199,6 +204,8 @@ func (db *DbEthTx) FromTx(tx *Tx) {
 	db.MinConfirmations = tx.MinConfirmations
 	db.TransmitChecker = tx.TransmitChecker
 	db.InitialBroadcastAt = tx.InitialBroadcastAt
+	db.SignalCallback = tx.SignalCallback
+	db.CallbackCompleted = tx.CallbackCompleted
 
 	if tx.ChainID != nil {
 		db.EVMChainID = *utils.NewBig(tx.ChainID)
@@ -232,6 +239,8 @@ func (db DbEthTx) ToTx(tx *Tx) {
 	tx.ChainID = db.EVMChainID.ToInt()
 	tx.TransmitChecker = db.TransmitChecker
 	tx.InitialBroadcastAt = db.InitialBroadcastAt
+	tx.SignalCallback = db.SignalCallback
+	tx.CallbackCompleted = db.CallbackCompleted
 }
 
 func dbEthTxsToEvmEthTxs(dbEthTxs []DbEthTx) []Tx {
@@ -511,8 +520,8 @@ func (o *evmTxStore) InsertTx(etx *Tx) error {
 	if etx.CreatedAt == (time.Time{}) {
 		etx.CreatedAt = time.Now()
 	}
-	const insertEthTxSQL = `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, initial_broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, transmit_checker) VALUES (
-:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :initial_broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :transmit_checker
+	const insertEthTxSQL = `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, initial_broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, transmit_checker, idempotency_key, signal_callback, callback_completed) VALUES (
+:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :initial_broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :transmit_checker, :idempotency_key, :signal_callback, :callback_completed
 ) RETURNING *`
 	var dbTx DbEthTx
 	dbTx.FromTx(etx)
@@ -548,14 +557,14 @@ func (o *evmTxStore) FindTxWithAttempts(etxID int64) (etx Tx, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
 		if err = tx.Get(&dbEtx, `SELECT * FROM evm.txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
-			return pkgerrors.Wrapf(err, "failed to find eth_tx with id %d", etxID)
+			return pkgerrors.Wrapf(err, "failed to find evm.tx with id %d", etxID)
 		}
 		dbEtx.ToTx(&etx)
 		if err = o.loadTxAttemptsAtomic(&etx, pg.WithQueryer(tx)); err != nil {
-			return pkgerrors.Wrapf(err, "failed to load evm.tx_attempts for eth_tx with id %d", etxID)
+			return pkgerrors.Wrapf(err, "failed to load evm.tx_attempts for evm.tx with id %d", etxID)
 		}
 		if err = loadEthTxAttemptsReceipts(tx, &etx); err != nil {
-			return pkgerrors.Wrapf(err, "failed to load evm.receipts for eth_tx with id %d", etxID)
+			return pkgerrors.Wrapf(err, "failed to load evm.receipts for evm.tx with id %d", etxID)
 		}
 		return nil
 	}, pg.OptReadOnlyTx())
@@ -637,6 +646,8 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*Tx) (err error) {
 
 	for _, receipt := range receipts {
 		attempt := attemptHashM[receipt.TxHash]
+		// Although the attempts struct supports multiple receipts, the expectation for EVM is that there is only one receipt
+		// per tx and therefore attempt too.
 		attempt.Receipts = append(attempt.Receipts, receipt)
 	}
 	return nil
@@ -938,23 +949,38 @@ WHERE evm.tx_attempts.state = 'in_progress' AND evm.txes.from_address = $1 AND e
 	return attempts, pkgerrors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
-func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error) {
+// Find confirmed txes requiring callback but have not yet been signaled
+func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error) {
 	var rs []dbReceiptPlus
 
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	err = o.q.SelectContext(ctx, &rs, `
-	SELECT pipeline_task_runs.id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
-	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
-	INNER JOIN evm.txes ON evm.txes.pipeline_task_run_id = pipeline_task_runs.id
+	SELECT evm.txes.pipeline_task_run_id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM evm.txes
 	INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
 	INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
-	WHERE pipeline_runs.state = 'suspended' AND evm.receipts.block_number <= ($1 - evm.txes.min_confirmations) AND evm.txes.evm_chain_id = $2
+	WHERE evm.txes.pipeline_task_run_id IS NOT NULL AND evm.txes.signal_callback = TRUE AND evm.txes.callback_completed = FALSE
+	AND evm.receipts.block_number <= ($1 - evm.txes.min_confirmations) AND evm.txes.evm_chain_id = $2
 	`, blockNum, chainID.String())
-
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve transactions pending pipeline resume callback: %w", err)
+	}
 	receiptsPlus = fromDBReceiptsPlus(rs)
 	return
+}
+
+// Update tx to mark that its callback has been signaled
+func (o *evmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunId uuid.UUID, chainId *big.Int) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	_, err := qq.Exec(`UPDATE evm.txes SET callback_completed = TRUE WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, pipelineTaskRunId, chainId.String())
+	if err != nil {
+		return fmt.Errorf("failed to mark callback completed for transaction: %w", err)
+	}
+	return nil
 }
 
 func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (nonce evmtypes.Nonce, err error) {
@@ -1658,12 +1684,12 @@ func (o *evmTxStore) CreateTransaction(ctx context.Context, txRequest TxRequest,
 			}
 		}
 		err = tx.Get(&dbEtx, `
-INSERT INTO evm.txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker, idempotency_key)
+INSERT INTO evm.txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker, idempotency_key, signal_callback)
 VALUES (
-$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11,$12
+$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11,$12,$13
 )
 RETURNING "txes".*
-`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.IdempotencyKey)
+`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.IdempotencyKey, txRequest.SignalCallback)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert evm tx")
 		}
@@ -1774,6 +1800,72 @@ func (o *evmTxStore) Abandon(ctx context.Context, chainID *big.Int, addr common.
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	_, err := qq.Exec(`UPDATE evm.txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, chainID.String(), addr)
 	return err
+}
+
+// Find transactions by a field in the TxMeta blob and transaction states
+func (o *evmTxStore) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) ([]*Tx, error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := fmt.Sprintf("SELECT * FROM evm.txes WHERE evm_chain_id = $1 AND meta->>'%s' = $2 AND state = ANY($3)", metaField)
+	err := qq.Select(&dbEtxs, sql, chainID.String(), metaValue, pq.Array(states))
+	txes := make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, pkgerrors.Wrap(err, "failed to FindTxesByMetaFieldAndStates")
+}
+
+// Find transactions with a non-null TxMeta field that was provided by transaction states
+func (o *evmTxStore) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := fmt.Sprintf("SELECT * FROM evm.txes WHERE meta->'%s' IS NOT NULL AND state = ANY($1) AND evm_chain_id = $2", metaField)
+	err = qq.Select(&dbEtxs, sql, pq.Array(states), chainID.String())
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, pkgerrors.Wrap(err, "failed to FindTxesWithMetaFieldByStates")
+}
+
+// Find transactions with a non-null TxMeta field that was provided and a receipt block number greater than or equal to the one provided
+func (o *evmTxStore) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := fmt.Sprintf("SELECT et.* FROM evm.txes et JOIN evm.tx_attempts eta on et.id = eta.eth_tx_id JOIN evm.receipts er on eta.hash = er.tx_hash WHERE et.meta->'%s' IS NOT NULL AND er.block_number >= $1 AND et.evm_chain_id = $2", metaField)
+	err = qq.Select(&dbEtxs, sql, blockNum, chainID.String())
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, pkgerrors.Wrap(err, "failed to FindTxesWithMetaFieldByReceiptBlockNum")
+}
+
+// Find transactions loaded with transaction attempts and receipts by transaction IDs and states
+func (o *evmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		var dbEtxs []DbEthTx
+		if err = tx.Select(&dbEtxs, `SELECT * FROM evm.txes WHERE id = ANY($1) AND state = ANY($2) AND evm_chain_id = $3`, pq.Array(ids), pq.Array(states), chainID.String()); err != nil {
+			return pkgerrors.Wrapf(err, "failed to find evm.txes")
+		}
+		txes = make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+		if err = o.LoadTxesAttempts(txes, pg.WithQueryer(tx)); err != nil {
+			return pkgerrors.Wrapf(err, "failed to load evm.tx_attempts for evm.tx")
+		}
+		if err = loadEthTxesAttemptsReceipts(tx, txes); err != nil {
+			return pkgerrors.Wrapf(err, "failed to load evm.receipts for evm.tx")
+		}
+		return nil
+	})
+	return txes, pkgerrors.Wrap(err, "FindTxesWithAttemptsAndReceiptsByIdsAndState failed")
 }
 
 // Returns a context that contains the values of the provided context,

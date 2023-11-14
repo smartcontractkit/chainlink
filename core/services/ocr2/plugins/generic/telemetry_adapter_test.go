@@ -1,13 +1,15 @@
-package generic
+package generic_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
 type mockEndpoint struct {
@@ -22,17 +24,17 @@ func (m *mockEndpoint) SendLog(payload []byte) { m.payload = payload }
 
 type mockGenerator struct{}
 
-func (m *mockGenerator) GenMonitoringEndpoint(network, chainID, contractID, telemetryType string) commontypes.MonitoringEndpoint {
+func (m *mockGenerator) GenMonitoringEndpoint(network string, chainID string, contractID string, telemetryType synchronization.TelemetryType) commontypes.MonitoringEndpoint {
 	return &mockEndpoint{
 		network:       network,
 		chainID:       chainID,
 		contractID:    contractID,
-		telemetryType: telemetryType,
+		telemetryType: string(telemetryType),
 	}
 }
 
 func TestTelemetryAdapter(t *testing.T) {
-	ta := NewTelemetryAdapter(&mockGenerator{})
+	ta := generic.NewTelemetryAdapter(&mockGenerator{})
 
 	tests := []struct {
 		name          string
@@ -92,8 +94,7 @@ func TestTelemetryAdapter(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				key := [4]string{test.networkID, test.chainID, test.contractID, test.telemetryType}
-				fmt.Printf("%+v", ta.endpoints)
-				endpoint, ok := ta.endpoints[key]
+				endpoint, ok := ta.Endpoints()[key]
 				require.True(t, ok)
 
 				me := endpoint.(*mockEndpoint)

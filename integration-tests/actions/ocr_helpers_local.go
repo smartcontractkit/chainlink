@@ -9,9 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -282,7 +280,7 @@ func TrackForwarderLocal(
 	chainID := chainClient.GetChainID()
 	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
 	if err != nil {
-		return errors.Wrap(err, "failed to track forwarder")
+		return fmt.Errorf("failed to track forwarder, err: %w", err)
 	}
 	logger.Info().Str("NodeURL", node.Config.URL).
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
@@ -307,7 +305,7 @@ func DeployOCRContractsForwarderFlowLocal(
 			contracts.DefaultOffChainAggregatorOptions(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to deploy offchain aggregator")
+			return nil, fmt.Errorf("failed to deploy offchain aggregator, err: %w", err)
 		}
 		ocrInstances = append(ocrInstances, ocrInstance)
 		err = client.WaitForEvents()
@@ -331,7 +329,7 @@ func DeployOCRContractsForwarderFlowLocal(
 	for _, ocrInstance := range ocrInstances {
 		err := ocrInstance.SetPayees(transmitters, payees)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to set OCR payees")
+			return nil, fmt.Errorf("failed to set OCR payees, err: %w", err)
 		}
 		if err := client.WaitForEvents(); err != nil {
 			return nil, err
@@ -350,7 +348,7 @@ func DeployOCRContractsForwarderFlowLocal(
 			forwarderAddresses,
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to set on-chain config")
+			return nil, fmt.Errorf("failed to set on-chain config, err: %w", err)
 		}
 		if err = client.WaitForEvents(); err != nil {
 			return nil, err

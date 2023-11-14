@@ -111,7 +111,6 @@ func deployKeeper20Registry(
 func setupNode(
 	t *testing.T,
 	port int,
-	dbName string,
 	nodeKey ethkey.KeyV2,
 	backend *backends.SimulatedBackend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
@@ -119,7 +118,7 @@ func setupNode(
 ) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
 	p2pKey := keystest.NewP2PKeyV2(t)
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
-	cfg, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Feature.LogPoller = ptr(true)
 
 		c.OCR.Enabled = ptr(false)
@@ -240,7 +239,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_keeper_ocr", nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
+	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
@@ -251,7 +250,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
 	for i := 0; i < 4; i++ {
-		app, peerID, transmitter, kb := setupNode(t, ports[i], fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
+		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		}, NewSimulatedMercuryServer())
@@ -501,7 +500,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	effectiveTransmitters := make([]common.Address, 0)
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_keeper_ocr", nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
+	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
 
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
@@ -513,7 +512,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
 	for i := 0; i < 4; i++ {
-		app, peerID, transmitter, kb := setupNode(t, ports[i], fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
+		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		}, NewSimulatedMercuryServer())
