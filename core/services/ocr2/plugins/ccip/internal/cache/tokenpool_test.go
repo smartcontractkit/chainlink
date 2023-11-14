@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -74,7 +75,7 @@ func TestNewTokenPools(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockLp := mocks.NewLogPoller(t)
-			mockLp.On("LatestBlock", mock.Anything).Return(int64(100), nil)
+			mockLp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
 
 			offRamp := ccipdatamocks.NewOffRampReader(t)
 			offRamp.On("TokenEvents").Return([]common.Hash{})

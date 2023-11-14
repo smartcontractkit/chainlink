@@ -1313,7 +1313,7 @@ func TestInsertLogsWithBlock(t *testing.T) {
 	// We need full db here, because we want to test transaction rollbacks.
 	// Using pgtest.NewSqlxDB(t) will run all tests in TXs which is not desired for this type of test
 	// (inner tx rollback will rollback outer tx, blocking rest of execution)
-	_, db := heavyweight.FullTestDBV2(t, nil)
+	_, db := heavyweight.FullTestDBV2(t, "insert_test", nil)
 	o := logpoller.NewORM(chainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	correctLog := GenLog(chainID, 1, 1, utils.RandomAddress().String(), event[:], address)
@@ -1389,7 +1389,7 @@ func TestInsertLogsInTx(t *testing.T) {
 	maxLogsSize := 9000
 
 	// We need full db here, because we want to test transaction rollbacks.
-	_, db := heavyweight.FullTestDBV2(t, nil)
+	_, db := heavyweight.FullTestDBV2(t, "insert_logs_tx", nil)
 	o := logpoller.NewORM(chainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	logs := make([]logpoller.Log, maxLogsSize, maxLogsSize+1)

@@ -790,7 +790,7 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 		}
 
 		// get executable sequence numbers
-		executedMp, err := r.getExecutedSeqNrsInRange(ctx, intervalMin, intervalMax, latestBlock)
+		executedMp, err := r.getExecutedSeqNrsInRange(ctx, intervalMin, intervalMax, latestBlock.BlockNumber)
 		if err != nil {
 			return err
 		}
