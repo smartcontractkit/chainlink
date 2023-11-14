@@ -7,6 +7,7 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
@@ -25,7 +26,7 @@ type EVM interface {
 	BlockBackfillSkip() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	ChainID() *big.Int
-	ChainType() config.ChainType
+	ChainType() commonconfig.ChainType
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FlagsContractAddress() string

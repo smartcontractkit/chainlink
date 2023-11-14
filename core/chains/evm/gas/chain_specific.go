@@ -1,9 +1,9 @@
 package gas
 
 import (
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 // chainSpecificIsUsable allows for additional logic specific to a particular
