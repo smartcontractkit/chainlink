@@ -42,6 +42,10 @@ func TestContext(tb testing.TB) context.Context {
 	var cancel func()
 	switch t := tb.(type) {
 	case *testing.T:
+		// Return background context if testing.T not set
+		if t == nil {
+			return ctx
+		}
 		if d, ok := t.Deadline(); ok {
 			ctx, cancel = context.WithDeadline(ctx, d)
 		}
