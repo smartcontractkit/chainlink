@@ -5,7 +5,7 @@ package mocks
 import (
 	big "math/big"
 
-	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
+	assets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
 	context "context"
 

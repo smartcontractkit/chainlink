@@ -6,7 +6,7 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 

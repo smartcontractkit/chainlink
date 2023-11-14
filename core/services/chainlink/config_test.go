@@ -17,12 +17,13 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -537,7 +538,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LogBackfillBatchSize:     ptr[uint32](17),
 				LogPollInterval:          &minute,
 				LogKeepBlocksDepth:       ptr[uint32](100000),
-				MinContractPayment:       assets.NewLinkFromJuels(math.MaxInt64),
+				MinContractPayment:       relayassets.NewLinkFromJuels(math.MaxInt64),
 				MinIncomingConfirmations: ptr[uint32](13),
 				NonceAutoSync:            ptr(true),
 				NoNewHeadsThreshold:      &minute,
