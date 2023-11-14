@@ -95,13 +95,12 @@ func (s *streams) Lookup(ctx context.Context, checkResults []ocr2keepers.CheckRe
 
 	var wg sync.WaitGroup
 	for i, lookup := range lookups {
-		i := i
 		wg.Add(1)
-		go s.doLookup(ctx, &wg, lookup, i, checkResults)
-
-		s.threadCtrl.Go(func(ctx context.Context) {
-			s.doLookup(ctx, &wg, lookup, i, checkResults)
-		})
+		func(i int, lookup *mercury.StreamsLookup) {
+			s.threadCtrl.Go(func(ctx context.Context) {
+				s.doLookup(ctx, &wg, lookup, i, checkResults)
+			})
+		}(i, lookup)
 	}
 	wg.Wait()
 
@@ -198,7 +197,6 @@ func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *merc
 	}
 
 	state, retryable, mercuryBytes, err := s.checkCallback(ctx, values, lookup)
-	//state, retryable, checkCallbackResult, err := s.checkCallback(ctx, values, lookup)
 	if err != nil {
 		s.lggr.Errorf("at block %d upkeep %s checkCallback err: %s", lookup.Block, lookup.UpkeepId, err.Error())
 		checkResults[i].Retryable = retryable
@@ -206,7 +204,6 @@ func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *merc
 		return
 	}
 	s.lggr.Infof("checkCallback mercuryBytes=%s", hexutil.Encode(mercuryBytes))
-	//s.lggr.Infof("checkCallback mercuryBytes=%+v", checkCallbackResult)
 
 	unpackCallBackState, needed, performData, failureReason, _, err := s.packer.UnpackCheckCallbackResult(mercuryBytes)
 	if err != nil {
