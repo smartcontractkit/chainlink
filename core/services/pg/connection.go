@@ -42,7 +42,7 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 	lockTimeout := config.DefaultLockTimeout().Milliseconds()
 	idleInTxSessionTimeout := config.DefaultIdleInTxSessionTimeout().Milliseconds()
 	stmt := fmt.Sprintf(`SET TIME ZONE 'UTC'; SET lock_timeout = %d; SET idle_in_transaction_session_timeout = %d; SET default_transaction_isolation = %q`,
-		lockTimeout, idleInTxSessionTimeout, DefaultIsolation.String())
+		lockTimeout, idleInTxSessionTimeout, defaultIsolation.String())
 	if _, err = db.Exec(stmt); err != nil {
 		return nil, err
 	}

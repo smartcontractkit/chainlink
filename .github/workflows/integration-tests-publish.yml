@@ -5,9 +5,20 @@ on:
   push:
     branches:
       - develop
+  workflow_dispatch:
+    inputs:
+      chainlink-tests-tag:
+        description: 'The tag to be pushed'
+        required: true
+      ctf-base-image-tag:
+        description: |
+          'The tag of the CTF base image to be used,
+          typically something like v1.18.6 from https://github.com/smartcontractkit/chainlink-testing-framework/releases
+          or a custom tag or branch you have pushed.'
+        required: true
 
 env:
-  ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:develop
+  ECR_TAG_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
 
 jobs:
   publish-integration-test-image:
@@ -16,7 +27,7 @@ jobs:
       id-token: write
       contents: read
     name: Publish Integration Test Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-16cores-64GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -29,11 +40,12 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Build Image
         uses: ./.github/actions/build-test-image
         with:
-          other_tags: ${{ env.ECR_TAG }}
+          other_tags: "${{ env.ECR_TAG_BASE }}:${{ inputs.chainlink-tests-tag || 'develop' }}"
+          base_image_tag: ${{ inputs.ctf-base-image-tag }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
