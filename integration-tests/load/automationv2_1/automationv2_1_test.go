@@ -351,6 +351,7 @@ func TestLogTrigger(t *testing.T) {
 	}
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
+	evmClients := make([]*blockchain.EVMClient, 0)
 
 	for i := 0; i < numberOfUpkeeps; i++ {
 		consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
@@ -362,7 +363,15 @@ func TestLogTrigger(t *testing.T) {
 			Int("Out Of", numberOfUpkeeps).
 			Msg("Deployed Automation Log Trigger Consumer Contract")
 
-		triggerContract, err := contractDeployer.DeployLogEmitterContract()
+		cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
+		require.NoError(t, err, "Error building concurrent chain client")
+
+		cContractDeployer, err := contracts.NewContractDeployer(cEVMClient, l)
+		require.NoError(t, err, "Error building concurrent contract deployer")
+
+		evmClients = append(evmClients, &cEVMClient)
+
+		triggerContract, err := cContractDeployer.DeployLogEmitterContract()
 		require.NoError(t, err, "Error deploying log emitter contract")
 		triggerContracts = append(triggerContracts, triggerContract)
 		l.Debug().
