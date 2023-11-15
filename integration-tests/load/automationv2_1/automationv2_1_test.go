@@ -145,7 +145,7 @@ func TestLogTrigger(t *testing.T) {
 	testType := "load"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 	loadDuration := time.Duration(duration) * time.Second
-	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(100))) //100 LINK
+	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
 	automationDefaultUpkeepGasLimit := uint32(1_000_000)
 
 	registrySettings := &contracts.KeeperRegistrySettings{
@@ -483,6 +483,7 @@ func TestLogTrigger(t *testing.T) {
 	for _, gen := range p.Generators {
 		numberOfEventsEmitted += len(gen.GetData().OKData.Data)
 	}
+	numberOfEventsEmitted = numberOfEventsEmitted * numberOfEvents
 	l.Info().Int("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
 	if endBlock-startBlock < uint64(batchSize) {
