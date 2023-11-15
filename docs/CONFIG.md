@@ -2914,7 +2914,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'kroma'
-FinalityDepth = 400
+FinalityDepth = 700
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
@@ -2962,7 +2962,7 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 400
+HistoryDepth = 700
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -3703,7 +3703,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'kroma'
-FinalityDepth = 400
+FinalityDepth = 700
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
@@ -3751,7 +3751,7 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 400
+HistoryDepth = 700
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
