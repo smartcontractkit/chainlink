@@ -684,7 +684,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		headFunc:     func(ocr2keepers.BlockKey) {},
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
-			Cred: &models.MercuryCredentials{
+			cred: &models.MercuryCredentials{
 				LegacyURL: "https://google.old.com",
 				URL:       "https://google.com",
 				Username:  "FakeClientID",

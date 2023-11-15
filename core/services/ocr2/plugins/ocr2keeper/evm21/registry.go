@@ -88,7 +88,7 @@ func NewEvmRegistry(
 	finalityDepth uint32,
 ) *EvmRegistry {
 	mercuryConfig := &MercuryConfig{
-		Cred:             mc,
+		cred:             mc,
 		Abi:              core.StreamsCompatibleABI,
 		AllowListCache:   cache.New(defaultAllowListExpiration, cleanupInterval),
 		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
@@ -129,7 +129,7 @@ var upkeepStateEvents = []common.Hash{
 }
 
 type MercuryConfig struct {
-	Cred *models.MercuryCredentials
+	cred *models.MercuryCredentials
 	Abi  abi.ABI
 	// AllowListCache stores the upkeeps privileges. In 2.1, this only includes a JSON bytes for allowed to use mercury
 	AllowListCache   *cache.Cache
@@ -138,16 +138,15 @@ type MercuryConfig struct {
 
 func NewMercuryConfig(credentials *models.MercuryCredentials, abi abi.ABI) *MercuryConfig {
 	return &MercuryConfig{
-		Cred:             credentials,
+		cred:             credentials,
 		Abi:              abi,
 		AllowListCache:   cache.New(defaultPluginRetryExpiration, cleanupInterval),
 		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
 	}
 }
 
-// TODO since Cred is now exposed, we should remove this method and use Cred directly
 func (c *MercuryConfig) Credentials() *models.MercuryCredentials {
-	return c.Cred
+	return c.cred
 }
 
 func (c *MercuryConfig) IsUpkeepAllowed(k string) (interface{}, bool) {

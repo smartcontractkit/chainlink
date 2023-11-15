@@ -14,7 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
+
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -44,7 +47,7 @@ type contextCaller interface {
 }
 
 type streams struct {
-	utils.StartStopOnce
+	services.StateMachine
 	packer          mercury.Packer
 	mercuryConfig   mercury.MercuryConfigProvider
 	abi             abi.ABI
@@ -184,7 +187,7 @@ func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *merc
 	}
 
 	if err != nil {
-		s.lggr.Errorf("upkeep %s retryable %v retryInterval %s doMercuryRequest: %s", lookup.UpkeepId, retryable, retryInterval, err.Error())
+		s.lggr.Errorf("at block %d upkeep %s requested time %s retryable %v retryInterval %s doMercuryRequest: %s", lookup.Block, lookup.UpkeepId, lookup.Time, retryable, retryInterval, err.Error())
 		checkResults[i].Retryable = retryable
 		checkResults[i].RetryInterval = retryInterval
 		checkResults[i].PipelineExecutionState = uint8(state)
@@ -193,7 +196,7 @@ func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *merc
 	}
 
 	for j, v := range values {
-		s.lggr.Infof("upkeep %s doMercuryRequest values[%d]: %s", lookup.UpkeepId, j, hexutil.Encode(v))
+		s.lggr.Infof("at block %d upkeep %s requested time %s doMercuryRequest values[%d]: %s", lookup.Block, lookup.UpkeepId, lookup.Time, j, hexutil.Encode(v))
 	}
 
 	state, retryable, mercuryBytes, err := s.checkCallback(ctx, values, lookup)
@@ -203,31 +206,31 @@ func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *merc
 		checkResults[i].PipelineExecutionState = uint8(state)
 		return
 	}
-	s.lggr.Infof("checkCallback mercuryBytes=%s", hexutil.Encode(mercuryBytes))
+	s.lggr.Infof("at block %d upkeep %s requested time %s checkCallback mercuryBytes: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(mercuryBytes))
 
 	unpackCallBackState, needed, performData, failureReason, _, err := s.packer.UnpackCheckCallbackResult(mercuryBytes)
 	if err != nil {
-		s.lggr.Errorf("at block %d upkeep %s UnpackCheckCallbackResult err: %s", lookup.Block, lookup.UpkeepId, err.Error())
+		s.lggr.Errorf("at block %d upkeep %s requested time %s UnpackCheckCallbackResult err: %s", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error())
 		checkResults[i].PipelineExecutionState = unpackCallBackState
 		return
 	}
 
 	if failureReason == uint8(mercury.MercuryUpkeepFailureReasonMercuryCallbackReverted) {
 		checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonMercuryCallbackReverted)
-		s.lggr.Debugf("at block %d upkeep %s mercury callback reverts", lookup.Block, lookup.UpkeepId)
+		s.lggr.Debugf("at block %d upkeep %s requested time %s mercury callback reverts", lookup.Block, lookup.UpkeepId, lookup.Time)
 		return
 	}
 
 	if !needed {
 		checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonUpkeepNotNeeded)
-		s.lggr.Debugf("at block %d upkeep %s callback reports upkeep not needed", lookup.Block, lookup.UpkeepId)
+		s.lggr.Debugf("at block %d upkeep %s requested time %s callback reports upkeep not needed", lookup.Block, lookup.UpkeepId, lookup.Time)
 		return
 	}
 
 	checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonNone)
 	checkResults[i].Eligible = true
 	checkResults[i].PerformData = performData
-	s.lggr.Infof("at block %d upkeep %s successful with perform data: %s", lookup.Block, lookup.UpkeepId, hexutil.Encode(performData))
+	s.lggr.Infof("at block %d upkeep %s requested time %s successful with perform data: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(performData))
 }
 
 // allowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
