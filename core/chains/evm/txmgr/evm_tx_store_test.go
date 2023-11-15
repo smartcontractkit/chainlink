@@ -1189,6 +1189,28 @@ func TestORM_UpdateTxFatalError(t *testing.T) {
 	})
 }
 
+func TestORM_UpdateTxAbandoned(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	t.Run("update successful", func(t *testing.T) {
+		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 13, fromAddress)
+		etxPretendError := null.StringFrom("no more toilet paper")
+		etx.Error = etxPretendError
+
+		err := txStore.UpdateTxAbandoned(testutils.Context(t), &etx)
+		require.NoError(t, err)
+		// TODO: txmgrcommon.TxAbandoned
+		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
+	})
+}
+
 func TestORM_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 	t.Parallel()
 
@@ -1335,7 +1357,7 @@ func TestORM_GetTxInProgress(t *testing.T) {
 	})
 }
 
-func TestORM_GetNonFinalizedTransactions(t *testing.T) {
+func TestORM_GetNonFatalTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1346,7 +1368,7 @@ func TestORM_GetNonFinalizedTransactions(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("gets 0 non finalized eth transaction", func(t *testing.T) {
-		txes, err := txStore.GetNonFinalizedTransactions(testutils.Context(t))
+		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t))
 		require.NoError(t, err)
 		require.Empty(t, txes)
 	})
@@ -1356,7 +1378,7 @@ func TestORM_GetNonFinalizedTransactions(t *testing.T) {
 		unconfirmedTx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 124, fromAddress)
 		unstartedTx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
 
-		txes, err := txStore.GetNonFinalizedTransactions(testutils.Context(t))
+		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t))
 		require.NoError(t, err)
 
 		for _, tx := range txes {

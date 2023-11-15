@@ -1198,7 +1198,30 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 	return nil
 }
 
-func (o *evmTxStore) GetNonFinalizedTransactions(ctx context.Context) (txes []*Tx, err error) {
+func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64) (finalized bool, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+
+	var rs []dbReceipt
+	err = o.q.SelectContext(ctx, &rs, `
+    SELECT evm.receipts.receipt FROM evm.txes
+    INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
+    INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
+    WHERE evm.receipts.block_number <= ($1 - evm.txes.min_confirmations) AND evm.txes.id = $2
+    `, blockHeight, txID)
+	if err != nil {
+		return false, fmt.Errorf("failed to retrieve transaction reciepts: %w", err)
+	}
+
+	if len(rs) > 0 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (o *evmTxStore) GetNonFatalTransactions(ctx context.Context) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1206,7 +1229,8 @@ func (o *evmTxStore) GetNonFinalizedTransactions(ctx context.Context) (txes []*T
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT * FROM evm.txes
-WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress'
+WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress' 
+   OR state = 'confirmed_missing_receipt' OR state = 'confirmed'
 `
 		var dbEtxs []DbEthTx
 		if err = tx.Select(&dbEtxs, stmt); err != nil {
@@ -1485,6 +1509,28 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 		if _, err := tx.Exec(`DELETE FROM evm.tx_attempts WHERE eth_tx_id = $1`, etx.ID); err != nil {
 			return pkgerrors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
+		var dbEtx DbEthTx
+		dbEtx.FromTx(etx)
+		err := pkgerrors.Wrap(tx.Get(&dbEtx, `UPDATE evm.txes SET state=$1, error=$2, broadcast_at=NULL, initial_broadcast_at=NULL, nonce=NULL WHERE id=$3 RETURNING *`, etx.State, etx.Error, etx.ID), "saveFatallyErroredTransaction failed to save eth_tx")
+		dbEtx.ToTx(etx)
+		return err
+	})
+}
+
+func (o *evmTxStore) UpdateTxAbandoned(ctx context.Context, etx *Tx) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	if !etx.Error.Valid {
+		return errors.New("expected error field to be set")
+	}
+
+	etx.Sequence = nil
+	// TODO: txmgr.TxAbandoned
+	etx.State = txmgr.TxFatalError
+
+	return qq.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
 		dbEtx.FromTx(etx)
 		err := pkgerrors.Wrap(tx.Get(&dbEtx, `UPDATE evm.txes SET state=$1, error=$2, broadcast_at=NULL, initial_broadcast_at=NULL, nonce=NULL WHERE id=$3 RETURNING *`, etx.State, etx.Error, etx.ID), "saveFatallyErroredTransaction failed to save eth_tx")

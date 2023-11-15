@@ -52,7 +52,7 @@ func NewTxm(
 	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
 	ethBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, txNonceSyncer, lggr, checker, chainConfig.NonceAutoSync())
 	ethTracker := NewEvmTracker(txStore, lggr)
-	ethConfirmer := NewEvmConfirmer(txStore, txmClient, ethTracker, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
+	ethConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
 	var ethResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
 		ethResender = NewEvmResender(lggr, txStore, txmClient, ethTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
@@ -104,7 +104,6 @@ func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int]
 func NewEvmConfirmer(
 	txStore TxStore,
 	client TxmClient,
-	tracker *Tracker,
 	chainConfig txmgrtypes.ConfirmerChainConfig,
 	feeConfig txmgrtypes.ConfirmerFeeConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
@@ -113,7 +112,7 @@ func NewEvmConfirmer(
 	txAttemptBuilder TxAttemptBuilder,
 	lggr logger.Logger,
 ) *Confirmer {
-	return txmgr.NewConfirmer(txStore, client, tracker, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
+	return txmgr.NewConfirmer(txStore, client, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
 }
 
 // NewEvmTracker instantiates a new EVM tracker for abandoned transactions

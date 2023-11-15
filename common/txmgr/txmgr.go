@@ -198,6 +198,17 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 			b.resender.Start()
 		}
 
+		if b.tracker != nil {
+			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(b.chainID)
+			if err != nil {
+				return fmt.Errorf("Txm: failed to get enabled addresses for chain %s: %w", b.chainID.String(), err)
+			}
+
+			if err := b.tracker.Start(ctx, enabledAddresses); err != nil {
+				return fmt.Errorf("Txm: Tracker failed to start: %w", err)
+			}
+		}
+
 		if b.fwdMgr != nil {
 			if err := ms.Start(ctx, b.fwdMgr); err != nil {
 				return fmt.Errorf("Txm: ForwarderManager failed to start: %w", err)
@@ -374,6 +385,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			b.broadcaster.Trigger(address)
 		case head := <-b.chHeads:
 			b.confirmer.mb.Deliver(head)
+			b.tracker.mb.Deliver(head.BlockNumber())
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the

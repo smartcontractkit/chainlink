@@ -128,8 +128,6 @@ type Confirmer[
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
-	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-
 	mb        *utils.Mailbox[HEAD]
 	ctx       context.Context
 	ctxCancel context.CancelFunc
@@ -153,7 +151,6 @@ func NewConfirmer[
 ](
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	chainConfig txmgrtypes.ConfirmerChainConfig,
 	feeConfig txmgrtypes.ConfirmerFeeConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
@@ -169,7 +166,6 @@ func NewConfirmer[
 		lggr:             lggr,
 		client:           client,
 		TxAttemptBuilder: txAttemptBuilder,
-		tracker:          tracker,
 		resumeCallback:   nil,
 		chainConfig:      chainConfig,
 		feeConfig:        feeConfig,
@@ -205,17 +201,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sta
 	ec.enabledAddresses, err = ec.ks.EnabledAddressesForChain(ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "Confirmer: failed to load EnabledAddressesForChain")
-	}
-
-	ec.tracker.Reset()
-	err = ec.tracker.SetEnabledAddresses(ec.enabledAddresses)
-	if err != nil {
-		return errors.Wrap(err, "Confirmer: failed to set tracker enabled addresses")
-	}
-
-	err = ec.tracker.TrackAbandonedTxes(context.Background())
-	if err != nil {
-		return errors.Wrap(err, "Confirmer: failed to track abandoned transactions")
 	}
 
 	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
@@ -320,13 +305,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	}
 
 	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
-	mark = time.Now()
-
-	if err := ec.tracker.HandleAbandonedTxes(ctx); err != nil {
-		return errors.Wrap(err, "HandleAbandonedTxes failed")
-	}
-
-	ec.lggr.Debugw("Finished HandleAbandonedTxes", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 
 	if ec.resumeCallback != nil {
 		mark = time.Now()
@@ -627,12 +605,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reb
 
 	// It is safe to process separate keys concurrently
 	// NOTE: This design will block one key if another takes a really long time to execute
-	rebroadcastAddrs := ec.enabledAddresses
-	rebroadcastAddrs = append(rebroadcastAddrs, ec.tracker.GetAbandonedAddresses()...)
-	wg.Add(len(rebroadcastAddrs))
+	wg.Add(len(ec.enabledAddresses))
 	errors := []error{}
 	var errMu sync.Mutex
-	for _, address := range rebroadcastAddrs {
+	for _, address := range ec.enabledAddresses {
 		go func(fromAddress ADDR) {
 			if err := ec.rebroadcastWhereNecessary(ctx, fromAddress, blockHeight); err != nil {
 				errMu.Lock()
@@ -963,10 +939,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	var wg sync.WaitGroup
 	errors := []error{}
 	var errMu sync.Mutex
-	handleAddresses := ec.enabledAddresses
-	handleAddresses = append(handleAddresses, ec.tracker.GetAbandonedAddresses()...)
-	wg.Add(len(handleAddresses))
-	for _, address := range handleAddresses {
+	wg.Add(len(ec.enabledAddresses))
+	for _, address := range ec.enabledAddresses {
 		go func(fromAddress ADDR) {
 			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber()); err != nil {
 				errMu.Lock()

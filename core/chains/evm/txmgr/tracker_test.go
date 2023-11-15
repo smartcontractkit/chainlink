@@ -4,15 +4,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 )
 
 func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore, keystore.Eth) {
@@ -47,28 +47,17 @@ func TestEthTracker_Initialization(t *testing.T) {
 	tracker, _, keyStore := newTestEvmTrackerSetup(t)
 	ctx := testutils.Context(t)
 
-	// error before setting enabled addresses
-	err := tracker.TrackAbandonedTxes(ctx)
-	assert.Error(t, err)
-	assert.False(t, tracker.IsTracking())
-
-	err = tracker.SetEnabledAddresses(generateEnabledAddresses(t, keyStore))
-	assert.NoError(t, err)
-	err = tracker.TrackAbandonedTxes(ctx)
-	assert.NoError(t, err)
-	assert.True(t, tracker.IsTracking())
-
-	// error tracking already enabled
-	err = tracker.TrackAbandonedTxes(ctx)
-	assert.Error(t, err)
+	err := tracker.Start(ctx, generateEnabledAddresses(t, keyStore))
+	require.NoError(t, err)
+	require.True(t, tracker.IsStarted())
 
 	t.Run("reset tracker", func(t *testing.T) {
-		tracker.Reset()
-		assert.False(t, tracker.IsTracking())
-		err = tracker.SetEnabledAddresses(generateEnabledAddresses(t, keyStore))
-		assert.NoError(t, err)
-		err = tracker.TrackAbandonedTxes(ctx)
-		assert.NoError(t, err)
+		tracker.Stop()
+		require.False(t, tracker.IsStarted())
+
+		err := tracker.Start(ctx, generateEnabledAddresses(t, keyStore))
+		require.NoError(t, err)
+		require.True(t, tracker.IsStarted())
 	})
 }
 
@@ -79,23 +68,39 @@ func TestEthTracker_AddressTracking(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	t.Run("track abandoned addresses", func(t *testing.T) {
-		tracker.Reset()
-		err := tracker.SetEnabledAddresses(generateEnabledAddresses(t, keyStore))
-		assert.NoError(t, err)
-		addr1 := cltest.MustGenerateRandomKey(t).Address
-		addr2 := cltest.MustGenerateRandomKey(t).Address
-
 		// Insert abandoned transactions
-		_ = cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, addr1)
-		_ = cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr2)
+		inProgressAddr := cltest.MustGenerateRandomKey(t).Address
+		unconfirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		_ = cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, inProgressAddr)
+		_ = cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, unconfirmedAddr)
+		_ = cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 
-		err = tracker.TrackAbandonedTxes(ctx)
-		assert.NoError(t, err)
+		err := tracker.Start(ctx, generateEnabledAddresses(t, keyStore))
+		defer tracker.Stop()
+		require.NoError(t, err)
 
 		addrs := tracker.GetAbandonedAddresses()
-		assert.Contains(t, addrs, addr1)
-		assert.Contains(t, addrs, addr2)
+		require.NotContains(t, addrs, inProgressAddr)
+		require.Contains(t, addrs, confirmedAddr)
+		require.Contains(t, addrs, unconfirmedAddr)
 	})
+
+	t.Run("stop tracking finalized tx", func(t *testing.T) {
+		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		_ = cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+
+		err := tracker.Start(ctx, generateEnabledAddresses(t, keyStore))
+		defer tracker.Stop()
+		require.NoError(t, err)
+
+		// TODO: How could I test this?
+		tracker.XXXDeliverBlock(10)
+
+		addrs := tracker.GetAbandonedAddresses()
+		require.NotContains(t, addrs, confirmedAddr)
+	})
+
 }
 
 func TestEthTracker_ExceedingTTL(t *testing.T) {
@@ -106,63 +111,32 @@ func TestEthTracker_ExceedingTTL(t *testing.T) {
 	enabledAddresses := generateEnabledAddresses(t, keyStore)
 
 	t.Run("in progress transaction still valid", func(t *testing.T) {
-		err := tracker.SetEnabledAddresses(enabledAddresses)
-		assert.NoError(t, err)
-
 		addr1 := cltest.MustGenerateRandomKey(t).Address
-		_ = cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, addr1)
+		_ = cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, addr1, 123, 1)
 
-		err = tracker.TrackAbandonedTxes(ctx)
-		assert.NoError(t, err)
-
-		err = tracker.HandleAbandonedTxes(ctx)
-		assert.NoError(t, err)
-		assert.Contains(t, tracker.GetAbandonedAddresses(), addr1)
+		err := tracker.Start(ctx, enabledAddresses)
+		defer tracker.Stop()
+		require.NoError(t, err)
+		require.Contains(t, tracker.GetAbandonedAddresses(), addr1)
 	})
 
-	t.Run("in progress transaction exceeding ttl", func(t *testing.T) {
-		tracker.Reset()
-		tracker.XXXTestSetTTL(time.Nanosecond)
-
-		err := tracker.SetEnabledAddresses(enabledAddresses)
-		assert.NoError(t, err)
-
+	t.Run("exceeding ttl", func(t *testing.T) {
 		addr1 := cltest.MustGenerateRandomKey(t).Address
+		addr2 := cltest.MustGenerateRandomKey(t).Address
 		tx1 := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, addr1)
+		tx2 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr2)
 
-		err = tracker.TrackAbandonedTxes(ctx)
-		assert.NoError(t, err)
-
-		// Ensure tx1 is finalized as fatal for exceeding ttl
-		err = tracker.HandleAbandonedTxes(ctx)
-		assert.NoError(t, err)
-		assert.NotContains(t, tracker.GetAbandonedAddresses(), addr1)
-
-		fatalTxes, err := txStore.GetFatalTransactions(ctx)
-		assert.NoError(t, err)
-		assert.True(t, containsID(fatalTxes, tx1.ID))
-	})
-
-	t.Run("unconfirmed transaction exceeding ttl", func(t *testing.T) {
-		tracker.Reset()
 		tracker.XXXTestSetTTL(time.Nanosecond)
+		err := tracker.Start(ctx, enabledAddresses)
+		defer tracker.Stop()
+		require.NoError(t, err)
 
-		err := tracker.SetEnabledAddresses(enabledAddresses)
-		assert.NoError(t, err)
-
-		addr1 := cltest.MustGenerateRandomKey(t).Address
-		tx1 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr1)
-
-		err = tracker.TrackAbandonedTxes(ctx)
-		assert.NoError(t, err)
-
-		// Ensure tx1 is finalized as fatal for exceeding ttl
-		err = tracker.HandleAbandonedTxes(ctx)
-		assert.NoError(t, err)
-		assert.NotContains(t, tracker.GetAbandonedAddresses(), addr1)
+		time.Sleep(5 * time.Millisecond)
+		require.NotContains(t, tracker.GetAbandonedAddresses(), addr1, addr2)
 
 		fatalTxes, err := txStore.GetFatalTransactions(ctx)
-		assert.NoError(t, err)
-		assert.True(t, containsID(fatalTxes, tx1.ID))
+		require.NoError(t, err)
+		require.True(t, containsID(fatalTxes, tx1.ID))
+		require.True(t, containsID(fatalTxes, tx2.ID))
 	})
 }

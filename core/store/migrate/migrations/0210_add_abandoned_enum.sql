@@ -1,0 +1,3 @@
+-- +goose Up
+--ALTER TABLE evm.txes
+-- +goose Down

@@ -1082,6 +1082,20 @@ func (_m *EvmTxStore) UpdateBroadcastAts(ctx context.Context, now time.Time, etx
 	return r0
 }
 
+// UpdateTxAbandoned provides a mock function with given fields: ctx, etx
+func (_m *EvmTxStore) UpdateTxAbandoned(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+	ret := _m.Called(ctx, etx)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+		r0 = rf(ctx, etx)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: ctx, etx, attempt, NewAttemptState
 func (_m *EvmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], NewAttemptState types.TxAttemptState) error {
 	ret := _m.Called(ctx, etx, attempt, NewAttemptState)
