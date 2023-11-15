@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils/bytes"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/shopspring/decimal"
@@ -75,8 +76,8 @@ func (e *Eth) MarshalText() ([]byte, error) {
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (e *Eth) UnmarshalJSON(data []byte) error {
-	if utils.IsQuoted(data) {
-		return e.UnmarshalText(utils.RemoveQuotes(data))
+	if bytes.HasQuotes(data) {
+		return e.UnmarshalText(bytes.TrimQuotes(data))
 	}
 	return assets.ErrNoQuotesForCurrency
 }
