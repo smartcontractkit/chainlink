@@ -1,0 +1,14 @@
+package types
+
+import "reflect"
+
+{{ range . }}
+type bytes{{.Size}} [{{.Size}}]byte
+func init() {
+	typeMap["bytes{{.Size}}"] = &AbiEncodingType {
+		Native: reflect.TypeOf([{{.Size}}]byte{}),
+		Checked: reflect.TypeOf(bytes{{.Size}}{}),
+	}
+}
+
+{{ end }}
