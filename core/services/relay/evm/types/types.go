@@ -25,6 +25,11 @@ type ChainReaderConfig struct {
 	ChainContractReaders map[string]ChainContractReader `json:"chainContractReaders"`
 }
 
+type ChainCodedConfig struct {
+	TypeAbi string `json:"typeAbi"`
+	// TODO transform configs that allow hard-coding values or transforming them (max, min, median etc)
+}
+
 type ChainContractReader struct {
 	ContractABI string `json:"contractABI"`
 	// ChainReaderDefinitions key is chainAgnostic read name.
