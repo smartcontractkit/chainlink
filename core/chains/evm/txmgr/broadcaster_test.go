@@ -978,7 +978,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 }
 
 func getLocalNextNonce(t *testing.T, eb *txmgr.Broadcaster, fromAddress gethCommon.Address) uint64 {
-	n, err := eb.GetNextSequence(fromAddress)
+	n, err := eb.GetNextSequence(testutils.Context(t), fromAddress)
 	require.NoError(t, err)
 	require.NotNil(t, n)
 	return uint64(n)
@@ -1068,7 +1068,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 			// Check that the key had its nonce reset
 			var nonce evmtypes.Nonce
-			nonce, err = eb.GetNextSequence(fromAddress)
+			nonce, err = eb.GetNextSequence(testutils.Context(t), fromAddress)
 			require.NoError(t, err)
 			// Saved NextNonce must be the same as before because this transaction
 			// was not accepted by the eth node and never can be
@@ -1179,7 +1179,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// Check that the key had its nonce reset
 		var nonce evmtypes.Nonce
-		nonce, err = eb.GetNextSequence(fromAddress)
+		nonce, err = eb.GetNextSequence(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
 		// Saved NextNonce must be the same as before because this transaction
 		// was not accepted by the eth node and never can be
@@ -1644,7 +1644,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Once()
 	ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 	eb := NewTestEthBroadcaster(t, txStore, ethClient, kst, evmcfg, &testCheckerFactory{}, false)
-	_, err := eb.GetNextSequence(fromAddress)
+	_, err := eb.GetNextSequence(testutils.Context(t), fromAddress)
 	require.NoError(t, err)
 
 	t.Run("tx signing fails", func(t *testing.T) {
@@ -1672,7 +1672,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 
 		// Check that the key did not have its nonce incremented
 		var nonce types.Nonce
-		nonce, err = eb.GetNextSequence(fromAddress)
+		nonce, err = eb.GetNextSequence(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
 		require.Equal(t, int64(localNonce), int64(nonce))
 	})
@@ -1710,12 +1710,12 @@ func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 	eb := NewTestEthBroadcaster(t, txStore, ethClient, kst, evmcfg, &testCheckerFactory{}, false)
 
-	nonce, err := eb.GetNextSequence(fromAddress)
+	nonce, err := eb.GetNextSequence(testutils.Context(t), fromAddress)
 	require.NoError(t, err)
 	eb.IncrementNextSequence(fromAddress, nonce)
 
 	// Nonce bumped to 1
-	nonce, err = eb.GetNextSequence(fromAddress)
+	nonce, err = eb.GetNextSequence(testutils.Context(t), fromAddress)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), int64(nonce))
 }
@@ -1795,12 +1795,12 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		testutils.WaitForLogMessage(t, observed, "Fast-forward sequence")
 
 		// Check nextSequenceMap to make sure it has correct nonce assigned
-		nonce, err := eb.GetNextSequence(fromAddress)
+		nonce, err := eb.GetNextSequence(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
-		assert.Equal(t, strconv.FormatUint(ethNodeNonce, 10), nonce.String())
+		require.Equal(t, strconv.FormatUint(ethNodeNonce, 10), nonce.String())
 
 		// The disabled key did not get updated
-		_, err = eb.GetNextSequence(disabledAddress)
+		_, err = eb.GetNextSequence(testutils.Context(t), disabledAddress)
 		require.Error(t, err)
 	})
 
@@ -1829,41 +1829,12 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		testutils.WaitForLogMessage(t, observed, "Fast-forward sequence")
 
 		// Check keyState to make sure it has correct nonce assigned
-		nonce, err := eb.GetNextSequence(fromAddress)
+		nonce, err := eb.GetNextSequence(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(ethNodeNonce), int64(nonce))
 
 		// The disabled key did not get updated
-		_, err = eb.GetNextSequence(disabledAddress)
-		require.Error(t, err)
-	})
-
-	ethNodeNonce++
-
-	t.Run("when broacaster startup fails to load sequence map, nonce syncer loads it later successfully", func(t *testing.T) {
-		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, estimator)
-
-		txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient)
-		kst := ksmocks.NewEth(t)
-		addresses := []gethCommon.Address{fromAddress}
-		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Once()
-		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), errors.New("failed to load nonce from on-chain at startup")).Once()
-		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
-
-		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(ethNodeNonce), nil).Once()
-		require.NoError(t, eb.Start(ctx))
-		defer func() { assert.NoError(t, eb.Close()) }()
-
-		testutils.WaitForLogMessage(t, observed, "Fast-forward sequence")
-
-		// Check nextSequenceMap to make sure it has correct nonce assigned
-		nonce, err := eb.GetNextSequence(fromAddress)
-		require.NoError(t, err)
-		assert.Equal(t, strconv.FormatUint(ethNodeNonce, 10), nonce.String())
-
-		// The disabled key did not get updated
-		_, err = eb.GetNextSequence(disabledAddress)
+		_, err = eb.GetNextSequence(testutils.Context(t), disabledAddress)
 		require.Error(t, err)
 	})
 }
@@ -1884,9 +1855,9 @@ func Test_LoadSequenceMap(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTx(t, txStore, int64(1), fromAddress)
 		eb := NewTestEthBroadcaster(t, txStore, ethClient, ks, evmcfg, checkerFactory, false)
 
-		nonce, err := eb.GetNextSequence(fromAddress)
+		nonce, err := eb.GetNextSequence(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
-		assert.Equal(t, int64(2), int64(nonce))
+		require.Equal(t, int64(2), int64(nonce))
 	})
 
 	t.Run("set next nonce using client when not found in tx table", func(t *testing.T) {
@@ -1902,9 +1873,9 @@ func Test_LoadSequenceMap(t *testing.T) {
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(10), nil).Once()
 		eb := NewTestEthBroadcaster(t, txStore, ethClient, ks, evmcfg, checkerFactory, false)
 
-		nonce, err := eb.GetNextSequence(fromAddress)
+		nonce, err := eb.GetNextSequence(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
-		assert.Equal(t, int64(10), int64(nonce))
+		require.Equal(t, int64(10), int64(nonce))
 	})
 }
 
@@ -1926,20 +1897,47 @@ func Test_NextNonce(t *testing.T) {
 
 	cltest.MustInsertRandomKey(t, ks, *utils.NewBig(testutils.FixtureChainID))
 
-	nonce, err := eb.GetNextSequence(addr1)
+	nonce, err := eb.GetNextSequence(testutils.Context(t), addr1)
 	require.NoError(t, err)
-	assert.Equal(t, randNonce, int64(nonce))
+	require.Equal(t, randNonce, int64(nonce))
 
 	randAddr1 := utils.RandomAddress()
-	_, err = eb.GetNextSequence(randAddr1)
+	_, err = eb.GetNextSequence(testutils.Context(t), randAddr1)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("address not found in next sequence map: %s", randAddr1.Hex()))
+	require.Contains(t, err.Error(), fmt.Sprintf("failed to find next sequence for address: %s", randAddr1.Hex()))
 
 	randAddr2 := utils.RandomAddress()
-	_, err = eb.GetNextSequence(randAddr2)
+	_, err = eb.GetNextSequence(testutils.Context(t), randAddr2)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("address not found in next sequence map: %s", randAddr2.Hex()))
+	require.Contains(t, err.Error(), fmt.Sprintf("failed to find next sequence for address: %s", randAddr2.Hex()))
 
+}
+
+func Test_SetNonceAfterInit(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ks := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
+	randNonce := testutils.NewRandomPositiveInt64()
+	_, addr1 := cltest.MustInsertRandomKey(t, ks)
+	ethClient.On("PendingNonceAt", mock.Anything, addr1).Return(uint64(0), errors.New("failed to retrieve nonce at startup")).Once()
+	ethClient.On("PendingNonceAt", mock.Anything, addr1).Return(uint64(randNonce), nil).Once()
+	eb := NewTestEthBroadcaster(t, txStore, ethClient, ks, evmcfg, checkerFactory, false)
+
+	nonce, err := eb.GetNextSequence(testutils.Context(t), addr1)
+	require.NoError(t, err)
+	require.Equal(t, randNonce, int64(nonce))
+
+	// Test that the new nonce is set in the map and does not need a client call to retrieve on subsequent calls
+	nonce, err = eb.GetNextSequence(testutils.Context(t), addr1)
+	require.NoError(t, err)
+	require.Equal(t, randNonce, int64(nonce))
 }
 
 func Test_IncrementNextNonce(t *testing.T) {
@@ -1958,26 +1956,26 @@ func Test_IncrementNextNonce(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, addr1).Return(uint64(randNonce), nil).Once()
 	eb := NewTestEthBroadcaster(t, txStore, ethClient, ks, evmcfg, checkerFactory, false)
 
-	nonce, err := eb.GetNextSequence(addr1)
+	nonce, err := eb.GetNextSequence(testutils.Context(t), addr1)
 	require.NoError(t, err)
 	eb.IncrementNextSequence(addr1, nonce)
 
-	nonce, err = eb.GetNextSequence(addr1)
+	nonce, err = eb.GetNextSequence(testutils.Context(t), addr1)
 	require.NoError(t, err)
 	assert.Equal(t, randNonce+1, int64(nonce))
 
 	eb.IncrementNextSequence(addr1, nonce)
-	nonce, err = eb.GetNextSequence(addr1)
+	nonce, err = eb.GetNextSequence(testutils.Context(t), addr1)
 	require.NoError(t, err)
 	assert.Equal(t, randNonce+2, int64(nonce))
 
 	randAddr1 := utils.RandomAddress()
-	_, err = eb.GetNextSequence(randAddr1)
+	_, err = eb.GetNextSequence(testutils.Context(t), randAddr1)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("address not found in next sequence map: %s", randAddr1.Hex()))
+	assert.Contains(t, err.Error(), fmt.Sprintf("failed to find next sequence for address: %s", randAddr1.Hex()))
 
 	// verify it didnt get changed by any erroring calls
-	nonce, err = eb.GetNextSequence(addr1)
+	nonce, err = eb.GetNextSequence(testutils.Context(t), addr1)
 	require.NoError(t, err)
 	assert.Equal(t, randNonce+2, int64(nonce))
 }
@@ -1998,12 +1996,12 @@ func Test_SetNextNonce(t *testing.T) {
 	eb := NewTestEthBroadcaster(t, txStore, ethClient, ks, evmcfg, checkerFactory, false)
 
 	t.Run("update next nonce", func(t *testing.T) {
-		nonce, err := eb.GetNextSequence(fromAddress)
+		nonce, err := eb.GetNextSequence(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), int64(nonce))
 		eb.SetNextSequence(fromAddress, evmtypes.Nonce(24))
 
-		newNextNonce, err := eb.GetNextSequence(fromAddress)
+		newNextNonce, err := eb.GetNextSequence(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(24), int64(newNextNonce))
 	})
