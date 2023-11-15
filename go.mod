@@ -104,6 +104,8 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
+require github.com/go-json-experiment/json v0.0.0-20231102232822-2e55bd4e08b0 // indirect
+
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
 	cosmossdk.io/api v0.3.1 // indirect

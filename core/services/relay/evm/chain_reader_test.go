@@ -19,17 +19,18 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	. "github.com/smartcontractkit/chainlink-relay/pkg/types/interfacetests"
 	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/testfiles"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	relaymedian "github.com/smartcontractkit/chainlink/v2/core/services/relay/median"
 )
 
 const commonGasLimitOnEvms = uint64(4712388)
@@ -72,6 +73,12 @@ var defs = map[string][]abi.ArgumentMarshaling{
 		{Name: "Stuff", Type: "int256[]"},
 		{Name: "OtherStuff", Type: "int256"},
 	},
+	relaymedian.MedianTypeName: {
+		{Name: "observationsTimestamp", Type: "uint32"},
+		{Name: "rawObservers", Type: "bytes32"},
+		{Name: "observations", Type: "int192[]"},
+		{Name: "juelsPerFeeCoin", Type: "int192"},
+	},
 }
 
 func TestChainReader(t *testing.T) {
@@ -87,6 +94,74 @@ func TestChainReader(t *testing.T) {
 			return reader.GetMaxDecodingSize(ctx, i, s)
 		})
 	})
+
+	t.Run("ReportCodec compatibility tests", func(t *testing.T) {
+		it := &interfaceTester{}
+		it.Setup(t)
+
+		cr := it.GetChainReader(t)
+
+		pao := median.ParsedAttributedObservation{
+			math.MaxUint32,
+			median.MaxValue(),
+			median.MaxValue(),
+			ocr2types.MaxOracles - 1,
+		}
+
+		var paos []median.ParsedAttributedObservation
+
+		rc, err := relaymedian.NewReportCodec(cr)
+		require.NoError(t, err)
+		for n := 1; n <= ocr2types.MaxOracles; n++ {
+			paos = append(paos, pao)
+			maxReportLen, err := rc.MaxReportLength(n)
+			require.NoError(t, err)
+			report, err := rc.BuildReport(paos)
+			require.NoError(t, err)
+			require.Equal(t, len(report), maxReportLen)
+		}
+	})
+}
+
+func FuzzMedianFromReportCompatibility(f *testing.F) {
+	it := &interfaceTester{}
+	it.setupNoClient(f)
+
+	cr := it.getChainReader(f)
+
+	codec, err := relaymedian.NewReportCodec(cr)
+	require.NoError(f, err)
+	validReport1, err := codec.BuildReport([]median.ParsedAttributedObservation{{
+		12345678,
+		big.NewInt(1e12),
+		big.NewInt(1e13),
+		0,
+	}})
+	if err != nil {
+		f.Fatalf("failed to construct valid report: %s", err)
+	}
+
+	validReport2, err := codec.BuildReport([]median.ParsedAttributedObservation{{
+		12345678,
+		big.NewInt(1e12),
+		big.NewInt(1e13),
+		0,
+	}, {
+		12345679,
+		big.NewInt(1e13),
+		big.NewInt(1e14),
+		1,
+	}})
+	if err != nil {
+		f.Fatalf("failed to construct valid report: %s", err)
+	}
+
+	f.Add([]byte{})
+	f.Add([]byte(validReport1))
+	f.Add([]byte(validReport2))
+	f.Fuzz(func(t *testing.T, report []byte) {
+		_, _ = codec.MedianFromReport(report)
+	})
 }
 
 type interfaceTester struct {
@@ -101,51 +176,61 @@ type interfaceTester struct {
 }
 
 func (it *interfaceTester) Setup(t *testing.T) {
-	// can re-use the same chain for tests, just make new contract for each test
 	if it.chain == nil {
-		defBytes, err := json.Marshal(defs)
-		require.NoError(t, err)
-		require.NoError(t, json.Unmarshal(defBytes, &it.defs))
-		it.chain = &mocks.Chain{}
-		it.setupChain(t)
-		it.chain.On("LogPoller").Return(lpmocks.NewLogPoller(t))
+		it.setupNoClient(t)
+		it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
+	}
+}
 
-		relayConfig := types.RelayConfig{
-			ChainReader: &types.ChainReaderConfig{
-				ChainContractReaders: map[string]types.ChainContractReader{
-					"LatestValueHolder": {
-						ContractABI: testfiles.TestfilesMetaData.ABI,
-						ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
-							MethodTakingLatestParamsReturningTestStruct: {
-								ChainSpecificName: "GetElementAtIndex",
-							},
-							MethodReturningUint64: {
-								ChainSpecificName: "GetPrimitiveValue",
-							},
-							MethodReturningUint64Slice: {
-								ChainSpecificName: "GetSliceValue",
-							},
+func (it *interfaceTester) setupNoClient(t require.TestingT) {
+	// can re-use the same chain for tests, just make new contract for each test
+	if it.chain != nil {
+		return
+	}
+
+	defBytes, err := json.Marshal(defs)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(defBytes, &it.defs))
+	it.chain = &mocks.Chain{}
+	it.setupChainNoClient(t)
+	it.chain.On("LogPoller").Return(logger.NullLogger)
+
+	relayConfig := types.RelayConfig{
+		ChainReader: &types.ChainReaderConfig{
+			ChainContractReaders: map[string]types.ChainContractReader{
+				"LatestValueHolder": {
+					ContractABI: testfiles.TestfilesMetaData.ABI,
+					ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
+						MethodTakingLatestParamsReturningTestStruct: {
+							ChainSpecificName: "GetElementAtIndex",
+						},
+						MethodReturningUint64: {
+							ChainSpecificName: "GetPrimitiveValue",
+						},
+						MethodReturningUint64Slice: {
+							ChainSpecificName: "GetSliceValue",
 						},
 					},
 				},
-				ChainCodecConfigs: map[string]types.ChainCodedConfig{},
 			},
-		}
-
-		for k, v := range defs {
-			defBytes, err := json.Marshal(v)
-			require.NoError(t, err)
-			entry := relayConfig.ChainReader.ChainCodecConfigs[k]
-			entry.TypeAbi = string(defBytes)
-			relayConfig.ChainReader.ChainCodecConfigs[k] = entry
-		}
-
-		relayBytes, err := json.Marshal(relayConfig)
-		require.NoError(t, err)
-		it.ropts = &types.RelayOpts{
-			RelayArgs: relaytypes.RelayArgs{RelayConfig: relayBytes},
-		}
+			ChainCodecConfigs: map[string]types.ChainCodedConfig{},
+		},
 	}
+
+	for k, v := range defs {
+		defBytes, err := json.Marshal(v)
+		require.NoError(t, err)
+		entry := relayConfig.ChainReader.ChainCodecConfigs[k]
+		entry.TypeAbi = string(defBytes)
+		relayConfig.ChainReader.ChainCodecConfigs[k] = entry
+	}
+
+	relayBytes, err := json.Marshal(relayConfig)
+	require.NoError(t, err)
+	it.ropts = &types.RelayOpts{
+		RelayArgs: relaytypes.RelayArgs{RelayConfig: relayBytes},
+	}
+
 }
 
 func (it *interfaceTester) Teardown(_ *testing.T) {
@@ -171,7 +256,11 @@ func (it *interfaceTester) GetAccountBytes(i int) []byte {
 }
 
 func (it *interfaceTester) GetChainReader(t *testing.T) relaytypes.ChainReader {
-	cr, err := evm.NewChainReader(logger.TestLogger(t), it.chain, it.ropts)
+	return it.getChainReader(t)
+}
+
+func (it *interfaceTester) getChainReader(t require.TestingT) relaytypes.ChainReader {
+	cr, err := evm.NewChainReader(logger.NullLogger, it.chain, it.ropts)
 	require.NoError(t, err)
 	return cr
 }
@@ -263,7 +352,7 @@ func convertAccounts(accounts [][]byte) [][32]byte {
 	return convertedAccounts
 }
 
-func (it *interfaceTester) setupChain(t *testing.T) {
+func (it *interfaceTester) setupChainNoClient(t require.TestingT) {
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	it.pk = privateKey
@@ -273,7 +362,6 @@ func (it *interfaceTester) setupChain(t *testing.T) {
 
 	it.sim = backends.NewSimulatedBackend(core.GenesisAlloc{it.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
 	it.sim.Commit()
-	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
 }
 
 func (it *interfaceTester) deployNewContract(ctx context.Context, t *testing.T) {

@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
@@ -42,6 +42,8 @@ import (
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+
+	relaymedian "github.com/smartcontractkit/chainlink/v2/core/services/relay/median"
 )
 
 var _ relaytypes.Relayer = &Relayer{} //nolint:staticcheck
@@ -508,7 +510,6 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		return nil, err
 	}
 
-	reportCodec := evmreportcodec.ReportCodec{}
 	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth())
 	if err != nil {
 		return nil, err
@@ -521,7 +522,6 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 
 	medianProvider := medianProvider{
 		configWatcher:       configWatcher,
-		reportCodec:         reportCodec,
 		contractTransmitter: contractTransmitter,
 		medianContract:      medianContract,
 	}
@@ -536,8 +536,13 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 			lggr.Errorw(logMsg, "err", err)
 		}
 		medianProvider.chainReader = nil
+		medianProvider.reportCodec = evmreportcodec.ReportCodec{}
 	} else {
 		medianProvider.chainReader = chainReader
+		medianProvider.reportCodec, err = relaymedian.NewReportCodec(chainReader)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &medianProvider, nil
