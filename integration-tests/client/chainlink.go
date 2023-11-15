@@ -302,8 +302,8 @@ func (c *ChainlinkClient) ReadBridge(name string) (*BridgeType, *http.Response, 
 }
 
 // ReadBridges reads bridges from the Chainlink node
-func (c *ChainlinkClient) ReadBridges() (*ResponseSlice, *resty.Response, error) {
-	result := &ResponseSlice{}
+func (c *ChainlinkClient) ReadBridges() (*Bridges, *resty.Response, error) {
+	result := &Bridges{}
 	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Getting all bridges")
 	resp, err := c.APIClient.R().
 		SetResult(&result).
@@ -1246,8 +1246,6 @@ func (c *ChainlinkClient) GetForwarders() (*Forwarders, *http.Response, error) {
 	}
 	return response, resp.RawResponse, err
 }
-
-
 
 // Replays log poller from block number
 func (c *ChainlinkClient) ReplayLogPollerFromBlock(fromBlock, evmChainID int64) (*ReplayResponse, *http.Response, error) {

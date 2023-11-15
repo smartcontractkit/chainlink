@@ -4,12 +4,22 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -110,6 +120,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
+
 	env.ParallelTransactions(true)
 
 	nodeClients := env.ClCluster.NodeAPIs()
@@ -144,9 +155,9 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, aggregatorContracts)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*3, l)
+	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err, "Error starting new OCR2 round")
-	roundData, err := aggregatorContracts[0].GetRound(context.Background(), big.NewInt(1))
+	roundData, err := aggregatorContracts[0].GetRound(utils.TestContext(t), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), roundData.Answer.Int64(),
 		"Expected latest answer from OCR contract to be 5 but got %d",
@@ -155,10 +166,10 @@ func TestOCRv2JobReplacement(t *testing.T) {
 
 	err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
 	require.NoError(t, err)
-	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*3, l)
+	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err)
 
-	roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(2))
+	roundData, err = aggregatorContracts[0].GetRound(utils.TestContext(t), big.NewInt(2))
 	require.NoError(t, err, "Error getting latest OCR answer")
 	require.Equal(t, int64(10), roundData.Answer.Int64(),
 		"Expected latest answer from OCR contract to be 10 but got %d",
@@ -176,9 +187,9 @@ func TestOCRv2JobReplacement(t *testing.T) {
 
 	err = actions.StartNewOCR2Round(3, aggregatorContracts, env.EVMClient, time.Minute*3, l)
 	require.NoError(t, err, "Error starting new OCR2 round")
-	roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(1))
+	roundData, err = aggregatorContracts[0].GetRound(utils.TestContext(t), big.NewInt(3))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
-	require.Equal(t, int64(5), roundData.Answer.Int64(),
+	require.Equal(t, int64(15), roundData.Answer.Int64(),
 		"Expected latest answer from OCR contract to be 15 but got %d",
 		roundData.Answer.Int64(),
 	)

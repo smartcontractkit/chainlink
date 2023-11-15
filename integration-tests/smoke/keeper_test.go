@@ -1154,7 +1154,7 @@ func TestKeeperJobReplacement(t *testing.T) {
 	gom.Eventually(func(g gomega.Gomega) error {
 		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := consumers[i].Counter(context.Background())
+			counter, err := consumers[i].Counter(utils.TestContext(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
 				"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
@@ -1183,7 +1183,7 @@ func TestKeeperJobReplacement(t *testing.T) {
 	gom.Eventually(func(g gomega.Gomega) error {
 		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := consumers[i].Counter(context.Background())
+			counter, err := consumers[i].Counter(utils.TestContext(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
 				"Expected consumer counter to be greater than 10, but got %d", counter.Int64())

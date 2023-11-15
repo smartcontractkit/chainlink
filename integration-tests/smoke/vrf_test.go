@@ -170,7 +170,7 @@ func TestVRFJobReplacement(t *testing.T) {
 		encodedProvingKeys := make([][2]*big.Int, 0)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 
-		requestHash, err := contracts.Coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
+		requestHash, err := contracts.Coordinator.HashOfKey(utils.TestContext(t), encodedProvingKeys[0])
 		require.NoError(t, err, "Getting Hash of encoded proving keys shouldn't fail")
 		err = contracts.Consumer.RequestRandomness(requestHash, big.NewInt(1))
 		require.NoError(t, err, "Requesting randomness shouldn't fail")
@@ -181,7 +181,7 @@ func TestVRFJobReplacement(t *testing.T) {
 			jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Job execution shouldn't fail")
 
-			out, err := contracts.Consumer.RandomnessOutput(context.Background())
+			out, err := contracts.Consumer.RandomnessOutput(utils.TestContext(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting the randomness output of the consumer shouldn't fail")
 			// Checks that the job has actually run
 			g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 1),
@@ -208,7 +208,7 @@ func TestVRFJobReplacement(t *testing.T) {
 			jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Job execution shouldn't fail")
 
-			out, err := contracts.Consumer.RandomnessOutput(context.Background())
+			out, err := contracts.Consumer.RandomnessOutput(utils.TestContext(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting the randomness output of the consumer shouldn't fail")
 			// Checks that the job has actually run
 			g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 1),

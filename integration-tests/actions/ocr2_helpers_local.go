@@ -307,7 +307,7 @@ func DeleteBridges(nodes []*client.ChainlinkClient) error {
 			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", nodes)
 		}
 
-		bridges, _, err := node.GetBridges()
+		bridges, _, err := node.ReadBridges()
 		if err != nil {
 			return err
 		}
