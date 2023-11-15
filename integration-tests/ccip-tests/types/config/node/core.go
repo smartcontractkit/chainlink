@@ -8,8 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
-	itutils "github.com/smartcontractkit/ccip/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"

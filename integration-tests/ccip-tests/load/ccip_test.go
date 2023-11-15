@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-env/chaos"
-	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/ccip/integration-tests/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -82,8 +82,8 @@ func TestLoadCCIPStableRequestTriggeringWithNetworkChaos(t *testing.T) {
 	chaosId, err := testEnv.K8Env.Chaos.Run(
 		chaos.NewNetworkLatency(
 			testEnv.K8Env.Cfg.Namespace, &chaos.Props{
-				FromLabels:  &map[string]*string{"geth": a.Str(actions.ChaosGroupCCIPGeth)},
-				ToLabels:    &map[string]*string{"app": a.Str("chainlink-0")},
+				FromLabels:  &map[string]*string{"geth": utils.Ptr(actions.ChaosGroupCCIPGeth)},
+				ToLabels:    &map[string]*string{"app": utils.Ptr("chainlink-0")},
 				DurationStr: testArgs.TestCfg.TestGroupInput.TestDuration.String(),
 				Delay:       "300ms",
 			}))
@@ -112,7 +112,7 @@ func TestLoadCCIPStableWithMajorityNodeFailure(t *testing.T) {
 			ChaosName: "CCIP works after majority of CL nodes are recovered from pod failure @pod-chaos",
 			ChaosFunc: chaos.NewFailPods,
 			ChaosProps: &chaos.Props{
-				LabelsSelector: &map[string]*string{actions.ChaosGroupCommitFaultyPlus: a.Str("1")},
+				LabelsSelector: &map[string]*string{actions.ChaosGroupCommitFaultyPlus: utils.Ptr("1")},
 				DurationStr:    "2m",
 			},
 		},
@@ -166,7 +166,7 @@ func TestLoadCCIPStableWithMinorityNodeFailure(t *testing.T) {
 			ChaosName: "CCIP works while minority of CL nodes are in failed state for pod failure @pod-chaos",
 			ChaosFunc: chaos.NewFailPods,
 			ChaosProps: &chaos.Props{
-				LabelsSelector: &map[string]*string{actions.ChaosGroupCommitFaulty: a.Str("1")},
+				LabelsSelector: &map[string]*string{actions.ChaosGroupCommitFaulty: utils.Ptr("1")},
 				DurationStr:    "4m",
 			},
 		},
@@ -218,7 +218,7 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 			ChaosName: "CCIP Commit works after majority of CL nodes are recovered from pod failure @pod-chaos",
 			ChaosFunc: chaos.NewFailPods,
 			ChaosProps: &chaos.Props{
-				LabelsSelector: &map[string]*string{actions.ChaosGroupCommitFaultyPlus: a.Str("1")},
+				LabelsSelector: &map[string]*string{actions.ChaosGroupCommitFaultyPlus: utils.Ptr("1")},
 				DurationStr:    "2m",
 			},
 		},
@@ -226,7 +226,7 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 			ChaosName: "CCIP Execution works after majority of CL nodes are recovered from pod failure @pod-chaos",
 			ChaosFunc: chaos.NewFailPods,
 			ChaosProps: &chaos.Props{
-				LabelsSelector: &map[string]*string{actions.ChaosGroupExecutionFaultyPlus: a.Str("1")},
+				LabelsSelector: &map[string]*string{actions.ChaosGroupExecutionFaultyPlus: utils.Ptr("1")},
 				DurationStr:    "2m",
 			},
 		},
@@ -234,7 +234,7 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 			ChaosName: "CCIP Commit works while minority of CL nodes are in failed state for pod failure @pod-chaos",
 			ChaosFunc: chaos.NewFailPods,
 			ChaosProps: &chaos.Props{
-				LabelsSelector: &map[string]*string{actions.ChaosGroupCommitFaulty: a.Str("1")},
+				LabelsSelector: &map[string]*string{actions.ChaosGroupCommitFaulty: utils.Ptr("1")},
 				DurationStr:    "4m",
 			},
 		},
@@ -242,7 +242,7 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 			ChaosName: "CCIP Execution works while minority of CL nodes are in failed state for pod failure @pod-chaos",
 			ChaosFunc: chaos.NewFailPods,
 			ChaosProps: &chaos.Props{
-				LabelsSelector: &map[string]*string{actions.ChaosGroupExecutionFaulty: a.Str("1")},
+				LabelsSelector: &map[string]*string{actions.ChaosGroupExecutionFaulty: utils.Ptr("1")},
 				DurationStr:    "4m",
 			},
 		},

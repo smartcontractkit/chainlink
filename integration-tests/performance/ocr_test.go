@@ -1,7 +1,6 @@
 package performance
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -10,13 +9,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestOCRBasic(t *testing.T) {
@@ -53,7 +53,7 @@ func TestOCRBasic(t *testing.T) {
 	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	ocrInstances, err := actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, bootstrapNode, workerNodes, chainClient)
+	ocrInstances, err := actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, workerNodes, chainClient)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
@@ -64,7 +64,7 @@ func TestOCRBasic(t *testing.T) {
 		err = actions.StartNewRound(1, ocrInstances, chainClient, l)
 		require.NoError(t, err)
 
-		answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
+		answer, err := ocrInstances[0].GetLatestAnswer(utils.TestContext(t))
 		require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 		require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
@@ -73,7 +73,7 @@ func TestOCRBasic(t *testing.T) {
 		err = actions.StartNewRound(2, ocrInstances, chainClient, l)
 		require.NoError(t, err)
 
-		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
+		answer, err = ocrInstances[0].GetLatestAnswer(utils.TestContext(t))
 		require.NoError(t, err, "Error getting latest OCR answer")
 		require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
 	}
@@ -90,7 +90,7 @@ func TestOCRBasic(t *testing.T) {
 }
 
 func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{

@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
@@ -97,6 +96,18 @@ func (v *EthereumVRFCoordinatorV2_5) GetActiveSubscriptionIds(ctx context.Contex
 	return activeSubscriptionIds, nil
 }
 
+func (v *EthereumVRFCoordinatorV2_5) PendingRequestsExist(ctx context.Context, subID *big.Int) (bool, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	pendingRequestExists, err := v.coordinator.PendingRequestExists(opts, subID)
+	if err != nil {
+		return false, err
+	}
+	return pendingRequestExists, nil
+}
+
 func (v *EthereumVRFCoordinatorV2_5) GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2_5.GetSubscription, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -130,6 +141,75 @@ func (v *EthereumVRFCoordinatorV2_5) GetNativeTokenTotalBalance(ctx context.Cont
 		return nil, err
 	}
 	return totalBalance, nil
+}
+
+// OwnerCancelSubscription cancels subscription by Coordinator owner
+// return funds to sub owner,
+// does not check if pending requests for a sub exist
+func (v *EthereumVRFCoordinatorV2_5) OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error) {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := v.coordinator.OwnerCancelSubscription(
+		opts,
+		subID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tx, v.client.ProcessTransaction(tx)
+}
+
+// CancelSubscription cancels subscription by Sub owner,
+// return funds to specified address,
+// checks if pending requests for a sub exist
+func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error) {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := v.coordinator.CancelSubscription(
+		opts,
+		subID,
+		to,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tx, v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFCoordinatorV2_5) OracleWithdraw(recipient common.Address, amount *big.Int) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.coordinator.OracleWithdraw(
+		opts,
+		recipient,
+		amount,
+	)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFCoordinatorV2_5) OracleWithdrawNative(recipient common.Address, amount *big.Int) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.coordinator.OracleWithdrawNative(
+		opts,
+		recipient,
+		amount,
+	)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFCoordinatorV2_5) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig) error {
@@ -183,16 +263,16 @@ func (v *EthereumVRFCoordinatorV2_5) RegisterProvingKey(
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) CreateSubscription() error {
+func (v *EthereumVRFCoordinatorV2_5) CreateSubscription() (*types.Transaction, error) {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx, err := v.coordinator.CreateSubscription(opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return v.client.ProcessTransaction(tx)
+	return tx, v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFCoordinatorV2_5) Migrate(subId *big.Int, coordinatorAddress string) error {
@@ -251,11 +331,11 @@ func (v *EthereumVRFCoordinatorV2_5) FundSubscriptionWithNative(subId *big.Int, 
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) FindSubscriptionID() (*big.Int, error) {
+func (v *EthereumVRFCoordinatorV2_5) FindSubscriptionID(subID *big.Int) (*big.Int, error) {
 	owner := v.client.GetDefaultWallet().Address()
 	subscriptionIterator, err := v.coordinator.FilterSubscriptionCreated(
 		nil,
-		nil,
+		[]*big.Int{subID},
 	)
 	if err != nil {
 		return nil, err
@@ -282,6 +362,26 @@ func (v *EthereumVRFCoordinatorV2_5) WaitForSubscriptionCreatedEvent(timeout tim
 			return nil, err
 		case <-time.After(timeout):
 			return nil, fmt.Errorf("timeout waiting for SubscriptionCreated event")
+		case sub := <-eventsChannel:
+			return sub, nil
+		}
+	}
+}
+
+func (v *EthereumVRFCoordinatorV2_5) WaitForSubscriptionCanceledEvent(subID *big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error) {
+	eventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled)
+	subscription, err := v.coordinator.WatchSubscriptionCanceled(nil, eventsChannel, []*big.Int{subID})
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for SubscriptionCanceled event")
 		case sub := <-eventsChannel:
 			return sub, nil
 		}
