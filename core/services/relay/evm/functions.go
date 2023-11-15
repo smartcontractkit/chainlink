@@ -90,6 +90,10 @@ func (p *functionsProvider) ChainReader() commontypes.ChainReader {
 	return nil
 }
 
+func (p *functionsProvider) Codec() commontypes.Codec {
+	return nil
+}
+
 func NewFunctionsProvider(chain evm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
 	relayOpts := evmRelayTypes.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()

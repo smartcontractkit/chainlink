@@ -55,6 +55,7 @@ type Relayer struct {
 	eventBroadcaster pg.EventBroadcaster
 	pgCfg            pg.QConfig
 	chainReader      commontypes.ChainReader
+	codec            commontypes.Codec
 }
 
 type CSAETHKeystore interface {
@@ -190,7 +191,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	}
 	transmitter := mercury.NewTransmitter(lggr, cw.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
 
-	return NewMercuryProvider(cw, r.chainReader, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
+	return NewMercuryProvider(cw, r.chainReader, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
 }
 
 func (r *Relayer) NewFunctionsProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
@@ -505,7 +506,6 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	if !common.IsHexAddress(relayOpts.ContractID) {
 		return nil, fmt.Errorf("invalid contractID %s, expected hex address", relayOpts.ContractID)
 	}
-	contractID := common.HexToAddress(relayOpts.ContractID)
 
 	configWatcher, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
@@ -533,13 +533,22 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	// allow fallback until chain reader is default and median contract is removed, but still log just in case
 	var chainReaderService commontypes.ChainReader
 	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(lggr, r.chain.LogPoller(), contractID, *relayConfig.ChainReader); err != nil {
+		if chainReaderService, err = NewChainReaderService(lggr, r.chain.LogPoller(), r.chain, *relayConfig.ChainReader); err != nil {
 			return nil, err
 		}
 	} else {
 		lggr.Info("ChainReader missing from RelayConfig; falling back to internal MedianContract")
 	}
 	medianProvider.chainReader = chainReaderService
+
+	if relayConfig.Codec != nil {
+		medianProvider.codec, err = NewCodec(*relayConfig.Codec)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		lggr.Info("Codec missing from RelayConfig; falling back to internal MedianContract")
+	}
 
 	return &medianProvider, nil
 }
@@ -552,6 +561,7 @@ type medianProvider struct {
 	reportCodec         median.ReportCodec
 	medianContract      *medianContract
 	chainReader         commontypes.ChainReader
+	codec               commontypes.Codec
 	ms                  services.MultiStart
 }
 
@@ -603,4 +613,8 @@ func (p *medianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker 
 
 func (p *medianProvider) ChainReader() commontypes.ChainReader {
 	return p.chainReader
+}
+
+func (p *medianProvider) Codec() commontypes.Codec {
+	return p.codec
 }

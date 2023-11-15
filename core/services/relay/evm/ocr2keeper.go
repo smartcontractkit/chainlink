@@ -134,6 +134,10 @@ func (c *ocr2keeperProvider) ChainReader() commontypes.ChainReader {
 	return nil
 }
 
+func (c *ocr2keeperProvider) Codec() commontypes.Codec {
+	return nil
+}
+
 func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)

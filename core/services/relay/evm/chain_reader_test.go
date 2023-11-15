@@ -1,36 +1,81 @@
-package evm
+package evm_test
+
+//go:generate ./testfiles/chainlink_reader_test_setup.sh
 
 import (
-	"encoding/json"
-	"fmt"
-	"strings"
+	"context"
+	"crypto/ecdsa"
+	"math"
+	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/core"
+	evmtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/stretchr/testify/require"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 
 	mocklogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/testfiles"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-type chainReaderTestHelper struct {
+const commonGasLimitOnEvms = uint64(4712388)
+
+func TestChainReader(t *testing.T) {
+	RunChainReaderInterfaceTests(t, &chainReaderInterfaceTester{})
 }
 
-func (crTestHelper chainReaderTestHelper) makeChainReaderConfig(abi string, params map[string]any) evmtypes.ChainReaderConfig {
-	return evmtypes.ChainReaderConfig{
-		ChainContractReaders: map[string]evmtypes.ChainContractReader{
-			"MyContract": {
-				ContractABI: abi,
-				ChainReaderDefinitions: map[string]evmtypes.ChainReaderDefinition{
-					"MyGenericMethod": {
-						ChainSpecificName: "name",
-						Params:            params,
-						CacheEnabled:      false,
-						ReadType:          evmtypes.Method,
+type chainReaderInterfaceTester struct {
+	chain       *mocks.Chain
+	address     string
+	chainConfig types.ChainReaderConfig
+	auth        *bind.TransactOpts
+	sim         *backends.SimulatedBackend
+	pk          *ecdsa.PrivateKey
+	evmTest     *testfiles.Testfiles
+}
+
+func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
+	if it.chain == nil {
+		it.setupNoClient(t)
+		it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
+	}
+}
+
+func (it *chainReaderInterfaceTester) setupNoClient(t require.TestingT) {
+	// can re-use the same chain for tests, just make new contract for each test
+	if it.chain != nil {
+		return
+	}
+
+	it.chain = &mocks.Chain{}
+	it.setupChainNoClient(t)
+	it.chain.On("LogPoller").Return(logger.NullLogger)
+
+	it.chainConfig = types.ChainReaderConfig{
+		ChainContractReaders: map[string]types.ChainContractReader{
+			"LatestValueHolder": {
+				ContractABI: testfiles.TestfilesMetaData.ABI,
+				ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
+					MethodTakingLatestParamsReturningTestStruct: {
+						ChainSpecificName: "GetElementAtIndex",
+					},
+					MethodReturningUint64: {
+						ChainSpecificName: "GetPrimitiveValue",
+					},
+					MethodReturningUint64Slice: {
+						ChainSpecificName: "GetSliceValue",
 					},
 				},
 			},
@@ -38,235 +83,182 @@ func (crTestHelper chainReaderTestHelper) makeChainReaderConfig(abi string, para
 	}
 }
 
-func (crTestHelper chainReaderTestHelper) makeChainReaderConfigFromStrings(abi string, chainReadingDefinitions string) (evmtypes.ChainReaderConfig, error) {
-	chainReaderConfigTemplate := `{
-	   "chainContractReaders": {
-	     "testContract": {
-			   "contractName": "testContract",
-			   "contractABI":  "[%s]",
-			   "chainReaderDefinitions": {
-					%s
-				}
-	     }
-	   }
-	}`
-
-	abi = strings.Replace(abi, `"`, `\"`, -1)
-	formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, abi, chainReadingDefinitions)
-	var chainReaderConfig evmtypes.ChainReaderConfig
-	err := json.Unmarshal([]byte(formattedCfgJsonString), &chainReaderConfig)
-	return chainReaderConfig, err
+func (it *chainReaderInterfaceTester) Teardown(_ *testing.T) {
+	it.address = ""
 }
 
-func TestNewChainReader(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	lp := mocklogpoller.NewLogPoller(t)
-	chain := mocks.NewChain(t)
-	contractID := testutils.NewAddress()
-	contractABI := `[{"inputs":[{"internalType":"string","name":"param","type":"string"}],"name":"name","stateMutability":"view","type":"function"}]`
-
-	t.Run("happy path", func(t *testing.T) {
-		params := make(map[string]any)
-		params["param"] = ""
-		chainReaderConfig := chainReaderTestHelper{}.makeChainReaderConfig(contractABI, params)
-		chain.On("LogPoller").Return(lp)
-		_, err := NewChainReaderService(lggr, chain.LogPoller(), contractID, chainReaderConfig)
-		assert.NoError(t, err)
-	})
-
-	t.Run("invalid config", func(t *testing.T) {
-		invalidChainReaderConfig := chainReaderTestHelper{}.makeChainReaderConfig(contractABI, map[string]any{}) // missing param
-		_, err := NewChainReaderService(lggr, chain.LogPoller(), contractID, invalidChainReaderConfig)
-		assert.ErrorIs(t, err, commontypes.ErrInvalidConfig)
-	})
-
-	t.Run("ChainReader config is empty", func(t *testing.T) {
-		emptyChainReaderConfig := evmtypes.ChainReaderConfig{}
-		_, err := NewChainReaderService(lggr, chain.LogPoller(), contractID, emptyChainReaderConfig)
-		assert.ErrorIs(t, err, commontypes.ErrInvalidConfig)
-		assert.ErrorContains(t, err, "config is empty")
-	})
+func (it *chainReaderInterfaceTester) Name() string {
+	return "EVM"
 }
 
-func TestChainReaderStartClose(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	lp := mocklogpoller.NewLogPoller(t)
-	cr := chainReader{
-		lggr: lggr,
-		lp:   lp,
-	}
-	err := cr.Start(testutils.Context(t))
-	assert.NoError(t, err)
-	err = cr.Close()
-	assert.NoError(t, err)
+func (it *chainReaderInterfaceTester) GetAccountBytes(i int) []byte {
+	account := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2}
+	account[i%32] += byte(i)
+	account[(i+3)%32] += byte(i + 3)
+	return account
 }
 
-// TODO Chain Reading Definitions return values are WIP, waiting on codec work and BCF-2789
-func TestValidateChainReaderConfig_HappyPath(t *testing.T) {
-	type testCase struct {
-		name                    string
-		abiInput                string
-		chainReadingDefinitions string
-	}
-
-	var testCases []testCase
-	testCases = append(testCases,
-		testCase{
-			name:     "eventWithMultipleIndexedTopics",
-			abiInput: `{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"sender","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"}],"name":"Swap","type":"event"}`,
-			chainReadingDefinitions: `"Swap":{
-											"chainSpecificName": "Swap",
-											"params":{
-												"sender": "0x0",
-												"to": "0x0"
-											},
-											"readType": 1
-										}`,
-		})
-
-	testCases = append(testCases,
-		testCase{
-			name:     "methodWithOneParamAndMultipleResponses",
-			abiInput: `{"constant":true,"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserAccountData","payable":false,"stateMutability":"view","type":"function"}`,
-			chainReadingDefinitions: `"getUserAccountData":{
-											"chainSpecificName": "getUserAccountData",
-											"params":{
-												"_user": "0x0"
-											},
-											"readType": 0
-										}`,
-		})
-
-	testCases = append(testCases,
-		testCase{
-			name:     "methodWithMultipleParamsAndOneResult",
-			abiInput: `{"inputs":[{"internalType":"address","name":"_input","type":"address"},{"internalType":"address","name":"_output","type":"address"},{"internalType":"uint256","name":"_inputQuantity","type":"uint256"}],"name":"getSwapOutput","stateMutability":"view","type":"function"}`,
-			chainReadingDefinitions: `"getSwapOutput":{
-											"chainSpecificName": "getSwapOutput",
-											"params":{
-												"_input":"0x0",
-												"_output":"0x0",
-												"_inputQuantity":"0x0"
-											},
-											"readType": 0
-										}`,
-		})
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := chainReaderTestHelper{}.makeChainReaderConfigFromStrings(tc.abiInput, tc.chainReadingDefinitions)
-			assert.NoError(t, err)
-			assert.NoError(t, validateChainReaderConfig(cfg))
-		})
-	}
-
-	t.Run("large config with all test cases", func(t *testing.T) {
-		var largeABI string
-		var manyChainReadingDefinitions string
-		for _, tc := range testCases {
-			largeABI += tc.abiInput + ","
-			manyChainReadingDefinitions += tc.chainReadingDefinitions + ","
-		}
-
-		largeABI = largeABI[:len(largeABI)-1]
-		manyChainReadingDefinitions = manyChainReadingDefinitions[:len(manyChainReadingDefinitions)-1]
-		cfg, err := chainReaderTestHelper{}.makeChainReaderConfigFromStrings(largeABI, manyChainReadingDefinitions)
-		assert.NoError(t, err)
-		assert.NoError(t, validateChainReaderConfig(cfg))
-	})
+func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes.ChainReader {
+	cr, err := evm.NewChainReaderService(logger.NullLogger, mocklogpoller.NewLogPoller(t), it.chain, it.chainConfig)
+	require.NoError(t, err)
+	return cr
 }
 
-// TODO Chain Reading Definitions return values are WIP, waiting on codec work and BCF-2789
-func TestValidateChainReaderConfig_BadPath(t *testing.T) {
-	type testCase struct {
-		name                    string
-		abiInput                string
-		chainReadingDefinitions string
-		expected                error
+func (it *chainReaderInterfaceTester) GetPrimitiveContract(ctx context.Context, t *testing.T) clcommontypes.BoundContract {
+	// Since most tests don't use the contract, it's set up lazily to save time
+	it.deployNewContract(ctx, t)
+	return clcommontypes.BoundContract{
+		Address: it.address,
+		Name:    MethodReturningUint64,
 	}
+}
 
-	var testCases []testCase
-	mismatchedEventArgumentsTestABI := `{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"sender","type":"address"}],"name":"Swap","type":"event"}`
-	testCases = append(testCases,
-		testCase{
-			name:     "mismatched abi and event chain reading param values",
-			abiInput: mismatchedEventArgumentsTestABI,
-			chainReadingDefinitions: `"Swap":{
-													"chainSpecificName": "Swap",
-													"params":{
-														"malformedParam": "0x0"
-													},
-													"readType": 1
-												}`,
-			expected: fmt.Errorf("invalid chain reading definition: \"Swap\" for contract: \"testContract\", err: params: [malformedParam] don't match abi event indexed inputs: [sender]"),
-		})
+func (it *chainReaderInterfaceTester) GetSliceContract(ctx context.Context, t *testing.T) clcommontypes.BoundContract {
+	// Since most tests don't use the contract, it's set up lazily to save time
+	it.deployNewContract(ctx, t)
+	return clcommontypes.BoundContract{
+		Address: it.address,
+		Name:    MethodReturningUint64Slice,
+	}
+}
 
-	mismatchedFunctionArgumentsTestABI := `{"constant":true,"inputs":[{"internalType":"address","name":"from","type":"address"}],"name":"Swap","payable":false,"stateMutability":"view","type":"function"}`
-	testCases = append(testCases,
-		testCase{
-			name:     "mismatched abi and method chain reading param values",
-			abiInput: mismatchedFunctionArgumentsTestABI,
-			chainReadingDefinitions: `"Swap":{
-											"chainSpecificName": "Swap",
-											"params":{
-												"malformedParam": "0x0"
-											},
-											"readType": 0
-										}`,
-			expected: fmt.Errorf("invalid chain reading definition: \"Swap\" for contract: \"testContract\", err: params: [malformedParam] don't match abi method inputs: [from]"),
-		},
+func (it *chainReaderInterfaceTester) SetLatestValue(ctx context.Context, t *testing.T, testStruct *TestStruct) clcommontypes.BoundContract {
+	// Since most tests don't use the contract, it's set up lazily to save time
+	it.deployNewContract(ctx, t)
+
+	tx, err := it.evmTest.AddTestStruct(
+		it.auth,
+		testStruct.Field,
+		testStruct.DifferentField,
+		uint8(testStruct.OracleID),
+		convertOracleIDs(testStruct.OracleIDs),
+		[32]byte(testStruct.Account),
+		convertAccounts(testStruct.Accounts),
+		testStruct.BigField,
+		midToInternalType(testStruct.NestedStruct),
 	)
+	require.NoError(t, err)
+	it.sim.Commit()
+	it.incNonce()
+	it.awaitTx(ctx, t, tx)
+	return clcommontypes.BoundContract{
+		Address: it.address,
+		Name:    MethodTakingLatestParamsReturningTestStruct,
+	}
+}
 
-	testCases = append(testCases,
-		testCase{
-			name:     "event doesn't exist",
-			abiInput: `{"constant":true,"inputs":[],"name":"someName","payable":false,"stateMutability":"view","type":"function"}`,
-			chainReadingDefinitions: `"TestMethod":{
-											"chainSpecificName": "Swap",
-											"readType": 1
-										}`,
-			expected: fmt.Errorf("invalid chain reading definition: \"TestMethod\" for contract: \"testContract\", err: event: Swap doesn't exist"),
+func convertOracleIDs(oracleIDs [32]commontypes.OracleID) [32]byte {
+	convertedIds := [32]byte{}
+	for i, id := range oracleIDs {
+		convertedIds[i] = byte(id)
+	}
+	return convertedIds
+}
+
+func convertAccounts(accounts [][]byte) [][32]byte {
+	convertedAccounts := make([][32]byte, len(accounts))
+	for i, a := range accounts {
+		convertedAccounts[i] = [32]byte(a)
+	}
+	return convertedAccounts
+}
+
+func (it *chainReaderInterfaceTester) setupChainNoClient(t require.TestingT) {
+	privateKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	it.pk = privateKey
+
+	it.auth, err = bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
+	require.NoError(t, err)
+
+	it.sim = backends.NewSimulatedBackend(core.GenesisAlloc{it.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
+	it.sim.Commit()
+}
+
+func (it *chainReaderInterfaceTester) deployNewContract(ctx context.Context, t *testing.T) {
+	if it.address != "" {
+		return
+	}
+	gasPrice, err := it.sim.SuggestGasPrice(ctx)
+	require.NoError(t, err)
+	it.auth.GasPrice = gasPrice
+
+	// 105528 was in the error: gas too low: have 0, want 105528
+	// Not sure if there's a better way to get it.
+	it.auth.GasLimit = 1055280000
+
+	address, tx, ts, err := testfiles.DeployTestfiles(it.auth, it.sim)
+
+	require.NoError(t, err)
+	it.sim.Commit()
+	it.evmTest = ts
+	it.incNonce()
+	it.awaitTx(ctx, t, tx)
+	it.address = address.String()
+}
+
+func (it *chainReaderInterfaceTester) awaitTx(ctx context.Context, t *testing.T, tx *evmtypes.Transaction) {
+	receipt, err := it.sim.TransactionReceipt(ctx, tx.Hash())
+	require.NoError(t, err)
+	require.Equal(t, evmtypes.ReceiptStatusSuccessful, receipt.Status)
+}
+
+func (it *chainReaderInterfaceTester) incNonce() {
+	if it.auth.Nonce == nil {
+		it.auth.Nonce = big.NewInt(1)
+	} else {
+		it.auth.Nonce = it.auth.Nonce.Add(it.auth.Nonce, big.NewInt(1))
+	}
+}
+
+func getAccounts(first TestStruct) [][32]byte {
+	accountBytes := make([][32]byte, len(first.Accounts))
+	for i, account := range first.Accounts {
+		accountBytes[i] = [32]byte(account)
+	}
+	return accountBytes
+}
+
+func argsFromTestStruct(ts TestStruct) []any {
+	return []any{
+		ts.Field,
+		ts.DifferentField,
+		uint8(ts.OracleID),
+		getOracleIDs(ts),
+		[32]byte(ts.Account),
+		getAccounts(ts),
+		ts.BigField,
+		midToInternalType(ts.NestedStruct),
+	}
+}
+
+func getOracleIDs(first TestStruct) [32]byte {
+	oracleIDs := [32]byte{}
+	for i, oracleID := range first.OracleIDs {
+		oracleIDs[i] = byte(oracleID)
+	}
+	return oracleIDs
+}
+
+func toInternalType(testStruct TestStruct) testfiles.TestStruct {
+	return testfiles.TestStruct{
+		Field:          testStruct.Field,
+		DifferentField: testStruct.DifferentField,
+		OracleId:       byte(testStruct.OracleID),
+		OracleIds:      convertOracleIDs(testStruct.OracleIDs),
+		Account:        [32]byte(testStruct.Account),
+		Accounts:       convertAccounts(testStruct.Accounts),
+		BigField:       testStruct.BigField,
+		NestedStruct:   midToInternalType(testStruct.NestedStruct),
+	}
+}
+
+func midToInternalType(m MidLevelTestStruct) testfiles.MidLevelTestStruct {
+	return testfiles.MidLevelTestStruct{
+		FixedBytes: m.FixedBytes,
+		Inner: testfiles.InnerTestStruct{
+			I: int64(m.Inner.I),
+			S: m.Inner.S,
 		},
-	)
-
-	testCases = append(testCases,
-		testCase{
-			name:     "method doesn't exist",
-			abiInput: `{"constant":true,"inputs":[],"name":"someName","payable":false,"stateMutability":"view","type":"function"}`,
-			chainReadingDefinitions: `"TestMethod":{
-											"chainSpecificName": "Swap",
-											"readType": 0
-										}`,
-			expected: fmt.Errorf("invalid chain reading definition: \"TestMethod\" for contract: \"testContract\", err: method: \"Swap\" doesn't exist"),
-		},
-	)
-
-	testCases = append(testCases, testCase{
-		name:     "invalid abi",
-		abiInput: `broken abi`,
-		chainReadingDefinitions: `"TestMethod":{
-											"chainSpecificName": "Swap",
-											"readType": 0
-										}`,
-		expected: fmt.Errorf("invalid abi"),
-	})
-
-	testCases = append(testCases, testCase{
-		name:                    "invalid read type",
-		abiInput:                `{"constant":true,"inputs":[],"name":"someName","payable":false,"stateMutability":"view","type":"function"}`,
-		chainReadingDefinitions: `"TestMethod":{"readType": 59}`,
-		expected:                fmt.Errorf("invalid chain reading definition read type: 59"),
-	})
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := chainReaderTestHelper{}.makeChainReaderConfigFromStrings(tc.abiInput, tc.chainReadingDefinitions)
-			assert.NoError(t, err)
-			if tc.expected == nil {
-				assert.NoError(t, validateChainReaderConfig(cfg))
-			} else {
-				assert.ErrorContains(t, validateChainReaderConfig(cfg), tc.expected.Error())
-			}
-		})
 	}
 }
