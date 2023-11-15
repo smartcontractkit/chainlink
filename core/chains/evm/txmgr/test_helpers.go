@@ -137,12 +137,12 @@ func (c *MockConfig) EVM() evmconfig.EVM {
 	return c.EvmConfig
 }
 
-func (c *MockConfig) NonceAutoSync() bool         { return true }
+func (c *MockConfig) NonceAutoSync() bool               { return true }
 func (c *MockConfig) ChainType() commonconfig.ChainType { return "" }
-func (c *MockConfig) FinalityDepth() uint32       { return c.finalityDepth }
-func (c *MockConfig) SetFinalityDepth(fd uint32)  { c.finalityDepth = fd }
-func (c *MockConfig) FinalityTagEnabled() bool    { return c.finalityTagEnabled }
-func (c *MockConfig) RPCDefaultBatchSize() uint32 { return c.RpcDefaultBatchSize }
+func (c *MockConfig) FinalityDepth() uint32             { return c.finalityDepth }
+func (c *MockConfig) SetFinalityDepth(fd uint32)        { c.finalityDepth = fd }
+func (c *MockConfig) FinalityTagEnabled() bool          { return c.finalityTagEnabled }
+func (c *MockConfig) RPCDefaultBatchSize() uint32       { return c.RpcDefaultBatchSize }
 
 func MakeTestConfigs(t *testing.T) (*MockConfig, *TestDatabaseConfig, *TestEvmConfig) {
 	db := &TestDatabaseConfig{defaultQueryTimeout: pg.DefaultQueryTimeout}
