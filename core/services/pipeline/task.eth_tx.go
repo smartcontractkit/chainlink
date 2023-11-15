@@ -155,6 +155,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		ForwarderAddress: forwarderAddress,
 		Strategy:         strategy,
 		Checker:          transmitChecker,
+		SignalCallback:   true,
 	}
 
 	if minOutgoingConfirmations > 0 {

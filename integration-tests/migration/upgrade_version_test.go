@@ -1,13 +1,12 @@
 package migration
 
 import (
+	"os"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
-	"os"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 

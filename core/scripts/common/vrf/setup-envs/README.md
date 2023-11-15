@@ -15,6 +15,7 @@ export ETH_CHAIN_ID=
 export ACCOUNT_KEY=
 ```
 5. execute from `core/scripts/common/vrf/setup-envs` folder
+   * `--vrf-version` - "v2" or "v2plus" 
 ```
 go run . \
 --vrf-version="v2plus" \
@@ -28,24 +29,96 @@ go run . \
 --bhs-bk-creds-file <path_to_file_with_creds> \
 --bhf-node-url=http://localhost:6614 \
 --bhf-creds-file <path_to_file_with_creds> \
+--num-eth-keys=1 \
+--num-vrf-keys=1 \
+--sending-key-funding-amount="1e17" \
 --deploy-contracts-and-create-jobs="true" \
 --subscription-balance="1e19" \
 --subscription-balance-native="1e18" \
 --batch-fulfillment-enabled="true" \
 --min-confs=3 \
---num-eth-keys=1 \
---num-vrf-keys=1 \
---sending-key-funding-amount="1e17" \
 --register-vrf-key-against-address=<vrf key will be registered against this address 
 in order to call oracleWithdraw from this address>
 ```
 
-Optional parameters - will not be deployed if specified (NOT WORKING YET)
+Optional parameters - will not be deployed if specified 
 ```
    --link-address <address> \
    --link-eth-feed <address> \
+```
+
+WIP - Not working yet:
+```
    --bhs-address <address> \
    --batch-bhs-address <address> \
    --coordinator-address <address> \
    --batch-coordinator-address <address> 
 ```
+
+
+## Process Example
+
+1. If the CL nodes do not have needed amount of ETH and VRF keys, you need to create them first:
+```
+go run . \
+--vrf-version="v2" \
+--vrf-primary-node-url=<url> \
+--vrf-primary-creds-file <path_to_file_with_creds> \
+--bhs-node-url=<url> \
+--bhs-creds-file <path_to_file_with_creds> \
+--num-eth-keys=3 \
+--num-vrf-keys=1 \
+--sending-key-funding-amount="1e17" \
+--deploy-contracts-and-create-jobs="false" 
+```
+Then update corresponding deployment scripts with the new ETH addresses, specifying max gas price for each key
+
+e.g.:
+```
+[[EVM.KeySpecific]]
+Key = '<eth key address>'
+GasEstimator.PriceMax = '30 gwei'
+```
+
+2. If the CL nodes already have needed amount of ETH and VRF keys, you can deploy contracts and create jobs with the following command:
+NOTE - nodes will be funded at least to the amount specified in `--sending-key-funding-amount` parameter.
+```
+go run . \
+--vrf-version="v2" \
+--vrf-primary-node-url=<url> \
+--vrf-primary-creds-file <path_to_file_with_creds> \
+--bhs-node-url=<url> \
+--bhs-creds-file <path_to_file_with_creds> \
+--num-eth-keys=3 \
+--num-vrf-keys=1 \
+--sending-key-funding-amount="1e17" \
+--deploy-contracts-and-create-jobs="true" \
+--subscription-balance="1e19" \
+--subscription-balance-native="1e18" \
+--batch-fulfillment-enabled="true" \
+--min-confs=3 \
+--register-vrf-key-against-address="<eoa address>" \
+--link-address "<link address>" \
+--link-eth-feed "<link eth feed address>" 
+``` 
+
+
+3. We can run sample rand request to see if the setup works.
+   After previous script was done, we should see the command to run in the console:
+
+   e.g. to trigger rand request:
+      1. navigate to `core/scripts/vrfv2plus/testnet` or `core/scripts/vrfv2/testnet` folder
+      2. set needed env variables
+         ```
+         export ETH_URL=
+         export ETH_CHAIN_ID=
+         export ACCOUNT_KEY=
+         ```
+      3. Trigger rand request (get this command from the console after running `setup-envs` script )  
+         ```bash
+         go run . eoa-load-test-request-with-metrics --consumer-address=<contract address> --sub-id=1 --key-hash=<keyhash> --request-confirmations <> --requests 1 --runs 1 --cb-gas-limit 1_000_000 
+         ```
+      4. Then to check that rand request was fulfilled (get this command from the console after running `setup-envs` script )
+         ```bash
+         go run . eoa-load-test-read-metrics --consumer-address=<contract address> 
+         ```

@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -70,7 +71,8 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 			allowListCache:   cache.New(defaultAllowListExpiration, cleanupInterval),
 			pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
 		},
-		hc: mockHttpClient,
+		hc:         mockHttpClient,
+		threadCtrl: utils.NewThreadControl(),
 	}
 	return r
 }
@@ -220,6 +222,7 @@ func TestEvmRegistry_StreamsLookup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
+			defer r.Close()
 			client := new(evmClientMocks.Client)
 			r.client = client
 
@@ -362,6 +365,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
+			defer r.Close()
 
 			client := new(evmClientMocks.Client)
 			r.client = client
@@ -576,9 +580,12 @@ func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
+			defer r.Close()
+
 			if tt.pluginRetries != 0 {
 				r.mercury.pluginRetryCache.Set(tt.pluginRetryKey, tt.pluginRetries, cache.DefaultExpiration)
 			}
+
 			hc := mocks.NewHttpClient(t)
 
 			for _, blob := range tt.mockChainlinkBlobs {
@@ -812,6 +819,8 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
+			defer r.Close()
+
 			hc := mocks.NewHttpClient(t)
 
 			mr := MercuryV02Response{ChainlinkBlob: tt.blob}
@@ -1157,6 +1166,8 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
+			defer r.Close()
+
 			if tt.pluginRetries != 0 {
 				r.mercury.pluginRetryCache.Set(tt.pluginRetryKey, tt.pluginRetries, cache.DefaultExpiration)
 			}
@@ -1319,6 +1330,8 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := new(evmClientMocks.Client)
 			r := setupEVMRegistry(t)
+			defer r.Close()
+
 			payload, err := r.abi.Pack("checkCallback", tt.lookup.upkeepId, values, tt.lookup.ExtraData)
 			require.Nil(t, err)
 			args := map[string]interface{}{
