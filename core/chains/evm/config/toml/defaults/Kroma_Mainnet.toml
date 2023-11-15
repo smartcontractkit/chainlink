@@ -1,6 +1,6 @@
 ChainID = '255'
 ChainType = 'kroma' # Kroma is based on the Optimism Bedrock architechture
-FinalityDepth = 400
+FinalityDepth = 700 # time-to-finality is 22.8 min ~ 700 blocks
 LogPollInterval = '2s'
 NoNewHeadsThreshold = '40s'
 MinIncomingConfirmations = 1
@@ -17,7 +17,7 @@ BlockHistorySize = 24
 ResendAfterThreshold = '30s'
 
 [HeadTracker]
-HistoryDepth = 400
+HistoryDepth = 700
 
 [NodePool]
 SyncThreshold = 10
