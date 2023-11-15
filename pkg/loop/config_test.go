@@ -18,6 +18,7 @@ func TestEnvConfig_parse(t *testing.T) {
 		expectedTracingEnabled         bool
 		expectedTracingCollectorTarget string
 		expectedTracingSamplingRatio   float64
+		expectedTracingTLSCertPath     string
 	}{
 		{
 			name: "All variables set correctly",
@@ -26,6 +27,7 @@ func TestEnvConfig_parse(t *testing.T) {
 				envTracingEnabled:           "true",
 				envTracingCollectorTarget:   "some:target",
 				envTracingSamplingRatio:     "1.0",
+				envTracingTLSCertPath:       "internal/test/fixtures/client.pem",
 				envTracingAttribute + "XYZ": "value",
 			},
 			expectError:                    false,
@@ -33,6 +35,7 @@ func TestEnvConfig_parse(t *testing.T) {
 			expectedTracingEnabled:         true,
 			expectedTracingCollectorTarget: "some:target",
 			expectedTracingSamplingRatio:   1.0,
+			expectedTracingTLSCertPath:     "internal/test/fixtures/client.pem",
 		},
 		{
 			name: "CL_PROMETHEUS_PORT parse error",
@@ -80,6 +83,9 @@ func TestEnvConfig_parse(t *testing.T) {
 					if config.TracingSamplingRatio != tc.expectedTracingSamplingRatio {
 						t.Errorf("Expected tracingSamplingRatio %f, got %f", tc.expectedTracingSamplingRatio, config.TracingSamplingRatio)
 					}
+					if config.TracingTLSCertPath != tc.expectedTracingTLSCertPath {
+						t.Errorf("Expected tracingTLSCertPath %s, got %s", tc.expectedTracingTLSCertPath, config.TracingTLSCertPath)
+					}
 				}
 			}
 		})
@@ -92,6 +98,7 @@ func TestEnvConfig_AsCmdEnv(t *testing.T) {
 		TracingEnabled:         true,
 		TracingCollectorTarget: "http://localhost:9000",
 		TracingSamplingRatio:   0.1,
+		TracingTLSCertPath:     "some/path",
 		TracingAttributes:      map[string]string{"key": "value"},
 	}
 	got := map[string]string{}
@@ -105,5 +112,6 @@ func TestEnvConfig_AsCmdEnv(t *testing.T) {
 	assert.Equal(t, "true", got[envTracingEnabled])
 	assert.Equal(t, "http://localhost:9000", got[envTracingCollectorTarget])
 	assert.Equal(t, "0.1", got[envTracingSamplingRatio])
+	assert.Equal(t, "some/path", got[envTracingTLSCertPath])
 	assert.Equal(t, "value", got[envTracingAttribute+"key"])
 }
