@@ -73,10 +73,12 @@ import "context"
 //
 //	}
 type Service interface {
-	// Start the service. Must quit immediately if the context is cancelled.
-	// The given context applies to Start function only and must not be retained.
+	// Start the service.
+	//  - Must return promptly if the context is cancelled.
+	//  - Must not retain the context after returning (only applies to start-up)
+	//  - Must not depend on external resources (no blocking network calls)
 	Start(context.Context) error
-	// Close stops the Service.
+	// Close stops the service.
 	// Invariants: Usually after this call the Service cannot be started
 	// again, you need to build a new Service to do so.
 	Close() error
