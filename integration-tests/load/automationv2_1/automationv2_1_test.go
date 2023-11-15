@@ -516,7 +516,7 @@ func TestLogTrigger(t *testing.T) {
 					Msg("Error getting logs")
 			}
 			logs = append(logs, logsInBatch...)
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Millisecond * 500)
 		}
 
 		if len(logs) > 0 {
@@ -537,7 +537,7 @@ func TestLogTrigger(t *testing.T) {
 			upkeepDelays = append(upkeepDelays, delay)
 		}
 		if (cIter+1)%batchSize == 0 {
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Millisecond * 500)
 		}
 	}
 
