@@ -144,6 +144,28 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 	return as.idempotencyKeyToTx[key]
 }
 
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findLatestSequence() SEQ {
+	as.lock.RLock()
+	defer as.lock.RUnlock()
+
+	var maxSeq SEQ
+	if as.inprogress != nil && as.inprogress.Sequence != nil {
+		if (*as.inprogress.Sequence).Int64() > maxSeq.Int64() {
+			maxSeq = *as.inprogress.Sequence
+		}
+	}
+	for _, tx := range as.unconfirmed {
+		if tx.Sequence == nil {
+			continue
+		}
+		if (*tx.Sequence).Int64() > maxSeq.Int64() {
+			maxSeq = *tx.Sequence
+		}
+	}
+
+	return maxSeq
+}
+
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	as.lock.RLock()
 	defer as.lock.RUnlock()

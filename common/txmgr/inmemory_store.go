@@ -20,6 +20,8 @@ var (
 	ErrExistingIdempotencyKey = fmt.Errorf("transaction with idempotency key already exists")
 	// ErrAddressNotFound is returned when an address is not found
 	ErrAddressNotFound = fmt.Errorf("address not found")
+	// ErrSequenceNotFound is returned when a sequence is not found
+	ErrSequenceNotFound = fmt.Errorf("sequence not found")
 )
 
 // Store and update all transaction state as files
@@ -200,14 +202,14 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindL
 	if ms.chainID.String() != chainID.String() {
 		return seq, fmt.Errorf("find_latest_sequence: %w", ErrInvalidChainID)
 	}
-	if _, ok := ms.addressStates[fromAddress]; !ok {
+	as, ok := ms.addressStates[fromAddress]
+	if !ok {
 		return seq, fmt.Errorf("find_latest_sequence: %w", ErrAddressNotFound)
 	}
 
-	// TODO(jtw): replace with inmemory store and use initialization at the start
-	seq, err = ms.txStore.FindLatestSequence(ctx, fromAddress, chainID)
-	if err != nil {
-		return seq, fmt.Errorf("find_latest_sequence: %w", err)
+	seq = as.findLatestSequence()
+	if seq.Int64() == 0 {
+		return seq, fmt.Errorf("find_latest_sequence: %w", ErrSequenceNotFound)
 	}
 
 	return seq, nil
