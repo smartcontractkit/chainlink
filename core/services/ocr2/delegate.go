@@ -617,7 +617,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		Command:       command,
 		ProviderType:  cconf.ProviderType,
 		TelemetryType: cconf.TelemetryType,
-		PluginConfig:  string(p.PluginConfig),
+		PluginConfig:  p.PluginConfig,
 	}
 
 	pr := generic.NewPipelineRunnerAdapter(pluginLggr, jb, d.pipelineRunner)
