@@ -111,6 +111,9 @@ const (
 	DefaultPruneCheckFrequencySec uint32 = 60 * 10
 	DefaultPruneBatchSize         uint32 = 500
 
+	// Used in place of OnchainMetadata for all offchain requests.
+	OffchainRequestMarker string = "OFFCHAIN_REQUEST"
+
 	FlagCBORMaxSize    uint32 = 1
 	FlagSecretsMaxSize uint32 = 2
 )
@@ -278,6 +281,45 @@ func (l *FunctionsListener) getMaxSecretsSize(flags RequestFlags) uint32 {
 		return math.MaxUint32 // not enforced if not configured
 	}
 	return l.pluginConfig.MaxSecretsSizesList[idx]
+}
+
+func (l *FunctionsListener) HandleOffchainRequest(ctx context.Context, request *OffchainRequest) error {
+	if request == nil {
+		return errors.New("HandleOffchainRequest: received nil request")
+	}
+	if len(request.RequestId) != RequestIDLength {
+		return fmt.Errorf("HandleOffchainRequest: invalid request ID length %d", len(request.RequestId))
+	}
+	if len(request.SubscriptionOwner) != common.AddressLength || len(request.RequestInitiator) != common.AddressLength {
+		return fmt.Errorf("HandleOffchainRequest: SubscriptionOwner and RequestInitiator must be set to valid addresses")
+	}
+
+	var requestId RequestID
+	copy(requestId[:], request.RequestId[:32])
+	subscriptionOwner := common.BytesToAddress(request.SubscriptionOwner)
+	senderAddr := common.BytesToAddress(request.RequestInitiator)
+	emptyTxHash := common.Hash{}
+	zeroCallbackGasLimit := uint32(0)
+	newReq := &Request{
+		RequestID:        requestId,
+		RequestTxHash:    &emptyTxHash,
+		ReceivedAt:       time.Now(),
+		Flags:            []byte{},
+		CallbackGasLimit: &zeroCallbackGasLimit,
+		// use sender address in place of coordinator contract to keep batches uniform
+		CoordinatorContractAddress: &senderAddr,
+		OnchainMetadata:            []byte(OffchainRequestMarker),
+	}
+	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
+		if errors.Is(err, ErrDuplicateRequestID) {
+			l.logger.Warnw("HandleOffchainRequest: received duplicate request ID", "requestID", formatRequestId(requestId), "err", err)
+		} else {
+			l.logger.Errorw("HandleOffchainRequest: failed to create a DB entry for new request", "requestID", formatRequestId(requestId), "err", err)
+		}
+		return err
+	}
+	l.handleRequest(ctx, requestId, request.SubscriptionId, subscriptionOwner, RequestFlags{}, &request.Data)
+	return nil
 }
 
 func (l *FunctionsListener) handleOracleRequestV1(request *evmrelayTypes.OracleRequest) {

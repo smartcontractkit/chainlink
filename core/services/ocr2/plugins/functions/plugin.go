@@ -50,9 +50,10 @@ type FunctionsServicesConfig struct {
 }
 
 const (
-	FunctionsBridgeName     string = "ea_bridge"
-	FunctionsS4Namespace    string = "functions"
-	MaxAdapterResponseBytes int64  = 1_000_000
+	FunctionsBridgeName                   string = "ea_bridge"
+	FunctionsS4Namespace                  string = "functions"
+	MaxAdapterResponseBytes               int64  = 1_000_000
+	DefaultOffchainTransmitterChannelSize uint32 = 1000
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
@@ -100,6 +101,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		s4Storage = s4.NewStorage(conf.Logger, *pluginConfig.S4Constraints, s4ORM, utils.NewRealClock())
 	}
 
+	offchainTransmitter := functions.NewOffchainTransmitter(DefaultOffchainTransmitterChannelSize)
 	listenerLogger := conf.Logger.Named("FunctionsListener")
 	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
 	functionsListener := functions.NewFunctionsListener(
@@ -118,10 +120,11 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	allServices = append(allServices, functionsListener)
 
 	functionsOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
-		Logger:          functionsOracleArgs.Logger,
-		PluginORM:       pluginORM,
-		JobID:           conf.Job.ExternalJobID,
-		ContractVersion: pluginConfig.ContractVersion,
+		Logger:              functionsOracleArgs.Logger,
+		PluginORM:           pluginORM,
+		JobID:               conf.Job.ExternalJobID,
+		ContractVersion:     pluginConfig.ContractVersion,
+		OffchainTransmitter: offchainTransmitter,
 	}
 	functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsOracleArgs)
 	if err != nil {
