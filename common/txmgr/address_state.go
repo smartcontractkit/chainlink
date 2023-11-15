@@ -23,9 +23,10 @@ type AddressState[
 	chainID     CHAIN_ID
 	fromAddress ADDR
 
-	lock       sync.RWMutex
-	unstarted  *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	inprogress *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	lock               sync.RWMutex
+	idempotencyKeyToTx map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	unstarted          *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	inprogress         *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	// TODO(jtw): using the TX ID as the key for the map might not make sense since the ID is set by the
 	// postgres DB which creates a dependency on the postgres DB. We should consider creating a UUID or ULID
 	// TX ID -> TX
@@ -41,17 +42,21 @@ func NewAddressState[
 	FEE feetypes.Fee,
 ](chainID CHAIN_ID, fromAddress ADDR, maxUnstarted int) *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	as := AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		chainID:     chainID,
-		fromAddress: fromAddress,
-		unstarted:   NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
-		inprogress:  nil,
-		unconfirmed: map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
+		chainID:            chainID,
+		fromAddress:        fromAddress,
+		idempotencyKeyToTx: map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
+		unstarted:          NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
+		inprogress:         nil,
+		unconfirmed:        map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 	}
 
 	return &as
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initialize(txStore PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) error {
+	as.lock.Lock()
+	defer as.lock.Unlock()
+
 	// Load all unstarted transactions from persistent storage
 	offset := 0
 	limit := 50
@@ -62,8 +67,9 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initia
 		}
 		for i := 0; i < len(txs); i++ {
 			tx := txs[i]
-			if err := as.moveTxToUnstarted(&tx); err != nil {
-				return fmt.Errorf("address_state: initialization: %w", err)
+			as.unstarted.AddTx(&tx)
+			if tx.IdempotencyKey != nil {
+				as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
 			}
 		}
 		if count <= offset+limit {
@@ -79,6 +85,9 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initia
 		return fmt.Errorf("address_state: initialization: %w", err)
 	}
 	as.inprogress = tx
+	if tx.IdempotencyKey != nil {
+		as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
+	}
 
 	// Load all unconfirmed transactions from persistent storage
 	offset = 0
@@ -91,6 +100,9 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initia
 		for i := 0; i < len(txs); i++ {
 			tx := txs[i]
 			as.unconfirmed[tx.ID] = &tx
+			if tx.IdempotencyKey != nil {
+				as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
+			}
 		}
 		if count <= offset+limit {
 			break
@@ -109,6 +121,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) close(
 	as.unstarted = nil
 	as.inprogress = nil
 	clear(as.unconfirmed)
+	clear(as.idempotencyKeyToTx)
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) unstartedCount() int {
@@ -122,6 +135,13 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) unconf
 	defer as.lock.RUnlock()
 
 	return len(as.unconfirmed)
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTxWithIdempotencyKey(key string) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.lock.RLock()
+	defer as.lock.RUnlock()
+
+	return as.idempotencyKeyToTx[key]
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
@@ -148,7 +168,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekIn
 	return tx, nil
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTxToUnstarted(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxToUnstarted(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	as.lock.Lock()
 	defer as.lock.Unlock()
 
@@ -157,6 +177,9 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTx
 	}
 
 	as.unstarted.AddTx(tx)
+	if tx.IdempotencyKey != nil {
+		as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
+	}
 
 	return nil
 }
@@ -240,6 +263,12 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abando
 		tx.Sequence = nil
 		tx.Error = null.NewString("abandoned", true)
 	}
+	for _, tx := range as.idempotencyKeyToTx {
+		tx.State = TxFatalError
+		tx.Sequence = nil
+		tx.Error = null.NewString("abandoned", true)
+	}
+
 	clear(as.unconfirmed)
 }
 

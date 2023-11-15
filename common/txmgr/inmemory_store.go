@@ -9,7 +9,6 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
-	"gopkg.in/guregu/null.v4"
 )
 
 var (
@@ -86,9 +85,6 @@ type InMemoryStore[
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	txStore  PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	pendingLock            sync.RWMutex
-	pendingIdempotencyKeys map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-
 	addressStatesLock sync.RWMutex
 	addressStates     map[ADDR]*AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
@@ -109,8 +105,6 @@ func NewInMemoryStore[
 		chainID:  chainID,
 		keyStore: keyStore,
 		txStore:  txStore,
-
-		pendingIdempotencyKeys: map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 
 		addressStates: map[ADDR]*AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{},
 	}
@@ -159,15 +153,17 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return nil, fmt.Errorf("find_tx_with_idempotency_key: %w", ErrInvalidChainID)
 	}
 
-	ms.pendingLock.Lock()
-	defer ms.pendingLock.Unlock()
-
-	tx, ok := ms.pendingIdempotencyKeys[idempotencyKey]
-	if !ok {
-		return nil, fmt.Errorf("find_tx_with_idempotency_key: %w", ErrTxnNotFound)
+	// Check if the transaction is in the pending queue of all address states
+	ms.addressStatesLock.Lock()
+	defer ms.addressStatesLock.Unlock()
+	for _, as := range ms.addressStates {
+		if tx := as.findTxWithIdempotencyKey(idempotencyKey); tx != nil {
+			return tx, nil
+		}
 	}
 
-	return tx, nil
+	return nil, fmt.Errorf("find_tx_with_idempotency_key: %w", ErrTxnNotFound)
+
 }
 
 // CheckTxQueueCapacity checks if the queue capacity has been reached for a given address
@@ -437,10 +433,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close
 	// Close the event recorder
 	ms.txStore.Close()
 
-	ms.pendingLock.Lock()
-	clear(ms.pendingIdempotencyKeys)
-	ms.pendingLock.Unlock()
-
 	// Clear all address states
 	ms.addressStatesLock.Lock()
 	for _, as := range ms.addressStates {
@@ -468,17 +460,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 	}
 	as.abandon()
 
-	ms.pendingLock.Lock()
-	// Mark all pending transactions as abandoned
-	for _, tx := range ms.pendingIdempotencyKeys {
-		if tx.FromAddress == addr {
-			tx.State = TxFatalError
-			tx.Sequence = nil
-			tx.Error = null.NewString("abandoned", true)
-		}
-	}
-	ms.pendingLock.Unlock()
-
 	return nil
 }
 
@@ -491,15 +472,9 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sendT
 	// TODO(jtw); HANDLE PRUNING STEP
 
 	// Add the request to the Unstarted channel to be processed by the Broadcaster
-	if err := as.moveTxToUnstarted(&tx); err != nil {
+	if err := as.addTxToUnstarted(&tx); err != nil {
 		return fmt.Errorf("send_tx_to_unstarted_queue: %w", err)
 	}
-
-	ms.pendingLock.Lock()
-	if tx.IdempotencyKey != nil {
-		ms.pendingIdempotencyKeys[*tx.IdempotencyKey] = &tx
-	}
-	ms.pendingLock.Unlock()
 
 	return nil
 }
