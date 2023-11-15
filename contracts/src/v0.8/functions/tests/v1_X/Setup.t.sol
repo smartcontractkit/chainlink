@@ -525,7 +525,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
 
     // Return prank to Owner
     vm.stopPrank();
-    vm.startPrank(OWNER_ADDRESS);
+    vm.startPrank(OWNER_ADDRESS, OWNER_ADDRESS);
   }
 
   /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
@@ -603,6 +603,9 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
 contract FunctionsFulfillmentSetup is FunctionsClientRequestSetup {
   function setUp() public virtual override {
     FunctionsClientRequestSetup.setUp();
+
+    // Fast forward time by 30 seconds to simulate the DON executing the computation
+    vm.warp(block.timestamp + 30);
 
     // Fulfill request 1
     uint256[] memory requestNumberKeys = new uint256[](1);
