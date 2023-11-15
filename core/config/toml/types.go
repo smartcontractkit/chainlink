@@ -1502,25 +1502,20 @@ func (t *Tracing) ValidateConfig() (err error) {
 		}
 	}
 
-	if t.TLSCertPath != nil {
-		ok := isValidFilePath(*t.TLSCertPath)
-		if !ok {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
-		}
-	}
-
 	if t.Mode != nil {
 		switch *t.Mode {
 		case "secure":
 			// TLSCertPath must be set
 			if t.TLSCertPath == nil {
 				err = multierr.Append(err, configutils.ErrMissing{Name: "TLSCertPath", Msg: "must be set when Tracing.Mode is secure"})
+			} else {
+				ok := isValidFilePath(*t.TLSCertPath)
+				if !ok {
+					err = multierr.Append(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
+				}
 			}
 		case "insecure":
-			// TLSCertPath must not be set
-			if t.TLSCertPath != nil {
-				err = multierr.Append(err, configutils.ErrIncluded{Name: "TLSCertPath", Msg: "must not be set when Tracing.Mode is insecure"})
-			}
+			// no-op
 		default:
 			// Mode must be either "secure" or "insecure"
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "Mode", Value: *t.Mode, Msg: "must be either 'secure' or 'insecure'"})
