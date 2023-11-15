@@ -278,7 +278,7 @@ func TestLogTrigger(t *testing.T) {
 	offC, err := json.Marshal(ocr2keepers30config.OffchainConfig{
 		TargetProbability:    "0.999",
 		TargetInRounds:       1,
-		PerformLockoutWindow: 3_600_000, // Intentionally set to be higher than in prod for testing purpose
+		PerformLockoutWindow: 80_000, // Copied from arbitrum mainnet prod value
 		GasLimitPerReport:    10_300_000,
 		GasOverheadPerUpkeep: 300_000,
 		MinConfirmations:     0,
