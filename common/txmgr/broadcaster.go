@@ -228,10 +228,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 
 	eb.sequenceLock.Lock()
 	defer eb.sequenceLock.Unlock()
-	eb.nextSequenceMap, err = eb.loadNextSequenceMap(eb.enabledAddresses)
-	if err != nil {
-		return errors.Wrap(err, "Broadcaster: failed to load next sequence map")
-	}
+	eb.nextSequenceMap = eb.loadNextSequenceMap(eb.enabledAddresses)
 
 	eb.isStarted = true
 	return nil
@@ -287,30 +284,37 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Trig
 }
 
 // Load the next sequence map using the tx table or on-chain (if not found in tx table)
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) loadNextSequenceMap(addresses []ADDR) (map[ADDR]SEQ, error) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) loadNextSequenceMap(addresses []ADDR) map[ADDR]SEQ {
 	ctx, cancel := eb.chStop.NewCtx()
 	defer cancel()
 
 	nextSequenceMap := make(map[ADDR]SEQ)
 	for _, address := range addresses {
-		// Get the highest sequence from the tx table
-		// Will need to be incremented since this sequence is already used
-		seq, err := eb.txStore.FindLatestSequence(ctx, address, eb.chainID)
-		if err != nil {
-			// Look for nonce on-chain if no tx found for address in TxStore or if error occurred
-			// Returns the nonce that should be used for the next transaction so no need to increment
-			seq, err = eb.client.PendingSequenceAt(ctx, address)
-			if err != nil {
-				return nil, errors.New("failed to retrieve next sequence from on-chain causing failure to load next sequence map on broadcaster startup")
-			}
-
-			nextSequenceMap[address] = seq
-		} else {
-			nextSequenceMap[address] = eb.generateNextSequence(seq)
+		seq := eb.getSequenceForAddr(ctx, address)
+		if seq != nil {
+			nextSequenceMap[address] = *seq
 		}
 	}
 
-	return nextSequenceMap, nil
+	return nextSequenceMap
+}
+
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) getSequenceForAddr(ctx context.Context, address ADDR) *SEQ {
+	// Get the highest sequence from the tx table
+	// Will need to be incremented since this sequence is already used
+	seq, err := eb.txStore.FindLatestSequence(ctx, address, eb.chainID)
+	if err != nil {
+		// Look for nonce on-chain if no tx found for address in TxStore or if error occurred
+		// Returns the nonce that should be used for the next transaction so no need to increment
+		seq, err = eb.client.PendingSequenceAt(ctx, address)
+		if err != nil {
+			eb.logger.Criticalw("failed to retrieve next sequence from on-chain to load map for address: ", "address", address.String())
+			return nil
+		}
+		return &seq
+	}
+	seq = eb.generateNextSequence(seq)
+	return &seq
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) newSequenceSyncBackoff() backoff.Backoff {
@@ -397,6 +401,14 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Sync
 	// Address not found in map so skip sync
 	if err != nil {
 		eb.logger.Criticalw("Failed to retrieve local next sequence for address", "address", addr.String(), "err", err)
+		// Try to retrieve next sequence from on-chain to load the map
+		// A scenario could exist where loading the map during startup failed (e.g. All configured RPC's are unreachable at start)
+		// The expectation is that the node does not fail startup so sequences need to be loaded during runtime
+		seq := eb.getSequenceForAddr(ctx, addr)
+		if seq != nil {
+			// Set found sequence in map
+			eb.SetNextSequence(addr, *seq)
+		}
 		return
 	}
 

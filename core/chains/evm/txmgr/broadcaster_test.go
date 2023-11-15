@@ -130,6 +130,38 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	require.NoError(t, eb.XXXTestCloseInternal())
 }
 
+// Failure to load next sequnce map should not fail Broadcaster startup
+func TestEthBroadcaster_LoadNextSequenceMapFailure_StartupSuccess(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	estimator := gasmocks.NewEvmFeeEstimator(t)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), errors.New("Getting on-chain nonce failed"))
+	eb := txmgr.NewEvmBroadcaster(
+		txStore,
+		txmgr.NewEvmTxmClient(ethClient),
+		txmgr.NewEvmTxmConfig(evmcfg.EVM()),
+		txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()),
+		evmcfg.EVM().Transactions(),
+		evmcfg.Database().Listener(),
+		ethKeyStore,
+		txBuilder,
+		nil,
+		logger.TestLogger(t),
+		&testCheckerFactory{},
+		false,
+	)
+
+	// Instance starts without error even if loading next sequence map fails
+	err := eb.Start(testutils.Context(t))
+	require.NoError(t, err)
+}
+
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
@@ -1806,6 +1838,34 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	ethNodeNonce++
+
+	t.Run("when broacaster startup fails to load sequence map, nonce syncer loads it later successfully", func(t *testing.T) {
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, estimator)
+
+		txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient)
+		kst := ksmocks.NewEth(t)
+		addresses := []gethCommon.Address{fromAddress}
+		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Once()
+		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), errors.New("failed to load nonce from on-chain at startup")).Once()
+		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
+
+		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(ethNodeNonce), nil).Once()
+		require.NoError(t, eb.Start(ctx))
+		defer func() { assert.NoError(t, eb.Close()) }()
+
+		testutils.WaitForLogMessage(t, observed, "Fast-forward sequence")
+
+		// Check nextSequenceMap to make sure it has correct nonce assigned
+		nonce, err := eb.GetNextSequence(fromAddress)
+		require.NoError(t, err)
+		assert.Equal(t, strconv.FormatUint(ethNodeNonce, 10), nonce.String())
+
+		// The disabled key did not get updated
+		_, err = eb.GetNextSequence(disabledAddress)
+		require.Error(t, err)
+	})
 }
 
 func Test_LoadSequenceMap(t *testing.T) {
