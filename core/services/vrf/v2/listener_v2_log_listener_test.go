@@ -36,11 +36,11 @@ import (
 )
 
 var (
-	EmitterABI, _    = abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
-	VRFEmitterABI, _ = abi.JSON(strings.NewReader(vrf_log_emitter.VRFLogEmitterABI))
+	emitterABI, _    = abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
+	vrfEmitterABI, _ = abi.JSON(strings.NewReader(vrf_log_emitter.VRFLogEmitterABI))
 )
 
-type TestHarness struct {
+type vrfLogPollerListenerTH struct {
 	Lggr              logger.Logger
 	ChainID           *big.Int
 	ORM               *logpoller.DbORM
@@ -57,11 +57,11 @@ type TestHarness struct {
 	Ctx               context.Context
 }
 
-func SetupTH(t *testing.T,
+func setupVRFLogPollerListenerTH(t *testing.T,
 	useFinalityTag bool,
 	finalityDepth, backfillBatchSize,
 	rpcBatchSize, keepFinalizedBlocksDepth int64,
-	mockChainUpdateFn func(*evmmocks.Chain, *TestHarness)) *TestHarness {
+	mockChainUpdateFn func(*evmmocks.Chain, *vrfLogPollerListenerTH)) *vrfLogPollerListenerTH {
 
 	lggr := logger.TestLogger(t)
 	chainID := testutils.NewRandomEVMChainID()
@@ -131,7 +131,6 @@ func SetupTH(t *testing.T,
 			vrf_log_emitter.VRFLogEmitterRandomWordsRequested{}.Topic(),
 			vrf_log_emitter.VRFLogEmitterRandomWordsFulfilled{}.Topic(),
 		},
-		// EventSigs: []common.Hash{VRFEmitterABI.Events["RandomWordsRequested"].ID},
 		Addresses: evmtypes.AddressArray{
 			vrfLogEmitter.Address(),
 			// listener.job.VRFSpec.CoordinatorAddress.Address(),
@@ -140,14 +139,14 @@ func SetupTH(t *testing.T,
 	require.Nil(t, err)
 	require.NoError(t, lp.RegisterFilter(logpoller.Filter{
 		Name:      "Integration test",
-		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
+		EventSigs: []common.Hash{emitterABI.Events["Log1"].ID},
 		Addresses: []common.Address{emitterAddress1},
 		Retention: 0}))
 	require.Nil(t, err)
 	require.Len(t, lp.Filter(nil, nil, nil).Addresses, 2)
 	require.Len(t, lp.Filter(nil, nil, nil).Topics, 1)
 
-	th := &TestHarness{
+	th := &vrfLogPollerListenerTH{
 		Lggr:              lggr,
 		ChainID:           chainID,
 		ORM:               o,
@@ -179,10 +178,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	finalityDepth := int64(3)
-	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, th *TestHarness) {
-		// txstore := txmgr.NewTxStore(db, lggr, cfg)
-		// txm := makeTestTxm(t, txstore, ks)
-		// chain.On("TxManager").Return(txm)
+	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, th *vrfLogPollerListenerTH) {
 		mockChain.On("ID").Return(th.ChainID)
 		mockChain.On("LogPoller").Return(th.LogPoller)
 	})
@@ -213,7 +209,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
 
 	// We should immediately have at least logs 4-7
-	logs, err := th.LogPoller.Logs(4, 7, EmitterABI.Events["Log1"].ID, th.EmitterAddress,
+	logs, err := th.LogPoller.Logs(4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress,
 		pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
 	require.Equal(t, 3, len(logs))
@@ -227,7 +223,7 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	finalityDepth := int64(3)
-	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
 		mockChain.On("ID").Return(curTH.ChainID)
 		mockChain.On("LogPoller").Return(curTH.LogPoller)
 	})
@@ -238,12 +234,15 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	}
 
 	// Create VRF request block and a fulfillment block
+	keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
+	preSeed := big.NewInt(105)
+	subID := uint64(1)
+	reqID := big.NewInt(1)
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-		big.NewInt(1), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+		keyHash, reqID, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
 	th.Client.Commit()
-	_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, big.NewInt(1), big.NewInt(105), big.NewInt(10), true)
+	_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID, preSeed, big.NewInt(10), true)
 	require.NoError(t, err2)
 	th.Client.Commit()
 
@@ -276,7 +275,7 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
 
 	finalityDepth := int64(3)
-	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
 		mockChain.On("ID").Return(curTH.ChainID)
 		mockChain.On("LogPoller").Return(curTH.LogPoller)
 	})
@@ -287,9 +286,12 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	}
 
 	// Make a VRF request without fulfilling it
+	keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
+	preSeed := big.NewInt(105)
+	subID := uint64(1)
+	reqID := big.NewInt(1)
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-		big.NewInt(1), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+		keyHash, reqID, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
 	th.Client.Commit()
 
@@ -323,7 +325,7 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	finalityDepth := int64(3)
-	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
 		mockChain.On("ID").Return(curTH.ChainID)
 		mockChain.On("LogPoller").Return(curTH.LogPoller)
 	})
@@ -345,14 +347,18 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 		th.Client.Commit()
 
 		// Create 2 blocks with VRF requests in each iteration
+		keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
+		preSeed := big.NewInt(105)
+		subID := uint64(1)
+		reqID1 := big.NewInt(int64(2 * i))
 		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-			big.NewInt(int64(2*i)), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
 		th.Client.Commit()
+
+		reqID2 := big.NewInt(int64(2*i + 1))
 		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-			big.NewInt(int64(2*i+1)), big.NewInt(106), 1, 10, 10000, 2, th.Owner.From)
+			keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
 		th.Client.Commit()
 	}
@@ -376,7 +382,7 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	finalityDepth := int64(3)
-	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
 		mockChain.On("ID").Return(curTH.ChainID)
 		mockChain.On("LogPoller").Return(curTH.LogPoller)
 	})
@@ -400,16 +406,21 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 		// Create 2 blocks with VRF requests in each iteration and fulfill one
 		// of them. This creates a mixed workload of fulfilled and unfulfilled
 		// VRF requests for testing the VRF listener
+		keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
+		preSeed := big.NewInt(105)
+		subID := uint64(1)
+		reqID1 := big.NewInt(int64(2 * i))
 		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-			big.NewInt(int64(2*i)), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
 		th.Client.Commit()
+
+		reqID2 := big.NewInt(int64(2*i + 1))
 		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-			big.NewInt(int64(2*i+1)), big.NewInt(106), 1, 10, 10000, 2, th.Owner.From)
+			keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
-		_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, big.NewInt(int64(2*i)), big.NewInt(105), big.NewInt(10), true)
+
+		_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID1, preSeed, big.NewInt(10), true)
 		require.NoError(t, err2)
 		th.Client.Commit()
 	}
@@ -443,7 +454,7 @@ func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	finalityDepth := int64(3)
-	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
 		mockChain.On("LogPoller").Return(curTH.LogPoller)
 	})
 
@@ -453,14 +464,19 @@ func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 	}
 
 	// Create VRF request logs
+	keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
+	preSeed := big.NewInt(105)
+	subID := uint64(1)
+	reqID1 := big.NewInt(int64(1))
+
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-		big.NewInt(int64(1)), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+		keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
 	th.Client.Commit()
+
+	reqID2 := big.NewInt(int64(2))
 	_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-		big.NewInt(int64(2)), big.NewInt(106), 1, 10, 10000, 2, th.Owner.From)
+		keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
 	th.Client.Commit()
 
@@ -495,7 +511,7 @@ func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	finalityDepth := int64(3)
-	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
 		mockChain.On("LogPoller").Return(curTH.LogPoller)
 	})
 
@@ -505,12 +521,17 @@ func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	}
 
 	// Create VRF request log block with a fulfillment log block
+	keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
+	preSeed := big.NewInt(105)
+	subID := uint64(1)
+	reqID1 := big.NewInt(int64(1))
+
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-		big.NewInt(int64(1)), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+		keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
 	th.Client.Commit()
-	_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, big.NewInt(1), big.NewInt(105), big.NewInt(10), true)
+
+	_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID1, preSeed, big.NewInt(10), true)
 	require.NoError(t, err2)
 	th.Client.Commit()
 
@@ -545,7 +566,7 @@ func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
 
 	finalityDepth := int64(3)
-	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
 		mockChain.On("LogPoller").Return(curTH.LogPoller)
 	})
 
@@ -555,9 +576,13 @@ func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	}
 
 	// Create VRF request logs without a fulfillment log block
+	keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
+	preSeed := big.NewInt(105)
+	subID := uint64(1)
+	reqID1 := big.NewInt(int64(1))
+
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-		big.NewInt(int64(1)), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+		keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
 	th.Client.Commit()
 
@@ -592,7 +617,7 @@ func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	finalityDepth := int64(3)
-	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
 		mockChain.On("LogPoller").Return(curTH.LogPoller)
 	})
 
@@ -611,14 +636,19 @@ func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 		th.Client.Commit()
 
 		// Create 2 blocks with VRF requests in each iteration
+		keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
+		preSeed := big.NewInt(105)
+		subID := uint64(1)
+		reqID1 := big.NewInt(int64(2 * i))
+
 		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-			big.NewInt(int64(2*i)), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
 		th.Client.Commit()
+
+		reqID2 := big.NewInt(int64(2*i + 1))
 		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-			big.NewInt(int64(2*i+1)), big.NewInt(106), 1, 10, 10000, 2, th.Owner.From)
+			keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
 		th.Client.Commit()
 	}
@@ -644,7 +674,7 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	finalityDepth := int64(3)
-	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
 		mockChain.On("LogPoller").Return(curTH.LogPoller)
 	})
 
@@ -665,16 +695,21 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 		// Create 2 blocks with VRF requests in each iteration and fulfill one
 		// of them. This creates a mixed workload of fulfilled and unfulfilled
 		// VRF requests for testing the VRF listener
+		keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
+		preSeed := big.NewInt(105)
+		subID := uint64(1)
+		reqID1 := big.NewInt(int64(2 * i))
+
 		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-			big.NewInt(int64(2*i)), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
 		th.Client.Commit()
+
+		reqID2 := big.NewInt(int64(2*i + 1))
 		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
-			big.NewInt(int64(2*i+1)), big.NewInt(106), 1, 10, 10000, 2, th.Owner.From)
+			keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
-		_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, big.NewInt(int64(2*i)), big.NewInt(105), big.NewInt(10), true)
+		_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID1, preSeed, big.NewInt(10), true)
 		require.NoError(t, err2)
 		th.Client.Commit()
 	}
@@ -687,15 +722,6 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	// We've to replay from before VRF request log, since updateLastProcessedBlock
 	// does not internally call LogPoller.Replay
 	require.NoError(t, th.LogPoller.Replay(th.Ctx, 4))
-
-	lh, _ := th.LogPoller.LatestLogByEventSigWithConfs(VRFEmitterABI.Events["RandomWordsFulfilled"].ID,
-		th.Listener.coordinator.Address(),
-		logpoller.Finalized,
-	)
-	for i, topic := range lh.Topics {
-		fmt.Printf("LogTopic[%d]: %v\n", i, common.Bytes2Hex(topic))
-	}
-	fmt.Printf("LogData: %v\n", common.Bytes2Hex(lh.Data))
 
 	// updateLastProcessedBlock must return the VRF req at block (7) instead of
 	// finalizedBlockNumber (16) after currLastProcessedBlock (4) passed below,
@@ -767,7 +793,7 @@ func TestGetUnfulfilled_NoVRFReqs(t *testing.T) {
 			Topics: [][]byte{
 				[]byte("0x7299721c72d5436afdfb18da500ab7e08ac04c812d7204e1bddd322f67d8be4c"),
 			},
-			EventSig:  EmitterABI.Events["Log1"].ID,
+			EventSig:  emitterABI.Events["Log1"].ID,
 			Address:   common.Address{},
 			TxHash:    common.BigToHash(big.NewInt(int64(i))),
 			Data:      nil,
@@ -787,12 +813,12 @@ func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 
 	logs := []logpoller.Log{}
 	for i := 0; i < 10; i++ {
-		eventSig := EmitterABI.Events["Log1"].ID
+		eventSig := emitterABI.Events["Log1"].ID
 		topics := [][]byte{
 			common.FromHex("0x46692c0e59ca9cd1ad8f984a9d11715ec83424398b7eed4e05c8ce84662415a8"),
 		}
 		if i%2 == 0 {
-			eventSig = VRFEmitterABI.Events["RandomWordsRequested"].ID
+			eventSig = vrfEmitterABI.Events["RandomWordsRequested"].ID
 			topics = [][]byte{
 				common.FromHex("0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772"),
 				common.FromHex("0xc0a6c424ac7157ae408398df7e5f4552091a69125d5dfcb7b8c2659029395bdf"),
@@ -824,7 +850,7 @@ func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 					common.FromHex("0x7dffc5ae5ee4e2e4df1651cf6ad329a73cebdb728f37ea0187b9b17e036756e4"),
 					common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + fmt.Sprintf("%d", i)),
 				},
-				EventSig:  VRFEmitterABI.Events["RandomWordsFulfilled"].ID,
+				EventSig:  vrfEmitterABI.Events["RandomWordsFulfilled"].ID,
 				Address:   common.Address{},
 				TxHash:    common.BigToHash(big.NewInt(int64(2*i + 1))),
 				Data:      common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000069000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000001"),
@@ -845,12 +871,12 @@ func TestGetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 
 	logs := []logpoller.Log{}
 	for i := 0; i < 10; i++ {
-		eventSig := EmitterABI.Events["Log1"].ID
+		eventSig := emitterABI.Events["Log1"].ID
 		topics := [][]byte{
 			common.FromHex("0x46692c0e59ca9cd1ad8f984a9d11715ec83424398b7eed4e05c8ce84662415a8"),
 		}
 		if i == 4 {
-			eventSig = VRFEmitterABI.Events["RandomWordsRequested"].ID
+			eventSig = vrfEmitterABI.Events["RandomWordsRequested"].ID
 			topics = [][]byte{
 				common.FromHex("0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772"),
 				common.FromHex("0xc0a6c424ac7157ae408398df7e5f4552091a69125d5dfcb7b8c2659029395bdf"),
@@ -886,12 +912,12 @@ func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 
 	logs := []logpoller.Log{}
 	for i := 0; i < 10; i++ {
-		eventSig := EmitterABI.Events["Log1"].ID
+		eventSig := emitterABI.Events["Log1"].ID
 		topics := [][]byte{
 			common.FromHex("0x46692c0e59ca9cd1ad8f984a9d11715ec83424398b7eed4e05c8ce84662415a8"),
 		}
 		if i%2 == 0 {
-			eventSig = VRFEmitterABI.Events["RandomWordsRequested"].ID
+			eventSig = vrfEmitterABI.Events["RandomWordsRequested"].ID
 			topics = [][]byte{
 				common.FromHex("0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772"),
 				common.FromHex("0xc0a6c424ac7157ae408398df7e5f4552091a69125d5dfcb7b8c2659029395bdf"),
@@ -931,12 +957,12 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 
 	logs := []logpoller.Log{}
 	for i := 0; i < 10; i++ {
-		eventSig := EmitterABI.Events["Log1"].ID
+		eventSig := emitterABI.Events["Log1"].ID
 		topics := [][]byte{
 			common.FromHex("0x46692c0e59ca9cd1ad8f984a9d11715ec83424398b7eed4e05c8ce84662415a8"),
 		}
 		if i%2 == 0 {
-			eventSig = VRFEmitterABI.Events["RandomWordsRequested"].ID
+			eventSig = vrfEmitterABI.Events["RandomWordsRequested"].ID
 			topics = [][]byte{
 				common.FromHex("0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772"),
 				common.FromHex("0xc0a6c424ac7157ae408398df7e5f4552091a69125d5dfcb7b8c2659029395bdf"),
@@ -968,7 +994,7 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 					common.FromHex("0x7dffc5ae5ee4e2e4df1651cf6ad329a73cebdb728f37ea0187b9b17e036756e4"),
 					common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + fmt.Sprintf("%d", i)),
 				},
-				EventSig:  VRFEmitterABI.Events["RandomWordsFulfilled"].ID,
+				EventSig:  vrfEmitterABI.Events["RandomWordsFulfilled"].ID,
 				Address:   common.Address{},
 				TxHash:    common.BigToHash(big.NewInt(int64(2*i + 1))),
 				Data:      common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000069000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000001"),
