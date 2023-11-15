@@ -88,7 +88,9 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return r.NewFunctionsProvider(ctx, rargs, pargs)
 	case types.Mercury:
 		return r.NewMercuryProvider(ctx, rargs, pargs)
-	case types.OCR2Keeper, types.DKG, types.OCR2VRF, types.GenericPlugin:
+	case types.OCR2Keeper:
+		return r.NewOCR2KeepersProvider(ctx, rargs, pargs)
+	case types.DKG, types.OCR2VRF, types.GenericPlugin:
 		return r.RelayerAdapter.NewPluginProvider(ctx, rargs, pargs)
 	case types.CCIPCommit, types.CCIPExecution:
 		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)

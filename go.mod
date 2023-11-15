@@ -66,7 +66,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231109141932-cb1ea9020255
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231115013833-add1fb5294a3
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231115022839-6b4362375ac7
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231023133638-72f4e799ab05
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231024133459-1ef3a11319eb
 	github.com/smartcontractkit/libocr v0.0.0-20231107151413-13e0202ae8d7
@@ -389,3 +389,9 @@ replace (
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 )
+
+replace github.com/smartcontractkit/chainlink-solana => github.com/ferglor/chainlink-solana v0.0.0-20231115023106-27199e228ed6
+
+replace github.com/smartcontractkit/chainlink-starknet/relayer => github.com/ferglor/chainlink-starknet/relayer v0.0.0-20231115023044-991a15feb10a
+
+replace github.com/smartcontractkit/chainlink-cosmos => github.com/ferglor/chainlink-cosmos v0.0.0-20231115023018-7dcc60ab26d0

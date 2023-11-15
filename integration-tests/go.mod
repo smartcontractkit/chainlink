@@ -387,7 +387,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231109141932-cb1ea9020255 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231115013833-add1fb5294a3 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231115022839-6b4362375ac7 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231023133638-72f4e799ab05 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231024133459-1ef3a11319eb // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
@@ -515,3 +515,9 @@ replace (
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.43.1-0.20230327151049-211ae4f1f0a2
 	github.com/sercand/kuberesolver v2.4.0+incompatible => github.com/sercand/kuberesolver/v5 v5.1.1
 )
+
+replace github.com/smartcontractkit/chainlink-solana => github.com/ferglor/chainlink-solana v0.0.0-20231115023106-27199e228ed6
+
+replace github.com/smartcontractkit/chainlink-starknet/relayer => github.com/ferglor/chainlink-starknet/relayer v0.0.0-20231115023044-991a15feb10a
+
+replace github.com/smartcontractkit/chainlink-cosmos => github.com/ferglor/chainlink-cosmos v0.0.0-20231115023018-7dcc60ab26d0
