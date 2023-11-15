@@ -28,6 +28,7 @@ var _ commontypes.MercuryProvider = (*mercuryProvider)(nil)
 type mercuryProvider struct {
 	configWatcher      *configWatcher
 	chainReader        commontypes.ChainReader
+	codec              commontypes.Codec
 	mercuryChainReader relaymercury.ChainReader
 	transmitter        mercury.Transmitter
 	reportCodecV1      relaymercuryv1.ReportCodec
@@ -41,6 +42,7 @@ type mercuryProvider struct {
 func NewMercuryProvider(
 	configWatcher *configWatcher,
 	chainReader commontypes.ChainReader,
+	codec commontypes.Codec,
 	mercuryChainReader relaymercury.ChainReader,
 	transmitter mercury.Transmitter,
 	reportCodecV1 relaymercuryv1.ReportCodec,
@@ -51,6 +53,7 @@ func NewMercuryProvider(
 	return &mercuryProvider{
 		configWatcher,
 		chainReader,
+		codec,
 		mercuryChainReader,
 		transmitter,
 		reportCodecV1,
@@ -86,6 +89,10 @@ func (p *mercuryProvider) HealthReport() map[string]error {
 
 func (p *mercuryProvider) MercuryChainReader() relaymercury.ChainReader {
 	return p.mercuryChainReader
+}
+
+func (p *mercuryProvider) Codec() commontypes.Codec {
+	return p.codec
 }
 
 func (p *mercuryProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {

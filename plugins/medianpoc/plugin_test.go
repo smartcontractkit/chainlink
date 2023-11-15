@@ -76,6 +76,10 @@ func (p provider) ChainReader() types.ChainReader {
 	return nil
 }
 
+func (p provider) Codec() types.Codec {
+	return nil
+}
+
 func TestNewPlugin(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	p := NewPlugin(lggr)

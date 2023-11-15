@@ -12,9 +12,10 @@ import (
 )
 
 type CodecEntry struct {
-	Args        abi.Arguments
-	checkedType reflect.Type
-	nativeType  reflect.Type
+	Args           abi.Arguments
+	encodingPrefix []byte
+	checkedType    reflect.Type
+	nativeType     reflect.Type
 }
 
 func (entry *CodecEntry) Init() error {
