@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -284,16 +283,16 @@ func DeleteJobs(nodes []*client.ChainlinkClient) error {
 		}
 		jobs, _, err := node.ReadJobs()
 		if err != nil {
-			return errors.Wrap(err, "error reading jobs from chainlink node")
+			return fmt.Errorf("error reading jobs from chainlink node: %w", err)
 		}
 		for _, maps := range jobs.Data {
 			if _, ok := maps["id"]; !ok {
-				return errors.Errorf("error reading job id from chainlink node's jobs %+v", jobs.Data)
+				return fmt.Errorf("error reading job id from chainlink node's jobs %+v", jobs.Data)
 			}
 			id := maps["id"].(string)
-			_, err := node.DeleteJob(id)
-			if err != nil {
-				return errors.Wrap(err, "error deleting job from chainlink node")
+			_, err2 := node.DeleteJob(id)
+			if err2 != nil {
+				return fmt.Errorf("error deleting job from chainlink node: %w", err)
 			}
 		}
 	}
