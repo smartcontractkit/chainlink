@@ -90,16 +90,14 @@ generate: abigen codecgen mockery ## Execute all go:generate commands.
 	go generate -x ./...
 
 .PHONY: testscripts
-testscripts: install-chainlink ## Install and run testscript against testdata/scripts/* files.
+testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
 	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
-	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | while read -r dir; do \
-		testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) $(TS_FLAGS) "$$dir"/*.txtar; \
-	done
+	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | PATH="$(CURDIR):${PATH}" xargs -I % \
+		sh -c 'testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
 
 .PHONY: testscripts-update
 testscripts-update: ## Update testdata/scripts/* files via testscript.
 	make testscripts TS_FLAGS="-u"
-
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
