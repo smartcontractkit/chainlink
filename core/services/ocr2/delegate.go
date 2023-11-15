@@ -1084,9 +1084,9 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	transmitterID := spec.TransmitterID.String
-	if len(transmitterID) != 64 {
-		return nil, errors.Errorf("ServicesForSpec: keepers job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
-	}
+	//if len(transmitterID) != 64 {
+	//	return nil, errors.Errorf("ServicesForSpec: keepers job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
+	//}
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
@@ -1235,9 +1235,9 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	}
 
 	transmitterID := spec.TransmitterID.String
-	if len(transmitterID) != 64 {
-		return nil, errors.Errorf("ServicesForSpec: keepers job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
-	}
+	//if len(transmitterID) != 64 {
+	//	return nil, errors.Errorf("ServicesForSpec: keepers job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
+	//}
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
