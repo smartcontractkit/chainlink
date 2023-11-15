@@ -9,7 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+<<<<<<< HEAD
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+=======
+	relayconfig "github.com/smartcontractkit/chainlink-relay/pkg/config"
+>>>>>>> 34eecf3b1d (feature/tracing-credentials: bumping relay and lint)
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
