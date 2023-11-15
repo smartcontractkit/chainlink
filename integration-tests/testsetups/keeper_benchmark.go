@@ -294,8 +294,11 @@ func (k *KeeperBenchmarkTest) Run() {
 
 	// Collect logs for each registry to calculate test metrics
 	// This test generates a LOT of logs, and we need to break up our reads, or risk getting rate-limited by the node
-	endBlock := big.NewInt(0).Add(k.startingBlock, big.NewInt(u.BlockRange))
-	registryLogs := make([][]types.Log, len(k.keeperRegistries))
+	var (
+		endBlock             = big.NewInt(0).Add(k.startingBlock, big.NewInt(u.BlockRange))
+		registryLogs         = make([][]types.Log, len(k.keeperRegistries))
+		blockBatchSize int64 = 100
+	)
 	for rIndex := range k.keeperRegistries {
 		// Variables for the full registry
 		var (
@@ -310,7 +313,7 @@ func (k *KeeperBenchmarkTest) Run() {
 			filterQuery := geth.FilterQuery{
 				Addresses: []common.Address{common.HexToAddress(addr)},
 				FromBlock: queryStartBlock,
-				ToBlock:   big.NewInt(0).Add(queryStartBlock, big.NewInt(100)),
+				ToBlock:   big.NewInt(0).Add(queryStartBlock, big.NewInt(blockBatchSize)),
 			}
 
 			// This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
@@ -334,6 +337,7 @@ func (k *KeeperBenchmarkTest) Run() {
 					Int("Log Count", len(logs)).
 					Str("Registry Address", addr).
 					Msg("Collected logs")
+				queryStartBlock.Add(queryStartBlock, big.NewInt(blockBatchSize))
 				registryLogs[rIndex] = append(registryLogs[rIndex], logs...)
 			}
 		}
