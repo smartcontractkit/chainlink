@@ -48,7 +48,6 @@ compileContract vrf/mocks/VRFCoordinatorMock.sol
 compileContract vrf/VRFConsumerBaseV2.sol
 compileContract vrf/testhelpers/ChainSpecificUtilHelper.sol
 compileContract vrf/testhelpers/VRFConsumerV2.sol
-compileContract vrf/testhelpers/VRFLogEmitter.sol
 compileContract vrf/testhelpers/VRFMaliciousConsumerV2.sol
 compileContract vrf/testhelpers/VRFTestHelper.sol
 compileContract vrf/testhelpers/VRFV2RevertingExample.sol
