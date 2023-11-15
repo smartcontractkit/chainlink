@@ -1090,7 +1090,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx,
@@ -1239,21 +1239,30 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, errors.Errorf("ServicesForSpec: keepers job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
 	}
 
-	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(d.db, chain, d.pipelineRunner, jb, lggr.Named("OCR2KeeperRelayer"))
+	relayer, err := d.RelayGetter.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
+	}
 
-	keeperProvider, err2 := ocr2keeperRelayer.NewOCR2KeeperProvider(
+	provider, err := relayer.NewPluginProvider(ctx,
 		types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
 			RelayConfig:   spec.RelayConfig.Bytes(),
+			ProviderType:  string(spec.PluginType),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
 		})
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "new keeper provider")
+	if err != nil {
+		return nil, err
+	}
+
+	keeperProvider, ok := provider.(types.OCR2KeepersProvider)
+	if !ok {
+		return nil, errors.New("could not coerce PluginProvider to OCR2KeepersProvider")
 	}
 
 	rgstry, encoder, logProvider, err := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.pipelineRunner)
