@@ -17,12 +17,12 @@ type CodecEntry struct {
 	nativeType  reflect.Type
 }
 
-func (info *CodecEntry) Init() error {
-	if info.checkedType != nil {
+func (entry *CodecEntry) Init() error {
+	if entry.checkedType != nil {
 		return nil
 	}
 
-	args := UnwrapArgs(info.Args)
+	args := UnwrapArgs(entry.Args)
 	argLen := len(args)
 	native := make([]reflect.StructField, argLen)
 	checked := make([]reflect.StructField, argLen)
@@ -32,8 +32,8 @@ func (info *CodecEntry) Init() error {
 		if err != nil {
 			return err
 		}
-		info.nativeType = nativeArg
-		info.checkedType = checkedArg
+		entry.nativeType = nativeArg
+		entry.checkedType = checkedArg
 		return nil
 	}
 
@@ -49,9 +49,16 @@ func (info *CodecEntry) Init() error {
 		checked[i] = reflect.StructField{Name: name, Type: checkedArg, Tag: tag}
 	}
 
-	info.nativeType = reflect.StructOf(native)
-	info.checkedType = reflect.StructOf(checked)
+	entry.nativeType = reflect.StructOf(native)
+	entry.checkedType = reflect.StructOf(checked)
 	return nil
+}
+
+func (entry *CodecEntry) GetMaxSize(n int) (int, error) {
+	if entry == nil {
+		return 0, commontypes.ErrInvalidType
+	}
+	return GetMaxSize(n, entry.Args)
 }
 
 func UnwrapArgs(args abi.Arguments) abi.Arguments {
