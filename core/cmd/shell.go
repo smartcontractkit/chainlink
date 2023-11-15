@@ -145,7 +145,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, err
 	}
 
-	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
+	err = handleNodeVersioning(ctx, db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +229,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 }
 
 // handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
-func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error {
+func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error {
 	var err error
 	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DefaultQueryTimeout())
@@ -260,7 +260,7 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cf
 
 	// Migrate the database
 	if cfg.MigrateDatabase() {
-		if err = migrate.Migrate(db.DB, appLggr); err != nil {
+		if err = migrate.Migrate(ctx, db.DB, appLggr); err != nil {
 			return fmt.Errorf("initializeORM#Migrate: %w", err)
 		}
 	}
