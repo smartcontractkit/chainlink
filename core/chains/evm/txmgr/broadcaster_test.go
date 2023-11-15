@@ -1055,6 +1055,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				FeeLimit:          gasLimit,
 				State:             txmgrcommon.TxUnstarted,
 				PipelineTaskRunID: uuid.NullUUID{UUID: tr.ID, Valid: true},
+				SignalCallback:    true,
 			}
 
 			t.Run("with erroring callback bails out", func(t *testing.T) {

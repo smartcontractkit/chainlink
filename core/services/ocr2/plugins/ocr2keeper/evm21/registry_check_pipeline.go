@@ -41,7 +41,10 @@ func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.Upke
 	}
 
 	chResult := make(chan checkResult, 1)
-	go r.doCheck(ctx, keys, chResult)
+
+	r.threadCtrl.Go(func(ctx context.Context) {
+		r.doCheck(ctx, keys, chResult)
+	})
 
 	select {
 	case rs := <-chResult:

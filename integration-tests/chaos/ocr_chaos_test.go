@@ -1,7 +1,6 @@
 package chaos
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"os"
@@ -27,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -164,7 +164,7 @@ func TestOCRChaos(t *testing.T) {
 				if chainClient != nil {
 					chainClient.GasStats().PrintStats()
 				}
-				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
@@ -180,7 +180,7 @@ func TestOCRChaos(t *testing.T) {
 			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
 			require.NoError(t, err)
 
-			ocrInstances, err := actions.DeployOCRContracts(1, lt, cd, bootstrapNode, workerNodes, chainClient)
+			ocrInstances, err := actions.DeployOCRContracts(1, lt, cd, workerNodes, chainClient)
 			require.NoError(t, err)
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err)
@@ -195,7 +195,7 @@ func TestOCRChaos(t *testing.T) {
 					err := ocr.RequestNewRound()
 					require.NoError(t, err, "Error requesting new round")
 				}
-				round, err := ocrInstances[0].GetLatestRound(context.Background())
+				round, err := ocrInstances[0].GetLatestRound(it_utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				l.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
 				if round.RoundId.Int64() == chaosStartRound && !chaosApplied {

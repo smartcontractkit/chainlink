@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, vrfBeacon contracts.VRFBeacon) {
@@ -172,7 +173,7 @@ func FundVRFCoordinatorV3Subscription(t *testing.T, linkToken contracts.LinkToke
 	require.NoError(t, err, "Error waiting for TXs to complete")
 }
 
-func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDeployer, chainClient blockchain.EVMClient, linkToken contracts.LinkToken, mockETHLinkFeed contracts.MockETHLINKFeed, beaconPeriodBlocksCount *big.Int, keyID string) (contracts.DKG, contracts.VRFCoordinatorV3, contracts.VRFBeacon, contracts.VRFBeaconConsumer) {
+func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDeployer, chainClient blockchain.EVMClient, linkToken contracts.LinkToken, beaconPeriodBlocksCount *big.Int, keyID string) (contracts.DKG, contracts.VRFCoordinatorV3, contracts.VRFBeacon, contracts.VRFBeaconConsumer) {
 	dkg, err := contractDeployer.DeployDKG()
 	require.NoError(t, err, "Error deploying DKG Contract")
 
@@ -272,14 +273,14 @@ func RequestRandomnessFulfillmentAndWaitForFulfilment(
 }
 
 func getRequestId(t *testing.T, consumer contracts.VRFBeaconConsumer, receipt *types.Receipt, confirmationDelay *big.Int) *big.Int {
-	periodBlocks, err := consumer.IBeaconPeriodBlocks(nil)
+	periodBlocks, err := consumer.IBeaconPeriodBlocks(utils.TestContext(t))
 	require.NoError(t, err, "Error getting Beacon Period block count")
 
 	blockNumber := receipt.BlockNumber
 	periodOffset := new(big.Int).Mod(blockNumber, periodBlocks)
 	nextBeaconOutputHeight := new(big.Int).Sub(new(big.Int).Add(blockNumber, periodBlocks), periodOffset)
 
-	requestID, err := consumer.GetRequestIdsBy(nil, nextBeaconOutputHeight, confirmationDelay)
+	requestID, err := consumer.GetRequestIdsBy(utils.TestContext(t), nextBeaconOutputHeight, confirmationDelay)
 	require.NoError(t, err, "Error getting requestID from consumer contract")
 
 	return requestID
@@ -305,7 +306,6 @@ func SetupOCR2VRFUniverse(
 		contractDeployer,
 		chainClient,
 		linkToken,
-		mockETHLinkFeed,
 		ocr2vrf_constants.BeaconPeriodBlocksCount,
 		ocr2vrf_constants.KeyID,
 	)

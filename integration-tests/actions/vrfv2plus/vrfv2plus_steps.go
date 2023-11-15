@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
@@ -802,7 +803,7 @@ func WaitForRequestCountEqualToFulfilmentCount(consumer contracts.VRFv2PlusLoadT
 				fmt.Errorf("timeout waiting for rand request and fulfilments to be equal AFTER performance test was executed. Request Count: %d, Fulfilment Count: %d",
 					metrics.RequestCount.Uint64(), metrics.FulfilmentCount.Uint64())
 		case <-ticker.C:
-			go getLoadTestMetrics(consumer, metricsChannel, metricsErrorChannel)
+			go retreiveLoadTestMetrics(consumer, metricsChannel, metricsErrorChannel)
 		case metrics = <-metricsChannel:
 			if metrics.RequestCount.Cmp(metrics.FulfilmentCount) == 0 {
 				ticker.Stop()
@@ -852,7 +853,7 @@ func ReturnFundsForFulfilledRequests(client blockchain.EVMClient, coordinator co
 	return nil
 }
 
-func getLoadTestMetrics(
+func retreiveLoadTestMetrics(
 	consumer contracts.VRFv2PlusLoadTestConsumer,
 	metricsChannel chan *contracts.VRFLoadTestMetrics,
 	metricsErrorChannel chan error,

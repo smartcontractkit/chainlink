@@ -149,10 +149,17 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 	}
 
 	var wg sync.WaitGroup
+
 	for i, lookup := range lookups {
 		wg.Add(1)
-		go r.doLookup(ctx, &wg, lookup, i, checkResults, lggr)
+		func(i int, lookup *StreamsLookup) {
+			r.threadCtrl.Go(func(ctx context.Context) {
+				r.doLookup(ctx, &wg, lookup, i, checkResults, lggr)
+			})
+		}(i, lookup)
+
 	}
+
 	wg.Wait()
 
 	// don't surface error to plugin bc StreamsLookup process should be self-contained.
@@ -289,14 +296,19 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, p
 	if sl.FeedParamKey == feedIdHex && sl.TimeParamKey == blockNumber {
 		// only mercury v0.2
 		for i := range sl.Feeds {
-			go r.singleFeedRequest(ctx, ch, i, sl, lggr)
+			i := i
+			r.threadCtrl.Go(func(ctx context.Context) {
+				r.singleFeedRequest(ctx, ch, i, sl, lggr)
+			})
 		}
 	} else if sl.FeedParamKey == feedIDs {
 		// only mercury v0.3
 		resultLen = 1
 		isMercuryV03 = true
 		ch = make(chan MercuryData, resultLen)
-		go r.multiFeedsRequest(ctx, ch, sl, lggr)
+		r.threadCtrl.Go(func(ctx context.Context) {
+			r.multiFeedsRequest(ctx, ch, sl, lggr)
+		})
 	} else {
 		return encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0 * time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", sl.FeedParamKey, sl.TimeParamKey, sl.Feeds)
 	}
