@@ -59,6 +59,7 @@ type TxStoreWebApi interface {
 	FindTxAttempt(hash common.Hash) (*TxAttempt, error)
 	FindTxWithAttempts(etxID int64) (etx Tx, err error)
 	UnstartedTransactions(limit, offset int, fromAddress common.Address, chainID *big.Int) ([]Tx, int, error)
+	UnconfirmedTransactions(limit, offset int, fromAddress common.Address, chainID *big.Int) ([]Tx, int, error)
 }
 
 type TestEvmTxStore interface {
