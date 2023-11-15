@@ -165,7 +165,7 @@ func (q Q) Context() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(q.ParentCtx, q.QueryTimeout)
 }
 
-func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
+func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOption) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 	return SqlxTransaction(ctx, q.Queryer, q.originalLogger(), fc, txOpts...)
