@@ -324,6 +324,13 @@ describe('UpkeepBalanceMonitor', () => {
       ).to.be.revertedWith('OnlyForwarderOrOwner()')
     })
 
+    it('should revert if the contract is paused', async () => {
+      await upkeepBalanceMonitor.connect(owner).pause()
+      await expect(
+        upkeepBalanceMonitor.connect(owner).topUp([], [], []),
+      ).to.be.revertedWith('Pausable: paused')
+    })
+
     it('tops up the upkeeps by the amounts provided', async () => {
       const initialBalance = await linkToken.balanceOf(registry.address)
       const tx = await upkeepBalanceMonitor
@@ -359,15 +366,6 @@ describe('UpkeepBalanceMonitor', () => {
       await expect(tx)
         .to.emit(upkeepBalanceMonitor, 'TopUpFailed')
         .withArgs(100)
-    })
-  })
-
-  describe('performUpkeep()', () => {
-    it('should revert if the contract is paused', async () => {
-      await upkeepBalanceMonitor.connect(owner).pause()
-      await expect(
-        upkeepBalanceMonitor.connect(owner).performUpkeep('0x'),
-      ).to.be.revertedWith('Pausable: paused')
     })
   })
 

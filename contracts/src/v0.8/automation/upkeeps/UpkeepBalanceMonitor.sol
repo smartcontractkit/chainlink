@@ -118,9 +118,14 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
   /// specified in getUnderfundedUpkeeps(). Here, we are relying on the security of automation's OCR to
   /// secure the output of getUnderfundedUpkeeps() as the input to topUp(), and we are treating the owner
   /// as a privileged user that can perform arbitrary top-ups to any upkeepID.
-  function topUp(uint256[] memory upkeepIDs, address[] memory registryAddresses, uint96[] memory topUpAmounts) public {
+  function topUp(
+    uint256[] memory upkeepIDs,
+    address[] memory registryAddresses,
+    uint96[] memory topUpAmounts
+  ) public whenNotPaused {
     if (msg.sender != address(s_forwarderAddress) && msg.sender != owner()) revert OnlyForwarderOrOwner();
-    if (upkeepIDs.length != topUpAmounts.length) revert InvalidTopUpData();
+    if (upkeepIDs.length != registryAddresses.length || upkeepIDs.length != topUpAmounts.length)
+      revert InvalidTopUpData();
     for (uint256 i = 0; i < upkeepIDs.length; i++) {
       try LINK_TOKEN.transferAndCall(registryAddresses[i], topUpAmounts[i], abi.encode(upkeepIDs[i])) returns (
         bool success
@@ -140,9 +145,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
 
   /// @notice Gets list of upkeeps ids that are underfunded and returns a keeper-compatible payload.
   /// @return upkeepNeeded signals if upkeep is needed, performData is an abi encoded list of subscription ids that need funds
-  function checkUpkeep(
-    bytes calldata
-  ) external view whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
+  function checkUpkeep(bytes calldata) external view returns (bool upkeepNeeded, bytes memory performData) {
     (
       uint256[] memory needsFunding,
       address[] memory registryAddresses,
@@ -157,7 +160,7 @@ contract UpkeepBalanceMonitor is ConfirmedOwner, Pausable {
 
   /// @notice Called by the keeper to send funds to underfunded addresses.
   /// @param performData the abi encoded list of addresses to fund
-  function performUpkeep(bytes calldata performData) external whenNotPaused {
+  function performUpkeep(bytes calldata performData) external {
     (uint256[] memory upkeepIDs, address[] memory registryAddresses, uint96[] memory topUpAmounts) = abi.decode(
       performData,
       (uint256[], address[], uint96[])
