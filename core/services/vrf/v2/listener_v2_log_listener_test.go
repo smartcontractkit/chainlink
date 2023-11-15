@@ -75,6 +75,15 @@ func SetupTH(t *testing.T,
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
 	}, 10e6)
+	// VRF Listener relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
+	// This trick is used to move the clock closer to the current time. We set first block to be X hours ago.
+	// FirstBlockAge is used to compute first block's timestamp in SimulatedBackend (time.Now() - FirstBlockAge)
+	const FirstBlockAge = 24 * time.Hour
+	blockTime := time.UnixMilli(int64(ec.Blockchain().CurrentHeader().Time))
+	err := ec.AdjustTime(time.Since(blockTime) - FirstBlockAge)
+	require.NoError(t, err)
+	ec.Commit()
+
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
 	esc := client.NewSimulatedBackendClient(t, ec, chainID)
@@ -170,7 +179,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 		mockChain.On("LogPoller").Return(th.LogPoller)
 	})
 
-	// Block 2 to finalityDepth. Ensure we have finality number of blocks
+	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
 		th.Client.Commit()
 	}
@@ -197,11 +206,11 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	logs, err := th.LogPoller.Logs(4, 7, EmitterABI.Events["Log1"].ID, th.EmitterAddress,
 		pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	require.Equal(t, int(7-max(finalityDepth+1, 4)+1), len(logs))
+	require.Equal(t, 3, len(logs))
 
 	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
 	require.Nil(t, err)
-	require.Equal(t, int64(5), lastProcessedBlock)
+	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
 func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
@@ -221,12 +230,17 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 		th.Client.Commit()
 	}
 
-	// Emit some logs in blocks finalityDepth+1 to finalityDepth+4.
-	numBlocks := 5
+	// Make VRF requests and fulfill them
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 		[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
 		big.NewInt(1), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
+	th.Client.Commit()
+	_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, big.NewInt(1), big.NewInt(105), big.NewInt(10), true)
+	require.NoError(t, err2)
+
+	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
+	numBlocks := 5
 	th.Client.Commit()
 	for i := 0; i < numBlocks; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -239,24 +253,166 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
 	require.NoError(t, th.LogPoller.Start(th.Ctx))
 
-	// latestBlock := finalityDepth + int64(numBlocks)
-	require.NoError(t, th.LogPoller.Replay(th.Ctx, 4))
+	latestBlock := finalityDepth + int64(numBlocks) + 1
+	require.NoError(t, th.LogPoller.Replay(th.Ctx, latestBlock))
 
-	logs, err := th.LogPoller.Logs(4, 10, VRFEmitterABI.Events["RandomWordsRequested"].ID, th.VRFEmitterAddress,
-		pg.WithParentCtx(testutils.Context(t)))
-	require.NoError(t, err)
-	for i := 0; i < len(logs); i++ {
-		fmt.Printf("R1Log %d: %v, keyHash: %v, val2: %v, address: %s\n", i, logs[i], common.BytesToHash(logs[i].Topics[1]).String(),
-			common.BytesToHash(logs[i].Topics[2]).String(), logs[i].Address.String())
-	}
-	// require.Equal(t, int(latestBlock-max(finalityDepth+1, 4)+1), len(logs))
-
+	// initializeLastProcessedBlock must return the finalizedBlockNumber instead of
+	// unfulfilled VRF request block number, since all VRF requests are fulfilled
 	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
 	require.Nil(t, err)
-	require.Equal(t, int64(6), lastProcessedBlock)
+	require.Equal(t, int64(8), lastProcessedBlock)
 }
 
-// TestInitProcessedBlock_NoUnfulfilledVRFReqs
-// TestInitProcessedBlock_OneUnfulfilledVRFReq
-// TestInitProcessedBlock_SomeUnfulfilledVRFReqs
-// TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs
+func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
+	t.Parallel()
+
+	finalityDepth := int64(3)
+	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+		// txstore := txmgr.NewTxStore(db, lggr, cfg)
+		// txm := makeTestTxm(t, txstore, ks)
+		// chain.On("TxManager").Return(txm)
+		mockChain.On("ID").Return(curTH.ChainID)
+		mockChain.On("LogPoller").Return(curTH.LogPoller)
+	})
+
+	// Block 2 to finalityDepth. Ensure we have finality number of blocks
+	for i := 1; i < int(finalityDepth); i++ {
+		th.Client.Commit()
+	}
+
+	// Make VRF requests and fulfill them
+	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
+		[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
+		big.NewInt(1), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+	require.NoError(t, err2)
+	th.Client.Commit()
+
+	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
+	numBlocks := 5
+	th.Client.Commit()
+	for i := 0; i < numBlocks; i++ {
+		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err1)
+		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err1)
+		th.Client.Commit()
+	}
+
+	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
+	require.NoError(t, th.LogPoller.Start(th.Ctx))
+
+	latestBlock := finalityDepth + int64(numBlocks) + 1
+	require.NoError(t, th.LogPoller.Replay(th.Ctx, latestBlock))
+
+	// initializeLastProcessedBlock must return the unfulfilled VRF request block number instead of
+	// finalizedBlockNumber
+	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
+	require.Nil(t, err)
+	require.Equal(t, int64(5), lastProcessedBlock)
+}
+
+func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
+	t.Parallel()
+
+	finalityDepth := int64(3)
+	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+		// txstore := txmgr.NewTxStore(db, lggr, cfg)
+		// txm := makeTestTxm(t, txstore, ks)
+		// chain.On("TxManager").Return(txm)
+		mockChain.On("ID").Return(curTH.ChainID)
+		mockChain.On("LogPoller").Return(curTH.LogPoller)
+	})
+
+	// Block 2 to finalityDepth. Ensure we have finality number of blocks
+	for i := 1; i < int(finalityDepth); i++ {
+		th.Client.Commit()
+	}
+
+	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
+	numBlocks := 5
+	th.Client.Commit()
+	for i := 0; i < numBlocks; i++ {
+		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err1)
+		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err1)
+		th.Client.Commit()
+		// Make VRF requests and fulfill them
+		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
+			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
+			big.NewInt(int64(2*i)), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+		require.NoError(t, err2)
+		th.Client.Commit()
+		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
+			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
+			big.NewInt(int64(2*i+1)), big.NewInt(106), 1, 10, 10000, 2, th.Owner.From)
+		require.NoError(t, err2)
+		th.Client.Commit()
+	}
+
+	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
+	require.NoError(t, th.LogPoller.Start(th.Ctx))
+
+	latestBlock := finalityDepth + int64(numBlocks) + 1
+	require.NoError(t, th.LogPoller.Replay(th.Ctx, latestBlock))
+
+	// initializeLastProcessedBlock must return the earliest unfulfilled VRF request block
+	// number instead of finalizedBlockNumber
+	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
+	require.Nil(t, err)
+	require.Equal(t, int64(7), lastProcessedBlock)
+}
+
+func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
+	t.Parallel()
+
+	finalityDepth := int64(3)
+	th := SetupTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *TestHarness) {
+		// txstore := txmgr.NewTxStore(db, lggr, cfg)
+		// txm := makeTestTxm(t, txstore, ks)
+		// chain.On("TxManager").Return(txm)
+		mockChain.On("ID").Return(curTH.ChainID)
+		mockChain.On("LogPoller").Return(curTH.LogPoller)
+	})
+
+	// Block 2 to finalityDepth. Ensure we have finality number of blocks
+	for i := 1; i < int(finalityDepth); i++ {
+		th.Client.Commit()
+	}
+
+	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
+	numBlocks := 5
+	th.Client.Commit()
+	for i := 0; i < numBlocks; i++ {
+		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err1)
+		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err1)
+		th.Client.Commit()
+		// Make VRF requests and fulfill them
+		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
+			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
+			big.NewInt(int64(2*i)), big.NewInt(105), 1, 10, 10000, 2, th.Owner.From)
+		require.NoError(t, err2)
+		th.Client.Commit()
+		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
+			[32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes()),
+			big.NewInt(int64(2*i+1)), big.NewInt(106), 1, 10, 10000, 2, th.Owner.From)
+		require.NoError(t, err2)
+		_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, big.NewInt(int64(2*i)), big.NewInt(105), big.NewInt(10), true)
+		require.NoError(t, err2)
+		th.Client.Commit()
+	}
+
+	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
+	require.NoError(t, th.LogPoller.Start(th.Ctx))
+
+	latestBlock := finalityDepth + int64(numBlocks) + 1
+	require.NoError(t, th.LogPoller.Replay(th.Ctx, latestBlock))
+
+	// initializeLastProcessedBlock must return the earliest unfulfilled VRF request block
+	// number instead of finalizedBlockNumber
+	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
+	require.Nil(t, err)
+	require.Equal(t, int64(8), lastProcessedBlock)
+}
