@@ -117,11 +117,11 @@ func (c *ChainlinkClient) MustCreateJob(spec JobSpec) (*Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	return job, VerifyStatusCode(resp.StatusCode, http.StatusOK)
+	return job, VerifyStatusCode(resp.RawResponse.StatusCode, http.StatusOK)
 }
 
 // CreateJob creates a Chainlink job based on the provided spec struct
-func (c *ChainlinkClient) CreateJob(spec JobSpec) (*Job, *http.Response, error) {
+func (c *ChainlinkClient) CreateJob(spec JobSpec) (*Job, *resty.Response, error) {
 	job := &Job{}
 	specString, err := spec.String()
 	if err != nil {
@@ -138,7 +138,7 @@ func (c *ChainlinkClient) CreateJob(spec JobSpec) (*Job, *http.Response, error) 
 	if err != nil {
 		return nil, nil, err
 	}
-	return job, resp.RawResponse, err
+	return job, resp, err
 }
 
 // ReadJobs reads all jobs from the Chainlink node
@@ -300,6 +300,19 @@ func (c *ChainlinkClient) ReadBridge(name string) (*BridgeType, *http.Response, 
 		return nil, nil, err
 	}
 	return &bt, resp.RawResponse, err
+}
+
+// ReadBridges reads bridges from the Chainlink node
+func (c *ChainlinkClient) ReadBridges() (*ResponseSlice, *resty.Response, error) {
+	result := &ResponseSlice{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Getting all bridges")
+	resp, err := c.APIClient.R().
+		SetResult(&result).
+		Get("/v2/bridge_types")
+	if err != nil {
+		return nil, nil, err
+	}
+	return result, resp, err
 }
 
 // DeleteBridge deletes a bridge on the Chainlink node based on the provided name
@@ -881,8 +894,16 @@ func (c *ChainlinkClient) CreateCSAKey() (*CSAKey, *http.Response, error) {
 	return csaKey, resp.RawResponse, err
 }
 
+func (c *ChainlinkClient) MustReadCSAKeys() (*CSAKeys, *resty.Response, error) {
+	csaKeys, res, err := c.ReadCSAKeys()
+	if err != nil {
+		return nil, res, err
+	}
+	return csaKeys, res, VerifyStatusCodeWithResponse(res, http.StatusOK)
+}
+
 // ReadCSAKeys reads CSA keys from the Chainlink node
-func (c *ChainlinkClient) ReadCSAKeys() (*CSAKeys, *http.Response, error) {
+func (c *ChainlinkClient) ReadCSAKeys() (*CSAKeys, *resty.Response, error) {
 	csaKeys := &CSAKeys{}
 	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading CSA Keys")
 	resp, err := c.APIClient.R().
@@ -894,7 +915,7 @@ func (c *ChainlinkClient) ReadCSAKeys() (*CSAKeys, *http.Response, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return csaKeys, resp.RawResponse, err
+	return csaKeys, resp, err
 }
 
 // CreateEI creates an EI on the Chainlink node based on the provided attributes and returns the respective secrets
@@ -1100,6 +1121,19 @@ func VerifyStatusCode(actStatusCd, expStatusCd int) error {
 			"unexpected response code, got %d, expected %d",
 			actStatusCd,
 			expStatusCd,
+		)
+	}
+	return nil
+}
+
+func VerifyStatusCodeWithResponse(res *resty.Response, expStatusCd int) error {
+	actStatusCd := res.RawResponse.StatusCode
+	if actStatusCd != expStatusCd {
+		return fmt.Errorf(
+			"unexpected response code, got %d, expected %d, response: %s",
+			actStatusCd,
+			expStatusCd,
+			res.Body(),
 		)
 	}
 	return nil

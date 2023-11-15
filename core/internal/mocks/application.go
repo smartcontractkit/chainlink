@@ -31,7 +31,7 @@ import (
 
 	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 
-	sqlx "github.com/smartcontractkit/sqlx"
+	sqlx "github.com/jmoiron/sqlx"
 
 	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 

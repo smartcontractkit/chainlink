@@ -17,7 +17,7 @@ func UpgradeChainlinkNodeVersionsLocal(
 		return fmt.Errorf("unable to upgrade node version, found empty image and version, must provide either a new image or a new version")
 	}
 	for _, node := range nodes {
-		if err := node.UpgradeVersion(node.NodeConfig, newImage, newVersion); err != nil {
+		if err := node.UpgradeVersion(newImage, newVersion); err != nil {
 			return err
 		}
 	}

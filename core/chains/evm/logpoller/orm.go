@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -20,17 +20,15 @@ import (
 // it exposes some of the database implementation details (e.g. pg.Q). Ideally it should be agnostic and could be applied to any persistence layer.
 // What is more, LogPoller should not be aware of the underlying database implementation and delegate all the queries to the ORM.
 type ORM interface {
-	Q() pg.Q
 	InsertLogs(logs []Log, qopts ...pg.QOpt) error
-	InsertBlock(blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, lastFinalizedBlockNumber int64, qopts ...pg.QOpt) error
+	InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error
 	InsertFilter(filter Filter, qopts ...pg.QOpt) error
 
 	LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error)
 	DeleteFilter(name string, qopts ...pg.QOpt) error
 
-	DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error
 	DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error
-	DeleteLogsAfter(start int64, qopts ...pg.QOpt) error
+	DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error
 	DeleteExpiredLogs(qopts ...pg.QOpt) error
 
 	GetBlocksRange(start int64, end int64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
@@ -58,6 +56,7 @@ type ORM interface {
 type DbORM struct {
 	chainID *big.Int
 	q       pg.Q
+	lggr    logger.Logger
 }
 
 // NewORM creates a DbORM scoped to chainID.
@@ -67,11 +66,8 @@ func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *
 	return &DbORM{
 		chainID: chainID,
 		q:       q,
+		lggr:    lggr,
 	}
-}
-
-func (o *DbORM) Q() pg.Q {
-	return o.q
 }
 
 // InsertBlock is idempotent to support replays.
@@ -191,12 +187,6 @@ func (o *DbORM) SelectLatestLogByEventSigWithConfs(eventSig common.Hash, address
 	return &l, nil
 }
 
-// DeleteBlocksAfter delete all blocks after and including start.
-func (o *DbORM) DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-	return q.ExecQ(`DELETE FROM evm.log_poller_blocks WHERE block_number >= $1 AND evm_chain_id = $2`, start, utils.NewBig(o.chainID))
-}
-
 // DeleteBlocksBefore delete all blocks before and including end.
 func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
@@ -204,9 +194,31 @@ func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 	return err
 }
 
-func (o *DbORM) DeleteLogsAfter(start int64, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-	return q.ExecQ(`DELETE FROM evm.logs WHERE block_number >= $1 AND evm_chain_id = $2`, start, utils.NewBig(o.chainID))
+func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
+	// These deletes are bounded by reorg depth, so they are
+	// fast and should not slow down the log readers.
+	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		args, err := newQueryArgs(o.chainID).
+			withStartBlock(start).
+			toArgs()
+		if err != nil {
+			o.lggr.Error("Cant build args for DeleteLogsAndBlocksAfter queries", "err", err)
+			return err
+		}
+
+		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
+		if err != nil {
+			o.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
+			return err
+		}
+
+		_, err = tx.NamedExec(`DELETE FROM evm.logs WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
+		if err != nil {
+			o.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
+			return err
+		}
+		return nil
+	})
 }
 
 type Exp struct {
@@ -233,13 +245,35 @@ func (o *DbORM) DeleteExpiredLogs(qopts ...pg.QOpt) error {
 
 // InsertLogs is idempotent to support replays.
 func (o *DbORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
-	for _, log := range logs {
-		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
-			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
-		}
+	if err := o.validateLogs(logs); err != nil {
+		return err
 	}
-	q := o.q.WithOpts(qopts...)
 
+	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		return o.insertLogsWithinTx(logs, tx)
+	})
+}
+
+func (o *DbORM) InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error {
+	// Optimization, don't open TX when there is only a block to be persisted
+	if len(logs) == 0 {
+		return o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, qopts...)
+	}
+
+	if err := o.validateLogs(logs); err != nil {
+		return err
+	}
+
+	// Block and logs goes with the same TX to ensure atomicity
+	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		if err := o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, pg.WithQueryer(tx)); err != nil {
+			return err
+		}
+		return o.insertLogsWithinTx(logs, tx)
+	})
+}
+
+func (o *DbORM) insertLogsWithinTx(logs []Log, tx pg.Queryer) error {
 	batchInsertSize := 4000
 	for i := 0; i < len(logs); i += batchInsertSize {
 		start, end := i, i+batchInsertSize
@@ -247,12 +281,14 @@ func (o *DbORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 			end = len(logs)
 		}
 
-		err := q.ExecQNamed(`
-			INSERT INTO evm.logs 
-				(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at) 
+		_, err := tx.NamedExec(`
+				INSERT INTO evm.logs 
+					(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at) 
 				VALUES 
-				(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) 
-				ON CONFLICT DO NOTHING`, logs[start:end])
+					(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) 
+				ON CONFLICT DO NOTHING`,
+			logs[start:end],
+		)
 
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
@@ -262,6 +298,15 @@ func (o *DbORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 				continue
 			}
 			return err
+		}
+	}
+	return nil
+}
+
+func (o *DbORM) validateLogs(logs []Log) error {
+	for _, log := range logs {
+		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
+			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
 		}
 	}
 	return nil

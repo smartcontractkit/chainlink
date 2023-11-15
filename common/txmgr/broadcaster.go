@@ -14,12 +14,12 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -775,12 +775,17 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) save
 	// Now we have an errored pipeline even though the tx succeeded. This case
 	// is relatively benign and probably nobody will ever run into it in
 	// practice, but something to be aware of.
-	if etx.PipelineTaskRunID.Valid && eb.resumeCallback != nil {
+	if etx.PipelineTaskRunID.Valid && eb.resumeCallback != nil && etx.SignalCallback {
 		err := eb.resumeCallback(etx.PipelineTaskRunID.UUID, nil, errors.Errorf("fatal error while sending transaction: %s", etx.Error.String))
 		if errors.Is(err, sql.ErrNoRows) {
 			lgr.Debugw("callback missing or already resumed", "etxID", etx.ID)
 		} else if err != nil {
 			return errors.Wrap(err, "failed to resume pipeline")
+		} else {
+			// Mark tx as having completed callback
+			if err := eb.txStore.UpdateTxCallbackCompleted(ctx, etx.PipelineTaskRunID.UUID, eb.chainID); err != nil {
+				return err
+			}
 		}
 	}
 	return eb.txStore.UpdateTxFatalError(ctx, etx)

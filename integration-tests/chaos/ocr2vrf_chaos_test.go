@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestOCR2VRFChaos(t *testing.T) {
@@ -149,7 +150,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
@@ -185,7 +186,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+				randomness, err := consumerContract.GetRandomnessByRequestId(it_utils.TestContext(t), requestID, big.NewInt(int64(i)))
 				require.NoError(t, err)
 				l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
@@ -212,7 +213,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+				randomness, err := consumerContract.GetRandomnessByRequestId(it_utils.TestContext(t), requestID, big.NewInt(int64(i)))
 				require.NoError(t, err, "Error getting Randomness result from Consumer Contract")
 				l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")

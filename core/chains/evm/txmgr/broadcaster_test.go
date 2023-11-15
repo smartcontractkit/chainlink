@@ -75,7 +75,7 @@ func NewTestEthBroadcaster(
 }
 
 func TestEthBroadcaster_Lifecycle(t *testing.T) {
-	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
+	cfg, db := heavyweight.FullTestDBV2(t, nil)
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -565,7 +565,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
 	// non-transactional DB needed because we deliberately test for FK violation
-	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
+	cfg, db := heavyweight.FullTestDBV2(t, nil)
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 	evmcfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
@@ -1055,6 +1055,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				FeeLimit:          gasLimit,
 				State:             txmgrcommon.TxUnstarted,
 				PipelineTaskRunID: uuid.NullUUID{UUID: tr.ID, Valid: true},
+				SignalCallback:    true,
 			}
 
 			t.Run("with erroring callback bails out", func(t *testing.T) {

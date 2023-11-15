@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -16,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 // Tests a basic OCRv2 median feed
@@ -73,7 +73,7 @@ func TestOCRv2Basic(t *testing.T) {
 
 	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err, "Error starting new OCR2 round")
-	roundData, err := aggregatorContracts[0].GetRound(context.Background(), big.NewInt(1))
+	roundData, err := aggregatorContracts[0].GetRound(utils.TestContext(t), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), roundData.Answer.Int64(),
 		"Expected latest answer from OCR contract to be 5 but got %d",
@@ -85,7 +85,7 @@ func TestOCRv2Basic(t *testing.T) {
 	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err)
 
-	roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(2))
+	roundData, err = aggregatorContracts[0].GetRound(utils.TestContext(t), big.NewInt(2))
 	require.NoError(t, err, "Error getting latest OCR answer")
 	require.Equal(t, int64(10), roundData.Answer.Int64(),
 		"Expected latest answer from OCR contract to be 10 but got %d",

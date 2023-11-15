@@ -7,6 +7,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -118,8 +119,7 @@ func ReadConfig() (*PerformanceConfig, error) {
 		return nil, fmt.Errorf(
 			"ensure variables are set:\nMUMBAI_KEYS variable, private keys, comma separated\nSELECTED_NETWORKS=MUMBAI\nMUMBAI_URLS variable, websocket urls, comma separated",
 		)
-	} else {
-		cfg.MumbaiPrivateKey = mpk
 	}
+	cfg.MumbaiPrivateKey = mpk
 	return cfg, nil
 }

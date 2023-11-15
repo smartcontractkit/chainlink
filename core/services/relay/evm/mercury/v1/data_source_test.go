@@ -3,6 +3,7 @@ package mercury_v1
 import (
 	"context"
 	"fmt"
+	"io"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -18,7 +19,6 @@ import (
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -26,8 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -52,14 +52,6 @@ func (m *mockFetcher) LatestTimestamp(context.Context) (int64, error) {
 	return 0, nil
 }
 
-var _ types.ChainHeadTracker = &mockHeadTracker{}
-
-type mockHeadTracker struct {
-	h httypes.HeadTracker
-}
-
-func (m *mockHeadTracker) HeadTracker() httypes.HeadTracker { return m.h }
-
 type mockORM struct {
 	report []byte
 	err    error
@@ -67,6 +59,15 @@ type mockORM struct {
 
 func (m *mockORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
 	return m.report, m.err
+}
+
+type mockChainReader struct {
+	err error
+	obs []relaymercury.Head
+}
+
+func (m *mockChainReader) LatestHeads(context.Context, int) ([]relaymercury.Head, error) {
+	return m.obs, m.err
 }
 
 func TestMercury_Observe(t *testing.T) {
@@ -106,10 +107,7 @@ func TestMercury_Observe(t *testing.T) {
 	ds.spec = spec
 
 	h := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-	ht := &mockHeadTracker{
-		h: h,
-	}
-	ds.chainHeadTracker = ht
+	ds.chainReader = evm.NewChainReader(h)
 
 	head := &evmtypes.Head{
 		Number:    int64(rand.Int31()),
@@ -201,7 +199,7 @@ func TestMercury_Observe(t *testing.T) {
 				t.Run("if no current block available", func(t *testing.T) {
 					h2 := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 					h2.On("LatestChain").Return((*evmtypes.Head)(nil))
-					ht.h = h2
+					ds.chainReader = evm.NewChainReader(h2)
 
 					obs, err := ds.Observe(ctx, repts, true)
 					assert.NoError(t, err)
@@ -212,7 +210,7 @@ func TestMercury_Observe(t *testing.T) {
 		})
 	})
 
-	ht.h = h
+	ds.chainReader = evm.NewChainReader(h)
 
 	t.Run("when fetchMaxFinalizedBlockNum=false", func(t *testing.T) {
 		t.Run("when run execution fails, returns error", func(t *testing.T) {
@@ -320,7 +318,7 @@ func TestMercury_Observe(t *testing.T) {
 		t.Run("when chain length is zero", func(t *testing.T) {
 			ht2 := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 			ht2.On("LatestChain").Return((*evmtypes.Head)(nil))
-			ht.h = ht2
+			ds.chainReader = evm.NewChainReader(ht2)
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
@@ -345,7 +343,7 @@ func TestMercury_Observe(t *testing.T) {
 
 			ht2 := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 			ht2.On("LatestChain").Return(h6)
-			ht.h = ht2
+			ds.chainReader = evm.NewChainReader(ht2)
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
@@ -384,7 +382,7 @@ func TestMercury_Observe(t *testing.T) {
 
 			ht2 := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 			ht2.On("LatestChain").Return(h6)
-			ht.h = ht2
+			ds.chainReader = evm.NewChainReader(ht2)
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
@@ -397,6 +395,18 @@ func TestMercury_Observe(t *testing.T) {
 			assert.Equal(t, 2, int(obs.LatestBlocks[4].Num))
 
 			ht2.AssertExpectations(t)
+		})
+
+		t.Run("when chain reader returns an error", func(t *testing.T) {
+
+			ds.chainReader = &mockChainReader{
+				err: io.EOF,
+				obs: nil,
+			}
+
+			obs, err := ds.Observe(ctx, repts, true)
+			assert.Error(t, err)
+			assert.Equal(t, obs, relaymercuryv1.Observation{})
 		})
 	})
 }
@@ -418,39 +428,31 @@ func TestMercury_SetLatestBlocks(t *testing.T) {
 
 	t.Run("returns head from headtracker if present", func(t *testing.T) {
 		headTracker := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-		chainHeadTracker := mercurymocks.NewChainHeadTracker(t)
-
-		chainHeadTracker.On("HeadTracker").Return(headTracker)
 		headTracker.On("LatestChain").Return(&h, nil)
-
-		ds.chainHeadTracker = chainHeadTracker
+		ds.chainReader = evm.NewChainReader(headTracker)
 
 		obs := relaymercuryv1.Observation{}
-		ds.setLatestBlocks(context.Background(), &obs)
+		err := ds.setLatestBlocks(context.Background(), &obs)
 
+		assert.NoError(t, err)
 		assert.Equal(t, h.Number, obs.CurrentBlockNum.Val)
 		assert.Equal(t, h.Hash.Bytes(), obs.CurrentBlockHash.Val)
 		assert.Equal(t, uint64(h.Timestamp.Unix()), obs.CurrentBlockTimestamp.Val)
 
 		assert.Len(t, obs.LatestBlocks, 1)
-
-		chainHeadTracker.AssertExpectations(t)
 		headTracker.AssertExpectations(t)
 	})
 
 	t.Run("if headtracker returns nil head", func(t *testing.T) {
 		headTracker := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-		chainHeadTracker := mercurymocks.NewChainHeadTracker(t)
-
-		chainHeadTracker.On("HeadTracker").Return(headTracker)
 		// This can happen in some cases e.g. RPC node is offline
 		headTracker.On("LatestChain").Return((*evmtypes.Head)(nil))
 
-		ds.chainHeadTracker = chainHeadTracker
-
+		ds.chainReader = evm.NewChainReader(headTracker)
 		obs := relaymercuryv1.Observation{}
-		ds.setLatestBlocks(context.Background(), &obs)
+		err := ds.setLatestBlocks(context.Background(), &obs)
 
+		assert.NoError(t, err)
 		assert.Zero(t, obs.CurrentBlockNum.Val)
 		assert.Zero(t, obs.CurrentBlockHash.Val)
 		assert.Zero(t, obs.CurrentBlockTimestamp.Val)
@@ -459,8 +461,6 @@ func TestMercury_SetLatestBlocks(t *testing.T) {
 		assert.EqualError(t, obs.CurrentBlockTimestamp.Err, "no blocks available")
 
 		assert.Len(t, obs.LatestBlocks, 0)
-
-		chainHeadTracker.AssertExpectations(t)
 		headTracker.AssertExpectations(t)
 	})
 }

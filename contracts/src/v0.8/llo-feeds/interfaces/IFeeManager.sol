@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
-import {Common} from "../../libraries/Common.sol";
+import {Common} from "../libraries/Common.sol";
 import {IVerifierFeeManager} from "./IVerifierFeeManager.sol";
 
 interface IFeeManager is IERC165, IVerifierFeeManager {

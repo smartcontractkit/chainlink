@@ -12,10 +12,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
@@ -868,22 +869,21 @@ func (e *EthereumContractDeployer) LoadKeeperRegistrar(address common.Address, r
 			client:      e.client,
 			registrar20: instance.(*keeper_registrar_wrapper2_0.KeeperRegistrar),
 		}, err
-	} else {
-		instance, err := e.client.LoadContract("AutomationRegistrar", address, func(
-			address common.Address,
-			backend bind.ContractBackend,
-		) (interface{}, error) {
-			return registrar21.NewAutomationRegistrar(address, backend)
-		})
-		if err != nil {
-			return nil, err
-		}
-		return &EthereumKeeperRegistrar{
-			address:     &address,
-			client:      e.client,
-			registrar21: instance.(*registrar21.AutomationRegistrar),
-		}, err
 	}
+	instance, err := e.client.LoadContract("AutomationRegistrar", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return registrar21.NewAutomationRegistrar(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperRegistrar{
+		address:     &address,
+		client:      e.client,
+		registrar21: instance.(*registrar21.AutomationRegistrar),
+	}, err
 }
 
 func (e *EthereumContractDeployer) DeployKeeperRegistry(
