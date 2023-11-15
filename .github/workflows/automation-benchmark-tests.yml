@@ -112,8 +112,8 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         env:
-          RR_CPU: 2000m
-          RR_MEM: 2Gi
+          RR_CPU: 4000m
+          RR_MEM: 4Gi
           DETACH_RUNNER: true
           TEST_SUITE: automationv2_1
           TEST_ARGS: -test.timeout 720h
