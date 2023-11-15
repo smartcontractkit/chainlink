@@ -279,7 +279,7 @@ func TestLogTrigger(t *testing.T) {
 		TargetProbability:    "0.999",
 		TargetInRounds:       1,
 		PerformLockoutWindow: 3_600_000, // Intentionally set to be higher than in prod for testing purpose
-		GasLimitPerReport:    5_300_000,
+		GasLimitPerReport:    10_300_000,
 		GasOverheadPerUpkeep: 300_000,
 		MinConfirmations:     0,
 		MaxUpkeepBatchSize:   10,
