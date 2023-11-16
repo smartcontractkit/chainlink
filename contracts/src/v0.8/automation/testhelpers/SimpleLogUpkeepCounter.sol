@@ -5,7 +5,6 @@ pragma solidity 0.8.6;
 import {ILogAutomation, Log} from "../interfaces/ILogAutomation.sol";
 
 contract SimpleLogUpkeepCounter is ILogAutomation {
-
   event PerformingUpkeep(
     address indexed from,
     uint256 initialBlock,
