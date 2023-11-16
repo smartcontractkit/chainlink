@@ -157,7 +157,7 @@ func (tc *EvmTransactionController) Create(c *gin.Context) {
 		Strategy:         txmgrcommon.NewSendEveryStrategy(),
 	})
 	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("transaction failed: %v", err))
+		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("transaction failed: %v", err))
 		return
 	}
 

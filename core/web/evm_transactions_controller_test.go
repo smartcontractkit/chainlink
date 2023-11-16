@@ -363,7 +363,7 @@ func TestTransactionsController_Create(t *testing.T) {
 			KeyStore: ethKeystore,
 		}, request).Result()
 
-		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
+		cltest.AssertServerResponse(t, resp, http.StatusInternalServerError)
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
 		require.Equal(t, fmt.Sprintf("transaction failed: %v", expectedError),
 			respError.Error())
@@ -402,7 +402,8 @@ func TestTransactionsController_Create(t *testing.T) {
 			KeyStore: ethKeystore,
 		}, request).Result()
 
-		cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
+		// we do not really care about results here as main check is during CreateTransaction call
+		cltest.AssertServerResponse(t, resp, http.StatusInternalServerError)
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
 		require.Equal(t, fmt.Sprintf("transaction failed: %v", expectedError),
 			respError.Error())
