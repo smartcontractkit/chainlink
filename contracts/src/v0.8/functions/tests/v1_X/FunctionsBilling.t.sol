@@ -8,7 +8,7 @@ import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol"
 import {FunctionsSubscriptions} from "../../dev/v1_X/FunctionsSubscriptions.sol";
 import {Routable} from "../../dev/v1_X/Routable.sol";
 
-import {FunctionsRouterSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup, FunctionsMultipleFulfillmentsSetup} from "./Setup.t.sol";
+import {FunctionsRouterSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup, FunctionsFulfillmentSetup, FunctionsMultipleFulfillmentsSetup} from "./Setup.t.sol";
 
 /// @notice #constructor
 contract FunctionsBilling_Constructor is FunctionsSubscriptionSetup {
@@ -217,8 +217,42 @@ contract FunctionsBilling__CalculateCostEstimate {
 }
 
 /// @notice #_startBilling
-contract FunctionsBilling__StartBilling {
-  // TODO: make contract internal function helper
+contract FunctionsBilling__StartBilling is FunctionsFulfillmentSetup {
+  function test__FulfillAndBill_HasUniqueGlobalRequestId() public {
+    // Variables that go into a requestId:
+    // - Coordinator address
+    // - Consumer contract
+    // - Subscription ID,
+    // - Consumer initiated requests
+    // - Request data
+    // - Request data version
+    // - Request callback gas limit
+    // - Estimated total cost in Juels
+    // - Request timeout timestamp
+    // - tx.origin
+
+    // Request #1 has already been fulfilled by the test setup
+
+    // Reset the nonce (initiatedRequests) by removing and re-adding the consumer
+    s_functionsRouter.removeConsumer(s_subscriptionId, address(s_functionsClient));
+    assertEq(s_functionsRouter.getSubscription(s_subscriptionId).consumers.length, 0);
+    s_functionsRouter.addConsumer(s_subscriptionId, address(s_functionsClient));
+    assertEq(s_functionsRouter.getSubscription(s_subscriptionId).consumers[0], address(s_functionsClient));
+
+    // Make Request #2
+    _sendAndStoreRequest(
+      2,
+      s_requests[1].requestData.sourceCode,
+      s_requests[1].requestData.secrets,
+      s_requests[1].requestData.args,
+      s_requests[1].requestData.bytesArgs,
+      s_requests[1].requestData.callbackGasLimit
+    );
+
+    // Request #1 and #2 should have different request IDs, because the request timeout timestamp has advanced.
+    // A request cannot be fulfilled in the same block, which prevents removing a consumer in the same block
+    assertNotEq(s_requests[1].requestId, s_requests[2].requestId);
+  }
 }
 
 /// @notice #_fulfillAndBill
