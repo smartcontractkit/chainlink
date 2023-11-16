@@ -12,7 +12,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -34,7 +35,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	var (
 		address        = "0x5431F5F973781809D18643b87B44921b11355d81"
 		ethBalance     = assets.NewEth(1)
-		linkBalance    = assets.NewLinkFromJuels(2)
+		linkBalance    = relayassets.NewLinkFromJuels(2)
 		isDisabled     = true
 		createdAt      = time.Now()
 		updatedAt      = time.Now().Add(time.Second)
@@ -89,7 +90,7 @@ func TestShell_ListETHKeys(t *testing.T) {
 
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(13), nil)
+	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(relayassets.NewLinkFromJuels(13), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -168,7 +169,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(relayassets.NewLinkFromJuels(42), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -243,7 +244,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(relayassets.NewLinkFromJuels(42), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -361,7 +362,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 
 	ethClient.On("Dial", mock.Anything).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(relayassets.NewLinkFromJuels(42), nil)
 
 	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
