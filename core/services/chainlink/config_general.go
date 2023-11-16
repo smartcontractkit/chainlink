@@ -507,7 +507,7 @@ func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 }
 
 func (g *generalConfig) Mercury() coreconfig.Mercury {
-	return &mercuryConfig{s: g.secrets.Mercury}
+	return &mercuryConfig{c: g.c.Mercury, s: g.secrets.Mercury}
 }
 
 func (g *generalConfig) Threshold() coreconfig.Threshold {
