@@ -19,13 +19,13 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
@@ -74,7 +74,7 @@ func TestKeeperPerformance(t *testing.T) {
 		gom.Eventually(func(g gomega.Gomega) {
 			// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
 			for i := 0; i < len(upkeepIDs); i++ {
-				counter, err := consumers[i].Counter(utils.TestContext(t))
+				counter, err := consumers[i].Counter(testcontext.Get(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
 					"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
@@ -95,7 +95,7 @@ func TestKeeperPerformance(t *testing.T) {
 
 		for i := 0; i < len(upkeepIDs); i++ {
 			// Obtain the amount of times the upkeep has been executed so far
-			countersAfterCancellation[i], err = consumers[i].Counter(utils.TestContext(t))
+			countersAfterCancellation[i], err = consumers[i].Counter(testcontext.Get(t))
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			l.Info().Int("Index", i).Int64("Upkeeps Performed", countersAfterCancellation[i].Int64()).Msg("Cancelled Upkeep")
 		}
@@ -103,7 +103,7 @@ func TestKeeperPerformance(t *testing.T) {
 		gom.Consistently(func(g gomega.Gomega) {
 			for i := 0; i < len(upkeepIDs); i++ {
 				// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
-				latestCounter, err := consumers[i].Counter(utils.TestContext(t))
+				latestCounter, err := consumers[i].Counter(testcontext.Get(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 				g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterCancellation[i].Int64()),
 					"Expected consumer counter to remain constant at %d, but got %d",
@@ -155,7 +155,7 @@ PerformGasOverhead = 150_000`
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 5,
-		"toml":     client.AddNetworksConfig(baseTOML, network),
+		"toml":     networks.AddNetworksConfig(baseTOML, network),
 	})
 
 	testEnvironment := environment.New(

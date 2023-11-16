@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
@@ -19,9 +19,9 @@ func TestVersionUpgrade(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	upgradeImage, err := utils.GetEnv("UPGRADE_IMAGE")
+	upgradeImage, err := osutil.GetEnv("UPGRADE_IMAGE")
 	require.NoError(t, err, "Error getting upgrade image")
-	upgradeVersion, err := utils.GetEnv("UPGRADE_VERSION")
+	upgradeVersion, err := osutil.GetEnv("UPGRADE_VERSION")
 	require.NoError(t, err, "Error getting upgrade version")
 
 	_ = os.Setenv("CHAINLINK_IMAGE", upgradeImage)

@@ -22,11 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -266,7 +266,7 @@ func (te *CLClusterTestEnv) collectTestLogs() error {
 				return err
 			}
 			defer logFile.Close()
-			logReader, err := node.Container.Logs(utils.TestContext(te.t))
+			logReader, err := node.Container.Logs(testcontext.Get(te.t))
 			if err != nil {
 				return err
 			}
