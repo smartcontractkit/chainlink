@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
@@ -37,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 // KeeperBenchmarkTest builds a test to check that chainlink nodes are able to upkeep a specified amount of Upkeep
@@ -230,7 +230,7 @@ func (k *KeeperBenchmarkTest) Run() {
 		"NumberOfRegistries":  len(k.keeperRegistries),
 	}
 	inputs := k.Inputs
-	startingBlock, err := k.chainClient.LatestBlockNumber(utils.TestContext(k.t))
+	startingBlock, err := k.chainClient.LatestBlockNumber(testcontext.Get(k.t))
 	require.NoError(k.t, err, "Error getting latest block number")
 	k.startingBlock = big.NewInt(0).SetUint64(startingBlock)
 	startTime := time.Now()
@@ -319,7 +319,7 @@ func (k *KeeperBenchmarkTest) Run() {
 			// This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
 			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
 			for err != nil {
-				ctx, cancel := context.WithTimeout(utils.TestContext(k.t), timeout)
+				ctx, cancel := context.WithTimeout(testcontext.Get(k.t), timeout)
 				logs, err = k.chainClient.FilterLogs(ctx, filterQuery)
 				cancel()
 				if err != nil {
@@ -430,7 +430,7 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents() {
 		FromBlock: k.startingBlock,
 	}
 
-	ctx, cancel := context.WithTimeout(utils.TestContext(k.t), 5*time.Second)
+	ctx, cancel := context.WithTimeout(testcontext.Get(k.t), 5*time.Second)
 	sub, err := k.chainClient.SubscribeFilterLogs(ctx, filterQuery, eventLogs)
 	cancel()
 	require.NoError(k.t, err, "Subscribing to upkeep performed events log shouldn't fail")
@@ -453,7 +453,7 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents() {
 						Str("Backoff", backoff.String()).
 						Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
 
-					ctx, cancel := context.WithTimeout(utils.TestContext(k.t), backoff)
+					ctx, cancel := context.WithTimeout(testcontext.Get(k.t), backoff)
 					sub, err = k.chainClient.SubscribeFilterLogs(ctx, filterQuery, eventLogs)
 					cancel()
 					if err != nil {
