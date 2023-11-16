@@ -36,7 +36,7 @@ func NewLogPollerReader(lp logpoller.LogPoller, lggr logger.Logger, client evmcl
 	}
 }
 
-func (c *LogPollerReader) LatestBlock(ctx context.Context) (int64, error) {
+func (c *LogPollerReader) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
 	return c.lp.LatestBlock(pg.WithParentCtx(ctx))
 }
 

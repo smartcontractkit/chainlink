@@ -22,7 +22,7 @@ const (
 
 func TestGet_InitDataForTheFirstTime(t *testing.T) {
 	lp := lpMocks.NewLogPoller(t)
-	lp.On("LatestBlock", mock.Anything).Maybe().Return(int64(100), nil)
+	lp.On("LatestBlock", mock.Anything).Maybe().Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
 
 	contract := newCachedContract(lp, "", []string{"value1"}, 0)
 

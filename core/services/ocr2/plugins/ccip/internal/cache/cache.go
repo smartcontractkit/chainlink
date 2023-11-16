@@ -91,7 +91,7 @@ func (c *CachedChain[T]) initializeCache(ctx context.Context) (T, error) {
 		return empty, err
 	}
 
-	c.updateCache(value, latestBlock-c.optimisticConfirmations)
+	c.updateCache(value, latestBlock.BlockNumber-c.optimisticConfirmations)
 	return c.copyCachedValue(), nil
 
 }

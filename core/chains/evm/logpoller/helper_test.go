@@ -92,7 +92,7 @@ func SetupTH(t testing.TB, useFinalityTag bool, finalityDepth, backfillBatchSize
 func (th *TestHarness) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) int64 {
 	th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber)
 	latest, _ := th.LogPoller.LatestBlock(pg.WithParentCtx(ctx))
-	return latest + 1
+	return latest.BlockNumber + 1
 }
 
 func (th *TestHarness) assertDontHave(t *testing.T, start, end int) {
