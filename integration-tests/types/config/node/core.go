@@ -11,7 +11,7 @@ import (
 
 	"github.com/segmentio/ksuid"
 
-	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -171,7 +171,7 @@ func SetChainConfig(
 			chainConfig = evmcfg.Chain{
 				AutoCreateKey:      ptr.Ptr(true),
 				FinalityDepth:      ptr.Ptr[uint32](1),
-				MinContractPayment: relayassets.NewLinkFromJuels(0),
+				MinContractPayment: commonassets.NewLinkFromJuels(0),
 			}
 		}
 		cfg.EVM = evmcfg.EVMConfigs{
@@ -197,7 +197,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 			Chain: evmcfg.Chain{
 				AutoCreateKey:      ptr.Ptr(true),
 				FinalityDepth:      ptr.Ptr[uint32](50),
-				MinContractPayment: relayassets.NewLinkFromJuels(0),
+				MinContractPayment: commonassets.NewLinkFromJuels(0),
 				LogPollInterval:    models.MustNewDuration(1 * time.Second),
 				HeadTracker: evmcfg.HeadTracker{
 					HistoryDepth: ptr.Ptr(uint32(100)),

@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils/bytes"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 )
 
 // EIP55Address is a new type for string which persists an ethereum address in
