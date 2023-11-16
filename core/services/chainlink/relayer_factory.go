@@ -250,7 +250,7 @@ func (c CosmosFactoryConfig) Validate() error {
 	return err
 }
 
-func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.ID]CosmosLoopRelayerChainer, error) {
+func (r *RelayerFactory) NewCosmos(config CosmosFactoryConfig) (map[relay.ID]CosmosLoopRelayerChainer, error) {
 	err := config.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("cannot create Cosmos relayer: %w", err)

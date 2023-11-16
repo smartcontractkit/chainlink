@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -364,13 +365,13 @@ func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.St
 
 }
 
-func (ekc *ETHKeysController) setLinkBalance(bal *assets.Link) presenters.NewETHKeyOption {
+func (ekc *ETHKeysController) setLinkBalance(bal *relayassets.Link) presenters.NewETHKeyOption {
 	return presenters.SetETHKeyLinkBalance(bal)
 }
 
 // queries the EthClient for the LINK balance at the address associated with state
-func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.State) *assets.Link {
-	var bal *assets.Link
+func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.State) *relayassets.Link {
+	var bal *relayassets.Link
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {

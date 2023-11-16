@@ -53,6 +53,9 @@
     },
     {
       "name": "TestKeeperUpdateCheckData"
+    },
+    {
+      "name": "TestKeeperJobReplacement"
     }
   ]
 }

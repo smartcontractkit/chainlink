@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"

@@ -31,3 +31,7 @@ func BigIntSliceContains(slice []*big.Int, b *big.Int) bool {
 	}
 	return false
 }
+		// Return background context if testing.T not set
+		if t == nil {
+			return ctx
+		}

@@ -7,7 +7,8 @@ import (
 	"github.com/lib/pq"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -43,7 +44,7 @@ const (
 type DirectRequestSpec struct {
 	ContractAddress          ethkey.EIP55Address      `json:"contractAddress"`
 	MinIncomingConfirmations clnull.Uint32            `json:"minIncomingConfirmations"`
-	MinContractPayment       *assets.Link             `json:"minContractPaymentLinkJuels"`
+	MinContractPayment       *relayassets.Link        `json:"minContractPaymentLinkJuels"`
 	Requesters               models.AddressCollection `json:"requesters"`
 	Initiator                string                   `json:"initiator"`
 	CreatedAt                time.Time                `json:"createdAt"`
@@ -80,7 +81,7 @@ type FluxMonitorSpec struct {
 	DrumbeatEnabled     bool                `json:"drumbeatEnabled"`
 	DrumbeatSchedule    *string             `json:"drumbeatSchedule"`
 	DrumbeatRandomDelay *string             `json:"drumbeatRandomDelay"`
-	MinPayment          *assets.Link        `json:"minPayment"`
+	MinPayment          *relayassets.Link   `json:"minPayment"`
 	CreatedAt           time.Time           `json:"createdAt"`
 	UpdatedAt           time.Time           `json:"updatedAt"`
 	EVMChainID          *utils.Big          `json:"evmChainID"`

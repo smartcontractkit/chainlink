@@ -368,67 +368,33 @@ jobs:
           # Create network
           docker network create --driver bridge tracing
 
-          # Start Grafana
-          cd ./.github/tracing
-          docker run -d --network=tracing --name=grafana -p 3000:3000 -v $PWD/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml -e GF_AUTH_ANONYMOUS_ENABLED=true -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin -e GF_AUTH_DISABLE_LOGIN_FORM=true -e GF_FEATURE_TOGGLES_ENABLE=traceqlEditor grafana/grafana:9.4.3
+          # Make trace directory
+          cd integration-tests/smoke/
+          mkdir ./traces
+          chmod -R 777 ./traces
 
-          # Start Tempo
-          docker run -d --network=tracing --name=tempo -v ./tempo.yaml:/etc/tempo.yaml -v $PWD/tempo-data:/tmp/tempo grafana/tempo:latest -config.file=/etc/tempo.yaml
+          # Switch directory
+          cd ../../.github/tracing
+
+          # Create a Docker volume for traces
+          # docker volume create otel-traces
 
           # Start OpenTelemetry Collector
-          docker run -d --network=tracing --name=otel-collector -v $PWD/otel-collector.yaml:/etc/otel-collector.yaml -p 4317:4317 otel/opentelemetry-collector:0.61.0 --config=/etc/otel-collector.yaml
-
-      - name: Generate port
-        id: generate-port
-        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
-        env:
-          GITHUB_PR_NUMBER: ${{ github.event.number }}
+          # Note the user must be set to the same user as the runner for the trace data to be accessible
+          docker run -d --network=tracing --name=otel-collector \
+            -v $PWD/otel-collector-ci.yaml:/etc/otel-collector.yaml \
+            -v $PWD/../../integration-tests/smoke/traces:/tracing \
+            --user "$(id -u):$(id -g)" \
+            -p 4317:4317 otel/opentelemetry-collector:0.88.0 --config=/etc/otel-collector.yaml
+      - name: Locate Docker Volume
+        id: locate-volume
+        if: false
         run: |
-          PORT_BASE=3001
-          MAX_PORT=8000 
-
-          # Use PR number as offset. Given GitHub PRs are incremental, this guarantees uniqueness for at least 5000 PRs.
-          OFFSET=$GITHUB_PR_NUMBER
-          echo "PR Number: $OFFSET"
-
-          # Ensure that we don't exceed the max port
-          if (( OFFSET > (MAX_PORT - PORT_BASE) )); then
-              OFFSET=$((OFFSET % (MAX_PORT - PORT_BASE)))
-          fi
-
-          # Map the offset to the port range
-          REMOTE_PORT=$((PORT_BASE + OFFSET))
-          echo "REMOTE_PORT=$REMOTE_PORT" >> $GITHUB_OUTPUT
-      - name: Reverse SSH Tunneling
-        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
-        env:
-          TRACING_SSH_KEY: ${{ secrets.TRACING_SSH_KEY }}
-          TRACING_SSH_SERVER: ${{ secrets.TRACING_SSH_SERVER }}
-          REMOTE_PORT: ${{ steps.generate-port.outputs.REMOTE_PORT }}
-        run: |
-          eval $(ssh-agent)
-          echo "test"
-          echo "$TRACING_SSH_KEY" | wc -c
-          echo "$TRACING_SSH_KEY" | tr -d '\r' | wc -c
-          echo "$TRACING_SSH_KEY" | tr -d '\r' | base64 --decode | ssh-add -
-          # f: background process
-          # N: do not execute a remote command
-          # R: remote port forwarding
-          ssh -o StrictHostKeyChecking=no -f -N -R $REMOTE_PORT:127.0.0.1:3000 user-gha@$TRACING_SSH_SERVER
-          echo "To view Grafana locally:"
-          echo "ssh -N -L 8000:localhost:$REMOTE_PORT user-gha@$TRACING_SSH_SERVER"
-          echo "Then visit http://localhost:8000 in a browser."
-          echo "If you are unable to connect, check with the security team that you have access to the tracing server."
-      - name: Show Grafana Logs
+          echo "VOLUME_PATH=$(docker volume inspect --format '{{ .Mountpoint }}' otel-traces)" >> $GITHUB_OUTPUT
+      - name: Show Otel-Collector Logs
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
-          docker logs grafana
-          docker logs tempo
-          docker logs otel-collector
-      - name: Set sleep time to use in future steps
-        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
-        run: |
-          echo "SLEEP_TIME=2400" >> "$GITHUB_ENV"
+            docker logs otel-collector
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
@@ -465,6 +431,10 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Show Otel-Collector Logs
+        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
+        run: |
+            docker logs otel-collector
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -475,11 +445,17 @@ jobs:
           this-job-name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
-      - name: Keep action running to view traces
+      - name: Permissions on traces
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
-          echo "Sleeping for $SLEEP_TIME seconds..."
-          sleep $SLEEP_TIME
+            ls -l ./integration-tests/smoke/traces
+      - name: Upload Trace Data
+        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
+        uses: actions/upload-artifact@v3
+        with:
+          name: trace-data
+          path: ./integration-tests/smoke/traces/trace-data.json
+
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:

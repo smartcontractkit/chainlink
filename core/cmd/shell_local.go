@@ -31,8 +31,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -558,6 +558,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
+	ctx := s.ctx()
 	beginningNonce := c.Int64("beginningNonce")
 	endingNonce := c.Int64("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
@@ -587,7 +588,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
-	app, err := s.AppFactory.NewApplication(context.TODO(), s.Config, lggr, db)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, db)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -603,7 +604,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	ethClient := chain.Client()
 
-	err = ethClient.Dial(context.TODO())
+	err = ethClient.Dial(ctx)
 	if err != nil {
 		return err
 	}
@@ -642,7 +643,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	for i := int64(0); i < totalNonces; i++ {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
-	err = ec.ForceRebroadcast(nonces, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, address, uint32(overrideGasLimit))
+	err = ec.ForceRebroadcast(ctx, nonces, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, address, uint32(overrideGasLimit))
 	return s.errorOut(err)
 }
 
@@ -705,9 +706,17 @@ func (s *Shell) validateDB(c *cli.Context) error {
 	return s.configExitErr(s.Config.ValidateDB)
 }
 
+// ctx returns a context.Context that will be cancelled when SIGINT|SIGTERM is received
+func (s *Shell) ctx() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go shutdown.HandleShutdown(func(_ string) { cancel() })
+	return ctx
+}
+
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
 // in secrets TOML. This is useful to set up the database for testing
 func (s *Shell) ResetDatabase(c *cli.Context) error {
+	ctx := s.ctx()
 	cfg := s.Config.Database()
 	parsed := cfg.URL()
 	if parsed.String() == "" {
@@ -727,7 +736,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 		return s.errorOut(err)
 	}
 	lggr.Debugf("Migrating database: %#v", parsed.String())
-	if err := migrateDB(cfg, lggr); err != nil {
+	if err := migrateDB(ctx, cfg, lggr); err != nil {
 		return s.errorOut(err)
 	}
 	schema, err := dumpSchema(parsed)
@@ -736,7 +745,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 	}
 	lggr.Debugf("Testing rollback and re-migrate for database: %#v", parsed.String())
 	var baseVersionID int64 = 54
-	if err := downAndUpDB(cfg, lggr, baseVersionID); err != nil {
+	if err := downAndUpDB(ctx, cfg, lggr, baseVersionID); err != nil {
 		return s.errorOut(err)
 	}
 	if err := checkSchema(parsed, schema); err != nil {
@@ -828,6 +837,7 @@ func (s *Shell) PrepareTestDatabaseUserOnly(c *cli.Context) error {
 
 // MigrateDatabase migrates the database
 func (s *Shell) MigrateDatabase(_ *cli.Context) error {
+	ctx := s.ctx()
 	cfg := s.Config.Database()
 	parsed := cfg.URL()
 	if parsed.String() == "" {
@@ -840,7 +850,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 	}
 
 	s.Logger.Infof("Migrating database: %#v", parsed.String())
-	if err := migrateDB(cfg, s.Logger); err != nil {
+	if err := migrateDB(ctx, cfg, s.Logger); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
@@ -848,6 +858,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 
 // RollbackDatabase rolls back the database via down migrations.
 func (s *Shell) RollbackDatabase(c *cli.Context) error {
+	ctx := s.ctx()
 	var version null.Int
 	if c.Args().Present() {
 		arg := c.Args().First()
@@ -863,7 +874,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err := migrate.Rollback(db.DB, s.Logger, version); err != nil {
+	if err := migrate.Rollback(ctx, db.DB, s.Logger, version); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
@@ -872,12 +883,13 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 
 // VersionDatabase displays the current database version.
 func (s *Shell) VersionDatabase(_ *cli.Context) error {
+	ctx := s.ctx()
 	db, err := newConnection(s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	version, err := migrate.Current(db.DB, s.Logger)
+	version, err := migrate.Current(ctx, db.DB, s.Logger)
 	if err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
@@ -888,12 +900,13 @@ func (s *Shell) VersionDatabase(_ *cli.Context) error {
 
 // StatusDatabase displays the database migration status
 func (s *Shell) StatusDatabase(_ *cli.Context) error {
+	ctx := s.ctx()
 	db, err := newConnection(s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err = migrate.Status(db.DB, s.Logger); err != nil {
+	if err = migrate.Status(ctx, db.DB, s.Logger); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
@@ -1017,27 +1030,27 @@ func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 	return nil
 }
 
-func migrateDB(config dbConfig, lggr logger.Logger) error {
+func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger) error {
 	db, err := newConnection(config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err = migrate.Migrate(db.DB, lggr); err != nil {
+	if err = migrate.Migrate(ctx, db.DB, lggr); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 	return db.Close()
 }
 
-func downAndUpDB(cfg dbConfig, lggr logger.Logger, baseVersionID int64) error {
+func downAndUpDB(ctx context.Context, cfg dbConfig, lggr logger.Logger, baseVersionID int64) error {
 	db, err := newConnection(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	if err = migrate.Rollback(db.DB, lggr, null.IntFrom(baseVersionID)); err != nil {
+	if err = migrate.Rollback(ctx, db.DB, lggr, null.IntFrom(baseVersionID)); err != nil {
 		return fmt.Errorf("test rollback failed: %v", err)
 	}
-	if err = migrate.Migrate(db.DB, lggr); err != nil {
+	if err = migrate.Migrate(ctx, db.DB, lggr); err != nil {
 		return fmt.Errorf("second migrateDB failed: %v", err)
 	}
 	return db.Close()

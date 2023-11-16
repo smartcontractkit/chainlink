@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	relaycfg "github.com/smartcontractkit/chainlink-relay/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -35,7 +35,7 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	chainID := cosmostest.RandomChainID()
 	node := config.Node{
 		Name:          ptr("second"),
-		TendermintURL: utils.MustParseURL("http://tender.mint.test/bombay-12"),
+		TendermintURL: relaycfg.MustParseURL("http://tender.mint.test/bombay-12"),
 	}
 	chain := config.TOMLConfig{
 		ChainID: ptr(chainID),
