@@ -25,6 +25,16 @@ func TestGenerateHMACFn(t *testing.T) {
 			ts:       1234567890,
 			expected: "17b0bb6b14f7b48ef9d24f941ff8f33ad2d5e94ac343380be02c2f1ca32fdbd8",
 		},
+		{
+			name:     "generate hmac function with non-empty body",
+			method:   "POST",
+			path:     "/api",
+			body:     []byte("request body"),
+			clientId: "anotherClientId",
+			secret:   "anotherSecret",
+			ts:       1597534567,
+			expected: "d326c168c50c996e271d6b3b4c97944db01163994090f73fcf4fd42f23f06bbb",
+		},
 	}
 
 	for _, tc := range testCases {
