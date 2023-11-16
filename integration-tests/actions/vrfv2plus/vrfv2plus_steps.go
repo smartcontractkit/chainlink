@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 
 	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -599,7 +599,7 @@ func FundSubscriptions(
 ) error {
 	for _, subID := range subIDs {
 		//Native Billing
-		amountWei := utils.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountNative))
+		amountWei := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountNative))
 		err := coordinator.FundSubscriptionWithNative(
 			subID,
 			amountWei,
@@ -608,7 +608,7 @@ func FundSubscriptions(
 			return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
 		}
 		//Link Billing
-		amountJuels := utils.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountLink))
+		amountJuels := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountLink))
 		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
