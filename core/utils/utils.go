@@ -305,22 +305,6 @@ func Sha256(in string) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-// IsQuoted checks if the first and last characters are either " or '.
-func IsQuoted(input []byte) bool {
-	return len(input) >= 2 &&
-		((input[0] == '"' && input[len(input)-1] == '"') ||
-			(input[0] == '\'' && input[len(input)-1] == '\''))
-}
-
-// RemoveQuotes removes the first and last character if they are both either
-// " or ', otherwise it is a noop.
-func RemoveQuotes(input []byte) []byte {
-	if IsQuoted(input) {
-		return input[1 : len(input)-1]
-	}
-	return input
-}
-
 // EIP55CapitalizedAddress returns true iff possibleAddressString has the correct
 // capitalization for an Ethereum address, per EIP 55
 func EIP55CapitalizedAddress(possibleAddressString string) bool {

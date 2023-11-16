@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	relaycfg "github.com/smartcontractkit/chainlink-relay/pkg/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -34,11 +34,11 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	id := "starknet chain ID"
 	node1 := config.Node{
 		Name: ptr("first"),
-		URL:  utils.MustParseURL("https://starknet1.example"),
+		URL:  relaycfg.MustParseURL("https://starknet1.example"),
 	}
 	node2 := config.Node{
 		Name: ptr("second"),
-		URL:  utils.MustParseURL("https://starknet2.example"),
+		URL:  relaycfg.MustParseURL("https://starknet2.example"),
 	}
 	chain := config.TOMLConfig{
 		ChainID: &id,
