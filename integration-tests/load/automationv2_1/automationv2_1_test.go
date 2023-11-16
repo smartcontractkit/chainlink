@@ -256,7 +256,7 @@ func TestLogTrigger(t *testing.T) {
 		} else {
 			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"info\"", baseTOML)
 		}
-		nodeTOML = client.AddNetworksConfig(nodeTOML, testNetwork)
+		nodeTOML = networks.AddNetworksConfig(nodeTOML, testNetwork)
 		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
 			"toml":      nodeTOML,
 			"chainlink": nodeSpec,
