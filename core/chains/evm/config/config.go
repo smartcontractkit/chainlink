@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
-//go:generate mockery --quiet --name EVM --output ./mocks/ --case=underscore
 type EVM interface {
 	HeadTracker() HeadTracker
 	BalanceMonitor() BalanceMonitor

@@ -310,14 +310,12 @@ func TestTransactionsController_Create(t *testing.T) {
 			respError.Error())
 	})
 
-	newChain := func(t *testing.T, txm txmgr.TxManager, limitDefault uint32) evm.Chain {
+	_, _, evmConfig := txmgr.MakeTestConfigs(t)
+	feeLimit := evmConfig.GasEstimator().LimitDefault()
+	newChain := func(t *testing.T, txm txmgr.TxManager) evm.Chain {
 		chain := evmMocks.NewChain(t)
 		chain.On("TxManager").Return(txm)
-		// gas estimator default limit
-		gasEstimator := evmConfigMocks.NewGasEstimator(t)
-		gasEstimator.On("LimitDefault").Return(limitDefault).Maybe()
-		evmConfig := evmConfigMocks.NewEVM(t)
-		evmConfig.On("GasEstimator").Return(gasEstimator).Maybe()
+
 		config := evmConfigMocks.NewChainScopedConfig(t)
 		config.On("EVM").Return(evmConfig).Maybe()
 		chain.On("Config").Return(config).Maybe()
@@ -327,8 +325,8 @@ func TestTransactionsController_Create(t *testing.T) {
 	t.Run("Correctly populates fields for TxRequest", func(t *testing.T) {
 		payload := []byte("tx_payload")
 		value := big.NewInt(rand.Int64())
-		feeLimit := rand.Uint32()
 
+		feeLimitOverride := feeLimit + 10
 		request := models.CreateEVMTransactionRequest{
 			ToAddress:        ptr(common.HexToAddress("0xEA746B853DcFFA7535C64882E191eE31BE8CE711")),
 			FromAddress:      common.HexToAddress("0x39364605296d7c77e7C2089F0e48D527bb309d38"),
@@ -337,7 +335,7 @@ func TestTransactionsController_Create(t *testing.T) {
 			ChainID:          chainID,
 			Value:            utils.NewBig(value),
 			ForwarderAddress: common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2"),
-			FeeLimit:         feeLimit,
+			FeeLimit:         feeLimitOverride,
 		}
 
 		txm := txmMocks.NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee](t)
@@ -348,13 +346,13 @@ func TestTransactionsController_Create(t *testing.T) {
 			ToAddress:        *request.ToAddress,
 			EncodedPayload:   payload,
 			Value:            *value,
-			FeeLimit:         feeLimit,
+			FeeLimit:         feeLimitOverride,
 			ForwarderAddress: request.ForwarderAddress,
 			Strategy:         txmgrcommon.NewSendEveryStrategy(),
 		}).Return(txmgr.Tx{}, expectedError).Once()
 
 		chainContainer := evmMocks.NewLegacyChainContainer(t)
-		chain := newChain(t, txm, 0)
+		chain := newChain(t, txm)
 		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
 
 		ethKeystore := ksMocks.NewEth(t)
@@ -383,19 +381,18 @@ func TestTransactionsController_Create(t *testing.T) {
 
 		txm := txmMocks.NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee](t)
 		expectedError := errors.New("stub error to shortcut execution")
-		expectedFeeLimit := rand.Uint32()
 		txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 			IdempotencyKey: &request.IdempotencyKey,
 			FromAddress:    expectedFromAddress,
 			ToAddress:      *request.ToAddress,
 			EncodedPayload: []byte{},
 			Value:          big.Int{},
-			FeeLimit:       expectedFeeLimit,
+			FeeLimit:       feeLimit,
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		}).Return(txmgr.Tx{}, expectedError).Once()
 
 		chainContainer := evmMocks.NewLegacyChainContainer(t)
-		chain := newChain(t, txm, expectedFeeLimit)
+		chain := newChain(t, txm)
 		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
 
 		resp := createTx(&web.EvmTransactionController{
@@ -411,14 +408,13 @@ func TestTransactionsController_Create(t *testing.T) {
 	})
 
 	payload := []byte("tx_payload")
-	expectedFeeLimit := uint32(2235235)
 	const txID = int64(54323)
 	newTxFromRequest := func(request models.CreateEVMTransactionRequest) txmgr.Tx {
 		return txmgr.Tx{
 			ID:             txID,
 			EncodedPayload: payload,
 			FromAddress:    request.FromAddress,
-			FeeLimit:       expectedFeeLimit,
+			FeeLimit:       feeLimit,
 			State:          txmgrcommon.TxInProgress,
 			ToAddress:      *request.ToAddress,
 			Value:          *request.Value.ToInt(),
@@ -434,7 +430,7 @@ func TestTransactionsController_Create(t *testing.T) {
 			ToAddress:      *request.ToAddress,
 			EncodedPayload: payload,
 			Value:          *request.Value.ToInt(),
-			FeeLimit:       expectedFeeLimit,
+			FeeLimit:       feeLimit,
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		}).Return(tx, nil).Once()
 		return txm
@@ -454,7 +450,7 @@ func TestTransactionsController_Create(t *testing.T) {
 		txm := newTxManager(request)
 
 		chainContainer := evmMocks.NewLegacyChainContainer(t)
-		chain := newChain(t, txm, expectedFeeLimit)
+		chain := newChain(t, txm)
 		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
 
 		txmStorage := txmEvmMocks.NewEvmTxStore(t)
@@ -489,7 +485,7 @@ func TestTransactionsController_Create(t *testing.T) {
 		txm := newTxManager(request)
 
 		chainContainer := evmMocks.NewLegacyChainContainer(t)
-		chain := newChain(t, txm, expectedFeeLimit)
+		chain := newChain(t, txm)
 		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
 		block := int64(56345431)
 		txWithAttempts := newTxFromRequest(request)
