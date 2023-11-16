@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"context"
 	"math/big"
 	"net"
+	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -32,4 +34,25 @@ func BigIntSliceContains(slice []*big.Int, b *big.Int) bool {
 		}
 	}
 	return false
+}
+
+// TestContext returns a context with the test's deadline, if available.
+func TestContext(tb testing.TB) context.Context {
+	ctx := context.Background()
+	var cancel func()
+	switch t := tb.(type) {
+	case *testing.T:
+		// Return background context if testing.T not set
+		if t == nil {
+			return ctx
+		}
+		if d, ok := t.Deadline(); ok {
+			ctx, cancel = context.WithDeadline(ctx, d)
+		}
+	}
+	if cancel == nil {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+	tb.Cleanup(cancel)
+	return ctx
 }

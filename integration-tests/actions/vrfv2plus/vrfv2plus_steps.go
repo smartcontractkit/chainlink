@@ -9,12 +9,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
@@ -802,7 +804,7 @@ func WaitForRequestCountEqualToFulfilmentCount(consumer contracts.VRFv2PlusLoadT
 				fmt.Errorf("timeout waiting for rand request and fulfilments to be equal AFTER performance test was executed. Request Count: %d, Fulfilment Count: %d",
 					metrics.RequestCount.Uint64(), metrics.FulfilmentCount.Uint64())
 		case <-ticker.C:
-			go getLoadTestMetrics(consumer, metricsChannel, metricsErrorChannel)
+			go retreiveLoadTestMetrics(consumer, metricsChannel, metricsErrorChannel)
 		case metrics = <-metricsChannel:
 			if metrics.RequestCount.Cmp(metrics.FulfilmentCount) == 0 {
 				ticker.Stop()
@@ -852,7 +854,7 @@ func ReturnFundsForFulfilledRequests(client blockchain.EVMClient, coordinator co
 	return nil
 }
 
-func getLoadTestMetrics(
+func retreiveLoadTestMetrics(
 	consumer contracts.VRFv2PlusLoadTestConsumer,
 	metricsChannel chan *contracts.VRFLoadTestMetrics,
 	metricsErrorChannel chan error,
@@ -867,7 +869,7 @@ func getLoadTestMetrics(
 func LogSubDetails(l zerolog.Logger, subscription vrf_coordinator_v2_5.GetSubscription, subID *big.Int, coordinator contracts.VRFCoordinatorV2_5) {
 	l.Debug().
 		Str("Coordinator", coordinator.Address()).
-		Str("Link Balance", (*assets.Link)(subscription.Balance).Link()).
+		Str("Link Balance", (*relayassets.Link)(subscription.Balance).Link()).
 		Str("Native Token Balance", assets.FormatWei(subscription.NativeBalance)).
 		Str("Subscription ID", subID.String()).
 		Str("Subscription Owner", subscription.Owner.String()).
@@ -970,11 +972,11 @@ func LogFulfillmentDetailsLinkBilling(
 	randomWordsFulfilledEvent *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled,
 ) {
 	l.Debug().
-		Str("Consumer Balance Before Request (Link)", (*assets.Link)(wrapperConsumerJuelsBalanceBeforeRequest).Link()).
-		Str("Consumer Balance After Request (Link)", (*assets.Link)(wrapperConsumerJuelsBalanceAfterRequest).Link()).
+		Str("Consumer Balance Before Request (Link)", (*relayassets.Link)(wrapperConsumerJuelsBalanceBeforeRequest).Link()).
+		Str("Consumer Balance After Request (Link)", (*relayassets.Link)(wrapperConsumerJuelsBalanceAfterRequest).Link()).
 		Bool("Fulfilment Status", consumerStatus.Fulfilled).
-		Str("Paid by Consumer Contract (Link)", (*assets.Link)(consumerStatus.Paid).Link()).
-		Str("Paid by Coordinator Sub (Link)", (*assets.Link)(randomWordsFulfilledEvent.Payment).Link()).
+		Str("Paid by Consumer Contract (Link)", (*relayassets.Link)(consumerStatus.Paid).Link()).
+		Str("Paid by Coordinator Sub (Link)", (*relayassets.Link)(randomWordsFulfilledEvent.Payment).Link()).
 		Str("RequestTimestamp", consumerStatus.RequestTimestamp.String()).
 		Str("FulfilmentTimestamp", consumerStatus.FulfilmentTimestamp.String()).
 		Str("RequestBlockNumber", consumerStatus.RequestBlockNumber.String()).

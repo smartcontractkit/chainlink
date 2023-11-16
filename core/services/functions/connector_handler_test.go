@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-relay/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -78,7 +78,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			}
 			storage.On("List", ctx, addr).Return(snapshot, nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
-			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
@@ -91,7 +90,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			t.Run("orm error", func(t *testing.T) {
 				storage.On("List", ctx, addr).Return(nil, errors.New("boom")).Once()
 				allowlist.On("Allow", addr).Return(true).Once()
-				subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
@@ -218,7 +216,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			require.NoError(t, msg.Sign(privateKey))
 
 			allowlist.On("Allow", addr).Return(true).Once()
-			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 			handler.HandleGatewayMessage(testutils.Context(t), "gw1", &msg)
 		})
 	})

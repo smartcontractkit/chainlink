@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -11,12 +10,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
@@ -24,15 +27,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
-	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -110,7 +111,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				upgradeImage   string
 				upgradeVersion string
 				err            error
-				testName       = "basic-upkeep"
 			)
 			if nodeUpgrade {
 				upgradeImage = os.Getenv("UPGRADE_IMAGE")
@@ -118,7 +118,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				if len(upgradeImage) == 0 || len(upgradeVersion) == 0 {
 					t.Fatal("UPGRADE_IMAGE and UPGRADE_VERSION must be set to upgrade nodes")
 				}
-				testName = "node-upgrade"
 			}
 
 			// Use the name to determine if this is a log trigger or mercury
@@ -128,7 +127,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			isMercury := isMercuryV02 || isMercuryV03
 
 			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
-				t, testName, registryVersion, defaultOCRRegistryConfig, nodeUpgrade, isMercuryV02, isMercuryV03,
+				t, registryVersion, defaultOCRRegistryConfig, isMercuryV02, isMercuryV03,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -155,7 +154,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 				if isMercury {
 					// Set privilege config to enable mercury
-					privilegeConfigBytes, _ := json.Marshal(evm21.UpkeepPrivilegeConfig{
+					privilegeConfigBytes, _ := json.Marshal(streams.UpkeepPrivilegeConfig{
 						MercuryEnabled: true,
 					})
 					if err := registry.SetUpkeepPrivilegeConfig(upkeepIDs[i], privilegeConfigBytes); err != nil {
@@ -172,7 +171,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(utils.TestContext(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 5
 					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
@@ -187,13 +186,14 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				expect := 5
 				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 				for i := 0; i < 5; i++ {
-					actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, testEnv.ClCluster.Nodes[i])
+					err = actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, testEnv.ClCluster.Nodes[i])
+					require.NoError(t, err, "Error when upgrading node %d", i)
 					time.Sleep(time.Second * 10)
 					expect = expect + 5
 					gom.Eventually(func(g gomega.Gomega) {
 						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are increasing by 5 in each step within 5 minutes
 						for i := 0; i < len(upkeepIDs); i++ {
-							counter, err := consumers[i].Counter(context.Background())
+							counter, err := consumers[i].Counter(utils.TestContext(t))
 							require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 							l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 							g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
@@ -216,7 +216,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 			for i := 0; i < len(upkeepIDs); i++ {
 				// Obtain the amount of times the upkeep has been executed so far
-				countersAfterCancellation[i], err = consumers[i].Counter(context.Background())
+				countersAfterCancellation[i], err = consumers[i].Counter(utils.TestContext(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 				l.Info().Int64("Upkeep Count", countersAfterCancellation[i].Int64()).Int("Upkeep Index", i).Msg("Cancelled upkeep")
 			}
@@ -225,7 +225,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			gom.Consistently(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					// Expect the counter to remain constant (At most increase by 1 to account for stale performs) because the upkeep was cancelled
-					latestCounter, err := consumers[i].Counter(context.Background())
+					latestCounter, err := consumers[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterCancellation[i].Int64()+1),
 						"Expected consumer counter to remain less than or equal to %d, but got %d",
@@ -241,7 +241,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-		t, "set-trigger-config", ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, false, false,
+		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, false,
 	)
 
 	consumers, upkeepIDs := actions.DeployConsumers(
@@ -271,7 +271,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 	gom.Eventually(func(g gomega.Gomega) {
 		// Check if the upkeeps are performing multiple times by analyzing their counters
 		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := consumers[i].Counter(context.Background())
+			counter, err := consumers[i].Counter(utils.TestContext(t))
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			expect := 5
 			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
@@ -328,7 +328,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	for i := 0; i < len(upkeepIDs); i++ {
 		// Obtain the amount of times the upkeep has been executed so far
-		countersAfterSetNoMatch[i], err = consumers[i].Counter(context.Background())
+		countersAfterSetNoMatch[i], err = consumers[i].Counter(utils.TestContext(t))
 		require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 		l.Info().Int64("Upkeep Count", countersAfterSetNoMatch[i].Int64()).Int("Upkeep Index", i).Msg("Upkeep")
 	}
@@ -338,7 +338,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 		for i := 0; i < len(upkeepIDs); i++ {
 			// Expect the counter to remain constant (At most increase by 2 to account for stale performs) because the upkeep trigger config is not met
 			bufferCount := int64(2)
-			latestCounter, err := consumers[i].Counter(context.Background())
+			latestCounter, err := consumers[i].Counter(utils.TestContext(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 			g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterSetNoMatch[i].Int64()+bufferCount),
 				"Expected consumer counter to remain less than or equal to %d, but got %d",
@@ -374,7 +374,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 
 	for i := 0; i < len(upkeepIDs); i++ {
 		// Obtain the amount of times the upkeep has been executed so far
-		countersAfterSetMatch[i], err = consumers[i].Counter(context.Background())
+		countersAfterSetMatch[i], err = consumers[i].Counter(utils.TestContext(t))
 		require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 		l.Info().Int64("Upkeep Count", countersAfterSetMatch[i].Int64()).Int("Upkeep Index", i).Msg("Upkeep")
 	}
@@ -393,7 +393,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 	gom.Eventually(func(g gomega.Gomega) {
 		// Check if the upkeeps are performing multiple times by analyzing their counters
 		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := consumers[i].Counter(context.Background())
+			counter, err := consumers[i].Counter(utils.TestContext(t))
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			expect := int64(5)
 			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
@@ -416,7 +416,7 @@ func TestAutomationAddFunds(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "add-funds", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false, false)
@@ -424,7 +424,7 @@ func TestAutomationAddFunds(t *testing.T) {
 			gom := gomega.NewGomegaWithT(t)
 			// Since the upkeep is currently underfunded, check that it doesn't get executed
 			gom.Consistently(func(g gomega.Gomega) {
-				counter, err := consumers[0].Counter(context.Background())
+				counter, err := consumers[0].Counter(utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(counter.Int64()).Should(gomega.Equal(int64(0)),
 					"Expected consumer counter to remain zero, but got %d", counter.Int64())
@@ -444,7 +444,7 @@ func TestAutomationAddFunds(t *testing.T) {
 
 			// Now the new upkeep should be performing because we added enough funds
 			gom.Eventually(func(g gomega.Gomega) {
-				counter, err := consumers[0].Counter(context.Background())
+				counter, err := consumers[0].Counter(utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 					"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
@@ -467,7 +467,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "pause-unpause", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
@@ -476,7 +476,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 5
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(5)),
 						"Expected consumer counter to be greater than 5, but got %d", counter.Int64())
@@ -496,7 +496,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
 			for i := 0; i < len(upkeepIDs); i++ {
 				// Obtain the amount of times the upkeep has been executed so far
-				countersAfterPause[i], err = consumers[i].Counter(context.Background())
+				countersAfterPause[i], err = consumers[i].Counter(utils.TestContext(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 				l.Info().Int("Upkeep Index", i).Int64("Upkeeps Performed", countersAfterPause[i].Int64()).Msg("Paused Upkeep")
 			}
@@ -505,7 +505,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					// In most cases counters should remain constant, but there might be a straggling perform tx which
 					// gets committed later and increases counter by 1
-					latestCounter, err := consumers[i].Counter(context.Background())
+					latestCounter, err := consumers[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterPause[i].Int64()+1),
 						"Expected consumer counter not have increased more than %d, but got %d",
@@ -525,7 +525,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5 + numbers of performing before pause
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", countersAfterPause[i].Int64()+1),
 						"Expected consumer counter to be greater than %d, but got %d", countersAfterPause[i].Int64()+1, counter.Int64())
@@ -550,7 +550,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "register-upkeep", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
@@ -561,7 +561,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 			// store the value of their initial counters in order to compare later on that the value increased.
 			gom.Eventually(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(utils.TestContext(t))
 					initialCounters[i] = counter
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
@@ -581,7 +581,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 
 			// Test that the newly registered upkeep is also performing.
 			gom.Eventually(func(g gomega.Gomega) {
-				counter, err := newUpkeep.Counter(context.Background())
+				counter, err := newUpkeep.Counter(utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling newly deployed upkeep's counter shouldn't fail")
 				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 					"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
@@ -590,7 +590,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 
 			gom.Eventually(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					currentCounter, err := consumers[i].Counter(context.Background())
+					currentCounter, err := consumers[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
 
 					l.Info().
@@ -621,7 +621,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "pause-registry", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
@@ -630,7 +630,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 			// Observe that the upkeeps which are initially registered are performing
 			gom.Eventually(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d")
@@ -646,7 +646,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 			// Store how many times each upkeep performed once the registry was successfully paused
 			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
 			for i := 0; i < len(upkeepIDs); i++ {
-				countersAfterPause[i], err = consumers[i].Counter(context.Background())
+				countersAfterPause[i], err = consumers[i].Counter(utils.TestContext(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			}
 
@@ -654,7 +654,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 			// because they are no longer getting serviced
 			gom.Consistently(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					latestCounter, err := consumers[i].Counter(context.Background())
+					latestCounter, err := consumers[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterPause[i].Int64()),
 						"Expected consumer counter to remain constant at %d, but got %d",
@@ -679,7 +679,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "keeper-nodes-down", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
@@ -691,7 +691,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			// Watch upkeeps being performed and store their counters in order to compare them later in the test
 			gom.Eventually(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(utils.TestContext(t))
 					initialCounters[i] = counter
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
@@ -710,7 +710,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			// Assert that upkeeps are still performed and their counters have increased
 			gom.Eventually(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					currentCounter, err := consumers[i].Counter(context.Background())
+					currentCounter, err := consumers[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(currentCounter.Int64()).Should(gomega.BeNumerically(">", initialCounters[i].Int64()),
 						"Expected counter to have increased from initial value of %s, but got %s",
@@ -731,7 +731,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			// See how many times each upkeep was executed
 			var countersAfterNoMoreNodes = make([]*big.Int, len(upkeepIDs))
 			for i := 0; i < len(upkeepIDs); i++ {
-				countersAfterNoMoreNodes[i], err = consumers[i].Counter(context.Background())
+				countersAfterNoMoreNodes[i], err = consumers[i].Counter(utils.TestContext(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 				l.Info().Int("Upkeep Index", i).Int64("Performed", countersAfterNoMoreNodes[i].Int64()).Msg("Upkeeps Performed")
 			}
@@ -740,7 +740,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			// all the nodes were taken down
 			gom.Consistently(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					latestCounter, err := consumers[i].Counter(context.Background())
+					latestCounter, err := consumers[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterNoMoreNodes[i].Int64()+1),
 						"Expected consumer counter to not have increased more than %d, but got %d",
@@ -764,7 +764,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "perform-simulation", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumersPerformance, _ := actions.DeployPerformanceConsumers(
@@ -789,7 +789,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 			// Initially performGas is set high, so performUpkeep reverts and no upkeep should be performed
 			gom.Consistently(func(g gomega.Gomega) {
 				// Consumer count should remain at 0
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+				cnt, err := consumerPerformance.GetUpkeepCount(utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(gomega.Equal(int64(0)),
 					"Expected consumer counter to remain constant at %d, but got %d", 0, cnt.Int64(),
@@ -797,14 +797,14 @@ func TestAutomationPerformSimulation(t *testing.T) {
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for setup, 1m assertion
 
 			// Set performGas on consumer to be low, so that performUpkeep starts becoming successful
-			err := consumerPerformance.SetPerformGasToBurn(context.Background(), big.NewInt(100000))
+			err := consumerPerformance.SetPerformGasToBurn(utils.TestContext(t), big.NewInt(100000))
 			require.NoError(t, err, "Perform gas should be set successfully on consumer")
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for set perform gas tx")
 
 			// Upkeep should now start performing
 			gom.Eventually(func(g gomega.Gomega) {
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+				cnt, err := consumerPerformance.GetUpkeepCount(utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 					"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
@@ -828,7 +828,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "gas-limit", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
@@ -854,7 +854,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 
 			// Initially performGas is set higher than defaultUpkeepGasLimit, so no upkeep should be performed
 			gom.Consistently(func(g gomega.Gomega) {
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+				cnt, err := consumerPerformance.GetUpkeepCount(utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(
 					gomega.Equal(int64(0)),
@@ -870,7 +870,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 
 			// Upkeep should now start performing
 			gom.Eventually(func(g gomega.Gomega) {
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+				cnt, err := consumerPerformance.GetUpkeepCount(utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 					"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
@@ -878,19 +878,19 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
 
 			// Now increase the checkGasBurn on consumer, upkeep should stop performing
-			err = consumerPerformance.SetCheckGasToBurn(context.Background(), big.NewInt(3000000))
+			err = consumerPerformance.SetCheckGasToBurn(utils.TestContext(t), big.NewInt(3000000))
 			require.NoError(t, err, "Check gas burn should be set successfully on consumer")
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for SetCheckGasToBurn tx")
 
 			// Get existing performed count
-			existingCnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+			existingCnt, err := consumerPerformance.GetUpkeepCount(utils.TestContext(t))
 			require.NoError(t, err, "Calling consumer's counter shouldn't fail")
 			l.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when check gas increased")
 
 			// In most cases count should remain constant, but it might increase by upto 1 due to pending perform
 			gom.Consistently(func(g gomega.Gomega) {
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+				cnt, err := consumerPerformance.GetUpkeepCount(utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(
 					gomega.BeNumerically("<=", existingCnt.Int64()+1),
@@ -898,7 +898,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 				)
 			}, "1m", "1s").Should(gomega.Succeed())
 
-			existingCnt, err = consumerPerformance.GetUpkeepCount(context.Background())
+			existingCnt, err = consumerPerformance.GetUpkeepCount(utils.TestContext(t))
 			require.NoError(t, err, "Calling consumer's counter shouldn't fail")
 			existingCntInt := existingCnt.Int64()
 			l.Info().Int64("Upkeep counter", existingCntInt).Msg("Upkeep counter when consistently block finished")
@@ -918,7 +918,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 
 			// Upkeep should start performing again, and it should get regularly performed
 			gom.Eventually(func(g gomega.Gomega) {
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+				cnt, err := consumerPerformance.GetUpkeepCount(utils.TestContext(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", existingCntInt),
 					"Expected consumer counter to be greater than %d, but got %d", existingCntInt, cnt.Int64(),
@@ -942,7 +942,7 @@ func TestUpdateCheckData(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "update-check-data", registryVersion, defaultOCRRegistryConfig, false, false, false,
+				t, registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
@@ -962,7 +962,7 @@ func TestUpdateCheckData(t *testing.T) {
 			gom.Consistently(func(g gomega.Gomega) {
 				// expect the counter to remain 0 because perform data does not match
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := performDataChecker[i].Counter(context.Background())
+					counter, err := performDataChecker[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve perform data checker"+
 						" for upkeep at index "+strconv.Itoa(i))
 					g.Expect(counter.Int64()).Should(gomega.Equal(int64(0)),
@@ -981,7 +981,7 @@ func TestUpdateCheckData(t *testing.T) {
 
 			// retrieve new check data for all upkeeps
 			for i := 0; i < len(upkeepIDs); i++ {
-				upkeep, err := registry.GetUpkeepInfo(context.Background(), upkeepIDs[i])
+				upkeep, err := registry.GetUpkeepInfo(utils.TestContext(t), upkeepIDs[i])
 				require.NoError(t, err, "Failed to get upkeep info at index %d", i)
 				require.Equal(t, []byte(automationExpectedData), upkeep.CheckData, "Upkeep data not as expected")
 			}
@@ -989,7 +989,7 @@ func TestUpdateCheckData(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := performDataChecker[i].Counter(context.Background())
+					counter, err := performDataChecker[i].Counter(utils.TestContext(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve perform data checker counter"+
 						" for upkeep at index "+strconv.Itoa(i))
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
@@ -1007,10 +1007,8 @@ type TestConfig struct {
 
 func setupAutomationTestDocker(
 	t *testing.T,
-	testName string,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
-	statefulDb bool,
 	isMercuryV02 bool,
 	isMercuryV03 bool,
 ) (
@@ -1032,11 +1030,11 @@ func setupAutomationTestDocker(
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
 	syncInterval := models.MustMakeDuration(5 * time.Minute)
-	clNodeConfig.Feature.LogPoller = it_utils.Ptr[bool](true)
-	clNodeConfig.OCR2.Enabled = it_utils.Ptr[bool](true)
-	clNodeConfig.Keeper.TurnLookBack = it_utils.Ptr[int64](int64(0))
+	clNodeConfig.Feature.LogPoller = utils.Ptr[bool](true)
+	clNodeConfig.OCR2.Enabled = utils.Ptr[bool](true)
+	clNodeConfig.Keeper.TurnLookBack = utils.Ptr[int64](int64(0))
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
-	clNodeConfig.Keeper.Registry.PerformGasOverhead = it_utils.Ptr[uint32](uint32(150000))
+	clNodeConfig.Keeper.Registry.PerformGasOverhead = utils.Ptr[uint32](uint32(150000))
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 
@@ -1086,11 +1084,13 @@ func setupAutomationTestDocker(
 
 		if isMercuryV02 {
 			output := `{"chainlinkBlob":"0x0001c38d71fed6c320b90e84b6f559459814d068e2a1700adc931ca9717d4fe70000000000000000000000000000000000000000000000000000000001a80b52b4bf1233f9cb71144a253a1791b202113c4ab4a92fa1b176d684b4959666ff8200000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001004254432d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000645570be000000000000000000000000000000000000000000000000000002af2b818dc5000000000000000000000000000000000000000000000000000002af2426faf3000000000000000000000000000000000000000000000000000002af32dc209700000000000000000000000000000000000000000000000000000000012130f8df0a9745bb6ad5e2df605e158ba8ad8a33ef8a0acf9851f0f01668a3a3f2b68600000000000000000000000000000000000000000000000000000000012130f60000000000000000000000000000000000000000000000000000000000000002c4a7958dce105089cf5edb68dad7dcfe8618d7784eb397f97d5a5fade78c11a58275aebda478968e545f7e3657aba9dcbe8d44605e4c6fde3e24edd5e22c94270000000000000000000000000000000000000000000000000000000000000002459c12d33986018a8959566d145225f0c4a4e61a9a3f50361ccff397899314f0018162cf10cd89897635a0bb62a822355bd199d09f4abe76e4d05261bb44733d"}`
-			env.MockAdapter.SetStringValuePath("/client", []string{http.MethodGet, http.MethodPost}, map[string]string{"Content-Type": "application/json"}, output)
+			err = env.MockAdapter.SetStringValuePath("/client", []string{http.MethodGet, http.MethodPost}, map[string]string{"Content-Type": "application/json"}, output)
+			require.NoError(t, err)
 		}
 		if isMercuryV03 {
 			output := `{"reports":[{"feedID":"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000","validFromTimestamp":0,"observationsTimestamp":0,"fullReport":"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"}]}`
-			env.MockAdapter.SetStringValuePath("/api/v1/reports/bulk", []string{http.MethodGet, http.MethodPost}, map[string]string{"Content-Type": "application/json"}, output)
+			err = env.MockAdapter.SetStringValuePath("/api/v1/reports/bulk", []string{http.MethodGet, http.MethodPost}, map[string]string{"Content-Type": "application/json"}, output)
+			require.NoError(t, err)
 		}
 	} else {
 		env, err = test_env.NewCLTestEnvBuilder().

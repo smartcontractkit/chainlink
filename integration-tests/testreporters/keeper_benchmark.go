@@ -183,7 +183,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	}
 
 	for contractIndex, report := range k.Reports {
-		avg, median, ninetyPct, ninetyNinePct, max := IntListStats(report.AllCheckDelays)
+		avg, median, ninetyPct, ninetyNinePct, max = IntListStats(report.AllCheckDelays)
 		err = keeperReportWriter.Write([]string{
 			fmt.Sprint(contractIndex),
 			report.RegistryAddress,
@@ -304,7 +304,9 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackC
 	})
 }
 
-// IntListStats helper calculates some statistics on an int list: avg, median, 90pct, 99pct, max
+// intListStats helper calculates some statistics on an int list: avg, median, 90pct, 99pct, max
+//
+//nolint:revive
 func IntListStats(in []int64) (float64, int64, int64, int64, int64) {
 	length := len(in)
 	if length == 0 {

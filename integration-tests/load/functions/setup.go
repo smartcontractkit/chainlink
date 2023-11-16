@@ -12,9 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"

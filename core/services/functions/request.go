@@ -9,6 +9,14 @@ const (
 
 type RequestFlags [32]byte
 
+type OffchainRequest struct {
+	RequestId         []byte      `json:"requestId"`
+	RequestInitiator  []byte      `json:"requestInitiator"`
+	SubscriptionId    uint64      `json:"subscriptionId"`
+	SubscriptionOwner []byte      `json:"subscriptionOwner"`
+	Data              RequestData `json:"data"`
+}
+
 type RequestData struct {
 	Source          string   `json:"source" cbor:"source"`
 	Language        int      `json:"language" cbor:"language"`
@@ -17,6 +25,13 @@ type RequestData struct {
 	SecretsLocation int      `json:"secretsLocation" cbor:"secretsLocation"`
 	Args            []string `json:"args,omitempty" cbor:"args"`
 	BytesArgs       [][]byte `json:"bytesArgs,omitempty" cbor:"bytesArgs"`
+}
+
+// NOTE: to be extended with raw report and signatures when needed
+type OffchainResponse struct {
+	RequestId []byte `json:"requestId"`
+	Result    []byte `json:"result"`
+	Error     []byte `json:"error"`
 }
 
 type DONHostedSecrets struct {

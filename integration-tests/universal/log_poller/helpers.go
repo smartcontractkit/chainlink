@@ -3,7 +3,6 @@ package logpoller
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -22,16 +21,14 @@ import (
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/wasp"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_blockchain "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/wasp"
-
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	lpEvm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
@@ -46,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
-	utils2 "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -80,64 +76,65 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 	return nil
 }
 
+// Currently Unused November 8, 2023, Might be useful in the near future so keeping it here for now
 // this is not really possible, log trigger doesn't support multiple topics, even if log poller does
-var registerMultipleTopicsFilter = func(registry contracts.KeeperRegistry, upkeepID *big.Int, emitterAddress common.Address, topics []abi.Event) error {
-	if len(topics) > 4 {
-		return errors.New("Cannot register more than 4 topics")
-	}
+// var registerMultipleTopicsFilter = func(registry contracts.KeeperRegistry, upkeepID *big.Int, emitterAddress common.Address, topics []abi.Event) error {
+// 	if len(topics) > 4 {
+// 		return errors.New("Cannot register more than 4 topics")
+// 	}
 
-	var getTopic = func(topics []abi.Event, i int) common.Hash {
-		if i > len(topics)-1 {
-			return bytes0
-		}
+// 	var getTopic = func(topics []abi.Event, i int) common.Hash {
+// 		if i > len(topics)-1 {
+// 			return bytes0
+// 		}
 
-		return topics[i].ID
-	}
+// 		return topics[i].ID
+// 	}
 
-	var getFilterSelector = func(topics []abi.Event) (uint8, error) {
-		switch len(topics) {
-		case 0:
-			return 0, errors.New("Cannot register filter with 0 topics")
-		case 1:
-			return 0, nil
-		case 2:
-			return 1, nil
-		case 3:
-			return 3, nil
-		case 4:
-			return 7, nil
-		default:
-			return 0, errors.New("Cannot register filter with more than 4 topics")
-		}
-	}
+// 	var getFilterSelector = func(topics []abi.Event) (uint8, error) {
+// 		switch len(topics) {
+// 		case 0:
+// 			return 0, errors.New("Cannot register filter with 0 topics")
+// 		case 1:
+// 			return 0, nil
+// 		case 2:
+// 			return 1, nil
+// 		case 3:
+// 			return 3, nil
+// 		case 4:
+// 			return 7, nil
+// 		default:
+// 			return 0, errors.New("Cannot register filter with more than 4 topics")
+// 		}
+// 	}
 
-	filterSelector, err := getFilterSelector(topics)
-	if err != nil {
-		return err
-	}
+// 	filterSelector, err := getFilterSelector(topics)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
-		ContractAddress: emitterAddress,
-		FilterSelector:  filterSelector,
-		Topic0:          getTopic(topics, 0),
-		Topic1:          getTopic(topics, 1),
-		Topic2:          getTopic(topics, 2),
-		Topic3:          getTopic(topics, 3),
-	}
-	encodedLogTriggerConfig, err := automationUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
-	if err != nil {
-		return err
-	}
+// 	logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+// 		ContractAddress: emitterAddress,
+// 		FilterSelector:  filterSelector,
+// 		Topic0:          getTopic(topics, 0),
+// 		Topic1:          getTopic(topics, 1),
+// 		Topic2:          getTopic(topics, 2),
+// 		Topic3:          getTopic(topics, 3),
+// 	}
+// 	encodedLogTriggerConfig, err := automationUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	err = registry.SetUpkeepTriggerConfig(upkeepID, encodedLogTriggerConfig)
-	if err != nil {
-		return err
-	}
+// 	err = registry.SetUpkeepTriggerConfig(upkeepID, encodedLogTriggerConfig)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (*lpEvm.DbORM, *sqlx.DB, error) {
+func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (*logpoller.DbORM, *sqlx.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", postgresDb.ExternalPort, postgresDb.User, postgresDb.Password, postgresDb.DbName)
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
@@ -145,7 +142,7 @@ func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_
 	}
 
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
-	return lpEvm.NewORM(chainID, db, logger, pg.NewQConfig(false)), db, nil
+	return logpoller.NewORM(chainID, db, logger, pg.NewQConfig(false)), db, nil
 }
 
 type ExpectedFilter struct {
@@ -189,7 +186,7 @@ var nodeHasExpectedFilters = func(expectedFilters []ExpectedFilter, logger core_
 		}
 
 		if !filterFound {
-			return false, fmt.Errorf("No filter found for emitter %s and topic %s", expectedFilter.emitterAddress.String(), expectedFilter.topic.Hex())
+			return false, fmt.Errorf("no filter found for emitter %s and topic %s", expectedFilter.emitterAddress.String(), expectedFilter.topic.Hex())
 		}
 	}
 
@@ -203,9 +200,10 @@ var randomWait = func(minMilliseconds, maxMilliseconds int) {
 }
 
 type LogEmitterChannel struct {
-	logsEmitted  int
-	err          error
-	currentIndex int
+	logsEmitted int
+	err         error
+	// unused
+	// currentIndex int
 }
 
 func getIntSlice(length int) []int {
@@ -247,7 +245,7 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 				case "Log3":
 					_, err = (*logEmitter).EmitLogStrings(getStringSlice(cfg.General.EventsPerTx))
 				default:
-					err = fmt.Errorf("Unknown event name: %s", event.Name)
+					err = fmt.Errorf("unknown event name: %s", event.Name)
 				}
 
 				if err != nil {
@@ -276,29 +274,7 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 	}
 }
 
-var waitForEndBlockInLogPoller = func(endBlock int64, chainID *big.Int, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
-	for i := 1; i < len(nodes.Nodes); i++ {
-		clNode := nodes.Nodes[i]
-		orm, db, err := NewOrm(coreLogger, chainID, clNode.PostgresDb)
-		if err != nil {
-			return false, err
-		}
-
-		defer db.Close()
-		block, err := orm.SelectBlockByNumber(endBlock)
-		if err != nil {
-			return false, err
-		}
-
-		if block == nil {
-			return false, nil
-		}
-	}
-
-	return true, nil
-}
-
-var chainHasFinalisedEndBlock = func(l zerolog.Logger, evmClient ctf_blockchain.EVMClient, endBlock int64) (bool, error) {
+var chainHasFinalisedEndBlock = func(l zerolog.Logger, evmClient blockchain.EVMClient, endBlock int64) (bool, error) {
 	effectiveEndBlock := endBlock + 1
 	lastFinalisedBlockHeader, err := evmClient.GetLatestFinalizedBlockHeader(context.Background())
 	if err != nil {
@@ -512,7 +488,7 @@ func (m *MissingLogs) IsEmpty() bool {
 	return true
 }
 
-var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient ctf_blockchain.EVMClient, clnodeCluster *test_env.ClCluster, l zerolog.Logger, coreLogger core_logger.SugaredLogger, cfg *Config) (MissingLogs, error) {
+var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, clnodeCluster *test_env.ClCluster, l zerolog.Logger, coreLogger core_logger.SugaredLogger, cfg *Config) (MissingLogs, error) {
 	wg := &sync.WaitGroup{}
 
 	type dbQueryResult struct {
@@ -696,11 +672,7 @@ var printMissingLogsByType = func(missingLogs map[string][]geth_types.Log, l zer
 	for _, logs := range missingLogs {
 		for _, v := range logs {
 			humanName := findHumanName(v.Topics[0])
-			if _, ok := missingByType[humanName]; ok {
-				missingByType[humanName] += 1
-			} else {
-				missingByType[humanName] = 1
-			}
+			missingByType[humanName]++
 		}
 	}
 
@@ -709,7 +681,7 @@ var printMissingLogsByType = func(missingLogs map[string][]geth_types.Log, l zer
 	}
 }
 
-var getEVMLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient ctf_blockchain.EVMClient, l zerolog.Logger, cfg *Config) ([]geth_types.Log, error) {
+var getEVMLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *Config) ([]geth_types.Log, error) {
 	allLogsInEVMNode := make([]geth_types.Log, 0)
 	for j := 0; j < len(logEmitters); j++ {
 		address := (*logEmitters[j]).Address()
@@ -757,7 +729,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 		RPSprime = cfg.Wasp.Load.LPS / int64(cfg.General.Contracts) / int64(cfg.General.EventsPerTx) / int64(len(cfg.General.EventsToEmit))
 
 		if RPSprime < 1 {
-			return 0, fmt.Errorf("Invalid load configuration, effective RPS would have been zero. Adjust LPS, contracts count, events per tx or events to emit")
+			return 0, fmt.Errorf("invalid load configuration, effective RPS would have been zero. Adjust LPS, contracts count, events per tx or events to emit")
 		}
 	}
 
@@ -854,9 +826,8 @@ func getExpectedLogCount(cfg *Config) int64 {
 	if cfg.General.Generator == GeneratorType_WASP {
 		if cfg.Wasp.Load.RPS != 0 {
 			return cfg.Wasp.Load.RPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds()) * int64(cfg.General.EventsPerTx)
-		} else {
-			return cfg.Wasp.Load.LPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds())
 		}
+		return cfg.Wasp.Load.LPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds())
 	}
 
 	return int64(len(cfg.General.EventsToEmit) * cfg.LoopedConfig.ExecutionCount * cfg.General.Contracts * cfg.General.EventsPerTx)
@@ -903,6 +874,7 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 		guardChan := make(chan struct{}, 1)
 
 		for i := 0; i < cfg.ChaosConfig.ExperimentCount; i++ {
+			i := i
 			wg.Add(1)
 			guardChan <- struct{}{}
 			go func() {
@@ -921,22 +893,21 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 	}()
 
 	go func() {
-		for {
-			select {
-			case err, ok := <-chaosChan:
-				if !ok {
-					l.Info().Msg("All chaos experiments finished")
-					errorCh <- nil
-					return
-				} else {
-					if err != nil {
-						l.Err(err).Msg("Error encountered during chaos experiment")
-						errorCh <- err
-						return
-					}
-				}
+		for err := range chaosChan {
+			// This will receive errors until chaosChan is closed
+			if err != nil {
+				// If an error is encountered, log it, send it to the error channel, and return from the function
+				l.Err(err).Msg("Error encountered during chaos experiment")
+				errorCh <- err
+				return // Return on actual error
 			}
+			// No need for an else block here, because if err is nil (which happens when the channel is closed),
+			// the loop will exit and the following log and nil send will execute.
 		}
+
+		// After the loop exits, which it will do when chaosChan is closed, log that all experiments are finished.
+		l.Info().Msg("All chaos experiments finished")
+		errorCh <- nil // Only send nil once, after all errors have been handled and the channel is closed
 	}()
 }
 
@@ -953,7 +924,7 @@ var GetFinalityDepth = func(chainId int64) (int64, error) {
 	case 1337:
 		finalityDepth = 10
 	default:
-		return 0, fmt.Errorf("No known finality depth for chain %d", chainId)
+		return 0, fmt.Errorf("no known finality depth for chain %d", chainId)
 	}
 
 	return finalityDepth, nil
@@ -1014,7 +985,6 @@ var (
 
 func setupLogPollerTestDocker(
 	t *testing.T,
-	testName string,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
 	upkeepsNeeded int,
@@ -1057,8 +1027,8 @@ func setupLogPollerTestDocker(
 
 	var logPolllerSettingsFn = func(chain *evmcfg.Chain) *evmcfg.Chain {
 		chain.LogPollInterval = models.MustNewDuration(lpPollingInterval)
-		chain.FinalityDepth = utils2.Ptr[uint32](uint32(finalityDepth))
-		chain.FinalityTagEnabled = utils2.Ptr[bool](finalityTagEnabled)
+		chain.FinalityDepth = it_utils.Ptr[uint32](uint32(finalityDepth))
+		chain.FinalityTagEnabled = it_utils.Ptr[bool](finalityTagEnabled)
 		return chain
 	}
 
@@ -1078,6 +1048,7 @@ func setupLogPollerTestDocker(
 			SlotsPerEpoch:  2,
 		}).
 		Build()
+	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err = test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).

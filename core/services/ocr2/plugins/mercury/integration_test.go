@@ -39,8 +39,8 @@ import (
 	relaycodecv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
 	relaycodecv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	token "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
