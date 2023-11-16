@@ -1,9 +1,11 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
@@ -60,20 +62,24 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 }
 
 type EvmTransactionController struct {
-	Enabled     bool
-	Logger      logger.SugaredLogger
-	AuditLogger audit.AuditLogger
-	Chains      evm.LegacyChainContainer
-	KeyStore    keystore.Eth
+	Enabled          bool
+	Logger           logger.SugaredLogger
+	TxmStore         txmgr.EvmTxStore
+	AuditLogger      audit.AuditLogger
+	Chains           evm.LegacyChainContainer
+	KeyStore         keystore.Eth
+	TxAttemptWaitDur time.Duration
 }
 
 func NewEVMTransactionController(app chainlink.Application) *EvmTransactionController {
 	return &EvmTransactionController{
-		Enabled:     app.GetConfig().TxmAsService().Enabled(),
-		Logger:      app.GetLogger(),
-		AuditLogger: app.GetAuditLogger(),
-		Chains:      app.GetRelayers().LegacyEVMChains(),
-		KeyStore:    app.GetKeyStore().Eth(),
+		Enabled:          app.GetConfig().TxmAsService().Enabled(),
+		TxmStore:         app.TxmStorageService(),
+		Logger:           app.GetLogger(),
+		AuditLogger:      app.GetAuditLogger(),
+		Chains:           app.GetRelayers().LegacyEVMChains(),
+		KeyStore:         app.GetKeyStore().Eth(),
+		TxAttemptWaitDur: 10 * time.Second,
 	}
 }
 
@@ -165,5 +171,16 @@ func (tc *EvmTransactionController) Create(c *gin.Context) {
 		"ethTX": etx,
 	})
 
-	jsonAPIResponse(c, presenters.NewEthTxResource(etx), "eth_tx")
+	// wait and retrieve tx attempt matching tx ID
+	attempt, err := FindTxAttempt(c, tc.TxAttemptWaitDur, etx, tc.TxmStore.FindTxWithAttempts)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			jsonAPIError(c, http.StatusGatewayTimeout, errors.Errorf("failed to find transaction within timeout: %v", err))
+			return
+		}
+
+		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to find transaction: %v", err))
+		return
+	}
+	jsonAPIResponse(c, presenters.NewEthTxResourceFromAttempt(attempt), "eth_tx")
 }

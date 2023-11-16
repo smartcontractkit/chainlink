@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmEvmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -408,9 +409,39 @@ func TestTransactionsController_Create(t *testing.T) {
 		require.Equal(t, fmt.Sprintf("transaction failed: %v", expectedError),
 			respError.Error())
 	})
-	t.Run("Happy path", func(t *testing.T) {
-		payload := []byte("tx_payload")
+
+	payload := []byte("tx_payload")
+	expectedFeeLimit := uint32(2235235)
+	const txID = int64(54323)
+	newTxFromRequest := func(request models.CreateEVMTransactionRequest) txmgr.Tx {
+		return txmgr.Tx{
+			ID:             txID,
+			EncodedPayload: payload,
+			FromAddress:    request.FromAddress,
+			FeeLimit:       expectedFeeLimit,
+			State:          txmgrcommon.TxInProgress,
+			ToAddress:      *request.ToAddress,
+			Value:          *request.Value.ToInt(),
+			ChainID:        chainID.ToInt(),
+		}
+	}
+	newTxManager := func(request models.CreateEVMTransactionRequest) txmgr.TxManager {
+		txm := txmMocks.NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee](t)
+		tx := newTxFromRequest(request)
+		txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
+			IdempotencyKey: &request.IdempotencyKey,
+			FromAddress:    request.FromAddress,
+			ToAddress:      *request.ToAddress,
+			EncodedPayload: payload,
+			Value:          *request.Value.ToInt(),
+			FeeLimit:       expectedFeeLimit,
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
+		}).Return(tx, nil).Once()
+		return txm
+	}
+	t.Run("Fails to find tx attempt in time", func(t *testing.T) {
 		request := models.CreateEVMTransactionRequest{
+			FromAddress:    common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2"),
 			ToAddress:      ptr(common.HexToAddress("0xEA746B853DcFFA7535C64882E191eE31BE8CE711")),
 			IdempotencyKey: "idempotency_key",
 			EncodedPayload: "0x" + fmt.Sprintf("%X", payload),
@@ -418,41 +449,66 @@ func TestTransactionsController_Create(t *testing.T) {
 			Value:          utils.NewBigI(6838712),
 		}
 
-		expectedFromAddress := common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2")
 		ethKeystore := ksMocks.NewEth(t)
-		ethKeystore.On("GetRoundRobinAddress", chainID.ToInt()).Return(expectedFromAddress, nil).Once()
-
-		txm := txmMocks.NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee](t)
-		expectedFeeLimit := uint32(2235235)
-
-		expectedValue := request.Value.ToInt()
-		tx := txmgr.Tx{
-			ID:             54323,
-			EncodedPayload: payload,
-			FromAddress:    expectedFromAddress,
-			FeeLimit:       expectedFeeLimit,
-			State:          txmgrcommon.TxInProgress,
-			ToAddress:      *request.ToAddress,
-			Value:          *expectedValue,
-			ChainID:        chainID.ToInt(),
-		}
-		txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
-			IdempotencyKey: &request.IdempotencyKey,
-			FromAddress:    expectedFromAddress,
-			ToAddress:      *request.ToAddress,
-			EncodedPayload: payload,
-			Value:          *expectedValue,
-			FeeLimit:       expectedFeeLimit,
-			Strategy:       txmgrcommon.NewSendEveryStrategy(),
-		}).Return(tx, nil).Once()
+		ethKeystore.On("CheckEnabled", request.FromAddress, chainID.ToInt()).Return(nil).Once()
+		txm := newTxManager(request)
 
 		chainContainer := evmMocks.NewLegacyChainContainer(t)
 		chain := newChain(t, txm, expectedFeeLimit)
 		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
+
+		txmStorage := txmEvmMocks.NewEvmTxStore(t)
+		txmStorage.On("FindTxWithAttempts", txID).Return(txmgr.Tx{}, nil).Maybe()
+
 		resp := createTx(&web.EvmTransactionController{
-			AuditLogger: audit.NoopLogger,
-			Chains:      chainContainer,
-			KeyStore:    ethKeystore,
+			AuditLogger:      audit.NoopLogger,
+			Chains:           chainContainer,
+			KeyStore:         ethKeystore,
+			TxmStore:         txmStorage,
+			TxAttemptWaitDur: testutils.TestInterval,
+		}, request).Result()
+
+		cltest.AssertServerResponse(t, resp, http.StatusGatewayTimeout)
+		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
+		require.Equal(t, "failed to find transaction within timeout: context deadline exceeded - tx may still have been broadcast",
+			respError.Error())
+	})
+	t.Run("Happy path", func(t *testing.T) {
+		request := models.CreateEVMTransactionRequest{
+			FromAddress:    common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2"),
+			ToAddress:      ptr(common.HexToAddress("0xEA746B853DcFFA7535C64882E191eE31BE8CE711")),
+			IdempotencyKey: "idempotency_key",
+			EncodedPayload: "0x" + fmt.Sprintf("%X", payload),
+			ChainID:        chainID,
+			Value:          utils.NewBigI(6838712),
+		}
+
+		ethKeystore := ksMocks.NewEth(t)
+		ethKeystore.On("CheckEnabled", request.FromAddress, chainID.ToInt()).Return(nil).Once()
+
+		txm := newTxManager(request)
+
+		chainContainer := evmMocks.NewLegacyChainContainer(t)
+		chain := newChain(t, txm, expectedFeeLimit)
+		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
+		block := int64(56345431)
+		txWithAttempts := newTxFromRequest(request)
+		txWithAttempts.TxAttempts = []txmgr.TxAttempt{
+			{
+				Hash:                    common.HexToHash("0xa1ce83ee556cbcfc6541d5909b0d7f28f6a77399d3bd4340246f684a0f25a7f5"),
+				BroadcastBeforeBlockNum: &block,
+			},
+		}
+
+		txmStorage := txmEvmMocks.NewEvmTxStore(t)
+		txmStorage.On("FindTxWithAttempts", txWithAttempts.ID).Return(txWithAttempts, nil)
+
+		resp := createTx(&web.EvmTransactionController{
+			AuditLogger:      audit.NoopLogger,
+			Chains:           chainContainer,
+			KeyStore:         ethKeystore,
+			TxmStore:         txmStorage,
+			TxAttemptWaitDur: testutils.DefaultWaitTimeout,
 		}, request).Result()
 
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
