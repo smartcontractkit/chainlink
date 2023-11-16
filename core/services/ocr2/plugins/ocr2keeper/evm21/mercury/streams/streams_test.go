@@ -2,7 +2,6 @@ package streams
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,11 +19,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/mock"
+
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury"
 	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/v02"
 	v03 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/v03"
@@ -257,7 +258,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 				}).Once()
 			s.client = client
 
-			state, retryable, _, err := s.checkCallback(context.Background(), tt.values, tt.lookup)
+			state, retryable, _, err := s.checkCallback(testutils.Context(t), tt.values, tt.lookup)
 			tt.wantErr(t, err, fmt.Sprintf("Error asserion failed: %v", tt.name))
 			assert.Equal(t, tt.state, state)
 			assert.Equal(t, tt.retryable, retryable)
@@ -719,7 +720,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 					}).Once()
 			}
 
-			got := s.Lookup(context.Background(), tt.input)
+			got := s.Lookup(testutils.Context(t), tt.input)
 			assert.Equal(t, tt.expectedResults, got, tt.name)
 		})
 	}

@@ -614,10 +614,11 @@ func deployUpkeepCounter(
 	backend *backends.SimulatedBackend,
 	account *bind.TransactOpts,
 	logProvider logprovider.LogEventProvider,
-) ([]*big.Int, []common.Address, []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
-	var ids []*big.Int
-	var contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter
-	var contractsAddrs []common.Address
+) (
+	ids []*big.Int,
+	contractsAddrs []common.Address,
+	contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter,
+) {
 	for i := 0; i < n; i++ {
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			account, backend,
@@ -633,7 +634,7 @@ func deployUpkeepCounter(
 		upkeepID := ocr2keepers.UpkeepIdentifier(append(common.LeftPadBytes([]byte{1}, 16), upkeepAddr[:16]...))
 		id := upkeepID.BigInt()
 		ids = append(ids, id)
-		b, err := ethClient.BlockByHash(context.Background(), backend.Commit())
+		b, err := ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
 		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
@@ -643,7 +644,7 @@ func deployUpkeepCounter(
 		})
 		require.NoError(t, err)
 	}
-	return ids, contractsAddrs, contracts
+	return
 }
 
 func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerConfig {

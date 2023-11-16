@@ -890,6 +890,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 		MercuryEnabled: true,
 	})
 
+	ctx := testutils.Context(t)
 	for _, id := range c.upkeepIds {
 		if _, err := registry.SetUpkeepPrivilegeConfig(registryOwner, id, adminBytes); err != nil {
 			require.NoError(t, err)
@@ -900,7 +901,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 		callOpts := &bind.CallOpts{
 			Pending: true,
 			From:    registryOwner.From,
-			Context: context.Background(),
+			Context: ctx,
 		}
 
 		bts, err := registry.GetUpkeepPrivilegeConfig(callOpts, id)
@@ -989,7 +990,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 		backend.Commit()
 
 		// verify event was emitted
-		block, _ := backend.BlockByHash(context.Background(), backend.Commit())
+		block, _ := backend.BlockByHash(ctx, backend.Commit())
 		t.Logf("block number after emit event: %d", block.NumberU64())
 
 		iter, _ := c.protocol.FilterLimitOrderExecuted(
