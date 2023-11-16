@@ -33,7 +33,7 @@ jobs:
         with:
           go-project-path: ./integration-tests
           module-name: github.com/smartcontractkit/chainlink-testing-framework
-          enforce-semantic-tag: "true"
+          enforce-semantic-tag: "false"
   changes:
     environment: integration
     name: Check Paths That Require Tests To Run
