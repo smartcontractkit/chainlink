@@ -39,7 +39,7 @@ func TestOCRBasic(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID().String())
+	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID())
 	require.NoError(t, err)
 
 	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
@@ -86,7 +86,7 @@ func TestOCRJobReplacement(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID().String())
+	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID())
 	require.NoError(t, err)
 
 	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
@@ -112,7 +112,7 @@ func TestOCRJobReplacement(t *testing.T) {
 	require.NoError(t, err)
 
 	//Recreate job
-	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID().String())
+	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID())
 	require.NoError(t, err)
 
 	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
