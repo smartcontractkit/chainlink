@@ -28,7 +28,7 @@ func NewLogTriggerUser(
 	}
 }
 
-func (m *LogTriggerGun) Call(l *wasp.Generator) *wasp.CallResult {
+func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.CallResult {
 	m.logger.Debug().Str("Trigger address", m.triggerContract.Address().String()).Msg("Triggering upkeep")
 	payload := make([]int, 0)
 	for i := 0; i < m.numberOfEvents; i++ {
