@@ -178,7 +178,7 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 		promHandlerError.WithLabelValues(h.donConfig.DonId, ErrRateLimited.Error()).Inc()
 		return ErrRateLimited
 	}
-	if h.subscriptions != nil && h.minimumBalance != nil {
+	if msg.Body.Method == MethodSecretsSet && h.subscriptions != nil && h.minimumBalance != nil {
 		balance, err := h.subscriptions.GetMaxUserBalance(sender)
 		if err != nil {
 			h.lggr.Debugw("error getting max user balance", "sender", msg.Body.Sender, "err", err)

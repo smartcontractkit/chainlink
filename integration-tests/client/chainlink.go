@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
-
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-resty/resty/v2"
@@ -303,8 +302,8 @@ func (c *ChainlinkClient) ReadBridge(name string) (*BridgeType, *http.Response, 
 }
 
 // ReadBridges reads bridges from the Chainlink node
-func (c *ChainlinkClient) ReadBridges() (*ResponseSlice, *resty.Response, error) {
-	result := &ResponseSlice{}
+func (c *ChainlinkClient) ReadBridges() (*Bridges, *resty.Response, error) {
+	result := &Bridges{}
 	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Getting all bridges")
 	resp, err := c.APIClient.R().
 		SetResult(&result).
