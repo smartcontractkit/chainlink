@@ -2,13 +2,15 @@ package automationv2_1
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/rs/zerolog"
 	"github.com/slack-go/slack"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	"os"
-	"strings"
 )
 
 func getEnv(key, fallback string) string {

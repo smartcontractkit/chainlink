@@ -2,8 +2,9 @@ package automationv2_1
 
 import (
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 type LogTriggerGun struct {

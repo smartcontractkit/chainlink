@@ -4,10 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"os"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/slack-go/slack"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocr2keepers30config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
+	"github.com/smartcontractkit/wasp"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
@@ -24,16 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocr2keepers30config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
-	"github.com/smartcontractkit/wasp"
-	"github.com/stretchr/testify/require"
-	"math/big"
-	"os"
-	"strconv"
-	"strings"
-	"testing"
-	"time"
 )
 
 const (
@@ -248,7 +250,7 @@ func TestLogTrigger(t *testing.T) {
 	require.NoError(t, err, "Error setting pyroscope environment env var")
 
 	for i := 0; i < numberofNodes+1; i++ { // +1 for the OCR boot node
-		nodeTOML := baseTOML
+		var nodeTOML string
 		if i == 1 || i == 3 {
 			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, logLevel)
 		} else {
@@ -376,7 +378,6 @@ func TestLogTrigger(t *testing.T) {
 	}
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
-	evmClients := make([]*blockchain.EVMClient, 0)
 
 	for i := 0; i < numberOfUpkeeps; i++ {
 		consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
@@ -393,8 +394,6 @@ func TestLogTrigger(t *testing.T) {
 
 		cContractDeployer, err := contracts.NewContractDeployer(cEVMClient, l)
 		require.NoError(t, err, "Error building concurrent contract deployer")
-
-		evmClients = append(evmClients, &cEVMClient)
 
 		triggerContract, err := cContractDeployer.DeployLogEmitterContract()
 		require.NoError(t, err, "Error deploying log emitter contract")
@@ -499,6 +498,9 @@ func TestLogTrigger(t *testing.T) {
 	err = sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), "now",
 		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")})
+	if err != nil {
+		l.Error().Err(err).Msg("Error sending slack notification")
+	}
 	_, err = p.Run(true)
 	require.NoError(t, err, "Error running load generators")
 
@@ -606,7 +608,9 @@ func TestLogTrigger(t *testing.T) {
 	err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(endTime.UnixMilli(), 10),
 		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")})
-	require.NoError(t, err, "Error sending slack notification")
+	if err != nil {
+		l.Error().Err(err).Msg("Error sending slack notification")
+	}
 
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(t, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, chainClient); err != nil {
