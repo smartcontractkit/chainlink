@@ -7,7 +7,9 @@ import (
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/slack-go/slack"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
@@ -109,41 +111,36 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	}
 )
 
-func getEnv(key, fallback string) string {
-	if inputs, ok := os.LookupEnv("TEST_INPUTS"); ok {
-		values := strings.Split(inputs, ",")
-		for _, value := range values {
-			if strings.Contains(value, key) {
-				return strings.Split(value, "=")[1]
-			}
-		}
-	}
-	return fallback
-}
-
 var (
-	numberofNodes, _   = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))     // Number of nodes in the DON
-	numberOfUpkeeps, _ = strconv.Atoi(getEnv("NUMBEROFUPKEEPS", "100")) // Number of log triggered upkeeps
-	duration, _        = strconv.Atoi(getEnv("DURATION", "900"))        // Test duration in seconds
-	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))         // Block time in seconds for geth simulated dev network
-	numberOfEvents, _  = strconv.Atoi(getEnv("NUMBEROFEVENTS", "1"))    // Number of events to emit per trigger
-	specType           = getEnv("SPECTYPE", "minimum")                  // minimum, recommended, local specs for the test
-	logLevel           = getEnv("LOGLEVEL", "info")                     // log level for the chainlink nodes
+	numberofNodes, _   = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))      // Number of nodes in the DON
+	numberOfUpkeeps, _ = strconv.Atoi(getEnv("NUMBEROFUPKEEPS", "100"))  // Number of log triggered upkeeps
+	duration, _        = strconv.Atoi(getEnv("DURATION", "900"))         // Test duration in seconds
+	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))          // Block time in seconds for geth simulated dev network
+	numberOfEvents, _  = strconv.Atoi(getEnv("NUMBEROFEVENTS", "1"))     // Number of events to emit per trigger
+	specType           = getEnv("SPECTYPE", "minimum")                   // minimum, recommended, local specs for the test
+	logLevel           = getEnv("LOGLEVEL", "info")                      // log level for the chainlink nodes
+	pyroscope, _       = strconv.ParseBool(getEnv("PYROSCOPE", "false")) // enable pyroscope for the chainlink nodes
 )
 
 func TestLogTrigger(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
-	l.Info().Msg("Starting basic log trigger test")
+	l.Info().Msg("Starting automation v2.1 log trigger load test")
 	l.Info().Str("TEST_INPUTS", os.Getenv("TEST_INPUTS")).Int("Number of Nodes", numberofNodes).
 		Int("Number of Upkeeps", numberOfUpkeeps).
 		Int("Duration", duration).
 		Int("Block Time", blockTime).
+		Int("Number of Events", numberOfEvents).
+		Str("Spec Type", specType).
+		Str("Log Level", logLevel).
 		Msg("Test Config")
+
+	testConfig := fmt.Sprintf("Number of Nodes: %d\nNumber of Upkeeps: %d\nDuration: %d\nBlock Time: %d\n"+
+		"Number of Events: %d\nSpec Type: %s\nLog Level: %s\n", numberofNodes, numberOfUpkeeps, duration,
+		blockTime, numberOfEvents, specType, logLevel)
 
 	testNetwork := networks.MustGetSelectedNetworksFromEnv()[0]
 	testType := "load"
-	networkDetailTOML := `MinIncomingConfirmations = 1`
 	loadDuration := time.Duration(duration) * time.Second
 	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
 	automationDefaultUpkeepGasLimit := uint32(1_000_000)
@@ -179,6 +176,14 @@ func TestLogTrigger(t *testing.T) {
 		key := "TEST_INPUTS"
 		err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
 		require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
+
+		key = config.EnvVarPyroscopeServer
+		err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+		require.NoError(t, err, "failed to set the environment variable PYROSCOPE_SERVER for remote runner")
+
+		key = config.EnvVarPyroscopeKey
+		err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+		require.NoError(t, err, "failed to set the environment variable PYROSCOPE_KEY for remote runner")
 	}
 
 	testEnvironment.
@@ -227,11 +232,25 @@ func TestLogTrigger(t *testing.T) {
 		// minimum:
 
 	}
-	baseTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, logLevel)
+
+	if !pyroscope {
+		err = os.Setenv(config.EnvVarPyroscopeServer, "")
+		require.NoError(t, err, "Error setting pyroscope server env var")
+	}
+
+	err = os.Setenv(config.EnvVarPyroscopeEnvironment, testEnvironment.Cfg.Namespace)
+	require.NoError(t, err, "Error setting pyroscope environment env var")
 
 	for i := 0; i < numberofNodes+1; i++ { // +1 for the OCR boot node
+		nodeTOML := baseTOML
+		if i == 1 || i == 3 {
+			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, logLevel)
+		} else {
+			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"info\"", baseTOML)
+		}
+		nodeTOML = client.AddNetworksConfig(nodeTOML, testNetwork)
 		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-			"toml":      client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, testNetwork),
+			"toml":      nodeTOML,
 			"chainlink": nodeSpec,
 			"db":        dbSpec,
 		}))
@@ -471,6 +490,9 @@ func TestLogTrigger(t *testing.T) {
 
 	l.Info().Msg("Starting load generators")
 	startTime := time.Now()
+	err = sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
+		strconv.FormatInt(startTime.UnixMilli(), 10), "now",
+		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")})
 	_, err = p.Run(true)
 	require.NoError(t, err, "Error running load generators")
 
@@ -569,6 +591,16 @@ func TestLogTrigger(t *testing.T) {
 		Int("Total Events Emitted", numberOfEventsEmitted).
 		Int("Total Events Missed", numberOfEventsEmitted-len(allUpkeepDelays)).
 		Msg("Test completed")
+
+	testReport := fmt.Sprintf("Upkeep Delays in seconds\nAverage: %f\nMedian: %d\n90th Percentile: %d\n"+
+		"99th Percentile: %d\nMax: %d\nTotal Perform Count: %d\n\nTotal Events Emitted: %d\nTotal Events Missed: %d\nTest Duration: %s\n",
+		avg, median, ninetyPct, ninetyNinePct, maximum, len(allUpkeepDelays), numberOfEventsEmitted,
+		numberOfEventsEmitted-len(allUpkeepDelays), testDuration.String())
+
+	err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
+		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(endTime.UnixMilli(), 10),
+		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")})
+	require.NoError(t, err, "Error sending slack notification")
 
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(t, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, chainClient); err != nil {
