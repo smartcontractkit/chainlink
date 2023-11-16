@@ -186,6 +186,10 @@ func TestLogTrigger(t *testing.T) {
 		key = config.EnvVarPyroscopeKey
 		err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
 		require.NoError(t, err, "failed to set the environment variable PYROSCOPE_KEY for remote runner")
+
+		key = "GRAFANA_DASHBOARD_URL"
+		err = os.Setenv(fmt.Sprintf("TEST_%s", key), getEnv(key, ""))
+		require.NoError(t, err, "failed to set the environment variable GRAFANA_DASHBOARD_URL for remote runner")
 	}
 
 	testEnvironment.
