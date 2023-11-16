@@ -40,6 +40,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/jmoiron/sqlx"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
