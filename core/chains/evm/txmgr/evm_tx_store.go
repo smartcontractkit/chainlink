@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
@@ -55,7 +56,7 @@ type TxStoreWebApi interface {
 	FindTxByHash(hash common.Hash) (*Tx, error)
 	Transactions(offset, limit int) ([]Tx, int, error)
 	TxAttempts(offset, limit int) ([]TxAttempt, int, error)
-	TransactionsWithAttempts(offset, limit int) ([]Tx, int, error)
+	TransactionsWithAttempts(selector TransactionsWithAttemptsSelector) ([]Tx, int, error)
 	FindTxAttempt(hash common.Hash) (*TxAttempt, error)
 	FindTxWithAttempts(etxID int64) (etx Tx, err error)
 }
@@ -440,18 +441,38 @@ func (o *evmTxStore) Transactions(offset, limit int) (txs []Tx, count int, err e
 	return
 }
 
+type TransactionsWithAttemptsSelector struct {
+	IdempotencyKey *string
+	Offset         uint64
+	Limit          uint64
+}
+
 // TransactionsWithAttempts returns all eth transactions with at least one attempt
 // limited by passed parameters. Attempts are sorted by id.
-func (o *evmTxStore) TransactionsWithAttempts(offset, limit int) (txs []Tx, count int, err error) {
-	sql := `SELECT count(*) FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts)`
-	if err = o.q.Get(&count, sql); err != nil {
-		return
+func (o *evmTxStore) TransactionsWithAttempts(selector TransactionsWithAttemptsSelector) (txs []Tx, count int, err error) {
+	stmt := sq.Select("count(*)").From("evm.txes").
+		Where("id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts)").PlaceholderFormat(sq.Dollar)
+	if selector.IdempotencyKey != nil {
+		stmt = stmt.Where("idempotency_key = ?", *selector.IdempotencyKey)
 	}
 
-	sql = `SELECT * FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
+	query, args, err := stmt.ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to build count query: %w", err)
+	}
+
+	if err = o.q.Get(&count, query, args...); err != nil {
+		return nil, 0, fmt.Errorf("failed to exec count query: %w, sql: %s", err, query)
+	}
+
+	query, args, err = stmt.RemoveColumns().Columns("*").
+		OrderBy("id desc").Limit(selector.Limit).Offset(selector.Offset).ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to build select query: %w", err)
+	}
 	var dbTxs []DbEthTx
-	if err = o.q.Select(&dbTxs, sql, limit, offset); err != nil {
-		return
+	if err = o.q.Select(&dbTxs, query, args...); err != nil {
+		return nil, 0, fmt.Errorf("failed to exec select query: %w, sql: %s", err, query)
 	}
 	txs = dbEthTxsToEvmEthTxs(dbTxs)
 	err = o.preloadTxAttempts(txs)

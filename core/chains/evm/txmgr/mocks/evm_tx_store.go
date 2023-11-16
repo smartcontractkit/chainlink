@@ -16,6 +16,8 @@ import (
 
 	time "time"
 
+	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+
 	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	uuid "github.com/google/uuid"
@@ -924,32 +926,32 @@ func (_m *EvmTxStore) Transactions(offset int, limit int) ([]types.Tx[*big.Int, 
 	return r0, r1, r2
 }
 
-// TransactionsWithAttempts provides a mock function with given fields: offset, limit
-func (_m *EvmTxStore) TransactionsWithAttempts(offset int, limit int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error) {
-	ret := _m.Called(offset, limit)
+// TransactionsWithAttempts provides a mock function with given fields: selector
+func (_m *EvmTxStore) TransactionsWithAttempts(selector txmgr.TransactionsWithAttemptsSelector) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error) {
+	ret := _m.Called(selector)
 
 	var r0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 int
 	var r2 error
-	if rf, ok := ret.Get(0).(func(int, int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error)); ok {
-		return rf(offset, limit)
+	if rf, ok := ret.Get(0).(func(txmgr.TransactionsWithAttemptsSelector) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error)); ok {
+		return rf(selector)
 	}
-	if rf, ok := ret.Get(0).(func(int, int) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(offset, limit)
+	if rf, ok := ret.Get(0).(func(txmgr.TransactionsWithAttemptsSelector) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(selector)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(int, int) int); ok {
-		r1 = rf(offset, limit)
+	if rf, ok := ret.Get(1).(func(txmgr.TransactionsWithAttemptsSelector) int); ok {
+		r1 = rf(selector)
 	} else {
 		r1 = ret.Get(1).(int)
 	}
 
-	if rf, ok := ret.Get(2).(func(int, int) error); ok {
-		r2 = rf(offset, limit)
+	if rf, ok := ret.Get(2).(func(txmgr.TransactionsWithAttemptsSelector) error); ok {
+		r2 = rf(selector)
 	} else {
 		r2 = ret.Error(2)
 	}

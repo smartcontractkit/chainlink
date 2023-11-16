@@ -135,7 +135,9 @@ func EmptyCLIContext() *cli.Context {
 }
 
 func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.Tx {
+	idempotencyKey := uuid.New().String()
 	return txmgr.Tx{
+		IdempotencyKey: &idempotencyKey,
 		FromAddress:    fromAddress,
 		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},

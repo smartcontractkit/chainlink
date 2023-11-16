@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	txmEvmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -64,7 +63,10 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
 
-	_, count, err := txStore.TransactionsWithAttempts(0, 100)
+	_, count, err := txStore.TransactionsWithAttempts(txmgr.TransactionsWithAttemptsSelector{
+		Offset: 0,
+		Limit:  100,
+	})
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
 
@@ -83,6 +85,49 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	require.Len(t, txs, size)
 	require.Equal(t, "4", txs[0].SentAt, "expected tx attempts order by sentAt descending")
 	require.Equal(t, "3", txs[1].SentAt, "expected tx attempts order by sentAt descending")
+}
+
+func TestTransactionsController_Index_Success_IdempotencyKey(t *testing.T) {
+	t.Parallel()
+
+	app := cltest.NewApplicationWithKey(t)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	db := app.GetSqlxDB()
+	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, app.Config.Database()).Eth()
+	client := app.NewHTTPClient(nil)
+	_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
+	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 2, from)
+
+	// add second tx attempt for tx
+	blockNum := int64(3)
+	attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
+	attempt.State = txmgrtypes.TxAttemptBroadcast
+	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
+	attempt.BroadcastBeforeBlockNum = &blockNum
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+
+	_, count, err := txStore.TransactionsWithAttempts(txmgr.TransactionsWithAttemptsSelector{
+		Offset: 0,
+		Limit:  100,
+	})
+	require.NoError(t, err)
+	require.Equal(t, count, 2)
+
+	resp, cleanup := client.Get(fmt.Sprintf("/v2/transactions?size=%d&idempotencyKey=%s", 10, *tx.IdempotencyKey))
+	t.Cleanup(cleanup)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+	var links jsonapi.Links
+	var txs []presenters.EthTxResource
+	body := cltest.ParseResponseBody(t, resp)
+	require.NoError(t, web.ParsePaginatedResponse(body, &txs, &links))
+
+	require.Len(t, txs, 1)
+	require.Equal(t, attempt.Hash, txs[0].Hash, "expected tx attempts order by sentAt descending")
 }
 
 func TestTransactionsController_Index_Error(t *testing.T) {
@@ -435,40 +480,6 @@ func TestTransactionsController_Create(t *testing.T) {
 		}).Return(tx, nil).Once()
 		return txm
 	}
-	t.Run("Fails to find tx attempt in time", func(t *testing.T) {
-		request := models.CreateEVMTransactionRequest{
-			FromAddress:    common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2"),
-			ToAddress:      ptr(common.HexToAddress("0xEA746B853DcFFA7535C64882E191eE31BE8CE711")),
-			IdempotencyKey: "idempotency_key",
-			EncodedPayload: "0x" + fmt.Sprintf("%X", payload),
-			ChainID:        chainID,
-			Value:          utils.NewBigI(6838712),
-		}
-
-		ethKeystore := ksMocks.NewEth(t)
-		ethKeystore.On("CheckEnabled", request.FromAddress, chainID.ToInt()).Return(nil).Once()
-		txm := newTxManager(request)
-
-		chainContainer := evmMocks.NewLegacyChainContainer(t)
-		chain := newChain(t, txm)
-		chainContainer.On("Get", chainID.String()).Return(chain, nil).Once()
-
-		txmStorage := txmEvmMocks.NewEvmTxStore(t)
-		txmStorage.On("FindTxWithAttempts", txID).Return(txmgr.Tx{}, nil).Maybe()
-
-		resp := createTx(&web.EvmTransactionController{
-			AuditLogger:      audit.NoopLogger,
-			Chains:           chainContainer,
-			KeyStore:         ethKeystore,
-			TxmStore:         txmStorage,
-			TxAttemptWaitDur: testutils.TestInterval,
-		}, request).Result()
-
-		cltest.AssertServerResponse(t, resp, http.StatusGatewayTimeout)
-		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
-		require.Equal(t, "failed to find transaction within timeout: context deadline exceeded - tx may still have been broadcast",
-			respError.Error())
-	})
 	t.Run("Happy path", func(t *testing.T) {
 		request := models.CreateEVMTransactionRequest{
 			FromAddress:    common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2"),
@@ -496,17 +507,12 @@ func TestTransactionsController_Create(t *testing.T) {
 			},
 		}
 
-		txmStorage := txmEvmMocks.NewEvmTxStore(t)
-		txmStorage.On("FindTxWithAttempts", txWithAttempts.ID).Return(txWithAttempts, nil)
-
 		resp := createTx(&web.EvmTransactionController{
-			AuditLogger:      audit.NoopLogger,
-			Chains:           chainContainer,
-			KeyStore:         ethKeystore,
-			TxmStore:         txmStorage,
-			TxAttemptWaitDur: testutils.DefaultWaitTimeout,
+			AuditLogger: audit.NoopLogger,
+			Chains:      chainContainer,
+			KeyStore:    ethKeystore,
 		}, request).Result()
 
-		cltest.AssertServerResponse(t, resp, http.StatusOK)
+		cltest.AssertServerResponse(t, resp, http.StatusAccepted)
 	})
 }

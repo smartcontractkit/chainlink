@@ -59,7 +59,10 @@ func TestORM_TransactionsWithAttempts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
-	txs, count, err := txStore.TransactionsWithAttempts(0, 100) // should omit tx3
+	txs, count, err := txStore.TransactionsWithAttempts(txmgr.TransactionsWithAttemptsSelector{
+		Offset: 0,
+		Limit:  100,
+	}) // should omit tx3
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
@@ -70,11 +73,24 @@ func TestORM_TransactionsWithAttempts(t *testing.T) {
 	assert.Equal(t, int64(3), *txs[0].TxAttempts[0].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
 	assert.Equal(t, int64(2), *txs[0].TxAttempts[1].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
 
-	txs, count, err = txStore.TransactionsWithAttempts(0, 1)
+	txs, count, err = txStore.TransactionsWithAttempts(txmgr.TransactionsWithAttemptsSelector{
+		Offset: 0,
+		Limit:  1,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 1, "limit should apply to length of results")
 	assert.Equal(t, evmtypes.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
+
+	txs, count, err = txStore.TransactionsWithAttempts(txmgr.TransactionsWithAttemptsSelector{
+		IdempotencyKey: tx2.IdempotencyKey,
+		Offset:         0,
+		Limit:          10,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, count, "only eth tx with specified idempotency key")
+	assert.Equal(t, tx2.ID, txs[0].ID)
+	assert.Equal(t, tx2.IdempotencyKey, txs[0].IdempotencyKey)
 }
 
 func TestORM_Transactions(t *testing.T) {

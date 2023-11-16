@@ -1,11 +1,9 @@
 package web
 
 import (
-	"context"
 	"database/sql"
 	"math/big"
 	"net/http"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
@@ -32,7 +30,16 @@ type TransactionsController struct {
 
 // Index returns paginated transactions
 func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) {
-	txs, count, err := tc.App.TxmStorageService().TransactionsWithAttempts(offset, size)
+	var idempotencyKey *string
+	rawIdempotencyKey := c.Query("idempotencyKey")
+	if rawIdempotencyKey != "" {
+		idempotencyKey = &rawIdempotencyKey
+	}
+	txs, count, err := tc.App.TxmStorageService().TransactionsWithAttempts(txmgr.TransactionsWithAttemptsSelector{
+		IdempotencyKey: idempotencyKey,
+		Offset:         uint64(offset),
+		Limit:          uint64(size),
+	})
 	ptxs := make([]presenters.EthTxResource, len(txs))
 	for i, tx := range txs {
 		tx.TxAttempts[0].Tx = tx
@@ -62,24 +69,20 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 }
 
 type EvmTransactionController struct {
-	Enabled          bool
-	Logger           logger.SugaredLogger
-	TxmStore         txmgr.EvmTxStore
-	AuditLogger      audit.AuditLogger
-	Chains           evm.LegacyChainContainer
-	KeyStore         keystore.Eth
-	TxAttemptWaitDur time.Duration
+	Enabled     bool
+	Logger      logger.SugaredLogger
+	AuditLogger audit.AuditLogger
+	Chains      evm.LegacyChainContainer
+	KeyStore    keystore.Eth
 }
 
 func NewEVMTransactionController(app chainlink.Application) *EvmTransactionController {
 	return &EvmTransactionController{
-		Enabled:          app.GetConfig().TxmAsService().Enabled(),
-		TxmStore:         app.TxmStorageService(),
-		Logger:           app.GetLogger(),
-		AuditLogger:      app.GetAuditLogger(),
-		Chains:           app.GetRelayers().LegacyEVMChains(),
-		KeyStore:         app.GetKeyStore().Eth(),
-		TxAttemptWaitDur: 10 * time.Second,
+		Enabled:     app.GetConfig().TxmAsService().Enabled(),
+		Logger:      app.GetLogger(),
+		AuditLogger: app.GetAuditLogger(),
+		Chains:      app.GetRelayers().LegacyEVMChains(),
+		KeyStore:    app.GetKeyStore().Eth(),
 	}
 }
 
@@ -171,16 +174,10 @@ func (tc *EvmTransactionController) Create(c *gin.Context) {
 		"ethTX": etx,
 	})
 
-	// wait and retrieve tx attempt matching tx ID
-	attempt, err := FindTxAttempt(c, tc.TxAttemptWaitDur, etx, tc.TxmStore.FindTxWithAttempts)
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			jsonAPIError(c, http.StatusGatewayTimeout, errors.Errorf("failed to find transaction within timeout: %v", err))
-			return
-		}
-
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to find transaction: %v", err))
-		return
-	}
-	jsonAPIResponse(c, presenters.NewEthTxResourceFromAttempt(attempt), "eth_tx")
+	// We have successfully accepted user's request, but have noting to return at the moment.
+	// We deliberately avoid using EthTxResource here due to its misleading design. It has ID of `txmgr.TxAttempt` and
+	// state of `txmgr.Tx`, so caller might end up with resource that has ID equal to hash of tx attempt that was
+	// not included into the chain, while `attributes.state` is `confirmed`.
+	// User is expected to track transaction status using IdempotencyKey and `/v2/transactions/evm`.
+	c.Status(http.StatusAccepted)
 }
