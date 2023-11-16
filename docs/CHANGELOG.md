@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
+## 2.7.1 - UNRELEASED
+
+### Fixed
+
+- Fixed a bug that causes the node to shutdown if all configured RPC's are unreachable during startup.
+
 ## 2.7.0 - UNRELEASED
 
 ### Added
