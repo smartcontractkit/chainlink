@@ -112,15 +112,11 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         env:
-          RR_CPU: 4000m
-          RR_MEM: 4Gi
           DETACH_RUNNER: true
           TEST_SUITE: benchmark
           TEST_ARGS: -test.timeout 720h
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
           INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
           test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
           test_download_vendor_packages_command: make gomod
