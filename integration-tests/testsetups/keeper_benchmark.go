@@ -319,7 +319,7 @@ func (k *KeeperBenchmarkTest) Run() {
 			// This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
 			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
 			for err != nil {
-			ctx, cancel := context.WithTimeout(testcontext.Get(k.t), timeout)
+				ctx, cancel := context.WithTimeout(testcontext.Get(k.t), timeout)
 				logs, err = k.chainClient.FilterLogs(ctx, filterQuery)
 				cancel()
 				if err != nil {
