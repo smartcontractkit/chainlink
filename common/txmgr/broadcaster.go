@@ -802,23 +802,27 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetN
 	defer eb.sequenceLock.Unlock()
 	// Get next sequence from map
 	seq, exists := eb.nextSequenceMap[address]
-	if !exists {
-		eb.logger.Criticalw("address not found in local next sequence map. Attempting to search and populate sequence.", "address", address.String())
-		// Check if address is in the enabled address list
-		if slices.Contains(eb.enabledAddresses, address) {
-			// Try to retrieve next sequence from tx table or on-chain to load the map
-			// A scenario could exist where loading the map during startup failed (e.g. All configured RPC's are unreachable at start)
-			// The expectation is that the node does not fail startup so sequences need to be loaded during runtime
-			foundSeq := eb.getSequenceForAddr(ctx, address)
-			if foundSeq != nil {
-				// Set sequence in map
-				eb.nextSequenceMap[address] = *foundSeq
-				return *foundSeq, nil
-			}
-		}
-		return seq, errors.New(fmt.Sprint("failed to find next sequence for address: ", address))
+	if exists {
+		return seq, nil
 	}
-	return seq, nil
+
+	eb.logger.Infow("address not found in local next sequence map. Attempting to search and populate sequence.", "address", address.String())
+	// Check if address is in the enabled address list
+	if !slices.Contains(eb.enabledAddresses, address) {
+		return seq, fmt.Errorf("address disabled: %s", address)
+	}
+
+	// Try to retrieve next sequence from tx table or on-chain to load the map
+	// A scenario could exist where loading the map during startup failed (e.g. All configured RPC's are unreachable at start)
+	// The expectation is that the node does not fail startup so sequences need to be loaded during runtime
+	foundSeq := eb.getSequenceForAddr(ctx, address)
+	if foundSeq == nil {
+		return seq, fmt.Errorf("failed to find next sequence for address: %s", address)
+	}
+
+	// Set sequence in map
+	eb.nextSequenceMap[address] = *foundSeq
+	return *foundSeq, nil
 }
 
 // Used to increment the sequence in the mapping to have the next usable one available for the next transaction
