@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/status-im/keycard-go/hexutils"
 	"github.com/stretchr/testify/mock"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -328,11 +327,12 @@ func TestTransactionsController_Create(t *testing.T) {
 		payload := []byte("tx_payload")
 		value := big.NewInt(rand.Int64())
 		feeLimit := rand.Uint32()
+
 		request := models.CreateEVMTransactionRequest{
 			ToAddress:        ptr(common.HexToAddress("0xEA746B853DcFFA7535C64882E191eE31BE8CE711")),
 			FromAddress:      common.HexToAddress("0x39364605296d7c77e7C2089F0e48D527bb309d38"),
 			IdempotencyKey:   "idempotency_key",
-			EncodedPayload:   "0x" + hexutils.BytesToHex(payload),
+			EncodedPayload:   "0x" + fmt.Sprintf("%X", payload),
 			ChainID:          chainID,
 			Value:            utils.NewBig(value),
 			ForwarderAddress: common.HexToAddress("0x59C2B3875797c521396e7575D706B9188894eAF2"),
@@ -412,7 +412,7 @@ func TestTransactionsController_Create(t *testing.T) {
 		request := models.CreateEVMTransactionRequest{
 			ToAddress:      ptr(common.HexToAddress("0xEA746B853DcFFA7535C64882E191eE31BE8CE711")),
 			IdempotencyKey: "idempotency_key",
-			EncodedPayload: "0x" + hexutils.BytesToHex(payload),
+			EncodedPayload: "0x" + fmt.Sprintf("%X", payload),
 			ChainID:        chainID,
 			Value:          utils.NewBigI(6838712),
 		}
