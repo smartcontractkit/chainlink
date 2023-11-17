@@ -18,39 +18,41 @@ func NewObservedOnRampReader(origin ccipdata.OnRampReader, chainID int64, plugin
 	return &ObservedOnRampReader{
 		OnRampReader: origin,
 		metric: metricDetails{
-			histogram:  onRampHistogram,
-			pluginName: pluginName,
-			chainId:    chainID,
+			interactionDuration: readerHistogram,
+			resultSetSize:       readerDatasetSize,
+			pluginName:          pluginName,
+			readerName:          "OnRampReader",
+			chainId:             chainID,
 		},
 	}
 }
 
 func (o ObservedOnRampReader) GetSendRequestsGteSeqNum(ctx context.Context, seqNum uint64, confs int) ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
-	return withObservedContract(o.metric, "GetSendRequestsGteSeqNum", func() ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
+	return withObservedInteractionAndResults(o.metric, "GetSendRequestsGteSeqNum", func() ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
 		return o.OnRampReader.GetSendRequestsGteSeqNum(ctx, seqNum, confs)
 	})
 }
 
 func (o ObservedOnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confs int) ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
-	return withObservedContract(o.metric, "GetSendRequestsBetweenSeqNums", func() ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
+	return withObservedInteractionAndResults(o.metric, "GetSendRequestsBetweenSeqNums", func() ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
 		return o.OnRampReader.GetSendRequestsBetweenSeqNums(ctx, seqNumMin, seqNumMax, confs)
 	})
 }
 
 func (o ObservedOnRampReader) RouterAddress() (common.Address, error) {
-	return withObservedContract(o.metric, "RouterAddress", func() (common.Address, error) {
+	return withObservedInteraction(o.metric, "RouterAddress", func() (common.Address, error) {
 		return o.OnRampReader.RouterAddress()
 	})
 }
 
 func (o ObservedOnRampReader) Address() (common.Address, error) {
-	return withObservedContract(o.metric, "Address", func() (common.Address, error) {
+	return withObservedInteraction(o.metric, "Address", func() (common.Address, error) {
 		return o.OnRampReader.Address()
 	})
 }
 
 func (o ObservedOnRampReader) GetDynamicConfig() (ccipdata.OnRampDynamicConfig, error) {
-	return withObservedContract(o.metric, "GetDynamicConfig", func() (ccipdata.OnRampDynamicConfig, error) {
+	return withObservedInteraction(o.metric, "GetDynamicConfig", func() (ccipdata.OnRampDynamicConfig, error) {
 		return o.OnRampReader.GetDynamicConfig()
 	})
 }
