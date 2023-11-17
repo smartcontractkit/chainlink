@@ -592,9 +592,26 @@ func (d *Delegate) newServicesGenericPlugin(
 	}
 
 	errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
+	var providerClientConn grpc.ClientConnInterface
 	providerConn, ok := provider.(connProvider)
-	if !ok {
-		return nil, errors.New("provider not supported: the provider is not a LOOPP provider")
+	if ok {
+		providerClientConn = providerConn.ClientConn()
+	} else {
+		//We chose to deal with the difference between a LOOP provider and an embedded provider here rather than
+		//in NewServerAdapter because this has a smaller blast radius, as the scope of this workaround is to
+		//enable the medianpoc for EVM and not touch the other providers.
+		//TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
+		d.lggr.Info("provider is not a LOOPP provider, switching to provider server")
+
+		ps, err2 := relay.NewProviderServer(provider, types.OCR2PluginType(cconf.ProviderType), d.lggr)
+		if err2 != nil {
+			return nil, fmt.Errorf("cannot start EVM provider server: %s", err)
+		}
+		providerClientConn, err2 = ps.GetConn()
+		if err2 != nil {
+			return nil, fmt.Errorf("cannot connect to EVM provider server: %s", err)
+		}
+		srvs = append(srvs, ps)
 	}
 
 	pluginConfig := types.ReportingPluginServiceConfig{
@@ -602,13 +619,13 @@ func (d *Delegate) newServicesGenericPlugin(
 		Command:       command,
 		ProviderType:  cconf.ProviderType,
 		TelemetryType: cconf.TelemetryType,
-		PluginConfig:  string(p.PluginConfig),
+		PluginConfig:  p.PluginConfig,
 	}
 
 	pr := generic.NewPipelineRunnerAdapter(pluginLggr, jb, d.pipelineRunner)
 	ta := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 
-	plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerConn.ClientConn(), pr, ta, errorLog)
+	plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog)
 	oracleArgs.ReportingPluginFactory = plugin
 	srvs = append(srvs, plugin)
 
@@ -655,10 +672,6 @@ func (d *Delegate) newServicesMercury(
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
 	}
-	chain, err := d.legacyChains.Get(rid.ChainID)
-	if err != nil {
-		return nil, fmt.Errorf("mercury services: failed to get chain %s: %w", rid.ChainID, err)
-	}
 
 	provider, err2 := relayer.NewPluginProvider(ctx,
 		types.RelayArgs{
@@ -697,7 +710,7 @@ func (d *Delegate) newServicesMercury(
 
 	chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
 
-	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
+	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("EnhancedTelemetryMercury"))
@@ -1111,7 +1124,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
 		KeepersDatabase:              ocrDB,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Automation),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR3Automation),
 		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               services.Keyring(),

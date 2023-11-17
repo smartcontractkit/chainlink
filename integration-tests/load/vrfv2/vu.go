@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/wasp"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	vrfConst "github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/wasp"
 )
 
 /* JobVolumeVU is a "virtual user" that creates a VRFv2 job and constantly requesting new randomness only for this job instance  */

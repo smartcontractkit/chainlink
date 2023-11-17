@@ -4,11 +4,22 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/patrickmn/go-cache"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mocks"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
@@ -81,7 +92,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		payload     ocr2keepers.UpkeepPayload
 		blocks      map[int64]string
 		poller      logpoller.LogPoller
-		state       encoding.PipelineExecutionState
+		state       uint8
 		retryable   bool
 		makeEthCall bool
 	}{
@@ -239,8 +250,8 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 		payload     ocr2keepers.UpkeepPayload
 		blocks      map[int64]string
 		makeEthCall bool
-		reason      encoding.UpkeepFailureReason
-		state       encoding.PipelineExecutionState
+		reason      uint8
+		state       uint8
 		retryable   bool
 		ethCallErr  error
 		receipt     *types.Receipt
@@ -645,5 +656,44 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 			assert.Equal(t, tc.err, err)
 		})
 	}
+}
 
+// setups up an evm registry for tests.
+func setupEVMRegistry(t *testing.T) *EvmRegistry {
+	lggr := logger.TestLogger(t)
+	addr := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
+	keeperRegistryABI, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
+	require.Nil(t, err, "need registry abi")
+	streamsLookupCompatibleABI, err := abi.JSON(strings.NewReader(streams_lookup_compatible_interface.StreamsLookupCompatibleInterfaceABI))
+	require.Nil(t, err, "need mercury abi")
+	var logPoller logpoller.LogPoller
+	mockReg := mocks.NewRegistry(t)
+	mockHttpClient := mocks.NewHttpClient(t)
+	client := evmClientMocks.NewClient(t)
+
+	r := &EvmRegistry{
+		lggr:         lggr,
+		poller:       logPoller,
+		addr:         addr,
+		client:       client,
+		logProcessed: make(map[string]bool),
+		registry:     mockReg,
+		abi:          keeperRegistryABI,
+		active:       NewActiveUpkeepList(),
+		packer:       encoding.NewAbiPacker(),
+		headFunc:     func(ocr2keepers.BlockKey) {},
+		chLog:        make(chan logpoller.Log, 1000),
+		mercury: &MercuryConfig{
+			cred: &models.MercuryCredentials{
+				LegacyURL: "https://google.old.com",
+				URL:       "https://google.com",
+				Username:  "FakeClientID",
+				Password:  "FakeClientKey",
+			},
+			Abi:            streamsLookupCompatibleABI,
+			AllowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
+		},
+		hc: mockHttpClient,
+	}
+	return r
 }

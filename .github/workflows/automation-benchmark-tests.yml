@@ -6,7 +6,7 @@ on:
         description: Chainlink image version to use
         required: true
         type: string
-        default: 2.5.0
+        default: 2.6.0
       chainlinkImage:
         description: Chainlink image repo to use
         required: true
@@ -108,6 +108,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          suites: benchmark load/automationv2_1 chaos reorg
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         env:

@@ -1,16 +1,18 @@
-{{- range $cfg := .Values.chainlink.nodes }}
 {{- if $.Values.prometheusMonitor }}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
+  name: {{ $.Release.Name }}-pod-monitor
   labels:
     release: grafana-agent
 spec:
-  selector:
-    matchLabels:
-      release: {{ $.Release.Name }}-{{ $cfg.name }}
+  namespaceSelector:
+    matchNames:
+      - "cl-cluster"
   podMetricsEndpoints:
     - port: access
-  {{- end }}
----
+  selector:
+    matchLabels:
+      app: {{ $.Release.Name }}
 {{- end }}
+---

@@ -9,13 +9,14 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	gencfg "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func NewTOMLChainScopedConfig(appCfg gencfg.AppConfig, tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
+func NewTOMLChainScopedConfig(appCfg config.AppConfig, tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
 	return &ChainScoped{
 		AppConfig: appCfg,
 		evmConfig: &evmConfig{c: tomlConfig},
@@ -24,7 +25,7 @@ func NewTOMLChainScopedConfig(appCfg gencfg.AppConfig, tomlConfig *toml.EVMConfi
 
 // ChainScoped implements config.ChainScopedConfig with a gencfg.BasicConfig and EVMConfig.
 type ChainScoped struct {
-	gencfg.AppConfig
+	config.AppConfig
 	lggr logger.Logger
 
 	evmConfig *evmConfig
@@ -140,11 +141,11 @@ func (e *evmConfig) BlockEmissionIdleWarningThreshold() time.Duration {
 	return e.c.NoNewHeadsThreshold.Duration()
 }
 
-func (e *evmConfig) ChainType() gencfg.ChainType {
+func (e *evmConfig) ChainType() commonconfig.ChainType {
 	if e.c.ChainType == nil {
 		return ""
 	}
-	return gencfg.ChainType(*e.c.ChainType)
+	return commonconfig.ChainType(*e.c.ChainType)
 }
 
 func (e *evmConfig) ChainID() *big.Int {

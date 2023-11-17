@@ -2,6 +2,7 @@ package templates
 
 import (
 	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/templates"
 )
 

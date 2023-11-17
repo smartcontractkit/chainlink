@@ -37,7 +37,6 @@ func NewServices(
 	argsNoPlugin libocr2.MercuryOracleArgs,
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
-	chainHeadTracker types.ChainHeadTracker,
 	orm types.DataSourceORM,
 	feedID utils.FeedID,
 ) ([]job.ServiceCtx, error) {
@@ -66,7 +65,7 @@ func NewServices(
 			lggr,
 			runResults,
 			chEnhancedTelem,
-			chainHeadTracker,
+			ocr2Provider.ChainReader(),
 			ocr2Provider.MercuryServerFetcher(),
 			pluginConfig.InitialBlockNumber.Ptr(),
 			feedID,

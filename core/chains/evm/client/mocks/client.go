@@ -5,7 +5,7 @@ package mocks
 import (
 	big "math/big"
 
-	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
+	assets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
 
 	common "github.com/ethereum/go-ethereum/common"
 

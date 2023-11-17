@@ -1,10 +1,11 @@
 package loadfunctions
 
 import (
-	"github.com/smartcontractkit/wasp"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/wasp"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFunctionsLoad(t *testing.T) {

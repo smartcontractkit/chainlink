@@ -1,7 +1,6 @@
 package performance
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -97,7 +97,7 @@ func TestVRFBasic(t *testing.T) {
 		encodedProvingKeys := make([][2]*big.Int, 0)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 
-		requestHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
+		requestHash, err := coordinator.HashOfKey(testcontext.Get(t), encodedProvingKeys[0])
 		require.NoError(t, err, "Getting Hash of encoded proving keys shouldn't fail")
 		err = consumer.RequestRandomness(requestHash, big.NewInt(1))
 		require.NoError(t, err, "Requesting randomness shouldn't fail")
@@ -108,7 +108,7 @@ func TestVRFBasic(t *testing.T) {
 			jobRuns, err := chainlinkNodes[0].MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Job execution shouldn't fail")
 
-			out, err := consumer.RandomnessOutput(context.Background())
+			out, err := consumer.RandomnessOutput(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting the randomness output of the consumer shouldn't fail")
 			// Checks that the job has actually run
 			g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 1),
@@ -147,7 +147,7 @@ func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testN
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'`
 	cd := chainlink.New(0, map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
+		"toml": networks.AddNetworksConfig(baseTOML, testNetwork),
 	})
 
 	testEnvironment = environment.New(&environment.Config{
