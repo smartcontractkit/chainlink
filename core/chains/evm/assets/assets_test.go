@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 )
 
@@ -69,7 +69,7 @@ func TestAssets_Eth_UnmarshalJsonError(t *testing.T) {
 	assert.EqualError(t, err, "assets: cannot unmarshal \"x\" into a *assets.Eth")
 
 	err = json.Unmarshal([]byte(`1`), &eth)
-	assert.Equal(t, relayassets.ErrNoQuotesForCurrency, err)
+	assert.Equal(t, commonassets.ErrNoQuotesForCurrency, err)
 }
 
 func TestAssets_NewEth(t *testing.T) {

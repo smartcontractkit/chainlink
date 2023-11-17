@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	functions_srv "github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -24,7 +24,7 @@ import (
 
 func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (types.ReportingPlugin, *functions_mocks.ORM, encoding.ReportCodec, *functions_mocks.OffchainTransmitter) {
 	lggr := logger.TestLogger(t)
-	ocrLogger := relaylogger.NewOCRWrapper(lggr, true, func(msg string) {})
+	ocrLogger := commonlogger.NewOCRWrapper(lggr, true, func(msg string) {})
 	orm := functions_mocks.NewORM(t)
 	offchainTransmitter := functions_mocks.NewOffchainTransmitter(t)
 	factory := functions.FunctionsReportingPluginFactory{

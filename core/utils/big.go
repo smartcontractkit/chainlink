@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils/bytes"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 

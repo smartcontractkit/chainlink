@@ -18,7 +18,7 @@ import (
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -56,7 +56,7 @@ func newDON(t *testing.T, size int, config *s4.PluginConfig) *don {
 		orm := s4_svc.NewPostgresORM(db, logger, pgtest.NewQConfig(false), s4_svc.SharedTableName, ns)
 		orms[i] = orm
 
-		ocrLogger := relaylogger.NewOCRWrapper(logger, true, func(msg string) {})
+		ocrLogger := commonlogger.NewOCRWrapper(logger, true, func(msg string) {})
 		plugin, err := s4.NewReportingPlugin(ocrLogger, config, orm)
 		require.NoError(t, err)
 		plugins[i] = plugin
