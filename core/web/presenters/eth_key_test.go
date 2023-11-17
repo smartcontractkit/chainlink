@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -40,12 +40,12 @@ func TestETHKeyResource(t *testing.T) {
 
 	r := NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
-		SetETHKeyLinkBalance(relayassets.NewLinkFromJuels(1)),
+		SetETHKeyLinkBalance(commonassets.NewLinkFromJuels(1)),
 		SetETHKeyMaxGasPriceWei(utils.NewBigI(12345)),
 	)
 
 	assert.Equal(t, assets.NewEth(1), r.EthBalance)
-	assert.Equal(t, relayassets.NewLinkFromJuels(1), r.LinkBalance)
+	assert.Equal(t, commonassets.NewLinkFromJuels(1), r.LinkBalance)
 	assert.Equal(t, utils.NewBigI(12345), r.MaxGasPriceWei)
 
 	b, err := jsonapi.Marshal(r)

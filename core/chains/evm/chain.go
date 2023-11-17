@@ -13,9 +13,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	relaychains "github.com/smartcontractkit/chainlink-relay/pkg/chains"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -422,7 +422,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 	nodes := c.cfg.Nodes()
 	total := len(nodes)
 	if start >= total {
-		return nil, total, relaychains.ErrOutOfRange
+		return nil, total, common.ErrOutOfRange
 	}
 	if end > total {
 		end = total
@@ -459,7 +459,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 }
 
 func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
-	return relaychains.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
+	return common.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }

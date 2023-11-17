@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/assets"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils/bytes"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/shopspring/decimal"

@@ -5,7 +5,7 @@ package client
 import (
 	big "math/big"
 
-	assets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	assets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 
 	context "context"
 

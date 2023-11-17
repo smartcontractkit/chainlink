@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
@@ -97,7 +97,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 						CreatedAt:                f.Timestamp(),
 						EVMChainID:               utils.NewBigI(42),
 						MinIncomingConfirmations: clnull.NewUint32(1, true),
-						MinContractPayment:       relayassets.NewLinkFromJuels(1000),
+						MinContractPayment:       commonassets.NewLinkFromJuels(1000),
 						Requesters:               models.AddressCollection{requesterAddress},
 					},
 				}, nil)
@@ -164,7 +164,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 						DrumbeatEnabled:   false,
 						IdleTimerDisabled: false,
 						IdleTimerPeriod:   time.Duration(1 * time.Hour),
-						MinPayment:        relayassets.NewLinkFromJuels(1000),
+						MinPayment:        commonassets.NewLinkFromJuels(1000),
 						PollTimerDisabled: false,
 						PollTimerPeriod:   time.Duration(1 * time.Minute),
 					},
@@ -233,7 +233,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 						DrumbeatSchedule:    "CRON_TZ=UTC 0 0 1 1 *",
 						IdleTimerDisabled:   true,
 						IdleTimerPeriod:     time.Duration(1 * time.Hour),
-						MinPayment:          relayassets.NewLinkFromJuels(1000),
+						MinPayment:          commonassets.NewLinkFromJuels(1000),
 						PollTimerDisabled:   true,
 						PollTimerPeriod:     time.Duration(1 * time.Minute),
 					},

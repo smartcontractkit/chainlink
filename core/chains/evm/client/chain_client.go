@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -183,7 +183,7 @@ func (c *chainClient) IsL2() bool {
 	return c.multiNode.IsL2()
 }
 
-func (c *chainClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*relayassets.Link, error) {
+func (c *chainClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*commonassets.Link, error) {
 	return c.multiNode.LINKBalance(ctx, address, linkAddress)
 }
 

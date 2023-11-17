@@ -9,11 +9,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 // FakeRelayerChainInteroperators is a fake chainlink.RelayerChainInteroperators.
