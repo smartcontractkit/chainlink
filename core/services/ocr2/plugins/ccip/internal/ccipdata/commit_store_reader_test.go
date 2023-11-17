@@ -343,19 +343,23 @@ func TestCommitStoreReaders(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, rep.Interval.Max+1, seqNr)
 
-			reps, err := cr.GetAcceptedCommitReportsGteSeqNum(context.Background(), rep.Interval.Max+1, 0)
+			reps, err := cr.GetCommitReportMatchingSeqNum(context.Background(), rep.Interval.Max+1, 0)
 			require.NoError(t, err)
 			assert.Len(t, reps, 0)
 
-			reps, err = cr.GetAcceptedCommitReportsGteSeqNum(context.Background(), rep.Interval.Max, 0)
+			reps, err = cr.GetCommitReportMatchingSeqNum(context.Background(), rep.Interval.Max, 0)
 			require.NoError(t, err)
 			require.Len(t, reps, 1)
 			assert.Equal(t, reps[0].Data, rep)
 
-			reps, err = cr.GetAcceptedCommitReportsGteSeqNum(context.Background(), rep.Interval.Min-1, 0)
+			reps, err = cr.GetCommitReportMatchingSeqNum(context.Background(), rep.Interval.Min, 0)
 			require.NoError(t, err)
 			require.Len(t, reps, 1)
 			assert.Equal(t, reps[0].Data, rep)
+
+			reps, err = cr.GetCommitReportMatchingSeqNum(context.Background(), rep.Interval.Min-1, 0)
+			require.NoError(t, err)
+			require.Len(t, reps, 0)
 
 			// Sanity
 			reps, err = cr.GetAcceptedCommitReportsGteTimestamp(context.Background(), time.Unix(0, 0), 0)

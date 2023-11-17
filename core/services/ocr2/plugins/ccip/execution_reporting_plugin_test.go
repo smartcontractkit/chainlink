@@ -357,7 +357,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 	commitStore.On("VerifyExecutionReport", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	commitStore.On("GetExpectedNextSequenceNumber", mock.Anything).
 		Return(executionReport.Messages[len(executionReport.Messages)-1].SequenceNumber+1, nil)
-	commitStore.On("GetAcceptedCommitReportsGteSeqNum", ctx, observations[0].SeqNr, 0).
+	commitStore.On("GetCommitReportMatchingSeqNum", ctx, observations[0].SeqNr, 0).
 		Return([]ccipdata.Event[ccipdata.CommitStoreReport]{
 			{
 				Data: ccipdata.CommitStoreReport{

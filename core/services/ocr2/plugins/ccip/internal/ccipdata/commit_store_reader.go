@@ -96,8 +96,8 @@ type CommitStoreReader interface {
 	Closer
 	GetExpectedNextSequenceNumber(context context.Context) (uint64, error)
 	GetLatestPriceEpochAndRound(context context.Context) (uint64, error)
-	// GetAcceptedCommitReportsGteSeqNum returns all the accepted commit reports that have max sequence number greater than or equal to the provided.
-	GetAcceptedCommitReportsGteSeqNum(ctx context.Context, seqNum uint64, confs int) ([]Event[CommitStoreReport], error)
+	// GetCommitReportMatchingSeqNum returns accepted commit report that satisfies Interval.Min <= seqNum <= Interval.Max. Returned slice should be empty or have exactly one element
+	GetCommitReportMatchingSeqNum(ctx context.Context, seqNum uint64, confs int) ([]Event[CommitStoreReport], error)
 	// GetAcceptedCommitReportsGteTimestamp returns all the commit reports with timestamp greater than or equal to the provided.
 	// Returned Commit Reports have to be sorted by Interval.Min/Interval.Max in ascending order.
 	GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confs int) ([]Event[CommitStoreReport], error)

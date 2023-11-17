@@ -134,32 +134,6 @@ func (_m *CommitStoreReader) GasPriceEstimator() prices.GasPriceEstimatorCommit 
 	return r0
 }
 
-// GetAcceptedCommitReportsGteSeqNum provides a mock function with given fields: ctx, seqNum, confs
-func (_m *CommitStoreReader) GetAcceptedCommitReportsGteSeqNum(ctx context.Context, seqNum uint64, confs int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
-	ret := _m.Called(ctx, seqNum, confs)
-
-	var r0 []ccipdata.Event[ccipdata.CommitStoreReport]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error)); ok {
-		return rf(ctx, seqNum, confs)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, int) []ccipdata.Event[ccipdata.CommitStoreReport]); ok {
-		r0 = rf(ctx, seqNum, confs)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ccipdata.Event[ccipdata.CommitStoreReport])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, uint64, int) error); ok {
-		r1 = rf(ctx, seqNum, confs)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetAcceptedCommitReportsGteTimestamp provides a mock function with given fields: ctx, ts, confs
 func (_m *CommitStoreReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confs int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
 	ret := _m.Called(ctx, ts, confs)
@@ -179,6 +153,32 @@ func (_m *CommitStoreReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Co
 
 	if rf, ok := ret.Get(1).(func(context.Context, time.Time, int) error); ok {
 		r1 = rf(ctx, ts, confs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetCommitReportMatchingSeqNum provides a mock function with given fields: ctx, seqNum, confs
+func (_m *CommitStoreReader) GetCommitReportMatchingSeqNum(ctx context.Context, seqNum uint64, confs int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
+	ret := _m.Called(ctx, seqNum, confs)
+
+	var r0 []ccipdata.Event[ccipdata.CommitStoreReport]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error)); ok {
+		return rf(ctx, seqNum, confs)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, int) []ccipdata.Event[ccipdata.CommitStoreReport]); ok {
+		r0 = rf(ctx, seqNum, confs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]ccipdata.Event[ccipdata.CommitStoreReport])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, int) error); ok {
+		r1 = rf(ctx, seqNum, confs)
 	} else {
 		r1 = ret.Error(1)
 	}

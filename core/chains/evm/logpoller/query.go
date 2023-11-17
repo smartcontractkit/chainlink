@@ -74,6 +74,18 @@ func (q *queryArgs) withWordIndex(wordIndex int) *queryArgs {
 	return q.withCustomArg("word_index", wordIndex)
 }
 
+func (q *queryArgs) withWordIndexMin(wordIndex int) *queryArgs {
+	return q.withCustomArg("word_index_min", wordIndex)
+}
+
+func (q *queryArgs) withWordIndexMax(wordIndex int) *queryArgs {
+	return q.withCustomArg("word_index_max", wordIndex)
+}
+
+func (q *queryArgs) withWordValue(wordValue common.Hash) *queryArgs {
+	return q.withCustomHashArg("word_value", wordValue)
+}
+
 func (q *queryArgs) withWordValueMin(wordValueMin common.Hash) *queryArgs {
 	return q.withCustomHashArg("word_value_min", wordValueMin)
 }
