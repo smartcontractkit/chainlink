@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

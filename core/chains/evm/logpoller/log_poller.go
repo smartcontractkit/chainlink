@@ -20,7 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"

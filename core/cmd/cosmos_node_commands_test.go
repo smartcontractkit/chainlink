@@ -9,9 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	relaycfg "github.com/smartcontractkit/chainlink-relay/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -33,14 +32,14 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	t.Parallel()
 
 	chainID := cosmostest.RandomChainID()
-	node := config.Node{
+	node := coscfg.Node{
 		Name:          ptr("second"),
-		TendermintURL: relaycfg.MustParseURL("http://tender.mint.test/bombay-12"),
+		TendermintURL: config.MustParseURL("http://tender.mint.test/bombay-12"),
 	}
-	chain := config.TOMLConfig{
+	chain := coscfg.TOMLConfig{
 		ChainID: ptr(chainID),
 		Enabled: ptr(true),
-		Nodes:   config.Nodes{&node},
+		Nodes:   coscfg.Nodes{&node},
 	}
 	app := cosmosStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()

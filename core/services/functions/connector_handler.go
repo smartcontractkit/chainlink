@@ -10,8 +10,8 @@ import (
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/assets"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"

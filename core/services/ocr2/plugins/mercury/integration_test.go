@@ -34,10 +34,10 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	relaycodecv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
-	relaycodecv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
-	relaycodecv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
+	relaymercury "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
+	relaycodecv1 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v1"
+	relaycodecv2 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v2"
+	relaycodecv3 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"

@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

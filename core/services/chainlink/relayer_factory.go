@@ -9,9 +9,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"

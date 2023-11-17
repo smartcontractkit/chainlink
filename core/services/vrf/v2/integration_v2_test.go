@@ -30,7 +30,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -1462,7 +1462,7 @@ func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.Ke
 
 		c.EVM[0].FinalityDepth = ptr[uint32](15)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
-		c.EVM[0].MinContractPayment = relayassets.NewLinkFromJuels(100)
+		c.EVM[0].MinContractPayment = commonassets.NewLinkFromJuels(100)
 		c.EVM[0].KeySpecific = ks
 	}
 }

@@ -9,7 +9,7 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"

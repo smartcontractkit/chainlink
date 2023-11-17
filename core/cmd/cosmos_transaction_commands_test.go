@@ -13,16 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/denom"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
@@ -50,7 +50,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	nodes := coscfg.Nodes{
 		&coscfg.Node{
 			Name:          ptr("random"),
-			TendermintURL: utils.MustParseURL(url),
+			TendermintURL: config.MustParseURL(url),
 		},
 	}
 	chainConfig := coscfg.TOMLConfig{ChainID: &chainID, Enabled: ptr(true), Chain: cosmosChain, Nodes: nodes}

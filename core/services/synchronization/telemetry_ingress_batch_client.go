@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"

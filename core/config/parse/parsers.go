@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
-	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -23,10 +23,10 @@ func String(str string) (string, error) {
 	return str, nil
 }
 
-func Link(str string) (*relayassets.Link, error) {
-	i, ok := new(relayassets.Link).SetString(str, 10)
+func Link(str string) (*commonassets.Link, error) {
+	i, ok := new(commonassets.Link).SetString(str, 10)
 	if !ok {
-		return i, fmt.Errorf("unable to parse '%v' into *relayassets.Link(base 10)", str)
+		return i, fmt.Errorf("unable to parse '%s'", str)
 	}
 	return i, nil
 }

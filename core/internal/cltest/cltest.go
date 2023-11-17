@@ -43,7 +43,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
