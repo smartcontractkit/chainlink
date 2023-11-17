@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
+	crand "crypto/rand"
 	"database/sql"
 	"fmt"
 	"log"
 	"math/big"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -844,7 +844,13 @@ func randomiseTestDBSequences(db *sqlx.DB) error {
 		if err = seqRows.Scan(&sequenceSchema, &sequenceName); err != nil {
 			return fmt.Errorf("%s: failed to setup pgtest, failed scanning sequence rows: %s", failedToSetupTestPGError{}, err)
 		}
-		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, rand.Intn(10000))); err != nil {
+
+		randNum, err := crand.Int(crand.Reader, utils.NewBigI(10000).ToInt())
+		if err != nil {
+			return fmt.Errorf("%s: failed to generate random number", failedToSetupTestPGError{})
+		}
+
+		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)); err != nil {
 			return fmt.Errorf("%s: failed to setup pgtest, failed to alter and restart %s sequence: %w", failedToSetupTestPGError{}, sequenceName, err)
 		}
 	}
