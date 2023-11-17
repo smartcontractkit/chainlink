@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -21,16 +23,12 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
-	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 const (
@@ -127,7 +125,7 @@ func TestDirectRequestReorg(t *testing.T) {
 	netCfg := fmt.Sprintf(networkDRTOML, EVMFinalityDepth, EVMTrackerHistoryDepth)
 	chainlinkDeployment := chainlink.New(0, map[string]interface{}{
 		"replicas": 1,
-		"toml":     client.AddNetworkDetailedConfig(baseDRTOML, netCfg, activeEVMNetwork),
+		"toml":     networks.AddNetworkDetailedConfig(baseDRTOML, netCfg, activeEVMNetwork),
 	})
 
 	err = testEnvironment.AddHelm(chainlinkDeployment).Run()
@@ -221,7 +219,7 @@ func TestDirectRequestReorg(t *testing.T) {
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
-		d, err := consumer.Data(it_utils.TestContext(t))
+		d, err := consumer.Data(testcontext.Get(t))
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting data from consumer contract shouldn't fail")
 		g.Expect(d).ShouldNot(gomega.BeNil(), "Expected the initial on chain data to be nil")
 		log.Debug().Int64("Data", d.Int64()).Msg("Found on chain")

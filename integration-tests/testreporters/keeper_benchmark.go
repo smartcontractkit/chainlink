@@ -133,7 +133,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	if err != nil {
 		return err
 	}
-	avg, median, ninetyPct, ninetyNinePct, max := intListStats(allDelays)
+	avg, median, ninetyPct, ninetyNinePct, max := IntListStats(allDelays)
 	err = keeperReportWriter.Write([]string{
 		fmt.Sprint(totalEligibleCount),
 		fmt.Sprint(totalPerformed),
@@ -183,7 +183,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	}
 
 	for contractIndex, report := range k.Reports {
-		avg, median, ninetyPct, ninetyNinePct, max = intListStats(report.AllCheckDelays)
+		avg, median, ninetyPct, ninetyNinePct, max = IntListStats(report.AllCheckDelays)
 		err = keeperReportWriter.Write([]string{
 			fmt.Sprint(contractIndex),
 			report.RegistryAddress,
@@ -307,7 +307,7 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackC
 // intListStats helper calculates some statistics on an int list: avg, median, 90pct, 99pct, max
 //
 //nolint:revive
-func intListStats(in []int64) (float64, int64, int64, int64, int64) {
+func IntListStats(in []int64) (float64, int64, int64, int64, int64) {
 	length := len(in)
 	if length == 0 {
 		return 0, 0, 0, 0, 0

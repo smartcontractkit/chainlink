@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils/bytes"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
@@ -80,7 +81,7 @@ func (b Big) MarshalJSON() ([]byte, error) {
 
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (b *Big) UnmarshalText(input []byte) error {
-	input = RemoveQuotes(input)
+	input = bytes.TrimQuotes(input)
 	str := string(input)
 	if HasHexPrefix(str) {
 		decoded, err := hexutil.DecodeBig(str)

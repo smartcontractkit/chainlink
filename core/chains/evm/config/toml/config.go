@@ -12,12 +12,13 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -354,7 +355,7 @@ type Chain struct {
 	LogPollInterval          *models.Duration
 	LogKeepBlocksDepth       *uint32
 	MinIncomingConfirmations *uint32
-	MinContractPayment       *assets.Link
+	MinContractPayment       *relayassets.Link
 	NonceAutoSync            *bool
 	NoNewHeadsThreshold      *models.Duration
 	OperatorFactoryAddress   *ethkey.EIP55Address

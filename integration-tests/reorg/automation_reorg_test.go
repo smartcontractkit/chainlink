@@ -18,12 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -49,7 +49,7 @@ Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
 	activeEVMNetwork          = networks.MustGetSelectedNetworksFromEnv()[0]
 	defaultAutomationSettings = map[string]interface{}{
-		"toml": client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
+		"toml": networks.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
 		"db": map[string]interface{}{
 			"stateful": false,
 			"capacity": "1Gi",
@@ -210,7 +210,7 @@ func TestAutomationReorg(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 5
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(it_utils.TestContext(t))
+					counter, err := consumers[i].Counter(testcontext.Get(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 5
 					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
@@ -241,7 +241,7 @@ func TestAutomationReorg(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 10
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(it_utils.TestContext(t))
+					counter, err := consumers[i].Counter(testcontext.Get(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 10
 					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
@@ -258,7 +258,7 @@ func TestAutomationReorg(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 20
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(it_utils.TestContext(t))
+					counter, err := consumers[i].Counter(testcontext.Get(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 20
 					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")

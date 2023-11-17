@@ -24,7 +24,7 @@ import (
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -2819,7 +2819,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				tx.To().String() == etx1.ToAddress.String()
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{1}, gasPriceWei, fromAddress, overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{1}, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("uses default gas limit if overrideGasLimit is 0", func(t *testing.T) {
@@ -2834,7 +2834,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				tx.To().String() == etx1.ToAddress.String()
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1)}, gasPriceWei, fromAddress, 0))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(1)}, gasPriceWei, fromAddress, 0))
 	})
 
 	t.Run("rebroadcasts several eth_txes in nonce range", func(t *testing.T) {
@@ -2848,7 +2848,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 			return tx.Nonce() == uint64(*etx2.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == uint64(overrideGasLimit)
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1), (2)}, gasPriceWei, fromAddress, overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(1), (2)}, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
@@ -2874,7 +2874,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		}
 		nonces := []evmtypes.Nonce{(1), (2), (3), (4), (5)}
 
-		require.NoError(t, ec.ForceRebroadcast(nonces, gasPriceWei, fromAddress, overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), nonces, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("zero transactions use default gas limit if override wasn't specified", func(t *testing.T) {
@@ -2885,7 +2885,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 			return tx.Nonce() == uint64(0) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && uint32(tx.Gas()) == config.EVM().GasEstimator().LimitDefault()
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(0)}, gasPriceWei, fromAddress, 0))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(0)}, gasPriceWei, fromAddress, 0))
 	})
 }
 
