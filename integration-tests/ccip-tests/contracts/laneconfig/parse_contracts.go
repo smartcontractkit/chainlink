@@ -27,11 +27,11 @@ type CommonContracts struct {
 	Router           string   `json:"router"`
 	PriceRegistry    string   `json:"price_registry"`
 	WrappedNative    string   `json:"wrapped_native"`
+	Multicall        string   `json:"multicall,omitempty"`
 }
 
 type SourceContracts struct {
 	OnRamp     string `json:"on_ramp"`
-	Multicall  string `json:"multicall,omitempty"`
 	DepolyedAt uint64 `json:"deployed_at"`
 }
 
@@ -79,6 +79,9 @@ func (l *LaneConfig) Validate() error {
 	}
 	if l.WrappedNative == "" || !common.IsHexAddress(l.WrappedNative) {
 		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for wrapped_native"))
+	}
+	if l.Multicall == "" || !common.IsHexAddress(l.Multicall) {
+		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for multicall"))
 	}
 	return laneConfigError
 }
@@ -136,6 +139,7 @@ func (l *Lanes) CopyCommonContracts(fromNetwork, toNetwork string, reuse, isToke
 		DestContracts:   make(map[string]DestContracts),
 		CommonContracts: CommonContracts{
 			WrappedNative: existing.WrappedNative,
+			Multicall:     existing.Multicall,
 		},
 	}
 	// if reuse is set to true, it copies all the common contracts except the router
@@ -144,6 +148,7 @@ func (l *Lanes) CopyCommonContracts(fromNetwork, toNetwork string, reuse, isToke
 		cfg.CommonContracts.PriceRegistry = existing.PriceRegistry
 		cfg.CommonContracts.ARM = existing.ARM
 		cfg.CommonContracts.IsMockARM = existing.IsMockARM
+		cfg.CommonContracts.Multicall = existing.Multicall
 	}
 	// if it is a token transfer, it copies the bridge token contracts
 	if isTokenTransfer {

@@ -82,11 +82,11 @@ func (l *loadArgs) SanityCheck() {
 		lane.ForwardLane.RecordStateBeforeTransfer()
 		err := lane.ForwardLane.SendRequests(1, l.TestCfg.TestGroupInput.MsgType)
 		require.NoError(l.t, err)
-		lane.ForwardLane.ValidateRequests()
+		lane.ForwardLane.ValidateRequests(true)
 		lane.ReverseLane.RecordStateBeforeTransfer()
 		err = lane.ReverseLane.SendRequests(1, l.TestCfg.TestGroupInput.MsgType)
 		require.NoError(l.t, err)
-		lane.ReverseLane.ValidateRequests()
+		lane.ReverseLane.ValidateRequests(true)
 	}
 }
 

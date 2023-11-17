@@ -312,7 +312,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 		res.Failed = true
 		return res
 	}
-	err = c.Lane.Dest.AssertEventExecutionStateChanged(lggr, seqNum, c.CallTimeOut, blessedAt, stats)
+	_, err = c.Lane.Dest.AssertEventExecutionStateChanged(lggr, seqNum, c.CallTimeOut, blessedAt, stats, testhelpers.ExecutionStateSuccess)
 	if err != nil {
 		res.Error = err.Error()
 		res.Data = stats.StatusByPhase

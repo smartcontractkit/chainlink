@@ -305,7 +305,7 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 
 	chain.ParallelTransactions(true)
 	defer chain.Close()
-	ccipCommon, err := actions.DefaultCCIPModule(lggr, chain, pointer.GetBool(o.Cfg.TestGroupInput.ExistingDeployment))
+	ccipCommon, err := actions.DefaultCCIPModule(lggr, chain, pointer.GetBool(o.Cfg.TestGroupInput.ExistingDeployment), pointer.GetBool(o.Cfg.TestGroupInput.MulticallInOneTx))
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create ccip common module for %s: %v", networkCfg.Name, err))
 	}
@@ -457,7 +457,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	setUpFuncs.Go(func() error {
 		lggr.Info().Msgf("Setting up lane %s to %s", networkA.Name, networkB.Name)
 		srcConfig, destConfig, err := ccipLaneA2B.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, networkACmn, networkBCmn,
-			transferAmounts, pointer.GetBool(o.Cfg.TestGroupInput.MulticallInOneTx), o.BootstrapAdded, configureCLNode, o.JobAddGrp)
+			transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp)
 		if err != nil {
 			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %+v", networkA.Name, networkB.Name, err)))
 			return err
@@ -481,7 +481,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 		if bidirectional {
 			lggr.Info().Msgf("Setting up lane %s to %s", networkB.Name, networkA.Name)
 			srcConfig, destConfig, err := ccipLaneB2A.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, networkBCmn, networkACmn,
-				transferAmounts, pointer.GetBool(o.Cfg.TestGroupInput.MulticallInOneTx), o.BootstrapAdded, configureCLNode, o.JobAddGrp)
+				transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp)
 			if err != nil {
 				lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkB.Name, networkA.Name)
 				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err -  %+v", networkB.Name, networkA.Name, err)))

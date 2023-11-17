@@ -1319,7 +1319,7 @@ type ManualExecArgs struct {
 	DestUser                   *bind.TransactOpts
 	SourceChain, DestChain     bind.ContractBackend
 	SourceStartBlock           *big.Int // the block in/after which failed ccip-send transaction was triggered
-	destStartBlock             uint64   // the start block for filtering ReportAccepted event (including the failed seq num)
+	DestStartBlock             uint64   // the start block for filtering ReportAccepted event (including the failed seq num)
 	// in destination chain. if not provided to be derived by ApproxDestStartBlock method
 	DestLatestBlockNum uint64 // current block number in destination
 	DestDeployedAt     uint64 // destination block number for the initial destination contract deployment.
@@ -1330,7 +1330,8 @@ type ManualExecArgs struct {
 	CommitStore     string
 	OnRamp          string
 	OffRamp         string
-	seqNr           uint64
+	SeqNr           uint64
+	GasLimit        *big.Int
 }
 
 // ApproxDestStartBlock attempts to locate a block in destination chain with timestamp closest to the timestamp of the block
@@ -1387,8 +1388,8 @@ func (args *ManualExecArgs) ApproxDestStartBlock() error {
 			return err
 		}
 	}
-	args.destStartBlock = closestBlockHdr.Number.Uint64()
-	fmt.Println("using approx destination start block number", args.destStartBlock)
+	args.DestStartBlock = closestBlockHdr.Number.Uint64()
+	fmt.Println("using approx destination start block number", args.DestStartBlock)
 	return nil
 }
 
@@ -1429,57 +1430,67 @@ func (args *ManualExecArgs) ExecuteManually() (*types.Transaction, error) {
 		!common.IsHexAddress(args.OnRamp) {
 		return nil, fmt.Errorf("contract addresses must be valid hex address")
 	}
-	if args.SendReqTxHash == "" || args.SendReqLogIndex < 1 {
-		return nil, fmt.Errorf("log index for CCIPSendRequested event and tx hash of ccip-send request are required")
+	if args.SendReqTxHash == "" {
+		return nil, fmt.Errorf("tx hash of ccip-send request are required")
 	}
 	if args.SourceStartBlock == nil {
 		return nil, fmt.Errorf("must provide the value of source block in/after which ccip-send tx was included")
 	}
-	// locate seq nr from CCIPSendRequested log
-	seqNr, err := args.FindSeqNrFromCCIPSendRequested()
-	if err != nil {
-		return nil, err
+	if args.SeqNr == 0 {
+		if args.SendReqLogIndex == 0 {
+			return nil, fmt.Errorf("must provide the value of log index of ccip-send request")
+		}
+		// locate seq nr from CCIPSendRequested log
+		seqNr, err := args.FindSeqNrFromCCIPSendRequested()
+		if err != nil {
+			return nil, err
+		}
+		args.SeqNr = seqNr
 	}
 	commitStore, err := commit_store.NewCommitStore(common.HexToAddress(args.CommitStore), args.DestChain)
 	if err != nil {
 		return nil, err
 	}
-	if args.destStartBlock < 1 {
+	if args.DestStartBlock < 1 {
 		err = args.ApproxDestStartBlock()
 		if err != nil {
 			return nil, err
 		}
 	}
-	iterator, err := commitStore.FilterReportAccepted(&bind.FilterOpts{Start: args.destStartBlock})
+	iterator, err := commitStore.FilterReportAccepted(&bind.FilterOpts{Start: args.DestStartBlock})
 	if err != nil {
 		return nil, err
 	}
 
 	var commitReport *commit_store.CommitStoreCommitReport
 	for iterator.Next() {
-		if iterator.Event.Report.Interval.Min <= seqNr && iterator.Event.Report.Interval.Max >= seqNr {
+		if iterator.Event.Report.Interval.Min <= args.SeqNr && iterator.Event.Report.Interval.Max >= args.SeqNr {
 			commitReport = &iterator.Event.Report
 			fmt.Println("Found root")
 			break
 		}
 	}
 	if commitReport == nil {
-		return nil, fmt.Errorf("unable to find seq num %d in commit report", seqNr)
+		return nil, fmt.Errorf("unable to find seq num %d in commit report", args.SeqNr)
 	}
-	args.seqNr = seqNr
+
 	return args.execute(commitReport)
 }
 
 func (args *ManualExecArgs) execute(report *commit_store.CommitStoreCommitReport) (*types.Transaction, error) {
 	log.Info().Msg("Executing request manually")
-	seqNr := args.seqNr
+	seqNr := args.SeqNr
 	// Build a merkle tree for the report
 	mctx := hashlib.NewKeccakCtx()
-	leafHasher := ccipdata.NewLeafHasherV1_2_0(args.SourceChainID, args.DestChainID, common.HexToAddress(args.OnRamp), mctx, &evm_2_evm_onramp.EVM2EVMOnRamp{})
 	onRampContract, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(args.OnRamp), args.SourceChain)
 	if err != nil {
 		return nil, err
 	}
+	leafHasher := ccipdata.NewLeafHasherV1_2_0(args.SourceChainID, args.DestChainID, common.HexToAddress(args.OnRamp), mctx, onRampContract)
+	if leafHasher == nil {
+		return nil, fmt.Errorf("unable to create leaf hasher")
+	}
+
 	var leaves [][32]byte
 	var curr, prove int
 	var msgs []evm_2_evm_offramp.InternalEVM2EVMMessage
@@ -1502,11 +1513,32 @@ func (args *ManualExecArgs) execute(report *commit_store.CommitStoreCommitReport
 			leaves = append(leaves, hash)
 			if sendRequestedIterator.Event.Message.SequenceNumber == seqNr {
 				fmt.Printf("Found proving %d %+v\n", curr, sendRequestedIterator.Event.Message)
-				msg, err2 := ccipdata.DecodeOffRampMessageV1_2_0(sendRequestedIterator.Event.Raw.Data)
-				if err2 != nil {
-					return nil, err2
+				var tokensAndAmounts []evm_2_evm_offramp.ClientEVMTokenAmount
+				for _, tokenAndAmount := range sendRequestedIterator.Event.Message.TokenAmounts {
+					tokensAndAmounts = append(tokensAndAmounts, evm_2_evm_offramp.ClientEVMTokenAmount{
+						Token:  tokenAndAmount.Token,
+						Amount: tokenAndAmount.Amount,
+					})
 				}
-				msgs = append(msgs, *msg)
+				msg := evm_2_evm_offramp.InternalEVM2EVMMessage{
+					SourceChainSelector: sendRequestedIterator.Event.Message.SourceChainSelector,
+					Sender:              sendRequestedIterator.Event.Message.Sender,
+					Receiver:            sendRequestedIterator.Event.Message.Receiver,
+					SequenceNumber:      sendRequestedIterator.Event.Message.SequenceNumber,
+					GasLimit:            sendRequestedIterator.Event.Message.GasLimit,
+					Strict:              sendRequestedIterator.Event.Message.Strict,
+					Nonce:               sendRequestedIterator.Event.Message.Nonce,
+					FeeToken:            sendRequestedIterator.Event.Message.FeeToken,
+					FeeTokenAmount:      sendRequestedIterator.Event.Message.FeeTokenAmount,
+					Data:                sendRequestedIterator.Event.Message.Data,
+					TokenAmounts:        tokensAndAmounts,
+					SourceTokenData:     sendRequestedIterator.Event.Message.SourceTokenData,
+					MessageId:           sendRequestedIterator.Event.Message.MessageId,
+				}
+				msgs = append(msgs, msg)
+				if args.GasLimit != nil {
+					msg.GasLimit = args.GasLimit
+				}
 				manualExecGasLimits = append(manualExecGasLimits, msg.GasLimit)
 				var msgTokenData [][]byte
 				for range sendRequestedIterator.Event.Message.TokenAmounts {
@@ -1566,7 +1598,7 @@ func (c *CCIPContracts) ExecuteMessage(
 		SourceChain:        c.Source.Chain,
 		DestChain:          c.Dest.Chain,
 		SourceStartBlock:   sendReqReceipt.BlockNumber,
-		destStartBlock:     destStartBlock,
+		DestStartBlock:     destStartBlock,
 		DestLatestBlockNum: c.Dest.Chain.Blockchain().CurrentBlock().Number.Uint64(),
 		SendReqLogIndex:    uint(req.LogIndex),
 		SendReqTxHash:      txHash.String(),
@@ -1581,8 +1613,8 @@ func (c *CCIPContracts) ExecuteMessage(
 	rec, err := c.Dest.Chain.TransactionReceipt(context.Background(), tx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), rec.Status, "manual execution failed")
-	t.Logf("Manual Execution completed for seqNum %d", args.seqNr)
-	return args.seqNr
+	t.Logf("Manual Execution completed for seqNum %d", args.SeqNr)
+	return args.SeqNr
 }
 
 func GetBalance(t *testing.T, chain bind.ContractBackend, tokenAddr common.Address, addr common.Address) *big.Int {

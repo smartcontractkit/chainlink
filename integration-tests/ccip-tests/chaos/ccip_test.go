@@ -125,7 +125,7 @@ func TestChaosCCIP(t *testing.T) {
 			// Send the ccip-request and verify ocr2 is running
 			err := lane.SendRequests(1, testCfg.TestGroupInput.MsgType)
 			require.NoError(t, err)
-			lane.ValidateRequests()
+			lane.ValidateRequests(true)
 
 			// apply chaos
 			chaosId, err := testEnvironment.Chaos.Run(in.chaosFunc(testEnvironment.Cfg.Namespace, in.chaosProps))
@@ -146,7 +146,7 @@ func TestChaosCCIP(t *testing.T) {
 			} else {
 				l.Info().Msg("proceeding without waiting for chaos recovery")
 			}
-			lane.ValidateRequests()
+			lane.ValidateRequests(true)
 		})
 	}
 }

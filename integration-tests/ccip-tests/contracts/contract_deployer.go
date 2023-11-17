@@ -277,7 +277,7 @@ func (e *CCIPContractsDeployer) DeployCommitStore(sourceChainSelector, destChain
 	}, err
 }
 
-func (e *CCIPContractsDeployer) DeployReceiverDapp(router common.Address) (
+func (e *CCIPContractsDeployer) DeployReceiverDapp(revert bool) (
 	*ReceiverDapp,
 	error,
 ) {
@@ -285,7 +285,7 @@ func (e *CCIPContractsDeployer) DeployReceiverDapp(router common.Address) (
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(auth, backend, false)
+		return maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(auth, backend, revert)
 	})
 	if err != nil {
 		return nil, err
