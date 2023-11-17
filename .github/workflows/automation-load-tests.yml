@@ -1,4 +1,4 @@
-name: Automation Benchmark Test
+name: Automation Load Test
 on:
   workflow_dispatch:
     inputs:
@@ -18,24 +18,8 @@ on:
         type: choice
         options:
           - SIMULATED
-          - SIMULATED_NONDEV
-          - GOERLI
-          - ARBITRUM_GOERLI
-          - OPTIMISM_GOERLI
-          - MUMBAI
-          - SEPOLIA
-          - BASE_GOERLI
-          - ARBITRUM_SEPOLIA
       TestInputs:
         description: TestInputs
-        required: false
-        type: string
-      wsURL:
-        description: WS URL for the network (Skip for Simulated)
-        required: false
-        type: string
-      httpURL:
-        description: HTTP URL for the network (Skip for Simulated)
         required: false
         type: string
       slackMemberID:
@@ -43,20 +27,16 @@ on:
         required: true
         default: U02Q14G80TY
         type: string
-      fundingPrivateKey:
-        description: Private funding key (Skip for Simulated)
-        required: false
-        type: string
 
 jobs:
-  automation_benchmark:
+  automation_load:
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    name: ${{ inputs.network }} Automation Benchmark Test
+    name: ${{ inputs.network }} Automation Load Test
     runs-on: ubuntu20.04-16cores-64GB
     env:
       SELECTED_NETWORKS: ${{ inputs.network }}
@@ -76,28 +56,9 @@ jobs:
 
       - name: Add mask
         run: |
-          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
-          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
-          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
           SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
-          echo ::add-mask::$EVM_URLS
-          echo ::add-mask::$EVM_HTTP_URLS
-          echo ::add-mask::$EVM_KEYS
           echo ::add-mask::$SLACK_USER
-          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
-          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
-          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
           echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
-          while IFS=',' read -ra EVM_URLS_2; do
-          for i in "${EVM_URLS_2[@]}"; do
-              echo ::add-mask::$i
-            done
-          done <<< "$EVM_URLS"
-          while IFS=',' read -ra EVM_HTTP_URLS_2; do
-            for i in "${EVM_HTTP_URLS_2[@]}"; do
-              echo ::add-mask::$i
-            done
-          done <<< "$EVM_HTTP_URLS"
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
@@ -112,13 +73,17 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         env:
+          RR_CPU: 4000m
+          RR_MEM: 4Gi
           DETACH_RUNNER: true
-          TEST_SUITE: benchmark
+          TEST_SUITE: automationv2_1
           TEST_ARGS: -test.timeout 720h
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
           INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
+          test_command_to_run: cd integration-tests && go test -timeout 1h -v -run TestLogTrigger ./load/automationv2_1 -count=1
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
@@ -135,6 +100,6 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ${{ inputs.network }} Automation Benchmark Test
+          this-job-name: ${{ inputs.network }} Automation Load Test
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
