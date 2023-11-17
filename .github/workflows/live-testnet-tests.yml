@@ -213,7 +213,7 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run TestAutomationBasic ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
