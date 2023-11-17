@@ -67,9 +67,13 @@ jobs:
     env:
       SELECTED_NETWORKS: SEPOLIA
     strategy:
-      fail-fast: false
+      max-parallel: 1
       matrix:
-        product: [ocr, automation]
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+          - product: Automation
+            test: TestAutomationBasic
     name: Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -84,7 +88,7 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 ./smoke/${{ matrix.product }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
@@ -123,8 +127,13 @@ jobs:
       SELECTED_NETWORKS: OPTIMISM_GOERLI
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
-        product: [ocr, automation]
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+          - product: Automation
+            test: TestAutomationBasic
     name: Optimism Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -139,7 +148,7 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 ./smoke/${{ matrix.product }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
@@ -177,9 +186,13 @@ jobs:
     env:
       SELECTED_NETWORKS: ARBITRUM_GOERLI
     strategy:
-      fail-fast: false
+      max-parallel: 1
       matrix:
-        product: [ocr, automation]
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+          - product: Automation
+            test: TestAutomationBasic
     name: Arbitrum Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -194,7 +207,7 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 ./smoke/${{ matrix.product }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run TestAutomationBasic ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
