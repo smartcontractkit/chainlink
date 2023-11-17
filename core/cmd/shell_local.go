@@ -845,7 +845,8 @@ func randomiseTestDBSequences(db *sqlx.DB) error {
 			return fmt.Errorf("%s: failed to setup pgtest, failed scanning sequence rows: %s", failedToSetupTestPGError{}, err)
 		}
 
-		randNum, err := crand.Int(crand.Reader, utils.NewBigI(10000).ToInt())
+		var randNum *big.Int
+		randNum, err = crand.Int(crand.Reader, utils.NewBigI(10000).ToInt())
 		if err != nil {
 			return fmt.Errorf("%s: failed to generate random number", failedToSetupTestPGError{})
 		}
