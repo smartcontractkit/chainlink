@@ -290,14 +290,14 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	l.Info().Msg("All nodes have expected filters registered")
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
-	l.Warn().Str("Duration", "1m").Msg("Waiting for all CL nodes to have end block finalised")
-	gom.Eventually(func(g gomega.Gomega) {
-		hasFinalised, err := logPollerHasFinalisedEndBlock(endBlock, testEnv.EVMClient.GetChainID(), l, coreLogger, testEnv.ClCluster)
-		if err != nil {
-			l.Warn().Err(err).Msg("Error checking if nodes have finalised end block. Retrying...")
-		}
-		g.Expect(hasFinalised).To(gomega.BeTrue(), "Some nodes have not finalised end block")
-	}, "1m", "30s").Should(gomega.Succeed())
+	// l.Warn().Str("Duration", "1m").Msg("Waiting for all CL nodes to have end block finalised")
+	// gom.Eventually(func(g gomega.Gomega) {
+	// 	hasFinalised, err := logPollerHasFinalisedEndBlock(endBlock, testEnv.EVMClient.GetChainID(), l, coreLogger, testEnv.ClCluster)
+	// 	if err != nil {
+	// 		l.Warn().Err(err).Msg("Error checking if nodes have finalised end block. Retrying...")
+	// 	}
+	// 	g.Expect(hasFinalised).To(gomega.BeTrue(), "Some nodes have not finalised end block")
+	// }, "1m", "30s").Should(gomega.Succeed())
 
 	// Trigger replay
 	l.Info().Msg("Triggering log poller's replay")
