@@ -213,7 +213,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 				return fmt.Errorf("failed to mark tx as fatal: %w", err)
 			}
 			delete(tr.txCache, id)
-		case TxFatalError, TxAbandoned:
+		case TxFatalError:
 			delete(tr.txCache, id)
 		default:
 			tr.lggr.Errorw(fmt.Sprintf("unhandled transaction state: %v", tx.State))
