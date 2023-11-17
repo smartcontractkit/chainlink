@@ -306,7 +306,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        testnet: [sepolia, optimism-goerli, arbitrum-goerli]
+        include:
+          - job: sepolia-smoke-tests
+            network: Sepolia
+            tests: [OCR, Automation]
+          - job: optimism-goerli-smoke-tests
+            network: Sepolia
+          - job: arbitrum-goerli-smoke-tests
+            network: Sepolia
     steps:
       - name: Get Results
         id: test-results
@@ -316,7 +323,7 @@ jobs:
           echo "status=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq -r '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet }}-smoke-tests").steps[] | select(.name == "Run Tests").conclusion')" >> $GITHUB_OUTPUT
+          | jq -r '.jobs[] | select(.name | match("${{ matrix.network }} (\\w+) Tests")).steps[] | select(.name == "Run Tests").conclusion')" >> $GITHUB_OUTPUT
 
           echo "status=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
