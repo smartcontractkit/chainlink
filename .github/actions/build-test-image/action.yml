@@ -71,7 +71,7 @@ runs:
     - name: Check if test base image exists
       if: steps.version.outputs.is_semantic == 'false'
       id: check-base-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
       with:
         repository: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
         tag: ${{ steps.long_sha.outputs.long_sha }}
@@ -79,7 +79,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     - name: Build Base Image
       if: steps.version.outputs.is_semantic == 'false' && steps.check-base-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/docker/build-push@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+      uses: smartcontractkit/chainlink-github-actions/docker/build-push@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
       env:
         BASE_IMAGE_NAME: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image:${{ steps.long_sha.outputs.long_sha }}
       with:
@@ -92,7 +92,7 @@ runs:
     # Test Runner Logic
     - name: Check if image exists
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
       with:
         repository: ${{ inputs.repository }}
         tag: ${{ inputs.tag }}
@@ -100,7 +100,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     - name: Build and Publish Test Runner
       if: steps.check-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/docker/build-push@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+      uses: smartcontractkit/chainlink-github-actions/docker/build-push@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
       with:
         tags: |
           ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag }}
