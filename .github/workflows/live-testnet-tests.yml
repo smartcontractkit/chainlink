@@ -320,16 +320,25 @@ jobs:
         run: |
           echo "Querying test results"
 
-          echo "status=$(curl \
+          RESULTS=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq -r '.jobs[] | select(.name | match("${{ matrix.network }} (\\w+) Tests")).steps[] | select(.name == "Run Tests").conclusion')" >> $GITHUB_OUTPUT
+          | jq -r '.jobs[]
+          | select(.name | test("Arbitrum Goerli (\\w+) Tests")) as $job
+          | $job.steps[]
+          | select(.name == "Run Tests")
+          | { conclusion: .conclusion, product: $job.name }')
+
+
 
           echo "status=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq -r '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet }}-smoke-tests"").steps[] | select(.name == "Run Tests").conclusion')"
-          echo "thread_ts=${{ needs.testnet-smoke-tests-notify.outputs.thread_ts }}"
+          | jq -r '.jobs[]
+          | select(.name | test("Arbitrum Goerli (\\w+) Tests")) as $job
+          | $job.steps[]
+          | select(.name == "Run Tests")
+          | { conclusion: .conclusion, product: $job.name }')" >> $GITHUB_OUTPUT
 
       - name: Test Details
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
@@ -346,7 +355,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "${{ matrix.testnet }} Smoke Test Results ${{ steps.test-results.outputs.status == 'success' && ':white_check_mark:' || ':x:'}}",
+                        "text": "${{ matrix.network }} Smoke Test Results ${{ steps.test-results.outputs.status == 'success' && ':white_check_mark:' || ':x:'}}",
                         "emoji": true
                       }
                     },
