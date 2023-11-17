@@ -90,17 +90,14 @@ func validateSeqNumbers(serviceCtx context.Context, commitStore ccipdata.CommitS
 
 // Gets the commit report from the saved logs for a given sequence number.
 func getCommitReportForSeqNum(ctx context.Context, commitStoreReader ccipdata.CommitStoreReader, seqNum uint64) (ccipdata.CommitStoreReport, error) {
-	acceptedReports, err := commitStoreReader.GetAcceptedCommitReportsGteSeqNum(ctx, seqNum, 0)
+	acceptedReports, err := commitStoreReader.GetCommitReportMatchingSeqNum(ctx, seqNum, 0)
 	if err != nil {
 		return ccipdata.CommitStoreReport{}, err
 	}
 
-	for _, acceptedReport := range acceptedReports {
-		reportInterval := acceptedReport.Data.Interval
-		if reportInterval.Min <= seqNum && seqNum <= reportInterval.Max {
-			return acceptedReport.Data, nil
-		}
+	if len(acceptedReports) == 0 {
+		return ccipdata.CommitStoreReport{}, errors.Errorf("seq number not committed")
 	}
 
-	return ccipdata.CommitStoreReport{}, errors.Errorf("seq number not committed")
+	return acceptedReports[0].Data, nil
 }

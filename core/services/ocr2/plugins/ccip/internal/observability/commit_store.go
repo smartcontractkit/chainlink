@@ -37,9 +37,9 @@ func (o *ObservedCommitStoreReader) GetLatestPriceEpochAndRound(context context.
 	})
 }
 
-func (o *ObservedCommitStoreReader) GetAcceptedCommitReportsGteSeqNum(ctx context.Context, seqNum uint64, confs int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
-	return withObservedInteractionAndResults(o.metric, "GetAcceptedCommitReportsGteSeqNum", func() ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
-		return o.CommitStoreReader.GetAcceptedCommitReportsGteSeqNum(ctx, seqNum, confs)
+func (o *ObservedCommitStoreReader) GetCommitReportMatchingSeqNum(ctx context.Context, seqNum uint64, confs int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
+	return withObservedInteractionAndResults(o.metric, "GetCommitReportMatchingSeqNum", func() ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
+		return o.CommitStoreReader.GetCommitReportMatchingSeqNum(ctx, seqNum, confs)
 	})
 }
 
