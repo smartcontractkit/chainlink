@@ -6,9 +6,9 @@ import (
 	"math/big"
 	"os/exec"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 var _ Relayer = (*RelayerService)(nil)

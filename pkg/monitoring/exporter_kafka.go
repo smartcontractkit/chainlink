@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
 // Pipeline represents a succession of transformations on the data coming from a source:

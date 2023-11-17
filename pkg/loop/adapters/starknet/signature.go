@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 )
 
 type Signature struct {

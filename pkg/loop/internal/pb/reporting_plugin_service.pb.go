@@ -99,7 +99,7 @@ func (x *ReportingPluginServiceConfig) GetTelemetryType() string {
 	return ""
 }
 
-// NewReportingPluginFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].
+// NewReportingPluginFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].
 type NewReportingPluginFactoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -179,7 +179,7 @@ func (x *NewReportingPluginFactoryRequest) GetReportingPluginServiceConfig() *Re
 	return nil
 }
 
-// NewReportingPluginFactoryReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].
+// NewReportingPluginFactoryReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].
 type NewReportingPluginFactoryReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink-relay
+module github.com/smartcontractkit/chainlink-common
 
 go 1.21
 

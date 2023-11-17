@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb";
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
 
 package loop;
 
@@ -48,7 +48,7 @@ service Relayer {
   rpc Transact (TransactionRequest) returns (google.protobuf.Empty) {}
 }
 
-// RelayArgs represents [github.com/smartcontractkit/chainlink-relay/pkg/types.RelayArgs].
+// RelayArgs represents [github.com/smartcontractkit/chainlink-common/pkg/types.RelayArgs].
 message RelayArgs {
   bytes externalJobID = 1; // [32]byte
   int32 jobID = 2;
@@ -58,62 +58,62 @@ message RelayArgs {
   string providerType = 6;
 }
 
-// RelayArgs represents [github.com/smartcontractkit/chainlink-relay/pkg/types.PluginArgs].
+// RelayArgs represents [github.com/smartcontractkit/chainlink-common/pkg/types.PluginArgs].
 message PluginArgs {
   string transmitterID = 1;
   bytes pluginConfig = 2;
 }
 
-// NewPluginProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewPluginProvider].
+// NewPluginProviderRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewPluginProvider].
 message NewPluginProviderRequest {
   RelayArgs relayArgs = 1;
   PluginArgs pluginArgs = 2;
 }
 
-// NewPluginProviderReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewPluginProvider].
+// NewPluginProviderReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewPluginProvider].
 message NewPluginProviderReply {
   uint32 pluginProviderID = 1;
 }
 
-// NewConfigProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewConfigProvider].
+// NewConfigProviderRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewConfigProvider].
 message NewConfigProviderRequest {
   RelayArgs relayArgs = 1;
 }
 
-// NewConfigProviderReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewConfigProvider].
+// NewConfigProviderReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewConfigProvider].
 message NewConfigProviderReply {
   uint32 configProviderID = 1;
 }
 
 message GetChainStatusRequest {}
 
-// ChainStatusReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatus].
+// ChainStatusReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.ChainStatus].
 message GetChainStatusReply {
   ChainStatus chain = 1;
 }
 
 
-// ChainStatus represents [github.com/smartcontractkit/chainlink-relay/pkg/types.ChainStatus].
+// ChainStatus represents [github.com/smartcontractkit/chainlink-common/pkg/types.ChainStatus].
 message ChainStatus {
   string id = 1;
   bool enabled = 2;
   string config = 3; // TOML
 }
 
-// ListNodeStatusesRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ListNodeStatuses].
+// ListNodeStatusesRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.ListNodeStatuses].
 message ListNodeStatusesRequest {
   int32 page_size = 1;
   string page_token = 2;
 }
 
-// ListNodeStatusesReply is a pagination response  for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ListNodeStatuses].
+// ListNodeStatusesReply is a pagination response  for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.ListNodeStatuses].
 message ListNodeStatusesReply {
   repeated NodeStatus nodes = 1;
   int32 total = 2; // total count of nodes
   string next_page_token =3;
 }
 
-// NodeStatus represents [github.com/smartcontractkit/chainlink-relay/pkg/types.NodeStatus].
+// NodeStatus represents [github.com/smartcontractkit/chainlink-common/pkg/types.NodeStatus].
 message NodeStatus {
   string chainID = 1;
   string name = 2;
@@ -121,7 +121,7 @@ message NodeStatus {
   string state = 4;
 }
 
-// SendTxRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.SendTx].
+// SendTxRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.SendTx].
 message TransactionRequest {
   string from = 1;
   string to = 2;
@@ -133,12 +133,12 @@ service DataSource {
   rpc Observe (ObserveRequest) returns (ObserveReply) {}
 }
 
-// ObserveRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.DataSource.Observe].
+// ObserveRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.DataSource.Observe].
 message ObserveRequest {
   ReportTimestamp reportTimestamp = 1;
 }
 
-// ObserveReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.DataSource.Observe].
+// ObserveReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.DataSource.Observe].
 message ObserveReply {
   BigInt value = 1;
 }
@@ -251,7 +251,7 @@ message LatestConfigDigestAndEpochReply {
 
 message FromAccountRequest {}
 
-// FromAccountReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/types.Service.FromAccount].
+// FromAccountReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.Service.FromAccount].
 message FromAccountReply {
   string Account = 1;
 }
@@ -263,12 +263,12 @@ service Service {
   rpc HealthReport (google.protobuf.Empty) returns (HealthReportReply) {}
 }
 
-// NameReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/types.Service.Name].
+// NameReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.Service.Name].
 message NameReply {
   string name = 1;
 }
 
-// HealthReportReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/types.Service.HealthReport].
+// HealthReportReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.Service.HealthReport].
 message HealthReportReply {
   map<string, string> healthReport = 1;
 }

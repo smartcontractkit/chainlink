@@ -36,6 +36,9 @@ func Transact[D any](ctx context.Context, newD func(Queryer) D, q Queryer, opts 
 		// Unsupported or already inside another transaction.
 		return fn(newD(q))
 	}
+	if opts == nil {
+		opts = &TxOptions{}
+	}
 	tx, err := db.BeginTxx(ctx, &opts.TxOptions)
 	if err != nil {
 		return err

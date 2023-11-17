@@ -1,6 +1,6 @@
 package utils
 
-import "github.com/smartcontractkit/chainlink-relay/pkg/config"
+import "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 // Deprecated: use config.URL
 type URL = config.URL

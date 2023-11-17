@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 func TestContextValues(t *testing.T) {

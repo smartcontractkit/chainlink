@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/monitoring/config"
 )
 
 func TestRDDSource(t *testing.T) {

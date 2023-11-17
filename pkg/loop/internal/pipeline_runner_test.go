@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 type mockPipelineRunner struct {

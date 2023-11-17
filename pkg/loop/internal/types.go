@@ -3,7 +3,7 @@ package internal
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 type PluginRelayer interface {

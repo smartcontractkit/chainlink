@@ -5,7 +5,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
 )
 
 type PAO interface {

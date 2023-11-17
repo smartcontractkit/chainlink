@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils/bytes"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"

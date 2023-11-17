@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
 // This benchmark measures how many messages end up in the kafka client given
@@ -15,7 +15,7 @@ import (
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/smartcontractkit/chainlink-relay/pkg/monitoring
+// pkg: github.com/smartcontractkit/chainlink-common/pkg/monitoring
 // cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 // (10 jan 2022)
 //

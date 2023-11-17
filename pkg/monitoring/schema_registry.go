@@ -9,7 +9,7 @@ import (
 	"github.com/riferrei/srclient"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/monitoring/config"
 )
 
 type SchemaRegistry interface {

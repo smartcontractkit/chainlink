@@ -6,9 +6,9 @@ import (
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 var _ types.ReportingPluginClient = (*ReportingPluginServiceClient)(nil)

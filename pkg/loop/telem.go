@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
 )
 
 type GRPCOpts = internal.GRPCOpts

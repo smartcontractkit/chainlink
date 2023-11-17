@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
 // Results:
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/smartcontractkit/chainlink-relay/pkg/monitoring
+// pkg: github.com/smartcontractkit/chainlink-common/pkg/monitoring
 // cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 // (11 Dec 2021)
 //    48993	     35111 ns/op	   44373 B/op	     251 allocs/op

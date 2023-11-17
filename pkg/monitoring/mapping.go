@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/monitoring/pb"
 )
 
 // Mapper is an interface for converting Envelopes into data structures that can be encoded in AVRO and sent to Kafka.

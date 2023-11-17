@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
 )
 
 type Block struct {

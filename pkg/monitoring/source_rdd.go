@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
 type RDDData struct {

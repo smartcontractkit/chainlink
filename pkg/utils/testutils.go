@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // Deprecated: use tests.Context

@@ -15,8 +15,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestPluginMedian(t *testing.T, p types.PluginMedian) {

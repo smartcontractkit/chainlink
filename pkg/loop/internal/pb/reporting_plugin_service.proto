@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb";
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
 
 package loop;
 
@@ -16,7 +16,7 @@ message ReportingPluginServiceConfig {
   string telemetryType = 5;
 }
 
-// NewReportingPluginFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].
+// NewReportingPluginFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].
 message NewReportingPluginFactoryRequest {
   uint32 providerID = 1;
   uint32 errorLogID = 2;
@@ -25,7 +25,7 @@ message NewReportingPluginFactoryRequest {
   ReportingPluginServiceConfig ReportingPluginServiceConfig = 5;
 }
 
-// NewReportingPluginFactoryReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].
+// NewReportingPluginFactoryReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].
 message NewReportingPluginFactoryReply {
   uint32 ID = 1;
 }

@@ -14,9 +14,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type Observation struct {

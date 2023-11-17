@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb";
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
 
 package loop;
 
@@ -12,7 +12,7 @@ service PluginMedian {
   rpc NewMedianFactory (NewMedianFactoryRequest) returns (NewMedianFactoryReply) {}
 }
 
-// NewMedianFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianFactory].
+// NewMedianFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewMedianFactory].
 message NewMedianFactoryRequest {
   uint32 medianProviderID = 1;
   uint32 dataSourceID = 2;
@@ -20,7 +20,7 @@ message NewMedianFactoryRequest {
   uint32 errorLogID = 4;
 }
 
-// NewMedianFactoryRequest has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianFactory].
+// NewMedianFactoryRequest has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewMedianFactory].
 message NewMedianFactoryReply {
   uint32 reportingPluginFactoryID = 1;
 }
@@ -29,7 +29,7 @@ service ErrorLog {
   rpc SaveError(SaveErrorRequest) returns (google.protobuf.Empty) {}
 }
 
-// SaveErrorRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.ErrorLog.SaveErrorRequest].
+// SaveErrorRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.ErrorLog.SaveErrorRequest].
 message SaveErrorRequest {
   string message = 1;
 }

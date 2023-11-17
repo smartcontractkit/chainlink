@@ -9,11 +9,11 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/test"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/reportingplugins"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 func main() {

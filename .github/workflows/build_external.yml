@@ -63,9 +63,9 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
-      - name: Replace chainlink-relay deps
+      - name: Replace chainlink-common deps
         run: |
-          go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+          go get github.com/smartcontractkit/chainlink-common@${{ github.event.pull_request.head.sha }}
           go mod tidy
       - name: Install Solana CLI
         run: ./scripts/install-solana-ci.sh
@@ -95,10 +95,10 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: ./relayer/go.mod
-      - name: Replace chainlink-relay deps
+      - name: Replace chainlink-common deps
         run: | 
             cd relayer
-            go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+            go get github.com/smartcontractkit/chainlink-common@${{ github.event.pull_request.head.sha }}
             go mod tidy
       - name: Install Nix
         uses: cachix/install-nix-action@d64e0553100205688c0fb2fa16edb0fc8663c590 # v17
@@ -132,9 +132,9 @@ jobs:
   #       uses: actions/setup-go@v3
   #       with:
   #         go-version-file: "go.mod"
-  #     - name: Replace chainlink-relay deps
+  #     - name: Replace chainlink-common deps
   #       run: |
-  #         go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+  #         go get github.com/smartcontractkit/chainlink-common@${{ github.event.pull_request.head.sha }}
   #         go mod tidy
   #     - name: Install Nix
   #       uses: cachix/install-nix-action@v14

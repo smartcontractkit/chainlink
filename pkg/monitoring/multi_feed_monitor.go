@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
 // MultiFeedMonitor manages the flow of data from multiple sources to

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb";
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
 
 package loop;
 

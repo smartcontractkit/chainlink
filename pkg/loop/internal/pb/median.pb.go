@@ -22,7 +22,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// NewMedianFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianFactory].
+// NewMedianFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewMedianFactory].
 type NewMedianFactoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -94,7 +94,7 @@ func (x *NewMedianFactoryRequest) GetErrorLogID() uint32 {
 	return 0
 }
 
-// NewMedianFactoryRequest has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianFactory].
+// NewMedianFactoryRequest has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewMedianFactory].
 type NewMedianFactoryReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -142,7 +142,7 @@ func (x *NewMedianFactoryReply) GetReportingPluginFactoryID() uint32 {
 	return 0
 }
 
-// SaveErrorRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.ErrorLog.SaveErrorRequest].
+// SaveErrorRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.ErrorLog.SaveErrorRequest].
 type SaveErrorRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

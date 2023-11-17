@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/slices"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // HCLogLogger returns an [hclog.Logger] backed by the given [logger.Logger].

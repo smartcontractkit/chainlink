@@ -8,7 +8,7 @@ as well as a tutorial for creating new integrations.
 
 ## Documentation
 
-Godoc generated documentation is available [here](https://pkg.go.dev/github.com/smartcontractkit/chainlink-relay/pkg/monitoring#section-readme)
+Godoc generated documentation is available [here](https://pkg.go.dev/github.com/smartcontractkit/chainlink-common/pkg/monitoring#section-readme)
 
 ## Developing the monitoring framework
 

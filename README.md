@@ -1,2 +1,3 @@
-# chainlink-relay
-SDK for building Chainlink Relay network-specific services
+# chainlink-common
+
+SDK for implementing Chainlink Services, like Chain Relayers or Product Plugins.

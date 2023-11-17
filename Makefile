@@ -5,7 +5,7 @@ gomodtidy:
 .PHONY: godoc
 godoc:
 	go install golang.org/x/tools/cmd/godoc@latest
-	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink-relay/
+	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink-common/
 	godoc -http=:6060
 
 PHONY: install-protoc

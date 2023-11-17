@@ -3,7 +3,7 @@ package utils
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 // Deprecated: use config.Duration

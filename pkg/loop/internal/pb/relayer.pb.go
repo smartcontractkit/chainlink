@@ -272,7 +272,7 @@ func (x *SignReply) GetSignedData() []byte {
 	return nil
 }
 
-// RelayArgs represents [github.com/smartcontractkit/chainlink-relay/pkg/types.RelayArgs].
+// RelayArgs represents [github.com/smartcontractkit/chainlink-common/pkg/types.RelayArgs].
 type RelayArgs struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -360,7 +360,7 @@ func (x *RelayArgs) GetProviderType() string {
 	return ""
 }
 
-// RelayArgs represents [github.com/smartcontractkit/chainlink-relay/pkg/types.PluginArgs].
+// RelayArgs represents [github.com/smartcontractkit/chainlink-common/pkg/types.PluginArgs].
 type PluginArgs struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -416,7 +416,7 @@ func (x *PluginArgs) GetPluginConfig() []byte {
 	return nil
 }
 
-// NewPluginProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewPluginProvider].
+// NewPluginProviderRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewPluginProvider].
 type NewPluginProviderRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -472,7 +472,7 @@ func (x *NewPluginProviderRequest) GetPluginArgs() *PluginArgs {
 	return nil
 }
 
-// NewPluginProviderReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewPluginProvider].
+// NewPluginProviderReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewPluginProvider].
 type NewPluginProviderReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -520,7 +520,7 @@ func (x *NewPluginProviderReply) GetPluginProviderID() uint32 {
 	return 0
 }
 
-// NewConfigProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewConfigProvider].
+// NewConfigProviderRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewConfigProvider].
 type NewConfigProviderRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -568,7 +568,7 @@ func (x *NewConfigProviderRequest) GetRelayArgs() *RelayArgs {
 	return nil
 }
 
-// NewConfigProviderReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewConfigProvider].
+// NewConfigProviderReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewConfigProvider].
 type NewConfigProviderReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -654,7 +654,7 @@ func (*GetChainStatusRequest) Descriptor() ([]byte, []int) {
 	return file_relayer_proto_rawDescGZIP(), []int{11}
 }
 
-// ChainStatusReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatus].
+// ChainStatusReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.ChainStatus].
 type GetChainStatusReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -702,7 +702,7 @@ func (x *GetChainStatusReply) GetChain() *ChainStatus {
 	return nil
 }
 
-// ChainStatus represents [github.com/smartcontractkit/chainlink-relay/pkg/types.ChainStatus].
+// ChainStatus represents [github.com/smartcontractkit/chainlink-common/pkg/types.ChainStatus].
 type ChainStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -766,7 +766,7 @@ func (x *ChainStatus) GetConfig() string {
 	return ""
 }
 
-// ListNodeStatusesRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ListNodeStatuses].
+// ListNodeStatusesRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.ListNodeStatuses].
 type ListNodeStatusesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -822,7 +822,7 @@ func (x *ListNodeStatusesRequest) GetPageToken() string {
 	return ""
 }
 
-// ListNodeStatusesReply is a pagination response  for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ListNodeStatuses].
+// ListNodeStatusesReply is a pagination response  for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.ListNodeStatuses].
 type ListNodeStatusesReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -886,7 +886,7 @@ func (x *ListNodeStatusesReply) GetNextPageToken() string {
 	return ""
 }
 
-// NodeStatus represents [github.com/smartcontractkit/chainlink-relay/pkg/types.NodeStatus].
+// NodeStatus represents [github.com/smartcontractkit/chainlink-common/pkg/types.NodeStatus].
 type NodeStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -958,7 +958,7 @@ func (x *NodeStatus) GetState() string {
 	return ""
 }
 
-// SendTxRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.SendTx].
+// SendTxRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.SendTx].
 type TransactionRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1030,7 +1030,7 @@ func (x *TransactionRequest) GetBalanceCheck() bool {
 	return false
 }
 
-// ObserveRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.DataSource.Observe].
+// ObserveRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.DataSource.Observe].
 type ObserveRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1078,7 +1078,7 @@ func (x *ObserveRequest) GetReportTimestamp() *ReportTimestamp {
 	return nil
 }
 
-// ObserveReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.DataSource.Observe].
+// ObserveReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.DataSource.Observe].
 type ObserveReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2098,7 +2098,7 @@ func (*FromAccountRequest) Descriptor() ([]byte, []int) {
 	return file_relayer_proto_rawDescGZIP(), []int{38}
 }
 
-// FromAccountReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/types.Service.FromAccount].
+// FromAccountReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.Service.FromAccount].
 type FromAccountReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2146,7 +2146,7 @@ func (x *FromAccountReply) GetAccount() string {
 	return ""
 }
 
-// NameReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/types.Service.Name].
+// NameReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.Service.Name].
 type NameReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2194,7 +2194,7 @@ func (x *NameReply) GetName() string {
 	return ""
 }
 
-// HealthReportReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/types.Service.HealthReport].
+// HealthReportReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.Service.HealthReport].
 type HealthReportReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

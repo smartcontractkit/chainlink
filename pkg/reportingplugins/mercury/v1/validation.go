@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
 )
 
 // ValidateCurrentBlock sanity checks number and hash

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 // RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a Chain. See [RelayerAdapter].

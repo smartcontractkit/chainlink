@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
 type FeedMonitor interface {

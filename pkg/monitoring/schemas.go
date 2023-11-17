@@ -6,7 +6,7 @@ import (
 
 	"github.com/linkedin/goavro/v2"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/avro"
+	"github.com/smartcontractkit/chainlink-common/pkg/monitoring/avro"
 )
 
 // This files contains Avro schemas for encoding message to be published to kafka.

@@ -6,7 +6,7 @@ import (
 	mrand "math/rand"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 // WithJitter adds +/- 10% to a duration

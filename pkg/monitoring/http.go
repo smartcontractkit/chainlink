@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
 // HTTPServer is the HTTP interface exposed by every monitoring.

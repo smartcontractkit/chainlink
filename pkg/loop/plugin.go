@@ -3,8 +3,8 @@ package loop
 import (
 	"sync"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 // Plugin is a base layer for plugins to easily manage sub-[types.Service]s.

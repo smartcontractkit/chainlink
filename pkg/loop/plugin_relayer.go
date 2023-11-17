@@ -6,8 +6,8 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 // PluginRelayerName is the name for [types.PluginRelayer]/[NewGRPCPluginRelayer].

@@ -6,7 +6,7 @@ Local out of process (LOOP) plugins using [github.com/hashicorp/go-plugin](https
 
 ```mermaid
 flowchart
-    subgraph chainlink-relay/pkg
+    subgraph chainlink-common/pkg
         loop
         internal[loop/internal]
         pb[loop/internal/pb]

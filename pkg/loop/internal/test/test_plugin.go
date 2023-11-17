@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type HelperProcessCommand struct {
