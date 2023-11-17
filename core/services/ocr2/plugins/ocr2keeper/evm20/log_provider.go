@@ -11,9 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/util"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
-	"github.com/smartcontractkit/ocr2keepers/pkg/v2/encoding"
+	pluginutils "github.com/smartcontractkit/chainlink-automation/pkg/util"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v2/encoding"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
