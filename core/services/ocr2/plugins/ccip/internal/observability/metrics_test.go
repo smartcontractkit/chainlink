@@ -15,31 +15,32 @@ import (
 )
 
 func TestProperLabelsArePassed(t *testing.T) {
-	histogram := offRampHistogram
+	histogram := readerHistogram
 	successCounter := 10
 	failedCounter := 5
 
 	details := metricDetails{
-		histogram:  histogram,
-		pluginName: "plugin",
-		chainId:    123,
+		interactionDuration: histogram,
+		pluginName:          "plugin",
+		readerName:          "reader",
+		chainId:             123,
 	}
 
 	for i := 0; i < successCounter; i++ {
-		_, err := withObservedContract[string](details, "successFun", successfulContract)
+		_, err := withObservedInteraction[string](details, "successFun", successfulContract)
 		require.NoError(t, err)
 	}
 
 	for i := 0; i < failedCounter; i++ {
-		_, err := withObservedContract[string](details, "failedFun", failedContract)
+		_, err := withObservedInteraction[string](details, "failedFun", failedContract)
 		require.Error(t, err)
 	}
 
-	assert.Equal(t, successCounter, counterFromHistogramByLabels(t, histogram, "123", "plugin", "successFun", "true"))
-	assert.Equal(t, failedCounter, counterFromHistogramByLabels(t, histogram, "123", "plugin", "failedFun", "false"))
+	assert.Equal(t, successCounter, counterFromHistogramByLabels(t, histogram, "123", "plugin", "reader", "successFun", "true"))
+	assert.Equal(t, failedCounter, counterFromHistogramByLabels(t, histogram, "123", "plugin", "reader", "failedFun", "false"))
 
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, histogram, "123", "plugin", "failedFun", "true"))
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, histogram, "123", "plugin", "successFun", "false"))
+	assert.Equal(t, 0, counterFromHistogramByLabels(t, histogram, "123", "plugin", "reader", "failedFun", "true"))
+	assert.Equal(t, 0, counterFromHistogramByLabels(t, histogram, "123", "plugin", "reader", "successFun", "false"))
 }
 
 func TestMetricsSendFromContractDirectly(t *testing.T) {
@@ -58,10 +59,10 @@ func TestMetricsSendFromContractDirectly(t *testing.T) {
 		_, _ = observedOfframp.GetDestinationTokens(ctx)
 	}
 
-	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.histogram, "420", "plugin", "GetSupportedTokens", "true"))
-	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.histogram, "420", "plugin", "GetDestinationTokens", "false"))
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.histogram, "420", "plugin", "GetPoolByDestToken", "false"))
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.histogram, "420", "plugin", "GetPoolByDestToken", "true"))
+	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetSupportedTokens", "true"))
+	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetDestinationTokens", "false"))
+	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetPoolByDestToken", "false"))
+	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetPoolByDestToken", "true"))
 }
 
 func counterFromHistogramByLabels(t *testing.T, histogramVec *prometheus.HistogramVec, labels ...string) int {

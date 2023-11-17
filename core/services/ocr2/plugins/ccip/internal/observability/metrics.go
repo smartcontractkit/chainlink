@@ -21,45 +21,52 @@ var (
 		float64(1 * time.Second),
 		float64(2 * time.Second),
 	}
-	labels                 = []string{"evmChainID", "plugin", "function", "success"}
-	priceRegistryHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "ccip_price_registry_contract_duration",
-		Help:    "Duration of calls to the Price Registry reader",
+	labels          = []string{"evmChainID", "plugin", "reader", "function", "success"}
+	readerHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ccip_reader_duration",
+		Help:    "Duration of calls to Reader instance",
 		Buckets: latencyBuckets,
 	}, labels)
-	commitStoreHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "ccip_commit_store_contract_duration",
-		Help:    "Duration of calls to the Commit Store reader",
-		Buckets: latencyBuckets,
-	}, labels)
-	onRampHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "ccip_onramp_contract_duration",
-		Help:    "Duration of calls to the OnRamp reader",
-		Buckets: latencyBuckets,
-	}, labels)
-	offRampHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "ccip_offramp_contract_duration",
-		Help:    "Duration of calls to the OffRamp contract",
-		Buckets: latencyBuckets,
+	readerDatasetSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ccip_reader_dataset_size",
+		Help: "Size of the dataset returned from the Reader instance",
 	}, labels)
 )
 
 type metricDetails struct {
-	histogram  *prometheus.HistogramVec
-	pluginName string
-	chainId    int64
+	interactionDuration *prometheus.HistogramVec
+	resultSetSize       *prometheus.GaugeVec
+	pluginName          string
+	readerName          string
+	chainId             int64
 }
 
-func withObservedContract[T any](metric metricDetails, function string, contract func() (T, error)) (T, error) {
+func withObservedInteraction[T any](metric metricDetails, function string, f func() (T, error)) (T, error) {
 	contractExecutionStarted := time.Now()
-	value, err := contract()
-	metric.histogram.
+	value, err := f()
+	metric.interactionDuration.
 		WithLabelValues(
 			strconv.FormatInt(metric.chainId, 10),
 			metric.pluginName,
+			metric.readerName,
 			function,
 			strconv.FormatBool(err == nil),
 		).
 		Observe(float64(time.Since(contractExecutionStarted)))
 	return value, err
+}
+
+func withObservedInteractionAndResults[T any](metric metricDetails, function string, f func() ([]T, error)) ([]T, error) {
+	results, err := withObservedInteraction(metric, function, f)
+	if err == nil {
+		metric.resultSetSize.WithLabelValues(
+			strconv.FormatInt(metric.chainId, 10),
+			metric.pluginName,
+			metric.readerName,
+			function,
+			strconv.FormatBool(err == nil),
+		).Set(float64(len(results)))
+	}
+	return results, err
+
 }

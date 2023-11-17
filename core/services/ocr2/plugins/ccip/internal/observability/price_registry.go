@@ -18,33 +18,35 @@ func NewPriceRegistryReader(origin ccipdata.PriceRegistryReader, chainID int64, 
 	return &ObservedPriceRegistryReader{
 		PriceRegistryReader: origin,
 		metric: metricDetails{
-			histogram:  priceRegistryHistogram,
-			pluginName: pluginName,
-			chainId:    chainID,
+			interactionDuration: readerHistogram,
+			resultSetSize:       readerDatasetSize,
+			pluginName:          pluginName,
+			readerName:          "PriceRegistryReader",
+			chainId:             chainID,
 		},
 	}
 }
 
 func (o *ObservedPriceRegistryReader) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]ccipdata.Event[ccipdata.TokenPriceUpdate], error) {
-	return withObservedContract(o.metric, "GetTokenPriceUpdatesCreatedAfter", func() ([]ccipdata.Event[ccipdata.TokenPriceUpdate], error) {
+	return withObservedInteractionAndResults(o.metric, "GetTokenPriceUpdatesCreatedAfter", func() ([]ccipdata.Event[ccipdata.TokenPriceUpdate], error) {
 		return o.PriceRegistryReader.GetTokenPriceUpdatesCreatedAfter(ctx, ts, confs)
 	})
 }
 
 func (o *ObservedPriceRegistryReader) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confs int) ([]ccipdata.Event[ccipdata.GasPriceUpdate], error) {
-	return withObservedContract(o.metric, "GetGasPriceUpdatesCreatedAfter", func() ([]ccipdata.Event[ccipdata.GasPriceUpdate], error) {
+	return withObservedInteractionAndResults(o.metric, "GetGasPriceUpdatesCreatedAfter", func() ([]ccipdata.Event[ccipdata.GasPriceUpdate], error) {
 		return o.PriceRegistryReader.GetGasPriceUpdatesCreatedAfter(ctx, chainSelector, ts, confs)
 	})
 }
 
 func (o *ObservedPriceRegistryReader) GetFeeTokens(ctx context.Context) ([]common.Address, error) {
-	return withObservedContract(o.metric, "GetFeeTokens", func() ([]common.Address, error) {
+	return withObservedInteraction(o.metric, "GetFeeTokens", func() ([]common.Address, error) {
 		return o.PriceRegistryReader.GetFeeTokens(ctx)
 	})
 }
 
 func (o *ObservedPriceRegistryReader) GetTokenPrices(ctx context.Context, wantedTokens []common.Address) ([]ccipdata.TokenPriceUpdate, error) {
-	return withObservedContract(o.metric, "GetTokenPrices", func() ([]ccipdata.TokenPriceUpdate, error) {
+	return withObservedInteractionAndResults(o.metric, "GetTokenPrices", func() ([]ccipdata.TokenPriceUpdate, error) {
 		return o.PriceRegistryReader.GetTokenPrices(ctx, wantedTokens)
 	})
 }
