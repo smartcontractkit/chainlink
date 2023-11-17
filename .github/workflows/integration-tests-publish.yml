@@ -6,13 +6,6 @@ on:
     branches:
       - develop
   workflow_dispatch:
-    inputs:
-      ctf-base-image-tag:
-        description: |
-          'The tag of the CTF base image to be used,
-          typically something like v1.18.6 from https://github.com/smartcontractkit/chainlink-testing-framework/releases
-          or a custom tag or branch you have pushed.'
-        required: true
 
 env:
   ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:develop
@@ -39,20 +32,15 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Setup Other Tags
+      - name: Setup Other Tags If Not Workflow Dispatch
         id: tags
-        env:
-          BASE_IMAGE_TAG: ${{ inputs.ctf-base-image-tag}}
+        if: github.event_name != 'workflow_dispatch'
         run: |
-          if [ -z "${BASE_IMAGE_TAG+x}" ]; then
-            echo "ctf-base-image-tag is not set, we are part of a merge and want to push the develop tag"
-            echo "other_tags=${ECR_TAG}" >> $GITHUB_OUTPUT
-          fi
+          echo "other_tags=${ECR_TAG}" >> $GITHUB_OUTPUT
       - name: Build Image
         uses: ./.github/actions/build-test-image
         with:
           other_tags: ${{ steps.tags.outputs.other_tags }}
-          base_image_tag: ${{ inputs.ctf-base-image-tag }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
@@ -68,7 +56,7 @@ jobs:
   build-chainlink-image:
     environment: integration
     # Only run this build for workflow_dispatch
-    if: ${{ inputs.ctf-base-image-tag != '' }}
+    if: github.event_name == 'workflow_dispatch'
     permissions:
       id-token: write
       contents: read
