@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -48,7 +48,7 @@ func FundChainlinkNodes(
 		msg := ethereum.CallMsg{
 			From:  common.HexToAddress(client.GetDefaultWallet().Address()),
 			To:    &recipient,
-			Value: utils.EtherToWei(amount),
+			Value: conversions.EtherToWei(amount),
 		}
 		gasEstimates, err := client.EstimateGas(msg)
 		if err != nil {
@@ -254,7 +254,6 @@ func GetMockserverInitializerDataForOTPE(
 func TeardownSuite(
 	t *testing.T,
 	env *environment.Environment,
-	logsFolderPath string,
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level

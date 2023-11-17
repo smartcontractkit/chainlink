@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -21,22 +22,24 @@ import (
 )
 
 type FunctionsReportingPluginFactory struct {
-	Logger          commontypes.Logger
-	PluginORM       functions.ORM
-	JobID           uuid.UUID
-	ContractVersion uint32
+	Logger              commontypes.Logger
+	PluginORM           functions.ORM
+	JobID               uuid.UUID
+	ContractVersion     uint32
+	OffchainTransmitter functions.OffchainTransmitter
 }
 
 var _ types.ReportingPluginFactory = (*FunctionsReportingPluginFactory)(nil)
 
 type functionsReporting struct {
-	logger          commontypes.Logger
-	pluginORM       functions.ORM
-	jobID           uuid.UUID
-	reportCodec     encoding.ReportCodec
-	genericConfig   *types.ReportingPluginConfig
-	specificConfig  *config.ReportingPluginConfigWrapper
-	contractVersion uint32
+	logger              commontypes.Logger
+	pluginORM           functions.ORM
+	jobID               uuid.UUID
+	reportCodec         encoding.ReportCodec
+	genericConfig       *types.ReportingPluginConfig
+	specificConfig      *config.ReportingPluginConfigWrapper
+	contractVersion     uint32
+	offchainTransmitter functions.OffchainTransmitter
 }
 
 var _ types.ReportingPlugin = &functionsReporting{}
@@ -112,13 +115,14 @@ func (f FunctionsReportingPluginFactory) NewReportingPlugin(rpConfig types.Repor
 		},
 	}
 	plugin := functionsReporting{
-		logger:          f.Logger,
-		pluginORM:       f.PluginORM,
-		jobID:           f.JobID,
-		reportCodec:     codec,
-		genericConfig:   &rpConfig,
-		specificConfig:  pluginConfig,
-		contractVersion: f.ContractVersion,
+		logger:              f.Logger,
+		pluginORM:           f.PluginORM,
+		jobID:               f.JobID,
+		reportCodec:         codec,
+		genericConfig:       &rpConfig,
+		specificConfig:      pluginConfig,
+		contractVersion:     f.ContractVersion,
+		offchainTransmitter: f.OffchainTransmitter,
 	}
 	promReportingPlugins.WithLabelValues(f.JobID.String()).Inc()
 	return &plugin, info, nil
@@ -436,6 +440,14 @@ func (r *functionsReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts
 		if err != nil {
 			r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport: state couldn't be changed to FINALIZED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue
+		}
+		if bytes.Equal(item.OnchainMetadata, []byte(functions.OffchainRequestMarker)) {
+			r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport: transmitting offchain", commontypes.LogFields{"requestID": reqIdStr})
+			result := functions.OffchainResponse{RequestId: item.RequestID, Result: item.Result, Error: item.Error}
+			if err := r.offchainTransmitter.TransmitReport(ctx, &result); err != nil {
+				r.logger.Error("FunctionsReporting ShouldAcceptFinalizedReport: unable to transmit offchain", commontypes.LogFields{"requestID": reqIdStr, "err": err})
+			}
+			continue // doesn't need onchain transmission
 		}
 		needTransmissionIds = append(needTransmissionIds, reqIdStr)
 	}

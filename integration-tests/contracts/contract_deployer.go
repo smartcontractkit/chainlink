@@ -12,10 +12,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
@@ -54,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
@@ -91,6 +93,7 @@ type ContractDeployer interface {
 	LoadKeeperRegistry(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
+	DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error)
 	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error)
 	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error)
 	DeployKeeperConsumerPerformance(
@@ -868,22 +871,21 @@ func (e *EthereumContractDeployer) LoadKeeperRegistrar(address common.Address, r
 			client:      e.client,
 			registrar20: instance.(*keeper_registrar_wrapper2_0.KeeperRegistrar),
 		}, err
-	} else {
-		instance, err := e.client.LoadContract("AutomationRegistrar", address, func(
-			address common.Address,
-			backend bind.ContractBackend,
-		) (interface{}, error) {
-			return registrar21.NewAutomationRegistrar(address, backend)
-		})
-		if err != nil {
-			return nil, err
-		}
-		return &EthereumKeeperRegistrar{
-			address:     &address,
-			client:      e.client,
-			registrar21: instance.(*registrar21.AutomationRegistrar),
-		}, err
 	}
+	instance, err := e.client.LoadContract("AutomationRegistrar", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return registrar21.NewAutomationRegistrar(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperRegistrar{
+		address:     &address,
+		client:      e.client,
+		registrar21: instance.(*registrar21.AutomationRegistrar),
+	}, err
 }
 
 func (e *EthereumContractDeployer) DeployKeeperRegistry(
@@ -1288,6 +1290,25 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterv
 	return &EthereumAutomationLogCounterConsumer{
 		client:   e.client,
 		consumer: instance.(*log_upkeep_counter_wrapper.LogUpkeepCounter),
+		address:  address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error) {
+	address, _, instance, err := e.client.DeployContract("SimpleLogUpkeepCounter", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return simple_log_upkeep_counter_wrapper.DeploySimpleLogUpkeepCounter(
+			auth, backend,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumAutomationSimpleLogCounterConsumer{
+		client:   e.client,
+		consumer: instance.(*simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounter),
 		address:  address,
 	}, err
 }

@@ -134,7 +134,7 @@ type coreConfig struct {
 
 type OCR2GenericPluginConfig struct {
 	CoreConfig   coreConfig `json:"coreConfig"`
-	PluginConfig json.RawMessage
+	PluginConfig string
 }
 
 func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {

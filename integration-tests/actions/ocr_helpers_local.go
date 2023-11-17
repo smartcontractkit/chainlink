@@ -10,9 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -145,7 +146,7 @@ func CreateOCRJobsLocal(
 	workerNodes []*client.ChainlinkClient,
 	mockValue int,
 	mockAdapter *test_env.Killgrave,
-	evmChainID string,
+	evmChainID *big.Int,
 ) error {
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -156,7 +157,7 @@ func CreateOCRJobsLocal(
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
-			EVMChainID:      evmChainID,
+			EVMChainID:      evmChainID.String(),
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
 		}
@@ -201,7 +202,7 @@ func CreateOCRJobsLocal(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
-				EVMChainID:         evmChainID,
+				EVMChainID:         evmChainID.String(),
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
@@ -210,7 +211,7 @@ func CreateOCRJobsLocal(
 			}
 			_, err = node.MustCreateJob(ocrSpec)
 			if err != nil {
-				return fmt.Errorf("creating OCR task job on OCR node have failed: %w", err)
+				return fmt.Errorf("creating OCR job on OCR node failed: %w", err)
 			}
 		}
 	}

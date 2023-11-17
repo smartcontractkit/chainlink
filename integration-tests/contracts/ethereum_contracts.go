@@ -16,6 +16,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
@@ -43,10 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -939,7 +940,7 @@ func (f *EthereumFluxAggregator) PaymentAmount(ctx context.Context) (*big.Int, e
 	return payment, nil
 }
 
-func (f *EthereumFluxAggregator) RequestNewRound(ctx context.Context) error {
+func (f *EthereumFluxAggregator) RequestNewRound(_ context.Context) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -978,7 +979,7 @@ func (f *EthereumFluxAggregator) WatchSubmissionReceived(ctx context.Context, ev
 	}
 }
 
-func (f *EthereumFluxAggregator) SetRequesterPermissions(ctx context.Context, addr common.Address, authorized bool, roundsDelay uint32) error {
+func (f *EthereumFluxAggregator) SetRequesterPermissions(_ context.Context, addr common.Address, authorized bool, roundsDelay uint32) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1019,7 +1020,7 @@ func (f *EthereumFluxAggregator) LatestRoundID(ctx context.Context) (*big.Int, e
 }
 
 func (f *EthereumFluxAggregator) WithdrawPayment(
-	ctx context.Context,
+	_ context.Context,
 	from common.Address,
 	to common.Address,
 	amount *big.Int) error {

@@ -54,7 +54,7 @@ on:
       useExistingEnv:
         description: Set `true` to use existing environment or `false` to deploy CL node and all contracts
         required: false
-        default: false
+        default: "false"
       configBase64:
         description: TOML config in base64 (Needed when overriding config or providing contract addresses for existing env)
         required: false

@@ -180,32 +180,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUns
 	return r0
 }
 
-// FindReceiptsPendingConfirmation provides a mock function with given fields: ctx, blockNum, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error) {
-	ret := _m.Called(ctx, blockNum, chainID)
-
-	var r0 []txmgrtypes.ReceiptPlus[R]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error)); ok {
-		return rf(ctx, blockNum, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, CHAIN_ID) []txmgrtypes.ReceiptPlus[R]); ok {
-		r0 = rf(ctx, blockNum, chainID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]txmgrtypes.ReceiptPlus[R])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, CHAIN_ID) error); ok {
-		r1 = rf(ctx, blockNum, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // FindTransactionsConfirmedInBlockRange provides a mock function with given fields: ctx, highBlockNumber, lowBlockNumber, chainID
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber int64, lowBlockNumber int64, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	ret := _m.Called(ctx, highBlockNumber, lowBlockNumber, chainID)
@@ -381,6 +355,32 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesByM
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string, []txmgrtypes.TxState, *big.Int) error); ok {
 		r1 = rf(ctx, metaField, metaValue, states, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindTxesPendingCallback provides a mock function with given fields: ctx, blockNum, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error) {
+	ret := _m.Called(ctx, blockNum, chainID)
+
+	var r0 []txmgrtypes.ReceiptPlus[R]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error)); ok {
+		return rf(ctx, blockNum, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, CHAIN_ID) []txmgrtypes.ReceiptPlus[R]); ok {
+		r0 = rf(ctx, blockNum, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]txmgrtypes.ReceiptPlus[R])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, CHAIN_ID) error); ok {
+		r1 = rf(ctx, blockNum, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -899,6 +899,20 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxAtt
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttemptState) error); ok {
 		r0 = rf(ctx, etx, attempt, NewAttemptState)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateTxCallbackCompleted provides a mock function with given fields: ctx, pipelineTaskRunRid, chainId
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error {
+	ret := _m.Called(ctx, pipelineTaskRunRid, chainId)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, CHAIN_ID) error); ok {
+		r0 = rf(ctx, pipelineTaskRunRid, chainId)
 	} else {
 		r0 = ret.Error(0)
 	}

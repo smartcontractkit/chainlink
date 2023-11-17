@@ -1,13 +1,15 @@
 package loadvrfv2
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 )
 
 /* Monitors on-chain stats of LoadConsumer and pushes them to Loki every second */
@@ -35,7 +37,7 @@ func MonitorLoadStats(t *testing.T, vrfv2Contracts *vrfv2_actions.VRFV2Contracts
 		}
 		for {
 			time.Sleep(1 * time.Second)
-			metrics, err := vrfv2Contracts.LoadTestConsumer.GetLoadTestMetrics(context.Background())
+			metrics, err := vrfv2Contracts.LoadTestConsumer.GetLoadTestMetrics(testcontext.Get(t))
 			if err != nil {
 				log.Error().Err(err).Msg(ErrMetrics)
 			}

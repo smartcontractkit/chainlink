@@ -50,6 +50,7 @@ operator_factory: ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.a
 operator_wrapper: ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin d7abd0e67f30a3a4c9c04c896124391306fa364fcf579fa6df04dbf912b48568
 oracle_wrapper: ../../contracts/solc/v0.6/Oracle/Oracle.abi ../../contracts/solc/v0.6/Oracle/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
 perform_data_checker_wrapper: ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.abi ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.bin 48d8309c2117c29a24e1155917ab0b780956b2cd6a8a39ef06ae66a7f6d94f73
+simple_log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/SimpleLogUpkeepCounter/SimpleLogUpkeepCounter.abi ../../contracts/solc/v0.8.6/SimpleLogUpkeepCounter/SimpleLogUpkeepCounter.bin 0a7a0cc4da7dc2a3d0a0c36c746b1adc044af5cad1838367356a0604f3255a01
 solidity_vrf_consumer_interface: ../../contracts/solc/v0.6/VRFConsumer/VRFConsumer.abi ../../contracts/solc/v0.6/VRFConsumer/VRFConsumer.bin ecc99378aa798014de9db42b2eb81320778b0663dbe208008dad75ccdc1d4366
 solidity_vrf_consumer_interface_v08: ../../contracts/solc/v0.8.6/VRFConsumer/VRFConsumer.abi ../../contracts/solc/v0.8.6/VRFConsumer/VRFConsumer.bin b14f9136b15e3dc9d6154d5700f3ed4cf88ddc4f70f20c3bb57fc46050904c8f
 solidity_vrf_coordinator_interface: ../../contracts/solc/v0.6/VRFCoordinator/VRFCoordinator.abi ../../contracts/solc/v0.6/VRFCoordinator/VRFCoordinator.bin a23d3c395156804788c7f6fbda2994e8f7184304c0f0c9f2c4ddeaf073d346d2

@@ -104,6 +104,7 @@ core/scripts/gateway @bolekk @pinebit
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-load-tests.yml @smartcontractkit/keepers
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 

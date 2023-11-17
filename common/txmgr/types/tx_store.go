@@ -35,8 +35,10 @@ type TxStore[
 	TxHistoryReaper[CHAIN_ID]
 	TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
 
-	// methods for saving & retreiving receipts
-	FindReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAIN_ID) (receiptsPlus []ReceiptPlus[R], err error)
+	// Find confirmed txes beyond the minConfirmations param that require callback but have not yet been signaled
+	FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) (receiptsPlus []ReceiptPlus[R], err error)
+	// Update tx to mark that its callback has been signaled
+	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error
 	SaveFetchedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) (err error)
 
 	// additional methods for tx store management
@@ -96,6 +98,8 @@ type TransactionStore[
 	SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID CHAIN_ID) error
 	UpdateBroadcastAts(ctx context.Context, now time.Time, etxIDs []int64) error
 	UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], NewAttemptState TxAttemptState) error
+	// Update tx to mark that its callback has been signaled
+	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error
 	UpdateTxsUnconfirmed(ctx context.Context, ids []int64) error
 	UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	UpdateTxFatalError(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error

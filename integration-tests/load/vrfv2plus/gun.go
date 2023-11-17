@@ -5,9 +5,10 @@ import (
 	"math/rand"
 
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/wasp"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
-	"github.com/smartcontractkit/wasp"
 )
 
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */
@@ -37,7 +38,7 @@ func NewSingleHashGun(
 }
 
 // Call implements example gun call, assertions on response bodies should be done here
-func (m *SingleHashGun) Call(l *wasp.Generator) *wasp.CallResult {
+func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 
 	//randomly increase/decrease randomness request count per TX

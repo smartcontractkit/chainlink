@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 /* Monitors on-chain stats of LoadConsumer and pushes them to Loki every second */

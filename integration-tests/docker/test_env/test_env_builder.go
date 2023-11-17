@@ -17,9 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 type CleanUpType string
@@ -188,7 +189,7 @@ func (b *CLTestEnvBuilder) WithCustomCleanup(customFn func()) *CLTestEnvBuilder 
 type ChainOption = func(*evmcfg.Chain) *evmcfg.Chain
 
 func (b *CLTestEnvBuilder) WithChainOptions(opts ...ChainOption) *CLTestEnvBuilder {
-	b.chainOptionsFn = make([]ChainOption, 0, 0)
+	b.chainOptionsFn = make([]ChainOption, 0)
 	b.chainOptionsFn = append(b.chainOptionsFn, opts...)
 
 	return b
@@ -197,7 +198,7 @@ func (b *CLTestEnvBuilder) WithChainOptions(opts ...ChainOption) *CLTestEnvBuild
 type EVMClientNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
 
 func (b *CLTestEnvBuilder) EVMClientNetworkOptions(opts ...EVMClientNetworkOption) *CLTestEnvBuilder {
-	b.evmClientNetworkOption = make([]EVMClientNetworkOption, 0, 0)
+	b.evmClientNetworkOption = make([]EVMClientNetworkOption, 0)
 	b.evmClientNetworkOption = append(b.evmClientNetworkOption, opts...)
 
 	return b
@@ -324,7 +325,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		} else {
 			cfg = node.NewConfig(node.NewBaseConfig(),
 				node.WithOCR1(),
-				node.WithP2Pv1(),
+				node.WithP2Pv2(),
 			)
 		}
 
