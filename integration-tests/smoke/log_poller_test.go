@@ -236,7 +236,7 @@ func TestLogPollerReplayFinalityTag(t *testing.T) {
 			Generator:      logpoller.GeneratorType_Looped,
 			Contracts:      2,
 			EventsPerTx:    4,
-			UseFinalityTag: false,
+			UseFinalityTag: true,
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{

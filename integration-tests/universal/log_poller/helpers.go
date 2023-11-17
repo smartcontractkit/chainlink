@@ -1038,21 +1038,22 @@ func setupLogPollerTestDocker(
 		return network
 	}
 
-	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
-	cfg, err := ethBuilder.
-		WithConsensusType(ctf_test_env.ConsensusType_PoS).
-		WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
-		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
-		WithBeaconChainConfig(ctf_test_env.BeaconChainConfig{
-			SecondsPerSlot: 8,
-			SlotsPerEpoch:  2,
-		}).
-		Build()
-	require.NoError(t, err, "Error building ethereum network config")
+	// ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
+	// cfg, err := ethBuilder.
+	// 	WithConsensusType(ctf_test_env.ConsensusType_PoS).
+	// 	WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+	// 	WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
+	// 	WithBeaconChainConfig(ctf_test_env.BeaconChainConfig{
+	// 		SecondsPerSlot: 12,
+	// 		SlotsPerEpoch:  6,
+	// 	}).
+	// 	Build()
+	// require.NoError(t, err, "Error building ethereum network config")
 
 	env, err = test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
-		WithPrivateEthereumNetwork(cfg).
+		WithGeth().
+		// WithPrivateEthereumNetwork(cfg).
 		WithCLNodes(clNodesCount).
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(chainlinkNodeFunding)).
