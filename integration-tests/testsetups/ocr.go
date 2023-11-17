@@ -142,7 +142,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 
 	cd := chainlink.New(0, map[string]any{
 		"replicas": 6,
-		"toml":     networks.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customChainlinkNetworkTOML, network),
+		"toml":     networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customChainlinkNetworkTOML, network),
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
