@@ -192,6 +192,7 @@ jobs:
       SELECTED_NETWORKS: ARBITRUM_GOERLI
     strategy:
       max-parallel: 1
+      fail-fast: false
       matrix:
         include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
           - product: OCR
