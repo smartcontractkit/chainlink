@@ -22,6 +22,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -273,6 +274,11 @@ func (o *OCRSoakTest) Run() {
 	}
 
 	o.log.Info().
+		Str("Test Duration", o.Inputs.TestDuration.Truncate(time.Second).String()).
+		Int("Number of OCR Contracts", len(o.ocrInstances)).
+		Msg("Starting OCR Soak Test")
+
+	log.Info().
 		Str("Test Duration", o.Inputs.TestDuration.Truncate(time.Second).String()).
 		Int("Number of OCR Contracts", len(o.ocrInstances)).
 		Msg("Starting OCR Soak Test")
