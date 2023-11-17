@@ -54,7 +54,7 @@ on:
       chainlinkVersion:
         description: Container image version for the Chainlink nodes
         required: true
-        default: "1.11.0"
+        default: "2.7.0"
       testDuration:
         description: Duration of the test (time string)
         required: false
