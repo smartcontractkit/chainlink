@@ -15,7 +15,7 @@ inputs:
     required: false
   suites:
     description: The test suites to build into the image
-    default: chaos migration performance reorg smoke soak benchmark
+    default: chaos migration performance reorg smoke soak benchmark load/automationv2_1
     required: false
   base_image_tag:
     description: The test base image version to use, if not provided it will use the version from the ./integration-tests/go.mod file
