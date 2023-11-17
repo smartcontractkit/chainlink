@@ -835,14 +835,14 @@ func (m *failedToSetupTestPGError) Error() string {
 func randomiseTestDBSequences(db *sqlx.DB) error {
 	seqRows, err := db.Query(`SELECT sequence_schema, sequence_name FROM information_schema.sequences WHERE sequence_schema = $1`, "public")
 	if err != nil {
-		return fmt.Errorf("failed to setup pgtest, error fetching sequences: %s", err)
+		return fmt.Errorf("%s: error fetching sequences: %s", failedToSetupTestPGError{}, err)
 	}
 
 	defer seqRows.Close()
 	for seqRows.Next() {
 		var sequenceSchema, sequenceName string
 		if err = seqRows.Scan(&sequenceSchema, &sequenceName); err != nil {
-			return fmt.Errorf("%s: failed to setup pgtest, failed scanning sequence rows: %s", failedToSetupTestPGError{}, err)
+			return fmt.Errorf("%s: failed scanning sequence rows: %s", failedToSetupTestPGError{}, err)
 		}
 
 		var randNum *big.Int
@@ -852,12 +852,12 @@ func randomiseTestDBSequences(db *sqlx.DB) error {
 		}
 
 		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)); err != nil {
-			return fmt.Errorf("%s: failed to setup pgtest, failed to alter and restart %s sequence: %w", failedToSetupTestPGError{}, sequenceName, err)
+			return fmt.Errorf("%s: failed to alter and restart %s sequence: %w", failedToSetupTestPGError{}, sequenceName, err)
 		}
 	}
 
 	if err = seqRows.Err(); err != nil {
-		return fmt.Errorf("%s: failed to setup pgtest, failed to iterate through sequences: %w", failedToSetupTestPGError{}, err)
+		return fmt.Errorf("%s: failed to iterate through sequences: %w", failedToSetupTestPGError{}, err)
 	}
 
 	return nil
