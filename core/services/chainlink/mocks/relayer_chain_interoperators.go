@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
+var _ chainlink.RelayerChainInteroperators = (*FakeRelayerChainInteroperators)(nil)
+
 // FakeRelayerChainInteroperators is a fake chainlink.RelayerChainInteroperators.
 // This exists because mockery generation doesn't understand how to produce an alias instead of the underlying type (which is not exported in this case).
 type FakeRelayerChainInteroperators struct {

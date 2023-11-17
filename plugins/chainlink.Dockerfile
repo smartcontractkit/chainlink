@@ -20,6 +20,9 @@ RUN make install-chainlink
 # Install medianpoc binary
 RUN make install-medianpoc
 
+# Install medianpoc binary
+RUN make install-dummyplugin
+
 # Link LOOP Plugin source dirs with simple names
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds | xargs -I % ln -s % /chainlink-feeds
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xargs -I % ln -s % /chainlink-solana
