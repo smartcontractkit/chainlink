@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const waitTime = 5 * time.Millisecond
+
 func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore, keystore.Eth) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := newTestChainScopedConfig(t)
@@ -68,7 +70,6 @@ func TestEthTracker_AddressTracking(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	t.Run("track abandoned addresses", func(t *testing.T) {
-		// Insert abandoned transactions
 		inProgressAddr := cltest.MustGenerateRandomKey(t).Address
 		unconfirmedAddr := cltest.MustGenerateRandomKey(t).Address
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
@@ -94,13 +95,13 @@ func TestEthTracker_AddressTracking(t *testing.T) {
 		defer tracker.Stop()
 		require.NoError(t, err)
 
-		// TODO: How could I test this?
+		// deliver block past minConfirmations to finalize tx
 		tracker.XXXDeliverBlock(10)
+		time.Sleep(waitTime)
 
 		addrs := tracker.GetAbandonedAddresses()
 		require.NotContains(t, addrs, confirmedAddr)
 	})
-
 }
 
 func TestEthTracker_ExceedingTTL(t *testing.T) {
@@ -131,7 +132,7 @@ func TestEthTracker_ExceedingTTL(t *testing.T) {
 		defer tracker.Stop()
 		require.NoError(t, err)
 
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(waitTime)
 		require.NotContains(t, tracker.GetAbandonedAddresses(), addr1, addr2)
 
 		fatalTxes, err := txStore.GetFatalTransactions(ctx)

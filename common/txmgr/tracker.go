@@ -3,7 +3,6 @@ package txmgr
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"sync"
 	"time"
 
@@ -11,6 +10,8 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -54,7 +55,6 @@ type Tracker[
 	wg           sync.WaitGroup
 }
 
-// NewTracker creates a new Tracker
 func NewTracker[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,
@@ -126,7 +126,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx
 			}
 		case <-ttlExceeded.C:
 			tr.lggr.Infow("ttl exceeded")
-			tr.markAllTxesAbandoned(ctx)
+			tr.markAllTxesFatal(ctx)
 			return
 		case <-tr.chDone:
 			return
@@ -134,7 +134,6 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx
 	}
 }
 
-// GetAbandonedAddresses returns list of abandoned addresses being tracked
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandonedAddresses() []ADDR {
 	if !tr.started {
 		return []ADDR{}
@@ -209,8 +208,9 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 			// Tx could never be sent on chain even once. That means that we need to sign
 			// an attempt to even broadcast this Tx to the chain. Since the fromAddress
 			// is deleted, we can't sign it.
-			if err := tr.markTxAbandoned(ctx, tx); err != nil {
-				return fmt.Errorf("failed to mark tx as abandoned: %w", err)
+			errMsg := "abandoned transaction could not be sent on chain"
+			if err := tr.markTxFatal(ctx, tx, errMsg); err != nil {
+				return fmt.Errorf("failed to mark tx as fatal: %w", err)
 			}
 			delete(tr.txCache, id)
 		case TxFatalError, TxAbandoned:
@@ -257,21 +257,24 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) insertTx(
 	tr.lggr.Debugw(fmt.Sprintf("inserted tx %v", tx.ID))
 }
 
-// markTxAbandoned marks a transaction as abandoned
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markTxAbandoned(ctx context.Context,
-	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	tx.Error.SetValid(fmt.Sprintf(
-		"abandoned transaction exceeded time to live of %d hours", int(tr.ttl.Hours())))
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markTxFatal(ctx context.Context,
+	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	errMsg string) error {
+	tx.Error.SetValid(errMsg)
 
-	if err := tr.txStore.UpdateTxAbandoned(ctx, tx); err != nil {
+	tx.State = TxInProgress
+	if err := tr.txStore.UpdateTxFatalError(ctx, tx); err != nil {
 		return fmt.Errorf("failed to mark tx %v as abandoned: %w", tx.ID, err)
 	}
 	return nil
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markAllTxesAbandoned(ctx context.Context) {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markAllTxesFatal(ctx context.Context) {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
+	errMsg := fmt.Sprintf(
+		"abandoned transaction exceeded time to live of %d hours", int(tr.ttl.Hours()))
+
 	for _, atx := range tr.txCache {
 		tx, err := tr.txStore.GetTxByID(ctx, atx.id)
 		if err != nil {
@@ -279,7 +282,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markAllTxes
 			continue
 		}
 
-		if err := tr.markTxAbandoned(ctx, tx); err != nil {
+		if err := tr.markTxFatal(ctx, tx, errMsg); err != nil {
 			tr.lggr.Errorw(fmt.Errorf("failed to mark tx as abandoned: %w", err).Error())
 		}
 	}

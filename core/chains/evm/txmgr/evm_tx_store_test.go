@@ -756,6 +756,30 @@ func TestORM_UpdateTxForRebroadcast(t *testing.T) {
 	})
 }
 
+func TestORM_IsTxFinalized(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+
+	t.Run("confirmed tx not past finality_depth", func(t *testing.T) {
+		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		tx := cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 2, tx.ID)
+		require.NoError(t, err)
+		require.False(t, finalized)
+	})
+
+	t.Run("confirmed tx past finality_depth", func(t *testing.T) {
+		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		tx := cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 10, tx.ID)
+		require.NoError(t, err)
+		require.True(t, finalized)
+	})
+}
+
 func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	t.Parallel()
 
@@ -1185,28 +1209,6 @@ func TestORM_UpdateTxFatalError(t *testing.T) {
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 		assert.Len(t, etx.TxAttempts, 0)
-		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
-	})
-}
-
-func TestORM_UpdateTxAbandoned(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-
-	t.Run("update successful", func(t *testing.T) {
-		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 13, fromAddress)
-		etxPretendError := null.StringFrom("no more toilet paper")
-		etx.Error = etxPretendError
-
-		err := txStore.UpdateTxAbandoned(testutils.Context(t), &etx)
-		require.NoError(t, err)
-		// TODO: txmgrcommon.TxAbandoned
 		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
 	})
 }
