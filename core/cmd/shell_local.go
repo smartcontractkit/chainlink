@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -777,11 +778,13 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 	if userOnly {
 		fixturePath = "../store/fixtures/users_only_fixture.sql"
 	}
-	if err := insertFixtures(dbUrl, fixturePath); err != nil {
+	if err = insertFixtures(dbUrl, fixturePath); err != nil {
 		return s.errorOut(err)
 	}
-
-	return s.errorOut(dropDanglingTestDBs(s.Logger, db))
+	if err = dropDanglingTestDBs(s.Logger, db); err != nil {
+		return s.errorOut(err)
+	}
+	return s.errorOut(randomiseTestDBSequences(db))
 }
 
 func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
@@ -819,6 +822,38 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 		err = multierr.Append(err, gerr)
 	}
 	return
+}
+
+type failedToSetupTestPGError struct{}
+
+func (m *failedToSetupTestPGError) Error() string {
+	return "failed to setup pgtest"
+}
+
+// randomiseTestDBSequences randomizes sequenced table columns sequence
+// This is necessary as to avoid false positives in some test cases.
+func randomiseTestDBSequences(db *sqlx.DB) error {
+	seqRows, err := db.Query(`SELECT sequence_schema, sequence_name FROM information_schema.sequences WHERE sequence_schema = $1`, "public")
+	if err != nil {
+		return fmt.Errorf("failed to setup pgtest, error fetching sequences: %s", err)
+	}
+
+	defer seqRows.Close()
+	for seqRows.Next() {
+		var sequenceSchema, sequenceName string
+		if err = seqRows.Scan(&sequenceSchema, &sequenceName); err != nil {
+			return fmt.Errorf("%s: failed to setup pgtest, failed scanning sequence rows: %s", failedToSetupTestPGError{}, err)
+		}
+		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, rand.Intn(10000))); err != nil {
+			return fmt.Errorf("%s: failed to setup pgtest, failed to alter and restart %s sequence: %w", failedToSetupTestPGError{}, sequenceName, err)
+		}
+	}
+
+	if err = seqRows.Err(); err != nil {
+		return fmt.Errorf("%s: failed to setup pgtest, failed to iterate through sequences: %w", failedToSetupTestPGError{}, err)
+	}
+
+	return nil
 }
 
 // PrepareTestDatabaseUserOnly calls ResetDatabase then loads only user fixtures required for local
