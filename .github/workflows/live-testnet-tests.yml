@@ -138,7 +138,7 @@ jobs:
           - product: OCR
             test: TestOCRBasic
           - product: Automation
-            test: TestAutomationBasic
+            test: TestAutomationBasic/registry_2_0
     name: Optimism Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -197,7 +197,7 @@ jobs:
           - product: OCR
             test: TestOCRBasic
           - product: Automation
-            test: TestAutomationBasic
+            test: TestAutomationBasic/registry_2_0
     name: Arbitrum Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
