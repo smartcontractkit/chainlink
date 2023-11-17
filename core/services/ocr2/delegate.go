@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/coordinator"
@@ -174,6 +175,7 @@ type ocr2Config interface {
 	DatabaseTimeout() time.Duration
 	KeyBundleID() (string, error)
 	TraceLogging() bool
+	CaptureAutomationCustomTelemetry() bool
 }
 
 type insecureConfig interface {
@@ -1161,7 +1163,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 	)
 
-	return []job.ServiceCtx{
+	automationServices := []job.ServiceCtx{
 		runResultSaver,
 		keeperProvider,
 		services.Registry(),
@@ -1171,7 +1173,24 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		services.UpkeepStateStore(),
 		services.TransmitEventProvider(),
 		pluginService,
-	}, nil
+	}
+
+	if cfg.CaptureAutomationCustomTelemetry != nil && *cfg.CaptureAutomationCustomTelemetry ||
+		cfg.CaptureAutomationCustomTelemetry == nil && d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
+		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.AutomationCustom)
+		customTelemService, custErr := autotelemetry21.NewAutomationCustomTelemetryService(
+			endpoint,
+			lggr,
+			services.BlockSubscriber(),
+			keeperProvider.ContractConfigTracker(),
+		)
+		if custErr != nil {
+			return nil, errors.Wrap(custErr, "Error when creating AutomationCustomTelemetryService")
+		}
+		automationServices = append(automationServices, customTelemService)
+	}
+
+	return automationServices, nil
 }
 
 func (d *Delegate) newServicesOCR2Keepers20(
