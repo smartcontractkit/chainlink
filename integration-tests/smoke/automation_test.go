@@ -1003,7 +1003,7 @@ func TestUpdateCheckData(t *testing.T) {
 }
 
 type TestConfig struct {
-	ChainlinkNodeFunding float64 `envconfig:"CHAINLINK_NODE_FUNDING" default:"1"`
+	ChainlinkNodeFunding float64 `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"`
 }
 
 func setupAutomationTestDocker(

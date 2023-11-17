@@ -78,7 +78,7 @@ jobs:
           - product: OCR
             test: TestOCRBasic
           - product: Automation
-            test: TestAutomationBasic
+            test: TestAutomationBasic/registry_2_0
     name: Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
