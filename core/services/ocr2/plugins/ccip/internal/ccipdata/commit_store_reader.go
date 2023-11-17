@@ -99,6 +99,7 @@ type CommitStoreReader interface {
 	// GetAcceptedCommitReportsGteSeqNum returns all the accepted commit reports that have max sequence number greater than or equal to the provided.
 	GetAcceptedCommitReportsGteSeqNum(ctx context.Context, seqNum uint64, confs int) ([]Event[CommitStoreReport], error)
 	// GetAcceptedCommitReportsGteTimestamp returns all the commit reports with timestamp greater than or equal to the provided.
+	// Returned Commit Reports have to be sorted by Interval.Min/Interval.Max in ascending order.
 	GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confs int) ([]Event[CommitStoreReport], error)
 	IsDown(ctx context.Context) (bool, error)
 	IsBlessed(ctx context.Context, root [32]byte) (bool, error)
