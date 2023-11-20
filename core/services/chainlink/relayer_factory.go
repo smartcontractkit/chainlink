@@ -9,9 +9,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
@@ -250,7 +250,7 @@ func (c CosmosFactoryConfig) Validate() error {
 	return err
 }
 
-func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.ID]CosmosLoopRelayerChainer, error) {
+func (r *RelayerFactory) NewCosmos(config CosmosFactoryConfig) (map[relay.ID]CosmosLoopRelayerChainer, error) {
 	err := config.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("cannot create Cosmos relayer: %w", err)

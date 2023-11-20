@@ -10,9 +10,9 @@ import (
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -84,7 +84,7 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 	case functions.MethodSecretsSet:
 		if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
 			h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayId, "address", fromAddr, "balance", balance, "minBalance", h.minimumBalance)
-			response := functions.SecretsResponseBase{
+			response := functions.ResponseBase{
 				Success:      false,
 				ErrorMessage: "user subscription has insufficient balance",
 			}

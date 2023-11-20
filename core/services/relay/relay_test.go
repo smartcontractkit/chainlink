@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 func TestIdentifier_UnmarshalString(t *testing.T) {

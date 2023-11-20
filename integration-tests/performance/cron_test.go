@@ -121,7 +121,7 @@ func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
 HTTPWriteTimout = '300s'`
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 1,
-		"toml":     client.AddNetworksConfig(baseTOML, network),
+		"toml":     networks.AddNetworksConfig(baseTOML, network),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

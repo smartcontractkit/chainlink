@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/umbracle/ethgo/abi"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -34,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 )
 
 // Keeper is the keepers commands handler
@@ -719,7 +720,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		log.Printf("registry version is %s", v)
 		log.Printf("active upkeep ids: %v", activeUpkeepIds)
 
-		adminBytes, err := json.Marshal(evm.UpkeepPrivilegeConfig{
+		adminBytes, err := json.Marshal(streams.UpkeepPrivilegeConfig{
 			MercuryEnabled: true,
 		})
 		if err != nil {

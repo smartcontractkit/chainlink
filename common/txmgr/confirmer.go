@@ -14,8 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/chains/label"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -1025,7 +1025,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 // This operates completely orthogonal to the normal Confirmer and can result in untracked attempts!
 // Only for emergency usage.
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ForceRebroadcast(seqs []SEQ, fee FEE, address ADDR, overrideGasLimit uint32) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ForceRebroadcast(ctx context.Context, seqs []SEQ, fee FEE, address ADDR, overrideGasLimit uint32) error {
 	if len(seqs) == 0 {
 		ec.lggr.Infof("ForceRebroadcast: No sequences provided. Skipping")
 		return nil
@@ -1034,13 +1034,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 
 	for _, seq := range seqs {
 
-		etx, err := ec.txStore.FindTxWithSequence(context.TODO(), address, seq)
+		etx, err := ec.txStore.FindTxWithSequence(ctx, address, seq)
 		if err != nil {
 			return errors.Wrap(err, "ForceRebroadcast failed")
 		}
 		if etx == nil {
 			ec.lggr.Debugf("ForceRebroadcast: no tx found with sequence %s, will rebroadcast empty transaction", seq)
-			hashStr, err := ec.sendEmptyTransaction(context.TODO(), address, seq, overrideGasLimit, fee)
+			hashStr, err := ec.sendEmptyTransaction(ctx, address, seq, overrideGasLimit, fee)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to send empty transaction", "sequence", seq, "err", err)
 				continue
@@ -1058,7 +1058,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 			}
 			attempt.Tx = *etx // for logging
 			ec.lggr.Debugw("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt)
-			if errCode, err := ec.client.SendTransactionReturnCode(context.TODO(), *etx, attempt, ec.lggr); errCode != client.Successful && err != nil {
+			if errCode, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr); errCode != client.Successful && err != nil {
 				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast tx %v with sequence %v and gas limit %v: %s", etx.ID, *etx.Sequence, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.TxFee)
 				continue
 			}

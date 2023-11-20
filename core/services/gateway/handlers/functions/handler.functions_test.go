@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -47,7 +47,7 @@ func newFunctionsHandlerForATestDON(t *testing.T, nodes []gc.TestNode, requestTi
 	require.NoError(t, err)
 	nodeRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
-	pendingRequestsCache := hc.NewRequestCache[functions.PendingSecretsRequest](requestTimeout, 1000)
+	pendingRequestsCache := hc.NewRequestCache[functions.PendingRequest](requestTimeout, 1000)
 	handler := functions.NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, minBalance, userRateLimiter, nodeRateLimiter, logger.TestLogger(t))
 	return handler, don, allowlist, subscriptions
 }
@@ -128,7 +128,7 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 				response := <-callbachCh
 				require.Equal(t, api.NoError, response.ErrCode)
 				require.Equal(t, userRequestMsg.Body.MessageId, response.Msg.Body.MessageId)
-				var payload functions.CombinedSecretsResponse
+				var payload functions.CombinedResponse
 				require.NoError(t, json.Unmarshal(response.Msg.Body.Payload, &payload))
 				require.Equal(t, test.expectedGatewayResult, payload.Success)
 				require.Equal(t, test.expectedNodeMessageCount, len(payload.NodeResponses))

@@ -14,10 +14,11 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -433,7 +434,7 @@ type DirectRequestSpec struct {
 	ContractAddress          ethkey.EIP55Address      `toml:"contractAddress"`
 	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
 	Requesters               models.AddressCollection `toml:"requesters"`
-	MinContractPayment       *assets.Link             `toml:"minContractPaymentLinkJuels"`
+	MinContractPayment       *commonassets.Link       `toml:"minContractPaymentLinkJuels"`
 	EVMChainID               *utils.Big               `toml:"evmChainID"`
 	CreatedAt                time.Time                `toml:"-"`
 	UpdatedAt                time.Time                `toml:"-"`
@@ -474,7 +475,7 @@ type FluxMonitorSpec struct {
 	DrumbeatSchedule    string
 	DrumbeatRandomDelay time.Duration
 	DrumbeatEnabled     bool
-	MinPayment          *assets.Link
+	MinPayment          *commonassets.Link
 	EVMChainID          *utils.Big `toml:"evmChainID"`
 	CreatedAt           time.Time  `toml:"-"`
 	UpdatedAt           time.Time  `toml:"-"`

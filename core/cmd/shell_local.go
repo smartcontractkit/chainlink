@@ -32,8 +32,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -559,6 +559,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
+	ctx := s.ctx()
 	beginningNonce := c.Int64("beginningNonce")
 	endingNonce := c.Int64("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
@@ -588,7 +589,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
-	app, err := s.AppFactory.NewApplication(context.TODO(), s.Config, lggr, db)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, db)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -604,7 +605,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	ethClient := chain.Client()
 
-	err = ethClient.Dial(context.TODO())
+	err = ethClient.Dial(ctx)
 	if err != nil {
 		return err
 	}
@@ -643,7 +644,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	for i := int64(0); i < totalNonces; i++ {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
-	err = ec.ForceRebroadcast(nonces, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, address, uint32(overrideGasLimit))
+	err = ec.ForceRebroadcast(ctx, nonces, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, address, uint32(overrideGasLimit))
 	return s.errorOut(err)
 }
 

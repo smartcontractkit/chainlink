@@ -7,10 +7,10 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -121,7 +121,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 // InitCosmos is a option for instantiating Cosmos relayers
 func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		adapters, err2 := factory.NewCosmos(ctx, config)
+		adapters, err2 := factory.NewCosmos(config)
 		if err2 != nil {
 			return fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
 		}

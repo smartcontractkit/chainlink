@@ -10,7 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -57,7 +57,7 @@ type gatewayConnector struct {
 	gateways    map[string]*gatewayState
 	urlToId     map[string]string
 	closeWait   sync.WaitGroup
-	shutdownCh  chan struct{}
+	shutdownCh  services.StopChan
 	lggr        logger.Logger
 }
 
@@ -143,7 +143,7 @@ func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, 
 }
 
 func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
-	ctx, cancel := utils.StopChan(c.shutdownCh).NewCtx()
+	ctx, cancel := c.shutdownCh.NewCtx()
 	defer cancel()
 
 	for {
@@ -168,7 +168,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 
 func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 	redialBackoff := utils.NewRedialBackoff()
-	ctx, cancel := utils.StopChan(c.shutdownCh).NewCtx()
+	ctx, cancel := c.shutdownCh.NewCtx()
 	defer cancel()
 
 	for {

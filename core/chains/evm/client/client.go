@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
