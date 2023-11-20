@@ -329,22 +329,12 @@ jobs:
           | select(.name == "Run Tests")
           | { conclusion: .conclusion, product: $job.name }')
 
-          while read -r obj; do
-            conclusion=$(echo $obj | jq -r '.conclusion')
-            product=$(echo $obj | jq -r '.product')
+          FORMATTED_RESULTS=$(echo $RESULTS | jq -s '[.[] 
+          | { conclusion: if .conclusion == "success" then ":white_check_mark:" else ":x:" end, product: .product }]
+          | map("{'type': 'section', 'text': {'type': 'mrkdwn', 'text': \(.product): \(.conclusion)}}")
+          | join(",")'
 
-            echo "Product: $product"
-            echo "Conclusion: $conclusion"
-          done <<< "$RESULTS"
-
-          echo "status=$(curl \
-          -H "Authorization: Bearer ${{ github.token }}" \
-          'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq -r '.jobs[]
-          | select(.name | test("Arbitrum Goerli (\\w+) Tests")) as $job
-          | $job.steps[]
-          | select(.name == "Run Tests")
-          | { conclusion: .conclusion, product: $job.name }')" >> $GITHUB_OUTPUT
+          echo formatted_results=$FORMATTED_RESULTS >> $GITHUB_OUTPUT
 
       - name: Test Details
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
@@ -368,13 +358,7 @@ jobs:
                     {
                       "type": "divider"
                     },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "OCR ${{ steps.test-results.outputs.status == 'success' && ':white_check_mark:' || ':x:'}}"
-                      }
-                    }
+                    ${{ steps.test-results.outputs.formatted_results }}
                   ]
                 }
               ]
