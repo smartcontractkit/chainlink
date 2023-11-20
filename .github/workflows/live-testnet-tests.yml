@@ -367,7 +367,7 @@ jobs:
                     {
                       "type": "divider"
                     },
-                    ${{ steps.test-results.outputs.formatted_results }}
+                    ${{ steps.test-results.outputs.results }}
                   ]
                 }
               ]
