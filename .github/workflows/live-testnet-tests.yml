@@ -313,7 +313,7 @@ jobs:
         run: |
           echo "Querying test results"
 
-          RESULTS=$(curl \
+          PARSED_RESULTS=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
           | jq -r '.jobs[]
@@ -322,10 +322,18 @@ jobs:
           | select(.name == "Run Tests")
           | { conclusion: .conclusion, product: $job.name }')
 
-          echo "Results:"
-          echo $RESULTS
+          echo "Parsed Results:"
+          echo $PARSED_RESULTS
 
-          FORMATTED_RESULTS=$(echo $RESULTS | jq -s '[.[] 
+          ALL_SUCCESS=true
+          for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != "success")'); do
+              success=false
+              break
+          done
+
+          echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
+
+          FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[] 
           | { 
             conclusion: .conclusion, 
             product: .product 
@@ -354,13 +362,13 @@ jobs:
               "thread_ts": "${{ needs.testnet-smoke-tests-notify.outputs.thread_ts }}",
               "attachments": [
                 {
-                  "color": "${{ steps.test-results.outputs.status == 'success' && '#2E7D32' || '#C62828' }}",
+                  "color": "${{ steps.test-results.outputs.all_success && '#2E7D32' || '#C62828' }}",
                   "blocks": [
                     {
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "${{ matrix.network }} Smoke Test Results ${{ steps.test-results.outputs.status == 'success' && ':white_check_mark:' || ':x:'}}",
+                        "text": "${{ matrix.network }} Smoke Test Results ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x:'}}",
                         "emoji": true
                       }
                     },
