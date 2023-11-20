@@ -84,7 +84,7 @@ type client struct {
 
 	consecutiveTimeoutCnt atomic.Int32
 	wg                    sync.WaitGroup
-	chStop                utils.StopChan
+	chStop                services.StopChan
 	chResetTransport      chan struct{}
 
 	timeoutCountMetric         prometheus.Counter
@@ -106,7 +106,7 @@ func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []by
 		serverURL:                  serverURL,
 		logger:                     lggr.Named("WSRPC").With("mercuryServerURL", serverURL),
 		chResetTransport:           make(chan struct{}, 1),
-		chStop:                     make(chan struct{}),
+		chStop:                     make(services.StopChan),
 		timeoutCountMetric:         timeoutCount.WithLabelValues(serverURL),
 		dialCountMetric:            dialCount.WithLabelValues(serverURL),
 		dialSuccessCountMetric:     dialSuccessCount.WithLabelValues(serverURL),

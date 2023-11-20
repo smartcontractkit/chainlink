@@ -5,11 +5,14 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
@@ -19,7 +22,7 @@ import (
 )
 
 type AutomationCustomTelemetryService struct {
-	utils.StartStopOnce
+	services.StateMachine
 	monitoringEndpoint    commontypes.MonitoringEndpoint
 	blockSubscriber       *evm21.BlockSubscriber
 	blockSubChanID        int
