@@ -30,6 +30,8 @@ on:
           - "KROMA_SEPOLIA"
           - "WEMIX_TESTNET"
           - "WEMIX_MAINNET"
+          - "Kava_MAINNET"
+          - "Kava_TESTNET"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
