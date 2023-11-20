@@ -329,7 +329,7 @@ jobs:
           | select(.name | test($pattern)) as $job
           | $job.steps[]
           | select(.name == "Run Tests")
-          | { conclusion: (if .conclusion == "success" then "white_check_mark" else ":x:" end), product: ($job.name | capture($pattern).product) }')
+          | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), product: ($job.name | capture($pattern).product) }')
 
           echo "Parsed Results:"
           echo $PARSED_RESULTS
