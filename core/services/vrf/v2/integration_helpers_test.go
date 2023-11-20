@@ -1768,7 +1768,7 @@ func getMetricInt64(c prometheus.Collector) (int64, error) {
 
 	pb := &dto.Metric{}
 	if err := m.Write(pb); err != nil {
-		panic(fmt.Errorf("error happened while collecting metrics: %w", err))
+		return 0.0, fmt.Errorf("error happened while collecting metrics: %w", err)
 	}
 	if pb.Gauge != nil {
 		return int64(pb.Gauge.GetValue()), nil
@@ -1779,5 +1779,5 @@ func getMetricInt64(c prometheus.Collector) (int64, error) {
 	if pb.Untyped != nil {
 		return int64(pb.Untyped.GetValue()), nil
 	}
-	panic(fmt.Errorf("collected a non-gauge/counter/untyped metric: %s", pb))
+	return 0.0, fmt.Errorf("collected a non-gauge/counter/untyped metric: %s", pb)
 }

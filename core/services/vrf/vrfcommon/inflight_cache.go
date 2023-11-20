@@ -28,14 +28,14 @@ type inflightCache struct {
 	lastPruneHeight uint64
 
 	// mu synchronizes access to the delivered map.
-	mu sync.Mutex
+	mu sync.RWMutex
 }
 
 func NewInflightCache(lookback int) InflightCache {
 	return &inflightCache{
 		cache:    make(map[logKey]struct{}),
 		lookback: lookback,
-		mu:       sync.Mutex{},
+		mu:       sync.RWMutex{},
 	}
 }
 
@@ -58,6 +58,9 @@ func (c *inflightCache) Add(lg types.Log) {
 }
 
 func (c *inflightCache) Contains(lg types.Log) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	_, ok := c.cache[logKey{
 		blockHash:   lg.BlockHash,
 		blockNumber: lg.BlockNumber,
