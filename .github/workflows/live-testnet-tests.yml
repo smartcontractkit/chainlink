@@ -316,32 +316,26 @@ jobs:
       - name: Get Results
         id: test-results
         run: |
+          # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
           echo "Querying test results"
 
           # DEBUG: Mocking this for faster iterations
-          # PARSED_RESULTS=$(curl \
-          # -H "Authorization: Bearer ${{ github.token }}" \
           # 'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          # | jq -r '.jobs[]
-          # | select(.name | test("${{ matrix.network }} (\\w+) Tests")) as $job
-          # | $job.steps[]
-          # | select(.name == "Run Tests")
-          # | { conclusion: .conclusion, product: $job.name }')
 
           PARSED_RESULTS=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/smartcontractkit/chainlink/actions/runs/6934223720/jobs' \
-          | jq -r '.jobs[]
-          | select(.name | test("${{ matrix.network }} (\\w+) Tests")) as $job
+          | jq -r --arg pattern "${{ matrix.network }} (?<product>\\w+) Tests" '.jobs[]
+          | select(.name | test($pattern)) as $job
           | $job.steps[]
           | select(.name == "Run Tests")
-          | { conclusion: .conclusion, product: $job.name }')
+          | { conclusion: (if .conclusion == "success" then "white_check_mark" else ":x:" end), product: ($job.name | capture($pattern).product) }'))
 
           echo "Parsed Results:"
           echo $PARSED_RESULTS
 
           ALL_SUCCESS=true
-          for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != "success")'); do
+          for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
               success=false
               break
           done
