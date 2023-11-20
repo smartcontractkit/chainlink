@@ -31,7 +31,7 @@ type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct
 	callbacks      callbackSet[H, BLOCK_HASH]
 	mailbox        *utils.Mailbox[H]
 	mutex          sync.Mutex
-	chClose        utils.StopChan
+	chClose        services.StopChan
 	wgDone         sync.WaitGroup
 	latest         H
 	lastCallbackID int

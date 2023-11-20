@@ -14,20 +14,19 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func NewPlugin(lggr logger.Logger) *Plugin {
 	return &Plugin{
 		Plugin:               loop.Plugin{Logger: lggr},
 		MedianProviderServer: reportingplugins.MedianProviderServer{},
-		stop:                 make(utils.StopChan),
+		stop:                 make(services.StopChan),
 	}
 }
 
 type Plugin struct {
 	loop.Plugin
-	stop utils.StopChan
+	stop services.StopChan
 	reportingplugins.MedianProviderServer
 }
 

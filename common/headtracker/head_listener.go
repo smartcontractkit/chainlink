@@ -9,6 +9,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -35,7 +37,7 @@ type HeadListener[
 	config           htrktypes.Config
 	client           htrktypes.Client[HTH, S, ID, BLOCK_HASH]
 	logger           logger.Logger
-	chStop           utils.StopChan
+	chStop           services.StopChan
 	chHeaders        chan HTH
 	headSubscription types.Subscription
 	connected        atomic.Bool
