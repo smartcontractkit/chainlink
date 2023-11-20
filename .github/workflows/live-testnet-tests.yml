@@ -260,7 +260,7 @@ jobs:
     needs: [optimism-goerli-smoke-tests, arbitrum-goerli-smoke-tests]
     steps:
       - name: Debug Result
-        run: echo ${{needs.*.result}}
+        run: echo ${{ join(needs.*.result, ',') }}
       - name: Main Slack Notification
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         id: slack
@@ -270,13 +270,13 @@ jobs:
             {
               "attachments": [
                 {
-                  "color": "${{ needs.*.result == 'success' && '#2E7D32' || '#C62828' }}",
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || '#2E7D32' }}",
                   "blocks": [
                     {
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "Live Smoke Test Results ${{ needs.*.result == 'success' && ':white_check_mark:' || ':x:'}}",
+                        "text": "Live Smoke Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
                         "emoji": true
                       }
                     },
