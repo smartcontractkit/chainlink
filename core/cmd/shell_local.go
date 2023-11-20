@@ -824,9 +824,9 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	return
 }
 
-type failedToRandomiseTestDBSequences struct{}
+type failedToRandomiseTestDBSequencesError struct{}
 
-func (m *failedToRandomiseTestDBSequences) Error() string {
+func (m *failedToRandomiseTestDBSequencesError) Error() string {
 	return "failed to randomise test db sequences"
 }
 
@@ -835,29 +835,29 @@ func (m *failedToRandomiseTestDBSequences) Error() string {
 func randomiseTestDBSequences(db *sqlx.DB) error {
 	seqRows, err := db.Query(`SELECT sequence_schema, sequence_name FROM information_schema.sequences WHERE sequence_schema = $1`, "public")
 	if err != nil {
-		return fmt.Errorf("%s: error fetching sequences: %s", failedToRandomiseTestDBSequences{}, err)
+		return fmt.Errorf("%s: error fetching sequences: %s", failedToRandomiseTestDBSequencesError{}, err)
 	}
 
 	defer seqRows.Close()
 	for seqRows.Next() {
 		var sequenceSchema, sequenceName string
 		if err = seqRows.Scan(&sequenceSchema, &sequenceName); err != nil {
-			return fmt.Errorf("%s: failed scanning sequence rows: %s", failedToRandomiseTestDBSequences{}, err)
+			return fmt.Errorf("%s: failed scanning sequence rows: %s", failedToRandomiseTestDBSequencesError{}, err)
 		}
 
 		var randNum *big.Int
 		randNum, err = crand.Int(crand.Reader, utils.NewBigI(10000).ToInt())
 		if err != nil {
-			return fmt.Errorf("%s: failed to generate random number", failedToRandomiseTestDBSequences{})
+			return fmt.Errorf("%s: failed to generate random number", failedToRandomiseTestDBSequencesError{})
 		}
 
 		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)); err != nil {
-			return fmt.Errorf("%s: failed to alter and restart %s sequence: %w", failedToRandomiseTestDBSequences{}, sequenceName, err)
+			return fmt.Errorf("%s: failed to alter and restart %s sequence: %w", failedToRandomiseTestDBSequencesError{}, sequenceName, err)
 		}
 	}
 
 	if err = seqRows.Err(); err != nil {
-		return fmt.Errorf("%s: failed to iterate through sequences: %w", failedToRandomiseTestDBSequences{}, err)
+		return fmt.Errorf("%s: failed to iterate through sequences: %w", failedToRandomiseTestDBSequencesError{}, err)
 	}
 
 	return nil
