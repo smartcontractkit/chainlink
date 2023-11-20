@@ -320,15 +320,22 @@ jobs:
           | select(.name | test("${{ matrix.network }} (\\w+) Tests")) as $job
           | $job.steps[]
           | select(.name == "Run Tests")
-          | { conclusion: .conclusion, product: $job.name }')
+          | { conclusion: if .conclusion == "success" then ":white_check_mark:" else ":x:" end, product: $job.name }')
 
           echo "Results:"
           echo $RESULTS
 
           FORMATTED_RESULTS=$(echo $RESULTS | jq -s '[.[] 
-          | { conclusion: if .conclusion == "success" then ":white_check_mark:" else ":x:" end, product: .product }]
-          | map("{'type': 'section', 'text': {'type': 'mrkdwn', 'text': \(.product): \(.conclusion)}}")
-          | join(",")'
+          | { 
+            conclusion: .conclusion, 
+            product: .product 
+            }
+          ]
+          | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"\(.product): \(.conclusion)\"}}")
+          | join(",")')
+
+          echo "Formatted Results:"
+          echo $FORMATTED_RESULTS
 
           echo formatted_results=$FORMATTED_RESULTS >> $GITHUB_OUTPUT
 
