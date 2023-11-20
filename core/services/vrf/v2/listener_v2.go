@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -122,7 +121,7 @@ type listenerV2 struct {
 	job            job.Job
 	q              pg.Q
 	gethks         keystore.Eth
-	chStop         utils.StopChan
+	chStop         services.StopChan
 
 	reqAdded func() // A simple debug helper
 
