@@ -3,7 +3,7 @@ package types
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 // HeadTracker holds and stores the block experienced by a particular node in a thread safe manner.
@@ -11,7 +11,7 @@ import (
 //
 //go:generate mockery --quiet --name HeadTracker --output ../mocks/ --case=underscore
 type HeadTracker[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
-	services.ServiceCtx
+	services.Service
 	// Backfill given a head will fill in any missing heads up to the given depth
 	// (used for testing)
 	Backfill(ctx context.Context, headWithChain H, depth uint) (err error)
@@ -68,7 +68,7 @@ type NewHeadHandler[H Head[BLOCK_HASH], BLOCK_HASH Hashable] func(ctx context.Co
 //
 //go:generate mockery --quiet --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
-	services.ServiceCtx
+	services.Service
 	BroadcastNewLongestChain(H)
 	HeadBroadcasterRegistry[H, BLOCK_HASH]
 }
