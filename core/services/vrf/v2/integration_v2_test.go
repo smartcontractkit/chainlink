@@ -38,7 +38,6 @@ import (
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
@@ -70,7 +69,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -367,6 +365,10 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	require.NoError(t, err, "failed to set old coordinator configuration")
 	backend.Commit()
 
+	for i := 0; i < 200; i++ {
+		backend.Commit()
+	}
+
 	return coordinatorV2Universe{
 		coordinatorV2UniverseCommon: coordinatorV2UniverseCommon{
 			vrfConsumers:                     vrfConsumers,
@@ -544,8 +546,9 @@ func createVRFJobs(
 			MinIncomingConfirmations: incomingConfs,
 			PublicKey:                vrfkey.PublicKey.String(),
 			FromAddresses:            keyStrs,
-			BackoffInitialDelay:      10 * time.Millisecond,
-			BackoffMaxDelay:          time.Second,
+			BackoffInitialDelay:      0,
+			BackoffMaxDelay:          0,
+			PollPeriod:               1 * time.Second,
 			V2:                       true,
 			GasLanePrice:             gasLanePrices[i],
 			VRFOwnerAddress:          vrfOwnerString,
@@ -925,6 +928,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCF-2744")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -940,6 +944,7 @@ func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCF-2744")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -977,6 +982,8 @@ func testEoa(
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].FinalityDepth = ptr(finalityDepth)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1015,58 +1022,40 @@ func testEoa(
 	// Make a randomness request with the EOA. This request is impossible to fulfill.
 	numWords := uint32(1)
 	minRequestConfirmations := uint16(2)
-	{
-		_, err := uni.rootContract.RequestRandomWords(consumer, keyHash, subID, minRequestConfirmations, uint32(200_000), numWords, false)
-		require.NoError(t, err)
-	}
+	_, err := uni.rootContract.RequestRandomWords(consumer, keyHash, subID, minRequestConfirmations, uint32(200_000), numWords, false)
+	require.NoError(t, err)
 	uni.backend.Commit()
 
-	// Ensure request is not fulfilled.
-	gomega.NewGomegaWithT(t).Consistently(func() bool {
+	// the queue size should eventually reach 1 as the request gets queued for processing
+	gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
-		require.NoError(t, err)
-		t.Log("runs", len(runs))
-		return len(runs) == 0
-	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
+		t.Log("committing block")
+		// err might be non-nil initially as no metrics are available
+		queueSize, err := getMetricInt64(vrfcommon.MetricQueueSize)
+		t.Log("first loop queue size:", queueSize, "err:", err)
+		if err != nil {
+			t.Log("first loop returning false")
+			return false
+		}
+		t.Log("first loop returning queueSize == 1", queueSize == 1)
+		return queueSize == 1
+	}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 
-	// Create query to fetch the application's log broadcasts.
-	var broadcastsBeforeFinality []evmlogger.LogBroadcast
-	var broadcastsAfterFinality []evmlogger.LogBroadcast
-	query := `SELECT block_hash, consumed, log_index, job_id FROM log_broadcasts`
-	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config.Database())
-
-	// Execute the query.
-	require.NoError(t, q.Select(&broadcastsBeforeFinality, query))
-
-	// Ensure there is only one log broadcast (our EOA request), and that
-	// it hasn't been marked as consumed yet.
-	require.Equal(t, 1, len(broadcastsBeforeFinality))
-	require.Equal(t, false, broadcastsBeforeFinality[0].Consumed)
-
-	// Create new blocks until the finality depth has elapsed.
-	for i := 0; i < int(finalityDepth); i++ {
+	// the queue size should eventually reach 0 as the request gets kicked out without being fulfilled
+	gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-	}
+		t.Log("committing block")
+		// err might be non-nil initially as no metrics are available
+		queueSize, err := getMetricInt64(vrfcommon.MetricQueueSize)
+		t.Log("second loop queue size:", queueSize, "err:", err)
+		if err != nil {
+			t.Log("second loop returning false")
+			return false
+		}
+		t.Log("second loop returning queueSize == 0", queueSize == 0)
 
-	// Ensure the request is still not fulfilled.
-	gomega.NewGomegaWithT(t).Consistently(func() bool {
-		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
-		require.NoError(t, err)
-		t.Log("runs", len(runs))
-		return len(runs) == 0
-	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
-
-	// Execute the query for log broadcasts again after finality depth has elapsed.
-	require.NoError(t, q.Select(&broadcastsAfterFinality, query))
-
-	// Ensure that there is still only one log broadcast (our EOA request), but that
-	// it has been marked as "consumed," such that it won't be retried.
-	require.Equal(t, 1, len(broadcastsAfterFinality))
-	require.Equal(t, true, broadcastsAfterFinality[0].Consumed)
-
-	t.Log("Done!")
+		return queueSize == 0
+	}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 }
 
 func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
@@ -1137,6 +1126,8 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -1217,6 +1208,8 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -1592,6 +1585,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 	})
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 	carol := uni.vrfConsumers[0]

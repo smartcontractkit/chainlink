@@ -66,10 +66,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
-func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(job.Job)              {}
+func (d *Delegate) AfterJobCreated(job.Job)               {}
+func (d *Delegate) BeforeJobDeleted(job.Job)              {}
+func (d *Delegate) OnDeleteJob(job.Job, pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
@@ -160,24 +160,28 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return nil, errors.Wrap(err2, "NewAggregatorV3Interface")
 			}
 
-			return []job.ServiceCtx{v2.New(
-				chain.Config().EVM(),
-				chain.Config().EVM().GasEstimator(),
-				lV2Plus,
-				chain,
-				chain.ID(),
-				d.q,
-				v2.NewCoordinatorV2_5(coordinatorV2Plus),
-				batchCoordinatorV2,
-				vrfOwner,
-				aggregator,
-				d.pr,
-				d.ks.Eth(),
-				jb,
-				d.mailMon,
-				utils.NewHighCapacityMailbox[log.Broadcast](),
-				func() {},
-				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
+			return []job.ServiceCtx{
+				v2.New(
+					chain.Config().EVM(),
+					chain.Config().EVM().GasEstimator(),
+					lV2Plus,
+					chain,
+					chain.ID(),
+					d.q,
+					v2.NewCoordinatorV2_5(coordinatorV2Plus),
+					batchCoordinatorV2,
+					vrfOwner,
+					aggregator,
+					d.pr,
+					d.ks.Eth(),
+					jb,
+					func() {},
+					// the lookback in the deduper must be >= the lookback specified for the log poller
+					// otherwise we will end up re-delivering logs that were already delivered.
+					vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
+					vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
+				),
+			}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
@@ -225,10 +229,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.pr,
 				d.ks.Eth(),
 				jb,
-				d.mailMon,
-				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
+				// the lookback in the deduper must be >= the lookback specified for the log poller
+				// otherwise we will end up re-delivering logs that were already delivered.
+				vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
+				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
+			),
+			}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.ServiceCtx{&v1.Listener{

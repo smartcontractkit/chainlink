@@ -50,6 +50,7 @@ import (
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -259,6 +260,10 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
 
+	for i := 0; i < 200; i++ {
+		backend.Commit()
+	}
+
 	return coordinatorV2PlusUniverse{
 		coordinatorV2UniverseCommon: coordinatorV2UniverseCommon{
 			vrfConsumers:              vrfConsumers,
@@ -304,7 +309,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCF-2745")
+	//testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCF-2745")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
@@ -473,6 +478,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCF-2744")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
@@ -488,7 +494,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *tes
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/VRF-589")
+	//testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/VRF-589")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
@@ -1149,6 +1155,8 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 

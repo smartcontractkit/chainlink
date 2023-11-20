@@ -1,20 +1,82 @@
 package v2
 
 import (
+	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	heaps "github.com/theodesp/go-heaps"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
+
+type errPossiblyInsufficientFunds struct{}
+
+func (errPossiblyInsufficientFunds) Error() string {
+	return "Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available"
+}
+
+type errBlockhashNotInStore struct{}
+
+func (errBlockhashNotInStore) Error() string {
+	return "Blockhash not in store"
+}
+
+type errProofVerificationFailed struct{}
+
+func (errProofVerificationFailed) Error() string {
+	return "Proof verification failed"
+}
+
+type fulfilledReqV2 struct {
+	blockNumber uint64
+	reqID       string
+}
+
+func (a fulfilledReqV2) Compare(b heaps.Item) int {
+	a1 := a
+	a2 := b.(fulfilledReqV2)
+	switch {
+	case a1.blockNumber > a2.blockNumber:
+		return 1
+	case a1.blockNumber < a2.blockNumber:
+		return -1
+	default:
+		return 0
+	}
+}
+
+type pendingRequest struct {
+	confirmedAtBlock uint64
+	req              RandomWordsRequested
+	utcTimestamp     time.Time
+
+	// used for exponential backoff when retrying
+	attempts int
+	lastTry  time.Time
+}
+
+type vrfPipelineResult struct {
+	err error
+	// maxFee indicates how much juels (link) or wei (ether) would be paid for the VRF request
+	// if it were to be fulfilled at the maximum gas price (i.e gas lane gas price).
+	maxFee *big.Int
+	// fundsNeeded indicates a "minimum balance" in juels or wei that must be held in the
+	// subscription's account in order to fulfill the request.
+	fundsNeeded   *big.Int
+	run           *pipeline.Run
+	payload       string
+	gasLimit      uint32
+	req           pendingRequest
+	proof         VRFProof
+	reqCommitment RequestCommitment
+}
 
 // batchFulfillment contains all the information needed in order to
 // perform a batch fulfillment operation on the batch VRF coordinator.
@@ -24,7 +86,6 @@ type batchFulfillment struct {
 	totalGasLimit uint32
 	runs          []*pipeline.Run
 	reqIDs        []*big.Int
-	lbs           []log.Broadcast
 	maxFees       []*big.Int
 	txHashes      []common.Hash
 	fromAddress   common.Address
@@ -45,9 +106,6 @@ func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address, v
 		},
 		reqIDs: []*big.Int{
 			result.req.req.RequestID(),
-		},
-		lbs: []log.Broadcast{
-			result.req.lb,
 		},
 		maxFees: []*big.Int{
 			result.maxFee,
@@ -97,7 +155,6 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.
 			currBatch.totalGasLimit += result.gasLimit
 			currBatch.runs = append(currBatch.runs, result.run)
 			currBatch.reqIDs = append(currBatch.reqIDs, result.req.req.RequestID())
-			currBatch.lbs = append(currBatch.lbs, result.req.lb)
 			currBatch.maxFees = append(currBatch.maxFees, result.maxFee)
 			currBatch.txHashes = append(currBatch.txHashes, result.req.req.Raw().TxHash)
 		}
@@ -167,17 +224,15 @@ func (lsn *listenerV2) processBatch(
 	var ethTX txmgr.Tx
 	err = lsn.q.Transaction(func(tx pg.Queryer) error {
 		if err = lsn.pipelineRunner.InsertFinishedRuns(batch.runs, true, pg.WithQueryer(tx)); err != nil {
-			return errors.Wrap(err, "inserting finished pipeline runs")
-		}
-
-		if err = lsn.chain.LogBroadcaster().MarkManyConsumed(batch.lbs, pg.WithQueryer(tx)); err != nil {
-			return errors.Wrap(err, "mark logs consumed")
+			return fmt.Errorf("inserting finished pipeline runs: %w", err)
 		}
 
 		maxLink, maxEth := accumulateMaxLinkAndMaxEth(batch)
-		txHashes := []common.Hash{}
+		var (
+			txHashes    []common.Hash
+			reqIDHashes []common.Hash
+		)
 		copy(txHashes, batch.txHashes)
-		reqIDHashes := []common.Hash{}
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
@@ -196,8 +251,11 @@ func (lsn *listenerV2) processBatch(
 				RequestTxHashes: txHashes,
 			},
 		})
+		if err != nil {
+			return fmt.Errorf("create batch fulfillment eth transaction: %w", err)
+		}
 
-		return errors.Wrap(err, "create batch fulfillment eth transaction")
+		return nil
 	})
 	if err != nil {
 		ll.Errorw("Error enqueuing batch fulfillments, requeuing requests", "err", err)
@@ -217,35 +275,21 @@ func (lsn *listenerV2) processBatch(
 	return
 }
 
-// getUnconsumed returns the requests in the given slice that are not expired
-// and not marked consumed in the log broadcaster.
-func (lsn *listenerV2) getUnconsumed(l logger.Logger, reqs []pendingRequest) (unconsumed []pendingRequest, processed []string) {
+// getReadyAndExpired filters out requests that are expired from the given pendingRequest slice
+// and returns requests that are ready for processing.
+func (lsn *listenerV2) getReadyAndExpired(l logger.Logger, reqs []pendingRequest) (ready []pendingRequest, expired []string) {
 	for _, req := range reqs {
 		// Check if we can ignore the request due to its age.
 		if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.job.VRFSpec.RequestTimeout {
 			l.Infow("Request too old, dropping it",
 				"reqID", req.req.RequestID().String(),
 				"txHash", req.req.Raw().TxHash)
-			lsn.markLogAsConsumed(req.lb)
-			processed = append(processed, req.req.RequestID().String())
+			expired = append(expired, req.req.RequestID().String())
 			vrfcommon.IncDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2, vrfcommon.ReasonAge)
 			continue
 		}
-
-		// This check to see if the log was consumed needs to be in the same
-		// goroutine as the mark consumed to avoid processing duplicates.
-		consumed, err := lsn.chain.LogBroadcaster().WasAlreadyConsumed(req.lb)
-		if err != nil {
-			// Do not process for now, retry on next iteration.
-			l.Errorw("Could not determine if log was already consumed",
-				"reqID", req.req.RequestID().String(),
-				"txHash", req.req.Raw().TxHash,
-				"error", err)
-		} else if consumed {
-			processed = append(processed, req.req.RequestID().String())
-		} else {
-			unconsumed = append(unconsumed, req)
-		}
+		// we always check if the requests are already fulfilled prior to trying to fulfill them again
+		ready = append(ready, req)
 	}
 	return
 }
