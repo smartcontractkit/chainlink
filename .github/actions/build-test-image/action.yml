@@ -17,9 +17,6 @@ inputs:
     description: The test suites to build into the image
     default: chaos migration performance reorg smoke soak benchmark load/automationv2_1
     required: false
-  base_image_tag:
-    description: The test base image version to use, if not provided it will use the version from the ./integration-tests/go.mod file
-    required: false
   QA_AWS_ROLE_TO_ASSUME:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
     required: true
@@ -33,17 +30,69 @@ inputs:
 runs:
   using: composite
   steps:
+
+    # Base Test Image Logic
     - name: Get CTF Version
-      if: ${{ inputs.base_image_tag == '' }}
       id: version
       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
       with:
         go-project-path: ./integration-tests
         module-name: github.com/smartcontractkit/chainlink-testing-framework
-        enforce-semantic-tag: "true" # it has to be in the form of v1.2.3 or the image won't exist
+        enforce-semantic-tag: false
+    - name: Get CTF sha
+      if: steps.version.outputs.is_semantic == 'false'
+      id: short_sha
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+      shell: bash
+      run: |
+        short_sha="${VERSION##*-}"
+        echo "short sha is: ${short_sha}"
+        echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+    - name: Checkout chainlink-testing-framework
+      if: steps.version.outputs.is_semantic == 'false'
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      with:
+        repository: smartcontractkit/chainlink-testing-framework
+        ref: main
+        fetch-depth: 0
+        path: ctf
+    - name: Get long sha
+      if: steps.version.outputs.is_semantic == 'false'
+      id: long_sha
+      env:
+        SHORT_SHA: ${{ steps.short_sha.outputs.short_sha }}
+      shell: bash
+      run: |
+        cd ctf
+        long_sha=$(git rev-parse ${SHORT_SHA})
+        echo "sha is: ${long_sha}"
+        echo "long_sha=${long_sha}" >> "$GITHUB_OUTPUT"
+    - name: Check if test base image exists
+      if: steps.version.outputs.is_semantic == 'false'
+      id: check-base-image
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+      with:
+        repository: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
+        tag: ${{ steps.long_sha.outputs.long_sha }}
+        AWS_REGION: ${{ inputs.QA_AWS_REGION }}
+        AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
+    - name: Build Base Image
+      if: steps.version.outputs.is_semantic == 'false' && steps.check-base-image.outputs.exists == 'false'
+      uses: smartcontractkit/chainlink-github-actions/docker/build-push@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+      env:
+        BASE_IMAGE_NAME: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image:${{ steps.long_sha.outputs.long_sha }}
+      with:
+        tags: ${{ env.BASE_IMAGE_NAME }}
+        file: ctf/k8s/Dockerfile.base
+        AWS_REGION: ${{ inputs.QA_AWS_REGION }}
+        AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
+    # End Base Image Logic
+
+    # Test Runner Logic
     - name: Check if image exists
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
       with:
         repository: ${{ inputs.repository }}
         tag: ${{ inputs.tag }}
@@ -51,7 +100,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     - name: Build and Publish Test Runner
       if: steps.check-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/docker/build-push@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+      uses: smartcontractkit/chainlink-github-actions/docker/build-push@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
       with:
         tags: |
           ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag }}
@@ -59,7 +108,7 @@ runs:
         file: ./integration-tests/test.Dockerfile
         build-args: |
           BASE_IMAGE=${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
-          IMAGE_VERSION=${{ inputs.base_image_tag || steps.version.outputs.version }}
+          IMAGE_VERSION=${{ steps.long_sha.outputs.long_sha || steps.version.outputs.version }}
           SUITES="${{ inputs.suites }}"
         AWS_REGION: ${{ inputs.QA_AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
@@ -71,3 +120,4 @@ runs:
       run: |
         echo "### ${INPUTS_REPOSITORY} image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
         echo "\`${INPUTS_TAG}\`" >>$GITHUB_STEP_SUMMARY
+    # End Test Runner Logic

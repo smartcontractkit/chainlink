@@ -6,19 +6,19 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
-	relaymercuryv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
-	relaymercuryv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	relaymercury "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
+	relaymercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v1"
+	relaymercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v2"
+	relaymercuryv3 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v3"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
-var _ relaytypes.MercuryProvider = (*mercuryProvider)(nil)
+var _ commontypes.MercuryProvider = (*mercuryProvider)(nil)
 
 type mercuryProvider struct {
 	configWatcher *configWatcher

@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

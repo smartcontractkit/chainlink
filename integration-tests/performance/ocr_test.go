@@ -103,13 +103,9 @@ Enabled = true
 
 [P2P]
 [P2P.V2]
-Enabled = false
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]`
 
-[P2P]
-[P2P.V1]
-Enabled = true
-ListenIP = '0.0.0.0'
-ListenPort = 6690`
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 6,
 		"toml":     networks.AddNetworksConfig(baseTOML, testNetwork),

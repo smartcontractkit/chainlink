@@ -8,8 +8,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	relaymercuryv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
+	relaymercury "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
+	relaymercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v2"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
