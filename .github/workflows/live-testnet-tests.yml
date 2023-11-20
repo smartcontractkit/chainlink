@@ -206,7 +206,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Debug Pass
-        run: echo Pass
+        run: 1 == 2
       # - name: Checkout the repo
       #   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       #   with:
@@ -383,7 +383,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "${{ matrix.network }} Smoke Test Results ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x:'}}",
+                        "text": "${{ matrix.network }} Results ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x:'}}",
                         "emoji": true
                       }
                     },
