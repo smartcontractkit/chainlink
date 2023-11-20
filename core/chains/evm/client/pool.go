@@ -72,7 +72,7 @@ type Pool struct {
 	activeMu   sync.RWMutex
 	activeNode Node
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wg     sync.WaitGroup
 }
 

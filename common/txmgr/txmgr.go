@@ -90,7 +90,7 @@ type Txm[
 	reset          chan reset
 	resumeCallback ResumeCallback
 
-	chStop   chan struct{}
+	chStop   services.StopChan
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
@@ -242,7 +242,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(addr
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while Broadcaster or Confirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(addr ADDR) (err error) {
-	ctx, cancel := utils.StopChan(b.chStop).NewCtx()
+	ctx, cancel := services.StopChan(b.chStop).NewCtx()
 	defer cancel()
 	if err = b.txStore.Abandon(ctx, b.chainID, addr); err != nil {
 		return fmt.Errorf("abandon failed to update txes for key %s: %w", addr.String(), err)
