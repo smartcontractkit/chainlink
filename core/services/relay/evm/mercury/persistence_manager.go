@@ -24,7 +24,7 @@ type PersistenceManager struct {
 	orm  ORM
 
 	once   services.StateMachine
-	stopCh utils.StopChan
+	stopCh services.StopChan
 	wg     sync.WaitGroup
 
 	deleteMu    sync.Mutex
@@ -41,7 +41,7 @@ func NewPersistenceManager(lggr logger.Logger, orm ORM, jobID int32, maxTransmit
 	return &PersistenceManager{
 		lggr:                  lggr.Named("MercuryPersistenceManager"),
 		orm:                   orm,
-		stopCh:                make(chan struct{}),
+		stopCh:                make(services.StopChan),
 		jobID:                 jobID,
 		maxTransmitQueueSize:  maxTransmitQueueSize,
 		flushDeletesFrequency: flushDeletesFrequency,

@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -20,7 +22,7 @@ type Reaper[CHAIN_ID types.ID] struct {
 	log            logger.Logger
 	latestBlockNum atomic.Int64
 	trigger        chan struct{}
-	chStop         chan struct{}
+	chStop         services.StopChan
 	chDone         chan struct{}
 }
 
@@ -34,7 +36,7 @@ func NewReaper[CHAIN_ID types.ID](lggr logger.Logger, store txmgrtypes.TxHistory
 		lggr.Named("Reaper"),
 		atomic.Int64{},
 		make(chan struct{}, 1),
-		make(chan struct{}),
+		make(services.StopChan),
 		make(chan struct{}),
 	}
 	r.latestBlockNum.Store(-1)
@@ -97,7 +99,7 @@ func (r *Reaper[CHAIN_ID]) SetLatestBlockNum(latestBlockNum int64) {
 
 // ReapTxes deletes old txes
 func (r *Reaper[CHAIN_ID]) ReapTxes(headNum int64) error {
-	ctx, cancel := utils.StopChan(r.chStop).NewCtx()
+	ctx, cancel := r.chStop.NewCtx()
 	defer cancel()
 	threshold := r.txConfig.ReaperThreshold()
 	if threshold == 0 {

@@ -53,7 +53,7 @@ type HeadTracker[
 	backfillMB   *utils.Mailbox[HTH]
 	broadcastMB  *utils.Mailbox[HTH]
 	headListener types.HeadListener[HTH, BLOCK_HASH]
-	chStop       utils.StopChan
+	chStop       services.StopChan
 	wgDone       sync.WaitGroup
 	getNilHead   func() HTH
 }
