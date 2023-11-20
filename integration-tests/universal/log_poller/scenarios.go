@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -54,14 +53,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	)
 
 	// Deploy Log Emitter contracts
-	logEmitters := make([]*contracts.LogEmitter, 0)
-	for i := 0; i < cfg.General.Contracts; i++ {
-		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
-		logEmitters = append(logEmitters, &logEmitter)
-		require.NoError(t, err, "Error deploying log emitter contract")
-		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
-		time.Sleep(200 * time.Millisecond)
-	}
+	logEmitters := uploadLogEmitterContractsAndWaitForFinalisation(l, t, testEnv, cfg)
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
@@ -216,17 +208,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	)
 
 	// Deploy Log Emitter contracts
-	logEmitters := make([]*contracts.LogEmitter, 0)
-	for i := 0; i < cfg.General.Contracts; i++ {
-		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
-		logEmitters = append(logEmitters, &logEmitter)
-		require.NoError(t, err, "Error deploying log emitter contract")
-		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	//wait for contracts to be uploaded to chain, TODO: could make this wait fluent
-	time.Sleep(5 * time.Second)
+	logEmitters := uploadLogEmitterContractsAndWaitForFinalisation(l, t, testEnv, cfg)
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
@@ -297,7 +279,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 			l.Warn().Err(err).Msg("Error checking if nodes have finalised end block. Retrying...")
 		}
 		g.Expect(hasFinalised).To(gomega.BeTrue(), "Some nodes have not finalised end block")
-	}, "1m", "30s").Should(gomega.Succeed())
+	}, consistencyTimeout, "30s").Should(gomega.Succeed())
 
 	// Trigger replay
 	l.Info().Msg("Triggering log poller's replay")
@@ -333,8 +315,6 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 		g.Expect(missingLogs.IsEmpty()).To(gomega.BeTrue(), "Some CL nodes were missing logs")
 	}, consistencyTimeout, "10s").Should(gomega.Succeed())
 }
-
-type FinalityBlockFn = func(chainId int64, endBlock int64) (int64, error)
 
 func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 	l := logging.GetTestLogger(t)
@@ -373,14 +353,7 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 	)
 
 	// Deploy Log Emitter contracts
-	logEmitters := make([]*contracts.LogEmitter, 0)
-	for i := 0; i < cfg.General.Contracts; i++ {
-		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
-		logEmitters = append(logEmitters, &logEmitter)
-		require.NoError(t, err, "Error deploying log emitter contract")
-		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
-		time.Sleep(200 * time.Millisecond)
-	}
+	logEmitters := uploadLogEmitterContractsAndWaitForFinalisation(l, t, testEnv, cfg)
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)

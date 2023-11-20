@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jmoiron/sqlx"
+	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
@@ -28,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -1062,6 +1064,8 @@ func setupLogPollerTestDocker(
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 
+	waitForChainToFinaliseFirstEpoch(l, env.EVMClient)
+
 	env.ParallelTransactions(true)
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
@@ -1115,4 +1119,74 @@ func setupLogPollerTestDocker(
 	require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
 
 	return env.EVMClient, nodeClients, env.ContractDeployer, linkToken, registry, registrar, env
+}
+
+func waitForChainToFinaliseFirstEpoch(lggr zerolog.Logger, evmClient blockchain.EVMClient) error {
+	lggr.Info().Msg("Waiting for chain to finalize first epoch")
+
+	timeout := 180 * time.Second
+	pollInterval := 15 * time.Second
+	endTime := time.Now().Add(timeout)
+
+	chainStarted := false
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), pollInterval)
+		defer cancel()
+
+		finalized, err := evmClient.GetLatestFinalizedBlockHeader(ctx)
+		if err != nil {
+			if strings.Contains(err.Error(), "finalized block not found") {
+				lggr.Err(err).Msgf("error getting finalized block number for %s", evmClient.GetNetworkName())
+			} else {
+				lggr.Warn().Msgf("no epoch finalized yet for chain %s", evmClient.GetNetworkName())
+			}
+		}
+
+		if finalized != nil && finalized.Number.Int64() > 0 || time.Now().After(endTime) {
+			lggr.Info().Msgf("Chain '%s' finalized first epoch", evmClient.GetNetworkName())
+			chainStarted = true
+			break
+		}
+
+		time.Sleep(pollInterval)
+	}
+
+	if !chainStarted {
+		return fmt.Errorf("chain %s failed to finalize first epoch", evmClient.GetNetworkName())
+	}
+
+	return nil
+}
+
+func uploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testing.T, testEnv *test_env.CLClusterTestEnv, cfg *Config) []*contracts.LogEmitter {
+	// Deploy Log Emitter contracts
+	logEmitters := make([]*contracts.LogEmitter, 0)
+	for i := 0; i < cfg.General.Contracts; i++ {
+		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
+		logEmitters = append(logEmitters, &logEmitter)
+		require.NoError(t, err, "Error deploying log emitter contract")
+		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
+		time.Sleep(200 * time.Millisecond)
+	}
+	afterUploadBlock, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
+	require.NoError(t, err, "Error getting latest block number")
+
+	gom := gomega.NewGomegaWithT(t)
+	gom.Eventually(func(g gomega.Gomega) {
+		targetBlockNumber := int64(afterUploadBlock + 1)
+		finalized, err := testEnv.EVMClient.GetLatestFinalizedBlockHeader(testcontext.Get(t))
+		if err != nil {
+			l.Warn().Err(err).Msg("Error checking if contract were uploaded. Retrying...")
+			return
+		}
+		finalizedBlockNumber := finalized.Number.Int64()
+
+		if finalizedBlockNumber < targetBlockNumber {
+			l.Debug().Int64("Finalized block", finalized.Number.Int64()).Int64("After upload block", int64(afterUploadBlock+1)).Msg("Waiting for contract upload to finalise")
+		}
+
+		g.Expect(finalizedBlockNumber >= targetBlockNumber).To(gomega.BeTrue(), "Contract upload did not finalize in time")
+	}, "2m", "10s").Should(gomega.Succeed())
+
+	return logEmitters
 }
