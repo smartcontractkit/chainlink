@@ -399,28 +399,27 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 }
 
 // WithCloseChan wraps a context so that it is canceled if the passed in channel is closed.
-// Deprecated: Call StopChan.Ctx directly
+// Deprecated: Call [services.StopChan.Ctx] directly
 func WithCloseChan(parentCtx context.Context, chStop chan struct{}) (context.Context, context.CancelFunc) {
-	return StopChan(chStop).Ctx(parentCtx)
+	return services.StopChan(chStop).Ctx(parentCtx)
 }
 
 // ContextFromChan creates a context that finishes when the provided channel receives or is closed.
-// Deprecated: Call StopChan.NewCtx directly.
+// Deprecated: Call [services.StopChan.NewCtx] directly.
 func ContextFromChan(chStop chan struct{}) (context.Context, context.CancelFunc) {
-	return StopChan(chStop).NewCtx()
+	return services.StopChan(chStop).NewCtx()
 }
 
 // ContextFromChanWithTimeout creates a context with a timeout that finishes when the provided channel receives or is closed.
-// Deprecated: Call StopChan.CtxCancel directly
+// Deprecated: Call [services.StopChan.CtxCancel] directly
 func ContextFromChanWithTimeout(chStop chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
-	return StopChan(chStop).CtxCancel(context.WithTimeout(context.Background(), timeout))
+	return services.StopChan(chStop).CtxCancel(context.WithTimeout(context.Background(), timeout))
 }
 
-// A StopChan signals when some work should stop.
+// Deprecated: use services.StopChan
 type StopChan = services.StopChan
 
-// A StopRChan signals when some work should stop.
-// This version is receive-only.
+// Deprecated: use services.StopRChan
 type StopRChan = services.StopRChan
 
 // DependentAwaiter contains Dependent funcs

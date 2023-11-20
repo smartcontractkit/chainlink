@@ -128,7 +128,7 @@ func New(
 		q:                  q,
 		gethks:             gethks,
 		reqLogs:            reqLogs,
-		chStop:             make(chan struct{}),
+		chStop:             make(services.StopChan),
 		reqAdded:           reqAdded,
 		blockNumberToReqID: pairing.New(),
 		latestHeadMu:       sync.RWMutex{},
@@ -183,7 +183,7 @@ type listenerV2 struct {
 	q              pg.Q
 	gethks         keystore.Eth
 	reqLogs        *utils.Mailbox[log.Broadcast]
-	chStop         utils.StopChan
+	chStop         services.StopChan
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.

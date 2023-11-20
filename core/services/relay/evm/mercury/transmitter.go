@@ -115,7 +115,7 @@ type mercuryTransmitter struct {
 	jobID       int32
 	fromAccount string
 
-	stopCh utils.StopChan
+	stopCh services.StopChan
 	queue  *TransmitQueue
 	wg     sync.WaitGroup
 
@@ -161,7 +161,7 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		feedID,
 		jobID,
 		fmt.Sprintf("%x", fromAccount),
-		make(chan (struct{})),
+		make(services.StopChan),
 		nil,
 		sync.WaitGroup{},
 		make(chan *pb.TransmitRequest, maxDeleteQueueSize),

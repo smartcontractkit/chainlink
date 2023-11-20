@@ -3,6 +3,8 @@ package utils
 import (
 	"context"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 var _ ThreadControl = &threadControl{}
@@ -25,7 +27,7 @@ func NewThreadControl() *threadControl {
 
 type threadControl struct {
 	threadsWG sync.WaitGroup
-	stop      StopChan
+	stop      services.StopChan
 }
 
 func (tc *threadControl) Go(fn func(context.Context)) {

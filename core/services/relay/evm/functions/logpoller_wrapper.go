@@ -39,7 +39,7 @@ type logPollerWrapper struct {
 	detectedResponses         detectedEvents
 	mu                        sync.Mutex
 	closeWait                 sync.WaitGroup
-	stopCh                    utils.StopChan
+	stopCh                    services.StopChan
 	lggr                      logger.Logger
 }
 
@@ -106,7 +106,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		logPoller:                 logPoller,
 		client:                    client,
 		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
-		stopCh:                    make(utils.StopChan),
+		stopCh:                    make(services.StopChan),
 		lggr:                      lggr,
 	}, nil
 }

@@ -55,7 +55,7 @@ type onchainAllowlist struct {
 	blockConfirmations *big.Int
 	lggr               logger.Logger
 	closeWait          sync.WaitGroup
-	stopCh             utils.StopChan
+	stopCh             services.StopChan
 }
 
 func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig, lggr logger.Logger) (OnchainAllowlist, error) {
@@ -78,7 +78,7 @@ func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig,
 		contractV1:         contractV1,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
 		lggr:               lggr.Named("OnchainAllowlist"),
-		stopCh:             make(utils.StopChan),
+		stopCh:             make(services.StopChan),
 	}
 	emptyMap := make(map[common.Address]struct{})
 	allowlist.allowlist.Store(&emptyMap)

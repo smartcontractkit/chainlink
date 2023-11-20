@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -81,7 +80,7 @@ type functionsHandler struct {
 	minimumBalance  *assets.Link
 	userRateLimiter *hc.RateLimiter
 	nodeRateLimiter *hc.RateLimiter
-	chStop          utils.StopChan
+	chStop          services.StopChan
 	lggr            logger.Logger
 }
 
@@ -161,7 +160,7 @@ func NewFunctionsHandler(
 		minimumBalance:  minimumBalance,
 		userRateLimiter: userRateLimiter,
 		nodeRateLimiter: nodeRateLimiter,
-		chStop:          make(utils.StopChan),
+		chStop:          make(services.StopChan),
 		lggr:            lggr,
 	}
 }

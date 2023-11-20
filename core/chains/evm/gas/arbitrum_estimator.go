@@ -48,7 +48,7 @@ type arbitrumEstimator struct {
 
 	chForceRefetch chan (chan struct{})
 	chInitialised  chan struct{}
-	chStop         utils.StopChan
+	chStop         services.StopChan
 	chDone         chan struct{}
 }
 
