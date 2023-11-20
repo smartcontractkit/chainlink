@@ -30,6 +30,7 @@ env:
 jobs:
   build-chainlink:
     environment: integration
+    if: false # DEBUG
     permissions:
       id-token: write
       contents: read
@@ -122,6 +123,7 @@ jobs:
 
   optimism-goerli-smoke-tests:
     environment: integration
+    if: false # DEBUG
     permissions:
       checks: write
       pull-requests: write
@@ -182,6 +184,7 @@ jobs:
 
   arbitrum-goerli-smoke-tests:
     environment: integration
+    if: false # DEBUG
     permissions:
       checks: write
       pull-requests: write
@@ -242,7 +245,8 @@ jobs:
 
   testnet-smoke-tests-notify:
     name: Start Slack Thread
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    # if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: always() # DEBUG
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -294,7 +298,8 @@ jobs:
 
   testnet-smoke-tests-results:
     name: Post Test Results for ${{ matrix.network }}
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    # if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: always() # DEBUG
     environment: integration
     permissions:
       checks: write
@@ -313,9 +318,19 @@ jobs:
         run: |
           echo "Querying test results"
 
+          # DEBUG: Mocking this for faster iterations
+          # PARSED_RESULTS=$(curl \
+          # -H "Authorization: Bearer ${{ github.token }}" \
+          # 'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
+          # | jq -r '.jobs[]
+          # | select(.name | test("${{ matrix.network }} (\\w+) Tests")) as $job
+          # | $job.steps[]
+          # | select(.name == "Run Tests")
+          # | { conclusion: .conclusion, product: $job.name }')
+
           PARSED_RESULTS=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
-          'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
+          'https://api.github.com/repos/smartcontractkit/chainlink/actions/runs/6934223720/jobs' \
           | jq -r '.jobs[]
           | select(.name | test("${{ matrix.network }} (\\w+) Tests")) as $job
           | $job.steps[]
