@@ -147,6 +147,10 @@ goreleaser-dev-build: ## Run goreleaser snapshot build
 goreleaser-dev-release: ## run goreleaser snapshot release
 	./tools/bin/goreleaser_wrapper release --snapshot --rm-dist --config ${GORELEASER_CONFIG}
 
+.PHONY: modgraph
+modgraph:
+	./tools/bin/modgraph > go.md
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"
