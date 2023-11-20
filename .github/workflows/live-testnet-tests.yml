@@ -329,7 +329,13 @@ jobs:
           | select(.name == "Run Tests")
           | { conclusion: .conclusion, product: $job.name }')
 
+          while read -r obj; do
+            conclusion=$(echo $obj | jq -r '.conclusion')
+            product=$(echo $obj | jq -r '.product')
 
+            echo "Product: $product"
+            echo "Conclusion: $conclusion"
+          done <<< "$RESULTS"
 
           echo "status=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
