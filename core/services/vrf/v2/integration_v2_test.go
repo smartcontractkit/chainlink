@@ -1445,7 +1445,7 @@ func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.Ke
 		if defaultGasPrice != nil {
 			c.EVM[0].GasEstimator.PriceDefault = defaultGasPrice
 		}
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](2_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 
 		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
 		c.EVM[0].HeadTracker.SamplingInterval = models.MustNewDuration(0) // Head sampling disabled
