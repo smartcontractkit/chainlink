@@ -337,7 +337,13 @@ jobs:
           echo "Formatted Results:"
           echo $FORMATTED_RESULTS
 
-          echo formatted_results=$FORMATTED_RESULTS >> $GITHUB_OUTPUT
+          # Cleans out backslashes and quotes from jq
+          CLEAN_RESULTS=$(echo "$FORMATTED_RESULTS" | sed 's/\\\"/"/g' | sed 's/^"//;s/"$//')
+
+          echo "Clean Results"
+          echo $CLEAN_RESULTS
+
+          echo results=$CLEAN_RESULTS >> $GITHUB_OUTPUT
 
       - name: Test Details
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
