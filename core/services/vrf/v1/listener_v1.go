@@ -58,7 +58,7 @@ type Listener struct {
 	GethKs         vrfcommon.GethKeyStore
 	MailMon        *utils.MailboxMonitor
 	ReqLogs        *utils.Mailbox[log.Broadcast]
-	ChStop         utils.StopChan
+	ChStop         services.StopChan
 	WaitOnStop     chan struct{}
 	NewHead        chan struct{}
 	LatestHead     uint64

@@ -68,7 +68,7 @@ type runner struct {
 	// test helper
 	runFinished func(*Run)
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wgDone sync.WaitGroup
 }
 

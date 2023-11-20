@@ -99,7 +99,7 @@ type multiNode[
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, HEAD, RPC_CLIENT]
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wg     sync.WaitGroup
 
 	sendOnlyErrorParser func(err error) SendTxReturnCode
@@ -146,7 +146,7 @@ func NewMultiNode[
 		selectionMode:       selectionMode,
 		noNewHeadsThreshold: noNewHeadsThreshold,
 		nodeSelector:        nodeSelector,
-		chStop:              make(chan struct{}),
+		chStop:              make(services.StopChan),
 		leaseDuration:       leaseDuration,
 		chainFamily:         chainFamily,
 		sendOnlyErrorParser: sendOnlyErrorParser,

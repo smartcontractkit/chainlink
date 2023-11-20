@@ -157,10 +157,10 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	err = ec.Close()
 	require.NoError(t, err)
 
-	// Can't start more than once (Confirmer implements utils.StartStopOnce)
+	// Can't start more than once (Confirmer uses services.StateMachine)
 	err = ec.Start(ctx)
 	require.Error(t, err)
-	// Can't close more than once (Confirmer implements utils.StartStopOnce)
+	// Can't close more than once (Confirmer use services.StateMachine)
 	err = ec.Close()
 	require.Error(t, err)
 
