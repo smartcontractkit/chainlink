@@ -846,6 +846,10 @@ func randomiseTestDBSequences(db *sqlx.DB) error {
 			return fmt.Errorf("%s: failed scanning sequence rows: %s", failedToRandomiseTestDBSequencesError{}, err)
 		}
 
+		if sequenceName == "goose_migrations_id_seq" || sequenceName == "configurations_id_seq" {
+			continue
+		}
+
 		var randNum *big.Int
 		randNum, err = crand.Int(crand.Reader, utils.NewBigI(10000).ToInt())
 		if err != nil {
