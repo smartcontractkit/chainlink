@@ -320,7 +320,7 @@ jobs:
           | select(.name | test("${{ matrix.network }} (\\w+) Tests")) as $job
           | $job.steps[]
           | select(.name == "Run Tests")
-          | { conclusion: if .conclusion == "success" then ":white_check_mark:" else ":x:" end, product: $job.name }')
+          | { conclusion: .conclusion, product: $job.name }')
 
           echo "Results:"
           echo $RESULTS
