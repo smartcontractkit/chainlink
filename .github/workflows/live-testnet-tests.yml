@@ -306,14 +306,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - job: sepolia-smoke-tests
-            network: Sepolia
-            tests: [OCR, Automation]
-          - job: optimism-goerli-smoke-tests
-            network: Sepolia
-          - job: arbitrum-goerli-smoke-tests
-            network: Sepolia
+        network: [Sepolia, Optimism Goerli, Arbitrum Goerli]
     steps:
       - name: Get Results
         id: test-results
@@ -324,7 +317,7 @@ jobs:
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
           | jq -r '.jobs[]
-          | select(.name | test("Arbitrum Goerli (\\w+) Tests")) as $job
+          | select(.name | test("${{ matrix.network }} (\\w+) Tests")) as $job
           | $job.steps[]
           | select(.name == "Run Tests")
           | { conclusion: .conclusion, product: $job.name }')
