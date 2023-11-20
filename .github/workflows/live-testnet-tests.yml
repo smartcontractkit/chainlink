@@ -369,7 +369,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "${{ matrix.network }} Results ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x:'}}",
+                        "text": "${{ matrix.network }} ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x: Notifying <@U01Q4N37KFG>'}}",
                         "emoji": true
                       }
                     },
