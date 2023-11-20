@@ -52,7 +52,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	defaultOCRSettings["toml"] = networks.AddNetworksConfig(config.BaseOCRv1Config, networks.MustGetSelectedNetworksFromEnv()[0])
+	defaultOCRSettings["toml"] = networks.AddNetworksConfig(config.BaseOCR1Config, networks.MustGetSelectedNetworksFromEnv()[0])
 	os.Exit(m.Run())
 }
 

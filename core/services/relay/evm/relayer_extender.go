@@ -8,8 +8,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmchain "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -75,11 +75,11 @@ type ChainRelayerExt struct {
 
 var _ EVMChainRelayerExtender = &ChainRelayerExt{}
 
-func (s *ChainRelayerExt) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
+func (s *ChainRelayerExt) GetChainStatus(ctx context.Context) (commontypes.ChainStatus, error) {
 	return s.chain.GetChainStatus(ctx)
 }
 
-func (s *ChainRelayerExt) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, nextPageToken string, total int, err error) {
+func (s *ChainRelayerExt) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []commontypes.NodeStatus, nextPageToken string, total int, err error) {
 	return s.chain.ListNodeStatuses(ctx, pageSize, pageToken)
 }
 

@@ -11,8 +11,8 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	relaymercuryv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
+	relaymercury "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
+	relaymercuryv3 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"

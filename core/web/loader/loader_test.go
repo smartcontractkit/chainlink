@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -50,12 +50,12 @@ func TestLoader_Chains(t *testing.T) {
 	assert.Len(t, results, 3)
 	config2, err := chain2.TOMLString()
 	require.NoError(t, err)
-	want2 := relaytypes.ChainStatus{ID: "2", Enabled: true, Config: config2}
-	assert.Equal(t, want2, results[0].Data.(relaytypes.ChainStatus))
+	want2 := commontypes.ChainStatus{ID: "2", Enabled: true, Config: config2}
+	assert.Equal(t, want2, results[0].Data.(commontypes.ChainStatus))
 	config1, err := chain.TOMLString()
 	require.NoError(t, err)
-	want1 := relaytypes.ChainStatus{ID: "1", Enabled: true, Config: config1}
-	assert.Equal(t, want1, results[1].Data.(relaytypes.ChainStatus))
+	want1 := commontypes.ChainStatus{ID: "1", Enabled: true, Config: config1}
+	assert.Equal(t, want1, results[1].Data.(commontypes.ChainStatus))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
 	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
@@ -69,13 +69,13 @@ func TestLoader_Nodes(t *testing.T) {
 
 	chainID1, chainID2, notAnID := big.NewInt(1), big.NewInt(2), big.NewInt(3)
 
-	genNodeStat := func(id string) relaytypes.NodeStatus {
-		return relaytypes.NodeStatus{
+	genNodeStat := func(id string) commontypes.NodeStatus {
+		return commontypes.NodeStatus{
 			Name:    "test-node-" + id,
 			ChainID: id,
 		}
 	}
-	rcInterops := &chainlinkmocks.FakeRelayerChainInteroperators{Nodes: []relaytypes.NodeStatus{
+	rcInterops := &chainlinkmocks.FakeRelayerChainInteroperators{Nodes: []commontypes.NodeStatus{
 		genNodeStat(chainID2.String()), genNodeStat(chainID1.String()),
 	}}
 
@@ -86,9 +86,9 @@ func TestLoader_Nodes(t *testing.T) {
 	found := batcher.loadByChainIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []relaytypes.NodeStatus{genNodeStat(chainID2.String())}, found[0].Data)
-	assert.Equal(t, []relaytypes.NodeStatus{genNodeStat(chainID1.String())}, found[1].Data)
-	assert.Equal(t, []relaytypes.NodeStatus{}, found[2].Data)
+	assert.Equal(t, []commontypes.NodeStatus{genNodeStat(chainID2.String())}, found[0].Data)
+	assert.Equal(t, []commontypes.NodeStatus{genNodeStat(chainID1.String())}, found[1].Data)
+	assert.Equal(t, []commontypes.NodeStatus{}, found[2].Data)
 }
 
 func TestLoader_FeedsManagers(t *testing.T) {

@@ -14,8 +14,8 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -434,7 +434,7 @@ type DirectRequestSpec struct {
 	ContractAddress          ethkey.EIP55Address      `toml:"contractAddress"`
 	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
 	Requesters               models.AddressCollection `toml:"requesters"`
-	MinContractPayment       *relayassets.Link        `toml:"minContractPaymentLinkJuels"`
+	MinContractPayment       *commonassets.Link       `toml:"minContractPaymentLinkJuels"`
 	EVMChainID               *utils.Big               `toml:"evmChainID"`
 	CreatedAt                time.Time                `toml:"-"`
 	UpdatedAt                time.Time                `toml:"-"`
@@ -475,7 +475,7 @@ type FluxMonitorSpec struct {
 	DrumbeatSchedule    string
 	DrumbeatRandomDelay time.Duration
 	DrumbeatEnabled     bool
-	MinPayment          *relayassets.Link
+	MinPayment          *commonassets.Link
 	EVMChainID          *utils.Big `toml:"evmChainID"`
 	CreatedAt           time.Time  `toml:"-"`
 	UpdatedAt           time.Time  `toml:"-"`

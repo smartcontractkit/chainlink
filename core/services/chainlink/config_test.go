@@ -16,9 +16,9 @@ import (
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	relayassets "github.com/smartcontractkit/chainlink-relay/pkg/assets"
-	relaycfg "github.com/smartcontractkit/chainlink-relay/pkg/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
@@ -145,7 +145,7 @@ var (
 					MaxMsgsPerBatch: ptr[int64](13),
 				},
 				Nodes: []*coscfg.Node{
-					{Name: ptr("primary"), TendermintURL: relaycfg.MustParseURL("http://columbus.cosmos.com")},
+					{Name: ptr("primary"), TendermintURL: commoncfg.MustParseURL("http://columbus.cosmos.com")},
 				}},
 			{
 				ChainID: ptr("Malaga-420"),
@@ -153,7 +153,7 @@ var (
 					BlocksUntilTxTimeout: ptr[int64](20),
 				},
 				Nodes: []*coscfg.Node{
-					{Name: ptr("secondary"), TendermintURL: relaycfg.MustParseURL("http://bombay.cosmos.com")},
+					{Name: ptr("secondary"), TendermintURL: commoncfg.MustParseURL("http://bombay.cosmos.com")},
 				}},
 		},
 		Solana: []*solana.TOMLConfig{
@@ -163,16 +163,16 @@ var (
 					MaxRetries: ptr[int64](12),
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: relaycfg.MustParseURL("http://mainnet.solana.com")},
+					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://mainnet.solana.com")},
 				},
 			},
 			{
 				ChainID: ptr("testnet"),
 				Chain: solcfg.Chain{
-					OCR2CachePollPeriod: relaycfg.MustNewDuration(time.Minute),
+					OCR2CachePollPeriod: commoncfg.MustNewDuration(time.Minute),
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("secondary"), URL: relaycfg.MustParseURL("http://testnet.solana.com")},
+					{Name: ptr("secondary"), URL: commoncfg.MustParseURL("http://testnet.solana.com")},
 				},
 			},
 		},
@@ -180,10 +180,10 @@ var (
 			{
 				ChainID: ptr("foobar"),
 				Chain: stkcfg.Chain{
-					ConfirmationPoll: relaycfg.MustNewDuration(time.Hour),
+					ConfirmationPoll: commoncfg.MustNewDuration(time.Hour),
 				},
 				Nodes: []*stkcfg.Node{
-					{Name: ptr("primary"), URL: relaycfg.MustParseURL("http://stark.node")},
+					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node")},
 				},
 			},
 		},
@@ -385,7 +385,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
-		CaptureAutomationCustomTelemetry:   ptr(false),
+		CaptureAutomationCustomTelemetry:   ptr(true),
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
@@ -538,7 +538,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LogBackfillBatchSize:     ptr[uint32](17),
 				LogPollInterval:          &minute,
 				LogKeepBlocksDepth:       ptr[uint32](100000),
-				MinContractPayment:       relayassets.NewLinkFromJuels(math.MaxInt64),
+				MinContractPayment:       commonassets.NewLinkFromJuels(math.MaxInt64),
 				MinIncomingConfirmations: ptr[uint32](13),
 				NonceAutoSync:            ptr(true),
 				NoNewHeadsThreshold:      &minute,
@@ -603,13 +603,13 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
 			Chain: solcfg.Chain{
-				BalancePollPeriod:       relaycfg.MustNewDuration(time.Minute),
-				ConfirmPollPeriod:       relaycfg.MustNewDuration(time.Second),
-				OCR2CachePollPeriod:     relaycfg.MustNewDuration(time.Minute),
-				OCR2CacheTTL:            relaycfg.MustNewDuration(time.Hour),
-				TxTimeout:               relaycfg.MustNewDuration(time.Hour),
-				TxRetryTimeout:          relaycfg.MustNewDuration(time.Minute),
-				TxConfirmTimeout:        relaycfg.MustNewDuration(time.Second),
+				BalancePollPeriod:       commoncfg.MustNewDuration(time.Minute),
+				ConfirmPollPeriod:       commoncfg.MustNewDuration(time.Second),
+				OCR2CachePollPeriod:     commoncfg.MustNewDuration(time.Minute),
+				OCR2CacheTTL:            commoncfg.MustNewDuration(time.Hour),
+				TxTimeout:               commoncfg.MustNewDuration(time.Hour),
+				TxRetryTimeout:          commoncfg.MustNewDuration(time.Minute),
+				TxConfirmTimeout:        commoncfg.MustNewDuration(time.Second),
 				SkipPreflight:           ptr(true),
 				Commitment:              ptr("banana"),
 				MaxRetries:              ptr[int64](7),
@@ -617,12 +617,12 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceMax:     ptr[uint64](1000),
 				ComputeUnitPriceMin:     ptr[uint64](10),
 				ComputeUnitPriceDefault: ptr[uint64](100),
-				FeeBumpPeriod:           relaycfg.MustNewDuration(time.Minute),
+				FeeBumpPeriod:           commoncfg.MustNewDuration(time.Minute),
 			},
 			Nodes: []*solcfg.Node{
-				{Name: ptr("primary"), URL: relaycfg.MustParseURL("http://solana.web")},
-				{Name: ptr("foo"), URL: relaycfg.MustParseURL("http://solana.foo")},
-				{Name: ptr("bar"), URL: relaycfg.MustParseURL("http://solana.bar")},
+				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web")},
+				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo")},
+				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar")},
 			},
 		},
 	}
@@ -631,14 +631,14 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: ptr("foobar"),
 			Enabled: ptr(true),
 			Chain: stkcfg.Chain{
-				OCR2CachePollPeriod: relaycfg.MustNewDuration(6 * time.Hour),
-				OCR2CacheTTL:        relaycfg.MustNewDuration(3 * time.Minute),
-				RequestTimeout:      relaycfg.MustNewDuration(time.Minute + 3*time.Second),
-				TxTimeout:           relaycfg.MustNewDuration(13 * time.Second),
-				ConfirmationPoll:    relaycfg.MustNewDuration(42 * time.Second),
+				OCR2CachePollPeriod: commoncfg.MustNewDuration(6 * time.Hour),
+				OCR2CacheTTL:        commoncfg.MustNewDuration(3 * time.Minute),
+				RequestTimeout:      commoncfg.MustNewDuration(time.Minute + 3*time.Second),
+				TxTimeout:           commoncfg.MustNewDuration(13 * time.Second),
+				ConfirmationPoll:    commoncfg.MustNewDuration(42 * time.Second),
 			},
 			Nodes: []*stkcfg.Node{
-				{Name: ptr("primary"), URL: relaycfg.MustParseURL("http://stark.node")},
+				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node")},
 			},
 		},
 	}
@@ -648,21 +648,21 @@ func TestConfig_Marshal(t *testing.T) {
 			Enabled: ptr(true),
 			Chain: coscfg.Chain{
 				Bech32Prefix:         ptr("wasm"),
-				BlockRate:            relaycfg.MustNewDuration(time.Minute),
+				BlockRate:            commoncfg.MustNewDuration(time.Minute),
 				BlocksUntilTxTimeout: ptr[int64](12),
-				ConfirmPollPeriod:    relaycfg.MustNewDuration(time.Second),
+				ConfirmPollPeriod:    commoncfg.MustNewDuration(time.Second),
 				FallbackGasPrice:     mustDecimal("0.001"),
 				GasToken:             ptr("ucosm"),
 				GasLimitMultiplier:   mustDecimal("1.2"),
 				MaxMsgsPerBatch:      ptr[int64](17),
-				OCR2CachePollPeriod:  relaycfg.MustNewDuration(time.Minute),
-				OCR2CacheTTL:         relaycfg.MustNewDuration(time.Hour),
-				TxMsgTimeout:         relaycfg.MustNewDuration(time.Second),
+				OCR2CachePollPeriod:  commoncfg.MustNewDuration(time.Minute),
+				OCR2CacheTTL:         commoncfg.MustNewDuration(time.Hour),
+				TxMsgTimeout:         commoncfg.MustNewDuration(time.Second),
 			},
 			Nodes: []*coscfg.Node{
-				{Name: ptr("primary"), TendermintURL: relaycfg.MustParseURL("http://tender.mint")},
-				{Name: ptr("foo"), TendermintURL: relaycfg.MustParseURL("http://foo.url")},
-				{Name: ptr("bar"), TendermintURL: relaycfg.MustParseURL("http://bar.web")},
+				{Name: ptr("primary"), TendermintURL: commoncfg.MustParseURL("http://tender.mint")},
+				{Name: ptr("foo"), TendermintURL: commoncfg.MustParseURL("http://foo.url")},
+				{Name: ptr("bar"), TendermintURL: commoncfg.MustParseURL("http://bar.web")},
 			},
 		},
 	}
@@ -848,7 +848,7 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = false
+CaptureAutomationCustomTelemetry = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false

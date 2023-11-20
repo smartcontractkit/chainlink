@@ -25,7 +25,7 @@ runs:
   steps:
     - name: Check if image exists
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
       with:
         repository: chainlink
         tag: ${{ inputs.git_commit_sha }}${{ inputs.tag_suffix }}
@@ -33,7 +33,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
     - name: Build Image
       if: steps.check-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
       with:
         cl_repo: smartcontractkit/chainlink
         cl_ref: ${{ inputs.git_commit_sha }}
