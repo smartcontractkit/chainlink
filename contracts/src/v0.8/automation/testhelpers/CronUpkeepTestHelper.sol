@@ -3,7 +3,7 @@
 pragma solidity 0.8.6;
 
 import "../upkeeps/CronUpkeep.sol";
-import {Cron, Spec} from "../libraries/internal/Cron.sol";
+import {ICron, Spec} from "../libraries/internal/ICron.sol";
 
 /**
  * @title The CronUpkeepTestHelper contract
@@ -11,8 +11,8 @@ import {Cron, Spec} from "../libraries/internal/Cron.sol";
  * It is only intended for use in tests.
  */
 contract CronUpkeepTestHelper is CronUpkeep {
-  using Cron for Spec;
-  using Cron for string;
+  using ICron for Spec;
+  using ICron for string;
 
   constructor(
     address owner,

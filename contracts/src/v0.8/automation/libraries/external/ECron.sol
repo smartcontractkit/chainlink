@@ -1,6 +1,6 @@
 pragma solidity 0.8.6;
 
-import {Cron as CronInternal, Spec} from "../internal/Cron.sol";
+import {ICron as CronInternal, Spec} from "../internal/ICron.sol";
 
 /**
  * @title The Cron library
@@ -10,7 +10,7 @@ import {Cron as CronInternal, Spec} from "../internal/Cron.sol";
  * @dev this is the external version of the library, which relies on the internal library
  * by the same name.
  */
-library Cron {
+library ECron {
   using CronInternal for Spec;
   using CronInternal for string;
 

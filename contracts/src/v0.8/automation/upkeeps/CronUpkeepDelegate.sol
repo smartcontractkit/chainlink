@@ -3,7 +3,7 @@
 pragma solidity 0.8.6;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {Cron, Spec} from "../libraries/internal/Cron.sol";
+import {ICron, Spec} from "../libraries/internal/ICron.sol";
 
 /**
  * @title The CronUpkeepDelegate contract
@@ -13,7 +13,7 @@ import {Cron, Spec} from "../libraries/internal/Cron.sol";
  */
 contract CronUpkeepDelegate {
   using EnumerableSet for EnumerableSet.UintSet;
-  using Cron for Spec;
+  using ICron for Spec;
 
   address private s_owner; // from ConfirmedOwner
   address private s_delegate;

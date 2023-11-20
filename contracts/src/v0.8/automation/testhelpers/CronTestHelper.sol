@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.6;
 
-import {Cron as CronInternal, Spec} from "../libraries/internal/Cron.sol";
-import {Cron as CronExternal} from "../libraries/external/Cron.sol";
+import {ICron as CronInternal, Spec} from "../libraries/internal/ICron.sol";
+import {ECron as CronExternal} from "../libraries/external/ECron.sol";
 
 /**
  * @title The CronInternalTestHelper contract
