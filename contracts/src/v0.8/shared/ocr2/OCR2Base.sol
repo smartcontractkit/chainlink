@@ -1,26 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ConfirmedOwner} from "../access/ConfirmedOwner.sol";
+import {OwnerIsCreator} from "../access/OwnerIsCreator.sol";
 import {OCR2Abstract} from "./OCR2Abstract.sol";
 
-/**
- * @notice Onchain verification of reports from the offchain reporting protocol
- * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
- * @dev For details on its operation, see the offchain reporting protocol design
- * doc, which refers to this contract as simply the "contract".
- * @dev This contract is meant to aid rapid development of new applications based on OCR2.
- * However, for actual production contracts, it is expected that most of the logic of this contract
- * will be folded directly into the application contract. Inheritance prevents us from doing lots
- * of juicy storage layout optimizations, leading to a substantial increase in gas cost.
- */
+/// @notice Onchain verification of reports from the offchain reporting protocol
+/// @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
+/// @dev For details on its operation, see the offchain reporting protocol design
+/// doc, which refers to this contract as simply the "contract".
+/// @dev This contract is meant to aid rapid development of new applications based on OCR2.
+/// However, for actual production contracts, it is expected that most of the logic of this contract
+/// will be folded directly into the application contract. Inheritance prevents us from doing lots
+/// of juicy storage layout optimizations, leading to a substantial increase in gas cost.
 // solhint-disable custom-errors
-abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
+abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
   error ReportInvalid();
 
   bool internal immutable i_uniqueReports;
 
-  constructor(bool uniqueReports) ConfirmedOwner(msg.sender) {
+  constructor(bool uniqueReports) OwnerIsCreator() {
     i_uniqueReports = uniqueReports;
   }
 
@@ -29,7 +27,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   // added, make sure that storage of the struct still takes at most 32 bytes.
   struct ConfigInfo {
     bytes32 latestConfigDigest;
-    uint8 f; // TODO: could be optimized by squeezing into one slot
+    uint8 f;
     uint8 n;
   }
   ConfigInfo internal s_configInfo;
@@ -37,8 +35,8 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   // incremented each time a new config is posted. This count is incorporated
   // into the config digest, to prevent replay attacks.
   uint32 internal s_configCount;
-  uint32 internal s_latestConfigBlockNumber; // makes it easier for offchain systems
-  // to extract config from logs.
+  // makes it easier for offchain systems to extract config from logs.
+  uint32 internal s_latestConfigBlockNumber;
 
   // Used for s_oracles[a].role, where a is an address, to track the purpose
   // of the address, or to indicate that the address is unset.
@@ -68,17 +66,13 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   // i.e. the address the oracle actually sends transactions to the contract from
   address[] internal s_transmitters;
 
-  /*
-   * Config logic
-   */
-
   // Reverts transaction if config args are invalid
   modifier checkConfigValid(
     uint256 _numSigners,
     uint256 _numTransmitters,
     uint256 _f
   ) {
-    require(_numSigners <= maxNumOracles, "too many signers");
+    require(_numSigners <= MAX_NUM_ORACLES, "too many signers");
     require(_f > 0, "f must be positive");
     require(_numSigners == _numTransmitters, "oracle addresses out of registration");
     require(_numSigners > 3 * _f, "faulty-oracle f too high");
@@ -105,15 +99,13 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     return (true, bytes32(0), uint32(0));
   }
 
-  /**
-   * @notice sets offchain reporting protocol configuration incl. participating oracles
-   * @param _signers addresses with which oracles sign the reports
-   * @param _transmitters addresses oracles use to transmit the reports
-   * @param _f number of faulty oracles the system can tolerate
-   * @param _onchainConfig encoded on-chain contract configuration
-   * @param _offchainConfigVersion version number for offchainEncoding schema
-   * @param _offchainConfig encoded off-chain oracle configuration
-   */
+  /// @notice sets offchain reporting protocol configuration incl. participating oracles
+  /// @param _signers addresses with which oracles sign the reports
+  /// @param _transmitters addresses oracles use to transmit the reports
+  /// @param _f number of faulty oracles the system can tolerate
+  /// @param _onchainConfig encoded on-chain contract configuration
+  /// @param _offchainConfigVersion version number for offchainEncoding schema
+  /// @param _offchainConfig encoded off-chain oracle configuration
   function setConfig(
     address[] memory _signers,
     address[] memory _transmitters,
@@ -187,12 +179,10 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     _afterSetConfig(args.f, args.onchainConfig);
   }
 
-  /**
-   * @notice information about current offchain reporting protocol configuration
-   * @return configCount ordinal number of current config, out of all configs applied to this contract so far
-   * @return blockNumber block at which this config was set
-   * @return configDigest domain-separation tag for current config (see configDigestFromConfigData)
-   */
+  /// @notice information about current offchain reporting protocol configuration
+  /// @return configCount ordinal number of current config, out of all configs applied to this contract so far
+  /// @return blockNumber block at which this config was set
+  /// @return configDigest domain-separation tag for current config (see configDigestFromConfigData)
   function latestConfigDetails()
     external
     view
@@ -202,10 +192,8 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     return (s_configCount, s_latestConfigBlockNumber, s_configInfo.latestConfigDigest);
   }
 
-  /**
-   * @return list of addresses permitted to transmit reports to this contract
-   * @dev The list will match the order used to specify the transmitter during setConfig
-   */
+  /// @return list of addresses permitted to transmit reports to this contract
+  /// @dev The list will match the order used to specify the transmitter during setConfig
   function transmitters() external view returns (address[] memory) {
     return s_transmitters;
   }
@@ -214,31 +202,27 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
 
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal virtual;
 
-  /**
-   * @dev hook to allow additional validation of the report by the extending contract
-   * @param configDigest separation tag for current config (see configDigestFromConfigData)
-   * @param epochAndRound 27 byte padding, 4-byte epoch and 1-byte round
-   * @param report serialized report
-   */
+  /// @dev hook to allow additional validation of the report by the extending contract
+  /// @param configDigest separation tag for current config (see configDigestFromConfigData)
+  /// @param epochAndRound 27 byte padding, 4-byte epoch and 1-byte round
+  /// @param report serialized report
   function _validateReport(
     bytes32 configDigest,
     uint40 epochAndRound,
     bytes memory report
   ) internal virtual returns (bool);
 
-  /**
-   * @dev hook called after the report has been fully validated
-   * for the extending contract to handle additional logic, such as oracle payment
-   * @param initialGas the amount of gas before validation
-   * @param transmitter the address of the account that submitted the report
-   * @param signers the addresses of all signing accounts
-   * @param report serialized report
-   */
+  /// @dev hook called after the report has been fully validated
+  /// for the extending contract to handle additional logic, such as oracle payment
+  /// @param initialGas the amount of gas before validation
+  /// @param transmitter the address of the account that submitted the report
+  /// @param signers the addresses of all signing accounts
+  /// @param report serialized report
   function _report(
     uint256 initialGas,
     address transmitter,
     uint8 signerCount,
-    address[maxNumOracles] memory signers,
+    address[MAX_NUM_ORACLES] memory signers,
     bytes calldata report
   ) internal virtual;
 
@@ -274,13 +258,11 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     require(msg.data.length == expected, "calldata length mismatch");
   }
 
-  /**
-   * @notice transmit is called to post a new report to the contract
-   * @param report serialized report, which the signatures are signing.
-   * @param rs ith element is the R components of the ith signature on report. Must have at most maxNumOracles entries
-   * @param ss ith element is the S components of the ith signature on report. Must have at most maxNumOracles entries
-   * @param rawVs ith element is the the V component of the ith signature
-   */
+  /// @notice transmit is called to post a new report to the contract
+  /// @param report serialized report, which the signatures are signing.
+  /// @param rs ith element is the R components of the ith signature on report. Must have at most maxNumOracles entries
+  /// @param ss ith element is the S components of the ith signature on report. Must have at most maxNumOracles entries
+  /// @param rawVs ith element is the the V component of the ith signature
   function transmit(
     // NOTE: If these parameters are changed, expectedMsgDataLength and/or
     // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
@@ -328,7 +310,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       );
     }
 
-    address[maxNumOracles] memory signed;
+    address[MAX_NUM_ORACLES] memory signed;
     uint8 signerCount = 0;
 
     {
