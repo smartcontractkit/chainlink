@@ -206,7 +206,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Debug Pass
-        run: 1 == 2
+        run: exit 1
       # - name: Checkout the repo
       #   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       #   with:
