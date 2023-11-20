@@ -12,12 +12,13 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -106,7 +107,7 @@ func (cs EVMConfigs) totalChains() int {
 	}
 	return total
 }
-func (cs EVMConfigs) Chains(ids ...relay.ChainID) (r []relaytypes.ChainStatus, total int, err error) {
+func (cs EVMConfigs) Chains(ids ...relay.ChainID) (r []commontypes.ChainStatus, total int, err error) {
 	total = cs.totalChains()
 	for _, ch := range cs {
 		if ch == nil {
@@ -125,7 +126,7 @@ func (cs EVMConfigs) Chains(ids ...relay.ChainID) (r []relaytypes.ChainStatus, t
 				continue
 			}
 		}
-		ch2 := relaytypes.ChainStatus{
+		ch2 := commontypes.ChainStatus{
 			ID:      ch.ChainID.String(),
 			Enabled: ch.IsEnabled(),
 		}
@@ -149,7 +150,7 @@ func (cs EVMConfigs) Node(name string) (types.Node, error) {
 	return types.Node{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
-func (cs EVMConfigs) NodeStatus(name string) (relaytypes.NodeStatus, error) {
+func (cs EVMConfigs) NodeStatus(name string) (commontypes.NodeStatus, error) {
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
@@ -157,7 +158,7 @@ func (cs EVMConfigs) NodeStatus(name string) (relaytypes.NodeStatus, error) {
 			}
 		}
 	}
-	return relaytypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
+	return commontypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
 func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
@@ -178,13 +179,13 @@ func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
 	return
 }
 
-func nodeStatus(n *Node, chainID relay.ChainID) (relaytypes.NodeStatus, error) {
-	var s relaytypes.NodeStatus
+func nodeStatus(n *Node, chainID relay.ChainID) (commontypes.NodeStatus, error) {
+	var s commontypes.NodeStatus
 	s.ChainID = chainID
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
-		return relaytypes.NodeStatus{}, err
+		return commontypes.NodeStatus{}, err
 	}
 	s.Config = string(b)
 	return s, nil
@@ -219,7 +220,7 @@ func (cs EVMConfigs) Nodes(chainID relay.ChainID) (ns []types.Node, err error) {
 	return
 }
 
-func (cs EVMConfigs) NodeStatuses(chainIDs ...relay.ChainID) (ns []relaytypes.NodeStatus, err error) {
+func (cs EVMConfigs) NodeStatuses(chainIDs ...relay.ChainID) (ns []commontypes.NodeStatus, err error) {
 	if len(chainIDs) == 0 {
 		for i := range cs {
 			for _, n := range cs[i].Nodes {
@@ -354,7 +355,7 @@ type Chain struct {
 	LogPollInterval          *models.Duration
 	LogKeepBlocksDepth       *uint32
 	MinIncomingConfirmations *uint32
-	MinContractPayment       *assets.Link
+	MinContractPayment       *commonassets.Link
 	NonceAutoSync            *bool
 	NoNewHeadsThreshold      *models.Duration
 	OperatorFactoryAddress   *ethkey.EIP55Address

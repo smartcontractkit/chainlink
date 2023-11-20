@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"

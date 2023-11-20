@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
@@ -84,7 +84,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain:   solcfg.Chain{},
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 1 node 1"),
-					URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8547").URL())),
+					URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8547").URL())),
 				}},
 			},
 			&solana.TOMLConfig{
@@ -93,7 +93,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain:   solcfg.Chain{},
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 2 node 1"),
-					URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8527").URL())),
+					URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8527").URL())),
 				}},
 			},
 		}
@@ -106,15 +106,15 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes: []*stkcfg.Node{
 					{
 						Name: ptr("starknet chain 1 node 1"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8547").URL())),
+						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8547").URL())),
 					},
 					{
 						Name: ptr("starknet chain 1 node 2"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8548").URL())),
+						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8548").URL())),
 					},
 					{
 						Name: ptr("starknet chain 1 node 3"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8549").URL())),
+						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8549").URL())),
 					},
 				},
 			},
@@ -125,7 +125,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes: []*stkcfg.Node{
 					{
 						Name: ptr("starknet chain 2 node 1"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:3547").URL())),
+						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:3547").URL())),
 					},
 				},
 			},
@@ -143,7 +143,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes: coscfg.Nodes{
 					&coscfg.Node{
 						Name:          ptr("cosmos chain 1 node 1"),
-						TendermintURL: (*relayutils.URL)(models.MustParseURL("http://localhost:9548").URL()),
+						TendermintURL: (*commoncfg.URL)(models.MustParseURL("http://localhost:9548").URL()),
 					},
 				},
 			},
@@ -158,7 +158,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes: coscfg.Nodes{
 					&coscfg.Node{
 						Name:          ptr("cosmos chain 2 node 1"),
-						TendermintURL: (*relayutils.URL)(models.MustParseURL("http://localhost:9598").URL()),
+						TendermintURL: (*commoncfg.URL)(models.MustParseURL("http://localhost:9598").URL()),
 					},
 				},
 			},

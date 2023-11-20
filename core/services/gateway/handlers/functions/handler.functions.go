@@ -13,8 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -178,7 +178,7 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 		promHandlerError.WithLabelValues(h.donConfig.DonId, ErrRateLimited.Error()).Inc()
 		return ErrRateLimited
 	}
-	if h.subscriptions != nil && h.minimumBalance != nil {
+	if msg.Body.Method == MethodSecretsSet && h.subscriptions != nil && h.minimumBalance != nil {
 		balance, err := h.subscriptions.GetMaxUserBalance(sender)
 		if err != nil {
 			h.lggr.Debugw("error getting max user balance", "sender", msg.Body.Sender, "err", err)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -100,6 +101,9 @@ func ReadConfig() (*PerformanceConfig, error) {
 		}
 	} else {
 		d, err = base64.StdEncoding.DecodeString(rawConfig)
+		if err != nil {
+			return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
+		}
 	}
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {

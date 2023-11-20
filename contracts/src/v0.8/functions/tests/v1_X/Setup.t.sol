@@ -225,6 +225,14 @@ contract FunctionsSubscriptionSetup is FunctionsClientSetup {
 
 /// @notice Set up to initate a minimal request and store it in s_requests[1]
 contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
+  struct Report {
+    bytes32[] rs;
+    bytes32[] ss;
+    bytes32 vs;
+    bytes report;
+    bytes32[3] reportContext;
+  }
+
   struct RequestData {
     string sourceCode;
     bytes secrets;
@@ -239,6 +247,12 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
   }
 
   mapping(uint256 requestNumber => Request) s_requests;
+
+  struct Response {
+    uint96 totalCostJuels;
+  }
+
+  mapping(uint256 requestNumber => Response) s_responses;
 
   uint96 s_fulfillmentRouterOwnerBalance = 0;
   uint96 s_fulfillmentCoordinatorBalance = 0;
@@ -255,7 +269,24 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     _sendAndStoreRequest(1, sourceCode, secrets, args, bytesArgs, callbackGasLimit);
   }
 
-  function _getExpectedCost(uint256 gasUsed) internal view returns (uint96 totalCostJuels) {
+  /// @notice Predicts the estimated cost (maximum cost) of a request
+  /// @dev Meant only for Ethereum, does not add L2 chains' L1 fee
+  function _getExpectedCostEstimate(uint256 callbackGas) internal view returns (uint96) {
+    uint256 gasPrice = TX_GASPRICE_START < getCoordinatorConfig().minimumEstimateGasPriceWei
+      ? getCoordinatorConfig().minimumEstimateGasPriceWei
+      : TX_GASPRICE_START;
+    uint256 gasPriceWithOverestimation = gasPrice +
+      ((gasPrice * getCoordinatorConfig().fulfillmentGasPriceOverEstimationBP) / 10_000);
+    uint96 juelsPerGas = uint96((1e18 * gasPriceWithOverestimation) / uint256(LINK_ETH_RATE));
+    uint96 gasOverheadJuels = juelsPerGas *
+      ((getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback));
+    uint96 callbackGasCostJuels = uint96(juelsPerGas * callbackGas);
+    return gasOverheadJuels + s_donFee + s_adminFee + callbackGasCostJuels;
+  }
+
+  /// @notice Predicts the actual cost of a request
+  /// @dev Meant only for Ethereum, does not add L2 chains' L1 fee
+  function _getExpectedCost(uint256 gasUsed) internal view returns (uint96) {
     uint96 juelsPerGas = uint96((1e18 * TX_GASPRICE_START) / uint256(LINK_ETH_RATE));
     uint96 gasOverheadJuels = juelsPerGas *
       (getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback);
@@ -400,7 +431,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     bytes memory report,
     bytes32[3] memory reportContext,
     uint256[] memory signerPrivateKeys
-  ) internal pure returns (bytes32[] memory rawRs, bytes32[] memory rawSs, bytes32 rawVs) {
+  ) internal pure returns (bytes32[] memory, bytes32[] memory, bytes32) {
     bytes32[] memory rs = new bytes32[](signerPrivateKeys.length);
     bytes32[] memory ss = new bytes32[](signerPrivateKeys.length);
     bytes memory vs = new bytes(signerPrivateKeys.length);
@@ -417,29 +448,11 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     return (rs, ss, bytes32(vs));
   }
 
-  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
-  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
-  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
-  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
-  /// @param transmitter - The address that will send the `.report` transaction
-  /// @param expectedToSucceed - Boolean representing if the report transmission is expected to produce a RequestProcessed event for every fulfillment. If not, we ignore retrieving the event log.
-  /// @param requestProcessedIndex - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
-  /// @param transmitterGasToUse - Override the default amount of gas that the transmitter sends the `.report` transaction with
-  function _reportAndStore(
+  function _buildAndSignReport(
     uint256[] memory requestNumberKeys,
     string[] memory results,
-    bytes[] memory errors,
-    address transmitter,
-    bool expectedToSucceed,
-    uint8 requestProcessedIndex,
-    uint256 transmitterGasToUse
-  ) internal {
-    {
-      if (requestNumberKeys.length != results.length || requestNumberKeys.length != errors.length) {
-        revert("_reportAndStore arguments length mismatch");
-      }
-    }
-
+    bytes[] memory errors
+  ) internal view returns (Report memory) {
     (bytes memory report, bytes32[3] memory reportContext) = _buildReport(requestNumberKeys, results, errors);
 
     // Sign the report
@@ -454,6 +467,34 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
       signerPrivateKeys
     );
 
+    return Report({report: report, reportContext: reportContext, rs: rawRs, ss: rawSs, vs: rawVs});
+  }
+
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param transmitter - The address that will send the `.report` transaction
+  /// @param expectedToSucceed - Boolean representing if the report transmission is expected to produce a RequestProcessed event for every fulfillment. If not, we ignore retrieving the event log.
+  /// @param requestProcessedStartIndex - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @param transmitterGasToUse - Override the default amount of gas that the transmitter sends the `.report` transaction with
+  function _reportAndStore(
+    uint256[] memory requestNumberKeys,
+    string[] memory results,
+    bytes[] memory errors,
+    address transmitter,
+    bool expectedToSucceed,
+    uint8 requestProcessedStartIndex,
+    uint256 transmitterGasToUse
+  ) internal {
+    {
+      if (requestNumberKeys.length != results.length || requestNumberKeys.length != errors.length) {
+        revert("_reportAndStore arguments length mismatch");
+      }
+    }
+
+    Report memory r = _buildAndSignReport(requestNumberKeys, results, errors);
+
     // Send as transmitter
     vm.stopPrank();
     vm.startPrank(transmitter);
@@ -461,26 +502,30 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     // Send report
     vm.recordLogs();
     if (transmitterGasToUse > 0) {
-      s_functionsCoordinator.transmit{gas: transmitterGasToUse}(reportContext, report, rawRs, rawSs, rawVs);
+      s_functionsCoordinator.transmit{gas: transmitterGasToUse}(r.reportContext, r.report, r.rs, r.ss, r.vs);
     } else {
-      s_functionsCoordinator.transmit(reportContext, report, rawRs, rawSs, rawVs);
+      s_functionsCoordinator.transmit(r.reportContext, r.report, r.rs, r.ss, r.vs);
     }
 
     if (expectedToSucceed) {
       // Get actual cost from RequestProcessed event log
       (uint96 totalCostJuels, , , , , ) = abi.decode(
-        vm.getRecordedLogs()[requestProcessedIndex].data,
+        vm.getRecordedLogs()[requestProcessedStartIndex].data,
         (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
       );
+      // Store response of first request
+      // TODO: handle multiple requests
+      s_responses[requestNumberKeys[0]] = Response({totalCostJuels: totalCostJuels});
       // Store profit amounts
-      s_fulfillmentRouterOwnerBalance += s_adminFee;
+      s_fulfillmentRouterOwnerBalance += s_adminFee * uint96(requestNumberKeys.length);
       // totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels
+      // TODO: handle multiple requests
       s_fulfillmentCoordinatorBalance += totalCostJuels - s_adminFee;
     }
 
     // Return prank to Owner
     vm.stopPrank();
-    vm.startPrank(OWNER_ADDRESS);
+    vm.startPrank(OWNER_ADDRESS, OWNER_ADDRESS);
   }
 
   /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
@@ -558,6 +603,9 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
 contract FunctionsFulfillmentSetup is FunctionsClientRequestSetup {
   function setUp() public virtual override {
     FunctionsClientRequestSetup.setUp();
+
+    // Fast forward time by 30 seconds to simulate the DON executing the computation
+    vm.warp(block.timestamp + 30);
 
     // Fulfill request 1
     uint256[] memory requestNumberKeys = new uint256[](1);

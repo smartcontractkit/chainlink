@@ -1,17 +1,17 @@
 package persistence
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
-	"github.com/smartcontractkit/ocr2vrf/types/hash"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"github.com/smartcontractkit/ocr2vrf/types/hash"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -50,7 +50,7 @@ func TestShareDB_WriteShareRecords(t *testing.T) {
 			expectedRecords = append(expectedRecords, rec)
 		}
 
-		err := shareDB.WriteShareRecords(context.TODO(), configDigest, keyID, expectedRecords)
+		err := shareDB.WriteShareRecords(testutils.Context(t), configDigest, keyID, expectedRecords)
 		require.NoError(tt, err)
 
 		rows, err := db.Query(`SELECT COUNT(*) AS count FROM dkg_shares`)
@@ -79,7 +79,7 @@ func TestShareDB_WriteShareRecords(t *testing.T) {
 		}
 
 		// no error, but there will be no rows inserted in the db
-		err = shareDB.WriteShareRecords(context.TODO(), configDigest, keyID, records)
+		err = shareDB.WriteShareRecords(testutils.Context(t), configDigest, keyID, records)
 		require.NoError(tt, err)
 
 		rows, err := db.Query(`SELECT COUNT(*) AS count FROM dkg_shares`)
@@ -116,7 +116,7 @@ func TestShareDB_WriteShareRecords(t *testing.T) {
 			records = append(records, rec)
 		}
 
-		err := shareDB.WriteShareRecords(context.TODO(), configDigest, keyID, records)
+		err := shareDB.WriteShareRecords(testutils.Context(t), configDigest, keyID, records)
 		require.Error(tt, err)
 
 		// no rows should have been inserted
@@ -160,7 +160,7 @@ func TestShareDBE2E(t *testing.T) {
 		expectedRecordsMap[*playerIdx] = rec
 	}
 
-	err := shareDB.WriteShareRecords(context.TODO(), configDigest, keyID, expectedRecords)
+	err := shareDB.WriteShareRecords(testutils.Context(t), configDigest, keyID, expectedRecords)
 	require.NoError(t, err)
 
 	actualRecords, err := shareDB.ReadShareRecords(configDigest, keyID)

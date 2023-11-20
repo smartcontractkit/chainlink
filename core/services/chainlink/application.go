@@ -16,10 +16,10 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	relayservices "github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -417,7 +417,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
-	healthChecker := relayservices.NewChecker()
+	healthChecker := commonservices.NewChecker()
 
 	var lbs []utils.DependentAwaiter
 	for _, c := range legacyEVMChains.Slice() {

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -148,11 +148,10 @@ func TestFunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
 	t.Parallel()
 
 	nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
-	handler, _, allowlist, subscriptions := newFunctionsHandlerForATestDON(t, nodes, time.Hour*24)
+	handler, _, allowlist, _ := newFunctionsHandlerForATestDON(t, nodes, time.Hour*24)
 	userRequestMsg := newSignedMessage(t, "1234", "secrets_reveal_all_please", "don_id", user.PrivateKey)
 
 	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
-	subscriptions.On("GetMaxUserBalance", common.HexToAddress(user.Address)).Return(big.NewInt(1000), nil)
 	err := handler.HandleUserMessage(testutils.Context(t), &userRequestMsg, make(chan handlers.UserCallbackPayload))
 	require.Error(t, err)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
@@ -18,7 +18,7 @@ import (
 func TestS4ReportingPluginFactory_NewReportingPlugin(t *testing.T) {
 	t.Parallel()
 
-	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
+	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	orm := s4_mocks.NewORM(t)
 
 	f := s4.S4ReportingPluginFactory{

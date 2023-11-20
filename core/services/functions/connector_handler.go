@@ -10,9 +10,9 @@ import (
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -76,24 +76,21 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 		h.lggr.Errorw("request rate-limited", "id", gatewayId, "address", fromAddr)
 		return
 	}
-	if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
-		h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayId, "address", fromAddr, "balance", balance, "minBalance", h.minimumBalance)
-		response := functions.SecretsResponseBase{
-			Success:      false,
-			ErrorMessage: "user subscription has insufficient balance",
-		}
-		if err := h.sendResponse(ctx, gatewayId, body, response); err != nil {
-			h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "error", err)
-		}
-		return
-	}
-
 	h.lggr.Debugw("handling gateway request", "id", gatewayId, "method", body.Method)
 
 	switch body.Method {
 	case functions.MethodSecretsList:
 		h.handleSecretsList(ctx, gatewayId, body, fromAddr)
 	case functions.MethodSecretsSet:
+		if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
+			h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayId, "address", fromAddr, "balance", balance, "minBalance", h.minimumBalance)
+			response := functions.SecretsResponseBase{
+				Success:      false,
+				ErrorMessage: "user subscription has insufficient balance",
+			}
+			h.sendResponseAndLog(ctx, gatewayId, body, response)
+			return
+		}
 		h.handleSecretsSet(ctx, gatewayId, body, fromAddr)
 	default:
 		h.lggr.Errorw("unsupported method", "id", gatewayId, "method", body.Method)
@@ -133,10 +130,7 @@ func (h *functionsConnectorHandler) handleSecretsList(ctx context.Context, gatew
 	} else {
 		response.ErrorMessage = fmt.Sprintf("Failed to list secrets: %v", err)
 	}
-
-	if err := h.sendResponse(ctx, gatewayId, body, response); err != nil {
-		h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "error", err)
-	}
+	h.sendResponseAndLog(ctx, gatewayId, body, response)
 }
 
 func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewayId string, body *api.MessageBody, fromAddr ethCommon.Address) {
@@ -163,9 +157,15 @@ func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewa
 	} else {
 		response.ErrorMessage = fmt.Sprintf("Bad request to set secret: %v", err)
 	}
+	h.sendResponseAndLog(ctx, gatewayId, body, response)
+}
 
-	if err := h.sendResponse(ctx, gatewayId, body, response); err != nil {
+func (h *functionsConnectorHandler) sendResponseAndLog(ctx context.Context, gatewayId string, requestBody *api.MessageBody, payload any) {
+	err := h.sendResponse(ctx, gatewayId, requestBody, payload)
+	if err != nil {
 		h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "error", err)
+	} else {
+		h.lggr.Debugw("sent to gateway", "id", gatewayId, "messageId", requestBody.MessageId, "donId", requestBody.DonId, "method", requestBody.Method)
 	}
 }
 
@@ -187,10 +187,5 @@ func (h *functionsConnectorHandler) sendResponse(ctx context.Context, gatewayId 
 	if err = msg.Sign(h.signerKey); err != nil {
 		return err
 	}
-
-	err = h.connector.SendToGateway(ctx, gatewayId, msg)
-	if err == nil {
-		h.lggr.Debugw("sent to gateway", "id", gatewayId, "messageId", requestBody.MessageId, "donId", requestBody.DonId, "method", requestBody.Method)
-	}
-	return err
+	return h.connector.SendToGateway(ctx, gatewayId, msg)
 }

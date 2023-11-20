@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -301,7 +301,7 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 			case h := <-ch:
 				var head *evmtypes.Head
 				if h != nil {
-					head = &evmtypes.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: utils.NewBig(c.chainId)}
+					head = &evmtypes.Head{Difficulty: (*utils.Big)(h.Difficulty), Timestamp: time.Unix(int64(h.Time), 0), Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: utils.NewBig(c.chainId)}
 					lastHead = head
 				}
 				select {

@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -27,12 +29,11 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
-	"github.com/smartcontractkit/sqlx"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/reportingplugins"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -49,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/coordinator"
@@ -174,6 +176,7 @@ type ocr2Config interface {
 	DatabaseTimeout() time.Duration
 	KeyBundleID() (string, error)
 	TraceLogging() bool
+	CaptureAutomationCustomTelemetry() bool
 }
 
 type insecureConfig interface {
@@ -385,7 +388,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
 
-	ocrLogger := relaylogger.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(msg string) {
+	ocrLogger := commonlogger.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 	})
 
@@ -590,9 +593,26 @@ func (d *Delegate) newServicesGenericPlugin(
 	}
 
 	errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
+	var providerClientConn grpc.ClientConnInterface
 	providerConn, ok := provider.(connProvider)
-	if !ok {
-		return nil, errors.New("provider not supported: the provider is not a LOOPP provider")
+	if ok {
+		providerClientConn = providerConn.ClientConn()
+	} else {
+		//We chose to deal with the difference between a LOOP provider and an embedded provider here rather than
+		//in NewServerAdapter because this has a smaller blast radius, as the scope of this workaround is to
+		//enable the medianpoc for EVM and not touch the other providers.
+		//TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
+		d.lggr.Info("provider is not a LOOPP provider, switching to provider server")
+
+		ps, err2 := relay.NewProviderServer(provider, types.OCR2PluginType(cconf.ProviderType), d.lggr)
+		if err2 != nil {
+			return nil, fmt.Errorf("cannot start EVM provider server: %s", err)
+		}
+		providerClientConn, err2 = ps.GetConn()
+		if err2 != nil {
+			return nil, fmt.Errorf("cannot connect to EVM provider server: %s", err)
+		}
+		srvs = append(srvs, ps)
 	}
 
 	pluginConfig := types.ReportingPluginServiceConfig{
@@ -600,13 +620,13 @@ func (d *Delegate) newServicesGenericPlugin(
 		Command:       command,
 		ProviderType:  cconf.ProviderType,
 		TelemetryType: cconf.TelemetryType,
-		PluginConfig:  string(p.PluginConfig),
+		PluginConfig:  p.PluginConfig,
 	}
 
 	pr := generic.NewPipelineRunnerAdapter(pluginLggr, jb, d.pipelineRunner)
 	ta := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 
-	plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerConn.ClientConn(), pr, ta, errorLog)
+	plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog)
 	oracleArgs.ReportingPluginFactory = plugin
 	srvs = append(srvs, plugin)
 
@@ -653,10 +673,6 @@ func (d *Delegate) newServicesMercury(
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
 	}
-	chain, err := d.legacyChains.Get(rid.ChainID)
-	if err != nil {
-		return nil, fmt.Errorf("mercury services: failed to get chain %s: %w", rid.ChainID, err)
-	}
 
 	provider, err2 := relayer.NewPluginProvider(ctx,
 		types.RelayArgs{
@@ -695,7 +711,7 @@ func (d *Delegate) newServicesMercury(
 
 	chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
 
-	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
+	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("EnhancedTelemetryMercury"))
@@ -943,11 +959,11 @@ func (d *Delegate) newServicesOCR2VRF(
 		"jobName", jb.Name.ValueOrZero(),
 		"jobID", jb.ID,
 	)
-	vrfLogger := relaylogger.NewOCRWrapper(l.With(
+	vrfLogger := commonlogger.NewOCRWrapper(l.With(
 		"vrfContractID", spec.ContractID), d.cfg.OCR2().TraceLogging(), func(msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 	})
-	dkgLogger := relaylogger.NewOCRWrapper(l.With(
+	dkgLogger := commonlogger.NewOCRWrapper(l.With(
 		"dkgContractID", cfg.DKGContractAddress), d.cfg.OCR2().TraceLogging(), func(msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 	})
@@ -1109,7 +1125,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
 		KeepersDatabase:              ocrDB,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Automation),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR3Automation),
 		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               services.Keyring(),
@@ -1148,7 +1164,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 	)
 
-	return []job.ServiceCtx{
+	automationServices := []job.ServiceCtx{
 		runResultSaver,
 		keeperProvider,
 		services.Registry(),
@@ -1158,7 +1174,24 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		services.UpkeepStateStore(),
 		services.TransmitEventProvider(),
 		pluginService,
-	}, nil
+	}
+
+	if cfg.CaptureAutomationCustomTelemetry != nil && *cfg.CaptureAutomationCustomTelemetry ||
+		cfg.CaptureAutomationCustomTelemetry == nil && d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
+		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.AutomationCustom)
+		customTelemService, custErr := autotelemetry21.NewAutomationCustomTelemetryService(
+			endpoint,
+			lggr,
+			services.BlockSubscriber(),
+			keeperProvider.ContractConfigTracker(),
+		)
+		if custErr != nil {
+			return nil, errors.Wrap(custErr, "Error when creating AutomationCustomTelemetryService")
+		}
+		automationServices = append(automationServices, customTelemService)
+	}
+
+	return automationServices, nil
 }
 
 func (d *Delegate) newServicesOCR2Keepers20(

@@ -13,16 +13,15 @@ const (
 )
 
 type SingleFunctionCallGun struct {
-	ft               *FunctionsTest
-	mode             TestMode
-	times            uint32
-	source           string
-	slotID           uint8
-	slotVersion      uint64
-	encryptedSecrets []byte
-	args             []string
-	subscriptionId   uint64
-	jobId            [32]byte
+	ft             *FunctionsTest
+	mode           TestMode
+	times          uint32
+	source         string
+	slotID         uint8
+	slotVersion    uint64
+	args           []string
+	subscriptionId uint64
+	jobId          [32]byte
 }
 
 func NewSingleFunctionCallGun(

@@ -28,12 +28,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -1461,7 +1462,7 @@ func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.Ke
 
 		c.EVM[0].FinalityDepth = ptr[uint32](15)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
-		c.EVM[0].MinContractPayment = assets.NewLinkFromJuels(100)
+		c.EVM[0].MinContractPayment = commonassets.NewLinkFromJuels(100)
 		c.EVM[0].KeySpecific = ks
 	}
 }

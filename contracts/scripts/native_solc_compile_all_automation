@@ -41,6 +41,7 @@ compileContract automation/v2_0/KeeperRegistryLogic2_0.sol
 compileContract automation/UpkeepTranscoder.sol
 compileContract automation/mocks/MockAggregatorProxy.sol
 compileContract automation/testhelpers/LogUpkeepCounter.sol
+compileContract automation/testhelpers/SimpleLogUpkeepCounter.sol
 
 compileContract automation/mocks/KeeperRegistrar1_2Mock.sol
 compileContract automation/mocks/KeeperRegistryCheckUpkeepGasUsageWrapper1_2Mock.sol

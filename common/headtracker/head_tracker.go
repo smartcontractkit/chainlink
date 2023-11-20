@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -197,6 +197,9 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		"blockHeight", head.BlockNumber(),
 		"blockHash", head.BlockHash(),
 		"parentHeadHash", head.GetParentHash(),
+		"blockTs", head.GetTimestamp(),
+		"blockTsUnix", head.GetTimestamp().Unix(),
+		"blockDifficulty", head.BlockDifficulty(),
 	)
 
 	err := ht.headSaver.Save(ctx, head)

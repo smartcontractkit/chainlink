@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"

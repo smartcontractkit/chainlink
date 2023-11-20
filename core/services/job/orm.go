@@ -16,9 +16,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -992,11 +992,13 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 	//  range minID <-> maxID.
 
 	for n := int64(1000); maxID > 0 && len(ids) < limit; n *= 2 {
+		var batch []int64
 		minID := maxID - n
-		if err = tx.Select(&ids, stmt, offset, limit-len(ids), minID, maxID); err != nil {
+		if err = tx.Select(&batch, stmt, offset, limit-len(ids), minID, maxID); err != nil {
 			err = errors.Wrap(err, "error loading runs")
 			return
 		}
+		ids = append(ids, batch...)
 		if offset > 0 {
 			if len(ids) > 0 {
 				// If we're already receiving rows back, then we no longer need an offset
