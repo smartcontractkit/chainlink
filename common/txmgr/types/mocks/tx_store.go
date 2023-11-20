@@ -570,8 +570,8 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetInProgre
 	return r0, r1
 }
 
-// GetNonFinalizedTransactions provides a mock function with given fields: ctx
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetNonFinalizedTransactions(ctx context.Context) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+// GetNonFatalTransactions provides a mock function with given fields: ctx
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetNonFatalTransactions(ctx context.Context) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	ret := _m.Called(ctx)
 
 	var r0 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -665,6 +665,30 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HasInProgre
 
 	if rf, ok := ret.Get(1).(func(context.Context, ADDR, CHAIN_ID) error); ok {
 		r1 = rf(ctx, account, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64) (bool, error) {
+	ret := _m.Called(ctx, blockHeight, txID)
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) (bool, error)); ok {
+		return rf(ctx, blockHeight, txID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) bool); ok {
+		r0 = rf(ctx, blockHeight, txID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, int64) error); ok {
+		r1 = rf(ctx, blockHeight, txID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -871,20 +895,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateBroad
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, time.Time, []int64) error); ok {
 		r0 = rf(ctx, now, etxIDs)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// UpdateTxAbandoned provides a mock function with given fields: ctx, etx
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxAbandoned(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	ret := _m.Called(ctx, etx)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error); ok {
-		r0 = rf(ctx, etx)
 	} else {
 		r0 = ret.Error(0)
 	}

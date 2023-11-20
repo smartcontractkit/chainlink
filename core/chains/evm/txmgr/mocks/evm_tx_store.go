@@ -675,8 +675,8 @@ func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address commo
 	return r0, r1
 }
 
-// GetNonFinalizedTransactions provides a mock function with given fields: ctx
-func (_m *EvmTxStore) GetNonFinalizedTransactions(ctx context.Context) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+// GetNonFatalTransactions provides a mock function with given fields: ctx
+func (_m *EvmTxStore) GetNonFatalTransactions(ctx context.Context) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx)
 
 	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
@@ -770,6 +770,30 @@ func (_m *EvmTxStore) HasInProgressTransaction(ctx context.Context, account comm
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
 		r1 = rf(ctx, account, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID
+func (_m *EvmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64) (bool, error) {
+	ret := _m.Called(ctx, blockHeight, txID)
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) (bool, error)); ok {
+		return rf(ctx, blockHeight, txID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) bool); ok {
+		r0 = rf(ctx, blockHeight, txID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, int64) error); ok {
+		r1 = rf(ctx, blockHeight, txID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1075,20 +1099,6 @@ func (_m *EvmTxStore) UpdateBroadcastAts(ctx context.Context, now time.Time, etx
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, time.Time, []int64) error); ok {
 		r0 = rf(ctx, now, etxIDs)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// UpdateTxAbandoned provides a mock function with given fields: ctx, etx
-func (_m *EvmTxStore) UpdateTxAbandoned(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
-	ret := _m.Called(ctx, etx)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
-		r0 = rf(ctx, etx)
 	} else {
 		r0 = ret.Error(0)
 	}
