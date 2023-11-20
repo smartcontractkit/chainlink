@@ -22,24 +22,24 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
     i_uniqueReports = uniqueReports;
   }
 
-  // Storing these fields used on the hot path in a ConfigInfo variable reduces the
-  // retrieval of all of them to a single SLOAD. If any further fields are
-  // added, make sure that storage of the struct still takes at most 32 bytes.
+  /// @dev Storing these fields used on the hot path in a ConfigInfo variable reduces
+  /// the retrieval of all of them to a single SLOAD. If any further fields are
+  /// added, make sure that storage of the struct still takes at most 32 bytes.
   struct ConfigInfo {
     bytes32 latestConfigDigest;
-    uint8 f;
-    uint8 n;
+    uint8 f; // ───╮
+    uint8 n; // ───╯
   }
   ConfigInfo internal s_configInfo;
 
-  // incremented each time a new config is posted. This count is incorporated
-  // into the config digest, to prevent replay attacks.
+  /// @dev Incremented each time a new config is posted. This count is incorporated
+  /// into the config digest, to prevent replay attacks.
   uint32 internal s_configCount;
-  // makes it easier for offchain systems to extract config from logs.
+  /// @dev Makes it easier for offchain systems to extract config from logs.
   uint32 internal s_latestConfigBlockNumber;
 
-  // Used for s_oracles[a].role, where a is an address, to track the purpose
-  // of the address, or to indicate that the address is unset.
+  /// @dev Used for s_oracles[a].role, where a is an address, to track the purpose
+  /// of the address, or to indicate that the address is unset.
   enum Role {
     // No oracle role has been set for address a
     Unset,
@@ -53,20 +53,20 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
   }
 
   struct Oracle {
-    uint8 index; // Index of oracle in s_signers/s_transmitters
-    Role role; // Role of the address which mapped to this struct
+    uint8 index; // ───╮ Index of oracle in s_signers/s_transmitters
+    Role role; // ─────╯ Role of the address which mapped to this struct
   }
 
   mapping(address => Oracle) /* signer OR transmitter address */ internal s_oracles;
 
-  // s_signers contains the signing address of each oracle
+  /// @notice Contains the signing address of each oracle
   address[] internal s_signers;
 
-  // s_transmitters contains the transmission address of each oracle,
-  // i.e. the address the oracle actually sends transactions to the contract from
+  /// @notice Contains the transmission address of each oracle,
+  /// i.e. the address the oracle actually sends transactions to the contract from
   address[] internal s_transmitters;
 
-  // Reverts transaction if config args are invalid
+  /// @dev Reverts transaction if config args are invalid
   modifier checkConfigValid(
     uint256 _numSigners,
     uint256 _numTransmitters,
