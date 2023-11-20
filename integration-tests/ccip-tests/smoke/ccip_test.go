@@ -8,12 +8,12 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 )
@@ -372,7 +372,7 @@ func TestSmokeCCIPMulticall(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	TestCfg := testsetups.NewCCIPTestConfig(t, l, testconfig.Smoke)
 	// enable multicall in one tx for this test
-	TestCfg.TestGroupInput.MulticallInOneTx = utils.Ptr(true)
+	TestCfg.TestGroupInput.MulticallInOneTx = ptr.Ptr(true)
 	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", nil, TestCfg)
 	var tcs []subtestInput
 	if len(setUpOutput.Lanes) == 0 {

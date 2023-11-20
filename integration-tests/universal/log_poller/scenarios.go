@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -100,7 +100,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
-	sb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
+	sb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 	startBlock := int64(sb)
 
@@ -122,7 +122,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
-	eb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
+	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
 	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
@@ -229,7 +229,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	time.Sleep(5 * time.Second)
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
-	sb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
+	sb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 	startBlock := int64(sb)
 
@@ -243,7 +243,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
-	eb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
+	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
 	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
@@ -419,7 +419,7 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
-	sb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
+	sb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 	startBlock := int64(sb)
 
@@ -441,7 +441,7 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
-	eb, err := testEnv.EVMClient.LatestBlockNumber(utils.TestContext(t))
+	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
 	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)

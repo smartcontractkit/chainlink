@@ -15,8 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 )
 
 // The steps are:
@@ -232,8 +231,8 @@ func (rc *ReorgController) forkNetwork(header blockchain.NodeHeader) error {
 			rc.cfg.Env.Cfg.Namespace,
 			&chaos.Props{
 				DurationStr: "999h",
-				FromLabels:  &map[string]*string{"app": utils.Ptr(reorg.TXNodesAppLabel)},
-				ToLabels:    &map[string]*string{"app": utils.Ptr(reorg.MinerNodesAppLabel)},
+				FromLabels:  &map[string]*string{"app": ptr.Ptr(reorg.TXNodesAppLabel)},
+				ToLabels:    &map[string]*string{"app": ptr.Ptr(reorg.MinerNodesAppLabel)},
 			},
 		))
 	rc.chaosExperimentName = expName

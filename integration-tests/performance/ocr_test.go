@@ -17,14 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestOCRBasic(t *testing.T) {
@@ -64,7 +63,7 @@ func TestOCRBasic(t *testing.T) {
 		err = actions.StartNewRound(1, ocrInstances, chainClient, l)
 		require.NoError(t, err)
 
-		answer, err := ocrInstances[0].GetLatestAnswer(utils.TestContext(t))
+		answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 		require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 		require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
@@ -73,7 +72,7 @@ func TestOCRBasic(t *testing.T) {
 		err = actions.StartNewRound(2, ocrInstances, chainClient, l)
 		require.NoError(t, err)
 
-		answer, err = ocrInstances[0].GetLatestAnswer(utils.TestContext(t))
+		answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 		require.NoError(t, err, "Error getting latest OCR answer")
 		require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
 	}
@@ -104,16 +103,12 @@ Enabled = true
 
 [P2P]
 [P2P.V2]
-Enabled = false
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]`
 
-[P2P]
-[P2P.V1]
-Enabled = true
-ListenIP = '0.0.0.0'
-ListenPort = 6690`
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 6,
-		"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
+		"toml":     networks.AddNetworksConfig(baseTOML, testNetwork),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

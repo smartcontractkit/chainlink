@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
@@ -76,7 +76,7 @@ func NewConfig() (*Config, error) {
 	}
 
 	// load config from env var if specified
-	rawConfig, _ := utils.GetEnv("BASE64_TEST_CONFIG_OVERRIDE")
+	rawConfig, _ := osutil.GetEnv("BASE64_TEST_CONFIG_OVERRIDE")
 	if rawConfig != "" {
 		log.Info().Msg("Found BASE64_TEST_CONFIG_OVERRIDE env var, overriding default config")
 		d, err := base64.StdEncoding.DecodeString(rawConfig)
@@ -219,22 +219,22 @@ func (c *Chainlink) ApplyOverrides(from *Chainlink) {
 }
 
 func (c *Chainlink) ReadSecrets() error {
-	image, _ := utils.GetEnv("CHAINLINK_IMAGE")
+	image, _ := osutil.GetEnv("CHAINLINK_IMAGE")
 	if image != "" {
 		c.Common.Image = image
 	}
-	tag, _ := utils.GetEnv("CHAINLINK_VERSION")
+	tag, _ := osutil.GetEnv("CHAINLINK_VERSION")
 	if tag != "" {
 		c.Common.Tag = tag
 	}
 	for i, node := range c.Nodes {
-		image, _ := utils.GetEnv(fmt.Sprintf("CHAINLINK_IMAGE-%d", i+1))
+		image, _ := osutil.GetEnv(fmt.Sprintf("CHAINLINK_IMAGE-%d", i+1))
 		if image != "" {
 			node.Image = image
 		} else {
 			node.Image = c.Common.Image
 		}
-		tag, _ := utils.GetEnv(fmt.Sprintf("CHAINLINK_VERSION-%d", i+1))
+		tag, _ := osutil.GetEnv(fmt.Sprintf("CHAINLINK_VERSION-%d", i+1))
 		if tag != "" {
 			node.Tag = tag
 		} else {

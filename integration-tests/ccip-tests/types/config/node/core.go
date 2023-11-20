@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
@@ -34,7 +35,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 		var evmNodes []*evmcfg.Node
 		for i := range network.URLs {
 			evmNodes = append(evmNodes, &evmcfg.Node{
-				Name:    itutils.Ptr(fmt.Sprintf("%s-%d", network.Name, i)),
+				Name:    ptr.Ptr(fmt.Sprintf("%s-%d", network.Name, i)),
 				WSURL:   itutils.MustURL(network.URLs[i]),
 				HTTPURL: itutils.MustURL(network.HTTPURLs[i]),
 			})

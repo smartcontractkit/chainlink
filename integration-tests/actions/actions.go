@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -48,7 +48,7 @@ func FundChainlinkNodes(
 		msg := ethereum.CallMsg{
 			From:  common.HexToAddress(client.GetDefaultWallet().Address()),
 			To:    &recipient,
-			Value: utils.EtherToWei(amount),
+			Value: conversions.EtherToWei(amount),
 		}
 		gasEstimates, err := client.EstimateGas(msg)
 		if err != nil {

@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	vrfConst "github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestVRFv2Basic(t *testing.T) {
@@ -97,11 +97,11 @@ func TestVRFv2Basic(t *testing.T) {
 		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfV2jobs[0].Job.Data.ID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically("==", 1))
-		lastRequestID, err = vrfv2Contracts.LoadTestConsumer.GetLastRequestId(utils.TestContext(t))
+		lastRequestID, err = vrfv2Contracts.LoadTestConsumer.GetLastRequestId(testcontext.Get(t))
 		l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
 
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
-		status, err := vrfv2Contracts.LoadTestConsumer.GetRequestStatus(utils.TestContext(t), lastRequestID)
+		status, err := vrfv2Contracts.LoadTestConsumer.GetRequestStatus(testcontext.Get(t), lastRequestID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(status.Fulfilled).Should(gomega.BeTrue())
 		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")

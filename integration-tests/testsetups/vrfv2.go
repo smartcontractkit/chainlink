@@ -18,11 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 // VRFV2SoakTest defines a typical VRFV2 soak test
@@ -88,7 +88,7 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 		Msg("Starting VRFV2 Soak Test")
 
 	// set the requests to only run for a certain amount of time
-	ctx := utils.TestContext(t)
+	ctx := testcontext.Get(t)
 	testContext, testCancel := context.WithTimeout(ctx, v.Inputs.TestDuration)
 	defer testCancel()
 
