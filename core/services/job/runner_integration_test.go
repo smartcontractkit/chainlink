@@ -23,6 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -40,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -91,8 +92,7 @@ func TestRunner(t *testing.T) {
 
 	_, placeHolderAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-	require.NoError(t, runner.Start(ctx))
-	t.Cleanup(func() { assert.NoError(t, runner.Close()) })
+	servicetest.Run(t, runner)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -451,8 +451,7 @@ answer1      [type=median index=0];
 		_, err = keyStore.P2P().Create()
 		assert.NoError(t, err)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -463,7 +462,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, utils.NewMailboxMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -486,8 +485,7 @@ answer1      [type=median index=0];
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -498,7 +496,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, utils.NewMailboxMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -515,8 +513,7 @@ answer1      [type=median index=0];
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -527,7 +524,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, utils.NewMailboxMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -571,8 +568,7 @@ answer1      [type=median index=0];
 
 			lggr := logger.TestLogger(t)
 			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-			require.NoError(t, pw.Start(testutils.Context(t)))
-			t.Cleanup(func() { assert.NoError(t, pw.Close()) })
+			servicetest.Run(t, pw)
 			sd := ocr.NewDelegate(
 				db,
 				jobORM,
@@ -583,7 +579,7 @@ answer1      [type=median index=0];
 				legacyChains,
 				lggr,
 				config.Database(),
-				srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+				servicetest.Run(t, utils.NewMailboxMonitor(t.Name())),
 			)
 
 			jb.OCROracleSpec.CaptureEATelemetry = tc.jbCaptureEATelemetry
@@ -616,8 +612,7 @@ answer1      [type=median index=0];
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -628,7 +623,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, utils.NewMailboxMonitor(t.Name())),
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)
