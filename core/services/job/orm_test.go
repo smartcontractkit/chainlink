@@ -23,7 +23,7 @@ import (
 
 func NewTestORM(t *testing.T, db *sqlx.DB, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, cfg pg.QConfig) job.ORM {
 	o := job.NewORM(db, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t), cfg)
-	t.Cleanup(func() { o.Close() })
+	t.Cleanup(func() { assert.NoError(t, o.Close()) })
 	return o
 }
 
