@@ -5,11 +5,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -33,7 +33,7 @@ func NewReaper[CHAIN_ID types.ID](lggr logger.Logger, store txmgrtypes.TxHistory
 		config,
 		txConfig,
 		chainID,
-		lggr.Named("Reaper"),
+		logger.Named(lggr, "Reaper"),
 		atomic.Int64{},
 		make(chan struct{}, 1),
 		make(services.StopChan),

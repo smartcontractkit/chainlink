@@ -15,13 +15,14 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -160,7 +161,7 @@ func NewConfirmer[
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	lggr = lggr.Named("Confirmer")
+	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		txStore:          txStore,
 		lggr:             lggr,
@@ -517,7 +518,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 		}
 	}
 
-	lggr := ec.lggr.Named("BatchFetchReceipts").With("blockNum", blockNum)
+	lggr := logger.Named(ec.lggr, "BatchFetchReceipts")
+	lggr = logger.With(lggr, "blockNum", blockNum)
 
 	txReceipts, txErrs, err := ec.client.BatchGetReceipts(ctx, attempts)
 	if err != nil {
@@ -529,8 +531,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 		receipt := txReceipts[i]
 		err := txErrs[i]
 
-		l := logger.Sugared(attempt.Tx.GetLogger(lggr).With(
-			"txHash", attempt.Hash.String(), "txAttemptID", attempt.ID,
+		lggr = attempt.Tx.GetLogger(lggr)
+		l := logger.Sugared(logger.With(lggr, "txHash", attempt.Hash.String(), "txAttemptID", attempt.ID,
 			"txID", attempt.TxID, "err", err, "sequence", attempt.Tx.Sequence,
 		))
 
@@ -551,7 +553,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 			continue
 		}
 
-		l = logger.Sugared(l.With("blockHash", receipt.GetBlockHash().String(), "status", receipt.GetStatus(), "transactionIndex", receipt.GetTransactionIndex()))
+		l = logger.Sugared(logger.With(l, "blockHash", receipt.GetBlockHash().String(), "status", receipt.GetStatus(), "transactionIndex", receipt.GetTransactionIndex()))
 
 		if receipt.IsUnmined() {
 			l.Debug("Got receipt for transaction but it's still in the mempool and not included in a block yet")
@@ -843,7 +845,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
 		}
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-		lggr.With(
+		logger.With(lggr,
 			"sendError", sendError,
 			"maxGasPriceConfig", ec.feeConfig.MaxFeePrice(),
 			"previousAttempt", attempt,
@@ -864,7 +866,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		// Should NEVER be fatal this is an invariant violation. The
 		// Broadcaster can never create a TxAttempt that will
 		// fatally error.
-		lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
+		logger.Criticalw(lggr, "Invariant violation: fatal error while re-attempting transaction",
 			"err", sendError,
 			"fee", attempt.TxFee,
 			"feeLimit", etx.FeeLimit,

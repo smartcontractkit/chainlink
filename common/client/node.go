@@ -11,10 +11,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -135,14 +135,15 @@ func NewNode[
 		n.http = httpuri
 	}
 	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
-	lggr = lggr.Named("Node").With(
+	lggr = logger.Named(lggr, "Node")
+	lggr = logger.With(lggr,
 		"nodeTier", Primary.String(),
 		"nodeName", name,
 		"node", n.String(),
 		"chainID", chainID,
 		"nodeOrder", n.order,
 	)
-	n.lfcLog = lggr.Named("Lifecycle")
+	n.lfcLog = logger.Named(lggr, "Lifecycle")
 	n.stateLatestBlockNumber = -1
 	n.rpc = rpc
 	n.chainFamily = chainFamily
