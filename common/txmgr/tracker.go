@@ -51,8 +51,8 @@ type Tracker[
 	lock         sync.Mutex
 	started      bool
 	mb           *utils.Mailbox[int64]
-	chDone       chan struct{}
 	wg           sync.WaitGroup
+	chDone       chan struct{}
 }
 
 func NewTracker[
@@ -268,6 +268,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markTxFatal
 	errMsg string) error {
 	tx.Error.SetValid(errMsg)
 
+	// Set state to TxInProgress so the tracker can attempt to mark it as fatal
 	tx.State = TxInProgress
 	if err := tr.txStore.UpdateTxFatalError(ctx, tx); err != nil {
 		return fmt.Errorf("failed to mark tx %v as abandoned: %w", tx.ID, err)

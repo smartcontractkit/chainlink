@@ -111,7 +111,7 @@ func TestEthTracker_ExceedingTTL(t *testing.T) {
 	ctx := testutils.Context(t)
 	enabledAddresses := generateEnabledAddresses(t, keyStore)
 
-	t.Run("in progress transaction still valid", func(t *testing.T) {
+	t.Run("confirmed but unfinalized transaction still tracked", func(t *testing.T) {
 		addr1 := cltest.MustGenerateRandomKey(t).Address
 		_ = cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, addr1, 123, 1)
 

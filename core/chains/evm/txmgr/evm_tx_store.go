@@ -69,6 +69,7 @@ type TestEvmTxStore interface {
 	FindTxAttemptsByTxIDs(ids []int64) ([]TxAttempt, error)
 	InsertTxAttempt(attempt *TxAttempt) error
 	LoadTxesAttempts(etxs []*Tx, qopts ...pg.QOpt) error
+	GetFatalTransactions(ctx context.Context) (txes []*Tx, err error)
 }
 
 type evmTxStore struct {
@@ -550,6 +551,26 @@ func (o *evmTxStore) InsertReceipt(receipt *evmtypes.Receipt) (int64, error) {
 	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
 
 	return r.ID, pkgerrors.Wrap(err, "InsertReceipt failed")
+}
+
+func (o *evmTxStore) GetFatalTransactions(ctx context.Context) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		stmt := `SELECT * FROM evm.txes WHERE state = 'fatal_error'`
+		var dbEtxs []DbEthTx
+		if err = tx.Select(&dbEtxs, stmt); err != nil {
+			return fmt.Errorf("failed to load evm.txes: %w", err)
+		}
+		txes = make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
+		return fmt.Errorf("failed to load evm.tx_attempts: %w", err)
+	}, pg.OptReadOnlyTx())
+
+	return txes, nil
 }
 
 // FindTxWithAttempts finds the Tx with its attempts and receipts preloaded
@@ -1250,19 +1271,15 @@ func (o *evmTxStore) GetNonFatalTransactions(ctx context.Context) (txes []*Tx, e
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
-		stmt := `
-SELECT * FROM evm.txes
-WHERE state = 'unconfirmed' OR state = 'unstarted' OR state = 'in_progress' 
-   OR state = 'confirmed_missing_receipt' OR state = 'confirmed'
-`
+		stmt := `SELECT * FROM evm.txes WHERE state <> 'fatal_error'`
 		var dbEtxs []DbEthTx
 		if err = tx.Select(&dbEtxs, stmt); err != nil {
-			return pkgerrors.Wrap(err, "GetNonFinalizedTransactions failed to load evm.txes")
+			return fmt.Errorf("failed to load evm.txes: %w", err)
 		}
 		txes = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
 		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
-		return pkgerrors.Wrap(err, "GetNonFinalizedTransactions failed to load evm.tx_attempts")
+		return fmt.Errorf("failed to load evm.txes: %w", err)
 	}, pg.OptReadOnlyTx())
 
 	return txes, nil
@@ -1278,39 +1295,19 @@ func (o *evmTxStore) GetTxByID(ctx context.Context, id int64) (txe *Tx, err erro
 		stmt := `SELECT * FROM evm.txes WHERE id = $1`
 		var dbEtxs []DbEthTx
 		if err = tx.Select(&dbEtxs, stmt, id); err != nil {
-			return pkgerrors.Wrap(err, "GetTxByID failed to load evm.txes")
+			return fmt.Errorf("failed to load evm.txes: %w", err)
 		}
 		txes := make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
 		if len(txes) != 1 {
-			return fmt.Errorf("GetTxByID failed to get tx with id %v", id)
+			return fmt.Errorf("failed to get tx with id %v", id)
 		}
 		txe = txes[0]
 		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
-		return pkgerrors.Wrap(err, "GetTxByID failed to load evm.tx_attempts")
+		return fmt.Errorf("failed to load evm.tx_attempts: %w", err)
 	}, pg.OptReadOnlyTx())
 
 	return txe, nil
-}
-
-func (o *evmTxStore) GetFatalTransactions(ctx context.Context) (txes []*Tx, err error) {
-	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
-	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	err = qq.Transaction(func(tx pg.Queryer) error {
-		stmt := `SELECT * FROM evm.txes WHERE state = 'fatal_error'`
-		var dbEtxs []DbEthTx
-		if err = tx.Select(&dbEtxs, stmt); err != nil {
-			return pkgerrors.Wrap(err, "GetFatalTransactions failed to load evm.txes")
-		}
-		txes = make([]*Tx, len(dbEtxs))
-		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
-		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
-		return pkgerrors.Wrap(err, "GetFatalTransactions failed to load evm.tx_attempts")
-	}, pg.OptReadOnlyTx())
-
-	return txes, nil
 }
 
 // FindTxsRequiringGasBump returns transactions that have all
