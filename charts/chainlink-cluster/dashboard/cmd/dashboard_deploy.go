@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/smartcontractkit/chainlink/v2/dashboard/dashboard"
 )
 
 func main() {
+	ctx := context.Background()
 	name := os.Getenv("DASHBOARD_NAME")
 	if name == "" {
 		panic("DASHBOARD_NAME must be provided")
@@ -36,7 +38,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := db.Deploy(); err != nil {
+	if err := db.Deploy(ctx); err != nil {
 		panic(err)
 	}
 }

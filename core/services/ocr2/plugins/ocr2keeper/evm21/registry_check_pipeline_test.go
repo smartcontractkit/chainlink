@@ -18,12 +18,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mocks"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -205,7 +207,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				e.client = client
 			}
 
-			state, retryable := e.verifyCheckBlock(context.Background(), tc.checkBlock, tc.upkeepId, tc.checkHash)
+			state, retryable := e.verifyCheckBlock(testutils.Context(t), tc.checkBlock, tc.upkeepId, tc.checkHash)
 			assert.Equal(t, tc.state, state)
 			assert.Equal(t, tc.retryable, retryable)
 		})
@@ -350,7 +352,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			e := &EvmRegistry{
 				lggr: lggr,
 				bs:   bs,
-				ctx:  context.Background(),
+				ctx:  testutils.Context(t),
 			}
 
 			if tc.makeEthCall {
@@ -530,7 +532,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			}
 			e.client = client
 
-			results, err := e.checkUpkeeps(context.Background(), tc.inputs)
+			results, err := e.checkUpkeeps(testutils.Context(t), tc.inputs)
 			assert.Equal(t, tc.results, results)
 			assert.Equal(t, tc.err, err)
 		})
@@ -651,7 +653,7 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 				}).Once()
 			e.client = client
 
-			results, err := e.simulatePerformUpkeeps(context.Background(), tc.inputs)
+			results, err := e.simulatePerformUpkeeps(testutils.Context(t), tc.inputs)
 			assert.Equal(t, tc.results, results)
 			assert.Equal(t, tc.err, err)
 		})

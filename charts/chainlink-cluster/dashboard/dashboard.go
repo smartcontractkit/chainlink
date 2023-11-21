@@ -378,8 +378,7 @@ func (m *CLClusterDashboard) generate() error {
 }
 
 // Deploy deploys the dashboard to Grafana
-func (m *CLClusterDashboard) Deploy() error {
-	ctx := context.Background()
+func (m *CLClusterDashboard) Deploy(ctx context.Context) error {
 	client := grabana.NewClient(&http.Client{}, m.GrafanaURL, grabana.WithAPIToken(m.GrafanaToken))
 	folder, err := client.FindOrCreateFolder(ctx, m.Folder)
 	if err != nil {

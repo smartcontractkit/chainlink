@@ -2,7 +2,6 @@ package v02
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -16,6 +15,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -258,7 +258,7 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 			c.httpClient = hc
 
 			ch := make(chan mercury.MercuryData, 1)
-			c.singleFeedRequest(context.Background(), ch, tt.index, tt.lookup)
+			c.singleFeedRequest(testutils.Context(t), ch, tt.index, tt.lookup)
 
 			m := <-ch
 			assert.Equal(t, tt.index, m.Index)
@@ -450,7 +450,7 @@ func TestV02_DoMercuryRequestV02(t *testing.T) {
 			}
 			c.httpClient = hc
 
-			state, reason, values, retryable, retryInterval, reqErr := c.DoRequest(context.Background(), tt.lookup, tt.pluginRetryKey)
+			state, reason, values, retryable, retryInterval, reqErr := c.DoRequest(testutils.Context(t), tt.lookup, tt.pluginRetryKey)
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
 			if retryable {
