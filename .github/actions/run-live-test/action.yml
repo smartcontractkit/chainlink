@@ -44,6 +44,6 @@ runs:
       with:
         basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
         hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-        this-job-name: ${{ inputs.network }} ${{ inputs.product }} Tests
+        this-job-name: ${{ inputs.network }} ${{ inputs.product }} Smoke Tests
         test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
       continue-on-error: true

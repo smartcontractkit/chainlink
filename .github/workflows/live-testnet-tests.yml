@@ -301,7 +301,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Tests
-        uses: ./actions/run-live-test
+        uses: ./.github/actions/run-live-test
         with:
           test: ${{ matrix.test }}
           product: ${{ matrix.product }}
@@ -332,7 +332,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Tests
-        uses: ./actions/run-live-test
+        uses: ./.github/actions/run-live-test
         with:
           test: ${{ matrix.test }}
           product: ${{ matrix.product }}
