@@ -17,17 +17,15 @@ import (
 func NewCachedFeeTokens(
 	lp logpoller.LogPoller,
 	priceRegistry ccipdata.PriceRegistryReader,
-	optimisticConfirmations int64,
 ) *CachedChain[[]common.Address] {
 	return &CachedChain[[]common.Address]{
-		observedEvents:          priceRegistry.FeeTokenEvents(),
-		logPoller:               lp,
-		address:                 []common.Address{priceRegistry.Address()},
-		optimisticConfirmations: optimisticConfirmations,
-		lock:                    &sync.RWMutex{},
-		value:                   []common.Address{},
-		lastChangeBlock:         0,
-		origin:                  &feeTokensOrigin{priceRegistry: priceRegistry},
+		observedEvents:  priceRegistry.FeeTokenEvents(),
+		logPoller:       lp,
+		address:         []common.Address{priceRegistry.Address()},
+		lock:            &sync.RWMutex{},
+		value:           []common.Address{},
+		lastChangeBlock: 0,
+		origin:          &feeTokensOrigin{priceRegistry: priceRegistry},
 	}
 }
 
@@ -42,16 +40,14 @@ func NewCachedSupportedTokens(
 	lp logpoller.LogPoller,
 	offRamp ccipdata.OffRampReader,
 	priceRegistry ccipdata.PriceRegistryReader,
-	optimisticConfirmations int64,
 ) *CachedChain[CachedTokens] {
 	return &CachedChain[CachedTokens]{
-		observedEvents:          append(priceRegistry.FeeTokenEvents(), offRamp.TokenEvents()...),
-		logPoller:               lp,
-		address:                 []common.Address{priceRegistry.Address(), offRamp.Address()},
-		optimisticConfirmations: optimisticConfirmations,
-		lock:                    &sync.RWMutex{},
-		value:                   CachedTokens{},
-		lastChangeBlock:         0,
+		observedEvents:  append(priceRegistry.FeeTokenEvents(), offRamp.TokenEvents()...),
+		logPoller:       lp,
+		address:         []common.Address{priceRegistry.Address(), offRamp.Address()},
+		lock:            &sync.RWMutex{},
+		value:           CachedTokens{},
+		lastChangeBlock: 0,
 		origin: &feeAndSupportedTokensOrigin{
 			feeTokensOrigin:       feeTokensOrigin{priceRegistry: priceRegistry},
 			supportedTokensOrigin: supportedTokensOrigin{offRamp: offRamp}},
@@ -63,16 +59,14 @@ func NewTokenToDecimals(
 	lp logpoller.LogPoller,
 	offRamp ccipdata.OffRampReader,
 	priceRegistryReader ccipdata.PriceRegistryReader,
-	optimisticConfirmations int64,
 ) *CachedChain[map[common.Address]uint8] {
 	return &CachedChain[map[common.Address]uint8]{
-		observedEvents:          append(priceRegistryReader.FeeTokenEvents(), offRamp.TokenEvents()...),
-		logPoller:               lp,
-		address:                 []common.Address{priceRegistryReader.Address(), offRamp.Address()},
-		optimisticConfirmations: optimisticConfirmations,
-		lock:                    &sync.RWMutex{},
-		value:                   make(map[common.Address]uint8),
-		lastChangeBlock:         0,
+		observedEvents:  append(priceRegistryReader.FeeTokenEvents(), offRamp.TokenEvents()...),
+		logPoller:       lp,
+		address:         []common.Address{priceRegistryReader.Address(), offRamp.Address()},
+		lock:            &sync.RWMutex{},
+		value:           make(map[common.Address]uint8),
+		lastChangeBlock: 0,
 		origin: &tokenToDecimals{
 			lggr:                lggr,
 			priceRegistryReader: priceRegistryReader,

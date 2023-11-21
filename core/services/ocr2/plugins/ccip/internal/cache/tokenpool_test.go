@@ -75,7 +75,7 @@ func TestNewTokenPools(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockLp := mocks.NewLogPoller(t)
-			mockLp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
+			mockLp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100, FinalizedBlockNumber: 80}, nil)
 
 			offRamp := ccipdatamocks.NewOffRampReader(t)
 			offRamp.On("TokenEvents").Return([]common.Hash{})
@@ -94,7 +94,7 @@ func TestNewTokenPools(t *testing.T) {
 			}
 			offRamp.On("GetDestinationTokens", mock.Anything).Return(destTokens, nil)
 
-			c := NewTokenPools(logger.TestLogger(t), mockLp, offRamp, 0, 5)
+			c := NewTokenPools(logger.TestLogger(t), mockLp, offRamp, 5)
 
 			res, err := c.Get(ctx)
 			if tc.expErr {
