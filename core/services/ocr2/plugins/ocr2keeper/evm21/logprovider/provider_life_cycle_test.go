@@ -1,18 +1,20 @@
 package logprovider
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
@@ -102,14 +104,13 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := testutils.Context(t)
 
 			if tc.mockPoller {
 				lp := new(mocks.LogPoller)
 				lp.On("RegisterFilter", mock.Anything).Return(nil)
 				lp.On("UnregisterFilter", mock.Anything).Return(nil)
-				lp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
+				lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 				hasFitlerTimes := 1
 				if tc.unregister {
 					hasFitlerTimes = 2
@@ -143,13 +144,12 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 }
 
 func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := testutils.Context(t)
 	mp := new(mocks.LogPoller)
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
 	mp.On("HasFilter", mock.Anything).Return(false)
-	mp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
+	mp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
 	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))

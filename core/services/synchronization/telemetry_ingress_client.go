@@ -11,10 +11,10 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type NoopTelemetryIngressClient struct{}
@@ -35,7 +35,7 @@ func (NoopTelemetryIngressClient) Name() string                   { return "Noop
 func (NoopTelemetryIngressClient) Ready() error { return nil }
 
 type telemetryIngressClient struct {
-	utils.StartStopOnce
+	services.StateMachine
 	url             *url.URL
 	ks              keystore.CSA
 	serverPubKeyHex string
@@ -45,7 +45,7 @@ type telemetryIngressClient struct {
 	lggr        logger.Logger
 
 	wgDone           sync.WaitGroup
-	chDone           chan struct{}
+	chDone           services.StopChan
 	dropMessageCount atomic.Uint32
 	chTelemetry      chan TelemPayload
 }
@@ -60,7 +60,7 @@ func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore
 		logging:         logging,
 		lggr:            lggr.Named("TelemetryIngressClient"),
 		chTelemetry:     make(chan TelemPayload, telemBufferSize),
-		chDone:          make(chan struct{}),
+		chDone:          make(services.StopChan),
 	}
 }
 
@@ -131,7 +131,7 @@ func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []b
 
 func (tc *telemetryIngressClient) handleTelemetry() {
 	go func() {
-		ctx, cancel := utils.StopChan(tc.chDone).NewCtx()
+		ctx, cancel := tc.chDone.NewCtx()
 		defer cancel()
 		for {
 			select {

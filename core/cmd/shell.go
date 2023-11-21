@@ -29,9 +29,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -60,7 +60,7 @@ var (
 	grpcOpts        loop.GRPCOpts
 )
 
-func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing) error {
+func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, logger logger.Logger) error {
 	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
 	var err error
 	initGlobalsOnce.Do(func() {
@@ -71,6 +71,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing) error {
 			CollectorTarget: cfgTracing.CollectorTarget(),
 			NodeAttributes:  cfgTracing.Attributes(),
 			SamplingRatio:   cfgTracing.SamplingRatio(),
+			OnDialError:     func(error) { logger.Errorw("Failed to dial", "err", err) },
 		})
 	})
 	return err
@@ -134,7 +135,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	err = initGlobals(cfg.Prometheus(), cfg.Tracing())
+	err = initGlobals(cfg.Prometheus(), cfg.Tracing(), appLggr)
 	if err != nil {
 		appLggr.Errorf("Failed to initialize globals: %v", err)
 	}
@@ -144,7 +145,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, err
 	}
 
-	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
+	err = handleNodeVersioning(ctx, db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
 	if err != nil {
 		return nil, err
 	}
@@ -173,9 +174,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
-			Keystore:         keyStore.Cosmos(),
-			CosmosConfigs:    cfg.CosmosConfigs(),
-			EventBroadcaster: eventBroadcaster,
+			Keystore:    keyStore.Cosmos(),
+			TOMLConfigs: cfg.CosmosConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
 	}
@@ -229,7 +229,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 }
 
 // handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
-func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error {
+func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error {
 	var err error
 	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DefaultQueryTimeout())
@@ -260,7 +260,7 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cf
 
 	// Migrate the database
 	if cfg.MigrateDatabase() {
-		if err = migrate.Migrate(db.DB, appLggr); err != nil {
+		if err = migrate.Migrate(ctx, db.DB, appLggr); err != nil {
 			return fmt.Errorf("initializeORM#Migrate: %w", err)
 		}
 	}
@@ -777,8 +777,8 @@ func (f *fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest,
 // APIInitializer is the interface used to create the API User credentials
 // needed to access the API. Does nothing if API user already exists.
 type APIInitializer interface {
-	// Initialize creates a new user for API access, or does nothing if one exists.
-	Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error)
+	// Initialize creates a new local Admin user for API access, or does nothing if one exists.
+	Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error)
 }
 
 type promptingAPIInitializer struct {
@@ -792,11 +792,11 @@ func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
 }
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
-func (t *promptingAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (t *promptingAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, err
+		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, prompt for initial admin user creation
@@ -846,7 +846,7 @@ func NewFileAPIInitializer(file string) APIInitializer {
 	return fileAPIInitializer{file: file}
 }
 
-func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (f fileAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
 	request, err := credentialsFromFile(f.file, lggr)
 	if err != nil {
 		return sessions.User{}, err
@@ -855,7 +855,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (se
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, err
+		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, create initial admin user from session request from file creds

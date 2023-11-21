@@ -183,32 +183,6 @@ func (_m *EvmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Contex
 	return r0
 }
 
-// FindReceiptsPendingConfirmation provides a mock function with given fields: ctx, blockNum, chainID
-func (_m *EvmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error) {
-	ret := _m.Called(ctx, blockNum, chainID)
-
-	var r0 []types.ReceiptPlus[*evmtypes.Receipt]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error)); ok {
-		return rf(ctx, blockNum, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) []types.ReceiptPlus[*evmtypes.Receipt]); ok {
-		r0 = rf(ctx, blockNum, chainID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.ReceiptPlus[*evmtypes.Receipt])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, *big.Int) error); ok {
-		r1 = rf(ctx, blockNum, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // FindTransactionsConfirmedInBlockRange provides a mock function with given fields: ctx, highBlockNumber, lowBlockNumber, chainID
 func (_m *EvmTxStore) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber int64, lowBlockNumber int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, highBlockNumber, lowBlockNumber, chainID)
@@ -460,6 +434,136 @@ func (_m *EvmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, evmtypes.Nonce) error); ok {
 		r1 = rf(ctx, fromAddress, seq)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindTxesByMetaFieldAndStates provides a mock function with given fields: ctx, metaField, metaValue, states, chainID
+func (_m *EvmTxStore) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, metaField, metaValue, states, chainID)
+
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, metaField, metaValue, states, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, metaField, metaValue, states, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, []types.TxState, *big.Int) error); ok {
+		r1 = rf(ctx, metaField, metaValue, states, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindTxesPendingCallback provides a mock function with given fields: ctx, blockNum, chainID
+func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error) {
+	ret := _m.Called(ctx, blockNum, chainID)
+
+	var r0 []types.ReceiptPlus[*evmtypes.Receipt]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error)); ok {
+		return rf(ctx, blockNum, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) []types.ReceiptPlus[*evmtypes.Receipt]); ok {
+		r0 = rf(ctx, blockNum, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.ReceiptPlus[*evmtypes.Receipt])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, *big.Int) error); ok {
+		r1 = rf(ctx, blockNum, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindTxesWithAttemptsAndReceiptsByIdsAndState provides a mock function with given fields: ctx, ids, states, chainID
+func (_m *EvmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, ids, states, chainID)
+
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []big.Int, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, ids, states, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []big.Int, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, ids, states, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []big.Int, []types.TxState, *big.Int) error); ok {
+		r1 = rf(ctx, ids, states, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindTxesWithMetaFieldByReceiptBlockNum provides a mock function with given fields: ctx, metaField, blockNum, chainID
+func (_m *EvmTxStore) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, metaField, blockNum, chainID)
+
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, metaField, blockNum, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, metaField, blockNum, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int64, *big.Int) error); ok {
+		r1 = rf(ctx, metaField, blockNum, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindTxesWithMetaFieldByStates provides a mock function with given fields: ctx, metaField, states, chainID
+func (_m *EvmTxStore) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, metaField, states, chainID)
+
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, metaField, states, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, metaField, states, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, []types.TxState, *big.Int) error); ok {
+		r1 = rf(ctx, metaField, states, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -907,6 +1011,20 @@ func (_m *EvmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttemptState) error); ok {
 		r0 = rf(ctx, etx, attempt, NewAttemptState)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateTxCallbackCompleted provides a mock function with given fields: ctx, pipelineTaskRunRid, chainId
+func (_m *EvmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId *big.Int) error {
+	ret := _m.Called(ctx, pipelineTaskRunRid, chainId)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, *big.Int) error); ok {
+		r0 = rf(ctx, pipelineTaskRunRid, chainId)
 	} else {
 		r0 = ret.Error(0)
 	}

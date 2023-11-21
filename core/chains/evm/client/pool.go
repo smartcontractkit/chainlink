@@ -15,11 +15,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -57,7 +57,7 @@ type PoolConfig interface {
 // Pool represents an abstraction over one or more primary nodes
 // It is responsible for liveness checking and balancing queries across live nodes
 type Pool struct {
-	utils.StartStopOnce
+	services.StateMachine
 	nodes               []Node
 	sendonlys           []SendOnlyNode
 	chainID             *big.Int
@@ -72,7 +72,7 @@ type Pool struct {
 	activeMu   sync.RWMutex
 	activeNode Node
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wg     sync.WaitGroup
 }
 

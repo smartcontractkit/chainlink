@@ -59,7 +59,7 @@ func DeployVRFCoordinatorV2PlusV2Example(auth *bind.TransactOpts, backend bind.C
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFCoordinatorV2PlusV2Example{VRFCoordinatorV2PlusV2ExampleCaller: VRFCoordinatorV2PlusV2ExampleCaller{contract: contract}, VRFCoordinatorV2PlusV2ExampleTransactor: VRFCoordinatorV2PlusV2ExampleTransactor{contract: contract}, VRFCoordinatorV2PlusV2ExampleFilterer: VRFCoordinatorV2PlusV2ExampleFilterer{contract: contract}}, nil
+	return address, tx, &VRFCoordinatorV2PlusV2Example{address: address, abi: *parsed, VRFCoordinatorV2PlusV2ExampleCaller: VRFCoordinatorV2PlusV2ExampleCaller{contract: contract}, VRFCoordinatorV2PlusV2ExampleTransactor: VRFCoordinatorV2PlusV2ExampleTransactor{contract: contract}, VRFCoordinatorV2PlusV2ExampleFilterer: VRFCoordinatorV2PlusV2ExampleFilterer{contract: contract}}, nil
 }
 
 type VRFCoordinatorV2PlusV2Example struct {

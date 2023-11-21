@@ -14,8 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name SendOnlyNode --output ../mocks/ --case=underscore
@@ -56,7 +56,7 @@ var _ SendOnlyNode = &sendOnlyNode{}
 // It only supports sending transactions
 // It must a http(s) url
 type sendOnlyNode struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	stateMu sync.RWMutex // protects state* fields
 	state   NodeState
@@ -68,7 +68,7 @@ type sendOnlyNode struct {
 	dialed      bool
 	name        string
 	chainID     *big.Int
-	chStop      utils.StopChan
+	chStop      services.StopChan
 	wg          sync.WaitGroup
 }
 

@@ -3,10 +3,10 @@ pragma solidity 0.8.16;
 
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
-import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC20.sol";
+import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC20.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {Common} from "../libraries/Common.sol";
-import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Common} from "./libraries/Common.sol";
+import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title RewardManager

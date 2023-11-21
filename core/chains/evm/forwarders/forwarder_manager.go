@@ -9,7 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
+
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -30,7 +33,7 @@ type Config interface {
 }
 
 type FwdMgr struct {
-	utils.StartStopOnce
+	services.StateMachine
 	ORM       ORM
 	evmClient evmclient.Client
 	cfg       Config
@@ -61,9 +64,6 @@ func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogP
 		ORM:          NewORM(db, lggr, dbConfig),
 		logpoller:    logpoller,
 		sendersCache: make(map[common.Address][]common.Address),
-		cacheMu:      sync.RWMutex{},
-		wg:           sync.WaitGroup{},
-		latestBlock:  0,
 	}
 	fwdMgr.ctx, fwdMgr.cancel = context.WithCancel(context.Background())
 	return &fwdMgr

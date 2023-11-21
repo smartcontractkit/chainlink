@@ -11,11 +11,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -59,7 +61,7 @@ var (
 )
 
 type Client interface {
-	services.ServiceCtx
+	services.Service
 	pb.MercuryClient
 }
 
@@ -70,7 +72,7 @@ type Conn interface {
 }
 
 type client struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	csaKey       csakey.KeyV2
 	serverPubKey []byte
@@ -82,7 +84,7 @@ type client struct {
 
 	consecutiveTimeoutCnt atomic.Int32
 	wg                    sync.WaitGroup
-	chStop                utils.StopChan
+	chStop                services.StopChan
 	chResetTransport      chan struct{}
 
 	timeoutCountMetric         prometheus.Counter
@@ -104,7 +106,7 @@ func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []by
 		serverURL:                  serverURL,
 		logger:                     lggr.Named("WSRPC").With("mercuryServerURL", serverURL),
 		chResetTransport:           make(chan struct{}, 1),
-		chStop:                     make(chan struct{}),
+		chStop:                     make(services.StopChan),
 		timeoutCountMetric:         timeoutCount.WithLabelValues(serverURL),
 		dialCountMetric:            dialCount.WithLabelValues(serverURL),
 		dialSuccessCountMetric:     dialSuccessCount.WithLabelValues(serverURL),
@@ -211,7 +213,7 @@ func (w *client) HealthReport() map[string]error {
 
 // Healthy if connected
 func (w *client) Healthy() (err error) {
-	if err = w.StartStopOnce.Healthy(); err != nil {
+	if err = w.StateMachine.Healthy(); err != nil {
 		return err
 	}
 	state := w.conn.GetState()

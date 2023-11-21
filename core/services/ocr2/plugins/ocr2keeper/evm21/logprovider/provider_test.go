@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"golang.org/x/time/rate"
@@ -174,8 +175,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := testutils.Context(t)
 
 			readInterval := 10 * time.Millisecond
 			opts := NewOptions(200)
@@ -239,8 +239,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 }
 
 func TestLogEventProvider_ReadLogs(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	mp := new(mocks.LogPoller)
 
@@ -248,7 +247,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	mp.On("ReplayAsync", mock.Anything).Return()
 	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
-	mp.On("LatestBlock", mock.Anything).Return(int64(1), nil)
+	mp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: int64(1)}, nil)
 	mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{
 		{
 			BlockNumber: 1,

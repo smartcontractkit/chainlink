@@ -1,7 +1,6 @@
 package telemetry
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func setupMockConfig(t *testing.T, useBatchSend bool) *mocks.TelemetryIngress {
@@ -56,14 +55,14 @@ func TestManagerAgents(t *testing.T) {
 
 	tm := NewManager(tic, ks, lggr)
 	require.Equal(t, "*synchronization.telemetryIngressBatchClient", reflect.TypeOf(tm.endpoints[0].client).String())
-	me := tm.GenMonitoringEndpoint("", "", "network-1", "network-1-chainID-1")
+	me := tm.GenMonitoringEndpoint("network-1", "network-1-chainID-1", "", "")
 	require.Equal(t, "*telemetry.IngressAgentBatch", reflect.TypeOf(me).String())
 
 	tic = setupMockConfig(t, false)
 	tic.On("Endpoints").Return([]config.TelemetryIngressEndpoint{te})
 	tm = NewManager(tic, ks, lggr)
 	require.Equal(t, "*synchronization.telemetryIngressClient", reflect.TypeOf(tm.endpoints[0].client).String())
-	me = tm.GenMonitoringEndpoint("", "", "network-1", "network-1-chainID-1")
+	me = tm.GenMonitoringEndpoint("network-1", "network-1-chainID-1", "", "")
 	require.Equal(t, "*telemetry.IngressAgent", reflect.TypeOf(me).String())
 }
 
@@ -190,7 +189,7 @@ func TestNewManager(t *testing.T) {
 
 	require.Equal(t, "TelemetryManager", m.Name())
 
-	require.Nil(t, m.Start(context.Background()))
+	require.Nil(t, m.Start(testutils.Context(t)))
 	testutils.WaitForLogMessageCount(t, logObs, "error connecting error while dialing dial tcp", 3)
 
 	hr := m.HealthReport()
@@ -246,25 +245,25 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		})
 
 		tm.endpoints[i] = &telemetryEndpoint{
-			StartStopOnce: utils.StartStopOnce{},
-			ChainID:       e.chainID,
-			Network:       e.network,
-			client:        clientMock,
+			StateMachine: services.StateMachine{},
+			ChainID:      e.chainID,
+			Network:      e.network,
+			client:       clientMock,
 		}
 
 	}
 	//Unknown networks or chainID
-	noopEndpoint := tm.GenMonitoringEndpoint("some-contractID", "some-type", "unknown-network", "unknown-chainID")
+	noopEndpoint := tm.GenMonitoringEndpoint("unknown-network", "unknown-chainID", "some-contractID", "some-type")
 	require.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(noopEndpoint).String())
 	require.Equal(t, 1, obsLogs.Len())
 	require.Contains(t, obsLogs.TakeAll()[0].Message, "no telemetry endpoint found")
 
-	noopEndpoint = tm.GenMonitoringEndpoint("some-contractID", "some-type", "network-1", "unknown-chainID")
+	noopEndpoint = tm.GenMonitoringEndpoint("network-1", "unknown-chainID", "some-contractID", "some-type")
 	require.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(noopEndpoint).String())
 	require.Equal(t, 1, obsLogs.Len())
 	require.Contains(t, obsLogs.TakeAll()[0].Message, "no telemetry endpoint found")
 
-	noopEndpoint = tm.GenMonitoringEndpoint("some-contractID", "some-type", "network-2", "network-1-chainID-1")
+	noopEndpoint = tm.GenMonitoringEndpoint("network-2", "network-1-chainID-1", "some-contractID", "some-type")
 	require.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(noopEndpoint).String())
 	require.Equal(t, 1, obsLogs.Len())
 	require.Contains(t, obsLogs.TakeAll()[0].Message, "no telemetry endpoint found")
@@ -274,10 +273,10 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		telemType := fmt.Sprintf("TelemType_%s", e.chainID)
 		contractID := fmt.Sprintf("contractID_%s", e.chainID)
 		me := tm.GenMonitoringEndpoint(
-			contractID,
-			synchronization.TelemetryType(telemType),
 			e.network,
 			e.chainID,
+			contractID,
+			synchronization.TelemetryType(telemType),
 		)
 		me.SendLog([]byte(e.chainID))
 		require.Equal(t, 0, obsLogs.Len())
@@ -316,7 +315,7 @@ func TestLegacyMode(t *testing.T) {
 	})
 	tm.endpoints[0].client = clientMock
 
-	e := tm.GenMonitoringEndpoint("some-contractID", "some-type", "unknown-network", "unknown-chainID")
+	e := tm.GenMonitoringEndpoint("unknown-network", "unknown-chainID", "some-contractID", "some-type")
 	require.Equal(t, "*telemetry.IngressAgentBatch", reflect.TypeOf(e).String())
 
 	e.SendLog([]byte("endpoint-1-message-1"))
@@ -324,7 +323,7 @@ func TestLegacyMode(t *testing.T) {
 	e.SendLog([]byte("endpoint-1-message-3"))
 	require.Len(t, clientSent, 3)
 
-	e2 := tm.GenMonitoringEndpoint("another-contractID", "another-type", "another-unknown-network", "another-unknown-chainID")
+	e2 := tm.GenMonitoringEndpoint("another-unknown-network", "another-unknown-chainID", "another-contractID", "another-type")
 	require.Equal(t, "*telemetry.IngressAgentBatch", reflect.TypeOf(e).String())
 
 	e2.SendLog([]byte("endpoint-2-message-1"))

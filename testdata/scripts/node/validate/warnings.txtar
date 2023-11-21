@@ -110,6 +110,7 @@ MaxAgeDays = 0
 MaxBackups = 1
 
 [WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = 'http://localhost:3000,http://localhost:6688'
 BridgeResponseURL = ''
 BridgeCacheTTL = '0s'
@@ -121,6 +122,25 @@ SessionReaperExpiration = '240h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
 ListenIP = '0.0.0.0'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = ''
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = ''
+ActiveAttributeAllowedValue = ''
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]
 RPID = ''
@@ -166,7 +186,7 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = false
+CaptureAutomationCustomTelemetry = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false

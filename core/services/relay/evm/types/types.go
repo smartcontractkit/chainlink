@@ -13,9 +13,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -36,7 +36,7 @@ type RelayConfig struct {
 type RelayOpts struct {
 	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
 	// make this private and wrap the arg fields with funcs on RelayOpts
-	relaytypes.RelayArgs
+	commontypes.RelayArgs
 	c *RelayConfig
 }
 
@@ -71,9 +71,9 @@ type ConfigPoller interface {
 	Replay(ctx context.Context, fromBlock int64) error
 }
 
-// TODO(FUN-668): Migrate this fully into relaytypes.FunctionsProvider
+// TODO(FUN-668): Migrate this fully into commontypes.FunctionsProvider
 type FunctionsProvider interface {
-	relaytypes.FunctionsProvider
+	commontypes.FunctionsProvider
 	LogPollerWrapper() LogPollerWrapper
 }
 

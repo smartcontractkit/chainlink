@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -40,6 +40,7 @@ type HeadTracker[
 	ID types.ID,
 	BLOCK_HASH types.Hashable,
 ] struct {
+	services.StateMachine
 	log             logger.Logger
 	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH]
 	headSaver       types.HeadSaver[HTH, BLOCK_HASH]
@@ -52,10 +53,9 @@ type HeadTracker[
 	backfillMB   *utils.Mailbox[HTH]
 	broadcastMB  *utils.Mailbox[HTH]
 	headListener types.HeadListener[HTH, BLOCK_HASH]
-	chStop       utils.StopChan
+	chStop       services.StopChan
 	wgDone       sync.WaitGroup
-	utils.StartStopOnce
-	getNilHead func() HTH
+	getNilHead   func() HTH
 }
 
 // NewHeadTracker instantiates a new HeadTracker using HeadSaver to persist new block numbers.
@@ -197,6 +197,9 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		"blockHeight", head.BlockNumber(),
 		"blockHash", head.BlockHash(),
 		"parentHeadHash", head.GetParentHash(),
+		"blockTs", head.GetTimestamp(),
+		"blockTsUnix", head.GetTimestamp().Unix(),
+		"blockDifficulty", head.BlockDifficulty(),
 	)
 
 	err := ht.headSaver.Save(ctx, head)

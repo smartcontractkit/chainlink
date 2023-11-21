@@ -16,8 +16,9 @@ func TestOCRSoak(t *testing.T) {
 	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
 	customNetworkTOML := ``
 	// Uncomment below for debugging TOML issues on the node
+	// network := networks.MustGetSelectedNetworksFromEnv()[0]
 	// fmt.Println("Using Chainlink TOML\n---------------------")
-	// fmt.Println(client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
+	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customNetworkTOML, network))
 	// fmt.Println("---------------------")
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, false)

@@ -12,10 +12,10 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // NoopTelemetryIngressBatchClient is a no-op interface for TelemetryIngressBatchClient
@@ -37,7 +37,7 @@ func (NoopTelemetryIngressBatchClient) Name() string                   { return 
 func (NoopTelemetryIngressBatchClient) Ready() error { return nil }
 
 type telemetryIngressBatchClient struct {
-	utils.StartStopOnce
+	services.StateMachine
 	url             *url.URL
 	ks              keystore.CSA
 	serverPubKeyHex string

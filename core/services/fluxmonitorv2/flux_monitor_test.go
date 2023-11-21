@@ -3,7 +3,6 @@ package fluxmonitorv2_test
 import (
 	"fmt"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
@@ -19,20 +18,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	corenull "github.com/smartcontractkit/chainlink/v2/core/null"
@@ -284,8 +282,8 @@ func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 }
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
-func setupFullDBWithKey(t *testing.T, name string) (*sqlx.DB, common.Address) {
-	cfg, db := heavyweight.FullTestDBV2(t, name, nil)
+func setupFullDBWithKey(t *testing.T) (*sqlx.DB, common.Address) {
+	cfg, db := heavyweight.FullTestDBV2(t, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, nodeAddr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
@@ -906,18 +904,8 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	g.Eventually(func() int { return len(pollOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(3))
 }
 
-// chainlink_test_TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped
-// 63 bytes is max and chainlink_test_ takes up 15, plus 4 for a random hex suffix.
-func dbName(s string) string {
-	diff := len(cmd.TestDBNamePrefix) + len("_FFF")
-	if len(s) <= diff {
-		return strings.ReplaceAll(strings.ToLower(s), "/", "")
-	}
-	return strings.ReplaceAll(strings.ToLower(s[len(s)-diff:]), "/", "")
-}
-
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
-	db, nodeAddr := setupFullDBWithKey(t, "hibernation")
+	db, nodeAddr := setupFullDBWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	const (

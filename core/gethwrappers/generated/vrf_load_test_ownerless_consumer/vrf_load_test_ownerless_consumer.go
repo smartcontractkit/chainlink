@@ -50,7 +50,7 @@ func DeployVRFLoadTestOwnerlessConsumer(auth *bind.TransactOpts, backend bind.Co
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFLoadTestOwnerlessConsumer{VRFLoadTestOwnerlessConsumerCaller: VRFLoadTestOwnerlessConsumerCaller{contract: contract}, VRFLoadTestOwnerlessConsumerTransactor: VRFLoadTestOwnerlessConsumerTransactor{contract: contract}, VRFLoadTestOwnerlessConsumerFilterer: VRFLoadTestOwnerlessConsumerFilterer{contract: contract}}, nil
+	return address, tx, &VRFLoadTestOwnerlessConsumer{address: address, abi: *parsed, VRFLoadTestOwnerlessConsumerCaller: VRFLoadTestOwnerlessConsumerCaller{contract: contract}, VRFLoadTestOwnerlessConsumerTransactor: VRFLoadTestOwnerlessConsumerTransactor{contract: contract}, VRFLoadTestOwnerlessConsumerFilterer: VRFLoadTestOwnerlessConsumerFilterer{contract: contract}}, nil
 }
 
 type VRFLoadTestOwnerlessConsumer struct {

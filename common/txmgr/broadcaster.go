@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -14,13 +15,13 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -105,6 +106,7 @@ type Broadcaster[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
+	services.StateMachine
 	logger  logger.Logger
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	client  txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -121,8 +123,6 @@ type Broadcaster[
 	// when Start is called
 	autoSyncSequence bool
 
-	txInsertListener        pg.Subscription
-	eventBroadcaster        pg.EventBroadcaster
 	processUnstartedTxsImpl ProcessUnstartedTxs[ADDR]
 
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
@@ -135,14 +135,11 @@ type Broadcaster[
 	// Each key has its own trigger
 	triggers map[ADDR]chan struct{}
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wg     sync.WaitGroup
 
 	initSync  sync.Mutex
 	isStarted bool
-	utils.StartStopOnce
-
-	parseAddr func(string) (ADDR, error)
 
 	sequenceLock         sync.RWMutex
 	nextSequenceMap      map[ADDR]SEQ
@@ -165,13 +162,11 @@ func NewBroadcaster[
 	txConfig txmgrtypes.BroadcasterTransactionsConfig,
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
 	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
-	eventBroadcaster pg.EventBroadcaster,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	sequenceSyncer SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH, SEQ],
 	logger logger.Logger,
 	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	autoSyncSequence bool,
-	parseAddress func(string) (ADDR, error),
 	generateNextSequence types.GenerateNextSequenceFunc[SEQ],
 ) *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	logger = logger.Named("Broadcaster")
@@ -186,11 +181,9 @@ func NewBroadcaster[
 		feeConfig:        feeConfig,
 		txConfig:         txConfig,
 		listenerConfig:   listenerConfig,
-		eventBroadcaster: eventBroadcaster,
 		ks:               keystore,
 		checkerFactory:   checkerFactory,
 		autoSyncSequence: autoSyncSequence,
-		parseAddr:        parseAddress,
 	}
 
 	b.processUnstartedTxsImpl = b.processUnstartedTxs
@@ -214,10 +207,6 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 		return errors.New("Broadcaster is already started")
 	}
 	var err error
-	eb.txInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnTx, "")
-	if err != nil {
-		return errors.Wrap(err, "Broadcaster could not start")
-	}
 	eb.enabledAddresses, err = eb.ks.EnabledAddressesForChain(eb.chainID)
 	if err != nil {
 		return errors.Wrap(err, "Broadcaster: failed to load EnabledAddressesForChain")
@@ -238,15 +227,9 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 		go eb.monitorTxs(addr, triggerCh)
 	}
 
-	eb.wg.Add(1)
-	go eb.txInsertTriggerer()
-
 	eb.sequenceLock.Lock()
 	defer eb.sequenceLock.Unlock()
-	eb.nextSequenceMap, err = eb.loadNextSequenceMap(eb.enabledAddresses)
-	if err != nil {
-		return errors.Wrap(err, "Broadcaster: failed to load next sequence map")
-	}
+	eb.nextSequenceMap = eb.loadNextSequenceMap(eb.enabledAddresses)
 
 	eb.isStarted = true
 	return nil
@@ -264,9 +247,6 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) clos
 	defer eb.initSync.Unlock()
 	if !eb.isStarted {
 		return errors.Wrap(utils.ErrAlreadyStopped, "Broadcaster is not started")
-	}
-	if eb.txInsertListener != nil {
-		eb.txInsertListener.Close()
 	}
 	close(eb.chStop)
 	eb.wg.Wait()
@@ -304,52 +284,39 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Trig
 	}
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) txInsertTriggerer() {
-	defer eb.wg.Done()
-	for {
-		select {
-		case ev, ok := <-eb.txInsertListener.Events():
-			if !ok {
-				eb.logger.Debug("txInsertListener channel closed, exiting trigger loop")
-				return
-			}
-			addr, err := eb.parseAddr(ev.Payload)
-			if err != nil {
-				eb.logger.Errorw("failed to parse address in trigger", "err", err)
-				continue
-			}
-			eb.Trigger(addr)
-		case <-eb.chStop:
-			return
-		}
-	}
-}
-
 // Load the next sequence map using the tx table or on-chain (if not found in tx table)
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) loadNextSequenceMap(addresses []ADDR) (map[ADDR]SEQ, error) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) loadNextSequenceMap(addresses []ADDR) map[ADDR]SEQ {
 	ctx, cancel := eb.chStop.NewCtx()
 	defer cancel()
 
 	nextSequenceMap := make(map[ADDR]SEQ)
 	for _, address := range addresses {
-		// Get the highest sequence from the tx table
-		// Will need to be incremented since this sequence is already used
-		seq, err := eb.txStore.FindLatestSequence(ctx, address, eb.chainID)
-		if err != nil {
-			// Look for nonce on-chain if no tx found for address in TxStore or if error occurred
-			// Returns the nonce that should be used for the next transaction so no need to increment
-			seq, err = eb.client.PendingSequenceAt(ctx, address)
-			if err != nil {
-				return nil, errors.New("failed to retrieve next sequence from on-chain causing failure to load next sequence map on broadcaster startup")
-			}
-
+		seq, err := eb.getSequenceForAddr(ctx, address)
+		if err == nil {
 			nextSequenceMap[address] = seq
-		} else {
-			nextSequenceMap[address] = eb.generateNextSequence(seq)
 		}
 	}
 
-	return nextSequenceMap, nil
+	return nextSequenceMap
+}
+
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) getSequenceForAddr(ctx context.Context, address ADDR) (seq SEQ, err error) {
+	// Get the highest sequence from the tx table
+	// Will need to be incremented since this sequence is already used
+	seq, err = eb.txStore.FindLatestSequence(ctx, address, eb.chainID)
+	if err == nil {
+		seq = eb.generateNextSequence(seq)
+		return seq, nil
+	}
+	// Look for nonce on-chain if no tx found for address in TxStore or if error occurred
+	// Returns the nonce that should be used for the next transaction so no need to increment
+	seq, err = eb.client.PendingSequenceAt(ctx, address)
+	if err == nil {
+		return seq, nil
+	}
+	eb.logger.Criticalw("failed to retrieve next sequence from on-chain for address: ", "address", address.String())
+	return seq, err
+
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) newSequenceSyncBackoff() backoff.Backoff {
@@ -432,7 +399,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) moni
 // syncSequence tries to sync the key sequence, retrying indefinitely until success or stop signal is sent
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) SyncSequence(ctx context.Context, addr ADDR) {
 	sequenceSyncRetryBackoff := eb.newSequenceSyncBackoff()
-	localSequence, err := eb.GetNextSequence(addr)
+	localSequence, err := eb.GetNextSequence(ctx, addr)
 	// Address not found in map so skip sync
 	if err != nil {
 		eb.logger.Criticalw("Failed to retrieve local next sequence for address", "address", addr.String(), "err", err)
@@ -592,19 +559,19 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	lgr.Infow("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
 	errType, err := eb.client.SendTransactionReturnCode(ctx, etx, attempt, lgr)
 
-	if errType != clienttypes.Fatal {
+	if errType != client.Fatal {
 		etx.InitialBroadcastAt = &initialBroadcastAt
 		etx.BroadcastAt = &initialBroadcastAt
 	}
 
 	switch errType {
-	case clienttypes.Fatal:
+	case client.Fatal:
 		eb.SvcErrBuffer.Append(err)
 		etx.Error = null.StringFrom(err.Error())
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
-	case clienttypes.TransactionAlreadyKnown:
+	case client.TransactionAlreadyKnown:
 		fallthrough
-	case clienttypes.Successful:
+	case client.Successful:
 		// Either the transaction was successful or one of the following four scenarios happened:
 		//
 		// SCENARIO 1
@@ -646,7 +613,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
 		// Check if from_address exists in map to ensure it is valid before broadcasting
 		var sequence SEQ
-		sequence, err = eb.GetNextSequence(etx.FromAddress)
+		sequence, err = eb.GetNextSequence(ctx, etx.FromAddress)
 		if err != nil {
 			return err, true
 		}
@@ -657,9 +624,9 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// Increment sequence if successfully broadcasted
 		eb.IncrementNextSequence(etx.FromAddress, sequence)
 		return err, true
-	case clienttypes.Underpriced:
+	case client.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
-	case clienttypes.InsufficientFunds:
+	case client.InsufficientFunds:
 		// NOTE: This bails out of the entire cycle and essentially "blocks" on
 		// any transaction that gets insufficient_funds. This is OK if a
 		// transaction with a large VALUE blocks because this always comes last
@@ -669,13 +636,13 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// theoretically be sent, but will instead be blocked.
 		eb.SvcErrBuffer.Append(err)
 		fallthrough
-	case clienttypes.Retryable:
+	case client.Retryable:
 		return err, true
-	case clienttypes.FeeOutOfValidRange:
+	case client.FeeOutOfValidRange:
 		return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
-	case clienttypes.Unsupported:
+	case client.Unsupported:
 		return err, false
-	case clienttypes.ExceedsMaxFee:
+	case client.ExceedsMaxFee:
 		// Broadcaster: Note that we may have broadcast to multiple nodes and had it
 		// accepted by one of them! It is not guaranteed that all nodes share
 		// the same tx fee cap. That is why we must treat this as an unknown
@@ -688,7 +655,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	default:
 		// Every error that doesn't fall under one of the above categories will be treated as Unknown.
 		fallthrough
-	case clienttypes.Unknown:
+	case client.Unknown:
 		eb.SvcErrBuffer.Append(err)
 		lgr.Criticalw(`Unknown error occurred while handling tx queue in ProcessUnstartedTxs. This chain/RPC client may not be supported. `+
 			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "err", err, "etx", etx, "attempt", attempt)
@@ -704,7 +671,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 
 			// Check if from_address exists in map to ensure it is valid before broadcasting
 			var sequence SEQ
-			sequence, err = eb.GetNextSequence(etx.FromAddress)
+			sequence, err = eb.GetNextSequence(ctx, etx.FromAddress)
 			if err != nil {
 				return err, true
 			}
@@ -741,7 +708,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) next
 		return nil, errors.Wrap(err, "findNextUnstartedTransactionFromAddress failed")
 	}
 
-	sequence, err := eb.GetNextSequence(etx.FromAddress)
+	sequence, err := eb.GetNextSequence(ctx, etx.FromAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -814,27 +781,49 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) save
 	// Now we have an errored pipeline even though the tx succeeded. This case
 	// is relatively benign and probably nobody will ever run into it in
 	// practice, but something to be aware of.
-	if etx.PipelineTaskRunID.Valid && eb.resumeCallback != nil {
+	if etx.PipelineTaskRunID.Valid && eb.resumeCallback != nil && etx.SignalCallback {
 		err := eb.resumeCallback(etx.PipelineTaskRunID.UUID, nil, errors.Errorf("fatal error while sending transaction: %s", etx.Error.String))
 		if errors.Is(err, sql.ErrNoRows) {
 			lgr.Debugw("callback missing or already resumed", "etxID", etx.ID)
 		} else if err != nil {
 			return errors.Wrap(err, "failed to resume pipeline")
+		} else {
+			// Mark tx as having completed callback
+			if err := eb.txStore.UpdateTxCallbackCompleted(ctx, etx.PipelineTaskRunID.UUID, eb.chainID); err != nil {
+				return err
+			}
 		}
 	}
 	return eb.txStore.UpdateTxFatalError(ctx, etx)
 }
 
 // Used to get the next usable sequence for a transaction
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetNextSequence(address ADDR) (seq SEQ, err error) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetNextSequence(ctx context.Context, address ADDR) (seq SEQ, err error) {
 	eb.sequenceLock.Lock()
 	defer eb.sequenceLock.Unlock()
 	// Get next sequence from map
 	seq, exists := eb.nextSequenceMap[address]
-	if !exists {
-		return seq, errors.New(fmt.Sprint("address not found in next sequence map: ", address))
+	if exists {
+		return seq, nil
 	}
-	return seq, nil
+
+	eb.logger.Infow("address not found in local next sequence map. Attempting to search and populate sequence.", "address", address.String())
+	// Check if address is in the enabled address list
+	if !slices.Contains(eb.enabledAddresses, address) {
+		return seq, fmt.Errorf("address disabled: %s", address)
+	}
+
+	// Try to retrieve next sequence from tx table or on-chain to load the map
+	// A scenario could exist where loading the map during startup failed (e.g. All configured RPC's are unreachable at start)
+	// The expectation is that the node does not fail startup so sequences need to be loaded during runtime
+	foundSeq, err := eb.getSequenceForAddr(ctx, address)
+	if err != nil {
+		return seq, fmt.Errorf("failed to find next sequence for address: %s", address)
+	}
+
+	// Set sequence in map
+	eb.nextSequenceMap[address] = foundSeq
+	return foundSeq, nil
 }
 
 // Used to increment the sequence in the mapping to have the next usable one available for the next transaction

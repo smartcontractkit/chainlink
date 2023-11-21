@@ -20,12 +20,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
@@ -33,7 +33,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -157,10 +157,10 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	err = ec.Close()
 	require.NoError(t, err)
 
-	// Can't start more than once (Confirmer implements utils.StartStopOnce)
+	// Can't start more than once (Confirmer uses services.StateMachine)
 	err = ec.Start(ctx)
 	require.Error(t, err)
-	// Can't close more than once (Confirmer implements utils.StartStopOnce)
+	// Can't close more than once (Confirmer use services.StateMachine)
 	err = ec.Close()
 	require.Error(t, err)
 
@@ -564,7 +564,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		data, err := utils.ABIEncode(`[{"type":"uint256"}]`, big.NewInt(10))
 		require.NoError(t, err)
 		sig := utils.Keccak256Fixed([]byte(`MyError(uint256)`))
-		ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, &evmclient.JsonError{
+		ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, &client.JsonError{
 			Code:    1,
 			Message: "reverted",
 			Data:    utils.ConcatBytes(sig[:4], data),
@@ -1658,7 +1658,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
 
 		// Send transaction and assume success.
-		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(clienttypes.Successful, nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(commonclient.Successful, nil).Once()
 
 		err := ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
 		require.NoError(t, err)
@@ -1703,7 +1703,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
 
 		// Send transaction and assume success.
-		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(clienttypes.Successful, nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(commonclient.Successful, nil).Once()
 
 		err := ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
 		require.NoError(t, err)
@@ -1787,7 +1787,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			})).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx.Sequence)
-		}), fromAddress).Return(clienttypes.Fatal, errors.New("exceeds block gas limit")).Once()
+		}), fromAddress).Return(commonclient.Fatal, errors.New("exceeds block gas limit")).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -1819,7 +1819,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		// Once for the bumped attempt which exceeds limit
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx.Sequence) && tx.GasPrice().Int64() == int64(20000000000)
-		}), fromAddress).Return(clienttypes.ExceedsMaxFee, errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
+		}), fromAddress).Return(commonclient.ExceedsMaxFee, errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -1858,7 +1858,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			})).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -1904,7 +1904,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.Anything).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, fmt.Errorf("known transaction: %s", ethTx.Hash().Hex())).Once()
+		}), fromAddress).Return(commonclient.Successful, fmt.Errorf("known transaction: %s", ethTx.Hash().Hex())).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -1944,7 +1944,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.Anything).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.TransactionAlreadyKnown, errors.New("nonce too low")).Once()
+		}), fromAddress).Return(commonclient.TransactionAlreadyKnown, errors.New("nonce too low")).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -1996,7 +1996,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.Anything).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == n && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Unknown, errors.New("some network error")).Once()
+		}), fromAddress).Return(commonclient.Unknown, errors.New("some network error")).Once()
 
 		// Do the thing
 		err := ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
@@ -2024,7 +2024,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		n = *etx2.Sequence
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == n && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 
@@ -2063,7 +2063,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.Anything).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == n && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.TransactionAlreadyKnown, errors.New("nonce too low")).Once()
+		}), fromAddress).Return(commonclient.TransactionAlreadyKnown, errors.New("nonce too low")).Once()
 
 		// Creates new attempt as normal if currentHead is not high enough
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2104,7 +2104,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.Anything).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, errors.New("replacement transaction underpriced")).Once()
+		}), fromAddress).Return(commonclient.Successful, errors.New("replacement transaction underpriced")).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2141,7 +2141,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.Anything).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, fmt.Errorf("known transaction: %s", ethTx.Hash().Hex())).Once()
+		}), fromAddress).Return(commonclient.Successful, fmt.Errorf("known transaction: %s", ethTx.Hash().Hex())).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2180,7 +2180,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.Anything).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, errors.New(temporarilyUnderpricedError)).Once()
+		}), fromAddress).Return(commonclient.Successful, errors.New(temporarilyUnderpricedError)).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2209,7 +2209,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && gasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
+		}), fromAddress).Return(commonclient.Successful, errors.New("already known")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
 		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2239,7 +2239,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && gasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
+		}), fromAddress).Return(commonclient.Successful, errors.New("already known")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
 		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2278,7 +2278,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		gasTipCap := assets.GWei(42)
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx4.Sequence && gasTipCap.ToInt().Cmp(tx.GasTipCap()) == 0
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 		var err error
 		etx4, err = txStore.FindTxWithAttempts(etx4.ID)
@@ -2308,7 +2308,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		// Third attempt failed to bump, resubmits old one instead
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx4.Sequence && attempt4_2.Hash.String() == tx.Hash().String()
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 		var err error
@@ -2344,7 +2344,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.Anything).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx4.Sequence && expectedBumpedTipCap.ToInt().Cmp(tx.GasTipCap()) == 0
-		}), fromAddress).Return(clienttypes.Successful, errors.New("replacement transaction underpriced")).Once()
+		}), fromAddress).Return(commonclient.Successful, errors.New("replacement transaction underpriced")).Once()
 
 		// Do it
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2401,10 +2401,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 		// Fail the first time with terminally underpriced.
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
-			clienttypes.Underpriced, errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price")).Once()
+			commonclient.Underpriced, errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price")).Once()
 		// Succeed the second time after bumping gas.
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
-			clienttypes.Successful, nil).Once()
+			commonclient.Successful, nil).Once()
 		kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Return(
 			signedTx, nil,
 		).Once()
@@ -2424,10 +2424,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 		// Fail a few times with terminally underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
-			clienttypes.Underpriced, errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price")).Times(3)
+			commonclient.Underpriced, errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price")).Times(3)
 		// Succeed the second time after bumping gas.
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
-			clienttypes.Successful, nil).Once()
+			commonclient.Successful, nil).Once()
 		signedLegacyTx := new(types.Transaction)
 		kst.On("SignTx", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Type() == 0x0 && tx.Nonce() == uint64(*etx.Sequence)
@@ -2456,10 +2456,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 		// Fail a few times with terminally underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
-			clienttypes.Underpriced, errors.New("transaction underpriced")).Times(3)
+			commonclient.Underpriced, errors.New("transaction underpriced")).Times(3)
 		// Succeed the second time after bumping gas.
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
-			clienttypes.Successful, nil).Once()
+			commonclient.Successful, nil).Once()
 		signedDxFeeTx := new(types.Transaction)
 		kst.On("SignTx", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Type() == 0x2 && tx.Nonce() == uint64(*etx.Sequence)
@@ -2517,7 +2517,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.InsufficientFunds, insufficientEthError).Once()
+		}), fromAddress).Return(commonclient.InsufficientFunds, insufficientEthError).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2543,7 +2543,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.InsufficientFunds, insufficientEthError).Once()
+		}), fromAddress).Return(commonclient.InsufficientFunds, insufficientEthError).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2568,7 +2568,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2600,7 +2600,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 			cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, nonce, fromAddress)
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 				return tx.Nonce() == uint64(n)
-			}), fromAddress).Return(clienttypes.Successful, nil).Once()
+			}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 			nonce++
 		}
@@ -2695,7 +2695,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 			require.NoError(t, err)
 			// Keeps gas price and nonce the same
 			return atx.GasPrice().Cmp(tx.GasPrice()) == 0 && atx.Nonce() == tx.Nonce()
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
@@ -2718,7 +2718,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attemptHash)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
-			clienttypes.Successful, nil).Once()
+			commonclient.Successful, nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
@@ -2753,7 +2753,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 			s, err := txmgr.GetGethSignedTx(attempt3.SignedRawTx)
 			require.NoError(t, err)
 			return tx.Hash() == s.Hash()
-		}), fromAddress).Return(clienttypes.Successful, nil).Once()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
@@ -2817,9 +2817,9 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				tx.Gas() == uint64(overrideGasLimit) &&
 				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
 				tx.To().String() == etx1.ToAddress.String()
-		}), mock.Anything).Return(clienttypes.Successful, nil).Once()
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{1}, gasPriceWei, fromAddress, overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{1}, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("uses default gas limit if overrideGasLimit is 0", func(t *testing.T) {
@@ -2832,9 +2832,9 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				tx.Gas() == uint64(etx1.FeeLimit) &&
 				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
 				tx.To().String() == etx1.ToAddress.String()
-		}), mock.Anything).Return(clienttypes.Successful, nil).Once()
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1)}, gasPriceWei, fromAddress, 0))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(1)}, gasPriceWei, fromAddress, 0))
 	})
 
 	t.Run("rebroadcasts several eth_txes in nonce range", func(t *testing.T) {
@@ -2843,12 +2843,12 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == uint64(overrideGasLimit)
-		}), mock.Anything).Return(clienttypes.Successful, nil).Once()
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx2.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == uint64(overrideGasLimit)
-		}), mock.Anything).Return(clienttypes.Successful, nil).Once()
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1), (2)}, gasPriceWei, fromAddress, overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(1), (2)}, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
@@ -2857,10 +2857,10 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(1)
-		}), mock.Anything).Return(clienttypes.Successful, nil).Once()
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(2)
-		}), mock.Anything).Return(clienttypes.Successful, nil).Once()
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 		for i := 3; i <= 5; i++ {
 			nonce := i
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
@@ -2870,11 +2870,11 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 					*tx.To() == fromAddress &&
 					tx.Value().Cmp(big.NewInt(0)) == 0 &&
 					len(tx.Data()) == 0
-			}), mock.Anything).Return(clienttypes.Successful, nil).Once()
+			}), mock.Anything).Return(commonclient.Successful, nil).Once()
 		}
 		nonces := []evmtypes.Nonce{(1), (2), (3), (4), (5)}
 
-		require.NoError(t, ec.ForceRebroadcast(nonces, gasPriceWei, fromAddress, overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), nonces, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("zero transactions use default gas limit if override wasn't specified", func(t *testing.T) {
@@ -2883,9 +2883,9 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(0) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && uint32(tx.Gas()) == config.EVM().GasEstimator().LimitDefault()
-		}), mock.Anything).Return(clienttypes.Successful, nil).Once()
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(0)}, gasPriceWei, fromAddress, 0))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(0)}, gasPriceWei, fromAddress, 0))
 	})
 }
 
@@ -2933,11 +2933,12 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 1, fromAddress)
 		cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		// Setting both signal_callback and callback_completed to TRUE to simulate a completed pipeline task
+		// It would only be in a state past suspended if the resume callback was called and callback_completed was set to TRUE
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		err := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
 		require.NoError(t, err)
-
 	})
 
 	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
@@ -2952,15 +2953,15 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
 		cltest.MustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		err := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
 		require.NoError(t, err)
-
 	})
 
 	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
 		ch := make(chan interface{})
+		nonce := evmtypes.Nonce(3)
 		var err error
 		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
@@ -2972,15 +2973,19 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
-		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 		receipt := cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		go func() {
 			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
 			require.NoError(t, err2)
+			// Retrieve Tx to check if callback completed flag was set to true
+			updateTx, err3 := txStore.FindTxWithSequence(testutils.Context(t), fromAddress, nonce)
+			require.NoError(t, err3)
+			require.Equal(t, true, updateTx.CallbackCompleted)
 		}()
 
 		select {
@@ -3000,6 +3005,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	t.Run("processes eth_txes with receipt older than minConfirmations that reverted", func(t *testing.T) {
 		ch := make(chan interface{})
+		nonce := evmtypes.Nonce(4)
 		var err error
 		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
@@ -3011,17 +3017,21 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
-		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 
 		// receipt is not passed through as a value since it reverted and caused an error
 		cltest.MustInsertRevertedEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		go func() {
 			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
 			require.NoError(t, err2)
+			// Retrieve Tx to check if callback completed flag was set to true
+			updateTx, err3 := txStore.FindTxWithSequence(testutils.Context(t), fromAddress, nonce)
+			require.NoError(t, err3)
+			require.Equal(t, true, updateTx.CallbackCompleted)
 		}()
 
 		select {
@@ -3035,6 +3045,28 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		case <-testutils.AfterWaitTimeout(t):
 			t.Fatal("no value received")
 		}
+	})
+
+	t.Run("does not mark callback complete if callback fails", func(t *testing.T) {
+		nonce := evmtypes.Nonce(5)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(uuid.UUID, interface{}, error) error {
+			return errors.New("error")
+		})
+
+		run := cltest.MustInsertPipelineRun(t, db)
+		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
+		cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+
+		err := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
+		require.Error(t, err)
+
+		// Retrieve Tx to check if callback completed flag was left unchanged
+		updateTx, err := txStore.FindTxWithSequence(testutils.Context(t), fromAddress, nonce)
+		require.NoError(t, err)
+		require.Equal(t, false, updateTx.CallbackCompleted)
 	})
 }
 

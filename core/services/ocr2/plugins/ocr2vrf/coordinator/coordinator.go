@@ -17,12 +17,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/smartcontractkit/libocr/commontypes"
-	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2vrf/dkg"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/libocr/commontypes"
+	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-vrf/dkg"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -227,7 +229,7 @@ func (c *coordinator) CurrentChainHeight(ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return uint64(head), nil
+	return uint64(head.BlockNumber), nil
 }
 
 // ReportIsOnchain returns true iff a report for the given OCR epoch/round is

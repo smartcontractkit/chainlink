@@ -1,21 +1,21 @@
-name: 'Build Chainlink and Publish'
+name: "Build Chainlink and Publish"
 
 on:
   # Mimics old circleci behaviour
   push:
     tags:
-      - 'v*'
+      - "v*"
     branches:
       - master
-      - 'release/**'
+      - "release/**"
 
 jobs:
   checks:
-    name: 'Checks'
+    name: "Checks"
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Check for VERSION file bump on tags
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         uses: ./.github/actions/version-file-bump
@@ -32,7 +32,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Build, sign and publish chainlink image
         uses: ./.github/actions/build-sign-publish-chainlink
@@ -42,15 +42,17 @@ jobs:
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
           sign-images: true
-          sign-method: 'keypair'
+          sign-method: "keypair"
           cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
           cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
           cosign-password: ${{ secrets.COSIGN_PASSWORD }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           verify-signature: true
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

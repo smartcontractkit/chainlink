@@ -1,21 +1,22 @@
 package evm
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -54,7 +55,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				active: actives,
 			}
 
-			keys, err := rg.GetActiveUpkeepIDs(context.Background())
+			keys, err := rg.GetActiveUpkeepIDs(testutils.Context(t))
 
 			if test.ExpectedErr != nil {
 				assert.ErrorIs(t, err, test.ExpectedErr)
@@ -189,7 +190,7 @@ func TestPollLogs(t *testing.T) {
 
 			if test.LatestBlock != nil {
 				mp.On("LatestBlock", mock.Anything).
-					Return(test.LatestBlock.OutputBlock, test.LatestBlock.OutputErr)
+					Return(logpoller.LogPollerBlock{BlockNumber: test.LatestBlock.OutputBlock}, test.LatestBlock.OutputErr)
 			}
 
 			if test.LogsWithSigs != nil {

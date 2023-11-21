@@ -11,10 +11,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -29,10 +30,9 @@ import (
 )
 
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := testutils.Context(t)
 	lp := &lpmocks.LogPoller{}
-	lp.On("LatestBlock", mock.Anything).Return(int64(100), nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
 	r := NewLogRecoverer(logger.TestLogger(t), lp, nil, nil, nil, nil, NewOptions(200))
 
 	tests := []struct {
@@ -182,7 +182,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 			start, _ := r.getRecoveryWindow(0)
 			block24h := int64(math.Abs(float64(start)))
 
-			lp.On("LatestBlock", mock.Anything).Return(block24h+oldLogsOffset, nil)
+			lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: block24h + oldLogsOffset}, nil)
 			statesReader.On("SelectByWorkIDs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, nil)
 
 			r.lock.Lock()
@@ -213,8 +213,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 }
 
 func TestLogRecoverer_Recover(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	tests := []struct {
 		name             string
@@ -423,7 +422,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			recoverer, filterStore, lp, statesReader := setupTestRecoverer(t, time.Millisecond*50, lookbackBlocks)
 
 			filterStore.AddActiveUpkeeps(tc.active...)
-			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, tc.latestBlockErr)
+			lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: tc.latestBlock}, tc.latestBlockErr)
 			lp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, tc.logsErr)
 			statesReader.On("SelectByWorkIDs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, tc.statesErr)
 
@@ -1079,7 +1078,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				recoverer.states = tc.stateReader
 			}
 
-			b, err := recoverer.GetProposalData(context.Background(), tc.proposal)
+			b, err := recoverer.GetProposalData(testutils.Context(t), tc.proposal)
 			if tc.expectErr {
 				assert.Error(t, err)
 				assert.Equal(t, tc.wantErr.Error(), err.Error())
@@ -1206,8 +1205,9 @@ type mockLogPoller struct {
 func (p *mockLogPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	return p.LogsWithSigsFn(start, end, eventSigs, address, qopts...)
 }
-func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
-	return p.LatestBlockFn(qopts...)
+func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (logpoller.LogPollerBlock, error) {
+	block, err := p.LatestBlockFn(qopts...)
+	return logpoller.LogPollerBlock{BlockNumber: block}, err
 }
 
 type mockClient struct {

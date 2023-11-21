@@ -14,10 +14,11 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -87,7 +88,8 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 		Msg("Starting VRFV2 Soak Test")
 
 	// set the requests to only run for a certain amount of time
-	testContext, testCancel := context.WithTimeout(context.Background(), v.Inputs.TestDuration)
+	ctx := testcontext.Get(t)
+	testContext, testCancel := context.WithTimeout(ctx, v.Inputs.TestDuration)
 	defer testCancel()
 
 	v.NumberOfRandRequests = 0
@@ -126,7 +128,7 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 	//todo - need to find better way for this
 	time.Sleep(1 * time.Minute)
 
-	loadTestMetrics, err := v.Inputs.ConsumerContract.GetLoadTestMetrics(nil)
+	loadTestMetrics, err := v.Inputs.ConsumerContract.GetLoadTestMetrics(ctx)
 	if err != nil {
 		l.Error().Err(err).Msg("Error Occurred when getting Load Test Metrics from Consumer contract")
 	}

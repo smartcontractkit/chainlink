@@ -18,16 +18,18 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
 const (
@@ -70,7 +72,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	// verify contract is correct
 	typeAndVersion, err := keeperRegistry21.TypeAndVersion(latestCallOpts)
 	if err != nil {
-		failCheckConfig("failed to get typeAndVersion: are you sure you have the correct contract address?", err)
+		failCheckConfig("failed to get typeAndVersion: make sure your registry contract address and archive node are valid", err)
 	}
 	if typeAndVersion != expectedTypeAndVersion {
 		failCheckConfig(fmt.Sprintf("invalid registry contract: this command can only debug %s, got: %s", expectedTypeAndVersion, typeAndVersion), nil)
@@ -148,10 +150,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failCheckArgs("unable to parse log index", err)
 		}
-		// find transaciton receipt
+		// find transaction receipt
 		_, isPending, err := k.client.TransactionByHash(ctx, txHash)
 		if err != nil {
-			log.Fatal("failed to fetch tx receipt", err)
+			log.Fatal("failed to get tx by hash", err)
 		}
 		if isPending {
 			resolveIneligible(fmt.Sprintf("tx %s is still pending confirmation", txHash))
@@ -227,6 +229,13 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
 	}
 	if checkResult.UpkeepFailureReason == uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
+		// TODO use the new streams lookup lib
+		//mc := &models.MercuryCredentials{k.cfg.MercuryLegacyURL, k.cfg.MercuryURL, k.cfg.MercuryID, k.cfg.MercuryKey}
+		//mercuryConfig := evm.NewMercuryConfig(mc, core.StreamsCompatibleABI)
+		//lggr, _ := logger.NewLogger()
+		//blockSub := &blockSubscriber{k.client}
+		//_ = streams.NewStreamsLookup(packer, mercuryConfig, blockSub, keeperRegistry21, k.rpcClient, lggr)
+
 		streamsLookupErr, err := packer.DecodeStreamsLookupRequest(checkResult.PerformData)
 		if err == nil {
 			message("upkeep reverted with StreamsLookup")
@@ -240,7 +249,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				}
 				allowed := false
 				if len(cfg) > 0 {
-					var privilegeConfig evm.UpkeepPrivilegeConfig
+					var privilegeConfig streams.UpkeepPrivilegeConfig
 					if err := json.Unmarshal(cfg, &privilegeConfig); err != nil {
 						failUnknown("failed to unmarshal privilege config ", err)
 					}
@@ -256,6 +265,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				message("using mercury lookup v0.3")
 			}
 			streamsLookup := &StreamsLookup{streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time, streamsLookupErr.ExtraData, upkeepID, blockNum}
+
+			if k.cfg.MercuryLegacyURL == "" || k.cfg.MercuryURL == "" || k.cfg.MercuryID == "" || k.cfg.MercuryKey == "" {
+				failCheckConfig("Mercury configs not set properly, check your MERCURY_LEGACY_URL, MERCURY_URL, MERCURY_ID and MERCURY_KEY", nil)
+			}
 			handler := NewMercuryLookupHandler(&MercuryCredentials{k.cfg.MercuryLegacyURL, k.cfg.MercuryURL, k.cfg.MercuryID, k.cfg.MercuryKey}, k.rpcClient)
 			state, failureReason, values, _, err := handler.doMercuryRequest(ctx, streamsLookup)
 			if failureReason == UpkeepFailureReasonInvalidRevertDataInput {
@@ -271,13 +284,21 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			if err != nil {
 				failUnknown("failed to execute mercury callback ", err)
 			}
+			if callbackResult.UpkeepFailureReason != 0 {
+				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
+			}
 			upkeepNeeded, performData = callbackResult.UpkeepNeeded, callbackResult.PerformData
-			// do tenderly simulation
+			// do tenderly simulations
 			rawCall, err := core.RegistryABI.Pack("checkCallback", upkeepID, values, streamsLookup.extraData)
 			if err != nil {
-				failUnknown("failed to pack raw checkUpkeep call", err)
+				failUnknown("failed to pack raw checkCallback call", err)
 			}
 			addLink("checkCallback simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+			rawCall, err = core.StreamsCompatibleABI.Pack("checkCallback", values, streamsLookup.extraData)
+			if err != nil {
+				failUnknown("failed to pack raw checkCallback (direct) call", err)
+			}
+			addLink("checkCallback (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
 		} else {
 			message("did not revert with StreamsLookup error")
 		}
@@ -292,6 +313,22 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 	if simulateResult.Success {
 		resolveEligible()
+	}
+}
+
+type blockSubscriber struct {
+	ethClient *ethclient.Client
+}
+
+func (bs *blockSubscriber) LatestBlock() *ocr2keepers.BlockKey {
+	header, err := bs.ethClient.HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		return nil
+	}
+
+	return &ocr2keepers.BlockKey{
+		Number: ocr2keepers.BlockNumber(header.Number.Uint64()),
+		Hash:   header.Hash(),
 	}
 }
 

@@ -41,9 +41,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -56,7 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -83,7 +83,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
 	})
@@ -237,8 +237,7 @@ observationSource   = """
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
-		legacyChains := app.GetRelayers().LegacyEVMChains()
-		jobORM := job.NewORM(app.GetSqlxDB(), legacyChains, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
+		jobORM := job.NewORM(app.GetSqlxDB(), pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -267,7 +266,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 	mockUser := cltest.MustRandomUser(t)
 	key, secret := uuid.New().String(), uuid.New().String()
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
-	orm := app.SessionORM()
+	orm := app.AuthenticationProvider()
 	require.NoError(t, orm.CreateUser(&mockUser))
 	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
 
@@ -362,7 +361,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 			// in a single callback.
-			config := configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			config := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 			})
@@ -467,7 +466,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	b := operatorContracts.sim
 	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
-	cfg := configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
 	})
 	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
@@ -676,11 +675,11 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	return owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress
 }
 
-func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string,
+func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int,
 	b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
 	p2pKey := keystest.NewP2PKeyV2(t)
-	config, _ := heavyweight.FullTestDBV2(t, dbName, func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.OCR.Enabled = ptr(true)
@@ -749,7 +748,6 @@ func setupForwarderEnabledNode(
 	owner *bind.TransactOpts,
 	portV1,
 	portV2 int,
-	dbName string,
 	b *backends.SimulatedBackend,
 	ns ocrnetworking.NetworkingStack,
 	overrides func(c *chainlink.Config, s *chainlink.Secrets),
@@ -761,7 +759,7 @@ func setupForwarderEnabledNode(
 	ocrkey.KeyV2,
 ) {
 	p2pKey := keystest.NewP2PKeyV2(t)
-	config, _ := heavyweight.FullTestDBV2(t, dbName, func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.OCR.Enabled = ptr(true)
@@ -868,7 +866,7 @@ func TestIntegration_OCR(t *testing.T) {
 
 			// Note it's plausible these ports could be occupied on a CI machine.
 			// May need a port randomize + retry approach if we observe collisions.
-			appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, fmt.Sprintf("b_%d", test.id), b, test.ns, nil)
+			appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, b, test.ns, nil)
 			var (
 				oracles      []confighelper.OracleIdentityExtra
 				transmitters []common.Address
@@ -879,7 +877,7 @@ func TestIntegration_OCR(t *testing.T) {
 			for i := 0; i < numOracles; i++ {
 				portV1 := ports[2*i]
 				portV2 := ports[2*i+1]
-				app, peerID, transmitter, key := setupNode(t, owner, portV1, portV2, fmt.Sprintf("o%d_%d", i, test.id), b, test.ns, func(c *chainlink.Config, s *chainlink.Secrets) {
+				app, peerID, transmitter, key := setupNode(t, owner, portV1, portV2, b, test.ns, func(c *chainlink.Config, s *chainlink.Secrets) {
 					c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
 					c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(test.eip1559)
 					if test.ns != ocrnetworking.NetworkingStackV1 {
@@ -1093,7 +1091,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 
 		// Note it's plausible these ports could be occupied on a CI machine.
 		// May need a port randomize + retry approach if we observe collisions.
-		appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, fmt.Sprintf("b_%d", 1), b, ocrnetworking.NetworkingStackV2, nil)
+		appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, b, ocrnetworking.NetworkingStackV2, nil)
 
 		var (
 			oracles             []confighelper.OracleIdentityExtra
@@ -1106,7 +1104,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		for i := 0; i < numOracles; i++ {
 			portV1 := ports[2*i]
 			portV2 := ports[2*i+1]
-			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, portV1, portV2, fmt.Sprintf("o%d_%d", i, 1), b, ocrnetworking.NetworkingStackV2, func(c *chainlink.Config, s *chainlink.Secrets) {
+			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, portV1, portV2, b, ocrnetworking.NetworkingStackV2, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Feature.LogPoller = ptr(true)
 				c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
@@ -1320,7 +1318,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	var initialDefaultGasPrice int64 = 5_000_000_000
 	maxGasPrice := assets.NewWeiI(10 * initialDefaultGasPrice)
 
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 		c.EVM[0].GasEstimator.BlockHistory.CheckInclusionBlocks = ptr[uint16](0)
 		c.EVM[0].GasEstimator.PriceDefault = assets.NewWeiI(initialDefaultGasPrice)

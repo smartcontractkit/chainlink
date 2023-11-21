@@ -170,7 +170,7 @@ func (lsn *listenerV2) processBatch(
 			return errors.Wrap(err, "inserting finished pipeline runs")
 		}
 
-		if err = lsn.logBroadcaster.MarkManyConsumed(batch.lbs, pg.WithQueryer(tx)); err != nil {
+		if err = lsn.chain.LogBroadcaster().MarkManyConsumed(batch.lbs, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "mark logs consumed")
 		}
 
@@ -181,7 +181,7 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		ethTX, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
+		ethTX, err = lsn.chain.TxManager().CreateTransaction(ctx, txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
@@ -234,7 +234,7 @@ func (lsn *listenerV2) getUnconsumed(l logger.Logger, reqs []pendingRequest) (un
 
 		// This check to see if the log was consumed needs to be in the same
 		// goroutine as the mark consumed to avoid processing duplicates.
-		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(req.lb)
+		consumed, err := lsn.chain.LogBroadcaster().WasAlreadyConsumed(req.lb)
 		if err != nil {
 			// Do not process for now, retry on next iteration.
 			l.Errorw("Could not determine if log was already consumed",

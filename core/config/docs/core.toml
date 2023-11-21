@@ -161,6 +161,8 @@ MaxAgeDays = 0 # Default
 MaxBackups = 1 # Default
 
 [WebServer]
+# AuthenticationMethod defines which pluggable auth interface to use for user login and role assumption. Options include 'local' and 'ldap'. See docs for more details
+AuthenticationMethod = 'local' # Default
 # AllowOrigins controls the URLs Chainlink nodes emit in the `Allow-Origins` header of its API responses. The setting can be a comma-separated list with no spaces. You might experience CORS issues if this is not set correctly.
 #
 # You should set this to the external URL that you use to access the Chainlink UI.
@@ -190,6 +192,44 @@ HTTPMaxSize = '32768b' # Default
 StartTimeout = '15s' # Default
 # ListenIP specifies the IP to bind the HTTP server to
 ListenIP = '0.0.0.0' # Default
+
+# Optional LDAP config if WebServer.AuthenticationMethod is set to 'ldap'
+# LDAP queries are all parameterized to support custom LDAP 'dn', 'cn', and attributes 
+[WebServer.LDAP]
+# ServerTLS defines the option to require the secure ldaps
+ServerTLS = true # Default
+# SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
+SessionTimeout = '15m0s' # Default
+# QueryTimeout defines how long queries should wait before timing out, defined in seconds
+QueryTimeout = '2m0s' # Default
+# BaseUserAttr defines the base attribute used to populate LDAP queries such as "uid=$", default is example
+BaseUserAttr = 'uid' # Default
+# BaseDN defines the base LDAP 'dn' search filter to apply to every LDAP query, replace example,com with the appropriate LDAP server's structure
+BaseDN = 'dc=custom,dc=example,dc=com' # Example
+# UsersDN defines the 'dn' query to use when querying for the 'users' 'ou' group
+UsersDN = 'ou=users' # Default
+# GroupsDN defines the 'dn' query to use when querying for the 'groups' 'ou' group
+GroupsDN = 'ou=groups' # Default
+# ActiveAttribute is an optional user field to check truthiness for if a user is valid/active. This is only required if the LDAP provider lists inactive users as members of groups
+ActiveAttribute = '' # Default
+# ActiveAttributeAllowedValue is the value to check against for the above optional user attribute
+ActiveAttributeAllowedValue = '' # Default
+# AdminUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Admin' role
+AdminUserGroupCN = 'NodeAdmins' # Default
+# EditUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Edit' role
+EditUserGroupCN = 'NodeEditors' # Default
+# RunUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Run' role
+RunUserGroupCN = 'NodeRunners' # Default
+# ReadUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Read' role
+ReadUserGroupCN = 'NodeReadOnly' # Default
+# UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
+UserApiTokenEnabled = false # Default
+# UserAPITokenDuration is the duration of time an API token is active for before expiring
+UserAPITokenDuration = '240h0m0s' # Default
+# UpstreamSyncInterval is the interval at which the background LDAP sync task will be called. A '0s' value disables the background sync being run on an interval. This check is already performed during login/logout actions, all sessions and API tokens stored in the local ldap tables are updated to match the remote server
+UpstreamSyncInterval = '0s' # Default
+# UpstreamSyncRateLimit defines a duration to limit the number of query/API calls to the upstream LDAP provider. It prevents the sync functionality from being called multiple times within the defined duration
+UpstreamSyncRateLimit = '2m0s' # Default
 
 [WebServer.RateLimit]
 # Authenticated defines the threshold to which authenticated requests get limited. More than this many authenticated requests per `AuthenticatedRateLimitPeriod` will be rejected.
@@ -312,7 +352,7 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 # CaptureEATelemetry toggles collecting extra information from External Adaptares
 CaptureEATelemetry = false # Default
 # CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
-CaptureAutomationCustomTelemetry = false # Default
+CaptureAutomationCustomTelemetry = true # Default
 # DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR2. Set to 0 to use `SendEvery` strategy instead.
 DefaultTransactionQueueDepth = 1 # Default
 # SimulateTransactions enables transaction simulation for OCR2.

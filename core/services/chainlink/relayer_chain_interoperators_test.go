@@ -9,14 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -29,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -85,7 +84,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain:   solcfg.Chain{},
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 1 node 1"),
-					URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8547").URL())),
+					URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8547").URL())),
 				}},
 			},
 			&solana.TOMLConfig{
@@ -94,7 +93,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain:   solcfg.Chain{},
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 2 node 1"),
-					URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8527").URL())),
+					URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8527").URL())),
 				}},
 			},
 		}
@@ -107,15 +106,15 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes: []*stkcfg.Node{
 					{
 						Name: ptr("starknet chain 1 node 1"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8547").URL())),
+						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8547").URL())),
 					},
 					{
 						Name: ptr("starknet chain 1 node 2"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8548").URL())),
+						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8548").URL())),
 					},
 					{
 						Name: ptr("starknet chain 1 node 3"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8549").URL())),
+						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8549").URL())),
 					},
 				},
 			},
@@ -126,14 +125,14 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes: []*stkcfg.Node{
 					{
 						Name: ptr("starknet chain 2 node 1"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:3547").URL())),
+						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:3547").URL())),
 					},
 				},
 			},
 		}
 
-		c.Cosmos = cosmos.CosmosConfigs{
-			&cosmos.CosmosConfig{
+		c.Cosmos = coscfg.TOMLConfigs{
+			&coscfg.TOMLConfig{
 				ChainID: &cosmosChainID1,
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
@@ -141,14 +140,14 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					Bech32Prefix:       ptr("wasm"),
 					GasToken:           ptr("cosm"),
 				},
-				Nodes: cosmos.CosmosNodes{
+				Nodes: coscfg.Nodes{
 					&coscfg.Node{
 						Name:          ptr("cosmos chain 1 node 1"),
-						TendermintURL: (*relayutils.URL)(models.MustParseURL("http://localhost:9548").URL()),
+						TendermintURL: (*commoncfg.URL)(models.MustParseURL("http://localhost:9548").URL()),
 					},
 				},
 			},
-			&cosmos.CosmosConfig{
+			&coscfg.TOMLConfig{
 				ChainID: &cosmosChainID2,
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
@@ -156,10 +155,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					Bech32Prefix:       ptr("wasm"),
 					GasToken:           ptr("cosm"),
 				},
-				Nodes: cosmos.CosmosNodes{
+				Nodes: coscfg.Nodes{
 					&coscfg.Node{
 						Name:          ptr("cosmos chain 2 node 1"),
-						TendermintURL: (*relayutils.URL)(models.MustParseURL("http://localhost:9598").URL()),
+						TendermintURL: (*commoncfg.URL)(models.MustParseURL("http://localhost:9598").URL()),
 					},
 				},
 			},
@@ -258,11 +257,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			name: "2 cosmos chains with 2 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
-					Keystore:         keyStore.Cosmos(),
-					CosmosConfigs:    cfg.CosmosConfigs(),
-					EventBroadcaster: pg.NewNullEventBroadcaster(),
-					DB:               db,
-					QConfig:          cfg.Database()}),
+					Keystore:    keyStore.Cosmos(),
+					TOMLConfigs: cfg.CosmosConfigs(),
+					DB:          db,
+					QConfig:     cfg.Database()}),
 			},
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
@@ -291,11 +289,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					Keystore:    keyStore.StarkNet(),
 					TOMLConfigs: cfg.StarknetConfigs()}),
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
-					Keystore:         keyStore.Cosmos(),
-					CosmosConfigs:    cfg.CosmosConfigs(),
-					EventBroadcaster: pg.NewNullEventBroadcaster(),
-					DB:               db,
-					QConfig:          cfg.Database(),
+					Keystore:    keyStore.Cosmos(),
+					TOMLConfigs: cfg.CosmosConfigs(),
+					DB:          db,
+					QConfig:     cfg.Database(),
 				}),
 			},
 			expectedEVMChainCnt: 2,

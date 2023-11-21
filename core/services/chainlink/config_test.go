@@ -16,14 +16,14 @@ import (
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -138,14 +138,14 @@ var (
 					},
 				}},
 		},
-		Cosmos: []*cosmos.CosmosConfig{
+		Cosmos: []*coscfg.TOMLConfig{
 			{
 				ChainID: ptr("Ibiza-808"),
 				Chain: coscfg.Chain{
 					MaxMsgsPerBatch: ptr[int64](13),
 				},
 				Nodes: []*coscfg.Node{
-					{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://columbus.cosmos.com")},
+					{Name: ptr("primary"), TendermintURL: commoncfg.MustParseURL("http://columbus.cosmos.com")},
 				}},
 			{
 				ChainID: ptr("Malaga-420"),
@@ -153,7 +153,7 @@ var (
 					BlocksUntilTxTimeout: ptr[int64](20),
 				},
 				Nodes: []*coscfg.Node{
-					{Name: ptr("secondary"), TendermintURL: relayutils.MustParseURL("http://bombay.cosmos.com")},
+					{Name: ptr("secondary"), TendermintURL: commoncfg.MustParseURL("http://bombay.cosmos.com")},
 				}},
 		},
 		Solana: []*solana.TOMLConfig{
@@ -163,16 +163,16 @@ var (
 					MaxRetries: ptr[int64](12),
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://mainnet.solana.com")},
+					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://mainnet.solana.com")},
 				},
 			},
 			{
 				ChainID: ptr("testnet"),
 				Chain: solcfg.Chain{
-					OCR2CachePollPeriod: relayutils.MustNewDuration(time.Minute),
+					OCR2CachePollPeriod: commoncfg.MustNewDuration(time.Minute),
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("secondary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
+					{Name: ptr("secondary"), URL: commoncfg.MustParseURL("http://testnet.solana.com")},
 				},
 			},
 		},
@@ -180,10 +180,10 @@ var (
 			{
 				ChainID: ptr("foobar"),
 				Chain: stkcfg.Chain{
-					ConfirmationPoll: relayutils.MustNewDuration(time.Hour),
+					ConfirmationPoll: commoncfg.MustNewDuration(time.Hour),
 				},
 				Nodes: []*stkcfg.Node{
-					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
+					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node")},
 				},
 			},
 		},
@@ -309,6 +309,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.WebServer = toml.WebServer{
+		AuthenticationMethod:    ptr("local"),
 		AllowOrigins:            ptr("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
 		BridgeCacheTTL:          models.MustNewDuration(10 * time.Second),
@@ -323,6 +324,25 @@ func TestConfig_Marshal(t *testing.T) {
 		MFA: toml.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
+		},
+		LDAP: toml.WebServerLDAP{
+			ServerTLS:                   ptr(true),
+			SessionTimeout:              models.MustNewDuration(15 * time.Minute),
+			QueryTimeout:                models.MustNewDuration(2 * time.Minute),
+			BaseUserAttr:                ptr("uid"),
+			BaseDN:                      ptr("dc=custom,dc=example,dc=com"),
+			UsersDN:                     ptr("ou=users"),
+			GroupsDN:                    ptr("ou=groups"),
+			ActiveAttribute:             ptr("organizationalStatus"),
+			ActiveAttributeAllowedValue: ptr("ACTIVE"),
+			AdminUserGroupCN:            ptr("NodeAdmins"),
+			EditUserGroupCN:             ptr("NodeEditors"),
+			RunUserGroupCN:              ptr("NodeRunners"),
+			ReadUserGroupCN:             ptr("NodeReadOnly"),
+			UserApiTokenEnabled:         ptr(false),
+			UserAPITokenDuration:        models.MustNewDuration(240 * time.Hour),
+			UpstreamSyncInterval:        models.MustNewDuration(0 * time.Second),
+			UpstreamSyncRateLimit:       models.MustNewDuration(2 * time.Minute),
 		},
 		RateLimit: toml.WebServerRateLimit{
 			Authenticated:         ptr[int64](42),
@@ -365,7 +385,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
-		CaptureAutomationCustomTelemetry:   ptr(false),
+		CaptureAutomationCustomTelemetry:   ptr(true),
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
@@ -469,7 +489,7 @@ func TestConfig_Marshal(t *testing.T) {
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
 				GasEstimator: evmcfg.GasEstimator{
-					Mode:               ptr("L2Suggested"),
+					Mode:               ptr("SuggestedPrice"),
 					EIP1559DynamicFees: ptr(true),
 					BumpPercent:        ptr[uint16](10),
 					BumpThreshold:      ptr[uint32](6),
@@ -518,7 +538,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LogBackfillBatchSize:     ptr[uint32](17),
 				LogPollInterval:          &minute,
 				LogKeepBlocksDepth:       ptr[uint32](100000),
-				MinContractPayment:       assets.NewLinkFromJuels(math.MaxInt64),
+				MinContractPayment:       commonassets.NewLinkFromJuels(math.MaxInt64),
 				MinIncomingConfirmations: ptr[uint32](13),
 				NonceAutoSync:            ptr(true),
 				NoNewHeadsThreshold:      &minute,
@@ -583,13 +603,13 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
 			Chain: solcfg.Chain{
-				BalancePollPeriod:       relayutils.MustNewDuration(time.Minute),
-				ConfirmPollPeriod:       relayutils.MustNewDuration(time.Second),
-				OCR2CachePollPeriod:     relayutils.MustNewDuration(time.Minute),
-				OCR2CacheTTL:            relayutils.MustNewDuration(time.Hour),
-				TxTimeout:               relayutils.MustNewDuration(time.Hour),
-				TxRetryTimeout:          relayutils.MustNewDuration(time.Minute),
-				TxConfirmTimeout:        relayutils.MustNewDuration(time.Second),
+				BalancePollPeriod:       commoncfg.MustNewDuration(time.Minute),
+				ConfirmPollPeriod:       commoncfg.MustNewDuration(time.Second),
+				OCR2CachePollPeriod:     commoncfg.MustNewDuration(time.Minute),
+				OCR2CacheTTL:            commoncfg.MustNewDuration(time.Hour),
+				TxTimeout:               commoncfg.MustNewDuration(time.Hour),
+				TxRetryTimeout:          commoncfg.MustNewDuration(time.Minute),
+				TxConfirmTimeout:        commoncfg.MustNewDuration(time.Second),
 				SkipPreflight:           ptr(true),
 				Commitment:              ptr("banana"),
 				MaxRetries:              ptr[int64](7),
@@ -597,12 +617,12 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceMax:     ptr[uint64](1000),
 				ComputeUnitPriceMin:     ptr[uint64](10),
 				ComputeUnitPriceDefault: ptr[uint64](100),
-				FeeBumpPeriod:           relayutils.MustNewDuration(time.Minute),
+				FeeBumpPeriod:           commoncfg.MustNewDuration(time.Minute),
 			},
 			Nodes: []*solcfg.Node{
-				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://solana.web")},
-				{Name: ptr("foo"), URL: relayutils.MustParseURL("http://solana.foo")},
-				{Name: ptr("bar"), URL: relayutils.MustParseURL("http://solana.bar")},
+				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web")},
+				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo")},
+				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar")},
 			},
 		},
 	}
@@ -611,38 +631,38 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: ptr("foobar"),
 			Enabled: ptr(true),
 			Chain: stkcfg.Chain{
-				OCR2CachePollPeriod: relayutils.MustNewDuration(6 * time.Hour),
-				OCR2CacheTTL:        relayutils.MustNewDuration(3 * time.Minute),
-				RequestTimeout:      relayutils.MustNewDuration(time.Minute + 3*time.Second),
-				TxTimeout:           relayutils.MustNewDuration(13 * time.Second),
-				ConfirmationPoll:    relayutils.MustNewDuration(42 * time.Second),
+				OCR2CachePollPeriod: commoncfg.MustNewDuration(6 * time.Hour),
+				OCR2CacheTTL:        commoncfg.MustNewDuration(3 * time.Minute),
+				RequestTimeout:      commoncfg.MustNewDuration(time.Minute + 3*time.Second),
+				TxTimeout:           commoncfg.MustNewDuration(13 * time.Second),
+				ConfirmationPoll:    commoncfg.MustNewDuration(42 * time.Second),
 			},
 			Nodes: []*stkcfg.Node{
-				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
+				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node")},
 			},
 		},
 	}
-	full.Cosmos = []*cosmos.CosmosConfig{
+	full.Cosmos = []*coscfg.TOMLConfig{
 		{
 			ChainID: ptr("Malaga-420"),
 			Enabled: ptr(true),
 			Chain: coscfg.Chain{
 				Bech32Prefix:         ptr("wasm"),
-				BlockRate:            relayutils.MustNewDuration(time.Minute),
+				BlockRate:            commoncfg.MustNewDuration(time.Minute),
 				BlocksUntilTxTimeout: ptr[int64](12),
-				ConfirmPollPeriod:    relayutils.MustNewDuration(time.Second),
+				ConfirmPollPeriod:    commoncfg.MustNewDuration(time.Second),
 				FallbackGasPrice:     mustDecimal("0.001"),
 				GasToken:             ptr("ucosm"),
 				GasLimitMultiplier:   mustDecimal("1.2"),
 				MaxMsgsPerBatch:      ptr[int64](17),
-				OCR2CachePollPeriod:  relayutils.MustNewDuration(time.Minute),
-				OCR2CacheTTL:         relayutils.MustNewDuration(time.Hour),
-				TxMsgTimeout:         relayutils.MustNewDuration(time.Second),
+				OCR2CachePollPeriod:  commoncfg.MustNewDuration(time.Minute),
+				OCR2CacheTTL:         commoncfg.MustNewDuration(time.Hour),
+				TxMsgTimeout:         commoncfg.MustNewDuration(time.Second),
 			},
 			Nodes: []*coscfg.Node{
-				{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://tender.mint")},
-				{Name: ptr("foo"), TendermintURL: relayutils.MustParseURL("http://foo.url")},
-				{Name: ptr("bar"), TendermintURL: relayutils.MustParseURL("http://bar.web")},
+				{Name: ptr("primary"), TendermintURL: commoncfg.MustParseURL("http://tender.mint")},
+				{Name: ptr("foo"), TendermintURL: commoncfg.MustParseURL("http://foo.url")},
+				{Name: ptr("bar"), TendermintURL: commoncfg.MustParseURL("http://bar.web")},
 			},
 		},
 	}
@@ -739,6 +759,7 @@ MaxAgeDays = 17
 MaxBackups = 9
 `},
 		{"WebServer", Config{Core: toml.Core{WebServer: full.WebServer}}, `[WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
 BridgeCacheTTL = '10s'
@@ -750,6 +771,25 @@ SessionReaperExpiration = '168h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
 ListenIP = '192.158.1.37'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = 'dc=custom,dc=example,dc=com'
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = 'organizationalStatus'
+ActiveAttributeAllowedValue = 'ACTIVE'
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -808,7 +848,7 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = false
+CaptureAutomationCustomTelemetry = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
@@ -913,7 +953,7 @@ ResendAfterThreshold = '1h0m0s'
 Enabled = true
 
 [EVM.GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '9.223372036854775807 ether'
 PriceMax = '281.474976710655 micro'
 PriceMin = '13 wei'
@@ -1119,8 +1159,17 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 5 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 6 errors:
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
+	- WebServer: 8 errors:
+		- LDAP.BaseDN: invalid value (<nil>): LDAP BaseDN can not be empty
+		- LDAP.BaseUserAttr: invalid value (<nil>): LDAP BaseUserAttr can not be empty
+		- LDAP.UsersDN: invalid value (<nil>): LDAP UsersDN can not be empty
+		- LDAP.GroupsDN: invalid value (<nil>): LDAP GroupsDN can not be empty
+		- LDAP.AdminUserGroupCN: invalid value (<nil>): LDAP AdminUserGroupCN can not be empty
+		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
+		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP RunUserGroupCN can not be empty
+		- LDAP.ReadUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
 	- EVM: 8 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
@@ -1142,7 +1191,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 6 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, metis, xdai, optimismBedrock, celo or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, metis, xdai, optimismBedrock, celo, kroma, wemix, zksync or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
@@ -1151,7 +1200,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, xdai, optimismBedrock, celo or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, xdai, optimismBedrock, celo, kroma, wemix, zksync or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:
@@ -1435,7 +1484,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
-	c.Cosmos = cosmos.CosmosConfigs{{ChainID: ptr("unknown cosmos chain")}}
+	c.Cosmos = coscfg.TOMLConfigs{{ChainID: ptr("unknown cosmos chain")}}
 	c.Solana = solana.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = stkcfg.TOMLConfigs{{ChainID: ptr("unknown starknet chain")}}
 	c.setDefaults()

@@ -85,7 +85,7 @@ func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (commo
 
 func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 	chainId := big.NewInt(137)
-	_, db := heavyweight.FullTestDBV2(b, "logs_scale", nil)
+	_, db := heavyweight.FullTestDBV2(b, nil)
 	o := logpoller.NewORM(chainId, db, logger.TestLogger(b), pgtest.NewQConfig(false))
 	event, address, _ := populateDatabase(b, o, chainId)
 
@@ -103,7 +103,7 @@ func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 
 func TestPopulateLoadedDB(t *testing.T) {
 	t.Skip("Only for local load testing and query analysis")
-	_, db := heavyweight.FullTestDBV2(t, "logs_scale", nil)
+	_, db := heavyweight.FullTestDBV2(t, nil)
 	chainID := big.NewInt(137)
 
 	o := logpoller.NewORM(big.NewInt(137), db, logger.TestLogger(t), pgtest.NewQConfig(true))
@@ -311,8 +311,8 @@ func Test_BackupLogPoller(t *testing.T) {
 			body.Transactions = types.Transactions{} // number of tx's must match # of logs for GetLogs() to succeed
 			rawdb.WriteBody(th.EthDB, h.Hash(), h.Number.Uint64(), body)
 
-			currentBlock := th.PollAndSaveLogs(ctx, 1)
-			assert.Equal(t, int64(35), currentBlock)
+			currentBlockNumber := th.PollAndSaveLogs(ctx, 1)
+			assert.Equal(t, int64(35), currentBlockNumber)
 
 			// simulate logs becoming available
 			rawdb.WriteReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), receipts)
@@ -342,12 +342,12 @@ func Test_BackupLogPoller(t *testing.T) {
 			markBlockAsFinalized(t, th, 34)
 
 			// Run ordinary poller + backup poller at least once
-			currentBlock, _ = th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
-			th.LogPoller.PollAndSaveLogs(ctx, currentBlock+1)
+			currentBlock, _ := th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
+			th.LogPoller.PollAndSaveLogs(ctx, currentBlock.BlockNumber+1)
 			th.LogPoller.BackupPollAndSaveLogs(ctx, 100)
 			currentBlock, _ = th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
 
-			require.Equal(t, int64(37), currentBlock+1)
+			require.Equal(t, int64(37), currentBlock.BlockNumber+1)
 
 			// logs still shouldn't show up, because we don't want to backfill the last finalized log
 			//  to help with reorg detection
@@ -359,11 +359,11 @@ func Test_BackupLogPoller(t *testing.T) {
 			markBlockAsFinalized(t, th, 35)
 
 			// Run ordinary poller + backup poller at least once more
-			th.LogPoller.PollAndSaveLogs(ctx, currentBlock+1)
+			th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber+1)
 			th.LogPoller.BackupPollAndSaveLogs(ctx, 100)
 			currentBlock, _ = th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
 
-			require.Equal(t, int64(38), currentBlock+1)
+			require.Equal(t, int64(38), currentBlock.BlockNumber+1)
 
 			// all 3 logs in block 34 should show up now, thanks to backup logger
 			logs, err = th.LogPoller.Logs(30, 37, EmitterABI.Events["Log1"].ID, th.EmitterAddress1,
@@ -470,6 +470,13 @@ func TestLogPoller_BackupPollAndSaveLogsWithDeepBlockDelay(t *testing.T) {
 	// First PollAndSave, no filters are registered, but finalization is the same as the latest block
 	// 1 -> 2 -> ...
 	th.PollAndSaveLogs(ctx, 1)
+
+	// Check that latest block has the same properties as the head
+	latestBlock, err := th.LogPoller.LatestBlock()
+	require.NoError(t, err)
+	assert.Equal(t, latestBlock.BlockNumber, header.Number.Int64())
+	assert.Equal(t, latestBlock.FinalizedBlockNumber, header.Number.Int64())
+	assert.Equal(t, latestBlock.BlockHash, header.Hash())
 
 	// Register filter
 	err = th.LogPoller.RegisterFilter(logpoller.Filter{
@@ -619,19 +626,19 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	require.Len(t, gethLogs, 2)
 
 	lb, _ := th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
-	th.PollAndSaveLogs(context.Background(), lb+1)
+	th.PollAndSaveLogs(ctx, lb.BlockNumber+1)
 	lg1, err := th.LogPoller.Logs(0, 20, EmitterABI.Events["Log1"].ID, th.EmitterAddress1,
-		pg.WithParentCtx(testutils.Context(t)))
+		pg.WithParentCtx(ctx))
 	require.NoError(t, err)
 	lg2, err := th.LogPoller.Logs(0, 20, EmitterABI.Events["Log2"].ID, th.EmitterAddress2,
-		pg.WithParentCtx(testutils.Context(t)))
+		pg.WithParentCtx(ctx))
 	require.NoError(t, err)
 
 	// Logs should have correct timestamps
-	b, _ := th.Client.BlockByHash(context.Background(), lg1[0].BlockHash)
+	b, _ := th.Client.BlockByHash(ctx, lg1[0].BlockHash)
 	t.Log(len(lg1), lg1[0].BlockTimestamp)
 	assert.Equal(t, int64(b.Time()), lg1[0].BlockTimestamp.UTC().Unix(), time1)
-	b2, _ := th.Client.BlockByHash(context.Background(), lg2[0].BlockHash)
+	b2, _ := th.Client.BlockByHash(ctx, lg2[0].BlockHash)
 	assert.Equal(t, int64(b2.Time()), lg2[0].BlockTimestamp.UTC().Unix(), time2)
 }
 
@@ -667,9 +674,9 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
 		}
-		currentBlock := int64(1)
-		lp.PollAndSaveLogs(testutils.Context(t), currentBlock)
-		currentBlock, err = lp.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
+		currentBlockNumber := int64(1)
+		lp.PollAndSaveLogs(testutils.Context(t), currentBlockNumber)
+		currentBlock, err := lp.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
 		require.NoError(t, err)
 		matchesGeth := func() bool {
 			// Check every block is identical
@@ -719,7 +726,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 				require.NoError(t, err1)
 				t.Logf("New latest (%v, %x), latest parent %x)\n", latest.NumberU64(), latest.Hash(), latest.ParentHash())
 			}
-			lp.PollAndSaveLogs(testutils.Context(t), currentBlock)
+			lp.PollAndSaveLogs(testutils.Context(t), currentBlock.BlockNumber)
 			currentBlock, err = lp.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
 			require.NoError(t, err)
 		}
@@ -1245,7 +1252,7 @@ func TestGetReplayFromBlock(t *testing.T) {
 	require.NoError(t, err)
 	latest, err := th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	assert.Equal(t, latest, fromBlock)
+	assert.Equal(t, latest.BlockNumber, fromBlock)
 
 	// Should take min(latest, requested) in this case requested.
 	requested = int64(7)
@@ -1321,7 +1328,7 @@ func TestNotifyAfterInsert(t *testing.T) {
 	// Use a non-transactional db for this test because notify events
 	// are not delivered until the transaction is committed.
 	var dbURL string
-	_, sqlxDB := heavyweight.FullTestDBV2(t, "notify_after_insert_log", func(c *chainlink.Config, s *chainlink.Secrets) {
+	_, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		dbURL = s.Database.URL.URL().String()
 	})
 
@@ -1551,6 +1558,10 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			th := SetupTH(t, tt.useFinalityTag, tt.finalityDepth, 3, 2, 1000)
+			// Should return error before the first poll and save
+			_, err := th.LogPoller.LatestBlock()
+			require.Error(t, err)
+
 			// Mark first block as finalized
 			h := th.Client.Blockchain().CurrentHeader()
 			th.Client.Blockchain().SetFinalized(h)
@@ -1562,7 +1573,7 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 
 			th.PollAndSaveLogs(ctx, 1)
 
-			latestBlock, err := th.ORM.SelectLatestBlock()
+			latestBlock, err := th.LogPoller.LatestBlock()
 			require.NoError(t, err)
 			require.Equal(t, int64(numberOfBlocks), latestBlock.BlockNumber)
 			require.Equal(t, tt.expectedFinalizedBlock, latestBlock.FinalizedBlockNumber)

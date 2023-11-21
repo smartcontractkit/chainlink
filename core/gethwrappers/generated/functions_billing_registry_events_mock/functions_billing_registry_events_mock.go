@@ -64,7 +64,7 @@ func DeployFunctionsBillingRegistryEventsMock(auth *bind.TransactOpts, backend b
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &FunctionsBillingRegistryEventsMock{FunctionsBillingRegistryEventsMockCaller: FunctionsBillingRegistryEventsMockCaller{contract: contract}, FunctionsBillingRegistryEventsMockTransactor: FunctionsBillingRegistryEventsMockTransactor{contract: contract}, FunctionsBillingRegistryEventsMockFilterer: FunctionsBillingRegistryEventsMockFilterer{contract: contract}}, nil
+	return address, tx, &FunctionsBillingRegistryEventsMock{address: address, abi: *parsed, FunctionsBillingRegistryEventsMockCaller: FunctionsBillingRegistryEventsMockCaller{contract: contract}, FunctionsBillingRegistryEventsMockTransactor: FunctionsBillingRegistryEventsMockTransactor{contract: contract}, FunctionsBillingRegistryEventsMockFilterer: FunctionsBillingRegistryEventsMockFilterer{contract: contract}}, nil
 }
 
 type FunctionsBillingRegistryEventsMock struct {

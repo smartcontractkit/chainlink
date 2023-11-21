@@ -10,6 +10,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -59,7 +60,7 @@ type upkeepStateRecord struct {
 // It stores the state of ineligible upkeeps in a local, in-memory cache.
 // In addition, performed events are fetched by the scanner on demand.
 type upkeepStateStore struct {
-	utils.StartStopOnce
+	services.StateMachine
 	threadCtrl utils.ThreadControl
 
 	orm     ORM
