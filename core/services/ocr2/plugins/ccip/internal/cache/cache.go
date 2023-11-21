@@ -22,16 +22,17 @@ type AutoSync[T any] interface {
 // If we discover that change occurred since last update, we perform RPC to the chain using ContractOrigin.CallOrigin function.
 // Purpose of this struct is handle common logic in a single place, you only need to override methods from ContractOrigin
 // and Get function (behaving as orchestrator) will take care of the rest.
+// IMPORTANT: Cache refresh relies on the events that are finalized. This introduces some delay between the event onchain occurrence
+// and cache refreshing. This is intentional, because we want to prevent handling reorgs within the cache.
 //
 // That being said, adding caching layer to the new contract is as simple as:
 // * implementing ContractOrigin interface
 // * registering proper events in log poller
 type CachedChain[T any] struct {
 	// Static configuration
-	observedEvents          []common.Hash
-	logPoller               logpoller.LogPoller
-	address                 []common.Address
-	optimisticConfirmations int64
+	observedEvents []common.Hash
+	logPoller      logpoller.LogPoller
+	address        []common.Address
 
 	// Cache
 	lock            *sync.RWMutex
@@ -53,23 +54,33 @@ type ContractOrigin[T any] interface {
 func (c *CachedChain[T]) Get(ctx context.Context) (T, error) {
 	var empty T
 
-	lastChangeBlock := c.readLastChangeBlock()
-
+	cachedLastChangeBlock := c.readLastChangeBlock()
 	// Handles first call, because cache is not eagerly populated
-	if lastChangeBlock == 0 {
+	if cachedLastChangeBlock == 0 {
 		return c.initializeCache(ctx)
 	}
 
-	currentBlockNumber, err := c.logPoller.LatestBlockByEventSigsAddrsWithConfs(lastChangeBlock, c.observedEvents, c.address, logpoller.Confirmations(c.optimisticConfirmations), pg.WithParentCtx(ctx))
-
+	// Ordering matters here, we need to do operations in the following order:
+	// * get LatestBlock
+	// * get LatestBlockByEventSigsAddrsWithConfs
+	// * fetch data from Origin
+	// It's because LogPoller keep progressing in the background, and we want to prevent missing data.
+	// If we do it in the opposite order, we might store in cache block that after logs that
+	// were not scanned by LatestBlockByEventSigsAddrsWithConfs. And therefore ignore them and not update the cache.
+	// (this will ignore logs produced between LatestBlockByEventSigsAddrsWithConfs and LatestBlock calls).
+	// Calling LatestBlock first gives us guarantee that we never miss anything.
+	latestBlock, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
-		return empty, err
+		// Intentionally ignore the error here
+		latestBlock = logpoller.LogPollerBlock{}
 	}
 
-	// In case of new updates, fetch fresh data from the origin
-	if currentBlockNumber > lastChangeBlock {
-		return c.fetchFromOrigin(ctx, currentBlockNumber)
+	if err1 := c.maybeRefreshCache(ctx, cachedLastChangeBlock); err1 != nil {
+		return empty, err1
 	}
+
+	// This is performance improvement that will prevent for large db scans, by updating the lower bound of the search query
+	c.maybeCacheLatestFinalizedBlock(cachedLastChangeBlock, latestBlock.FinalizedBlockNumber)
 	return c.copyCachedValue(), nil
 }
 
@@ -91,22 +102,36 @@ func (c *CachedChain[T]) initializeCache(ctx context.Context) (T, error) {
 		return empty, err
 	}
 
-	c.updateCache(value, latestBlock.BlockNumber-c.optimisticConfirmations)
+	c.updateCache(value, latestBlock.FinalizedBlockNumber)
 	return c.copyCachedValue(), nil
 
 }
 
-// fetchFromOrigin fetches data from origin. This action is performed when logpoller.LogPoller says there were events
-// emitted since last update.
-func (c *CachedChain[T]) fetchFromOrigin(ctx context.Context, currentBlockNumber int64) (T, error) {
-	var empty T
-	value, err := c.origin.CallOrigin(ctx)
+// maybeRefreshCache checks whether cache is fresh or needs to be updated.
+// We fetch the last changed block from the log poller and compare that with the last change block stored within cache.
+// If the last changed block is greater than the one stored within cache, we need to update the cache by fetching data from the origin.
+func (c *CachedChain[T]) maybeRefreshCache(ctx context.Context, cachedLastChangeBlock int64) error {
+	chainLastChangeBlock, err := c.logPoller.LatestBlockByEventSigsAddrsWithConfs(
+		cachedLastChangeBlock,
+		c.observedEvents,
+		c.address,
+		logpoller.Finalized,
+		pg.WithParentCtx(ctx),
+	)
 	if err != nil {
-		return empty, err
+		return err
 	}
-	c.updateCache(value, currentBlockNumber)
 
-	return c.copyCachedValue(), nil
+	// In case of new updates, fetch fresh data from the origin
+	if chainLastChangeBlock > cachedLastChangeBlock {
+		// Return error when cache cannot be fetched, don't return stale values
+		value, err1 := c.origin.CallOrigin(ctx)
+		if err1 != nil {
+			return err1
+		}
+		c.updateCache(value, chainLastChangeBlock)
+	}
+	return nil
 }
 
 // updateCache performs updating two critical variables for cache to work properly:
@@ -135,4 +160,19 @@ func (c *CachedChain[T]) copyCachedValue() T {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.origin.Copy(c.value)
+}
+
+func (c *CachedChain[T]) maybeCacheLatestFinalizedBlock(cachedLastBlock int64, latestFinalizedBlock int64) {
+	// Check if applicable to prevent unnecessary locking
+	if cachedLastBlock >= latestFinalizedBlock {
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	// Double-lock checking. No need to update if other goroutine was faster
+	if latestFinalizedBlock <= c.lastChangeBlock {
+		return
+	}
+	c.lastChangeBlock = latestFinalizedBlock
 }

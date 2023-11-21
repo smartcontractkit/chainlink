@@ -159,15 +159,9 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 			lggr:                    rf.config.lggr.Named("CommitReportingPlugin"),
 			inflightReports:         newInflightCommitReportsContainer(rf.config.commitStore.OffchainConfig().InflightCacheExpiry),
 			destPriceRegistryReader: rf.destPriceRegReader,
-			tokenDecimalsCache: cache.NewTokenToDecimals(
-				rf.config.lggr,
-				rf.config.destLP,
-				rf.config.offRamp,
-				rf.destPriceRegReader,
-				int64(rf.config.commitStore.OffchainConfig().DestFinalityDepth),
-			),
-			gasPriceEstimator: rf.config.commitStore.GasPriceEstimator(),
-			offchainConfig:    pluginOffChainConfig,
+			tokenDecimalsCache:      cache.NewTokenToDecimals(rf.config.lggr, rf.config.destLP, rf.config.offRamp, rf.destPriceRegReader),
+			gasPriceEstimator:       rf.config.commitStore.GasPriceEstimator(),
+			offchainConfig:          pluginOffChainConfig,
 		},
 		types.ReportingPluginInfo{
 			Name:          "CCIPCommit",

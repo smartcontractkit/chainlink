@@ -17,18 +17,16 @@ func NewTokenPools(
 	lggr logger.Logger,
 	lp logpoller.LogPoller,
 	offRamp ccipdata.OffRampReader,
-	optimisticConfirmations int64,
 	numWorkers int,
 ) *CachedChain[map[common.Address]common.Address] {
 	return &CachedChain[map[common.Address]common.Address]{
-		observedEvents:          offRamp.TokenEvents(),
-		logPoller:               lp,
-		address:                 []common.Address{offRamp.Address()},
-		optimisticConfirmations: optimisticConfirmations,
-		lock:                    &sync.RWMutex{},
-		value:                   make(map[common.Address]common.Address),
-		lastChangeBlock:         0,
-		origin:                  newTokenPoolsOrigin(lggr, offRamp, numWorkers),
+		observedEvents:  offRamp.TokenEvents(),
+		logPoller:       lp,
+		address:         []common.Address{offRamp.Address()},
+		lock:            &sync.RWMutex{},
+		value:           make(map[common.Address]common.Address),
+		lastChangeBlock: 0,
+		origin:          newTokenPoolsOrigin(lggr, offRamp, numWorkers),
 	}
 }
 
