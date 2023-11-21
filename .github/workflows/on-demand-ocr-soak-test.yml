@@ -21,15 +21,17 @@ on:
           - "SCROLL_SEPOLIA"
           - "SCROLL_MAINNET"
           - "POLYGON_MUMBAI"
-          - "POLYGON_MAINNET"   
+          - "POLYGON_MAINNET"
           - "LINEA_GOERLI"
-          - "LINEA_MAINNET"  
-          - "FANTOM_TESTNET"   
-          - "FANTOM_MAINNET"   
+          - "LINEA_MAINNET"
+          - "FANTOM_TESTNET"
+          - "FANTOM_MAINNET"
           - "KROMA_MAINNET"
           - "KROMA_SEPOLIA"
           - "WEMIX_TESTNET"
           - "WEMIX_MAINNET"
+          - "KAVA_TESTNET"
+          - "KAVA_MAINNET"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
