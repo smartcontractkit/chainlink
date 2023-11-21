@@ -11,10 +11,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -29,8 +30,7 @@ import (
 )
 
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := testutils.Context(t)
 	lp := &lpmocks.LogPoller{}
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
 	r := NewLogRecoverer(logger.TestLogger(t), lp, nil, nil, nil, nil, NewOptions(200))
@@ -213,8 +213,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 }
 
 func TestLogRecoverer_Recover(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	tests := []struct {
 		name             string
@@ -1079,7 +1078,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				recoverer.states = tc.stateReader
 			}
 
-			b, err := recoverer.GetProposalData(context.Background(), tc.proposal)
+			b, err := recoverer.GetProposalData(testutils.Context(t), tc.proposal)
 			if tc.expectErr {
 				assert.Error(t, err)
 				assert.Equal(t, tc.wantErr.Error(), err.Error())

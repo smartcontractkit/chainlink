@@ -1615,7 +1615,7 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 
 	jb, err = orm.FindJobWithoutSpecErrors(jobSpec.ID)
 	require.NoError(t, err)
-	jbWithErrors, err := orm.FindJobTx(jobSpec.ID)
+	jbWithErrors, err := orm.FindJobTx(testutils.Context(t), jobSpec.ID)
 	require.NoError(t, err)
 
 	assert.Equal(t, len(jb.JobSpecErrors), 0)
