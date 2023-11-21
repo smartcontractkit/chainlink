@@ -8,7 +8,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../../
 require (
 	github.com/ava-labs/coreth v0.12.1
 	github.com/avast/retry-go v3.0.0+incompatible
-	github.com/docker/docker v24.0.6+incompatible
+	github.com/docker/docker v24.0.7+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/google/go-cmp v0.5.9
