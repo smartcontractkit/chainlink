@@ -32,7 +32,7 @@ jobs:
         id: check-image
         uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         with:
-          repository: chainlink
+          repository: chainlink-internal
           tag: ${{ github.sha }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

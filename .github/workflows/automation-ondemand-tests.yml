@@ -61,7 +61,7 @@ jobs:
         id: check-image
         uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         with:
-          repository: chainlink
+          repository: ${{ github.repository }}
           tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -115,7 +115,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [ build-chainlink, build-test-image ]
+    needs: [build-chainlink, build-test-image]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
