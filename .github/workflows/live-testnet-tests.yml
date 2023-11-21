@@ -7,6 +7,10 @@ on:
       - "*"
   workflow_dispatch:
 
+concurrency:
+  group: live-tests-chainlink-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
@@ -24,8 +28,41 @@ env:
   OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
   OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
 
+  OPTIMISM_SEPOLIA_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_URLS }}
+  OPTIMISM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_HTTP_URLS }}
+
   ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
   ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
+
+  ARBITRUM_SEPOLIA_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_URLS }}
+  ARBITRUM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_HTTP_URLS }}
+
+  BSC_TESTNET_URLS: ${{ secrets.QA_BSC_TESTNET_URLS }}
+  BSC_TESTNET_HTTP_URLS: ${{ secrets.QA_BSC_TESTNET_HTTP_URLS }}
+
+  BASE_GOERLI_URLS: ${{ secrets.QA_BASE_GOERLI_URLS }}
+  BASE_GOERLI_HTTP_URLS: ${{ secrets.QA_BASE_GOERLI_HTTP_URLS }}
+
+  BASE_SEPOLIA_URLS: ${{ secrets.QA_BASE_SEPOLIA_URLS }}
+  BASE_SEPOLIA_HTTP_URLS: ${{ secrets.QA_BASE_SEPOLIA_HTTP_URLS }}
+
+  POLYGON_MUMBAI_URLS: ${{ secrets.QA_POLYGON_MUMBAI_URLS }}
+  POLYGON_MUMBAI_HTTP_URLS: ${{ secrets.QA_POLYGON_MUMBAI_HTTP_URLS }}
+
+  AVALANCHE_FUJI_URLS: ${{ secrets.QA_AVALANCHE_FUJI_URLS }}
+  AVALANCHE_FUJI_HTTP_URLS: ${{ secrets.QA_AVALANCHE_FUJI_HTTP_URLS }}
+
+  FANTOM_TESTNET_URLS: ${{ secrets.QA_FANTOM_TESTNET_URLS }}
+  FANTOM_TESTNET_HTTP_URLS: ${{ secrets.QA_FANTOM_TESTNET_HTTP_URLS }}
+
+  CELO_ALFAJORES_URLS: ${{ secrets.QA_CELO_ALFAJORES_URLS }}
+  CELO_ALFAJORES_HTTP_URLS: ${{ secrets.QA_CELO_ALFAJORES_HTTP_URLS }}
+
+  SCROLL_SEPOLIA_URLS: ${{ secrets.QA_SCROLL_SEPOLIA_URLS }}
+  SCROLL_SEPOLIA_HTTP_URLS: ${{ secrets.QA_SCROLL_SEPOLIA_HTTP_URLS }}
+
+  LINEA_GOERLI_URLS: ${{ secrets.QA_LINEA_GOERLI_URLS }}
+  LINEA_GOERLI_HTTP_URLS: ${{ secrets.QA_LINEA_GOERLI_HTTP_URLS }}
 
 jobs:
   build-chainlink:
@@ -59,7 +96,6 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  # TODO: Re-enable when we have secrets properly configured
   # sepolia-smoke-tests:
   #   environment: integration
   #   permissions:
@@ -93,7 +129,7 @@ jobs:
   #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
   #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
   #       with:
-  #         test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+  #         test_command_to_run: cd ./integration-tests && go test -timeout 1h -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
   #         test_download_vendor_packages_command: cd ./integration-tests && go mod download
   #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
   #         cl_image_tag: ${{ github.sha }}
@@ -120,125 +156,187 @@ jobs:
   #         test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
   #       continue-on-error: true
 
+  # optimism-goerli-smoke-tests:
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink]
+  #   env:
+  #     SELECTED_NETWORKS: OPTIMISM_GOERLI
+  #   strategy:
+  #     fail-fast: false
+  #     max-parallel: 1
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #         - product: Automation
+  #           test: TestAutomationBasic/registry_2_0
+  #   name: Optimism Goerli ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout the repo
+  #       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-goerli
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+  #       with:
+  #         test_command_to_run: cd ./integration-tests && go test -timeout 1h -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+  #         test_download_vendor_packages_command: cd ./integration-tests && go mod download
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./integration-tests/smoke/logs
+  #         publish_check_name: Seplia ${{ matrix.product }} Smoke Test Results
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         go_mod_path: ./integration-tests/go.mod
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #     - name: Collect Metrics
+  #       if: always()
+  #       id: collect-gha-metrics
+  #       uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+  #       with:
+  #         basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+  #         hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+  #         this-job-name: Optimism Goerli ${{ matrix.product }} Tests
+  #         test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+  #       continue-on-error: true
+
+  # arbitrum-goerli-smoke-tests:
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink]
+  #   env:
+  #     SELECTED_NETWORKS: ARBITRUM_GOERLI
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #         - product: Automation
+  #           test: TestAutomationBasic/registry_2_0
+  #   name: Arbitrum Goerli ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout the repo
+  #       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-goerli
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+  #       with:
+  #         test_command_to_run: cd ./integration-tests && go test -timeout 1h -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+  #         test_download_vendor_packages_command: cd ./integration-tests && go mod download
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./integration-tests/smoke/logs
+  #         publish_check_name: Arbitrum Goerli ${{ matrix.product }} Smoke Test Results
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         go_mod_path: ./integration-tests/go.mod
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #     - name: Collect Metrics
+  #       if: always()
+  #       id: collect-gha-metrics
+  #       uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+  #       with:
+  #         basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+  #         hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+  #         this-job-name: Arbitrum Goerli ${{ matrix.product }} Tests
+  #         test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+  #       continue-on-error: true
+
   optimism-goerli-smoke-tests:
+    name: Optimism Goerli Smoke Tests
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
+    runs-on: ubuntu-latest
     needs: [build-chainlink]
     env:
       SELECTED_NETWORKS: OPTIMISM_GOERLI
     strategy:
-      fail-fast: false
-      max-parallel: 1
       matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+        include:
           - product: OCR
             test: TestOCRBasic
           - product: Automation
             test: TestAutomationBasic/registry_2_0
-    name: Optimism Goerli ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-goerli
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: ./actions/run-live-test
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Seplia ${{ matrix.product }} Smoke Test Results
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Optimism Goerli ${{ matrix.product }} Tests
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
+          test: ${{ matrix.test }}
+          product: ${{ matrix.product }}
+          network: Optimism Goerli
 
   arbitrum-goerli-smoke-tests:
+    name: Arbitrum Goerli Smoke Tests
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
+    runs-on: ubuntu-latest
     needs: [build-chainlink]
     env:
       SELECTED_NETWORKS: ARBITRUM_GOERLI
     strategy:
-      max-parallel: 1
-      fail-fast: false
       matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+        include:
           - product: OCR
             test: TestOCRBasic
           - product: Automation
             test: TestAutomationBasic/registry_2_0
-    name: Arbitrum Goerli ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-goerli
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: ./actions/run-live-test
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Arbitrum Goerli ${{ matrix.product }} Smoke Test Results
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Arbitrum Goerli ${{ matrix.product }} Tests
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
+          test: ${{ matrix.test }}
+          product: ${{ matrix.product }}
+          network: Arbitrum Goerli
 
   testnet-smoke-tests-notify:
     name: Start Slack Thread
