@@ -1481,6 +1481,8 @@ github.com/smartcontractkit/libocr v0.0.0-20231107151413-13e0202ae8d7 h1:21V61XO
 github.com/smartcontractkit/libocr v0.0.0-20231107151413-13e0202ae8d7/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
 github.com/smartcontractkit/ocr2keepers v0.7.28 h1:dufAiYl4+uly9aH0+6GkS2jYzHGujq7tg0LYQE+x6JU=
 github.com/smartcontractkit/ocr2keepers v0.7.28/go.mod h1:1QGzJURnoWpysguPowOe2bshV0hNp1YX10HHlhDEsas=
+github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.0.0.20231116183857-4d227a1ef801 h1:9Cr3UOSqO7rH+6XGmSxvygG+EdLopIerLZVSkeVFhqo=
+github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.0.0.20231116183857-4d227a1ef801/go.mod h1:1QGzJURnoWpysguPowOe2bshV0hNp1YX10HHlhDEsas=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 h1:yiKnypAqP8l0OX0P3klzZ7SCcBUxy5KqTAKZmQOvSQE=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 h1:Dai1bn+Q5cpeGMQwRdjOdVjG8mmFFROVkSKuUgBErRQ=
