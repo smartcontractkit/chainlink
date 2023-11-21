@@ -78,7 +78,7 @@ type EvmTransactionController struct {
 
 func NewEVMTransactionController(app chainlink.Application) *EvmTransactionController {
 	return &EvmTransactionController{
-		Enabled:     app.GetConfig().TxmAsService().Enabled(),
+		Enabled:     app.GetConfig().Feature().TransactionService(),
 		Logger:      app.GetLogger(),
 		AuditLogger: app.GetAuditLogger(),
 		Chains:      app.GetRelayers().LegacyEVMChains(),
@@ -90,7 +90,8 @@ func NewEVMTransactionController(app chainlink.Application) *EvmTransactionContr
 // specified chain.
 func (tc *EvmTransactionController) Create(c *gin.Context) {
 	if !tc.Enabled {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("transactions creation disabled. To enable set TxmAsService.Enabled=true"))
+		jsonAPIError(c, http.StatusUnprocessableEntity,
+			errors.New("transactions creation disabled. To enable set Feature.TransactionService=true"))
 		return
 	}
 	var tx models.CreateEVMTransactionRequest

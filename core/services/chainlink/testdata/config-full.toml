@@ -6,6 +6,7 @@ ShutdownGracePeriod = '10s'
 FeedsManager = true
 LogPoller = true
 UICSAKeys = true
+TransactionService = true
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -242,9 +243,6 @@ SamplingRatio = 1.0
 [Tracing.Attributes]
 env = 'dev'
 test = 'load'
-
-[TxmAsService]
-Enabled = true
 
 [[EVM]]
 ChainID = '1'

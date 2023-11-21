@@ -4,4 +4,5 @@ type Feature interface {
 	FeedsManager() bool
 	UICSAKeys() bool
 	LogPoller() bool
+	TransactionService() bool
 }

@@ -513,22 +513,6 @@ func (_m *ChainScopedConfig) Tracing() coreconfig.Tracing {
 	return r0
 }
 
-// TxmAsService provides a mock function with given fields:
-func (_m *ChainScopedConfig) TxmAsService() coreconfig.TxmAsService {
-	ret := _m.Called()
-
-	var r0 coreconfig.TxmAsService
-	if rf, ok := ret.Get(0).(func() coreconfig.TxmAsService); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(coreconfig.TxmAsService)
-		}
-	}
-
-	return r0
-}
-
 // Validate provides a mock function with given fields:
 func (_m *ChainScopedConfig) Validate() error {
 	ret := _m.Called()

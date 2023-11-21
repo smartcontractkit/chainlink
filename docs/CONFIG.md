@@ -51,6 +51,7 @@ ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exce
 FeedsManager = true # Default
 LogPoller = false # Default
 UICSAKeys = false # Default
+TransactionService = false # Default
 ```
 
 
@@ -71,6 +72,12 @@ LogPoller enables the log poller, an experimental approach to processing logs, r
 UICSAKeys = false # Default
 ```
 UICSAKeys enables CSA Keys in the UI.
+
+### TransactionService
+```toml
+TransactionService = false # Default
+```
+TransactionService enables `POST /v2/transactions/evm` endpoint.
 
 ## Database
 ```toml
@@ -1637,20 +1644,6 @@ Tracing.Attributes are user specified key-value pairs to associate in the contex
 env = "test" # Example
 ```
 env is an example user specified key-value pair
-
-## TxmAsService
-```toml
-[TxmAsService]
-Enabled = false # Default
-```
-
-
-### Enabled
-```toml
-Enabled = false # Default
-```
-Enabled turns Transaction Manager as a service feature on or off. When enabled exposes endpoint to submit arbitrary EVM transaction
-using one of the keys enabled for the specified chain.
 
 ## EVM
 EVM defaults depend on ChainID:

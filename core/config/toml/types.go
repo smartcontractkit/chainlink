@@ -54,7 +54,6 @@ type Core struct {
 	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
-	TxmAsService     TxmAsService     `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -89,7 +88,6 @@ func (c *Core) SetFrom(f *Core) {
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
-	c.TxmAsService.setFrom(&f.TxmAsService)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -293,9 +291,10 @@ func (p *PrometheusSecrets) validateMerge(f *PrometheusSecrets) (err error) {
 }
 
 type Feature struct {
-	FeedsManager *bool
-	LogPoller    *bool
-	UICSAKeys    *bool
+	FeedsManager       *bool
+	LogPoller          *bool
+	UICSAKeys          *bool
+	TransactionService *bool
 }
 
 func (f *Feature) setFrom(f2 *Feature) {
@@ -307,6 +306,10 @@ func (f *Feature) setFrom(f2 *Feature) {
 	}
 	if v := f2.UICSAKeys; v != nil {
 		f.UICSAKeys = v
+	}
+
+	if v := f2.TransactionService; v != nil {
+		f.TransactionService = v
 	}
 }
 
@@ -1531,14 +1534,4 @@ func isValidURI(uri string) bool {
 
 func isValidHostname(hostname string) bool {
 	return hostnameRegex.MatchString(hostname)
-}
-
-type TxmAsService struct {
-	Enabled *bool
-}
-
-func (t *TxmAsService) setFrom(f *TxmAsService) {
-	if v := f.Enabled; v != nil {
-		t.Enabled = f.Enabled
-	}
 }

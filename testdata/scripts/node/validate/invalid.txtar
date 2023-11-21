@@ -52,6 +52,7 @@ ShutdownGracePeriod = '5s'
 FeedsManager = true
 LogPoller = false
 UICSAKeys = false
+TransactionService = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'
@@ -278,9 +279,6 @@ Enabled = false
 CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
-
-[TxmAsService]
-Enabled = false
 
 [[EVM]]
 ChainID = '1'

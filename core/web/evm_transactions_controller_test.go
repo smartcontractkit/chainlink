@@ -207,7 +207,7 @@ func TestTransactionsController_Create(t *testing.T) {
 		router.ServeHTTP(resp, req)
 		cltest.AssertServerResponse(t, resp.Result(), http.StatusUnprocessableEntity)
 		respError := cltest.ParseJSONAPIErrors(t, resp.Body)
-		require.Equal(t, "transactions creation disabled. To enable set TxmAsService.Enabled=true", respError.Error())
+		require.Equal(t, "transactions creation disabled. To enable set Feature.TransactionService=true", respError.Error())
 	})
 
 	createTx := func(controller *web.EvmTransactionController, request interface{}) *httptest.ResponseRecorder {

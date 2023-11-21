@@ -296,6 +296,10 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 	return *g.c.Feature.UICSAKeys
 }
 
+func (g *generalConfig) FeatureTransactionService() bool {
+	return *g.c.Feature.TransactionService
+}
+
 func (g *generalConfig) AutoPprof() config.AutoPprof {
 	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
 }
@@ -516,10 +520,6 @@ func (g *generalConfig) Threshold() coreconfig.Threshold {
 
 func (g *generalConfig) Tracing() coreconfig.Tracing {
 	return &tracingConfig{s: g.c.Tracing}
-}
-
-func (g *generalConfig) TxmAsService() config.TxmAsService {
-	return &txmAsServiceConfig{c: g.c.TxmAsService}
 }
 
 var zeroSha256Hash = models.Sha256Hash{}

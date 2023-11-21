@@ -54,7 +54,6 @@ type AppConfig interface {
 	Threshold() Threshold
 	WebServer() WebServer
 	Tracing() Tracing
-	TxmAsService() TxmAsService
 }
 
 type DatabaseBackupMode string

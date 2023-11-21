@@ -13,6 +13,8 @@ FeedsManager = true # Default
 LogPoller = false # Default
 # UICSAKeys enables CSA Keys in the UI.
 UICSAKeys = false # Default
+# TransactionService enables `POST /v2/transactions/evm` endpoint.
+TransactionService = false # Default
 
 [Database]
 # DefaultIdleInTxSessionTimeout is the maximum time allowed for a transaction to be open and idle before timing out. See Postgres `idle_in_transaction_session_timeout` for more details.
@@ -597,8 +599,3 @@ SamplingRatio = 1.0 # Example
 [Tracing.Attributes]
 # env is an example user specified key-value pair
 env = "test" # Example
-
-[TxmAsService]
-# Enabled turns Transaction Manager as a service feature on or off. When enabled exposes endpoint to submit arbitrary EVM transaction
-# using one of the keys enabled for the specified chain.
-Enabled = false # Default
