@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem";
+
+package telem;
+
+// Execution Report ///////////////////////////////////////////////////////////
+
+message CCIPExecutionReportSummary {
+    uint32 len_observed_messages = 1; // number of observed messages
+    uint32 len_token_data = 2; // the total number of token
+    repeated bytes token_data = 3; // flattened out execution observations
+    uint32 epoch = 4;
+    uint32 round = 5;
+}
+
+// Commit Report //////////////////////////////////////////////////////////////
+
+// The CCIPCommitReport message is used to report the latest commit
+// as it's seend by the node.
+message CCIPCommitReportSummary {
+    uint32 len_token_prices = 1; // number of token prices
+    uint32 len_gas_prices = 2; // number of gas prices
+    uint64 interval_min = 3; // minimum interval
+    uint64 interval_max = 4; // maximum interval
+    uint32 epoch = 5;
+    uint32 round = 6;
+	repeated CommitObservation observations = 7; // commit observations
+}
+
+// CommitObservation is ccip.CommitObservation
+message CommitObservation {
+    uint64 interval_min = 1;
+    uint64 interval_max = 2;
+    repeated TokenPrice token_prices = 3; // flattened list of observed token prices in USD
+    bytes source_gas_price_usd = 4; // observed source gas price in USD
+}
+
+// TokenPrices is a flattened out into a list CommitObservation.TokenPricesUSD map.
+message TokenPrice {
+    bytes address = 1; // address is the 20 byte address of an Ethereum account.
+    bytes price_usd = 2; // price_usd is 'big.Int' price of the token in USD.
+}
+
+// NOTE: 'bytes' type is used in this protobuf where 'big.Int' type is used in Go code.
+// There's big.Int type in protobuf spec: https://protobuf.dev/reference/protobuf/proto3-spec/
+//
+// big.Int.{Bytes()|SetBytes()} will be used for price conversion.
+// Prices must NOT be negative. 'big.NewInt(-1).Bytes()' returns '[]byte{1}'.
+
+
+// CCIPTelemWrapper is a wrapper for CCIP messages defined above.
+message CCIPTelemWrapper{
+    oneof msg {
+        CCIPCommitReportSummary commit_report = 1;
+        CCIPExecutionReportSummary execution_report  = 2;
+    }
+}
