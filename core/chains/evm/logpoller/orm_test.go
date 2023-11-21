@@ -583,7 +583,7 @@ func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
 	}
 	require.NoError(t, o1.InsertLogs(logs))
 
-	retrievedLogs, err := o1.SelectIndexedLogsByTxHash(eventSig, txHash)
+	retrievedLogs, err := o1.SelectIndexedLogsByTxHash(addr, eventSig, txHash)
 	require.NoError(t, err)
 
 	require.Equal(t, 2, len(retrievedLogs))

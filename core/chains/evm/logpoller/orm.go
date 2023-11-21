@@ -48,7 +48,7 @@ type ORM interface {
 	SelectIndexedLogsTopicGreaterThan(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectIndexedLogsTopicRange(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin, topicValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
+	SelectIndexedLogsByTxHash(address common.Address, eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordRange(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordBetween(address common.Address, eventSIg common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
@@ -691,9 +691,10 @@ func (o *DbORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig c
 	return logs, nil
 }
 
-func (o *DbORM) SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+func (o *DbORM) SelectIndexedLogsByTxHash(address common.Address, eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	args, err := newQueryArgs(o.chainID).
 		withTxHash(txHash).
+		withAddress(address).
 		withEventSig(eventSig).
 		toArgs()
 	if err != nil {
@@ -703,8 +704,9 @@ func (o *DbORM) SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Ha
 	err = o.q.WithOpts(qopts...).SelectNamed(&logs, `
 		SELECT * FROM evm.logs 
 			WHERE evm_chain_id = :evm_chain_id
+			AND address = :address
+			AND event_sig = :event_sig			  
 			AND tx_hash = :tx_hash
-			AND event_sig = :event_sig
 			ORDER BY (block_number, log_index)`, args)
 	if err != nil {
 		return nil, err

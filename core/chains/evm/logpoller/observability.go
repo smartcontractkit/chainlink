@@ -200,9 +200,9 @@ func (o *ObservedORM) SelectLogs(start, end int64, address common.Address, event
 	})
 }
 
-func (o *ObservedORM) IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
-	return withObservedQueryAndResults(o, "IndexedLogsByTxHash", func() ([]Log, error) {
-		return o.ORM.SelectIndexedLogsByTxHash(eventSig, txHash, qopts...)
+func (o *ObservedORM) SelectIndexedLogsByTxHash(address common.Address, eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return withObservedQueryAndResults(o, "SelectIndexedLogsByTxHash", func() ([]Log, error) {
+		return o.ORM.SelectIndexedLogsByTxHash(address, eventSig, txHash, qopts...)
 	})
 }
 

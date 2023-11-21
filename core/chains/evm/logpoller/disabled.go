@@ -71,7 +71,7 @@ func (disabled) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, 
 	return nil, ErrDisabled
 }
 
-func (d disabled) IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+func (d disabled) IndexedLogsByTxHash(eventSig common.Hash, address common.Address, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
 
