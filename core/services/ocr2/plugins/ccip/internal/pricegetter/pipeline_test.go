@@ -60,9 +60,18 @@ func TestDataSource(t *testing.T) {
 		linkTokenAddress: big.NewInt(0).Mul(big.NewInt(200), big.NewInt(1000000000000000000)),
 		usdcTokenAddress: big.NewInt(0).Mul(big.NewInt(1000), big.NewInt(1000000000000000000)),
 	})
+
 	// Ask a non-existent price.
 	_, err = priceGetter.TokenPricesUSD(context.Background(), []common.Address{common.HexToAddress("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e11")})
 	require.Error(t, err)
+
+	// Ask only one price
+	prices, err = priceGetter.TokenPricesUSD(context.Background(), []common.Address{linkTokenAddress})
+	require.NoError(t, err)
+	assert.Equal(t, prices, map[common.Address]*big.Int{
+		linkTokenAddress: big.NewInt(0).Mul(big.NewInt(200), big.NewInt(1000000000000000000)),
+	})
+
 }
 
 func TestParsingDifferentFormats(t *testing.T) {
