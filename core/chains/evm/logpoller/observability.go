@@ -14,6 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+type queryType string
+
+const (
+	create queryType = "create"
+	read   queryType = "read"
+	del    queryType = "delete"
+)
+
 var (
 	sqlLatencyBuckets = []float64{
 		float64(1 * time.Millisecond),
@@ -41,47 +49,63 @@ var (
 		Name:    "log_poller_query_duration",
 		Help:    "Measures duration of Log Poller's queries fetching logs",
 		Buckets: sqlLatencyBuckets,
-	}, []string{"evmChainID", "query"})
+	}, []string{"evmChainID", "query", "type"})
 	lpQueryDataSets = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "log_poller_query_dataset_size",
 		Help: "Measures size of the datasets returned by Log Poller's queries",
-	}, []string{"evmChainID", "query"})
+	}, []string{"evmChainID", "query", "type"})
+	lpLogsInserted = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "log_poller_logs_inserted",
+		Help: "Counter to track number of logs inserted by Log Poller",
+	}, []string{"evmChainID"})
+	lpBlockInserted = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "log_poller_blocks_inserted",
+		Help: "Counter to track number of blocks inserted by Log Poller",
+	}, []string{"evmChainID"})
 )
 
 // ObservedORM is a decorator layer for ORM used by LogPoller, responsible for pushing Prometheus metrics reporting duration and size of result set for the queries.
 // It doesn't change internal logic, because all calls are delegated to the origin ORM
 type ObservedORM struct {
 	ORM
-	queryDuration *prometheus.HistogramVec
-	datasetSize   *prometheus.GaugeVec
-	chainId       string
+	queryDuration  *prometheus.HistogramVec
+	datasetSize    *prometheus.GaugeVec
+	logsInserted   *prometheus.CounterVec
+	blocksInserted *prometheus.CounterVec
+	chainId        string
 }
 
 // NewObservedORM creates an observed version of log poller's ORM created by NewORM
 // Please see ObservedLogPoller for more details on how latencies are measured
 func NewObservedORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ObservedORM {
 	return &ObservedORM{
-		ORM:           NewORM(chainID, db, lggr, cfg),
-		queryDuration: lpQueryDuration,
-		datasetSize:   lpQueryDataSets,
-		chainId:       chainID.String(),
+		ORM:            NewORM(chainID, db, lggr, cfg),
+		queryDuration:  lpQueryDuration,
+		datasetSize:    lpQueryDataSets,
+		logsInserted:   lpLogsInserted,
+		blocksInserted: lpBlockInserted,
+		chainId:        chainID.String(),
 	}
 }
 
 func (o *ObservedORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "InsertLogs", func() error {
+	err := withObservedExec(o, "InsertLogs", create, func() error {
 		return o.ORM.InsertLogs(logs, qopts...)
 	})
+	trackInsertedLogsAndBlock(o, logs, nil, err)
+	return err
 }
 
 func (o *ObservedORM) InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "InsertLogsWithBlock", func() error {
+	err := withObservedExec(o, "InsertLogsWithBlock", create, func() error {
 		return o.ORM.InsertLogsWithBlock(logs, block, qopts...)
 	})
+	trackInsertedLogsAndBlock(o, logs, &block, err)
+	return err
 }
 
 func (o *ObservedORM) InsertFilter(filter Filter, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "InsertFilter", func() error {
+	return withObservedExec(o, "InsertFilter", create, func() error {
 		return o.ORM.InsertFilter(filter, qopts...)
 	})
 }
@@ -93,25 +117,25 @@ func (o *ObservedORM) LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error) {
 }
 
 func (o *ObservedORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "DeleteFilter", func() error {
+	return withObservedExec(o, "DeleteFilter", del, func() error {
 		return o.ORM.DeleteFilter(name, qopts...)
 	})
 }
 
 func (o *ObservedORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "DeleteBlocksBefore", func() error {
+	return withObservedExec(o, "DeleteBlocksBefore", del, func() error {
 		return o.ORM.DeleteBlocksBefore(end, qopts...)
 	})
 }
 
 func (o *ObservedORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "DeleteLogsAndBlocksAfter", func() error {
+	return withObservedExec(o, "DeleteLogsAndBlocksAfter", del, func() error {
 		return o.ORM.DeleteLogsAndBlocksAfter(start, qopts...)
 	})
 }
 
 func (o *ObservedORM) DeleteExpiredLogs(qopts ...pg.QOpt) error {
-	return withObservedExec(o, "DeleteExpiredLogs", func() error {
+	return withObservedExec(o, "DeleteExpiredLogs", del, func() error {
 		return o.ORM.DeleteExpiredLogs(qopts...)
 	})
 }
@@ -228,7 +252,7 @@ func withObservedQueryAndResults[T any](o *ObservedORM, queryName string, query 
 	results, err := withObservedQuery(o, queryName, query)
 	if err == nil {
 		o.datasetSize.
-			WithLabelValues(o.chainId, queryName).
+			WithLabelValues(o.chainId, queryName, string(read)).
 			Set(float64(len(results)))
 	}
 	return results, err
@@ -238,18 +262,33 @@ func withObservedQuery[T any](o *ObservedORM, queryName string, query func() (T,
 	queryStarted := time.Now()
 	defer func() {
 		o.queryDuration.
-			WithLabelValues(o.chainId, queryName).
+			WithLabelValues(o.chainId, queryName, string(read)).
 			Observe(float64(time.Since(queryStarted)))
 	}()
 	return query()
 }
 
-func withObservedExec(o *ObservedORM, query string, exec func() error) error {
+func withObservedExec(o *ObservedORM, query string, queryType queryType, exec func() error) error {
 	queryStarted := time.Now()
 	defer func() {
 		o.queryDuration.
-			WithLabelValues(o.chainId, query).
+			WithLabelValues(o.chainId, query, string(queryType)).
 			Observe(float64(time.Since(queryStarted)))
 	}()
 	return exec()
+}
+
+func trackInsertedLogsAndBlock(o *ObservedORM, logs []Log, block *LogPollerBlock, err error) {
+	if err != nil {
+		return
+	}
+	o.logsInserted.
+		WithLabelValues(o.chainId).
+		Add(float64(len(logs)))
+
+	if block != nil {
+		o.blocksInserted.
+			WithLabelValues(o.chainId).
+			Inc()
+	}
 }
