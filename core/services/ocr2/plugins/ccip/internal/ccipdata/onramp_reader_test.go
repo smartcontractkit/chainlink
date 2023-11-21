@@ -330,12 +330,7 @@ func testOnRampReader(t *testing.T, th onRampReaderTH, expectedRouterAddress com
 	require.NoError(t, err)
 	require.Equal(t, expectedRouterAddress, res)
 
-	msg, err := th.reader.GetSendRequestsGteSeqNum(ctx, 0)
-	require.NoError(t, err)
-	require.NotNil(t, msg)
-	require.Equal(t, []ccipdata.Event[internal.EVM2EVMMessage]{}, msg)
-
-	msg, err = th.reader.GetSendRequestsBetweenSeqNums(ctx, 0, 10)
+	msg, err := th.reader.GetSendRequestsBetweenSeqNums(ctx, 0, 10)
 	require.NoError(t, err)
 	require.NotNil(t, msg)
 	require.Equal(t, []ccipdata.Event[internal.EVM2EVMMessage]{}, msg)

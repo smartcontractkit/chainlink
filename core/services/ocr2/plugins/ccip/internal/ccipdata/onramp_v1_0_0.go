@@ -202,29 +202,6 @@ func (o *OnRampV1_0_0) logToMessage(log types.Log) (*internal.EVM2EVMMessage, er
 	}, nil
 }
 
-func (o *OnRampV1_0_0) GetSendRequestsGteSeqNum(ctx context.Context, seqNum uint64) ([]Event[internal.EVM2EVMMessage], error) {
-	logs, err := o.lp.LogsDataWordGreaterThan(
-		o.sendRequestedEventSig,
-		o.address,
-		o.sendRequestedSeqNumberWord,
-		abihelpers.EvmWord(seqNum),
-		logpoller.Finalized,
-		pg.WithParentCtx(ctx),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("logs data word greater than: %w", err)
-	}
-	return parseLogs[internal.EVM2EVMMessage](logs, o.lggr, o.logToMessage)
-}
-
-func (o *OnRampV1_0_0) RouterAddress() (common.Address, error) {
-	config, err := o.onRamp.GetDynamicConfig(nil)
-	if err != nil {
-		return common.Address{}, err
-	}
-	return config.Router, nil
-}
-
 func (o *OnRampV1_0_0) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64) ([]Event[internal.EVM2EVMMessage], error) {
 	logs, err := o.lp.LogsDataWordRange(
 		o.sendRequestedEventSig,
@@ -238,6 +215,14 @@ func (o *OnRampV1_0_0) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNum
 		return nil, err
 	}
 	return parseLogs[internal.EVM2EVMMessage](logs, o.lggr, o.logToMessage)
+}
+
+func (o *OnRampV1_0_0) RouterAddress() (common.Address, error) {
+	config, err := o.onRamp.GetDynamicConfig(nil)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return config.Router, nil
 }
 
 func (o *OnRampV1_0_0) Close(qopts ...pg.QOpt) error {
