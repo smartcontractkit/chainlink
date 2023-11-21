@@ -1,7 +1,6 @@
 package internal_test
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -336,6 +335,7 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 }
 
 func runOCR2VRFTest(t *testing.T, useForwarders bool) {
+	ctx := testutils.Context(t)
 	keyID := randomKeyID(t)
 	uni := setupOCR2VRFContracts(t, 5, keyID, false)
 
@@ -409,7 +409,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		}
 	}()
 
-	blockBeforeConfig, err := uni.backend.BlockByNumber(context.Background(), nil)
+	blockBeforeConfig, err := uni.backend.BlockByNumber(ctx, nil)
 	require.NoError(t, err)
 
 	t.Log("Setting DKG config before block:", blockBeforeConfig.Number().String())
@@ -447,7 +447,7 @@ fromBlock           = %d
 	t.Log("Creating bootstrap job:", bootstrapJobSpec)
 	ocrJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(bootstrapJobSpec)
 	require.NoError(t, err)
-	err = bootstrapNode.app.AddJobV2(context.Background(), &ocrJob)
+	err = bootstrapNode.app.AddJobV2(ctx, &ocrJob)
 	require.NoError(t, err)
 
 	t.Log("Creating OCR2VRF jobs")
@@ -499,7 +499,7 @@ linkEthFeedAddress     	= "%s"
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
 		ocrJob2, err2 := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec)
 		require.NoError(t, err2)
-		err2 = apps[i].AddJobV2(context.Background(), &ocrJob2)
+		err2 = apps[i].AddJobV2(ctx, &ocrJob2)
 		require.NoError(t, err2)
 	}
 

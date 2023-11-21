@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestIdentifier_UnmarshalString(t *testing.T) {
@@ -160,9 +160,10 @@ func TestRelayerServerAdapter(t *testing.T) {
 		},
 	}
 
+	ctx := testutils.Context(t)
 	for _, tc := range testCases {
 		pp, err := sa.NewPluginProvider(
-			context.Background(),
+			ctx,
 			types.RelayArgs{ProviderType: tc.ProviderType},
 			types.PluginArgs{},
 		)
