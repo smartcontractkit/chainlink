@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -18,6 +19,9 @@ const (
 	// defaultTTL is the default time to live for abandoned transactions
 	// After this TTL, the TXM stops tracking abandoned Txs.
 	defaultTTL = 6 * time.Hour
+	// handleTxesTimeout represents a sanity limit on how long handleTxesByState
+	// should take to complete
+	handleTxesTimeout = 10 * time.Minute
 )
 
 // AbandonedTx is a transaction who's 'FromAddress' was removed from the KeyStore(by the Node Operator).
@@ -43,16 +47,20 @@ type Tracker[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
+	services.StateMachine
 	txStore      txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	keyStore     txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	chainID      CHAIN_ID
 	lggr         logger.Logger
 	enabledAddrs map[ADDR]bool
 	txCache      map[int64]AbandonedTx[ADDR]
 	ttl          time.Duration
 	lock         sync.Mutex
-	started      bool
 	mb           *utils.Mailbox[int64]
 	wg           sync.WaitGroup
-	chDone       chan struct{}
+	isStarted    bool
+	ctx          context.Context
+	ctxCancel    context.CancelFunc
 }
 
 func NewTracker[
@@ -65,53 +73,69 @@ func NewTracker[
 	FEE feetypes.Fee,
 ](
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
+	chainID CHAIN_ID,
 	lggr logger.Logger,
 ) *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	return &Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		txStore:      txStore,
+		keyStore:     keyStore,
+		chainID:      chainID,
 		lggr:         lggr.Named("Tracker"),
 		enabledAddrs: map[ADDR]bool{},
 		txCache:      map[int64]AbandonedTx[ADDR]{},
 		ttl:          defaultTTL,
 		mb:           utils.NewSingleMailbox[int64](),
-		chDone:       make(chan struct{}),
 		lock:         sync.Mutex{},
-		started:      false,
 		wg:           sync.WaitGroup{},
 	}
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx context.Context, enabledAddrs []ADDR) (err error) {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(_ context.Context) (err error) {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
+	return tr.StartOnce("Tracker", func() error {
+		return tr.startInternal()
+	})
+}
 
-	if tr.started {
-		return fmt.Errorf("tracker already started")
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal() (err error) {
+	tr.ctx, tr.ctxCancel = context.WithCancel(context.Background())
+
+	if err := tr.setEnabledAddresses(); err != nil {
+		return fmt.Errorf("failed to set enabled addresses: %w", err)
 	}
 
-	tr.setEnabledAddresses(enabledAddrs)
-
-	if err := tr.trackAbandonedTxes(ctx); err != nil {
+	if err := tr.trackAbandonedTxes(tr.ctx); err != nil {
 		return fmt.Errorf("failed to track abandoned txes: %w", err)
 	}
 
-	tr.chDone = make(chan struct{})
-	tr.started = true
 	tr.wg.Add(1)
-	go tr.runLoop(ctx)
+	go tr.runLoop()
+	tr.isStarted = true
 	return nil
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Stop() {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() error {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
-	tr.lggr.Infow("stopping tracker")
-	close(tr.chDone)
-	tr.wg.Wait()
-	tr.started = false
+	return tr.StopOnce("Tracker", func() error {
+		return tr.closeInternal()
+	})
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx context.Context) {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeInternal() error {
+	tr.lggr.Infow("stopping tracker")
+	if !tr.isStarted {
+		return fmt.Errorf("tracker not started")
+	}
+	tr.ctxCancel()
+	tr.wg.Wait()
+	tr.isStarted = false
+	return nil
+}
+
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	defer tr.wg.Done()
 	ttlExceeded := time.NewTicker(tr.ttl)
 	defer ttlExceeded.Stop()
@@ -119,19 +143,22 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx
 		select {
 		case <-tr.mb.Notify():
 			for {
+				if tr.ctx.Err() != nil {
+					return
+				}
 				bockHeight, exists := tr.mb.Retrieve()
 				if !exists {
 					break
 				}
-				if err := tr.HandleTxesByState(ctx, bockHeight); err != nil {
+				if err := tr.HandleTxesByState(tr.ctx, bockHeight); err != nil {
 					tr.lggr.Errorw(fmt.Errorf("failed to handle txes by state: %w", err).Error())
 				}
 			}
 		case <-ttlExceeded.C:
 			tr.lggr.Infow("ttl exceeded")
-			tr.MarkAllTxesFatal(ctx)
+			tr.MarkAllTxesFatal(tr.ctx)
 			return
-		case <-tr.chDone:
+		case <-tr.ctx.Done():
 			return
 		}
 	}
@@ -141,7 +168,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandone
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 
-	if !tr.started {
+	if !tr.isStarted {
 		return []ADDR{}
 	}
 
@@ -155,10 +182,15 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandone
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsStarted() bool {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
-	return tr.started
+	return tr.isStarted
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledAddresses(enabledAddrs []ADDR) {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledAddresses() error {
+	enabledAddrs, err := tr.keyStore.EnabledAddressesForChain(tr.chainID)
+	if err != nil {
+		return fmt.Errorf("failed to get enabled addresses for chain: %w", err)
+	}
+
 	if len(enabledAddrs) == 0 {
 		tr.lggr.Warnf("enabled address list is empty")
 	}
@@ -166,11 +198,12 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledA
 	for _, addr := range enabledAddrs {
 		tr.enabledAddrs[addr] = true
 	}
+	return nil
 }
 
 // trackAbandonedTxes called once to find and insert all abandoned txes into the tracker.
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbandonedTxes(ctx context.Context) (err error) {
-	if tr.started {
+	if tr.isStarted {
 		return fmt.Errorf("tracker already started")
 	}
 
@@ -196,6 +229,8 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbando
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HandleTxesByState(ctx context.Context, blockHeight int64) error {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
+	tr.ctx, tr.ctxCancel = context.WithTimeout(ctx, handleTxesTimeout)
+	defer tr.ctxCancel()
 	return tr.handleTxesByState(ctx, blockHeight)
 }
 

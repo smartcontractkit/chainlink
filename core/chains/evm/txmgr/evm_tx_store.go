@@ -1143,12 +1143,7 @@ func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID 
 	if err != nil {
 		return false, fmt.Errorf("failed to retrieve transaction reciepts: %w", err)
 	}
-
-	if len(rs) > 0 {
-		return true, nil
-	}
-
-	return false, nil
+	return len(rs) > 0, nil
 }
 
 func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {

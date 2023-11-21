@@ -31,13 +31,13 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
+CHAIN_ID types.ID,
+HEAD types.Head[BLOCK_HASH],
+ADDR types.Hashable,
+TX_HASH types.Hashable,
+BLOCK_HASH types.Hashable,
+SEQ types.Sequence,
+FEE feetypes.Fee,
 ] interface {
 	types.HeadTrackable[HEAD, BLOCK_HASH]
 	services.Service
@@ -67,14 +67,14 @@ type reset struct {
 }
 
 type Txm[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
+CHAIN_ID types.ID,
+HEAD types.Head[BLOCK_HASH],
+ADDR types.Hashable,
+TX_HASH types.Hashable,
+BLOCK_HASH types.Hashable,
+R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+SEQ types.Sequence,
+FEE feetypes.Fee,
 ] struct {
 	services.StateMachine
 	logger         logger.Logger
@@ -112,14 +112,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterRe
 
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
+CHAIN_ID types.ID,
+HEAD types.Head[BLOCK_HASH],
+ADDR types.Hashable,
+TX_HASH types.Hashable,
+BLOCK_HASH types.Hashable,
+R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+SEQ types.Sequence,
+FEE feetypes.Fee,
 ](
 	chainId CHAIN_ID,
 	cfg txmgrtypes.TransactionManagerChainConfig,
@@ -186,6 +186,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
 
+		if err := ms.Start(ctx, b.tracker); err != nil {
+			return fmt.Errorf("Txm: Tracker failed to start: %w", err)
+		}
+
 		b.wg.Add(1)
 		go b.runLoop()
 		<-b.chSubbed
@@ -196,17 +200,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 
 		if b.resender != nil {
 			b.resender.Start()
-		}
-
-		if b.tracker != nil {
-			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(b.chainID)
-			if err != nil {
-				return fmt.Errorf("Txm: failed to get enabled addresses for chain %s: %w", b.chainID.String(), err)
-			}
-
-			if err := b.tracker.Start(ctx, enabledAddresses); err != nil {
-				return fmt.Errorf("Txm: Tracker failed to start: %w", err)
-			}
 		}
 
 		if b.fwdMgr != nil {
@@ -272,6 +265,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (m
 
 		if err := b.txAttemptBuilder.Close(); err != nil {
 			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close TxAttemptBuilder: %w", err))
+		}
+
+		if err := b.tracker.Close(); err != nil {
+			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close Tracker: %w", err))
 		}
 
 		return nil
@@ -410,6 +407,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			}
 			if err := utils.EnsureClosed(b.confirmer); err != nil {
 				b.logger.Panicw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
+			}
+			if err := utils.EnsureClosed(b.tracker); err != nil {
+				b.logger.Panicw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
 			}
 			return
 		case <-keysChanged:
@@ -574,12 +574,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWi
 }
 
 type NullTxManager[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
+CHAIN_ID types.ID,
+HEAD types.Head[BLOCK_HASH],
+ADDR types.Hashable,
+TX_HASH, BLOCK_HASH types.Hashable,
+SEQ types.Sequence,
+FEE feetypes.Fee,
 ] struct {
 	ErrMsg string
 }

@@ -50,14 +50,15 @@ func NewTxm(
 	txmCfg := NewEvmTxmConfig(chainConfig) // wrap Evm specific config
 	feeCfg := NewEvmTxmFeeConfig(fCfg)     // wrap Evm specific config
 	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
+	chainID := txmClient.ConfiguredChainID()
 	ethBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, txNonceSyncer, lggr, checker, chainConfig.NonceAutoSync())
-	ethTracker := NewEvmTracker(txStore, lggr)
+	ethTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
 	ethConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
 	var ethResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
 		ethResender = NewEvmResender(lggr, txStore, txmClient, ethTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
 	}
-	txm = NewEvmTxm(txmClient.ConfiguredChainID(), txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender, ethTracker)
+	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender, ethTracker)
 	return txm, nil
 }
 
@@ -118,9 +119,11 @@ func NewEvmConfirmer(
 // NewEvmTracker instantiates a new EVM tracker for abandoned transactions
 func NewEvmTracker(
 	txStore TxStore,
+	keyStore KeyStore,
+	chainID *big.Int,
 	lggr logger.Logger,
 ) *Tracker {
-	return txmgr.NewTracker(txStore, lggr)
+	return txmgr.NewTracker(txStore, keyStore, chainID, lggr)
 }
 
 // NewEvmBroadcaster returns a new concrete EvmBroadcaster
