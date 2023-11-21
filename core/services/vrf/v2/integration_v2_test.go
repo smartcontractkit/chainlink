@@ -2038,13 +2038,13 @@ func TestStartingCountsV1(t *testing.T) {
 	}
 	md1, err := json.Marshal(&m1)
 	require.NoError(t, err)
-	md1_ := sqlutil.JSON(md1)
+	md1SQL := sqlutil.JSON(md1)
 	reqID2 := utils.PadByteToHash(0x11)
 	m2 := txmgr.TxMeta{
 		RequestID: &reqID2,
 	}
 	md2, err := json.Marshal(&m2)
-	md2_ := sqlutil.JSON(md2)
+	md2SQL := sqlutil.JSON(md2)
 	require.NoError(t, err)
 	chainID := utils.NewBig(testutils.SimulatedChainID)
 	confirmedTxes := []txmgr.Tx{
@@ -2068,7 +2068,7 @@ func TestStartingCountsV1(t *testing.T) {
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
 			State:              txmgrcommon.TxConfirmed,
-			Meta:               &md1_,
+			Meta:               &md1SQL,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
 		},
@@ -2080,7 +2080,7 @@ func TestStartingCountsV1(t *testing.T) {
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
 			State:              txmgrcommon.TxConfirmed,
-			Meta:               &md2_,
+			Meta:               &md2SQL,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
 		},
@@ -2092,7 +2092,7 @@ func TestStartingCountsV1(t *testing.T) {
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
 			State:              txmgrcommon.TxConfirmed,
-			Meta:               &md2_,
+			Meta:               &md2SQL,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
 		},
@@ -2105,7 +2105,7 @@ func TestStartingCountsV1(t *testing.T) {
 			RequestID: &reqID3,
 		})
 		require.NoError(t, err2)
-		md_ := sqlutil.JSON(md)
+		mdSQL := sqlutil.JSON(md)
 		newNonce := evmtypes.Nonce(i + 1)
 		unconfirmedTxes = append(unconfirmedTxes, txmgr.Tx{
 			Sequence:           &newNonce,
@@ -2115,7 +2115,7 @@ func TestStartingCountsV1(t *testing.T) {
 			State:              txmgrcommon.TxUnconfirmed,
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
-			Meta:               &md_,
+			Meta:               &mdSQL,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
 		})
