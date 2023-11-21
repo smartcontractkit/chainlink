@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -18,7 +19,8 @@ import (
 var (
 	_ PerformedLogsScanner = &performedEventsScanner{}
 
-	workIDsBatchSize = 25
+	workIDsBatchSize    = 25
+	workIDBatchInterval = 100 * time.Millisecond
 )
 
 type PerformedLogsScanner interface {
@@ -84,6 +86,9 @@ func (s *performedEventsScanner) ScanWorkIDs(ctx context.Context, workID ...stri
 			return nil, fmt.Errorf("error fetching logs: %w", err)
 		}
 		logs = append(logs, batchLogs...)
+		if i+workIDsBatchSize < len(ids) {
+			time.Sleep(workIDBatchInterval)
+		}
 	}
 
 	return s.logsToWorkIDs(logs), nil
