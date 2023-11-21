@@ -20,6 +20,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -29,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 )
 
 func TestFactory(t *testing.T) {
@@ -192,7 +192,7 @@ func TestTransmitCheckers(t *testing.T) {
 
 			b, err := json.Marshal(meta)
 			require.NoError(t, err)
-			metaJson := datatypes.JSON(b)
+			metaJson := sqlutil.JSON(b)
 
 			tx := txmgr.Tx{
 				FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
@@ -296,7 +296,7 @@ func TestTransmitCheckers(t *testing.T) {
 
 			b, err := json.Marshal(meta)
 			require.NoError(t, err)
-			metaJson := datatypes.JSON(b)
+			metaJson := sqlutil.JSON(b)
 
 			tx := txmgr.Tx{
 				FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
