@@ -65,20 +65,31 @@ func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []common.Add
 		return nil, errors.Errorf("expected map output of price pipeline, got %T", finalResult.Values[0])
 	}
 
-	priceMap := make(map[common.Address]*big.Int)
-	for tokenAddress, rawPrice := range prices {
+	providedTokensSet := make(map[common.Address]struct{}, len(tokens))
+	for _, token := range tokens {
+		providedTokensSet[token] = struct{}{}
+	}
+
+	tokenPrices := make(map[common.Address]*big.Int)
+	for tokenAddressStr, rawPrice := range prices {
 		castedPrice, err := parseutil.ParseBigIntFromAny(rawPrice)
 		if err != nil {
 			return nil, err
 		}
-		priceMap[common.HexToAddress(tokenAddress)] = castedPrice
+
+		tokenAddress := common.HexToAddress(tokenAddressStr)
+		if _, exists := providedTokensSet[tokenAddress]; exists {
+			tokenPrices[tokenAddress] = castedPrice
+		}
 	}
+
 	// The mapping of token address to source of token price has to live offchain.
 	// Best we can do is sanity check that the token price spec covers all our desired execution token prices.
 	for _, token := range tokens {
-		if _, ok = priceMap[token]; !ok {
+		if _, ok = tokenPrices[token]; !ok {
 			return nil, errors.Errorf("missing token %s from tokensForFeeCoin spec", token)
 		}
 	}
-	return priceMap, nil
+
+	return tokenPrices, nil
 }
