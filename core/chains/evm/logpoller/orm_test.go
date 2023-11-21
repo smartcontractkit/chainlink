@@ -1525,7 +1525,7 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 
 	var dbLogs []logpoller.Log
 	for i := 0; i < numberOfReports; i++ {
-		data := make([]byte, 96)
+		data := make([]byte, 64)
 		// MinSeqNr
 		data = append(data, logpoller.EvmWord(uint64(numberOfMessagesPerReport*i+1)).Bytes()...)
 		// MaxSeqNr
@@ -1554,8 +1554,8 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 		logs, err := o.SelectLogsDataWordBetween(
 			commitStoreAddress,
 			commitReportAccepted,
+			2,
 			3,
-			4,
 			logpoller.EvmWord(uint64(numberOfReports*numberOfMessagesPerReport/2)), // Pick the middle report
 			logpoller.Unconfirmed,
 		)
