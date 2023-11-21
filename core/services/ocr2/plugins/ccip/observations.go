@@ -11,6 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
+// Note if a breaking change is introduced to this struct nodes running different versions
+// will not be able to unmarshal each other's observations. Do not modify unless you
+// know what you are doing.
 type CommitObservation struct {
 	Interval          ccipdata.CommitStoreInterval `json:"interval"`
 	TokenPricesUSD    map[common.Address]*big.Int  `json:"tokensPerFeeCoin"`
@@ -25,6 +28,9 @@ func (o CommitObservation) Marshal() ([]byte, error) {
 // Having it structured this way is critical because:
 // * it prevents having duplicated sequence numbers within a single ExecutionObservation (compared to the list representation)
 // * prevents malicious actors from passing multiple messages with the same sequence number
+// Note if a breaking change is introduced to this struct nodes running different versions
+// will not be able to unmarshal each other's observations. Do not modify unless you
+// know what you are doing.
 type ExecutionObservation struct {
 	Messages map[uint64]MsgData `json:"messages"`
 }

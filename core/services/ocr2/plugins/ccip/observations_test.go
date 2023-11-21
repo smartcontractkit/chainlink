@@ -1,6 +1,10 @@
 package ccip
 
 import (
+	"encoding/json"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
+	"math/big"
 	"testing"
 
 	"github.com/leanovate/gopter"
@@ -22,6 +26,64 @@ func TestObservationFilter(t *testing.T) {
 	nonEmpty := getParsableObservations[CommitObservation](lggr, []types.AttributedObservation{{Observation: b1}, {Observation: []byte{}}})
 	require.Equal(t, 1, len(nonEmpty))
 	assert.Equal(t, nonEmpty[0].Interval, obs1.Interval)
+}
+
+// After 1.2, the observation struct is version agnostic
+// so only need to verify the 1.0->1.2 transition.
+type CommitObservationV1_0_0 struct {
+	Interval          commit_store_1_0_0.CommitStoreInterval `json:"interval"`
+	TokenPricesUSD    map[common.Address]*big.Int            `json:"tokensPerFeeCoin"`
+	SourceGasPriceUSD *big.Int                               `json:"sourceGasPrice"`
+}
+
+func TestObservationCompat100_120(t *testing.T) {
+	v10 := CommitObservationV1_0_0{
+		Interval: commit_store_1_0_0.CommitStoreInterval{
+			Min: 1,
+			Max: 12,
+		},
+		TokenPricesUSD:    map[common.Address]*big.Int{common.HexToAddress("0x1"): big.NewInt(1)},
+		SourceGasPriceUSD: big.NewInt(3)}
+	b10, err := json.Marshal(v10)
+	require.NoError(t, err)
+	v12 := CommitObservation{
+		Interval: ccipdata.CommitStoreInterval{
+			Min: 1,
+			Max: 12,
+		},
+		TokenPricesUSD:    map[common.Address]*big.Int{common.HexToAddress("0x1"): big.NewInt(1)},
+		SourceGasPriceUSD: big.NewInt(3),
+	}
+	b12, err := json.Marshal(v12)
+	require.NoError(t, err)
+	// Assert identical json.
+	assert.Equal(t, b10, b12)
+}
+
+func TestCommitObservationJsonDeserialization(t *testing.T) {
+	expectedObservation := CommitObservation{
+		Interval: ccipdata.CommitStoreInterval{
+			Min: 1,
+			Max: 12,
+		},
+		TokenPricesUSD:    map[common.Address]*big.Int{common.HexToAddress("0x1"): big.NewInt(1)},
+		SourceGasPriceUSD: big.NewInt(3),
+	}
+
+	json := `{
+		"interval": {
+			"Min":1, 
+			"Max":12 
+		},
+		"tokensPerFeeCoin": {
+			"0x0000000000000000000000000000000000000001": 1
+		},
+		"sourceGasPrice": 3 
+	}`
+
+	observations := getParsableObservations[CommitObservation](logger.TestLogger(t), []types.AttributedObservation{{Observation: []byte(json)}})
+	assert.Equal(t, 1, len(observations))
+	assert.Equal(t, expectedObservation, observations[0])
 }
 
 func TestExecutionObservationJsonDeserialization(t *testing.T) {
