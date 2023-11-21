@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/gorilla/websocket"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -64,7 +64,7 @@ type gatewayConnector struct {
 func (c *gatewayConnector) HealthReport() map[string]error {
 	m := map[string]error{c.Name(): c.Healthy()}
 	for _, g := range c.gateways {
-		maps.Copy(m, g.conn.HealthReport())
+		services.CopyHealth(m, g.conn.HealthReport())
 	}
 	return m
 }

@@ -94,7 +94,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	tx := gethTypes.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	chainID := big.NewInt(3)

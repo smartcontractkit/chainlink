@@ -30,6 +30,7 @@ jobs:
 
   tests:
     strategy:
+      fail-fast: false
       matrix:
         product: [vrf, automation, llo-feeds, functions, shared]
     needs: [changes]
@@ -54,7 +55,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           # Has to match the `make foundry` version.
-          version: nightly-ca67d15f4abd46394b324c50e21e66f306a1162d
+          version: nightly-5be158ba6dc7c798a6f032026fe60fc01686b33b
 
       - name: Run Forge build
         run: |
@@ -85,7 +86,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

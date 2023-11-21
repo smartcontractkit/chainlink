@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -46,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -290,10 +290,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	s.Config.SetPasswords(pwd, vrfpwd)
 
-	s.Config.LogConfiguration(lggr.Debugf)
+	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
-	err := s.Config.Validate()
-	if err != nil {
+	if err := s.Config.Validate(); err != nil {
 		return errors.Wrap(err, "config validation failed")
 	}
 
@@ -373,9 +372,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
 
 	if s.Config.EVMEnabled() {
-		chainList, err := legacyEVMChains.List()
-		if err != nil {
-			return fmt.Errorf("error listing legacy evm chains: %w", err)
+		chainList, err2 := legacyEVMChains.List()
+		if err2 != nil {
+			return fmt.Errorf("error listing legacy evm chains: %w", err2)
 		}
 		for _, ch := range chainList {
 			if ch.Config().EVM().AutoCreateKey() {
@@ -500,8 +499,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 	// Ensure tls sub directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
-	_, err := os.Stat(tlsDir)
-	if err != nil && !os.IsNotExist(err) {
+	if _, err := os.Stat(tlsDir); err != nil && !os.IsNotExist(err) {
 		lggr.Errorf("error checking perms of 'tls' directory: %v", err)
 	} else if err == nil {
 		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
@@ -610,9 +608,9 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 
 	if c.IsSet("password") {
-		pwd, err := utils.PasswordFromFile(c.String("password"))
-		if err != nil {
-			return s.errorOut(fmt.Errorf("error reading password: %+v", err))
+		pwd, err2 := utils.PasswordFromFile(c.String("password"))
+		if err2 != nil {
+			return s.errorOut(fmt.Errorf("error reading password: %+v", err2))
 		}
 		s.Config.SetPasswords(&pwd, nil)
 	}
@@ -658,9 +656,9 @@ func (p *HealthCheckPresenter) ToRow() []string {
 	var status string
 
 	switch p.Status {
-	case services.StatusFailing:
+	case web.HealthStatusFailing:
 		status = red(p.Status)
-	case services.StatusPassing:
+	case web.HealthStatusPassing:
 		status = green(p.Status)
 	}
 
@@ -691,7 +689,8 @@ var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or p
 
 // ConfigValidate validate the client configuration and pretty-prints results
 func (s *Shell) ConfigFileValidate(_ *cli.Context) error {
-	s.Config.LogConfiguration(func(f string, params ...any) { fmt.Printf(f, params...) })
+	fn := func(f string, params ...any) { fmt.Printf(f, params...) }
+	s.Config.LogConfiguration(fn, fn)
 	if err := s.configExitErr(s.Config.Validate); err != nil {
 		return err
 	}

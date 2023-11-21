@@ -40,7 +40,7 @@ jobs:
         run: pnpm prepublishOnly
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -84,7 +84,7 @@ jobs:
         run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make wrappers-all` command'
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -106,9 +106,11 @@ jobs:
         uses: ./.github/actions/setup-nodejs
       - name: Run pnpm lint
         run: pnpm lint
+      - name: Run solhint
+        run: pnpm solhint
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -134,7 +136,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

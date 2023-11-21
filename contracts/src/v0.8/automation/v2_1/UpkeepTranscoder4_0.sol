@@ -6,7 +6,6 @@ import {UpkeepTranscoderInterfaceV2} from "../interfaces/UpkeepTranscoderInterfa
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 import {KeeperRegistryBase2_1 as R21} from "./KeeperRegistryBase2_1.sol";
 import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
-import {AutomationRegistryBaseInterface, UpkeepInfo} from "../interfaces/v2_0/AutomationRegistryInterface2_0.sol";
 
 enum RegistryVersion {
   V12,

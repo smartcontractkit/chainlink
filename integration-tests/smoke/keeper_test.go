@@ -1098,29 +1098,23 @@ func setupKeeperTest(t *testing.T) (
 	contracts.LinkToken,
 	*test_env.CLClusterTestEnv,
 ) {
-	clNodeConfig := node.NewConfig(node.NewBaseConfig())
+	clNodeConfig := node.NewConfig(node.NewBaseConfig(), node.WithP2Pv1())
 	turnLookBack := int64(0)
 	syncInterval := models.MustMakeDuration(5 * time.Second)
 	performGasOverhead := uint32(150000)
 	clNodeConfig.Keeper.TurnLookBack = &turnLookBack
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
 	clNodeConfig.Keeper.Registry.PerformGasOverhead = &performGasOverhead
-	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
 		WithCLNodes(5).
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(.5)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	env.ParallelTransactions(true)
 
@@ -1130,5 +1124,5 @@ func setupKeeperTest(t *testing.T) (
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	return env.EVMClient, env.GetAPIs(), env.ContractDeployer, linkTokenContract, env
+	return env.EVMClient, env.ClCluster.NodeAPIs(), env.ContractDeployer, linkTokenContract, env
 }

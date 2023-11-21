@@ -545,7 +545,7 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			if len(elem.Args) != 2 {
 				return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(elem.Args))
 			}
-			blockNum, is := elem.Args[0].(string)
+			blockNumOrTag, is := elem.Args[0].(string)
 			if !is {
 				return fmt.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getBlockByNumber, got: %T", elem.Args[0])
 			}
@@ -553,31 +553,24 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			if !is {
 				return fmt.Errorf("SimulatedBackendClient expected second arg to be a boolean for eth_getBlockByNumber, got: %T", elem.Args[1])
 			}
-			n, ok := new(big.Int).SetString(blockNum, 0)
-			if !ok {
-				return fmt.Errorf("error while converting block number string: %s to big.Int ", blockNum)
-			}
-			header, err := c.b.HeaderByNumber(ctx, n)
+			header, err := c.fetchHeader(ctx, blockNumOrTag)
 			if err != nil {
 				return err
 			}
-			switch v := elem.Result.(type) {
+			switch res := elem.Result.(type) {
 			case *evmtypes.Head:
-				b[i].Result = &evmtypes.Head{
-					Number:    header.Number.Int64(),
-					Hash:      header.Hash(),
-					Timestamp: time.Unix(int64(header.Time), 0).UTC(),
-				}
+				res.Number = header.Number.Int64()
+				res.Hash = header.Hash()
+				res.ParentHash = header.ParentHash
+				res.Timestamp = time.Unix(int64(header.Time), 0).UTC()
 			case *evmtypes.Block:
-				b[i].Result = &evmtypes.Block{
-					Number:    header.Number.Int64(),
-					Hash:      header.Hash(),
-					Timestamp: time.Unix(int64(header.Time), 0),
-				}
+				res.Number = header.Number.Int64()
+				res.Hash = header.Hash()
+				res.ParentHash = header.ParentHash
+				res.Timestamp = time.Unix(int64(header.Time), 0).UTC()
 			default:
-				return fmt.Errorf("SimulatedBackendClient Unexpected Type %T", v)
+				return fmt.Errorf("SimulatedBackendClient Unexpected Type %T", elem.Result)
 			}
-
 			b[i].Error = err
 		case "eth_call":
 			if len(elem.Args) != 2 {
@@ -717,4 +710,21 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 
 func (c *SimulatedBackendClient) IsL2() bool {
 	return false
+}
+
+func (c *SimulatedBackendClient) fetchHeader(ctx context.Context, blockNumOrTag string) (*types.Header, error) {
+	switch blockNumOrTag {
+	case rpc.SafeBlockNumber.String():
+		return c.b.Blockchain().CurrentSafeBlock(), nil
+	case rpc.LatestBlockNumber.String():
+		return c.b.Blockchain().CurrentHeader(), nil
+	case rpc.FinalizedBlockNumber.String():
+		return c.b.Blockchain().CurrentFinalBlock(), nil
+	default:
+		blockNum, ok := new(big.Int).SetString(blockNumOrTag, 0)
+		if !ok {
+			return nil, fmt.Errorf("error while converting block number string: %s to big.Int ", blockNumOrTag)
+		}
+		return c.b.HeaderByNumber(ctx, blockNum)
+	}
 }

@@ -3,6 +3,7 @@ package evmtest
 import (
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,7 +13,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"

@@ -72,7 +72,10 @@ func FundChainlinkNodesAddress(
 		if err != nil {
 			return err
 		}
-		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+		toAddr := common.HexToAddress(toAddress[keyIndex])
+		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+			To: &toAddr,
+		})
 		if err != nil {
 			return err
 		}
@@ -96,7 +99,10 @@ func FundChainlinkNodesAddresses(
 			return err
 		}
 		for _, addr := range toAddress {
-			gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+			toAddr := common.HexToAddress(addr)
+			gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+				To: &toAddr,
+			})
 			if err != nil {
 				return err
 			}
@@ -369,7 +375,7 @@ func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient b
 			}
 			err = blockchainClient.ReturnFunds(decryptedKey.PrivateKey)
 			if err != nil {
-				return err
+				log.Error().Err(err).Str("Address", fundedKeys[0].Address).Msg("Error returning funds from Chainlink node")
 			}
 		}
 	}
@@ -379,7 +385,10 @@ func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient b
 // FundAddresses will fund a list of addresses with an amount of native currency
 func FundAddresses(blockchain blockchain.EVMClient, amount *big.Float, addresses ...string) error {
 	for _, address := range addresses {
-		gasEstimates, err := blockchain.EstimateGas(ethereum.CallMsg{})
+		toAddr := common.HexToAddress(address)
+		gasEstimates, err := blockchain.EstimateGas(ethereum.CallMsg{
+			To: &toAddr,
+		})
 		if err != nil {
 			return err
 		}

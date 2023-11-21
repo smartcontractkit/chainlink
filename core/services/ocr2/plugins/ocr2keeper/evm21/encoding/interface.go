@@ -56,4 +56,5 @@ type Packer interface {
 	UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error)
 	PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error)
 	UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error)
+	DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError, error)
 }

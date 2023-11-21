@@ -18,7 +18,7 @@ All tests are split by network and in 3 groups:
 - Secrets decoding payload only
 - Realistic payload with args/http/secrets
 
-Load test client is [here](../../../contracts/src/v0.8/functions/tests/v1_0_0/testhelpers/FunctionsLoadTestClient.sol)
+Load test client is [here](../../../contracts/src/v0.8/functions/tests/v1_X/testhelpers/FunctionsLoadTestClient.sol)
 
 Load is controlled with 2 params:
 - RPS

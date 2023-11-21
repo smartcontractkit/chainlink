@@ -7,3 +7,4 @@ llo_feeds_test: ../../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../../con
 reward_manager: ../../../contracts/solc/v0.8.16/RewardManager.abi ../../../contracts/solc/v0.8.16/RewardManager.bin db73e9062b17a1d5aa14c06881fe2be49bd95b00b7f1a8943910c5e4ded5b221
 verifier: ../../../contracts/solc/v0.8.16/Verifier.abi ../../../contracts/solc/v0.8.16/Verifier.bin df12786bbeccf3a8f3389479cf93c055b4efd5904b9f99a4835f81af43fe62bf
 verifier_proxy: ../../../contracts/solc/v0.8.16/VerifierProxy.abi ../../../contracts/solc/v0.8.16/VerifierProxy.bin 6393443d0a323f2dbe9687dc30fd77f8dfa918944b61c651759746ff2d76e4e5
+werc20_mock: ../../../contracts/solc/v0.8.19/WERC20Mock.abi ../../../contracts/solc/v0.8.19/WERC20Mock.bin ff2ca3928b2aa9c412c892cb8226c4d754c73eeb291bb7481c32c48791b2aa94

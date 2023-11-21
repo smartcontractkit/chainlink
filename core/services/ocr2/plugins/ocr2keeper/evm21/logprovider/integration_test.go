@@ -5,11 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -54,9 +51,9 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	opts := logprovider.NewOptions(200)
 	opts.ReadInterval = time.Second / 2
-	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+	lp, ethClient := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, &opts)
+	provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, &opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10
@@ -95,10 +92,8 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		t.Log("restarting log provider")
 		// assuming that our service was closed and restarted,
 		// we should be able to backfill old logs and fetch new ones
-		logDataABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
-		require.NoError(t, err)
 		filterStore := logprovider.NewUpkeepFilterStore()
-		logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, logprovider.NewLogEventsPacker(logDataABI), filterStore, opts)
+		logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, logprovider.NewLogEventsPacker(), filterStore, opts)
 
 		poll(backend.Commit())
 		go func() {
@@ -111,7 +106,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 		// re-register filters
 		for i, id := range ids {
-			err = logProvider2.RegisterFilter(ctx, logprovider.FilterOptions{
+			err := logProvider2.RegisterFilter(ctx, logprovider.FilterOptions{
 				UpkeepID:      id,
 				TriggerConfig: newPlainLogTriggerConfig(addrs[i]),
 				// using block number at which the upkeep was registered,
@@ -144,9 +139,9 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	opts := &logprovider.LogTriggersOptions{
 		ReadInterval: time.Second / 2,
 	}
-	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+	lp, ethClient := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
+	provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	backend.Commit()
@@ -217,9 +212,9 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	opts := logprovider.NewOptions(200)
 	opts.ReadInterval = time.Second / 4
-	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+	lp, ethClient := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, &opts)
+	provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, &opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10
@@ -276,9 +271,9 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			stopMining()
 			_ = db.Close()
 		}
-		lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+		lp, ethClient := setupDependencies(t, db, backend)
 		filterStore := logprovider.NewUpkeepFilterStore()
-		provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
+		provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, opts)
 		logProvider := provider.(logprovider.LogEventProviderTest)
 		backend.Commit()
 		lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
@@ -476,14 +471,14 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 		ReadInterval:   time.Second / 4,
 		LookbackBlocks: lookbackBlocks,
 	}
-	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+	lp, ethClient := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
 	origDefaultRecoveryInterval := logprovider.RecoveryInterval
 	logprovider.RecoveryInterval = time.Millisecond * 200
 	defer func() {
 		logprovider.RecoveryInterval = origDefaultRecoveryInterval
 	}()
-	provider, recoverer := setup(logger.TestLogger(t), lp, nil, utilsABI, &mockUpkeepStateStore{}, filterStore, opts)
+	provider, recoverer := setup(logger.TestLogger(t), lp, nil, &mockUpkeepStateStore{}, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	backend.Commit()
@@ -662,21 +657,17 @@ func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerC
 	}
 }
 
-func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBackend) (logpoller.LogPollerTest, *evmclient.SimulatedBackendClient, abi.ABI) {
+func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBackend) (logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
 	pollerLggr := logger.TestLogger(t)
 	pollerLggr.SetLogLevel(zapcore.WarnLevel)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, pollerLggr, pgtest.NewQConfig(false))
-	lp := logpoller.NewLogPoller(lorm, ethClient, pollerLggr, 100*time.Millisecond, 1, 2, 2, 1000)
-
-	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
-	require.NoError(t, err)
-
-	return lp, ethClient, utilsABI
+	lp := logpoller.NewLogPoller(lorm, ethClient, pollerLggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
+	return lp, ethClient
 }
 
-func setup(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, utilsABI abi.ABI, stateStore kevmcore.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogTriggersOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
-	packer := logprovider.NewLogEventsPacker(utilsABI)
+func setup(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore kevmcore.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogTriggersOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
+	packer := logprovider.NewLogEventsPacker()
 	if opts == nil {
 		o := logprovider.NewOptions(200)
 		opts = &o

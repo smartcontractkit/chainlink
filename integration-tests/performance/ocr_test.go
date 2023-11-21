@@ -103,23 +103,29 @@ func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testN
 Enabled = true
 
 [P2P]
+[P2P.V2]
+Enabled = false
+
+[P2P]
 [P2P.V1]
 Enabled = true
 ListenIP = '0.0.0.0'
 ListenPort = 6690`
-	cd, err := chainlink.NewDeployment(6, map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
+	cd := chainlink.New(0, map[string]interface{}{
+		"replicas": 6,
+		"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
 	})
-	require.NoError(t, err, "Error creating chainlink deployment")
+
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("performance-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
+		NamespacePrefix:    fmt.Sprintf("performance-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:               t,
+		PreventPodEviction: true,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(cd)
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

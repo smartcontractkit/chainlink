@@ -27,13 +27,9 @@ func TestVRFv2Basic(t *testing.T) {
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(vrfConst.ChainlinkNodeFundingAmountEth).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 	env.ParallelTransactions(true)
 
 	mockFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfConst.LinkEthFeedResponse)
@@ -69,18 +65,18 @@ func TestVRFv2Basic(t *testing.T) {
 	err = vrfv2_actions.FundVRFCoordinatorV2Subscription(lt, vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.SubID, vrfConst.VRFSubscriptionFundingAmountLink)
 	require.NoError(t, err)
 
-	vrfV2jobs, err := vrfv2_actions.CreateVRFV2Jobs(env.GetAPIs(), vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.MinimumConfirmations)
+	vrfV2jobs, err := vrfv2_actions.CreateVRFV2Jobs(env.ClCluster.NodeAPIs(), vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.MinimumConfirmations)
 	require.NoError(t, err)
 
 	// this part is here because VRFv2 can work with only a specific key
 	// [[EVM.KeySpecific]]
 	//	Key = '...'
-	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
+	addr, err := env.ClCluster.Nodes[0].API.PrimaryEthAddress()
 	require.NoError(t, err)
-	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
+	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
 		node.WithVRFv2EVMEstimator(addr),
 	)
-	err = env.CLNodes[0].Restart(nodeConfig)
+	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	require.NoError(t, err)
 
 	// test and assert
@@ -98,7 +94,7 @@ func TestVRFv2Basic(t *testing.T) {
 	timeout := time.Minute * 2
 	var lastRequestID *big.Int
 	gom.Eventually(func(g gomega.Gomega) {
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfV2jobs[0].Job.Data.ID)
+		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfV2jobs[0].Job.Data.ID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically("==", 1))
 		lastRequestID, err = vrfv2Contracts.LoadTestConsumer.GetLastRequestId(context.Background())

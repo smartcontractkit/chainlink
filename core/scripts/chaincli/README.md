@@ -2,7 +2,7 @@
 
 Before starting, you will need:
 1. A working [Go](https://go.dev/doc/install) installation
-2. EVM chain endpoint URLs 
+2. EVM chain endpoint URLs
    - The endpoint can be a local node, or an externally hosted node, e.g. [alchemy](alchemy.com) or [infura](infura.io)
    - Both the HTTPS and WSS URLs of your endpoint are needed
 3. The chain ID corresponding to your chain, you can find the chain ID for your chosen chain [here](https://chainlist.org/)
@@ -10,12 +10,12 @@ Before starting, you will need:
    - Steps for exporting your private key from Metamask can be found [here](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-Export-an-Account-Private-Key)
 5. The LINK address, LINK-ETH feed address, fast gas feed address for your chain
 6. Install [docker](https://docs.docker.com/get-docker/) for CLI and GUI (optional)
+7. \[Optional\] get a [tenderly API key](https://docs.tenderly.co/other/platform-access/how-to-generate-api-access-tokens) and find your [username / project name](https://docs.tenderly.co/other/platform-access/how-to-find-the-project-slug-username-and-organization-name).
 
-The example .env in this repo is for the Polygon Mumbai testnet. You can use [this faucet](https://faucets.chain.link/mumbai) to send testnet LINK 
+The example .env in this repo is for the Polygon Mumbai testnet. You can use [this faucet](https://faucets.chain.link/mumbai) to send testnet LINK
 to your wallet ahead of executing the next steps
 
->Note: Be careful with your key. When using testnets, it's best to use a separate
->account that does not hold real funds.
+>Note: Be careful with your key. When using testnets, it's best to use a separate account that does not hold real funds.
 
 ## Run OCR2Keepers locally
 

@@ -10,6 +10,7 @@ inputs:
     required: false
 
   dockerfile:
+    description: Path to the Dockerfile (relative to the repo root)
     default: core/chainlink.Dockerfile
     required: false
   ecr-hostname:
@@ -23,6 +24,11 @@ inputs:
     default: chainlink/chainlink
     required: false
   ecr-tag-suffix:
+    description: Docker image tag suffix
+    required: false
+  git-commit-sha:
+    description: Git commit SHA used as metadata when building the application (appears in logs)
+    default: ${{ github.sha }}
     required: false
   aws-role-to-assume:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
@@ -74,7 +80,7 @@ runs:
         )
 
         SHARED_BUILD_ARGS=$(cat << EOF
-        COMMIT_SHA=${{ github.sha }}
+        COMMIT_SHA=${{ inputs.git-commit-sha }}
         EOF
         )
 
@@ -195,7 +201,7 @@ runs:
 
     - if: inputs.sign-images == 'true'
       name: Install cosign
-      uses: sigstore/cosign-installer@581838fbedd492d2350a9ecd427a95d6de1e5d01 # v2.1.0
+      uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19 # v3.1.2
       with:
         cosign-release: "v1.6.0"
 

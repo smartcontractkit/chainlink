@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services"
-
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -14,7 +12,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -52,7 +50,7 @@ func (d delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d delegate) ServicesForSpec(js job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d delegate) ServicesForSpec(js job.Job) ([]job.ServiceCtx, error) {
 	if js.Type != d.jobType {
 		return nil, nil
 	}
@@ -334,7 +332,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 type noopChecker struct{}
 
-func (n noopChecker) Register(service services.Checkable) error { return nil }
+func (n noopChecker) Register(service services.HealthReporter) error { return nil }
 
 func (n noopChecker) Unregister(name string) error { return nil }
 

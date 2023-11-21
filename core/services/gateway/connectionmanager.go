@@ -14,7 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -57,7 +58,7 @@ func (m *connectionManager) HealthReport() map[string]error {
 	hr := map[string]error{m.Name(): m.Healthy()}
 	for _, d := range m.dons {
 		for _, n := range d.nodes {
-			maps.Copy(hr, n.conn.HealthReport())
+			services.CopyHealth(hr, n.conn.HealthReport())
 		}
 	}
 	return hr
