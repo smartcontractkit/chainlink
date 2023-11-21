@@ -17,12 +17,7 @@ func getProofData(
 	sourceReader ccipdata.OnRampReader,
 	interval ccipdata.CommitStoreInterval,
 ) (sendReqsInRoot []ccipdata.Event[internal.EVM2EVMMessage], leaves [][32]byte, tree *merklemulti.Tree[[32]byte], err error) {
-	sendReqs, err := sourceReader.GetSendRequestsBetweenSeqNums(
-		ctx,
-		interval.Min,
-		interval.Max,
-		0, // no need for confirmations, commitReport was already confirmed and we need all msgs in it
-	)
+	sendReqs, err := sourceReader.GetSendRequestsBetweenSeqNums(ctx, interval.Min, interval.Max)
 	if err != nil {
 		return nil, nil, nil, err
 	}

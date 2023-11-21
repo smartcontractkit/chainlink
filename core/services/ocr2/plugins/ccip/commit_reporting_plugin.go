@@ -236,7 +236,7 @@ func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Conte
 		return 0, 0, err
 	}
 
-	msgRequests, err := r.onRampReader.GetSendRequestsGteSeqNum(ctx, nextInflightMin, int(r.offchainConfig.SourceFinalityDepth))
+	msgRequests, err := r.onRampReader.GetSendRequestsGteSeqNum(ctx, nextInflightMin)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -693,12 +693,7 @@ func (r *CommitReportingPlugin) buildReport(ctx context.Context, lggr logger.Log
 
 	// Logs are guaranteed to be in order of seq num, since these are finalized logs only
 	// and the contract's seq num is auto-incrementing.
-	sendRequests, err := r.onRampReader.GetSendRequestsBetweenSeqNums(
-		ctx,
-		interval.Min,
-		interval.Max,
-		int(r.offchainConfig.SourceFinalityDepth),
-	)
+	sendRequests, err := r.onRampReader.GetSendRequestsBetweenSeqNums(ctx, interval.Min, interval.Max)
 	if err != nil {
 		return ccipdata.CommitStoreReport{}, err
 	}
