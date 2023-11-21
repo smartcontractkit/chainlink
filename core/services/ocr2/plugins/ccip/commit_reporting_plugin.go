@@ -37,6 +37,9 @@ const (
 	// and restart from the chain's minSeqNum. Want to set it high to allow for large throughput,
 	// but low enough to minimize wasted revert cost.
 	MaxInflightSeqNumGap = 500
+	// OnRampMessagesScanLimit is used to limit number of onramp messages scanned in each Observation.
+	// Single CommitRoot can contain up to merklemulti.MaxNumberTreeLeaves, so we scan twice that to be safe and still don't hurt DB performance.
+	OnRampMessagesScanLimit = merklemulti.MaxNumberTreeLeaves * 2
 )
 
 var (
@@ -236,7 +239,7 @@ func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Conte
 		return 0, 0, err
 	}
 
-	msgRequests, err := r.onRampReader.GetSendRequestsGteSeqNum(ctx, nextInflightMin)
+	msgRequests, err := r.onRampReader.GetSendRequestsBetweenSeqNums(ctx, nextInflightMin, nextInflightMin+OnRampMessagesScanLimit)
 	if err != nil {
 		return 0, 0, err
 	}

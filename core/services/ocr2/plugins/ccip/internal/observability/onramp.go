@@ -27,12 +27,6 @@ func NewObservedOnRampReader(origin ccipdata.OnRampReader, chainID int64, plugin
 	}
 }
 
-func (o ObservedOnRampReader) GetSendRequestsGteSeqNum(ctx context.Context, seqNum uint64) ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
-	return withObservedInteractionAndResults(o.metric, "GetSendRequestsGteSeqNum", func() ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
-		return o.OnRampReader.GetSendRequestsGteSeqNum(ctx, seqNum)
-	})
-}
-
 func (o ObservedOnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64) ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
 	return withObservedInteractionAndResults(o.metric, "GetSendRequestsBetweenSeqNums", func() ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
 		return o.OnRampReader.GetSendRequestsBetweenSeqNums(ctx, seqNumMin, seqNumMax)

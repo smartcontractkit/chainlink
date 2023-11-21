@@ -83,25 +83,27 @@ func TestHasherV1_2_0(t *testing.T) {
 	require.Equal(t, "4362a13a42e52ff5ce4324e7184dc7aa41704c3146bc842d35d95b94b32a78b6", hex.EncodeToString(hash[:]))
 }
 
-func TestLogPollerClient_GetSendRequestsGteSeqNum(t *testing.T) {
+func TestLogPollerClient_GetSendRequestsBetweenSeqNums(t *testing.T) {
 	onRampAddr := utils.RandomAddress()
 	seqNum := uint64(100)
+	limit := uint64(10)
 	lggr := logger.TestLogger(t)
 
 	lp := mocks.NewLogPoller(t)
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 	onRampV2, err := NewOnRampV1_2_0(lggr, 1, 1, onRampAddr, lp, nil)
 	require.NoError(t, err)
-	lp.On("LogsDataWordGreaterThan",
+	lp.On("LogsDataWordRange",
 		onRampV2.sendRequestedEventSig,
 		onRampAddr,
 		onRampV2.sendRequestedSeqNumberWord,
 		abihelpers.EvmWord(seqNum),
+		abihelpers.EvmWord(seqNum+limit),
 		logpoller.Finalized,
 		mock.Anything,
 	).Return([]logpoller.Log{}, nil)
 
-	events, err := onRampV2.GetSendRequestsGteSeqNum(context.Background(), seqNum)
+	events, err := onRampV2.GetSendRequestsBetweenSeqNums(context.Background(), seqNum, seqNum+limit)
 	assert.NoError(t, err)
 	assert.Empty(t, events)
 	lp.AssertExpectations(t)
