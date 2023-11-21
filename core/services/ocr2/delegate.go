@@ -8,13 +8,11 @@ import (
 	"log"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"gopkg.in/guregu/null.v4"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-
-	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -26,9 +24,10 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/ocr2keepers/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
-	"github.com/smartcontractkit/ocr2vrf/altbn_128"
-	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
-	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
+
+	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
+	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
+	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
