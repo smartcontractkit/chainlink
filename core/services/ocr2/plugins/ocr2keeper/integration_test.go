@@ -1,7 +1,6 @@
 package ocr2keeper_test
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -19,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
@@ -62,7 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 const (
@@ -171,14 +170,14 @@ func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
 	jb, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &jb)
+	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 }
 
 func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &jb)
+	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 }
 
@@ -196,7 +195,7 @@ func accountsToAddress(accounts []ocrTypes.Account) (addresses []common.Address,
 	return addresses, nil
 }
 
-func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *gethtypes.Transaction, backend *backends.SimulatedBackend) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -714,7 +713,7 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 	address := common.HexToAddress(hexutil.Encode(b))
 
 	spec := &job.OCR2OracleSpec{
-		PluginType: relaytypes.OCR2Keeper,
+		PluginType: types.OCR2Keeper,
 		ContractID: address.String(), // valid contract addr
 	}
 
@@ -726,7 +725,7 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 	assert.Equal(t, logpoller.FilterName("EvmRegistry - Upkeep events for", address), names[1])
 
 	spec = &job.OCR2OracleSpec{
-		PluginType: relaytypes.OCR2Keeper,
+		PluginType: types.OCR2Keeper,
 		ContractID: "0x5431", // invalid contract addr
 	}
 	_, err = ocr2keeper.FilterNamesFromSpec20(spec)

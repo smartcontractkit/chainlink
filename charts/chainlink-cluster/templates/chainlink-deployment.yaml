@@ -37,6 +37,8 @@ spec:
         {{- end }}
       annotations:
         prometheus.io/scrape: 'true'
+        app.kubernetes.io/managed-by: "Helm"
+        meta.helm.sh/release-namespace: "{{ $.Release.Namespace }}"
         {{- range $key, $value := $.Values.podAnnotations }}
         {{ $key }}: {{ $value | quote }}
         {{- end }}

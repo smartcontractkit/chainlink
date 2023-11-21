@@ -17,7 +17,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -186,7 +186,7 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 	}
 
 	var id int64
-	q := s.q.WithOpts(pg.WithParentCtx(context.Background()))
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Transaction(func(tx pg.Queryer) error {
 		var txerr error
 

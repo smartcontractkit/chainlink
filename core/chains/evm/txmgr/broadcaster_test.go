@@ -112,10 +112,10 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	err = eb.Close()
 	require.NoError(t, err)
 
-	// Can't start more than once (Broadcaster implements utils.StartStopOnce)
+	// Can't start more than once (Broadcaster uses services.StateMachine)
 	err = eb.Start(ctx)
 	require.Error(t, err)
-	// Can't close more than once (Broadcaster implements utils.StartStopOnce)
+	// Can't close more than once (Broadcaster uses services.StateMachine)
 	err = eb.Close()
 	require.Error(t, err)
 

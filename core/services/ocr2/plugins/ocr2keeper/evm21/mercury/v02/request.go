@@ -14,6 +14,8 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -34,7 +36,7 @@ type MercuryV02Response struct {
 }
 
 type client struct {
-	utils.StartStopOnce
+	services.StateMachine
 	mercuryConfig mercury.MercuryConfigProvider
 	httpClient    mercury.HttpClient
 	threadCtrl    utils.ThreadControl

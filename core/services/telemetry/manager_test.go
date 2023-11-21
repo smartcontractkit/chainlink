@@ -1,7 +1,6 @@
 package telemetry
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -15,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -190,7 +189,7 @@ func TestNewManager(t *testing.T) {
 
 	require.Equal(t, "TelemetryManager", m.Name())
 
-	require.Nil(t, m.Start(context.Background()))
+	require.Nil(t, m.Start(testutils.Context(t)))
 	testutils.WaitForLogMessageCount(t, logObs, "error connecting error while dialing dial tcp", 3)
 
 	hr := m.HealthReport()

@@ -3,7 +3,7 @@ package fluxmonitorv2
 import (
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 )
 
 // MinFundedRounds defines the minimum number of rounds that needs to be paid

@@ -32,7 +32,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 const (
@@ -399,68 +399,28 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 }
 
 // WithCloseChan wraps a context so that it is canceled if the passed in channel is closed.
-// Deprecated: Call StopChan.Ctx directly
+// Deprecated: Call [services.StopChan.Ctx] directly
 func WithCloseChan(parentCtx context.Context, chStop chan struct{}) (context.Context, context.CancelFunc) {
-	return StopChan(chStop).Ctx(parentCtx)
+	return services.StopChan(chStop).Ctx(parentCtx)
 }
 
 // ContextFromChan creates a context that finishes when the provided channel receives or is closed.
-// Deprecated: Call StopChan.NewCtx directly.
+// Deprecated: Call [services.StopChan.NewCtx] directly.
 func ContextFromChan(chStop chan struct{}) (context.Context, context.CancelFunc) {
-	return StopChan(chStop).NewCtx()
+	return services.StopChan(chStop).NewCtx()
 }
 
 // ContextFromChanWithTimeout creates a context with a timeout that finishes when the provided channel receives or is closed.
-// Deprecated: Call StopChan.CtxCancel directly
+// Deprecated: Call [services.StopChan.CtxCancel] directly
 func ContextFromChanWithTimeout(chStop chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
-	return StopChan(chStop).CtxCancel(context.WithTimeout(context.Background(), timeout))
+	return services.StopChan(chStop).CtxCancel(context.WithTimeout(context.Background(), timeout))
 }
 
-// A StopChan signals when some work should stop.
-type StopChan chan struct{}
+// Deprecated: use services.StopChan
+type StopChan = services.StopChan
 
-// NewCtx returns a background [context.Context] that is cancelled when StopChan is closed.
-func (s StopChan) NewCtx() (context.Context, context.CancelFunc) {
-	return StopRChan((<-chan struct{})(s)).NewCtx()
-}
-
-// Ctx cancels a [context.Context] when StopChan is closed.
-func (s StopChan) Ctx(ctx context.Context) (context.Context, context.CancelFunc) {
-	return StopRChan((<-chan struct{})(s)).Ctx(ctx)
-}
-
-// CtxCancel cancels a [context.Context] when StopChan is closed.
-// Returns ctx and cancel unmodified, for convenience.
-func (s StopChan) CtxCancel(ctx context.Context, cancel context.CancelFunc) (context.Context, context.CancelFunc) {
-	return StopRChan((<-chan struct{})(s)).CtxCancel(ctx, cancel)
-}
-
-// A StopRChan signals when some work should stop.
-// This version is receive-only.
-type StopRChan <-chan struct{}
-
-// NewCtx returns a background [context.Context] that is cancelled when StopChan is closed.
-func (s StopRChan) NewCtx() (context.Context, context.CancelFunc) {
-	return s.Ctx(context.Background())
-}
-
-// Ctx cancels a [context.Context] when StopChan is closed.
-func (s StopRChan) Ctx(ctx context.Context) (context.Context, context.CancelFunc) {
-	return s.CtxCancel(context.WithCancel(ctx))
-}
-
-// CtxCancel cancels a [context.Context] when StopChan is closed.
-// Returns ctx and cancel unmodified, for convenience.
-func (s StopRChan) CtxCancel(ctx context.Context, cancel context.CancelFunc) (context.Context, context.CancelFunc) {
-	go func() {
-		select {
-		case <-s:
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-	return ctx, cancel
-}
+// Deprecated: use services.StopRChan
+type StopRChan = services.StopRChan
 
 // DependentAwaiter contains Dependent funcs
 type DependentAwaiter interface {

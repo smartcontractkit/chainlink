@@ -11,8 +11,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/assets"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -99,7 +99,7 @@ type multiNode[
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, HEAD, RPC_CLIENT]
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wg     sync.WaitGroup
 
 	sendOnlyErrorParser func(err error) SendTxReturnCode
@@ -146,7 +146,7 @@ func NewMultiNode[
 		selectionMode:       selectionMode,
 		noNewHeadsThreshold: noNewHeadsThreshold,
 		nodeSelector:        nodeSelector,
-		chStop:              make(chan struct{}),
+		chStop:              make(services.StopChan),
 		leaseDuration:       leaseDuration,
 		chainFamily:         chainFamily,
 		sendOnlyErrorParser: sendOnlyErrorParser,

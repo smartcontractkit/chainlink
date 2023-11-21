@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -55,7 +55,7 @@ type UpkeepExecuterConfig interface {
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
 	services.StateMachine
-	chStop                 utils.StopChan
+	chStop                 services.StopChan
 	ethClient              evmclient.Client
 	config                 UpkeepExecuterConfig
 	executionQueue         chan struct{}
@@ -83,7 +83,7 @@ func NewUpkeepExecuter(
 	effectiveKeeperAddress common.Address,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
-		chStop:                 make(chan struct{}),
+		chStop:                 make(services.StopChan),
 		ethClient:              ethClient,
 		executionQueue:         make(chan struct{}, executionQueueSize),
 		headBroadcaster:        headBroadcaster,

@@ -43,7 +43,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -1076,7 +1076,7 @@ type TransactionReceipter interface {
 
 func RequireTxSuccessful(t testing.TB, client TransactionReceipter, txHash common.Hash) *types.Receipt {
 	t.Helper()
-	r, err := client.TransactionReceipt(context.Background(), txHash)
+	r, err := client.TransactionReceipt(testutils.Context(t), txHash)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	require.Equal(t, uint64(1), r.Status)

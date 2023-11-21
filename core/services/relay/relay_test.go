@@ -1,15 +1,16 @@
 package relay
 
 import (
-	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestIdentifier_UnmarshalString(t *testing.T) {
@@ -159,9 +160,10 @@ func TestRelayerServerAdapter(t *testing.T) {
 		},
 	}
 
+	ctx := testutils.Context(t)
 	for _, tc := range testCases {
 		pp, err := sa.NewPluginProvider(
-			context.Background(),
+			ctx,
 			types.RelayArgs{ProviderType: tc.ProviderType},
 			types.PluginArgs{},
 		)

@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -68,7 +68,7 @@ type runner struct {
 	// test helper
 	runFinished func(*Run)
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wgDone sync.WaitGroup
 }
 

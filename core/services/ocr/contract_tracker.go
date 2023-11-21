@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -74,7 +74,7 @@ type (
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
-		chStop          utils.StopChan
+		chStop          services.StopChan
 		wg              sync.WaitGroup
 		unsubscribeLogs func()
 
@@ -134,7 +134,7 @@ func NewOCRContractTracker(
 		cfg:                  cfg,
 		mailMon:              mailMon,
 		headBroadcaster:      headBroadcaster,
-		chStop:               make(chan struct{}),
+		chStop:               make(services.StopChan),
 		latestRoundRequested: offchainaggregator.OffchainAggregatorRoundRequested{},
 		configsMB:            utils.NewMailbox[ocrtypes.ContractConfig](configMailboxSanityLimit),
 		chConfigs:            make(chan ocrtypes.ContractConfig),
