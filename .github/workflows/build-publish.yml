@@ -1,6 +1,7 @@
 name: "Build Chainlink and Publish"
 
 on:
+  pull_request:
   # Mimics old circleci behaviour
   push:
     tags:
@@ -42,11 +43,10 @@ jobs:
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
           ecr-hostname: ${{ secrets.AWS_ECR_HOSTNAME }}
-          ecr-image-name: chainlink-internal-vrf
+          ecr-image-name: chainlink-internal
           sign-images: false
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          verify-signature: true
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
