@@ -325,14 +325,20 @@ func SetupOCRTest(t *testing.T) (
 	}
 	chainlinkChart := chainlink.New(0, map[string]interface{}{
 		"toml":     client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, config.DefaultOCRNetworkDetailTomlConfig, testNetwork),
-		"replicas": 6,
+		"replicas": 5,
+		"db": map[string]any{
+			"stateful": true,
+		},
 	})
 
 	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
 	if useEnvVars == "true" {
 		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
-			"replicas": 6,
+			"replicas": 5,
 			"env":      ocrEnvVars,
+			"db": map[string]any{
+				"stateful": true,
+			},
 		})
 	}
 
@@ -340,7 +346,7 @@ func SetupOCRTest(t *testing.T) (
 		NamespacePrefix:    fmt.Sprintf("performance-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:               t,
 		PreventPodEviction: true,
-		TTL:                time.Hour * 72,
+		TTL:                time.Hour * 130,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
