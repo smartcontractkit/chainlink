@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
