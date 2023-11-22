@@ -133,7 +133,7 @@ jobs:
                     {
                       "type": "header",
                       "text": {
-                        "type": "plain_text",
+                        "type": "mrkdwn",
                         "text": "Live Smoke Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x: Notifying <@U01Q4N37KFG>' || ':white_check_mark:'}}",
                         "emoji": true
                       }
@@ -235,7 +235,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "${{ matrix.network }} ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x:'}}",
+                        "text": "DEBUG: ${{ steps.test-results.outputs.all_success }} ${{ matrix.network }} ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x:'}}",
                         "emoji": true
                       }
                     },
