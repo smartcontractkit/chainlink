@@ -325,7 +325,7 @@ func SetupOCRTest(t *testing.T) (
 	}
 	chainlinkChart := chainlink.New(0, map[string]interface{}{
 		"toml":     networks.AddNetworkDetailedConfig(config.BaseOCR1Config, config.DefaultOCRNetworkDetailTomlConfig, testNetwork),
-		"replicas": 5,
+		"replicas": 6,
 		"db": map[string]any{
 			"stateful": true,
 		},
@@ -334,7 +334,7 @@ func SetupOCRTest(t *testing.T) (
 	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
 	if useEnvVars == "true" {
 		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
-			"replicas": 5,
+			"replicas": 6,
 			"env":      ocrEnvVars,
 			"db": map[string]any{
 				"stateful": true,
