@@ -49,6 +49,7 @@ func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, ropts *ty
 		return nil, err
 	}
 
+	// TODO BCF-2814 implement initialisation of chain reading definitions and pass them into chainReader
 	return &chainReader{lggr.Named("ChainReader"), contractID, lp}, nil
 }
 

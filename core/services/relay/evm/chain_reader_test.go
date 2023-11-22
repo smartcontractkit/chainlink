@@ -244,7 +244,7 @@ func TestValidateChainReaderConfig(t *testing.T) {
 										}`,
 		})
 
-	// TODO how to handle return values for tuples
+	// TODO BCF-2789 how to handle return values for tuples
 	/*testCases = append(testCases,
 	testCase{
 		name: "functionWithOneParamAndMultipleTupleResponse",
