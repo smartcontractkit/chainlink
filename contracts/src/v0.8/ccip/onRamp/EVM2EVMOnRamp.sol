@@ -555,7 +555,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     // Only calculate data availability cost if data availability multiplier is non-zero.
     // The multiplier should be set to 0 if destination chain does not charge data availability cost.
     if (s_dynamicConfig.destDataAvailabilityMultiplierBps > 0) {
-      // Parse the dava availability gas price stored in the higher-order 112 bits of encoded gas price.
+      // Parse the data availability gas price stored in the higher-order 112 bits of the encoded gas price.
       uint112 dataAvailabilityGasPrice = uint112(packedGasPrice >> Internal.GAS_PRICE_BITS);
 
       dataAvailabilityCost = _getDataAvailabilityCost(
@@ -586,7 +586,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     uint32 tokenTransferBytesOverhead
   ) internal view returns (uint256 dataAvailabilityCostUSD36Decimal) {
     // dataAvailabilityLengthBytes sums up byte lengths of fixed message fields and dynamic message fields.
-    // Fixed message fields does account for the offset and length slot of the dynamic fields.
+    // Fixed message fields do account for the offset and length slot of the dynamic fields.
     uint256 dataAvailabilityLengthBytes = Internal.MESSAGE_FIXED_BYTES +
       messageDataLength +
       (numberOfTokens * Internal.MESSAGE_FIXED_BYTES_PER_TOKEN) +
