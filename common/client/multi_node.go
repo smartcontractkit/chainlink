@@ -352,7 +352,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	}
 
 	live := total - dead
-	c.lggr.Debugw(fmt.Sprintf("MultiNode state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	logger.Tracew(c.lggr, fmt.Sprintf("MultiNode state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	if total == dead {
 		rerr := fmt.Errorf("no primary nodes available: 0/%d nodes are alive", total)
 		logger.Criticalw(c.lggr, rerr.Error(), "nodeStates", nodeStates)
@@ -406,7 +406,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 			if err != nil {
 				c.lggr.Debugw("Secondary node BatchCallContext failed", "err", err)
 			} else {
-				c.lggr.Debug("Secondary node BatchCallContext success")
+				logger.Trace(c.lggr, "Secondary node BatchCallContext success")
 			}
 		}(n)
 	}
