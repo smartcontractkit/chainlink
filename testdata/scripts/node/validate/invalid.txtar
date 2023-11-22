@@ -52,6 +52,7 @@ ShutdownGracePeriod = '5s'
 FeedsManager = true
 LogPoller = false
 UICSAKeys = false
+EVMClientV2 = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'

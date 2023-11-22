@@ -294,6 +294,7 @@ type Feature struct {
 	FeedsManager *bool
 	LogPoller    *bool
 	UICSAKeys    *bool
+	EVMClientV2  *bool
 }
 
 func (f *Feature) setFrom(f2 *Feature) {
@@ -305,6 +306,10 @@ func (f *Feature) setFrom(f2 *Feature) {
 	}
 	if v := f2.UICSAKeys; v != nil {
 		f.UICSAKeys = v
+	}
+
+	if v := f2.EVMClientV2; v != nil {
+		f.EVMClientV2 = v
 	}
 }
 

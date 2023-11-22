@@ -296,6 +296,10 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 	return *g.c.Feature.UICSAKeys
 }
 
+func (g *generalConfig) FeatureEVMClientV2() bool {
+	return *g.c.Feature.EVMClientV2
+}
+
 func (g *generalConfig) AutoPprof() config.AutoPprof {
 	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
 }

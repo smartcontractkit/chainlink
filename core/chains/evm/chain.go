@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -213,15 +214,24 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExt
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
 
-func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
+func buildClient(cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (evmclient.Client, error) {
 	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
+	l := opts.Logger
+	if cfg.Feature().EVMClientV2() {
+		return newChainClientFromCfg(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes), nil
+	}
+	return newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
+}
+
+func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
+	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
-		client, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
+		client, err2 = buildClient(cfg, nodes, opts)
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to instantiate eth client for chain with ID %s: %w", cfg.EVM().ChainID().String(), err2)
 		}
@@ -500,20 +510,27 @@ func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr 
 	return evmclient.NewNode(cfg, noNewHeadsThreshold, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
 }
 
-// TODO-1663: replace newEthClientFromChain with the function below once client.go is deprecated.
-//func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*toml.Node) evmclient.Client {
-//	var empty url.URL
-//	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, evmclient.RPCCLient]
-//	var sendonlys []commonclient.SendOnlyNode[*big.Int, evmclient.RPCCLient]
-//	for i, node := range nodes {
-//		if node.SendOnly != nil && *node.SendOnly {
-//			rpc := evmclient.NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), fmt.Sprintf("eth-sendonly-rpc-%d", i), int32(i), chainID, commontypes.Primary)
-//			sendonly := commonclient.NewSendOnlyNode[*big.Int, evmclient.RPCCLient](lggr, (url.URL)(*node.HTTPURL), *node.Name, chainID, rpc)
-//			sendonlys = append(sendonlys, sendonly)
-//		} else {
-//			rpc := evmclient.NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), fmt.Sprintf("eth-sendonly-rpc-%d", i), int32(i), chainID, commontypes.Primary)
-//			primaries = append(primaries, commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCCLient](cfg, noNewHeadsThreshold, lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order, rpc, "EVM"))
-//		}
-//	}
-//	return evmclient.NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
-//}
+func newChainClientFromCfg(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType commonconfig.ChainType, nodes []*toml.Node) evmclient.Client {
+	var empty url.URL
+	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, evmclient.RPCCLient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, evmclient.RPCCLient]
+	for i, node := range nodes {
+		if node.SendOnly != nil && *node.SendOnly {
+			name := fmt.Sprintf("eth-sendonly-rpc-%d", i)
+			rpc := evmclient.NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), name, int32(i), chainID,
+				commonclient.Secondary)
+			sendonly := commonclient.NewSendOnlyNode[*big.Int, evmclient.RPCCLient](lggr, (url.URL)(*node.HTTPURL),
+				*node.Name, chainID, rpc)
+			sendonlys = append(sendonlys, sendonly)
+		} else {
+			name := fmt.Sprintf("eth-primary-rpc-%d", i)
+			rpc := evmclient.NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), name, int32(i),
+				chainID, commonclient.Primary)
+			primaryNode := commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCCLient](cfg, noNewHeadsThreshold,
+				lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order,
+				rpc, "EVM")
+			primaries = append(primaries, primaryNode)
+		}
+	}
+	return evmclient.NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
+}

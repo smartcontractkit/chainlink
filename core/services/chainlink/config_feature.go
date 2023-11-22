@@ -17,3 +17,7 @@ func (f *featureConfig) LogPoller() bool {
 func (f *featureConfig) UICSAKeys() bool {
 	return *f.c.UICSAKeys
 }
+
+func (f *featureConfig) EVMClientV2() bool {
+	return *f.c.EVMClientV2
+}
