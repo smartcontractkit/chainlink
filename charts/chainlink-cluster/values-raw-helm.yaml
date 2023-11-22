@@ -17,34 +17,34 @@ chainlink:
       image: "public.ecr.aws/chainlink/chainlink:latest"
       # override default config per node
       # for example, use OCRv2 P2P setup, the whole config
-#      toml: |
-#        RootDir = './clroot'
-#        [Log]
-#        JSONConsole = true
-#        Level = 'debug'
-#        [WebServer]
-#        AllowOrigins = '*'
-#        SecureCookies = false
-#        SessionTimeout = '999h0m0s'
-#        [OCR2]
-#        Enabled = true
-#        [P2P]
-#        [P2P.V2]
-#        Enabled = false
-#        AnnounceAddresses = []
-#        DefaultBootstrappers = []
-#        DeltaDial = '15s'
-#        DeltaReconcile = '1m0s'
-#        ListenAddresses = []
-#        [[EVM]]
-#        ChainID = '1337'
-#        MinContractPayment = '0'
-#        [[EVM.Nodes]]
-#        Name = 'node-0'
-#        WSURL = 'ws://geth:8546'
-#        HTTPURL = 'http://geth:8544'
-#        [WebServer.TLS]
-#        HTTPSPort = 0
+    #      toml: |
+    #        RootDir = './clroot'
+    #        [Log]
+    #        JSONConsole = true
+    #        Level = 'debug'
+    #        [WebServer]
+    #        AllowOrigins = '*'
+    #        SecureCookies = false
+    #        SessionTimeout = '999h0m0s'
+    #        [OCR2]
+    #        Enabled = true
+    #        [P2P]
+    #        [P2P.V2]
+    #        Enabled = false
+    #        AnnounceAddresses = []
+    #        DefaultBootstrappers = []
+    #        DeltaDial = '15s'
+    #        DeltaReconcile = '1m0s'
+    #        ListenAddresses = []
+    #        [[EVM]]
+    #        ChainID = '1337'
+    #        MinContractPayment = '0'
+    #        [[EVM.Nodes]]
+    #        Name = 'node-0'
+    #        WSURL = 'ws://geth:8546'
+    #        HTTPURL = 'http://geth:8544'
+    #        [WebServer.TLS]
+    #        HTTPSPort = 0
 # or use overridesToml to override some part of configuration
 #      overridesToml: |
     - name: node-2
@@ -93,6 +93,7 @@ geth:
 # mockserver is https://www.mock-server.com/where/kubernetes.html
 # used to stub External Adapters
 mockserver:
+  enabled: true
   port: 1080
   resources:
     requests:

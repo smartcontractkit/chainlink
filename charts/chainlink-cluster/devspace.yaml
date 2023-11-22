@@ -50,6 +50,7 @@ deployments:
           networkid: 1337
           blocktime: 1
         mockserver:
+          enabled: true
           port: 1080
         db:
           stateful: false
@@ -76,10 +77,10 @@ deployments:
               image: ${DEVSPACE_IMAGE}
               version: latest
         prometheusMonitor: "true"
-        podAnnotations: { }
-        nodeSelector: { }
-        tolerations: [ ]
-        affinity: { }
+        podAnnotations: {}
+        nodeSelector: {}
+        tolerations: []
+        affinity: {}
 
 profiles:
   # this replaces only "runner" pod, usable when you'd like to run some system level tests inside k8s
