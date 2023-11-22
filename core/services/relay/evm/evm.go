@@ -532,9 +532,8 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 			// ignore for now, until we can remove old MedianContract code from MedianProvider
 			medianProvider.chainReader = nil
 			return &medianProvider, nil
-		} else {
-			return nil, err
 		}
+		return nil, err
 	}
 	medianProvider.chainReader = chainReader
 
