@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
+<!-- unreleasedstop -->
+
 ## 2.7.1 - UNRELEASED
 
 ### Fixed
@@ -73,8 +75,6 @@ Starting in `v2.9.0`:
 ### Removed
 
 - Removed the ability to set a next nonce value for an address through CLI
-
-<!-- unreleasedstop -->
 
 ## 2.6.0 - 2023-10-18
 
