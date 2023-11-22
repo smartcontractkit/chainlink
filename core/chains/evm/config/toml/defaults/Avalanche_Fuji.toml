@@ -1,6 +1,6 @@
 ChainID = '43113'
 FinalityDepth = 1
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 1
