@@ -7,15 +7,16 @@ import (
 	"strings"
 	"testing"
 
-	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	mocklogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func TestNewChainReader(t *testing.T) {
@@ -25,18 +26,18 @@ func TestNewChainReader(t *testing.T) {
 	contractID := testutils.NewAddress()
 	contractABI := `[{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"result","type":"string"}],"stateMutability":"view","type":"function"}]`
 
-	makeRelayConfig := func(abi string, retValues []string) types.ChainReaderConfig {
-		return types.ChainReaderConfig{
-			ChainContractReaders: map[string]types.ChainContractReader{
+	makeRelayConfig := func(abi string, retValues []string) evmtypes.ChainReaderConfig {
+		return evmtypes.ChainReaderConfig{
+			ChainContractReaders: map[string]evmtypes.ChainContractReader{
 				"MyContract": {
 					ContractABI: abi,
-					ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
+					ChainReaderDefinitions: map[string]evmtypes.ChainReaderDefinition{
 						"MyGenericMethod": {
 							ChainSpecificName: "name",
 							Params:            map[string]any{},
 							ReturnValues:      retValues,
 							CacheEnabled:      false,
-							ReadType:          types.Method,
+							ReadType:          evmtypes.Method,
 						},
 					},
 				},
@@ -45,11 +46,11 @@ func TestNewChainReader(t *testing.T) {
 	}
 
 	chainReaderConfig := makeRelayConfig(contractABI, []string{"result"})
-	relayConfig := types.RelayConfig{ChainReader: &chainReaderConfig}
+	relayConfig := evmtypes.RelayConfig{ChainReader: &chainReaderConfig}
 	r, err := json.Marshal(&relayConfig)
 	require.NoError(t, err)
-	rargs := types2.RelayArgs{ContractID: contractID.String(), RelayConfig: r}
-	ropts := types.NewRelayOpts(rargs)
+	rargs := commontypes.RelayArgs{ContractID: contractID.String(), RelayConfig: r}
+	ropts := evmtypes.NewRelayOpts(rargs)
 	require.NotNil(t, ropts)
 
 	t.Run("happy path", func(t *testing.T) {
@@ -59,33 +60,33 @@ func TestNewChainReader(t *testing.T) {
 	})
 
 	t.Run("invalid contractID", func(t *testing.T) {
-		rargs = types2.RelayArgs{ContractID: "invalid hex string", RelayConfig: r}
-		ropts = types.NewRelayOpts(rargs)
+		rargs = commontypes.RelayArgs{ContractID: "invalid hex string", RelayConfig: r}
+		ropts = evmtypes.NewRelayOpts(rargs)
 		require.NotNil(t, ropts)
 		_, err2 := NewChainReaderService(lggr, chain.LogPoller(), ropts)
-		assert.ErrorIs(t, err2, types2.ErrInvalidConfig)
+		assert.ErrorIs(t, err2, commontypes.ErrInvalidConfig)
 		assert.ErrorContains(t, err2, "invalid contractID")
 	})
 
 	t.Run("invalid config", func(t *testing.T) {
 		chainReaderConfig = makeRelayConfig(contractABI, []string{"result", "extraResult"}) // 2 results required but abi includes only one
-		invalidConfig := types.RelayConfig{ChainReader: &chainReaderConfig}
+		invalidConfig := evmtypes.RelayConfig{ChainReader: &chainReaderConfig}
 		r2, err2 := json.Marshal(&invalidConfig)
 		require.NoError(t, err2)
-		rargs = types2.RelayArgs{ContractID: contractID.String(), RelayConfig: r2}
-		ropts = types.NewRelayOpts(rargs)
+		rargs = commontypes.RelayArgs{ContractID: contractID.String(), RelayConfig: r2}
+		ropts = evmtypes.NewRelayOpts(rargs)
 		require.NotNil(t, ropts)
 		_, err2 = NewChainReaderService(lggr, chain.LogPoller(), ropts)
-		assert.ErrorIs(t, err2, types2.ErrInvalidConfig)
+		assert.ErrorIs(t, err2, commontypes.ErrInvalidConfig)
 		assert.ErrorContains(t, err2, "return values: [result,extraResult] don't match abi method outputs: [result]")
 	})
 
 	t.Run("ChainReader missing from RelayConfig", func(t *testing.T) {
-		preChainReaderConfig := types.RelayConfig{}
+		preChainReaderConfig := evmtypes.RelayConfig{}
 		r2, err2 := json.Marshal(&preChainReaderConfig)
 		require.NoError(t, err2)
-		rargs = types2.RelayArgs{ContractID: contractID.String(), RelayConfig: r2}
-		ropts = types.NewRelayOpts(rargs)
+		rargs = commontypes.RelayArgs{ContractID: contractID.String(), RelayConfig: r2}
+		ropts = evmtypes.NewRelayOpts(rargs)
 		require.NotNil(t, ropts)
 		_, err2 = NewChainReaderService(lggr, chain.LogPoller(), ropts)
 		assert.ErrorIs(t, err2, errors.ErrUnsupported)
@@ -318,7 +319,7 @@ func TestValidateChainReaderConfig(t *testing.T) {
 											}`,
 			})*/
 
-	var cfg types.ChainReaderConfig
+	var cfg evmtypes.ChainReaderConfig
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			abiString := strings.Replace(tc.abiInput, `"`, `\"`, -1)
