@@ -1,7 +1,6 @@
 package telemetry
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -190,13 +189,14 @@ func TestNewManager(t *testing.T) {
 
 	require.Equal(t, "TelemetryManager", m.Name())
 
-	require.Nil(t, m.Start(context.Background()))
+	require.Nil(t, m.Start(testutils.Context(t)))
+	t.Cleanup(func() {
+		require.NoError(t, m.Close())
+	})
 	testutils.WaitForLogMessageCount(t, logObs, "error connecting error while dialing dial tcp", 3)
 
 	hr := m.HealthReport()
 	require.Equal(t, 4, len(hr))
-	require.Nil(t, m.Close())
-	time.Sleep(time.Second * 1)
 }
 
 func TestCorrectEndpointRouting(t *testing.T) {

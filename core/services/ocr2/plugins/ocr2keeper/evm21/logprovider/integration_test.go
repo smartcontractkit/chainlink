@@ -12,14 +12,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/time/rate"
 
-	"github.com/jmoiron/sqlx"
-
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -614,10 +613,11 @@ func deployUpkeepCounter(
 	backend *backends.SimulatedBackend,
 	account *bind.TransactOpts,
 	logProvider logprovider.LogEventProvider,
-) ([]*big.Int, []common.Address, []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
-	var ids []*big.Int
-	var contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter
-	var contractsAddrs []common.Address
+) (
+	ids []*big.Int,
+	contractsAddrs []common.Address,
+	contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter,
+) {
 	for i := 0; i < n; i++ {
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			account, backend,
@@ -633,7 +633,7 @@ func deployUpkeepCounter(
 		upkeepID := ocr2keepers.UpkeepIdentifier(append(common.LeftPadBytes([]byte{1}, 16), upkeepAddr[:16]...))
 		id := upkeepID.BigInt()
 		ids = append(ids, id)
-		b, err := ethClient.BlockByHash(context.Background(), backend.Commit())
+		b, err := ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
 		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
@@ -643,7 +643,7 @@ func deployUpkeepCounter(
 		})
 		require.NoError(t, err)
 	}
-	return ids, contractsAddrs, contracts
+	return
 }
 
 func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerConfig {

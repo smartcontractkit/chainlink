@@ -9,11 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	bn256 "github.com/ethereum/go-ethereum/crypto/bn256/google"
-	"github.com/smartcontractkit/ocr2vrf/altbn_128"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/mod"
 	"go.dedis.ch/kyber/v3/pairing"
+
+	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	dkgContract "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"

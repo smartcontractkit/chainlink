@@ -14,9 +14,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -72,7 +72,7 @@ func addEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.Address, s
 		RequestTxHash: &reqTxHash,
 	})
 	require.NoError(t, err)
-	meta := datatypes.JSON(b)
+	meta := sqlutil.JSON(b)
 	tx := &txmgr.Tx{
 		FromAddress:       from,
 		ToAddress:         from,
@@ -98,7 +98,7 @@ func addConfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.A
 		GlobalSubID: txMetaGlobalSubID,
 	})
 	require.NoError(t, err)
-	meta := datatypes.JSON(b)
+	meta := sqlutil.JSON(b)
 	now := time.Now()
 
 	tx := &txmgr.Tx{
@@ -130,7 +130,7 @@ func addEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, from comm
 		RequestTxHash: &reqTxHash,
 	})
 	require.NoError(t, err)
-	meta := datatypes.JSON(b)
+	meta := sqlutil.JSON(b)
 	tx := &txmgr.Tx{
 		FromAddress:       from,
 		ToAddress:         from,
@@ -156,7 +156,7 @@ func addConfirmedEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, 
 		GlobalSubID: txMetaGlobalSubID,
 	})
 	require.NoError(t, err)
-	meta := datatypes.JSON(b)
+	meta := sqlutil.JSON(b)
 	now := time.Now()
 	tx := &txmgr.Tx{
 		Sequence:           &nonce,

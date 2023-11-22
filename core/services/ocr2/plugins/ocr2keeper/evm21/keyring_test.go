@@ -3,10 +3,12 @@ package evm
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
-	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 )
 
 func TestNewOnchainKeyringV3Wrapper(t *testing.T) {

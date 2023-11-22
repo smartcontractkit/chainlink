@@ -1,15 +1,15 @@
 package evm
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -304,7 +304,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	bs := NewBlockSubscriber(hb, lp, finality, lggr)
 	bs.blockHistorySize = historySize
 	bs.blockSize = blockSize
-	err := bs.Start(context.Background())
+	err := bs.Start(testutils.Context(t))
 	assert.Nil(t, err)
 
 	h97 := evmtypes.Head{
