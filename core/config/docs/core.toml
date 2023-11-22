@@ -592,8 +592,8 @@ CollectorTarget = 'localhost:4317' # Example
 NodeID = 'NodeID' # Example
 # SamplingRatio is the ratio of traces to sample for this node.
 SamplingRatio = 1.0 # Example
-# Mode is a string value. 'secure' or 'insecure' are the only values allowed. If set to 'insecure', TLSCertPath can be unset, meaning traces will be sent over plaintext to the collector.
-Mode = 'secure' # Default
+# Mode is a string value. 'tls' or 'unencrypted' are the only values allowed. If set to 'unencrypted', TLSCertPath can be unset, meaning traces will be sent over plaintext to the collector.
+Mode = 'tls' # Default
 # TLSCertPath is the file path to the TLS certificate used for secure communication with an OTEL Tracing Collector.
 TLSCertPath = '/path/to/cert.pem' # Example
 

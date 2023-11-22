@@ -34,11 +34,7 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	chainID := cosmostest.RandomChainID()
 	node := coscfg.Node{
 		Name:          ptr("second"),
-<<<<<<< HEAD
 		TendermintURL: config.MustParseURL("http://tender.mint.test/bombay-12"),
-=======
-		TendermintURL: relayconfig.MustParseURL("http://tender.mint.test/bombay-12"),
->>>>>>> 34eecf3b1d (feature/tracing-credentials: bumping relay and lint)
 	}
 	chain := coscfg.TOMLConfig{
 		ChainID: ptr(chainID),

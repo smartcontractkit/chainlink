@@ -14,7 +14,7 @@ func TestTracing_Config(t *testing.T) {
 	collectorTarget := "http://localhost:9000"
 	nodeID := "Node1"
 	samplingRatio := 0.5
-	mode := "secure"
+	mode := "tls"
 	tlsCertPath := "/path/to/cert.pem"
 	attributes := map[string]string{"key": "value"}
 	tracing := toml.Tracing{
@@ -32,7 +32,7 @@ func TestTracing_Config(t *testing.T) {
 	assert.Equal(t, "http://localhost:9000", tConfig.CollectorTarget())
 	assert.Equal(t, "Node1", tConfig.NodeID())
 	assert.Equal(t, 0.5, tConfig.SamplingRatio())
-	assert.Equal(t, "secure", tConfig.Mode())
+	assert.Equal(t, "tls", tConfig.Mode())
 	assert.Equal(t, "/path/to/cert.pem", tConfig.TLSCertPath())
 	assert.Equal(t, map[string]string{"key": "value"}, tConfig.Attributes())
 

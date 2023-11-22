@@ -35,19 +35,11 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	id := solanatest.RandomChainID()
 	node1 := solcfg.Node{
 		Name: ptr("first"),
-<<<<<<< HEAD
 		URL:  config.MustParseURL("https://solana1.example"),
 	}
 	node2 := solcfg.Node{
 		Name: ptr("second"),
 		URL:  config.MustParseURL("https://solana2.example"),
-=======
-		URL:  relayconfig.MustParseURL("https://solana1.example"),
-	}
-	node2 := solcfg.Node{
-		Name: ptr("second"),
-		URL:  relayconfig.MustParseURL("https://solana2.example"),
->>>>>>> 34eecf3b1d (feature/tracing-credentials: bumping relay and lint)
 	}
 	chain := solana.TOMLConfig{
 		ChainID: &id,

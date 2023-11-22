@@ -1598,7 +1598,7 @@ Enabled = false # Default
 CollectorTarget = 'localhost:4317' # Example
 NodeID = 'NodeID' # Example
 SamplingRatio = 1.0 # Example
-Mode = 'secure' # Default
+Mode = 'tls' # Default
 TLSCertPath = '/path/to/cert.pem' # Example
 ```
 
@@ -1629,9 +1629,9 @@ SamplingRatio is the ratio of traces to sample for this node.
 
 ### Mode
 ```toml
-Mode = 'secure' # Default
+Mode = 'tls' # Default
 ```
-Mode is a string value. 'secure' or 'insecure' are the only values allowed. If set to 'insecure', TLSCertPath can be unset, meaning traces will be sent over plaintext to the collector.
+Mode is a string value. 'tls' or 'unencrypted' are the only values allowed. If set to 'unencrypted', TLSCertPath can be unset, meaning traces will be sent over plaintext to the collector.
 
 ### TLSCertPath
 ```toml

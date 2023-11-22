@@ -37,7 +37,7 @@ func (m *MockCfgTracing) NodeID() string          { return "" }
 func (m *MockCfgTracing) CollectorTarget() string { return "http://localhost:9000" }
 func (m *MockCfgTracing) SamplingRatio() float64  { return 0.1 }
 func (m *MockCfgTracing) TLSCertPath() string     { return "/path/to/cert.pem" }
-func (m *MockCfgTracing) Mode() string            { return "secure" }
+func (m *MockCfgTracing) Mode() string            { return "tls" }
 
 func TestLoopRegistry_Register(t *testing.T) {
 	mockCfgTracing := &MockCfgTracing{}

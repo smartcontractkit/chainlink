@@ -140,7 +140,7 @@ func WithTracing() NodeConfigOpt {
 			// ksortable unique id
 			NodeID:        ptr.Ptr(ksuid.New().String()),
 			SamplingRatio: ptr.Ptr(1.0),
-			Mode:          ptr.Ptr("insecure"),
+			Mode:          ptr.Ptr("unencrypted"),
 			Attributes: map[string]string{
 				"env": "smoke",
 			},

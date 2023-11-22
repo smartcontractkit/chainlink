@@ -185,55 +185,115 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 	tests := []struct {
 		name            string
 		collectorTarget *string
+		mode            *string
 		wantErr         bool
 		errMsg          string
 	}{
 		{
-			name:            "valid http address",
-			collectorTarget: ptr("https://localhost:4317"),
-			// TODO: BCF-2703. Re-enable when we have secure transport to otel collectors in external networks
-			wantErr: true,
-			errMsg:  "CollectorTarget: invalid value (https://localhost:4317): must be a valid URI",
+			name:            "valid http address in tls mode",
+			collectorTarget: ptr("https://testing.collector.dev"),
+			mode:            ptr("tls"),
+			wantErr:         false,
 		},
+		{
+			name:            "valid http address in unencrypted mode",
+			collectorTarget: ptr("https://localhost:4317"),
+			mode:            ptr("unencrypted"),
+			wantErr:         true,
+			errMsg:          "CollectorTarget: invalid value (https://localhost:4317): must be a valid local URI",
+		},
+		// Tracing.Mode = 'tls'
 		{
 			name:            "valid localhost address",
 			collectorTarget: ptr("localhost:4317"),
+			mode:            ptr("tls"),
 			wantErr:         false,
 		},
 		{
 			name:            "valid docker address",
 			collectorTarget: ptr("otel-collector:4317"),
+			mode:            ptr("tls"),
 			wantErr:         false,
 		},
 		{
 			name:            "valid IP address",
 			collectorTarget: ptr("192.168.1.1:4317"),
+			mode:            ptr("tls"),
 			wantErr:         false,
 		},
 		{
 			name:            "invalid port",
 			collectorTarget: ptr("localhost:invalid"),
 			wantErr:         true,
+			mode:            ptr("tls"),
 			errMsg:          "CollectorTarget: invalid value (localhost:invalid): must be a valid URI",
 		},
 		{
 			name:            "invalid address",
 			collectorTarget: ptr("invalid address"),
 			wantErr:         true,
+			mode:            ptr("tls"),
 			errMsg:          "CollectorTarget: invalid value (invalid address): must be a valid URI",
 		},
 		{
 			name:            "nil CollectorTarget",
 			collectorTarget: ptr(""),
 			wantErr:         true,
+			mode:            ptr("tls"),
 			errMsg:          "CollectorTarget: invalid value (): must be a valid URI",
+		},
+		// Tracing.Mode = 'unencrypted'
+		{
+			name:            "valid localhost address",
+			collectorTarget: ptr("localhost:4317"),
+			mode:            ptr("unencrypted"),
+			wantErr:         false,
+		},
+		{
+			name:            "valid docker address",
+			collectorTarget: ptr("otel-collector:4317"),
+			mode:            ptr("unencrypted"),
+			wantErr:         false,
+		},
+		{
+			name:            "valid IP address",
+			collectorTarget: ptr("192.168.1.1:4317"),
+			mode:            ptr("unencrypted"),
+			wantErr:         false,
+		},
+		{
+			name:            "invalid port",
+			collectorTarget: ptr("localhost:invalid"),
+			wantErr:         true,
+			mode:            ptr("unencrypted"),
+			errMsg:          "CollectorTarget: invalid value (localhost:invalid): must be a valid local URI",
+		},
+		{
+			name:            "invalid address",
+			collectorTarget: ptr("invalid address"),
+			wantErr:         true,
+			mode:            ptr("unencrypted"),
+			errMsg:          "CollectorTarget: invalid value (invalid address): must be a valid local URI",
+		},
+		{
+			name:            "nil CollectorTarget",
+			collectorTarget: ptr(""),
+			wantErr:         true,
+			mode:            ptr("unencrypted"),
+			errMsg:          "CollectorTarget: invalid value (): must be a valid local URI",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var tlsCertPath string
+			if *tt.mode == "tls" {
+				tlsCertPath = "/path/to/cert.pem"
+			}
 			tracing := &Tracing{
 				Enabled:         ptr(true),
+				TLSCertPath:     &tlsCertPath,
+				Mode:            tt.mode,
 				CollectorTarget: tt.collectorTarget,
 			}
 
@@ -310,8 +370,8 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 }
 
 func TestTracing_ValidateTLSCertPath(t *testing.T) {
-	// tests for Tracing.Mode = 'secure'
-	secure_tests := []struct {
+	// tests for Tracing.Mode = 'tls'
+	tls_tests := []struct {
 		name        string
 		tlsCertPath *string
 		wantErr     bool
@@ -341,8 +401,8 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 		},
 	}
 
-	// tests for Tracing.Mode = 'insecure'
-	insecure_tests := []struct {
+	// tests for Tracing.Mode = 'unencrypted'
+	unencrypted_tests := []struct {
 		name        string
 		tlsCertPath *string
 		wantErr     bool
@@ -370,10 +430,10 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 		},
 	}
 
-	for _, tt := range secure_tests {
+	for _, tt := range tls_tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing := &Tracing{
-				Mode:        ptr("secure"),
+				Mode:        ptr("tls"),
 				TLSCertPath: tt.tlsCertPath,
 				Enabled:     ptr(true),
 			}
@@ -389,10 +449,10 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 		})
 	}
 
-	for _, tt := range insecure_tests {
+	for _, tt := range unencrypted_tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing := &Tracing{
-				Mode:        ptr("insecure"),
+				Mode:        ptr("unencrypted"),
 				TLSCertPath: tt.tlsCertPath,
 				Enabled:     ptr(true),
 			}
@@ -418,27 +478,27 @@ func TestTracing_ValidateMode(t *testing.T) {
 		errMsg      string
 	}{
 		{
-			name:        "secure mode with valid TLS path",
-			mode:        ptr("secure"),
+			name:        "tls mode with valid TLS path",
+			mode:        ptr("tls"),
 			tlsCertPath: ptr("/path/to/cert.pem"),
 			wantErr:     false,
 		},
 		{
-			name:        "secure mode without TLS path",
-			mode:        ptr("secure"),
+			name:        "tls mode without TLS path",
+			mode:        ptr("tls"),
 			tlsCertPath: nil,
 			wantErr:     true,
-			errMsg:      "TLSCertPath: missing: must be set when Tracing.Mode is secure",
+			errMsg:      "TLSCertPath: missing: must be set when Tracing.Mode is tls",
 		},
 		{
-			name:        "insecure mode with TLS path",
-			mode:        ptr("insecure"),
+			name:        "unencrypted mode with TLS path",
+			mode:        ptr("unencrypted"),
 			tlsCertPath: ptr("/path/to/cert.pem"),
 			wantErr:     false,
 		},
 		{
-			name:        "insecure mode without TLS path",
-			mode:        ptr("insecure"),
+			name:        "unencrypted mode without TLS path",
+			mode:        ptr("unencrypted"),
 			tlsCertPath: nil,
 			wantErr:     false,
 		},
@@ -447,7 +507,7 @@ func TestTracing_ValidateMode(t *testing.T) {
 			mode:        ptr("unknown"),
 			tlsCertPath: nil,
 			wantErr:     true,
-			errMsg:      "Mode: invalid value (unknown): must be either 'secure' or 'insecure'",
+			errMsg:      "Mode: invalid value (unknown): must be either 'tls' or 'unencrypted'",
 		},
 	}
 

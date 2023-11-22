@@ -238,7 +238,7 @@ Enabled = false
 CollectorTarget = 'localhost:4317'
 NodeID = 'NodeID'
 SamplingRatio = 1.0
-Mode = 'secure'
+Mode = 'tls'
 TLSCertPath = '/path/to/cert.pem'
 
 [Tracing.Attributes]
