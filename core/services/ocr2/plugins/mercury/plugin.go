@@ -65,7 +65,7 @@ func NewServices(
 			lggr,
 			runResults,
 			chEnhancedTelem,
-			ocr2Provider.ChainReader(),
+			ocr2Provider.MercuryChainReader(),
 			ocr2Provider.MercuryServerFetcher(),
 			pluginConfig.InitialBlockNumber.Ptr(),
 			feedID,

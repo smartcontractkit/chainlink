@@ -54,6 +54,7 @@ type Relayer struct {
 	mercuryPool      wsrpc.Pool
 	eventBroadcaster pg.EventBroadcaster
 	pgCfg            pg.QConfig
+	chainReader      commontypes.ChainReader
 }
 
 type CSAETHKeystore interface {
@@ -189,8 +190,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	}
 	transmitter := mercury.NewTransmitter(lggr, cw.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
 
-	chainReader := NewChainReader(r.chain.HeadTracker())
-	return NewMercuryProvider(cw, transmitter, reportCodecV1, reportCodecV2, reportCodecV3, chainReader, lggr), nil
+	return NewMercuryProvider(cw, r.chainReader, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
 }
 
 func (r *Relayer) NewFunctionsProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
@@ -518,12 +518,27 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	if err != nil {
 		return nil, err
 	}
-	return &medianProvider{
+
+	medianProvider := medianProvider{
 		configWatcher:       configWatcher,
 		reportCodec:         reportCodec,
 		contractTransmitter: contractTransmitter,
 		medianContract:      medianContract,
-	}, nil
+	}
+
+	chainReader, err := NewChainReaderService(lggr, r.chain.LogPoller(), relayOpts)
+	if err != nil {
+		if errors.Is(err, errors.ErrUnsupported) {
+			// ignore for now, until we can remove old MedianContract code from MedianProvider
+			medianProvider.chainReader = nil
+			return &medianProvider, nil
+		} else {
+			return nil, err
+		}
+	}
+	medianProvider.chainReader = chainReader
+
+	return &medianProvider, nil
 }
 
 var _ commontypes.MedianProvider = (*medianProvider)(nil)
@@ -533,8 +548,8 @@ type medianProvider struct {
 	contractTransmitter ContractTransmitter
 	reportCodec         median.ReportCodec
 	medianContract      *medianContract
-
-	ms services.MultiStart
+	chainReader         commontypes.ChainReader
+	ms                  services.MultiStart
 }
 
 func (p *medianProvider) Name() string {
@@ -581,4 +596,8 @@ func (p *medianProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigeste
 
 func (p *medianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return p.configWatcher.ContractConfigTracker()
+}
+
+func (p *medianProvider) ChainReader() commontypes.ChainReader {
+	return p.chainReader
 }

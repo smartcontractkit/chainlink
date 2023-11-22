@@ -25,6 +25,7 @@ func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProv
 	var ctxVals loop.ContextValues
 	ctxVals.SetValues(ctx)
 	lggr := logger.With(p.Logger, ctxVals.Args()...)
+
 	factory := median.NumericalMedianFactory{
 		ContractTransmitter:       provider.MedianContract(),
 		DataSource:                dataSource,

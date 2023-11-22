@@ -66,7 +66,7 @@ type datasource struct {
 	mu sync.RWMutex
 
 	chEnhancedTelem    chan<- ocrcommon.EnhancedTelemetryMercuryData
-	chainReader        relaymercury.ChainReader
+	mercuryChainReader relaymercury.ChainReader
 	fetcher            Fetcher
 	initialBlockNumber *int64
 
@@ -294,7 +294,7 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 }
 
 func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.Observation) error {
-	latestBlocks, err := ds.chainReader.LatestHeads(ctx, nBlocksObservation)
+	latestBlocks, err := ds.mercuryChainReader.LatestHeads(ctx, nBlocksObservation)
 	if err != nil {
 		ds.lggr.Errorw("failed to read latest blocks", "error", err)
 		return err

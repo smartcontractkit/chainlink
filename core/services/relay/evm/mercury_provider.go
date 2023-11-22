@@ -12,6 +12,7 @@ import (
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v3"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -21,33 +22,36 @@ import (
 var _ commontypes.MercuryProvider = (*mercuryProvider)(nil)
 
 type mercuryProvider struct {
-	configWatcher *configWatcher
-	transmitter   mercury.Transmitter
-	reportCodecV1 relaymercuryv1.ReportCodec
-	reportCodecV2 relaymercuryv2.ReportCodec
-	reportCodecV3 relaymercuryv3.ReportCodec
-	chainReader   relaymercury.ChainReader
-	logger        logger.Logger
+	configWatcher      *configWatcher
+	chainReader        commontypes.ChainReader
+	mercuryChainReader relaymercury.ChainReader
+	transmitter        mercury.Transmitter
+	reportCodecV1      relaymercuryv1.ReportCodec
+	reportCodecV2      relaymercuryv2.ReportCodec
+	reportCodecV3      relaymercuryv3.ReportCodec
+	logger             logger.Logger
 
 	ms services.MultiStart
 }
 
 func NewMercuryProvider(
 	configWatcher *configWatcher,
+	chainReader commontypes.ChainReader,
+	mercuryChainReader relaymercury.ChainReader,
 	transmitter mercury.Transmitter,
 	reportCodecV1 relaymercuryv1.ReportCodec,
 	reportCodecV2 relaymercuryv2.ReportCodec,
 	reportCodecV3 relaymercuryv3.ReportCodec,
-	chainReader relaymercury.ChainReader,
 	lggr logger.Logger,
 ) *mercuryProvider {
 	return &mercuryProvider{
 		configWatcher,
+		chainReader,
+		mercuryChainReader,
 		transmitter,
 		reportCodecV1,
 		reportCodecV2,
 		reportCodecV3,
-		chainReader,
 		lggr,
 		services.MultiStart{},
 	}
@@ -74,6 +78,10 @@ func (p *mercuryProvider) HealthReport() map[string]error {
 	services.CopyHealth(report, p.configWatcher.HealthReport())
 	services.CopyHealth(report, p.transmitter.HealthReport())
 	return report
+}
+
+func (p *mercuryProvider) MercuryChainReader() relaymercury.ChainReader {
+	return p.mercuryChainReader
 }
 
 func (p *mercuryProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
@@ -108,23 +116,23 @@ func (p *mercuryProvider) MercuryServerFetcher() relaymercury.MercuryServerFetch
 	return p.transmitter
 }
 
-func (p *mercuryProvider) ChainReader() relaymercury.ChainReader {
+func (p *mercuryProvider) ChainReader() commontypes.ChainReader {
 	return p.chainReader
 }
 
-var _ relaymercury.ChainReader = (*chainReader)(nil)
+var _ relaymercury.ChainReader = (*mercuryChainReader)(nil)
 
-type chainReader struct {
+type mercuryChainReader struct {
 	tracker httypes.HeadTracker
 }
 
-func NewChainReader(h httypes.HeadTracker) relaymercury.ChainReader {
-	return &chainReader{
+func NewMercuryChainReader(h httypes.HeadTracker) relaymercury.ChainReader {
+	return &mercuryChainReader{
 		tracker: h,
 	}
 }
 
-func (r *chainReader) LatestHeads(ctx context.Context, k int) ([]relaymercury.Head, error) {
+func (r *mercuryChainReader) LatestHeads(ctx context.Context, k int) ([]relaymercury.Head, error) {
 	evmBlocks := r.tracker.LatestChain().AsSlice(k)
 	if len(evmBlocks) == 0 {
 		return nil, nil
