@@ -4,9 +4,9 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 

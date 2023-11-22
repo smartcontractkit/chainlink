@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -31,7 +31,7 @@ type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct
 	callbacks      callbackSet[H, BLOCK_HASH]
 	mailbox        *utils.Mailbox[H]
 	mutex          sync.Mutex
-	chClose        utils.StopChan
+	chClose        services.StopChan
 	wgDone         sync.WaitGroup
 	latest         H
 	lastCallbackID int

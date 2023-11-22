@@ -19,6 +19,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -272,4 +273,50 @@ func GetOracleIdentitiesWithKeyIndexLocal(
 	}
 
 	return S, oracleIdentities, eg.Wait()
+}
+
+// DeleteJobs will delete ALL jobs from the nodes
+func DeleteJobs(nodes []*client.ChainlinkClient) error {
+	for _, node := range nodes {
+		if node == nil {
+			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", nodes)
+		}
+		jobs, _, err := node.ReadJobs()
+		if err != nil {
+			return fmt.Errorf("error reading jobs from chainlink node: %w", err)
+		}
+		for _, maps := range jobs.Data {
+			if _, ok := maps["id"]; !ok {
+				return fmt.Errorf("error reading job id from chainlink node's jobs %+v", jobs.Data)
+			}
+			id := maps["id"].(string)
+			_, err2 := node.DeleteJob(id)
+			if err2 != nil {
+				return fmt.Errorf("error deleting job from chainlink node: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+// DeleteBridges will delete ALL bridges from the nodes
+func DeleteBridges(nodes []*client.ChainlinkClient) error {
+	for _, node := range nodes {
+		if node == nil {
+			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", nodes)
+		}
+
+		bridges, _, err := node.ReadBridges()
+		if err != nil {
+			return err
+		}
+		for _, b := range bridges.Data {
+			_, err = node.DeleteBridge(b.Attributes.Name)
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+	return nil
 }

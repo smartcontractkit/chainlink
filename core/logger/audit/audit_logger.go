@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -11,13 +13,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/pkg/errors"
 )
 
 const bufferCapacity = 2048
@@ -26,7 +26,7 @@ const webRequestTimeout = 10
 type Data = map[string]any
 
 type AuditLogger interface {
-	services.ServiceCtx
+	services.Service
 
 	Audit(eventID EventID, data Data)
 }
@@ -47,7 +47,7 @@ type AuditLoggerService struct {
 	loggingClient   HTTPAuditLoggerInterface // Abstract type for sending logs onward
 
 	loggingChannel chan wrappedAuditLog
-	chStop         utils.StopChan
+	chStop         services.StopChan
 	chDone         chan struct{}
 }
 
@@ -72,7 +72,7 @@ func NewAuditLogger(logger logger.Logger, config config.AuditLogger) (AuditLogge
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, errors.Errorf("initialization error - unable to get hostname: %s", err)
+		return nil, fmt.Errorf("initialization error - unable to get hostname: %w", err)
 	}
 
 	forwardToUrl, err := config.ForwardToUrl()

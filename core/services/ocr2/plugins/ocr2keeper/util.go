@@ -4,15 +4,16 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocr2keepers20 "github.com/smartcontractkit/ocr2keepers/pkg/v2"
-	ocr2keepers20coordinator "github.com/smartcontractkit/ocr2keepers/pkg/v2/coordinator"
-	ocr2keepers20polling "github.com/smartcontractkit/ocr2keepers/pkg/v2/observer/polling"
-	ocr2keepers20runner "github.com/smartcontractkit/ocr2keepers/pkg/v2/runner"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
+	ocr2keepers20coordinator "github.com/smartcontractkit/chainlink-automation/pkg/v2/coordinator"
+	ocr2keepers20polling "github.com/smartcontractkit/chainlink-automation/pkg/v2/observer/polling"
+	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
+	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	ocr2keepers21 "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

@@ -11,7 +11,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -167,7 +167,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		v2Bootstrappers = peerWrapper.P2PConfig().V2().DefaultBootstrappers()
 	}
 
-	ocrLogger := relaylogger.NewOCRWrapper(lggr, chain.Config().OCR().TraceLogging(), func(msg string) {
+	ocrLogger := commonlogger.NewOCRWrapper(lggr, chain.Config().OCR().TraceLogging(), func(msg string) {
 		d.jobORM.TryRecordError(jb.ID, msg)
 	})
 

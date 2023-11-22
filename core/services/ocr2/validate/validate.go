@@ -12,7 +12,7 @@ import (
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
@@ -134,7 +134,7 @@ type coreConfig struct {
 
 type OCR2GenericPluginConfig struct {
 	CoreConfig   coreConfig `json:"coreConfig"`
-	PluginConfig json.RawMessage
+	PluginConfig string
 }
 
 func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {

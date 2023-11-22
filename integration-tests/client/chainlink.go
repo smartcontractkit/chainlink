@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
-
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-resty/resty/v2"
@@ -117,7 +116,7 @@ func (c *ChainlinkClient) MustCreateJob(spec JobSpec) (*Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	return job, VerifyStatusCode(resp.RawResponse.StatusCode, http.StatusOK)
+	return job, VerifyStatusCodeWithResponse(resp, http.StatusOK)
 }
 
 // CreateJob creates a Chainlink job based on the provided spec struct
@@ -303,8 +302,8 @@ func (c *ChainlinkClient) ReadBridge(name string) (*BridgeType, *http.Response, 
 }
 
 // ReadBridges reads bridges from the Chainlink node
-func (c *ChainlinkClient) ReadBridges() (*ResponseSlice, *resty.Response, error) {
-	result := &ResponseSlice{}
+func (c *ChainlinkClient) ReadBridges() (*Bridges, *resty.Response, error) {
+	result := &Bridges{}
 	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Getting all bridges")
 	resp, err := c.APIClient.R().
 		SetResult(&result).
@@ -1115,6 +1114,7 @@ func (c *ChainlinkClient) SetPageSize(size int) {
 	c.pageSize = size
 }
 
+// VerifyStatusCode verifies the status code of the response. Favor VerifyStatusCodeWithResponse over this for better errors
 func VerifyStatusCode(actStatusCd, expStatusCd int) error {
 	if actStatusCd != expStatusCd {
 		return fmt.Errorf(
@@ -1126,6 +1126,8 @@ func VerifyStatusCode(actStatusCd, expStatusCd int) error {
 	return nil
 }
 
+// VerifyStatusCodeWithResponse verifies the status code of the response and returns the response as part of the error.
+// Favor this over VerifyStatusCode
 func VerifyStatusCodeWithResponse(res *resty.Response, expStatusCd int) error {
 	actStatusCd := res.RawResponse.StatusCode
 	if actStatusCd != expStatusCd {

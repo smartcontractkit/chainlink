@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -14,15 +13,17 @@ import (
 // It will continue checking until success and then exit permanently.
 func (s *sendOnlyNode[CHAIN_ID, RPC]) verifyLoop() {
 	defer s.wg.Done()
+	ctx, cancel := s.chStop.NewCtx()
+	defer cancel()
 
 	backoff := utils.NewRedialBackoff()
 	for {
 		select {
-		case <-s.chStop:
+		case <-ctx.Done():
 			return
 		case <-time.After(backoff.Duration()):
 		}
-		chainID, err := s.rpc.ChainID(context.Background())
+		chainID, err := s.rpc.ChainID(ctx)
 		if err != nil {
 			ok := s.IfStarted(func() {
 				if changed := s.setState(nodeStateUnreachable); changed {

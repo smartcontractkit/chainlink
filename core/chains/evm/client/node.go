@@ -19,7 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -1101,7 +1101,7 @@ func (n *node) makeQueryCtx(ctx context.Context) (context.Context, context.Cance
 // 1. Passed in ctx cancels
 // 2. Passed in channel is closed
 // 3. Default timeout is reached (queryTimeout)
-func makeQueryCtx(ctx context.Context, ch utils.StopChan) (context.Context, context.CancelFunc) {
+func makeQueryCtx(ctx context.Context, ch services.StopChan) (context.Context, context.CancelFunc) {
 	var chCancel, timeoutCancel context.CancelFunc
 	ctx, chCancel = ch.Ctx(ctx)
 	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
