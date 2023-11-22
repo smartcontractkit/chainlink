@@ -10,8 +10,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
+
 	"github.com/kelseyhightower/envconfig"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
@@ -23,7 +32,6 @@ import (
 
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -1105,31 +1113,65 @@ func setupAutomationTestDocker(
 
 	env.ParallelTransactions(true)
 	nodeClients := env.ClCluster.NodeAPIs()
-	workerNodes := nodeClients[1:]
+	//workerNodes := nodeClients[1:]
+	//
+	//linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
+	//require.NoError(t, err, "Error deploying LINK token")
+	//
+	//registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
+	//	t,
+	//	registryVersion,
+	//	registryConfig,
+	//	linkToken,
+	//	env.ContractDeployer,
+	//	env.EVMClient,
+	//)
+	//
+	//// Fund the registry with LINK
+	//err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(defaultAmountOfUpkeeps))))
+	//require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
+	//
+	//err = actions.CreateOCRKeeperJobsLocal(l, nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
+	//require.NoError(t, err, "Error creating OCR Keeper Jobs")
+	//ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress())
+	//require.NoError(t, err, "Error building OCR config vars")
+	//err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
+	//require.NoError(t, err, "Registry config should be set successfully")
+	//require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
 
-	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
-	require.NoError(t, err, "Error deploying LINK token")
+	a := automationv2.NewAutomationTestDocker(env.EVMClient, env.ContractDeployer, nodeClients)
+	a.RegistrySettings = registryConfig
+	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
+		AutoApproveConfigType: uint8(2),
+		AutoApproveMaxAllowed: 1000,
+		MinLinkJuels:          big.NewInt(0),
+	}
+	a.PluginConfig = ocr2keepers30config.OffchainConfig{
+		TargetProbability:    "0.999",
+		TargetInRounds:       1,
+		PerformLockoutWindow: 80_000, // Copied from arbitrum mainnet prod value
+		GasLimitPerReport:    10_300_000,
+		GasOverheadPerUpkeep: 300_000,
+		MinConfirmations:     0,
+		MaxUpkeepBatchSize:   10,
+	}
+	a.PublicConfig = ocr3.PublicConfig{
+		DeltaProgress:                           10 * time.Second,
+		DeltaResend:                             15 * time.Second,
+		DeltaInitial:                            500 * time.Millisecond,
+		DeltaRound:                              1000 * time.Millisecond,
+		DeltaGrace:                              200 * time.Millisecond,
+		DeltaCertifiedCommitRequest:             300 * time.Millisecond,
+		DeltaStage:                              15 * time.Second,
+		RMax:                                    24,
+		MaxDurationQuery:                        20 * time.Millisecond,
+		MaxDurationObservation:                  20 * time.Millisecond,
+		MaxDurationShouldAcceptAttestedReport:   1200 * time.Millisecond,
+		MaxDurationShouldTransmitAcceptedReport: 20 * time.Millisecond,
+		F:                                       1,
+	}
 
-	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
-		t,
-		registryVersion,
-		registryConfig,
-		linkToken,
-		env.ContractDeployer,
-		env.EVMClient,
-	)
+	a.SetupAutomationDeployment(t)
 
-	// Fund the registry with LINK
-	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(defaultAmountOfUpkeeps))))
-	require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
-
-	err = actions.CreateOCRKeeperJobsLocal(l, nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
-	require.NoError(t, err, "Error creating OCR Keeper Jobs")
-	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress())
-	require.NoError(t, err, "Error building OCR config vars")
-	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
-	require.NoError(t, err, "Registry config should be set successfully")
-	require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
-
-	return env.EVMClient, nodeClients, env.ContractDeployer, linkToken, registry, registrar, env
+	return env.EVMClient, nodeClients, env.ContractDeployer, a.LinkToken, a.Registry, a.Registrar, env
 }
