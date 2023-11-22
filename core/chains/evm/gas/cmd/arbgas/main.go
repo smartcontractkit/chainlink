@@ -23,7 +23,7 @@ func main() {
 	url := os.Args[1]
 	lggr, err := logger.New()
 	if err != nil {
-		panic(err)
+		log.Fatal("Failed to create logger:", err)
 	}
 
 	ctx := context.Background()
