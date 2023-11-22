@@ -139,7 +139,7 @@ func (z *ZKSyncClient) FundNodes(chainlinkClient blockchain.EVMClient) error {
 	for _, key := range z.NKeys {
 		toAddress := common.HexToAddress(key.TXKey.Data.ID)
 		log.Info().Stringer("toAddress", toAddress).Msg("Funding node")
-		amount := big.NewInt(1e17)
+		amount := big.NewInt(1.2e17)
 		callMsg := ethereum.CallMsg{
 			From:  common.HexToAddress(chainlinkClient.GetDefaultWallet().Address()),
 			To:    &toAddress,
