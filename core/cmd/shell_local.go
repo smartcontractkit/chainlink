@@ -785,7 +785,7 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 	if err = dropDanglingTestDBs(s.Logger, db); err != nil {
 		return s.errorOut(err)
 	}
-	return s.errorOut(randomiseTestDBSequences(db))
+	return s.errorOut(randomizeTestDBSequences(db))
 }
 
 func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
@@ -825,25 +825,25 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	return
 }
 
-type failedToRandomiseTestDBSequencesError struct{}
+type failedToRandomizeTestDBSequencesError struct{}
 
-func (m *failedToRandomiseTestDBSequencesError) Error() string {
-	return "failed to randomise test db sequences"
+func (m *failedToRandomizeTestDBSequencesError) Error() string {
+	return "failed to randomize test db sequences"
 }
 
-// randomiseTestDBSequences randomizes sequenced table columns sequence
+// randomizeTestDBSequences randomizes sequenced table columns sequence
 // This is necessary as to avoid false positives in some test cases.
-func randomiseTestDBSequences(db *sqlx.DB) error {
+func randomizeTestDBSequences(db *sqlx.DB) error {
 	seqRows, err := db.Query(`SELECT sequence_schema, sequence_name FROM information_schema.sequences WHERE sequence_schema = $1`, "public")
 	if err != nil {
-		return fmt.Errorf("%s: error fetching sequences: %s", failedToRandomiseTestDBSequencesError{}, err)
+		return fmt.Errorf("%s: error fetching sequences: %s", failedToRandomizeTestDBSequencesError{}, err)
 	}
 
 	defer seqRows.Close()
 	for seqRows.Next() {
 		var sequenceSchema, sequenceName string
 		if err = seqRows.Scan(&sequenceSchema, &sequenceName); err != nil {
-			return fmt.Errorf("%s: failed scanning sequence rows: %s", failedToRandomiseTestDBSequencesError{}, err)
+			return fmt.Errorf("%s: failed scanning sequence rows: %s", failedToRandomizeTestDBSequencesError{}, err)
 		}
 
 		if sequenceName == "goose_migrations_id_seq" || sequenceName == "configurations_id_seq" {
@@ -853,16 +853,16 @@ func randomiseTestDBSequences(db *sqlx.DB) error {
 		var randNum *big.Int
 		randNum, err = crand.Int(crand.Reader, utils.NewBigI(10000).ToInt())
 		if err != nil {
-			return fmt.Errorf("%s: failed to generate random number", failedToRandomiseTestDBSequencesError{})
+			return fmt.Errorf("%s: failed to generate random number", failedToRandomizeTestDBSequencesError{})
 		}
 
 		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)); err != nil {
-			return fmt.Errorf("%s: failed to alter and restart %s sequence: %w", failedToRandomiseTestDBSequencesError{}, sequenceName, err)
+			return fmt.Errorf("%s: failed to alter and restart %s sequence: %w", failedToRandomizeTestDBSequencesError{}, sequenceName, err)
 		}
 	}
 
 	if err = seqRows.Err(); err != nil {
-		return fmt.Errorf("%s: failed to iterate through sequences: %w", failedToRandomiseTestDBSequencesError{}, err)
+		return fmt.Errorf("%s: failed to iterate through sequences: %w", failedToRandomizeTestDBSequencesError{}, err)
 	}
 
 	return nil
