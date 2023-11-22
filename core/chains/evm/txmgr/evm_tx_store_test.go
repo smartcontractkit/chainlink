@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -18,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -1117,7 +1117,7 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 3, 9, time.Now(), fromAddress)
 		etx.TxAttempts = []txmgr.TxAttempt{}
 
-		q := pg.NewQ(db, logger.TestLogger(t), cfg.Database())
+		q := pg.NewQ(db, logger.Test(t), cfg.Database())
 
 		newAttempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
 		var dbAttempt txmgr.DbEthTxAttempt
@@ -1258,7 +1258,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	q := pg.NewQ(db, logger.TestLogger(t), cfg.Database())
+	q := pg.NewQ(db, logger.Test(t), cfg.Database())
 	nonce := evmtypes.Nonce(123)
 
 	t.Run("update successful", func(t *testing.T) {
@@ -1293,7 +1293,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 	txStore = cltest.NewTestTxStore(t, db, cfg.Database())
 	ethKeyStore = cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress = cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	q = pg.NewQ(db, logger.TestLogger(t), cfg.Database())
+	q = pg.NewQ(db, logger.Test(t), cfg.Database())
 
 	t.Run("update replaces abandoned tx with same hash", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
@@ -1309,7 +1309,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		ccfg := evmtest.NewChainScopedConfig(t, evmCfg)
 		evmTxmCfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
-		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, ccfg.EVM().Transactions(), nil, logger.TestLogger(t), nil, nil,
+		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, ccfg.EVM().Transactions(), nil, logger.Test(t), nil, nil,
 			nil, txStore, nil, nil, nil, nil)
 		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)

@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -120,7 +120,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	cltest.MustInsertRandomKey(t, ethKeyStore)
 	cltest.MustInsertRandomKey(t, ethKeyStore)
 	estimator := gasmocks.NewEvmEstimator(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ge := config.EVM().GasEstimator()
 	feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
@@ -1352,7 +1352,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	evmOtherAddress := otherAddress
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 
@@ -1618,7 +1618,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 
 func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	db := pgtest.NewSqlxDB(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
