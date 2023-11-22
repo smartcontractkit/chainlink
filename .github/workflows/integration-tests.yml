@@ -110,7 +110,7 @@ jobs:
             tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu20.04-16cores-64GB
-    needs: [changes, enforce-ctf-version]
+    needs: [changes]
     steps:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
