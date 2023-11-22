@@ -131,7 +131,12 @@ func main() {
 			return
 		}
 
-		fmt.Println(string(body))
+		var prettyJSON bytes.Buffer
+		if err := json.Indent(&prettyJSON, body, "", "  "); err != nil {
+			fmt.Println(string(body))
+		} else {
+			fmt.Println(prettyJSON.String())
+		}
 	}
 
 	sendRequest()
