@@ -628,6 +628,24 @@ func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.
 	return upkeepIds, nil
 }
 
+func (a *AutomationTest) AddJobsAndSetConfig(t *testing.T) {
+	l := logging.GetTestLogger(t)
+	err := a.AddBootstrapJob()
+	require.NoError(t, err, "Error adding bootstrap job")
+	err = a.AddAutomationJobs()
+	require.NoError(t, err, "Error adding automation jobs")
+
+	l.Debug().
+		Interface("Plugin Config", a.PluginConfig).
+		Interface("Public Config", a.PublicConfig).
+		Interface("Registry Settings", a.RegistrySettings).
+		Interface("Registrar Settings", a.RegistrarSettings).
+		Msg("Configuring registry")
+	err = a.SetConfigOnRegistry()
+	require.NoError(t, err, "Error setting config on registry")
+	l.Info().Str("Registry Address", a.Registry.Address()).Msg("Successfully setConfig on registry")
+}
+
 func (a *AutomationTest) SetupAutomationDeployment(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	err := a.CollectNodeDetails()
@@ -651,20 +669,7 @@ func (a *AutomationTest) SetupAutomationDeployment(t *testing.T) {
 	err = a.DeployRegistrar()
 	require.NoError(t, err, "Error deploying registrar contract")
 
-	err = a.AddBootstrapJob()
-	require.NoError(t, err, "Error adding bootstrap job")
-	err = a.AddAutomationJobs()
-	require.NoError(t, err, "Error adding automation jobs")
-
-	l.Debug().
-		Interface("Plugin Config", a.PluginConfig).
-		Interface("Public Config", a.PublicConfig).
-		Interface("Registry Settings", a.RegistrySettings).
-		Interface("Registrar Settings", a.RegistrarSettings).
-		Msg("Configuring registry")
-	err = a.SetConfigOnRegistry()
-	require.NoError(t, err, "Error setting config on registry")
-	l.Info().Str("Registry Address", a.Registry.Address()).Msg("Successfully setConfig on registry")
+	a.AddJobsAndSetConfig(t)
 }
 
 func (a *AutomationTest) LoadAutomationDeployment(t *testing.T, linkTokenAddress,
@@ -689,19 +694,6 @@ func (a *AutomationTest) LoadAutomationDeployment(t *testing.T, linkTokenAddress
 	err = a.LoadRegistrar(registrarAddress)
 	require.NoError(t, err, "Error loading registrar contract")
 
-	err = a.AddBootstrapJob()
-	require.NoError(t, err, "Error adding bootstrap job")
-	err = a.AddAutomationJobs()
-	require.NoError(t, err, "Error adding automation jobs")
-
-	l.Debug().
-		Interface("Plugin Config", a.PluginConfig).
-		Interface("Public Config", a.PublicConfig).
-		Interface("Registry Settings", a.RegistrySettings).
-		Interface("Registrar Settings", a.RegistrarSettings).
-		Msg("Configuring registry")
-	err = a.SetConfigOnRegistry()
-	require.NoError(t, err, "Error setting config on registry")
-	l.Info().Str("Registry Address", a.Registry.Address()).Msg("Successfully setConfig on registry")
+	a.AddJobsAndSetConfig(t)
 
 }
