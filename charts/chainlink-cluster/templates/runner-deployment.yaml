@@ -23,11 +23,11 @@ spec:
         prometheus.io/scrape: 'true'
     spec:
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       containers:
         - name: runner
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml $.Values.securityContext | nindent 12 }}
           image: {{ default "public.ecr.aws/chainlink/chainlink" .Values.runner.image }}
           imagePullPolicy: Always
           command: [ "/bin/bash", "-c", "--" ]

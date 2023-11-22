@@ -48,11 +48,11 @@ spec:
           configMap:
             name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       containers:
         - name: chainlink-db
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml $.Values.securityContext | nindent 12 }}
           image: {{ default "postgres:11.15" $.Values.db.image }}
           command:
             - docker-entrypoint.sh
@@ -126,7 +126,7 @@ spec:
           {{ end }}
         - name: node
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml $.Values.securityContext | nindent 12 }}
           image: {{ default "public.ecr.aws/chainlink/chainlink" $cfg.image }}
           imagePullPolicy: Always
           command: ["bash", "-c", "while ! pg_isready --host 0.0.0.0 --port 5432; do echo \"waiting for database to start\"; sleep 1; done && chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials"]
