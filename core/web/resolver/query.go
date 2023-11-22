@@ -95,10 +95,16 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	chains, count, err := r.App.EVMORM().Chains()
-	if err != nil {
-		return nil, err
+	var chains []types.ChainStatus
+	for _, rel := range r.App.GetRelayers().Slice() {
+		status, err := rel.GetChainStatus(ctx)
+		if err != nil {
+			return nil, err
+		}
+		chains = append(chains, status)
 	}
+	count := len(chains)
+
 	// bound the chain results
 	if offset >= len(chains) {
 		return nil, fmt.Errorf("offset %d out of range", offset)
@@ -238,25 +244,47 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 	r.App.GetLogger().Debug("resolver Node args %v", args)
 	name := string(args.ID)
 	r.App.GetLogger().Debug("resolver Node name %s", name)
-	node, err := r.App.EVMORM().NodeStatus(name)
-	if err != nil {
-		r.App.GetLogger().Errorw("resolver getting node status", "err", err)
 
-		if errors.Is(err, chains.ErrNotFound) {
-			npr, warn := NewNodePayloadResolver(nil, err)
-			if warn != nil {
-				r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "err", warn)
-			}
-			return npr, nil
+	//Search for node
+	//TODO: pass in limit for page size
+	for _, rel := range r.App.GetRelayers().Slice() {
+		statuses, _, _, err := rel.ListNodeStatuses(ctx, 1000, "")
+		if err != nil {
+			return nil, err
 		}
-		return nil, err
+		for _, s := range statuses {
+			if s.Name == name {
+				npr, err2 := NewNodePayloadResolver(&s, nil)
+				if err2 != nil {
+					return nil, err2
+				}
+				return npr, nil
+			}
+		}
 	}
 
-	npr, warn := NewNodePayloadResolver(&node, nil)
-	if warn != nil {
-		r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "err", warn)
-	}
+	r.App.GetLogger().Errorw("resolver getting node status", "err", chains.ErrNotFound)
+	npr, _ := NewNodePayloadResolver(nil, chains.ErrNotFound)
 	return npr, nil
+	//node, err := r.App.EVMORM().NodeStatus(name)
+	//if err != nil {
+	//	r.App.GetLogger().Errorw("resolver getting node status", "err", err)
+	//
+	//	if errors.Is(err, chains.ErrNotFound) {
+	//		npr, warn := NewNodePayloadResolver(nil, err)
+	//		if warn != nil {
+	//			r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "err", warn)
+	//		}
+	//		return npr, nil
+	//	}
+	//	return nil, err
+	//}
+	//
+	//npr, warn := NewNodePayloadResolver(&node, nil)
+	//if warn != nil {
+	//	r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "err", warn)
+	//}
+	//return npr, nil
 }
 
 func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error) {
