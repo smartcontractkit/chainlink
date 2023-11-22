@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

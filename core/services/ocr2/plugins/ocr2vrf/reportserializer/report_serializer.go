@@ -4,8 +4,8 @@ import (
 	"github.com/pkg/errors"
 	"go.dedis.ch/kyber/v3"
 
-	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
-	types "github.com/smartcontractkit/ocr2vrf/types"
+	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
+	"github.com/smartcontractkit/chainlink-vrf/types"
 )
 
 type reportSerializer struct {

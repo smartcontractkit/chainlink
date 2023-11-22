@@ -8,7 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 )
 
 type evmRegistryPackerV2_0 struct {

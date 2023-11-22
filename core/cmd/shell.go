@@ -176,6 +176,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		cosmosCfg := chainlink.CosmosFactoryConfig{
 			Keystore:    keyStore.Cosmos(),
 			TOMLConfigs: cfg.CosmosConfigs(),
+			DB:          db,
+			QConfig:     cfg.Database(),
 		}
 		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
 	}

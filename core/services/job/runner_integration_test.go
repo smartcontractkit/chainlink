@@ -450,6 +450,7 @@ answer1      [type=median index=0];
 		assert.NoError(t, err)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
+		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -484,6 +485,7 @@ answer1      [type=median index=0];
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
+		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -512,6 +514,7 @@ answer1      [type=median index=0];
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
+		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -566,6 +569,7 @@ answer1      [type=median index=0];
 			lggr := logger.TestLogger(t)
 			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 			require.NoError(t, pw.Start(testutils.Context(t)))
+			t.Cleanup(func() { assert.NoError(t, pw.Close()) })
 			sd := ocr.NewDelegate(
 				db,
 				jobORM,
@@ -610,7 +614,7 @@ answer1      [type=median index=0];
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
-
+		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,

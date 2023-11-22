@@ -12,14 +12,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/time/rate"
 
-	"github.com/jmoiron/sqlx"
-
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
