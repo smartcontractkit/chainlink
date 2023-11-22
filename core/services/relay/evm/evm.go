@@ -530,6 +530,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	if err != nil {
 		if errors.Is(err, errors.ErrUnsupported) {
 			// ignore for now, until we can remove old MedianContract code from MedianProvider
+			lggr.Info("ChainReader missing from RelayConfig; falling back to internal MedianContract")
 			medianProvider.chainReader = nil
 			return &medianProvider, nil
 		}
