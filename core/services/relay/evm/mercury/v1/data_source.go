@@ -293,7 +293,6 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 
 func (ds *datasource) setLatestBlocks(ctx context.Context, obs *v1types.Observation) error {
 	latestBlocks, err := ds.mercuryChainReader.LatestHeads(ctx, nBlocksObservation)
-
 	if err != nil {
 		ds.lggr.Errorw("failed to read latest blocks", "error", err)
 		return err

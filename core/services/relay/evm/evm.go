@@ -463,7 +463,6 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	if !common.IsHexAddress(relayOpts.ContractID) {
 		return nil, fmt.Errorf("invalid contractID %s, expected hex address", relayOpts.ContractID)
 	}
-	contractID := common.HexToAddress(relayOpts.ContractID)
 
 	configWatcher, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
@@ -482,32 +481,25 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 
 	medianProvider := medianProvider{
-		lggr:                lggr.Named("MedianProvider"),
 		configWatcher:       configWatcher,
 		reportCodec:         reportCodec,
 		contractTransmitter: contractTransmitter,
 		medianContract:      medianContract,
 	}
 
-	// allow fallback until chain reader is default and median contract is removed, but still log just in case
-	var chainReaderService commontypes.ChainReader
-	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(lggr, r.chain.LogPoller(), contractID, *relayConfig.ChainReader); err != nil {
+	chainReader, err := NewChainReaderService(lggr, r.chain.LogPoller(), relayOpts)
+	if err != nil {
+		if errors.Is(err, errors.ErrUnsupported) {
+			// ignore for now, until we can remove old MedianContract code from MedianProvider
+			medianProvider.chainReader = nil
+			return &medianProvider, nil
+		} else {
 			return nil, err
 		}
-	} else {
-		lggr.Info("ChainReader missing from RelayConfig; falling back to internal MedianContract")
 	}
-	medianProvider.chainReader = chainReaderService
+	medianProvider.chainReader = chainReader
 
 	return &medianProvider, nil
-}
-
-func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
-	lggr := r.lggr.Named("AutomationProvider").Named(rargs.ExternalJobID.String())
-	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.db, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth())
-
-	return ocr2keeperRelayer.NewOCR2KeeperProvider(rargs, pargs)
 }
 
 var _ commontypes.MedianProvider = (*medianProvider)(nil)
