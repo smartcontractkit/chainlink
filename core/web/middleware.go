@@ -21,6 +21,7 @@ import (
 // inside this module. To achieve this, we direct webpack to output all of the compiled assets
 // in this module's folder under the "assets" directory.
 
+//go:generate ../../operator_ui/install.sh
 //go:embed "assets"
 var uiEmbedFs embed.FS
 
