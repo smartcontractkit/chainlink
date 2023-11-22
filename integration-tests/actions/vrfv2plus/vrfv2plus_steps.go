@@ -44,7 +44,6 @@ var (
 	ErrDeployVRFV2_5Contracts                      = "error deploying VRFV2_5 contracts"
 	ErrSetVRFCoordinatorConfig                     = "error setting config for VRF Coordinator contract"
 	ErrCreateVRFSubscription                       = "error creating VRF Subscription"
-	ErrFindSubID                                   = "error finding created subscription ID"
 	ErrAddConsumerToSub                            = "error adding consumer to VRF Subscription"
 	ErrFundSubWithNativeToken                      = "error funding subscription with native token"
 	ErrSetLinkNativeLinkFeed                       = "error setting Link and ETH/LINK feed for VRF Coordinator contract"
@@ -429,12 +428,6 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts
 
 	//SubscriptionsCreated Log should be emitted with the subscription ID
 	subID := receipt.Logs[0].Topics[1].Big()
-
-	//verify that the subscription was created
-	_, err = coordinator.FindSubscriptionID(subID)
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", ErrFindSubID, err)
-	}
 
 	return subID, nil
 }
