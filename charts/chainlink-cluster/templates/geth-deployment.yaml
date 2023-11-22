@@ -22,8 +22,12 @@ spec:
       - name: configmap-volume
         configMap:
           name: geth-cm
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
       - name: geth-network
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
         image: "{{ default "ethereum/client-go" .Values.geth.image }}:{{ default "stable" .Values.geth.version }}"
         command: [ "sh", "./root/init.sh" ]
         volumeMounts:

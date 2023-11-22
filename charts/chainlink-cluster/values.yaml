@@ -9,6 +9,16 @@
 # images can be overriden for the same keys:
 #   image: ethereum/client-go
 #   version: stable
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
 chainlink:
   web_port: 6688
   p2p_port: 8090
