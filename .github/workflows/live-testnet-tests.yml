@@ -180,7 +180,7 @@ jobs:
           PARSED_RESULTS=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq -r --arg pattern "${{ matrix.network }} (?<product>\\w+) Tests" '.jobs[]
+          | jq -r --arg pattern "^${{ matrix.network }} (?<product>\\w+) Tests$" '.jobs[]
           | select(.name | test($pattern)) as $job
           | $job.steps[]
           | select(.name == "Run Tests")
@@ -190,10 +190,13 @@ jobs:
           echo $PARSED_RESULTS
 
           ALL_SUCCESS=true
+          echo "Checking for failures"
+          echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
           for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
               success=false
               break
           done
+          echo "Success: $success"
 
           echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
 
@@ -223,7 +226,7 @@ jobs:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
           payload: |
             {
-              "thread_ts": "${{ needs.testnet-smoke-tests-notify.outputs.thread_ts }}",
+              "thread_ts": "${{ needs.start-slack-thread.outputs.thread_ts }}",
               "attachments": [
                 {
                   "color": "${{ steps.test-results.outputs.all_success && '#2E7D32' || '#C62828' }}",
