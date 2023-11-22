@@ -28,7 +28,7 @@ func main() {
 	s4SetSlotId := flag.Uint("s4_set_slot_id", 0, "S4 set slot ID")
 	s4SetVersion := flag.Uint64("s4_set_version", 0, "S4 set version")
 	s4SetExpirationPeriod := flag.Int64("s4_set_expiration_period", 60*60*1000, "S4 how long until the entry expires from now (in milliseconds)")
-	s4SetPayload := flag.String("s4_set_payload", "", "S4 set payload")
+	s4SetPayloadFile := flag.String("s4_set_payload_file", "", "S4 payload file to set secret")
 	repeat := flag.Bool("repeat", false, "Repeat sending the request every 10 seconds")
 	flag.Parse()
 
@@ -50,6 +50,16 @@ func main() {
 	}
 	address := crypto.PubkeyToAddress(key.PublicKey)
 
+	var s4SetPayload []byte
+	if *methodName == functions.MethodSecretsSet {
+		var err error
+		s4SetPayload, err = os.ReadFile(*s4SetPayloadFile)
+		if err != nil {
+			fmt.Println("error reading S4 payload file", err)
+			return
+		}
+	}
+
 	// build payload (if relevant)
 	var payloadJSON []byte
 	if *methodName == functions.MethodSecretsSet {
@@ -57,7 +67,7 @@ func main() {
 			Address:    address.Bytes(),
 			SlotID:     *s4SetSlotId,
 			Version:    *s4SetVersion,
-			Payload:    []byte(*s4SetPayload),
+			Payload:    s4SetPayload,
 			Expiration: time.Now().UnixMilli() + *s4SetExpirationPeriod,
 		}
 		signature, err := envelope.Sign(key)
@@ -70,7 +80,7 @@ func main() {
 			SlotID:     envelope.SlotID,
 			Version:    envelope.Version,
 			Expiration: envelope.Expiration,
-			Payload:    []byte(*s4SetPayload),
+			Payload:    s4SetPayload,
 			Signature:  signature,
 		}
 
