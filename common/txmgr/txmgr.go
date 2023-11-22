@@ -31,13 +31,13 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
-CHAIN_ID types.ID,
-HEAD types.Head[BLOCK_HASH],
-ADDR types.Hashable,
-TX_HASH types.Hashable,
-BLOCK_HASH types.Hashable,
-SEQ types.Sequence,
-FEE feetypes.Fee,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
 ] interface {
 	types.HeadTrackable[HEAD, BLOCK_HASH]
 	services.Service
@@ -67,14 +67,14 @@ type reset struct {
 }
 
 type Txm[
-CHAIN_ID types.ID,
-HEAD types.Head[BLOCK_HASH],
-ADDR types.Hashable,
-TX_HASH types.Hashable,
-BLOCK_HASH types.Hashable,
-R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-SEQ types.Sequence,
-FEE feetypes.Fee,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
 ] struct {
 	services.StateMachine
 	logger         logger.Logger
@@ -112,14 +112,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterRe
 
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm[
-CHAIN_ID types.ID,
-HEAD types.Head[BLOCK_HASH],
-ADDR types.Hashable,
-TX_HASH types.Hashable,
-BLOCK_HASH types.Hashable,
-R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-SEQ types.Sequence,
-FEE feetypes.Fee,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
 ](
 	chainId CHAIN_ID,
 	cfg txmgrtypes.TransactionManagerChainConfig,
@@ -574,12 +574,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWi
 }
 
 type NullTxManager[
-CHAIN_ID types.ID,
-HEAD types.Head[BLOCK_HASH],
-ADDR types.Hashable,
-TX_HASH, BLOCK_HASH types.Hashable,
-SEQ types.Sequence,
-FEE feetypes.Fee,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH, BLOCK_HASH types.Hashable,
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
 ] struct {
 	ErrMsg string
 }
