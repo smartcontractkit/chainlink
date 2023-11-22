@@ -368,7 +368,7 @@ func (a *AutomationTest) AddAutomationJobs() error {
 	} else {
 		return fmt.Errorf("v2.0 and v2.1 are the only supported versions")
 	}
-	for i := 1; i < len(a.ChainlinkNodes)-1; i++ {
+	for i := 1; i < len(a.ChainlinkNodes); i++ {
 		autoOCR2JobSpec := client.OCR2TaskJobSpec{
 			Name:    "automation-" + contractVersion + "-" + a.Registry.Address(),
 			JobType: "offchainreporting2",
