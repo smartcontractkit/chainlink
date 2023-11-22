@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -98,7 +98,7 @@ func New(
 	cfg vrfcommon.Config,
 	feeCfg vrfcommon.FeeConfig,
 	l logger.Logger,
-	chain evm.Chain,
+	chain legacyevm.Chain,
 	chainID *big.Int,
 	q pg.Q,
 	coordinator CoordinatorV2_X,
@@ -170,7 +170,7 @@ type listenerV2 struct {
 	cfg     vrfcommon.Config
 	feeCfg  vrfcommon.FeeConfig
 	l       logger.SugaredLogger
-	chain   evm.Chain
+	chain   legacyevm.Chain
 	chainID *big.Int
 	mailMon *utils.MailboxMonitor
 

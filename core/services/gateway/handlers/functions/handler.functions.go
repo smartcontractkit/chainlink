@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -93,7 +93,7 @@ type PendingRequest struct {
 
 var _ handlers.Handler = (*functionsHandler)(nil)
 
-func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains evm.LegacyChainContainer, lggr logger.Logger) (handlers.Handler, error) {
+func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains legacyevm.LegacyChainContainer, lggr logger.Logger) (handlers.Handler, error) {
 	var cfg FunctionsHandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {

@@ -15,7 +15,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -62,7 +62,7 @@ func setup(t *testing.T, estimator gas.EvmFeeEstimator, overrideFn func(c *chain
 	cltest.JobPipelineV2TestHelper,
 	*txmmocks.MockEvmTxManager,
 	keystore.Master,
-	evm.Chain,
+	legacyevm.Chain,
 	keeper.ORM,
 ) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -334,7 +334,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	executer.OnNewLongestChain(testutils.Context(t), &head)
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
-	cltest.AssertCountStays(t, db, "evm.txes", 0)
+	cltest.AssertCountStays(t, db, "legacyevm.txes", 0)
 }
 
 func ptr[T any](t T) *T { return &t }

@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -92,7 +92,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 }
 
 // ValidateEthBalanceForTransfer validates that the current balance can cover the transaction amount
-func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr common.Address, amount assets.Eth) error {
+func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAddr common.Address, amount assets.Eth) error {
 	var err error
 	var balance *big.Int
 

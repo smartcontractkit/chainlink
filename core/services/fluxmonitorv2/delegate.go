@@ -6,7 +6,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -22,7 +22,7 @@ type Delegate struct {
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
 	pipelineRunner pipeline.Runner
-	legacyChains   evm.LegacyChainContainer
+	legacyChains   legacyevm.LegacyChainContainer
 	lggr           logger.Logger
 }
 
@@ -35,7 +35,7 @@ func NewDelegate(
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
 	db *sqlx.DB,
-	legacyChains evm.LegacyChainContainer,
+	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{

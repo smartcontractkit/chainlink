@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -257,7 +257,7 @@ func TestETHCallTask(t *testing.T) {
 			txManager := txmmocks.NewMockEvmTxManager(t)
 			db := pgtest.NewSqlxDB(t)
 
-			var legacyChains evm.LegacyChainContainer
+			var legacyChains legacyevm.LegacyChainContainer
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
 				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
 				legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(exts)

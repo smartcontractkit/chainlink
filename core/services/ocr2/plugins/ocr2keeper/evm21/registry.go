@@ -21,7 +21,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
@@ -79,7 +79,7 @@ type HttpClient interface {
 func NewEvmRegistry(
 	lggr logger.Logger,
 	addr common.Address,
-	client evm.Chain,
+	client legacyevm.Chain,
 	registry *iregistry21.IKeeperRegistryMaster,
 	mc *models.MercuryCredentials,
 	al ActiveUpkeepList,

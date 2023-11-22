@@ -1,4 +1,4 @@
-package evm
+package legacyevm
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -204,7 +204,7 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExt
 		return nil, err
 	}
 	chainID := chain.ChainID
-	l := logger.With(opts.Logger, "evmChainID", chainID.String())
+	l := opts.Logger.With("evmChainID", chainID.String())
 	if !chain.IsEnabled() {
 		return nil, errChainDisabled{ChainID: chainID}
 	}

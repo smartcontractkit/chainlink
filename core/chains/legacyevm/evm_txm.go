@@ -1,16 +1,16 @@
-package evm
+package legacyevm
 
 import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func newEvmTxm(
@@ -33,7 +33,7 @@ func newEvmTxm(
 		return txm, nil, nil
 	}
 
-	lggr = logger.Named(lggr, "Txm")
+	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"bumpTxDepth", cfg.GasEstimator().BumpTxDepth(),
 		"maxInFlightTransactions", cfg.Transactions().MaxInFlight(),

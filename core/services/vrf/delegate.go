@@ -12,7 +12,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
@@ -37,7 +37,7 @@ type Delegate struct {
 	pr           pipeline.Runner
 	porm         pipeline.ORM
 	ks           keystore.Master
-	legacyChains evm.LegacyChainContainer
+	legacyChains legacyevm.LegacyChainContainer
 	lggr         logger.Logger
 	mailMon      *utils.MailboxMonitor
 }
@@ -47,7 +47,7 @@ func NewDelegate(
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
-	legacyChains evm.LegacyChainContainer,
+	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg pg.QConfig,
 	mailMon *utils.MailboxMonitor) *Delegate {

@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -27,7 +27,7 @@ type medianContract struct {
 	requestRoundTracker *RequestRoundTracker
 }
 
-func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain evm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (*medianContract, error) {
+func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain legacyevm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (*medianContract, error) {
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")

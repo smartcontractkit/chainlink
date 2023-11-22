@@ -20,7 +20,7 @@ import (
 
 	log "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 
-	logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	logpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 
