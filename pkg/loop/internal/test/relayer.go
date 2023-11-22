@@ -102,13 +102,11 @@ func (s staticRelayer) GetChainStatus(ctx context.Context) (types.ChainStatus, e
 }
 
 func (s staticRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) ([]types.NodeStatus, string, int, error) {
-
 	if limit != pageSize {
 		return nil, "", -1, fmt.Errorf("expected page_size %d but got %d", limit, pageSize)
 	}
 	if pageToken != "" {
 		return nil, "", -1, fmt.Errorf("expected empty page_token but got %q", pageToken)
-
 	}
 	return nodes, "", total, nil
 }
@@ -148,7 +146,7 @@ func newRelayArgsWithProviderType(_type types.OCR2PluginType) types.RelayArgs {
 	}
 }
 
-func TestPluginRelayer(t *testing.T, p internal.PluginRelayer) {
+func RunPluginRelayer(t *testing.T, p internal.PluginRelayer) {
 	ctx := tests.Context(t)
 
 	t.Run("Relayer", func(t *testing.T) {
@@ -156,11 +154,11 @@ func TestPluginRelayer(t *testing.T, p internal.PluginRelayer) {
 		require.NoError(t, err)
 		require.NoError(t, relayer.Start(ctx))
 		t.Cleanup(func() { assert.NoError(t, relayer.Close()) })
-		TestRelayer(t, relayer)
+		RunRelayer(t, relayer)
 	})
 }
 
-func TestRelayer(t *testing.T, relayer internal.Relayer) {
+func RunRelayer(t *testing.T, relayer internal.Relayer) {
 	ctx := tests.Context(t)
 
 	t.Run("ConfigProvider", func(t *testing.T) {

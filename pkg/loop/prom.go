@@ -74,7 +74,6 @@ func (p *PromServer) Start() error {
 		} else {
 			p.lggr.Errorf("%s: %s", p.Name(), err)
 		}
-
 	}()
 	return nil
 }

@@ -1,4 +1,4 @@
-package mercury_v1
+package mercury_v1 //nolint:revive
 
 import (
 	"context"
@@ -441,7 +441,6 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.True(t, p.CurrentBlockValid)
 		assert.True(t, p.MaxFinalizedBlockNumberValid)
 	})
-
 }
 
 func newAttributedObservation(t *testing.T, p *MercuryObservationProto) ocrtypes.AttributedObservation {

@@ -62,7 +62,7 @@ func TestPipelineRunnerService(t *testing.T) {
 		context.Background(),
 		"my-spec",
 		types.Vars{Vars: map[string]interface{}{"my-vars": true}},
-		types.Options{MaxTaskDuration: time.Duration(10 * time.Second)},
+		types.Options{MaxTaskDuration: 10 * time.Second},
 	)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, originalResults, trs)
@@ -78,7 +78,7 @@ func TestPipelineRunnerService_CallArgs(t *testing.T) {
 		Vars: map[string]interface{}{"my-vars": true},
 	}
 	options := types.Options{
-		MaxTaskDuration: time.Duration(10 * time.Second),
+		MaxTaskDuration: 10 * time.Second,
 	}
 	_, err := client.ExecuteRun(context.Background(), spec, vars, options)
 	require.NoError(t, err)

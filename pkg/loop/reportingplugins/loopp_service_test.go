@@ -52,7 +52,7 @@ func TestLOOPPService(t *testing.T) {
 		t.Cleanup(func() { assert.NoError(t, looppSvc.Close()) })
 
 		t.Run("control", func(t *testing.T) {
-			test.TestReportingPluginFactory(t, looppSvc)
+			test.ReportingPluginFactory(t, looppSvc)
 		})
 
 		t.Run("Kill", func(t *testing.T) {
@@ -61,7 +61,7 @@ func TestLOOPPService(t *testing.T) {
 			// wait for relaunch
 			time.Sleep(2 * internal.KeepAliveTickDuration)
 
-			test.TestReportingPluginFactory(t, looppSvc)
+			test.ReportingPluginFactory(t, looppSvc)
 		})
 
 		t.Run("Reset", func(t *testing.T) {
@@ -70,7 +70,7 @@ func TestLOOPPService(t *testing.T) {
 			// wait for relaunch
 			time.Sleep(2 * internal.KeepAliveTickDuration)
 
-			test.TestReportingPluginFactory(t, looppSvc)
+			test.ReportingPluginFactory(t, looppSvc)
 		})
 	}
 }
@@ -88,5 +88,5 @@ func TestLOOPPService_recovery(t *testing.T) {
 	require.NoError(t, looppSvc.Start(utilstests.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, looppSvc.Close()) })
 
-	test.TestReportingPluginFactory(t, looppSvc)
+	test.ReportingPluginFactory(t, looppSvc)
 }

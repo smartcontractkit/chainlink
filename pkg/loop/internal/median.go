@@ -259,7 +259,6 @@ type reportCodecServer struct {
 func (r *reportCodecServer) BuildReport(ctx context.Context, request *pb.BuildReportRequest) (*pb.BuildReportReply, error) {
 	var obs []median.ParsedAttributedObservation
 	for _, o := range request.Observations {
-
 		val, jpfc := o.Value.Int(), o.JulesPerFeeCoin.Int()
 		if o.Observer > math.MaxUint8 {
 			return nil, fmt.Errorf("expected uint8 Observer (max %d) but got %d", math.MaxUint8, o.Observer)

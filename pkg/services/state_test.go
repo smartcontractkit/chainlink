@@ -64,7 +64,6 @@ func TestStateMachine_MultipleStartNoBlock(t *testing.T) {
 		}))
 		<-next
 		ch <- 2
-
 	}()
 
 	go func() {
@@ -75,7 +74,6 @@ func TestStateMachine_MultipleStartNoBlock(t *testing.T) {
 		next <- true
 		ch <- 3
 		next <- true
-
 	}()
 
 	require.Equal(t, 1, <-ch)

@@ -90,8 +90,8 @@ func ListNodeStatuses(pageSize int, pageTokenStr string, listFn ListNodeStatusFn
 		return stats, "", -1, err
 	}
 	if total > end {
-		next_token := &pageToken{Page: t.Page + 1, Size: t.Size}
-		nextPageToken = next_token.Encode()
+		nextToken := &pageToken{Page: t.Page + 1, Size: t.Size}
+		nextPageToken = nextToken.Encode()
 	}
 	return stats, nextPageToken, total, nil
 }

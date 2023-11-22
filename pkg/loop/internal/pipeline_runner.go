@@ -110,5 +110,4 @@ func (p *pipelineRunnerServiceServer) ExecuteRun(ctx context.Context, rr *pb.Run
 	return &pb.RunResponse{
 		Results: taskResults,
 	}, nil
-
 }

@@ -252,7 +252,7 @@ func (f fakeFeedConfig) ToMapping() map[string]interface{} {
 		"feed_name":               f.Name,
 		"feed_path":               f.Path,
 		"symbol":                  f.Symbol,
-		"heartbeat_sec":           int64(f.HeartbeatSec),
+		"heartbeat_sec":           f.HeartbeatSec,
 		"contract_type":           f.ContractType,
 		"contract_status":         f.ContractStatus,
 		"contract_address":        f.ContractAddress,

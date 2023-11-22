@@ -8,9 +8,10 @@ type FunctionsProvider interface {
 }
 
 type OracleRequest struct {
-	RequestID           [32]byte
-	RequestingContract  ocrtypes.Account
-	RequestInitiator    ocrtypes.Account
+	RequestID          [32]byte
+	RequestingContract ocrtypes.Account
+	RequestInitiator   ocrtypes.Account
+	//nolint:revive
 	SubscriptionId      uint64
 	SubscriptionOwner   ocrtypes.Account
 	Data                []byte

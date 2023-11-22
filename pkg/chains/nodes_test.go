@@ -153,13 +153,13 @@ func TestListNodeStatuses(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotStats, gotNext_pageToken, gotTotal, err := ListNodeStatuses(tt.args.pageSize, tt.args.pageToken, tt.args.listFn)
+			gotStats, gotNextPageToken, gotTotal, err := ListNodeStatuses(tt.args.pageSize, tt.args.pageToken, tt.args.listFn)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ListNodeStatuses() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			assert.Equal(t, tt.wantStats, gotStats)
-			assert.Equal(t, tt.wantNextPageToken, gotNext_pageToken)
+			assert.Equal(t, tt.wantNextPageToken, gotNextPageToken)
 			assert.Equal(t, tt.wantTotal, gotTotal)
 		})
 	}

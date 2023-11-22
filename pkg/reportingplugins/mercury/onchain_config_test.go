@@ -13,7 +13,7 @@ func FuzzDecodeOnchainConfig(f *testing.F) {
 	}
 
 	f.Add([]byte{})
-	f.Add([]byte(valid))
+	f.Add(valid)
 	f.Fuzz(func(t *testing.T, encoded []byte) {
 		decoded, err := StandardOnchainConfigCodec{}.Decode(encoded)
 		if err != nil {

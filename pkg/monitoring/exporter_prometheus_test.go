@@ -74,7 +74,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetChainID(),      // chainID
 			chainConfig.GetNetworkID(),    // networkID
 			chainConfig.GetNetworkName(),  // networkName
-			string(nodes[0].GetName()),    // oracleName
+			nodes[0].GetName(),            // oracleName
 			string(envelope1.Transmitter), // sender
 		).Once()
 		metrics.On("SetHeadTrackerCurrentHead",
@@ -221,7 +221,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetChainID(),      // chainID
 			chainConfig.GetNetworkID(),    // networkID
 			chainConfig.GetNetworkName(),  // networkName
-			string(nodes[1].GetName()),    // oracleName
+			nodes[1].GetName(),            // oracleName
 			string(envelope2.Transmitter), // sender
 		).Once()
 		metrics.On("SetHeadTrackerCurrentHead",
@@ -345,7 +345,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 			chainConfig.GetNetworkID(),     // networkID
 			chainConfig.GetChainID(),       // chainID
-			string(nodes[0].GetName()),     // oracleName
+			nodes[0].GetName(),             // oracleName
 			string(envelope1.Transmitter),  // sender
 			feedConfig.GetName(),           // feedName
 			feedConfig.GetPath(),           // feedPath
@@ -359,7 +359,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 			chainConfig.GetNetworkID(),     // networkID
 			chainConfig.GetChainID(),       // chainID
-			string(nodes[1].GetName()),     // oracleName
+			nodes[1].GetName(),             // oracleName
 			string(envelope2.Transmitter),  // sender
 			feedConfig.GetName(),           // feedName
 			feedConfig.GetPath(),           // feedPath
@@ -435,7 +435,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetChainID(),      // chainID
 			chainConfig.GetNetworkID(),    // networkID
 			chainConfig.GetNetworkName(),  // networkName
-			string(nodes[0].GetName()),    // oracleName
+			nodes[0].GetName(),            // oracleName
 			string(envelope1.Transmitter), // sender
 		).Once()
 		metrics.On("SetHeadTrackerCurrentHead",
@@ -582,7 +582,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetChainID(),      // chainID
 			chainConfig.GetNetworkID(),    // networkID
 			chainConfig.GetNetworkName(),  // networkName
-			string(nodes[0].GetName()),    // oracleName
+			nodes[0].GetName(),            // oracleName
 			string(envelope2.Transmitter), // sender
 		).Once()
 		metrics.On("SetHeadTrackerCurrentHead",
@@ -609,7 +609,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 			chainConfig.GetNetworkID(),     // networkID
 			chainConfig.GetChainID(),       // chainID
-			string(nodes[0].GetName()),     // oracleName
+			nodes[0].GetName(),             // oracleName
 			string(envelope1.Transmitter),  // sender
 			feedConfig.GetName(),           // feedName
 			feedConfig.GetPath(),           // feedPath

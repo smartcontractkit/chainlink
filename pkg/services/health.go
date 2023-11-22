@@ -120,7 +120,6 @@ func (c *HealthChecker) run() {
 			return
 		}
 	}
-
 }
 
 func (c *HealthChecker) update() {

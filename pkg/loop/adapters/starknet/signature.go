@@ -15,7 +15,6 @@ type Signature struct {
 
 func (s *Signature) Bytes() ([]byte, error) {
 	return proto.Marshal(s.sig)
-
 }
 
 func (s *Signature) Ints() (x *big.Int, y *big.Int, err error) {
@@ -41,7 +40,6 @@ func SignatureFromBytes(b []byte) (*Signature, error) {
 
 // x,y must be non-negative numbers
 func SignatureFromBigInts(x *big.Int, y *big.Int) (*Signature, error) {
-
 	if x.Cmp(big.NewInt(0)) < 0 || y.Cmp(big.NewInt(0)) < 0 {
 		return nil, fmt.Errorf("Cannot create signature from negative values (x,y), (%v, %v)", x, y)
 	}
@@ -53,5 +51,4 @@ func SignatureFromBigInts(x *big.Int, y *big.Int) (*Signature, error) {
 	return &Signature{
 		sig: starkPb,
 	}, nil
-
 }

@@ -10,6 +10,10 @@ linters:
     - misspell
     - rowserrcheck
     - errorlint
+    - unconvert
+    - sqlclosecheck
+    - noctx
+    - whitespace
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
@@ -40,9 +44,10 @@ linters-settings:
       - name: error-return
       - name: error-strings
       - name: error-naming
+      - name: exported
       - name: if-return
       - name: increment-decrement
-      # - name: var-naming
+      - name: var-naming
       - name: var-declaration
       - name: package-comments
       - name: range

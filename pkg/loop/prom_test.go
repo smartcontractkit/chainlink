@@ -15,7 +15,6 @@ import (
 )
 
 func TestPromServer(t *testing.T) {
-
 	testReg := prometheus.NewRegistry()
 	testHandler := promhttp.HandlerFor(testReg, promhttp.HandlerOpts{})
 	testMetric := prometheus.NewCounter(prometheus.CounterOpts{

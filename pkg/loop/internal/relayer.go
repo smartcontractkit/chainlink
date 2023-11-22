@@ -232,7 +232,7 @@ func (r *relayerClient) GetChainStatus(ctx context.Context) (types.ChainStatus, 
 	}, nil
 }
 
-func (r *relayerClient) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (nodes []types.NodeStatus, next_page_token string, total int, err error) {
+func (r *relayerClient) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (nodes []types.NodeStatus, nextPageToken string, total int, err error) {
 	reply, err := r.relayer.ListNodeStatuses(ctx, &pb.ListNodeStatusesRequest{
 		PageSize:  pageSize,
 		PageToken: pageToken,
@@ -417,7 +417,7 @@ func (r *relayerServer) GetChainStatus(ctx context.Context, request *pb.GetChain
 }
 
 func (r *relayerServer) ListNodeStatuses(ctx context.Context, request *pb.ListNodeStatusesRequest) (*pb.ListNodeStatusesReply, error) {
-	nodeConfigs, next_page_token, total, err := r.impl.ListNodeStatuses(ctx, request.PageSize, request.PageToken)
+	nodeConfigs, nextPageToken, total, err := r.impl.ListNodeStatuses(ctx, request.PageSize, request.PageToken)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +430,7 @@ func (r *relayerServer) ListNodeStatuses(ctx context.Context, request *pb.ListNo
 			State:   n.State,
 		})
 	}
-	return &pb.ListNodeStatusesReply{Nodes: nodes, NextPageToken: next_page_token, Total: int32(total)}, nil
+	return &pb.ListNodeStatusesReply{Nodes: nodes, NextPageToken: nextPageToken, Total: int32(total)}, nil
 }
 func (r *relayerServer) Transact(ctx context.Context, request *pb.TransactionRequest) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, r.impl.Transact(ctx, request.From, request.To, request.Amount.Int(), request.BalanceCheck)

@@ -28,7 +28,7 @@ func PluginGenericTest(t *testing.T, p types.ReportingPluginClient) {
 		factory, err := p.NewReportingPluginFactory(ctx, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{})
 		require.NoError(t, err)
 
-		test.TestReportingPluginFactory(t, factory)
+		test.ReportingPluginFactory(t, factory)
 	})
 }
 

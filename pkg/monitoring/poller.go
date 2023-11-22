@@ -75,11 +75,10 @@ func (s *sourcePoller) Run(ctx context.Context) {
 					continue
 				} else if errors.Is(err, context.Canceled) {
 					return
-				} else {
-					s.log.Errorw("failed to fetch from source", "error", err)
-					reusedTimer.Reset(s.pollInterval)
-					continue
 				}
+				s.log.Errorw("failed to fetch from source", "error", err)
+				reusedTimer.Reset(s.pollInterval)
+				continue
 			}
 			select {
 			case s.updates <- data:

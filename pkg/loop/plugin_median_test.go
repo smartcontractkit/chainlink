@@ -19,7 +19,7 @@ func TestPluginMedian(t *testing.T) {
 	t.Parallel()
 
 	stopCh := newStopCh(t)
-	test.PluginTest(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.TestPluginMedian)
+	test.PluginTest(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.PluginMedian)
 
 	t.Run("proxy", func(t *testing.T) {
 		test.PluginTest(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, func(t *testing.T, pr loop.PluginRelayer) {
@@ -45,7 +45,7 @@ func TestPluginMedianExec(t *testing.T) {
 	i, err := client.Dispense(loop.PluginMedianName)
 	require.NoError(t, err)
 
-	test.TestPluginMedian(t, i.(types.PluginMedian))
+	test.PluginMedian(t, i.(types.PluginMedian))
 
 	t.Run("proxy", func(t *testing.T) {
 		pr := newPluginRelayerExec(t, stopCh)

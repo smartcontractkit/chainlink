@@ -1,4 +1,4 @@
-package mercury_v3
+package mercury_v3 //nolint:revive
 
 import (
 	"context"
@@ -287,7 +287,6 @@ func Test_Plugin_Report(t *testing.T) {
 				Ask:                big.NewInt(350),
 			}, *codec.builtReportFields)
 		})
-
 	})
 
 	t.Run("when previous report is present", func(t *testing.T) {
@@ -321,7 +320,6 @@ func Test_Plugin_Report(t *testing.T) {
 				Bid:                big.NewInt(340),
 				Ask:                big.NewInt(350),
 			}, *codec.builtReportFields)
-
 		})
 		t.Run("errors if cannot extract timestamp from previous report", func(t *testing.T) {
 			codec.err = errors.New("something exploded trying to extract timestamp")

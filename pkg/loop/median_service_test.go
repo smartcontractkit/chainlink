@@ -26,7 +26,7 @@ func TestMedianService(t *testing.T) {
 	t.Cleanup(func() { assert.NoError(t, median.Close()) })
 
 	t.Run("control", func(t *testing.T) {
-		test.TestReportingPluginFactory(t, median)
+		test.ReportingPluginFactory(t, median)
 	})
 
 	t.Run("Kill", func(t *testing.T) {
@@ -35,7 +35,7 @@ func TestMedianService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * internal.KeepAliveTickDuration)
 
-		test.TestReportingPluginFactory(t, median)
+		test.ReportingPluginFactory(t, median)
 	})
 
 	t.Run("Reset", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestMedianService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * internal.KeepAliveTickDuration)
 
-		test.TestReportingPluginFactory(t, median)
+		test.ReportingPluginFactory(t, median)
 	})
 }
 
@@ -61,5 +61,5 @@ func TestMedianService_recovery(t *testing.T) {
 	require.NoError(t, median.Start(tests.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, median.Close()) })
 
-	test.TestReportingPluginFactory(t, median)
+	test.ReportingPluginFactory(t, median)
 }

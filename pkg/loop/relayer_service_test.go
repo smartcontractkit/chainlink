@@ -26,7 +26,7 @@ func TestRelayerService(t *testing.T) {
 	t.Cleanup(func() { assert.NoError(t, relayer.Close()) })
 
 	t.Run("control", func(t *testing.T) {
-		test.TestRelayer(t, relayer)
+		test.RunRelayer(t, relayer)
 	})
 
 	t.Run("Kill", func(t *testing.T) {
@@ -35,7 +35,7 @@ func TestRelayerService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * internal.KeepAliveTickDuration)
 
-		test.TestRelayer(t, relayer)
+		test.RunRelayer(t, relayer)
 	})
 
 	t.Run("Reset", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestRelayerService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * internal.KeepAliveTickDuration)
 
-		test.TestRelayer(t, relayer)
+		test.RunRelayer(t, relayer)
 	})
 }
 
@@ -61,5 +61,5 @@ func TestRelayerService_recovery(t *testing.T) {
 	require.NoError(t, relayer.Start(tests.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, relayer.Close()) })
 
-	test.TestRelayer(t, relayer)
+	test.RunRelayer(t, relayer)
 }

@@ -1,4 +1,4 @@
-package mercury_v3
+package mercury_v3 //nolint:revive
 
 import (
 	"context"

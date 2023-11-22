@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
-func TestPluginMedian(t *testing.T, p types.PluginMedian) {
+func PluginMedian(t *testing.T, p types.PluginMedian) {
 	PluginMedianTest{&StaticMedianProvider{}}.TestPluginMedian(t, p)
 }
 
@@ -33,11 +33,11 @@ func (m PluginMedianTest) TestPluginMedian(t *testing.T, p types.PluginMedian) {
 		factory, err := p.NewMedianFactory(ctx, m.MedianProvider, &staticDataSource{value}, &staticDataSource{juelsPerFeeCoin}, &StaticErrorLog{})
 		require.NoError(t, err)
 
-		TestReportingPluginFactory(t, factory)
+		ReportingPluginFactory(t, factory)
 	})
 }
 
-func TestReportingPluginFactory(t *testing.T, factory types.ReportingPluginFactory) {
+func ReportingPluginFactory(t *testing.T, factory types.ReportingPluginFactory) {
 	t.Run("ReportingPluginFactory", func(t *testing.T) {
 		rp, gotRPI, err := factory.NewReportingPlugin(reportingPluginConfig)
 		require.NoError(t, err)
@@ -63,7 +63,6 @@ func TestReportingPluginFactory(t *testing.T, factory types.ReportingPluginFacto
 			assert.True(t, gotShouldTransmit)
 		})
 	})
-
 }
 
 type StaticPluginMedian struct{}

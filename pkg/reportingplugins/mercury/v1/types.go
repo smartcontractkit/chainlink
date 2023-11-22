@@ -1,4 +1,4 @@
-package mercury_v1
+package mercury_v1 //nolint:revive
 
 import (
 	"fmt"
@@ -36,10 +36,9 @@ func (b Block) less(b2 Block) bool {
 	} else if b.Num == b2.Num {
 		// if block number is equal and timestamps differ, take the oldest timestamp
 		return b.Ts < b2.Ts
-	} else {
-		// if block number is different, take the lower block number
-		return b.Num < b2.Num
 	}
+	// if block number is different, take the lower block number
+	return b.Num < b2.Num
 }
 
 func (b Block) String() string {

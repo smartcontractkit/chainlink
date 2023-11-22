@@ -25,7 +25,7 @@ type OnchainConfigCodec interface {
 	Decode([]byte) (OnchainConfig, error)
 }
 
-type MercuryServerFetcher interface {
+type MercuryServerFetcher interface { //nolint:revive
 	// FetchInitialMaxFinalizedBlockNumber should fetch the initial max finalized block number
 	FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error)
 	LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error)

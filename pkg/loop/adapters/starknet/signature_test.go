@@ -8,7 +8,6 @@ import (
 )
 
 func TestSignature(t *testing.T) {
-
 	s, err := SignatureFromBigInts(big.NewInt(7),
 		big.NewInt(11))
 

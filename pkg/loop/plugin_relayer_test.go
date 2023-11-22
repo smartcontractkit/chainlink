@@ -15,7 +15,7 @@ func TestPluginRelayer(t *testing.T) {
 	t.Parallel()
 
 	stopCh := newStopCh(t)
-	test.PluginTest(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.TestPluginRelayer)
+	test.PluginTest(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.RunPluginRelayer)
 }
 
 func TestPluginRelayerExec(t *testing.T) {
@@ -24,7 +24,7 @@ func TestPluginRelayerExec(t *testing.T) {
 
 	pr := newPluginRelayerExec(t, stopCh)
 
-	test.TestPluginRelayer(t, pr)
+	test.RunPluginRelayer(t, pr)
 }
 
 func newPluginRelayerExec(t *testing.T, stopCh <-chan struct{}) loop.PluginRelayer {
