@@ -18,13 +18,25 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
+	//evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
+	//"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
+	//"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
+	//"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury"
+	//"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
+	//core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/evm
+	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
@@ -124,6 +136,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	var checkResult iregistry21.CheckUpkeep
 	var blockNum uint64
 	var performData []byte
+	var workID [32]byte
+	var trigger ocr2keepers.Trigger
 	upkeepNeeded := false
 	// check upkeep
 	if triggerType == ConditionTrigger {
@@ -176,7 +190,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		}
 		// check that tx for this upkeep / tx was not already performed
 		message(fmt.Sprintf("LogTrigger{blockNum: %d, blockHash: %s, txHash: %s, logIndex: %d}", blockNum, receipt.BlockHash.Hex(), txHash, logIndex))
-		workID := mustUpkeepWorkID(upkeepID, blockNum, receipt.BlockHash, txHash, logIndex)
+		trigger = mustOcr2KeepersTrigger(txHash, logIndex, blockNum, receipt.BlockHash)
+		workID = mustUpkeepWorkID(upkeepID, trigger)
 		message(fmt.Sprintf("workID computed: %s", hex.EncodeToString(workID[:])))
 		hasKey, err := keeperRegistry21.HasDedupKey(latestCallOpts, workID)
 		if err != nil {
@@ -228,77 +243,118 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	if checkResult.UpkeepFailureReason != 0 {
 		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
 	}
+
 	if checkResult.UpkeepFailureReason == uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
-		// TODO use the new streams lookup lib
-		//mc := &models.MercuryCredentials{k.cfg.MercuryLegacyURL, k.cfg.MercuryURL, k.cfg.MercuryID, k.cfg.MercuryKey}
-		//mercuryConfig := evm.NewMercuryConfig(mc, core.StreamsCompatibleABI)
-		//lggr, _ := logger.NewLogger()
-		//blockSub := &blockSubscriber{k.client}
-		//_ = streams.NewStreamsLookup(packer, mercuryConfig, blockSub, keeperRegistry21, k.rpcClient, lggr)
+		mc := &models.MercuryCredentials{k.cfg.MercuryLegacyURL, k.cfg.MercuryURL, k.cfg.MercuryID, k.cfg.MercuryKey}
+		mercuryConfig := evm21.NewMercuryConfig(mc, core.StreamsCompatibleABI)
+		lggr, _ := logger.NewLogger()
+		blockSub := &blockSubscriber{k.client}
+		streams := streams.NewStreamsLookup(packer, mercuryConfig, blockSub, k.rpcClient, keeperRegistry21, lggr)
 
 		streamsLookupErr, err := packer.DecodeStreamsLookupRequest(checkResult.PerformData)
 		if err == nil {
 			message("upkeep reverted with StreamsLookup")
 			message(fmt.Sprintf("StreamsLookup data: {FeedParamKey: %s, Feeds: %v, TimeParamKey: %s, Time: %d, ExtraData: %s}", streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time.Uint64(), hexutil.Encode(streamsLookupErr.ExtraData)))
-			if streamsLookupErr.FeedParamKey == feedIdHex && streamsLookupErr.TimeParamKey == blockNumber {
-				message("using mercury lookup v0.2")
-				// handle v0.2
-				cfg, err := keeperRegistry21.GetUpkeepPrivilegeConfig(triggerCallOpts, upkeepID)
-				if err != nil {
-					failUnknown("failed to get upkeep privilege config ", err)
-				}
-				allowed := false
-				if len(cfg) > 0 {
-					var privilegeConfig streams.UpkeepPrivilegeConfig
-					if err := json.Unmarshal(cfg, &privilegeConfig); err != nil {
-						failUnknown("failed to unmarshal privilege config ", err)
-					}
-					allowed = privilegeConfig.MercuryEnabled
-				}
-				if !allowed {
-					resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
-				}
-			} else if streamsLookupErr.FeedParamKey != feedIDs || streamsLookupErr.TimeParamKey != timestamp {
-				// handle v0.3
-				resolveIneligible("upkeep reverted with StreamsLookup but the configuration is invalid")
-			} else {
-				message("using mercury lookup v0.3")
+
+			//ocr2KeepersCheckResult := mustOcr2KeepersCheckResult(upkeepID, checkResult, trigger)
+			//_resultsAfterLookup := streamsLookup.Lookup(ctx, []ocr2keepers.CheckResult{ocr2KeepersCheckResult})
+
+			_, _, _, allowed, err := streams.AllowedToUseMercury(latestCallOpts, upkeepID)
+			if err != nil {
+				failUnknown("failed to check if upkeep is allowed to use mercury", err)
 			}
-			streamsLookup := &StreamsLookup{streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time, streamsLookupErr.ExtraData, upkeepID, blockNum}
+			if !allowed {
+				resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
+			}
+
+			//if streamsLookupErr.FeedParamKey == feedIdHex && streamsLookupErr.TimeParamKey == blockNumber {
+			//	message("using mercury lookup v0.2")
+			//	// handle v0.2
+			//	cfg, err := keeperRegistry21.GetUpkeepPrivilegeConfig(triggerCallOpts, upkeepID)
+			//	if err != nil {
+			//		failUnknown("failed to get upkeep privilege config ", err)
+			//	}
+			//	allowed := false
+			//	if len(cfg) > 0 {
+			//		var privilegeConfig streams.UpkeepPrivilegeConfig
+			//		if err := json.Unmarshal(cfg, &privilegeConfig); err != nil {
+			//			failUnknown("failed to unmarshal privilege config ", err)
+			//		}
+			//		allowed = privilegeConfig.MercuryEnabled
+			//	}
+			//	if !allowed {
+			//		resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
+			//	}
+			//} else if streamsLookupErr.FeedParamKey != feedIDs || streamsLookupErr.TimeParamKey != timestamp {
+			//	// handle v0.3
+			//	resolveIneligible("upkeep reverted with StreamsLookup but the configuration is invalid")
+			//} else {
+			//	message("using mercury lookup v0.3")
+			//}
+			//streamsLookup := &mercury.StreamsLookup{streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time, streamsLookupErr.ExtraData, upkeepID, blockNum}
+
+			streamsLookup := &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: streamsLookupErr.FeedParamKey,
+					Feeds:        streamsLookupErr.Feeds,
+					TimeParamKey: streamsLookupErr.TimeParamKey,
+					Time:         streamsLookupErr.Time,
+					ExtraData:    streamsLookupErr.ExtraData,
+				},
+				UpkeepId: upkeepID,
+				Block:    blockNum,
+			}
 
 			if k.cfg.MercuryLegacyURL == "" || k.cfg.MercuryURL == "" || k.cfg.MercuryID == "" || k.cfg.MercuryKey == "" {
 				failCheckConfig("Mercury configs not set properly, check your MERCURY_LEGACY_URL, MERCURY_URL, MERCURY_ID and MERCURY_KEY", nil)
 			}
-			handler := NewMercuryLookupHandler(&MercuryCredentials{k.cfg.MercuryLegacyURL, k.cfg.MercuryURL, k.cfg.MercuryID, k.cfg.MercuryKey}, k.rpcClient)
-			state, failureReason, values, _, err := handler.doMercuryRequest(ctx, streamsLookup)
-			if failureReason == UpkeepFailureReasonInvalidRevertDataInput {
-				resolveIneligible("upkeep used invalid revert data")
-			}
-			if state == InvalidMercuryRequest {
-				resolveIneligible("the mercury request data is invalid")
-			}
+
+			// (ctx context.Context, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int)
+			ocr2KeepersCheckResult := mustOcr2KeepersCheckResult(upkeepID, checkResult, trigger)
+			values, err := streams.DoMercuryRequest(ctx, streamsLookup, []ocr2keepers.CheckResult{ocr2KeepersCheckResult}, 0)
 			if err != nil {
-				failCheckConfig("failed to do mercury request ", err)
+				resolveIneligible("failed to DoMercuryRequest")
 			}
-			callbackResult, err := keeperRegistry21.CheckCallback(triggerCallOpts, upkeepID, values, streamsLookup.extraData)
+			//handler := NewMercuryLookupHandler(&MercuryCredentials{k.cfg.MercuryLegacyURL, k.cfg.MercuryURL, k.cfg.MercuryID, k.cfg.MercuryKey}, k.rpcClient)
+			//state, failureReason, values, _, err := handler.doMercuryRequest(ctx, streamsLookup)
+			//if failureReason == UpkeepFailureReasonInvalidRevertDataInput {
+			//	resolveIneligible("upkeep used invalid revert data")
+			//}
+			//if state == InvalidMercuryRequest {
+			//	resolveIneligible("the mercury request data is invalid")
+			//}
+			//if err != nil {
+			//	failCheckConfig("failed to do mercury request ", err)
+			//}
+
+			//ctx context.Context, values [][]byte, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int
+			err = streams.CheckCallback(ctx, values, streamsLookup, []ocr2keepers.CheckResult{ocr2KeepersCheckResult}, 0)
 			if err != nil {
 				failUnknown("failed to execute mercury callback ", err)
 			}
-			if callbackResult.UpkeepFailureReason != 0 {
-				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
-			}
-			upkeepNeeded, performData = callbackResult.UpkeepNeeded, callbackResult.PerformData
-			// do tenderly simulations
-			rawCall, err := core.RegistryABI.Pack("checkCallback", upkeepID, values, streamsLookup.extraData)
-			if err != nil {
-				failUnknown("failed to pack raw checkCallback call", err)
-			}
-			addLink("checkCallback simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
-			rawCall, err = core.StreamsCompatibleABI.Pack("checkCallback", values, streamsLookup.extraData)
-			if err != nil {
-				failUnknown("failed to pack raw checkCallback (direct) call", err)
-			}
-			addLink("checkCallback (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
+			// values is the return of mercury DoRequest
+			// dont need to run callback manually now, just need to bubble up the error
+			//callbackResult, err := keeperRegistry21.CheckCallback(triggerCallOpts, upkeepID, values, streamsLookup.extraData)
+			//if err != nil {
+			//	failUnknown("failed to execute mercury callback ", err)
+			//}
+			//if callbackResult.UpkeepFailureReason != 0 {
+			//	message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
+			//}
+			//upkeepNeeded, performData = callbackResult.UpkeepNeeded, callbackResult.PerformData
+			//// do tenderly simulations
+			//rawCall, err := core.RegistryABI.Pack("checkCallback", upkeepID, values, streamsLookup.extraData)
+			//if err != nil {
+			//	failUnknown("failed to pack raw checkCallback call", err)
+			//}
+			//addLink("checkCallback simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+			//rawCall, err = core.StreamsCompatibleABI.Pack("checkCallback", values, streamsLookup.extraData)
+			//if err != nil {
+			//	failUnknown("failed to pack raw checkCallback (direct) call", err)
+			//}
+			//addLink("checkCallback (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
+
+			// TODO how to do the above simulation?
 		} else {
 			message("did not revert with StreamsLookup error")
 		}
@@ -313,6 +369,43 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 	if simulateResult.Success {
 		resolveEligible()
+	}
+}
+
+func mustOcr2KeepersCheckResult(upkeepID *big.Int, checkResult iregistry21.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
+	upkeepIdentifier := mustUpkeepIdentifier(upkeepID)
+	// mustOcr2KeepersCheckResult
+	checkResult2 := ocr2keepers.CheckResult{
+		//PipelineExecutionState: 0,                // Assuming success, you might need to modify this based on your logic
+		//Retryable:           false,            // Assuming not retryable, you might need to modify this based on your logic
+		//RetryInterval:       30 * time.Second, // Assuming a default retry interval, you might need to modify this based on your logic
+		Eligible:            checkResult.UpkeepNeeded,
+		IneligibilityReason: checkResult.UpkeepFailureReason,
+		UpkeepID:            upkeepIdentifier,                             // *ocr2keepers.UpkeepIdentifier, need type UpkeepIdentifier [32]byte
+		Trigger:             trigger,                                      // Assuming you have a way to get the Trigger
+		WorkID:              core.UpkeepWorkID(upkeepIdentifier, trigger), // Assuming you have a way to get the WorkID
+		GasAllocated:        0,                                            // Assuming a default gas allocated, you might need to modify this based on your logic
+		PerformData:         checkResult.PerformData,
+		FastGasWei:          checkResult.FastGasWei,
+		LinkNative:          checkResult.LinkNative,
+	}
+
+	return checkResult2
+}
+
+type blockSubscriber struct {
+	ethClient *ethclient.Client
+}
+
+func (bs *blockSubscriber) LatestBlock() *ocr2keepers.BlockKey {
+	header, err := bs.ethClient.HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		return nil
+	}
+
+	return &ocr2keepers.BlockKey{
+		Number: ocr2keepers.BlockNumber(header.Number.Uint64()),
+		Hash:   header.Hash(),
 	}
 }
 
@@ -353,9 +446,27 @@ func packTriggerData(log *types.Log, blockTime uint64) ([]byte, error) {
 	return b, nil
 }
 
-func mustUpkeepWorkID(upkeepID *big.Int, blockNum uint64, blockHash [32]byte, txHash [32]byte, logIndex int64) [32]byte {
-	// TODO - this is a copy of the code in core.UpkeepWorkID
-	// We should refactor that code to be more easily exported ex not rely on Trigger structs
+func mustUpkeepWorkID(upkeepID *big.Int, trigger ocr2keepers.Trigger) [32]byte {
+	upkeepIdentifier := mustUpkeepIdentifier(upkeepID)
+
+	workID := core.UpkeepWorkID(upkeepIdentifier, trigger)
+	workIDBytes, err := hex.DecodeString(workID)
+	if err != nil {
+		failUnknown("failed to decode workID", err)
+	}
+
+	var result [32]byte
+	copy(result[:], workIDBytes[:])
+	return result
+}
+
+func mustUpkeepIdentifier(upkeepID *big.Int) ocr2keepers.UpkeepIdentifier {
+	upkeepIdentifier := &ocr2keepers.UpkeepIdentifier{}
+	upkeepIdentifier.FromBigInt(upkeepID)
+	return *upkeepIdentifier
+}
+
+func mustOcr2KeepersTrigger(txHash [32]byte, logIndex int64, blockNum uint64, blockHash [32]byte) ocr2keepers.Trigger {
 	trigger := ocr2keepers.Trigger{
 		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 			TxHash:      txHash,
@@ -364,16 +475,7 @@ func mustUpkeepWorkID(upkeepID *big.Int, blockNum uint64, blockHash [32]byte, tx
 			BlockHash:   blockHash,
 		},
 	}
-	upkeepIdentifier := &ocr2keepers.UpkeepIdentifier{}
-	upkeepIdentifier.FromBigInt(upkeepID)
-	workID := core.UpkeepWorkID(*upkeepIdentifier, trigger)
-	workIDBytes, err := hex.DecodeString(workID)
-	if err != nil {
-		failUnknown("failed to decode workID", err)
-	}
-	var result [32]byte
-	copy(result[:], workIDBytes[:])
-	return result
+	return trigger
 }
 
 func message(msg string) {
