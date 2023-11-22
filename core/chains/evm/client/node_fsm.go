@@ -38,6 +38,7 @@ var (
 
 // NodeState represents the current state of the node
 // Node is a FSM (finite state machine)
+// Deprecated: nodeState is now internal for common/client
 type NodeState int
 
 func (n NodeState) String() string {

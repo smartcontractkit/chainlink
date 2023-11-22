@@ -6,6 +6,7 @@ import (
 
 type totalDifficultyNodeSelector []Node
 
+// Deprecated: use corresponding function from common/client
 func NewTotalDifficultyNodeSelector(nodes []Node) NodeSelector {
 	return totalDifficultyNodeSelector(nodes)
 }

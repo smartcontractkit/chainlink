@@ -7,6 +7,7 @@ type roundRobinSelector struct {
 	roundRobinCount atomic.Uint32
 }
 
+// Deprecated: use corresponding function from common/client
 func NewRoundRobinSelector(nodes []Node) NodeSelector {
 	return &roundRobinSelector{
 		nodes: nodes,

@@ -16,6 +16,7 @@ type nodeWithPriority struct {
 	priority int32
 }
 
+// Deprecated: use corresponding function from common/client
 func NewPriorityLevelNodeSelector(nodes []Node) NodeSelector {
 	return &priorityLevelNodeSelector{
 		nodes:           nodes,

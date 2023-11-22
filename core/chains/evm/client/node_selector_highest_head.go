@@ -6,6 +6,7 @@ import (
 
 type highestHeadNodeSelector []Node
 
+// Deprecated: use corresponding function from common/client
 func NewHighestHeadNodeSelector(nodes []Node) NodeSelector {
 	return highestHeadNodeSelector(nodes)
 }

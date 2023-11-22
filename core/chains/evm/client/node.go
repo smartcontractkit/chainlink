@@ -84,7 +84,7 @@ var (
 //go:generate mockery --quiet --name Node --output ../mocks/ --case=underscore
 
 // Node represents a client that connects to an ethereum-compatible RPC node
-// Deprecated: use generalized common/client/Node instead
+// Deprecated: use chainClient instead
 type Node interface {
 	Start(ctx context.Context) error
 	Close() error
@@ -134,7 +134,7 @@ type rawclient struct {
 
 // Node represents one ethereum node.
 // It must have a ws url and may have a http url
-// Deprecated: use generalized common/client/Node instead
+// Deprecated: use chainClient instead
 type node struct {
 	services.StateMachine
 	lfcLog              logger.Logger
