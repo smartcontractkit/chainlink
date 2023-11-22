@@ -22,11 +22,10 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-vrf/dkg"
 	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
