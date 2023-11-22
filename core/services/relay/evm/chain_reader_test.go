@@ -28,14 +28,15 @@ func TestNewChainReader(t *testing.T) {
 	makeRelayConfig := func(abi string, retValues []string) types.ChainReaderConfig {
 		return types.ChainReaderConfig{
 			ChainContractReaders: map[string]types.ChainContractReader{
-				"MyContract": {abi,
-					map[string]types.ChainReaderDefinition{
-						"MyGenericMethod": types.ChainReaderDefinition{
-							"name",
-							map[string]any{},
-							retValues,
-							false,
-							types.Method,
+				"MyContract": {
+					ContractABI: abi,
+					ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
+						"MyGenericMethod": {
+							ChainSpecificName: "name",
+							Params:            map[string]any{},
+							ReturnValues:      retValues,
+							CacheEnabled:      false,
+							ReadType:          types.Method,
 						},
 					},
 				},
@@ -58,7 +59,7 @@ func TestNewChainReader(t *testing.T) {
 	})
 
 	t.Run("invalid contractID", func(t *testing.T) {
-		rargs := types2.RelayArgs{ContractID: "invalid hex string", RelayConfig: r}
+		rargs = types2.RelayArgs{ContractID: "invalid hex string", RelayConfig: r}
 		ropts = types.NewRelayOpts(rargs)
 		require.NotNil(t, ropts)
 		_, err2 := NewChainReaderService(lggr, chain.LogPoller(), ropts)
@@ -95,13 +96,13 @@ func TestNewChainReader(t *testing.T) {
 func TestChainReaderStartClose(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lp := mocklogpoller.NewLogPoller(t)
-	chainReader := chainReader{
+	cr := chainReader{
 		lggr: lggr,
 		lp:   lp,
 	}
-	err := chainReader.Start(testutils.Context(t))
+	err := cr.Start(testutils.Context(t))
 	assert.NoError(t, err)
-	err = chainReader.Close()
+	err = cr.Close()
 	assert.NoError(t, err)
 }
 
