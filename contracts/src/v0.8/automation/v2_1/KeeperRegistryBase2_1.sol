@@ -542,7 +542,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   ) internal view returns (uint96, uint96) {
     uint256 gasWei = cfg.fastGas * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
-    if (isExecution && tx.gasprice < gasWei) {
+    if (isExecution && tx.gasprice < gasWei) { // can we remove this?
       gasWei = tx.gasprice;
     }
 
