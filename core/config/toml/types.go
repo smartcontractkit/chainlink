@@ -1546,7 +1546,7 @@ func isValidURI(uri string) bool {
 	return isValidLocalURI(uri)
 }
 
-// Validates uri is a valid local URI
+// isValidLocalURI returns true if uri is a valid local URI
 // External URIs (e.g. http://) are not valid local URIs, and will return false.
 func isValidLocalURI(uri string) bool {
 	parts := strings.Split(uri, ":")

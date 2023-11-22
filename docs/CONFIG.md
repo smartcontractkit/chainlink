@@ -1631,7 +1631,7 @@ SamplingRatio is the ratio of traces to sample for this node.
 ```toml
 Mode = 'tls' # Default
 ```
-Mode is a string value. 'tls' or 'unencrypted' are the only values allowed. If set to 'unencrypted', TLSCertPath can be unset, meaning traces will be sent over plaintext to the collector.
+Mode is a string value. `tls` or `unencrypted` are the only values allowed. If set to `unencrypted`, `TLSCertPath` can be unset, meaning traces will be sent over plaintext to the collector.
 
 ### TLSCertPath
 ```toml
