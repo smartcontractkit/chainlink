@@ -458,7 +458,7 @@ func TestLogTrigger(t *testing.T) {
 
 	upkeepDelays := make([][]int64, 0)
 	var numberOfEventsEmitted int
-	var batchSize uint64 = 100
+	var batchSize uint64 = 500
 
 	for _, gen := range p.Generators {
 		numberOfEventsEmitted += len(gen.GetData().OKData.Data)
