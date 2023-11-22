@@ -1140,6 +1140,7 @@ func setupAutomationTestDocker(
 	//require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
 
 	a := automationv2.NewAutomationTestDocker(env.EVMClient, env.ContractDeployer, nodeClients)
+	a.MercuryCredentialName = "cred1"
 	a.RegistrySettings = registryConfig
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: uint8(2),
@@ -1149,7 +1150,7 @@ func setupAutomationTestDocker(
 	a.PluginConfig = ocr2keepers30config.OffchainConfig{
 		TargetProbability:    "0.999",
 		TargetInRounds:       1,
-		PerformLockoutWindow: 80_000, // Copied from arbitrum mainnet prod value
+		PerformLockoutWindow: 3_600_000, // Intentionally set to be higher than in prod for testing purpose
 		GasLimitPerReport:    10_300_000,
 		GasOverheadPerUpkeep: 300_000,
 		MinConfirmations:     0,
@@ -1162,7 +1163,7 @@ func setupAutomationTestDocker(
 		DeltaRound:                              1000 * time.Millisecond,
 		DeltaGrace:                              200 * time.Millisecond,
 		DeltaCertifiedCommitRequest:             300 * time.Millisecond,
-		DeltaStage:                              15 * time.Second,
+		DeltaStage:                              30 * time.Second,
 		RMax:                                    24,
 		MaxDurationQuery:                        20 * time.Millisecond,
 		MaxDurationObservation:                  20 * time.Millisecond,
