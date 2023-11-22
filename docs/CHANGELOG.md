@@ -11,7 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-## 2.7.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 2.7.1 - 2023-11-21
+
+### Fixed
+
+- Fixed a bug that causes the node to shutdown if all configured RPC's are unreachable during startup.
+
+## 2.7.0 - 2023-11-14
 
 ### Added
 
@@ -35,15 +43,15 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 - `P2P.V2` is now enabled (`Enabled = true`) by default.
 
 ### Upcoming Required Configuration Changes
+
 Starting in `v2.9.0`:
+
 - `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` will no longer be allowed. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
 - `P2P.V1` will no longer be supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
 
 ### Removed
 
 - Removed the ability to set a next nonce value for an address through CLI
-
-<!-- unreleasedstop -->
 
 ## 2.6.0 - 2023-10-18
 
