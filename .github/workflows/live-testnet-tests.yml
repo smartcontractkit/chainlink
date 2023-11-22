@@ -134,7 +134,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "Live Smoke Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+                        "text": "Live Smoke Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x: Notifying <@U01Q4N37KFG>' || ':white_check_mark:'}}",
                         "emoji": true
                       }
                     },
@@ -193,10 +193,10 @@ jobs:
           echo "Checking for failures"
           echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
           for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
-              success=false
+              ALL_SUCCESS=false
               break
           done
-          echo "Success: $success"
+          echo "Success: $ALL_SUCCESS"
 
           echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
 
@@ -235,7 +235,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "${{ matrix.network }} ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x: Notifying <@U01Q4N37KFG>'}}",
+                        "text": "${{ matrix.network }} ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x:'}}",
                         "emoji": true
                       }
                     },
