@@ -229,13 +229,13 @@ jobs:
               "thread_ts": "${{ needs.start-slack-thread.outputs.thread_ts }}",
               "attachments": [
                 {
-                  "color": "${{ steps.test-results.outputs.all_success && '#2E7D32' || '#C62828' }}",
+                  "color": "${{ steps.test-results.outputs.all_success == 'true' && '#2E7D32' || '#C62828' }}",
                   "blocks": [
                     {
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "DEBUG: ${{ steps.test-results.outputs.all_success }} ${{ matrix.network }} ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x:'}}",
+                        "text": "${{ matrix.network }} ${{ steps.test-results.outputs.all_success == 'true' && ':white_check_mark:' || ':x:'}}",
                         "emoji": true
                       }
                     },
