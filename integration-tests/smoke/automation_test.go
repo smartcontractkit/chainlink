@@ -699,6 +699,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(testcontext.Get(t))
 					initialCounters[i] = counter
+					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
@@ -717,6 +718,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					currentCounter, err := consumers[i].Counter(testcontext.Get(t))
+					l.Info().Int64("Upkeeps Performed", currentCounter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(currentCounter.Int64()).Should(gomega.BeNumerically(">", initialCounters[i].Int64()),
 						"Expected counter to have increased from initial value of %s, but got %s",
