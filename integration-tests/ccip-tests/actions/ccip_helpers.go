@@ -395,6 +395,9 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 		ccipModule.ARM = arm
 	} else {
+		if ccipModule.ExistingDeployment {
+			return fmt.Errorf("ARM contract address is not provided in lane config")
+		}
 		// deploy a mock ARM contract
 		if ccipModule.ARMContract == nil {
 			ccipModule.ARMContract, err = cd.DeployMockARMContract()
@@ -408,6 +411,9 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 	}
 	if ccipModule.FeeToken == nil {
+		if ccipModule.ExistingDeployment {
+			return fmt.Errorf("FeeToken contract address is not provided in lane config")
+		}
 		// deploy link token
 		token, err := cd.DeployLinkTokenContract()
 		if err != nil {
@@ -441,6 +447,9 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 				}
 				token, err = cd.NewERC20TokenContract(common.HexToAddress(linkToken.Address()))
 			} else {
+				if ccipModule.ExistingDeployment {
+					return fmt.Errorf("bridge token contract address is not provided in lane config")
+				}
 				token, err = cd.DeployERC20TokenContract(tokenDeployerFns[i])
 			}
 
@@ -466,6 +475,9 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	}
 	ccipModule.BridgeTokens = tokens
 	if len(ccipModule.BridgeTokenPools) != len(ccipModule.BridgeTokens) {
+		if ccipModule.ExistingDeployment {
+			return fmt.Errorf("bridge token pool contract address is not provided in lane config")
+		}
 		// deploy native token pool
 		for i := len(ccipModule.BridgeTokenPools); i < len(ccipModule.BridgeTokens); i++ {
 			token := ccipModule.BridgeTokens[i]
@@ -497,6 +509,9 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	}
 
 	if ccipModule.WrappedNative == common.HexToAddress("0x0") {
+		if ccipModule.ExistingDeployment {
+			return fmt.Errorf("wrapped native contract address is not provided in lane config")
+		}
 		weth9addr, err := cd.DeployWrappedNative()
 		if err != nil {
 			return fmt.Errorf("deploying wrapped native shouldn't fail %+v", err)
@@ -510,6 +525,9 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	}
 
 	if ccipModule.Router == nil {
+		if ccipModule.ExistingDeployment {
+			return fmt.Errorf("router contract address is not provided in lane config")
+		}
 		ccipModule.Router, err = cd.DeployRouter(ccipModule.WrappedNative, *ccipModule.ARMContract)
 		if err != nil {
 			return fmt.Errorf("deploying router shouldn't fail %+v", err)
@@ -526,6 +544,9 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		ccipModule.Router = r
 	}
 	if ccipModule.PriceRegistry == nil {
+		if ccipModule.ExistingDeployment {
+			return fmt.Errorf("price registry contract address is not provided in lane config")
+		}
 		// we will update the price updates later based on source and dest PriceUpdates
 		ccipModule.PriceRegistry, err = cd.DeployPriceRegistry([]common.Address{
 			common.HexToAddress(ccipModule.FeeToken.Address()),
@@ -673,6 +694,9 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	}
 
 	if sourceCCIP.OnRamp == nil {
+		if sourceCCIP.Common.ExistingDeployment {
+			return fmt.Errorf("existing deployment is set to true but no onramp address is provided")
+		}
 		var tokensAndPools []evm_2_evm_onramp.InternalPoolUpdate
 		var tokenTransferFeeConfig []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs
 
@@ -1086,6 +1110,9 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 	}
 
 	if destCCIP.CommitStore == nil {
+		if destCCIP.Common.ExistingDeployment {
+			return errors.New("commit store address not provided in lane config")
+		}
 		// commitStore responsible for validating the transfer message
 		destCCIP.CommitStore, err = contractDeployer.DeployCommitStore(
 			sourceChainSelector, destChainSelector, sourceCCIP.OnRamp.EthAddress,
@@ -1116,6 +1143,9 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 	}
 
 	if destCCIP.OffRamp == nil {
+		if destCCIP.Common.ExistingDeployment {
+			return errors.New("offramp address not provided in lane config")
+		}
 		destCCIP.OffRamp, err = contractDeployer.DeployOffRamp(
 			sourceChainSelector, destChainSelector,
 			destCCIP.CommitStore.EthAddress, sourceCCIP.OnRamp.EthAddress,
