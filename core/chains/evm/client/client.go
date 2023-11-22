@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
@@ -98,6 +99,7 @@ func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc
 
 // client represents an abstract client that manages connections to
 // multiple nodes for a single chain id
+// Deprecated: use chainClient instead
 type client struct {
 	logger logger.Logger
 	pool   *Pool
