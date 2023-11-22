@@ -133,18 +133,18 @@ jobs:
                     {
                       "type": "header",
                       "text": {
-                        "type": "mrkdwn",
+                        "type": "plain_text",
                         "text": "Live Smoke Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
                         "emoji": true
                       }
                     },
                     {
-                      type: "section",
-                      text: {
-                        type: "mrkdwn",
-                        text: "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U01Q4N37KFG>' || 'All Good!' }}"
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U01Q4N37KFG>' || 'All Good!' }}"
                       }
-                    }
+                    },
                     {
                       "type": "divider"
                     },
