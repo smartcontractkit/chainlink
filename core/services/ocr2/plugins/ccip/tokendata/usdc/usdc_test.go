@@ -74,6 +74,7 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 	tests := []struct {
 		name                 string
 		getTs                func() *httptest.Server
+		parentTimeoutSeconds int
 		customTimeoutSeconds int
 		expectedError        error
 	}{
@@ -84,7 +85,8 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 					w.WriteHeader(http.StatusInternalServerError)
 				}))
 			},
-			expectedError: nil,
+			parentTimeoutSeconds: 60,
+			expectedError:        nil,
 		},
 		{
 			name: "default timeout",
@@ -102,7 +104,8 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 				}))
 
 			},
-			expectedError: tokendata.ErrTimeout,
+			parentTimeoutSeconds: 60,
+			expectedError:        tokendata.ErrTimeout,
 		},
 		{
 			name: "custom timeout",
@@ -120,6 +123,7 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 				}))
 
 			},
+			parentTimeoutSeconds: 60,
 			customTimeoutSeconds: 2,
 			expectedError:        tokendata.ErrTimeout,
 		},
@@ -130,7 +134,19 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 					w.WriteHeader(http.StatusTooManyRequests)
 				}))
 			},
-			expectedError: tokendata.ErrRateLimit,
+			parentTimeoutSeconds: 60,
+			expectedError:        tokendata.ErrRateLimit,
+		},
+		{
+			name: "parent context timeout",
+			getTs: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					time.Sleep(defaultAttestationTimeout + time.Second)
+				}))
+
+			},
+			parentTimeoutSeconds: 1,
+			expectedError:        nil,
 		},
 	}
 
@@ -148,7 +164,11 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 			usdcReader, err := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, lp)
 			require.NoError(t, err)
 			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds)
-			_, err = usdcService.callAttestationApi(context.Background(), utils.RandomBytes32())
+
+			parentCtx, cancel := context.WithTimeout(context.Background(), time.Duration(test.parentTimeoutSeconds)*time.Second)
+			defer cancel()
+
+			_, err = usdcService.callAttestationApi(parentCtx, utils.RandomBytes32())
 			require.Error(t, err)
 
 			if test.expectedError != nil {
