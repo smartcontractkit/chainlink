@@ -324,7 +324,7 @@ func SetupOCRTest(t *testing.T) (
 		})
 	}
 	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"toml":     client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, config.DefaultOCRNetworkDetailTomlConfig, testNetwork),
+		"toml":     networks.AddNetworkDetailedConfig(config.BaseOCR1Config, config.DefaultOCRNetworkDetailTomlConfig, testNetwork),
 		"replicas": 5,
 		"db": map[string]any{
 			"stateful": true,

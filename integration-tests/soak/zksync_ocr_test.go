@@ -2,7 +2,6 @@ package soak
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"go.uber.org/zap/zapcore"
 	"os"
 	"testing"
@@ -56,7 +55,7 @@ func TestOCRZKSync(t *testing.T) {
 	require.NoError(t, err, "Error deploying OCR FEED")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.DebugLevel, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.DebugLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
