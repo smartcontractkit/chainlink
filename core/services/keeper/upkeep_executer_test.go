@@ -334,7 +334,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	executer.OnNewLongestChain(testutils.Context(t), &head)
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
-	cltest.AssertCountStays(t, db, "legacyevm.txes", 0)
+	cltest.AssertCountStays(t, db, "evm.txes", 0)
 }
 
 func ptr[T any](t T) *T { return &t }
