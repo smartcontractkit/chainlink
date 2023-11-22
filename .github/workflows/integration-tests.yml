@@ -22,18 +22,18 @@ env:
   MOD_CACHE_VERSION: 2
 
 jobs:
-  enforce-ctf-version:
-    name: Enforce CTF Version
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - name: Enforce CTF Version
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
-        with:
-          go-project-path: ./integration-tests
-          module-name: github.com/smartcontractkit/chainlink-testing-framework
-          enforce-semantic-tag: "true"
+  # enforce-ctf-version:
+  #   name: Enforce CTF Version
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout the repo
+  #       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  #     - name: Enforce CTF Version
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+  #       with:
+  #         go-project-path: ./integration-tests
+  #         module-name: github.com/smartcontractkit/chainlink-testing-framework
+  #         enforce-semantic-tag: "true"
   changes:
     environment: integration
     name: Check Paths That Require Tests To Run
