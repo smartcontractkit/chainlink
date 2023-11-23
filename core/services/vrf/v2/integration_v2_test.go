@@ -1851,7 +1851,7 @@ func TestRequestCost(t *testing.T) {
 			"requestRandomness", vrfkey.PublicKey.MustHash(), subId.Uint64(), uint16(2), uint32(10000), uint32(1))
 		tt.Log("gas estimate of proxied requestRandomness:", estimate)
 		// There is some gas overhead of the delegatecall that is made by the proxy
-		// to the logic contract. See https://www.legacyevm.codes/#f4?fork=grayGlacier for a detailed
+		// to the logic contract. See https://www.evm.codes/#f4?fork=grayGlacier for a detailed
 		// breakdown of the gas costs of a delegatecall.
 		assert.Less(tt, estimate, uint64(96_000),
 			"proxied testRequestRandomness tx gas cost more than expected")
@@ -2161,7 +2161,7 @@ func TestStartingCountsV1(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// add legacyevm.receipts
+	// add evm.receipts
 	receipts := []evmtypes.Receipt{}
 	for i := 0; i < 4; i++ {
 		receipts = append(receipts, evmtypes.Receipt{

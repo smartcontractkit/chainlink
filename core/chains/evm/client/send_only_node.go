@@ -76,8 +76,7 @@ type sendOnlyNode struct {
 func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string, chainID *big.Int) SendOnlyNode {
 	s := new(sendOnlyNode)
 	s.name = name
-	s.log = logger.Named(lggr, "SendOnlyNode")
-	s.log = logger.Named(s.log, name)
+	s.log = logger.Named(logger.Named(lggr, "SendOnlyNode"), name)
 	s.log = logger.With(s.log,
 		"nodeTier", "sendonly",
 	)

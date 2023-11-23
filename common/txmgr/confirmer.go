@@ -531,8 +531,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 		receipt := txReceipts[i]
 		err := txErrs[i]
 
-		lggr = attempt.Tx.GetLogger(lggr)
-		l := logger.Sugared(logger.With(lggr, "txHash", attempt.Hash.String(), "txAttemptID", attempt.ID,
+		l := logger.Sugared(logger.With(attempt.Tx.GetLogger(lggr), "txHash", attempt.Hash.String(), "txAttemptID", attempt.ID,
 			"txID", attempt.TxID, "err", err, "sequence", attempt.Tx.Sequence,
 		))
 
