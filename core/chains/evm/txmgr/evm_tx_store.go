@@ -1133,9 +1133,9 @@ func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID 
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 
-	var rs []dbReceipt
-	err = o.q.SelectContext(ctx, &rs, `
-    SELECT evm.receipts.receipt FROM evm.txes
+	var count int32
+	err = o.q.GetContext(ctx, &count, `
+    SELECT COUNT(evm.receipts.receipt) FROM evm.txes
     INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
     INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
     WHERE evm.receipts.block_number <= ($1 - evm.txes.min_confirmations) AND evm.txes.id = $2
@@ -1143,7 +1143,7 @@ func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID 
 	if err != nil {
 		return false, fmt.Errorf("failed to retrieve transaction reciepts: %w", err)
 	}
-	return len(rs) > 0, nil
+	return count > 0, nil
 }
 
 func saveAttemptWithNewState(ctx context.Context, q pg.Queryer, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
