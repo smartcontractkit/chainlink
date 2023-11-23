@@ -2,13 +2,11 @@ package evm
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -26,7 +24,7 @@ func TestNewChainReader(t *testing.T) {
 	contractID := testutils.NewAddress()
 	contractABI := `[{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"result","type":"string"}],"stateMutability":"view","type":"function"}]`
 
-	makeRelayConfig := func(abi string, retValues []string) evmtypes.ChainReaderConfig {
+	makeChainReaderConfig := func(abi string, retValues []string) evmtypes.ChainReaderConfig {
 		return evmtypes.ChainReaderConfig{
 			ChainContractReaders: map[string]evmtypes.ChainContractReader{
 				"MyContract": {
@@ -45,33 +43,24 @@ func TestNewChainReader(t *testing.T) {
 		}
 	}
 
-	chainReaderConfig := makeRelayConfig(contractABI, []string{"result"})
-	relayConfig := evmtypes.RelayConfig{ChainReader: &chainReaderConfig}
-	r, err := json.Marshal(&relayConfig)
-	require.NoError(t, err)
-	rargs := commontypes.RelayArgs{ContractID: contractID.String(), RelayConfig: r}
-	ropts := evmtypes.NewRelayOpts(rargs)
-	require.NotNil(t, ropts)
-
 	t.Run("happy path", func(t *testing.T) {
+		chainReaderConfig := makeChainReaderConfig(contractABI, []string{"result"})
 		chain.On("LogPoller").Return(lp)
-		_, err2 := NewChainReaderService(lggr, chain.LogPoller(), contractID, &relayConfig)
-		assert.NoError(t, err2)
+		_, err := NewChainReaderService(lggr, chain.LogPoller(), contractID, chainReaderConfig)
+		assert.NoError(t, err)
 	})
 
 	t.Run("invalid config", func(t *testing.T) {
-		chainReaderConfig = makeRelayConfig(contractABI, []string{"result", "extraResult"}) // 2 results required but abi includes only one
-		invalidConfig := evmtypes.RelayConfig{ChainReader: &chainReaderConfig}
-		_, err2 := NewChainReaderService(lggr, chain.LogPoller(), contractID, &invalidConfig)
-		assert.ErrorIs(t, err2, commontypes.ErrInvalidConfig)
-		assert.ErrorContains(t, err2, "return values: [result,extraResult] don't match abi method outputs: [result]")
+		invalidChainReaderConfig := makeChainReaderConfig(contractABI, []string{"result", "extraResult"}) // 2 results required but abi includes only one
+		_, err := NewChainReaderService(lggr, chain.LogPoller(), contractID, invalidChainReaderConfig)
+		assert.ErrorIs(t, err, commontypes.ErrInvalidConfig)
+		assert.ErrorContains(t, err, "return values: [result,extraResult] don't match abi method outputs: [result]")
 	})
 
-	t.Run("ChainReader missing from RelayConfig", func(t *testing.T) {
-		preChainReaderConfig := evmtypes.RelayConfig{}
-		_, err2 := NewChainReaderService(lggr, chain.LogPoller(), contractID, &preChainReaderConfig)
-		assert.ErrorIs(t, err2, errors.ErrUnsupported)
-		assert.ErrorContains(t, err2, "ChainReader missing from RelayConfig")
+	t.Run("ChainReader config is empty", func(t *testing.T) {
+		emptyChainReaderConfig := evmtypes.ChainReaderConfig{}
+		_, err := NewChainReaderService(lggr, chain.LogPoller(), contractID, emptyChainReaderConfig)
+		assert.EqualError(t, err, "chain reader config is empty")
 	})
 }
 
