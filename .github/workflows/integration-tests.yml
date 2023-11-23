@@ -710,7 +710,7 @@ jobs:
       - name: Checkout the solana repo
         # Use v3.6.0 because the custom runner (container configured above)
         # doesn't have node20 installed which is required for versions >=4
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
