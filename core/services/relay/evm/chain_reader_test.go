@@ -55,40 +55,21 @@ func TestNewChainReader(t *testing.T) {
 
 	t.Run("happy path", func(t *testing.T) {
 		chain.On("LogPoller").Return(lp)
-		_, err2 := NewChainReaderService(lggr, chain.LogPoller(), ropts)
+		_, err2 := NewChainReaderService(lggr, chain.LogPoller(), contractID, &relayConfig)
 		assert.NoError(t, err2)
-	})
-
-	t.Run("invalid contractID", func(t *testing.T) {
-		rargs = commontypes.RelayArgs{ContractID: "invalid hex string", RelayConfig: r}
-		ropts = evmtypes.NewRelayOpts(rargs)
-		require.NotNil(t, ropts)
-		_, err2 := NewChainReaderService(lggr, chain.LogPoller(), ropts)
-		assert.ErrorIs(t, err2, commontypes.ErrInvalidConfig)
-		assert.ErrorContains(t, err2, "invalid contractID")
 	})
 
 	t.Run("invalid config", func(t *testing.T) {
 		chainReaderConfig = makeRelayConfig(contractABI, []string{"result", "extraResult"}) // 2 results required but abi includes only one
 		invalidConfig := evmtypes.RelayConfig{ChainReader: &chainReaderConfig}
-		r2, err2 := json.Marshal(&invalidConfig)
-		require.NoError(t, err2)
-		rargs = commontypes.RelayArgs{ContractID: contractID.String(), RelayConfig: r2}
-		ropts = evmtypes.NewRelayOpts(rargs)
-		require.NotNil(t, ropts)
-		_, err2 = NewChainReaderService(lggr, chain.LogPoller(), ropts)
+		_, err2 := NewChainReaderService(lggr, chain.LogPoller(), contractID, &invalidConfig)
 		assert.ErrorIs(t, err2, commontypes.ErrInvalidConfig)
 		assert.ErrorContains(t, err2, "return values: [result,extraResult] don't match abi method outputs: [result]")
 	})
 
 	t.Run("ChainReader missing from RelayConfig", func(t *testing.T) {
 		preChainReaderConfig := evmtypes.RelayConfig{}
-		r2, err2 := json.Marshal(&preChainReaderConfig)
-		require.NoError(t, err2)
-		rargs = commontypes.RelayArgs{ContractID: contractID.String(), RelayConfig: r2}
-		ropts = evmtypes.NewRelayOpts(rargs)
-		require.NotNil(t, ropts)
-		_, err2 = NewChainReaderService(lggr, chain.LogPoller(), ropts)
+		_, err2 := NewChainReaderService(lggr, chain.LogPoller(), contractID, &preChainReaderConfig)
 		assert.ErrorIs(t, err2, errors.ErrUnsupported)
 		assert.ErrorContains(t, err2, "ChainReader missing from RelayConfig")
 	})

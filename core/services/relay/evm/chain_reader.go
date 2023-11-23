@@ -30,22 +30,12 @@ type chainReader struct {
 }
 
 // NewChainReaderService constructor for ChainReader
-func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, ropts *types.RelayOpts) (*chainReader, error) {
-	relayConfig, err := ropts.RelayConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed parsing RelayConfig: %w", err)
-	}
-
-	if !common.IsHexAddress(ropts.ContractID) {
-		return nil, fmt.Errorf("%w: invalid contractID, expected hex address", commontypes.ErrInvalidConfig)
-	}
-	contractID := common.HexToAddress(ropts.ContractID)
-
+func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, contractID common.Address, relayConfig *types.RelayConfig) (*chainReader, error) {
 	if relayConfig.ChainReader == nil {
 		return nil, fmt.Errorf("%w: ChainReader missing from RelayConfig", errors.ErrUnsupported)
 	}
 
-	if err = validateChainReaderConfig(*relayConfig.ChainReader); err != nil {
+	if err := validateChainReaderConfig(*relayConfig.ChainReader); err != nil {
 		return nil, err
 	}
 
