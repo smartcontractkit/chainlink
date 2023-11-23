@@ -10,11 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 
 	"github.com/google/uuid"
@@ -424,7 +424,7 @@ func FundSubscriptions(
 ) error {
 	for _, subID := range subIDs {
 		//Link Billing
-		amountJuels := utils.EtherToWei(big.NewFloat(vrfv2Config.SubscriptionFundingAmountLink))
+		amountJuels := conversions.EtherToWei(big.NewFloat(vrfv2Config.SubscriptionFundingAmountLink))
 		err := FundVRFCoordinatorV2Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
@@ -553,7 +553,7 @@ func getLoadTestMetrics(
 func LogSubDetails(l zerolog.Logger, subscription vrf_coordinator_v2.GetSubscription, subID uint64, coordinator contracts.VRFCoordinatorV2) {
 	l.Debug().
 		Str("Coordinator", coordinator.Address()).
-		Str("Link Balance", (*assets.Link)(subscription.Balance).Link()).
+		Str("Link Balance", (*commonassets.Link)(subscription.Balance).Link()).
 		Uint64("Subscription ID", subID).
 		Str("Subscription Owner", subscription.Owner.String()).
 		Interface("Subscription Consumers", subscription.Consumers).
