@@ -285,7 +285,7 @@ func (z *ZKSyncClient) DeployOCRFeed(testEnvironment *environment.Environment, c
 
 	bootstrapNode, workerNodes := z.ChainlinkNodes[0], z.ChainlinkNodes[1:]
 
-	err = actions.CreateOCRJobs(z.OcrInstance, bootstrapNode, workerNodes, 5, z.Mockserver, "280")
+	err = actions.CreateOCRJobs(z.OcrInstance, bootstrapNode, workerNodes, 5, z.Mockserver, strconv.FormatInt(z.TestNetwork.ChainID, 10))
 	if err != nil {
 		return err
 	}
