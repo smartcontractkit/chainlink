@@ -38,7 +38,7 @@ type l1GasPriceOracle struct {
 	l1GasPrice   *assets.Wei
 
 	chInitialised chan struct{}
-	chStop        utils.StopChan
+	chStop        services.StopChan
 	chDone        chan struct{}
 }
 

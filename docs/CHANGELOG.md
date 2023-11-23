@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added distributed tracing in the OpenTelemetry trace format to the node, currently focused at the LOOPP Plugin development effort. This includes a new set of `Tracing` TOML configurations. The default for collecting traces is off - you must explicitly enable traces and setup a valid OpenTelemetry collector. Refer to `.github/tracing/README.md` for more details.
 - Added a new, optional WebServer authentication option that supports LDAP as a user identity provider. This enables user login access and user roles to be managed and provisioned via a centralized remote server that supports the LDAP protocol, which can be helpful when running multiple nodes. See the documentation for more information and config setup instructions. There is a new `[WebServer].AuthenticationMethod` config option, when set to `ldap` requires the new `[WebServer.LDAP]` config section to be defined, see the reference `docs/core.toml`.
 - New prom metrics for mercury:
     `mercury_transmit_queue_delete_error_count`
@@ -35,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `mercury_zero_blocks_count`
 
 ...
+
+<!-- unreleasedstop -->
 
 ## 2.7.1 - UNRELEASED
 
@@ -73,8 +76,6 @@ Starting in `v2.9.0`:
 ### Removed
 
 - Removed the ability to set a next nonce value for an address through CLI
-
-<!-- unreleasedstop -->
 
 ## 2.6.0 - 2023-10-18
 

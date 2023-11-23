@@ -8,6 +8,8 @@ import (
 	logpoller "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
 )
 
+// OK
+
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
 func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
@@ -39,6 +41,7 @@ func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
+// OK
 func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
 	cfg := logpoller.Config{
 		General: &logpoller.General{
@@ -67,6 +70,8 @@ func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
 
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
+
+// NOK - run with PoW
 
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
@@ -99,6 +104,8 @@ func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
+// NOK - run with PoW
+
 func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
 	cfg := logpoller.Config{
 		General: &logpoller.General{
@@ -127,6 +134,8 @@ func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
 
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
+
+// OK
 
 // consistency test that introduces random distruptions by pausing either Chainlink or Postgres containers for random interval of 5-20 seconds
 // with approximate emission of 520-550 logs per second for ~110 seconds

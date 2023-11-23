@@ -49,7 +49,7 @@ type ORM interface {
 	InsertJob(job *Job, qopts ...pg.QOpt) error
 	CreateJob(jb *Job, qopts ...pg.QOpt) error
 	FindJobs(offset, limit int) ([]Job, int, error)
-	FindJobTx(id int32) (Job, error)
+	FindJobTx(ctx context.Context, id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
 	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (int32, error)
@@ -782,8 +782,8 @@ func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSp
 	return LoadConfigVarsLocalOCR(evmOcrCfg, os, ocrCfg), nil
 }
 
-func (o *orm) FindJobTx(id int32) (Job, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), o.cfg.DefaultQueryTimeout())
+func (o *orm) FindJobTx(ctx context.Context, id int32) (Job, error) {
+	ctx, cancel := context.WithTimeout(ctx, o.cfg.DefaultQueryTimeout())
 	defer cancel()
 	return o.FindJob(ctx, id)
 }

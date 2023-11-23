@@ -110,7 +110,7 @@ type (
 
 		utils.DependentAwaiter
 
-		chStop                utils.StopChan
+		chStop                services.StopChan
 		wgDone                sync.WaitGroup
 		trackedAddressesCount atomic.Uint32
 		replayChannel         chan replayRequest

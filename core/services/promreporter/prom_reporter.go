@@ -27,7 +27,7 @@ type (
 		lggr         logger.Logger
 		backend      PrometheusBackend
 		newHeads     *utils.Mailbox[*evmtypes.Head]
-		chStop       utils.StopChan
+		chStop       services.StopChan
 		wgDone       sync.WaitGroup
 		reportPeriod time.Duration
 	}

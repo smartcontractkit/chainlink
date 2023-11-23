@@ -3,7 +3,8 @@ package evm
 import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
+
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 )
 
 var _ ocr3types.OnchainKeyring[plugin.AutomationReportInfo] = &onchainKeyringV3Wrapper{}

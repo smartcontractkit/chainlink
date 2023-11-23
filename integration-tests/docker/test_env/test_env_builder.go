@@ -1,11 +1,14 @@
 package test_env
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"os"
 	"runtime/debug"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -315,6 +318,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.te.ContractLoader = cl
 	}
 
+	waitForChainToFinaliseFirstEpoch(b.l, b.te.EVMClient)
+
 	var nodeCsaKeys []string
 
 	// Start Chainlink Nodes
@@ -387,4 +392,41 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		Msg("Building CL cluster test environment..")
 
 	return b.te, nil
+}
+
+func waitForChainToFinaliseFirstEpoch(lggr zerolog.Logger, evmClient blockchain.EVMClient) error {
+	lggr.Info().Msg("Waiting for private chains to finalize first epoch")
+
+	timeout := 180 * time.Second
+	pollInterval := 15 * time.Second
+	endTime := time.Now().Add(timeout)
+
+	chainStarted := false
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), pollInterval)
+		defer cancel()
+
+		finalized, err := evmClient.GetLatestFinalizedBlockHeader(ctx)
+		if err != nil {
+			if strings.Contains(err.Error(), "finalized block not found") {
+				lggr.Err(err).Msgf("error getting finalized block number for %s", evmClient.GetNetworkName())
+			} else {
+				lggr.Warn().Msgf("no epoch finalized yet for chain %s", evmClient.GetNetworkName())
+			}
+		}
+
+		if finalized != nil && finalized.Number.Int64() > 0 || time.Now().After(endTime) {
+			lggr.Info().Msgf("Chain '%s' finalized first epoch", evmClient.GetNetworkName())
+			chainStarted = true
+			break
+		}
+
+		time.Sleep(pollInterval)
+	}
+
+	if !chainStarted {
+		return fmt.Errorf("chain %s failed to finalize first epoch", evmClient.GetNetworkName())
+	}
+
+	return nil
 }
