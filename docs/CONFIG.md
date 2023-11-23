@@ -77,7 +77,7 @@ UICSAKeys enables CSA Keys in the UI.
 ```toml
 EVMClientV2 = false # Default
 ```
-EVMClientV2 enables experimental RPC client for EVM chains that is based on Generalized MultiNode component.
+EVMClientV2 enables a generalized MultiNode client for EVM chains.
 
 ## Database
 ```toml

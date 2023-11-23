@@ -218,6 +218,7 @@ func buildClient(cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelay
 	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
 	l := opts.Logger
 	if cfg.Feature().EVMClientV2() {
+		l.Debug("EVMClientV2 is enabled")
 		return newChainClientFromCfg(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes), nil
 	}
 	return newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
