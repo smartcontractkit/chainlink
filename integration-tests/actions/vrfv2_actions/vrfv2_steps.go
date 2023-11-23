@@ -523,7 +523,7 @@ func WaitForRequestCountEqualToFulfilmentCount(consumer contracts.VRFv2LoadTestC
 				fmt.Errorf("timeout waiting for rand request and fulfilments to be equal AFTER performance test was executed. Request Count: %d, Fulfilment Count: %d",
 					metrics.RequestCount.Uint64(), metrics.FulfilmentCount.Uint64())
 		case <-ticker.C:
-			go getLoadTestMetrics(consumer, metricsChannel, metricsErrorChannel)
+			go retrieveLoadTestMetrics(consumer, metricsChannel, metricsErrorChannel)
 		case metrics = <-metricsChannel:
 			if metrics.RequestCount.Cmp(metrics.FulfilmentCount) == 0 {
 				ticker.Stop()
@@ -538,7 +538,7 @@ func WaitForRequestCountEqualToFulfilmentCount(consumer contracts.VRFv2LoadTestC
 	}
 }
 
-func getLoadTestMetrics(
+func retrieveLoadTestMetrics(
 	consumer contracts.VRFv2LoadTestConsumer,
 	metricsChannel chan *contracts.VRFLoadTestMetrics,
 	metricsErrorChannel chan error,

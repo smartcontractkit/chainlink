@@ -103,6 +103,9 @@ func ReadConfig() (*PerformanceConfig, error) {
 		}
 	} else {
 		d, err = base64.StdEncoding.DecodeString(rawConfig)
+		if err != nil {
+			return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
+		}
 	}
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {
