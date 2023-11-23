@@ -17,6 +17,48 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+type chainReaderTestHelper struct {
+}
+
+func (crTestHelper chainReaderTestHelper) makeChainReaderConfig(abi string, params map[string]any, retValues []string) evmtypes.ChainReaderConfig {
+	return evmtypes.ChainReaderConfig{
+		ChainContractReaders: map[string]evmtypes.ChainContractReader{
+			"MyContract": {
+				ContractABI: abi,
+				ChainReaderDefinitions: map[string]evmtypes.ChainReaderDefinition{
+					"MyGenericMethod": {
+						ChainSpecificName: "name",
+						Params:            params,
+						ReturnValues:      retValues,
+						CacheEnabled:      false,
+						ReadType:          evmtypes.Method,
+					},
+				},
+			},
+		},
+	}
+}
+
+func (crTestHelper chainReaderTestHelper) makeChainReaderConfigFromStrings(abi string, chainReadingDefinitions string) (evmtypes.ChainReaderConfig, error) {
+	chainReaderConfigTemplate := `{
+	   "chainContractReaders": {
+	     "testContract": {
+			   "contractName": "testContract",
+			   "contractABI":  "[%s]",
+			   "chainReaderDefinitions": {
+					%s
+				}
+	     }
+	   }
+	}`
+
+	abi = strings.Replace(abi, `"`, `\"`, -1)
+	formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, abi, chainReadingDefinitions)
+	var chainReaderConfig evmtypes.ChainReaderConfig
+	err := json.Unmarshal([]byte(formattedCfgJsonString), &chainReaderConfig)
+	return chainReaderConfig, err
+}
+
 func TestNewChainReader(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lp := mocklogpoller.NewLogPoller(t)
@@ -24,34 +66,15 @@ func TestNewChainReader(t *testing.T) {
 	contractID := testutils.NewAddress()
 	contractABI := `[{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"result","type":"string"}],"stateMutability":"view","type":"function"}]`
 
-	makeChainReaderConfig := func(abi string, retValues []string) evmtypes.ChainReaderConfig {
-		return evmtypes.ChainReaderConfig{
-			ChainContractReaders: map[string]evmtypes.ChainContractReader{
-				"MyContract": {
-					ContractABI: abi,
-					ChainReaderDefinitions: map[string]evmtypes.ChainReaderDefinition{
-						"MyGenericMethod": {
-							ChainSpecificName: "name",
-							Params:            map[string]any{},
-							ReturnValues:      retValues,
-							CacheEnabled:      false,
-							ReadType:          evmtypes.Method,
-						},
-					},
-				},
-			},
-		}
-	}
-
 	t.Run("happy path", func(t *testing.T) {
-		chainReaderConfig := makeChainReaderConfig(contractABI, []string{"result"})
+		chainReaderConfig := chainReaderTestHelper{}.makeChainReaderConfig(contractABI, map[string]any{}, []string{"result"})
 		chain.On("LogPoller").Return(lp)
 		_, err := NewChainReaderService(lggr, chain.LogPoller(), contractID, chainReaderConfig)
 		assert.NoError(t, err)
 	})
 
 	t.Run("invalid config", func(t *testing.T) {
-		invalidChainReaderConfig := makeChainReaderConfig(contractABI, []string{"result", "extraResult"}) // 2 results required but abi includes only one
+		invalidChainReaderConfig := chainReaderTestHelper{}.makeChainReaderConfig(contractABI, map[string]any{}, []string{"result", "extraResult"}) // 2 results required but abi includes only one
 		_, err := NewChainReaderService(lggr, chain.LogPoller(), contractID, invalidChainReaderConfig)
 		assert.ErrorIs(t, err, commontypes.ErrInvalidConfig)
 		assert.ErrorContains(t, err, "return values: [result,extraResult] don't match abi method outputs: [result]")
@@ -78,22 +101,11 @@ func TestChainReaderStartClose(t *testing.T) {
 }
 
 func TestValidateChainReaderConfig(t *testing.T) {
-	chainReaderConfigTemplate := `{
-	   "chainContractReaders": {
-	     "testContract": {
-			   "contractName": "testContract",
-			   "contractABI":  "[%s]",
-			   "chainReaderDefinitions": {
-					%s
-				}
-	     }
-	   }
-	}`
-
 	type testCase struct {
 		name                    string
 		abiInput                string
 		chainReadingDefinitions string
+		expected                error
 	}
 
 	var testCases []testCase
@@ -163,7 +175,7 @@ func TestValidateChainReaderConfig(t *testing.T) {
 
 	testCases = append(testCases,
 		testCase{
-			name:     "functionWithOneParamAndMultipleResponses",
+			name:     "methodWithOneParamAndMultipleResponses",
 			abiInput: `{"constant":true,"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserAccountData","outputs":[{"internalType":"uint256","name":"totalLiquidityETH","type":"uint256"},{"internalType":"uint256","name":"totalCollateralETH","type":"uint256"},{"internalType":"uint256","name":"totalBorrowsETH","type":"uint256"},{"internalType":"uint256","name":"totalFeesETH","type":"uint256"},{"internalType":"uint256","name":"availableBorrowsETH","type":"uint256"},{"internalType":"uint256","name":"currentLiquidationThreshold","type":"uint256"},{"internalType":"uint256","name":"ltv","type":"uint256"},{"internalType":"uint256","name":"healthFactor","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"}`,
 			chainReadingDefinitions: `"getUserAccountData":{
 											"chainSpecificName": "getUserAccountData",
@@ -185,7 +197,7 @@ func TestValidateChainReaderConfig(t *testing.T) {
 
 	testCases = append(testCases,
 		testCase{
-			name:     "functionWithNoParamsAndOneResponseWithNoName",
+			name:     "methodWithNoParamsAndOneResponseWithNoName",
 			abiInput: `{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}`,
 			chainReadingDefinitions: `"name":{
 											"chainSpecificName": "name",
@@ -198,7 +210,7 @@ func TestValidateChainReaderConfig(t *testing.T) {
 
 	testCases = append(testCases,
 		testCase{
-			name:     "functionWithMultipleParamsAndOneResult",
+			name:     "methodWithMultipleParamsAndOneResult",
 			abiInput: `{"inputs":[{"internalType":"address","name":"_input","type":"address"},{"internalType":"address","name":"_output","type":"address"},{"internalType":"uint256","name":"_inputQuantity","type":"uint256"}],"name":"getSwapOutput","outputs":[{"internalType":"uint256","name":"swapOutput","type":"uint256"}],"stateMutability":"view","type":"function"}`,
 			chainReadingDefinitions: `"getSwapOutput":{
 											"chainSpecificName": "getSwapOutput",
@@ -217,7 +229,7 @@ func TestValidateChainReaderConfig(t *testing.T) {
 	// TODO BCF-2789 how to handle return values for tuples
 	/*testCases = append(testCases,
 	testCase{
-		name: "functionWithOneParamAndMultipleTupleResponse",
+		name: "methodWithOneParamAndMultipleTupleResponse",
 		 struct BassetPersonal {
 		    // Address of the bAsset
 		    address addr;
@@ -267,7 +279,7 @@ func TestValidateChainReaderConfig(t *testing.T) {
 	/*
 		testCases = append(testCases,
 			testCase{
-				name: "functionWithNoParamsAndTupleResponse",
+				name: "methodWithNoParamsAndTupleResponse",
 				 struct FeederConfig {
 					uint256 supply;
 					uint256 a;
@@ -289,12 +301,10 @@ func TestValidateChainReaderConfig(t *testing.T) {
 											}`,
 			})*/
 
-	var cfg evmtypes.ChainReaderConfig
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			abiString := strings.Replace(tc.abiInput, `"`, `\"`, -1)
-			formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, abiString, tc.chainReadingDefinitions)
-			assert.NoError(t, json.Unmarshal([]byte(formattedCfgJsonString), &cfg))
+			cfg, err := chainReaderTestHelper{}.makeChainReaderConfigFromStrings(tc.abiInput, tc.chainReadingDefinitions)
+			assert.NoError(t, err)
 			assert.NoError(t, validateChainReaderConfig(cfg))
 		})
 	}
@@ -309,8 +319,117 @@ func TestValidateChainReaderConfig(t *testing.T) {
 
 		largeABI = largeABI[:len(largeABI)-1]
 		manyChainReadingDefinitions = manyChainReadingDefinitions[:len(manyChainReadingDefinitions)-1]
-		formattedCfgJsonString := fmt.Sprintf(chainReaderConfigTemplate, strings.Replace(largeABI, `"`, `\"`, -1), manyChainReadingDefinitions)
-		assert.NoError(t, json.Unmarshal([]byte(formattedCfgJsonString), &cfg))
+		cfg, err := chainReaderTestHelper{}.makeChainReaderConfigFromStrings(largeABI, manyChainReadingDefinitions)
+		assert.NoError(t, err)
 		assert.NoError(t, validateChainReaderConfig(cfg))
 	})
+
+	var badPathTestCases []testCase
+	mismatchedEventArgumentsTestABI := `{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"sender","type":"address"}],"name":"Swap","type":"event"}`
+	badPathTestCases = append(badPathTestCases,
+		testCase{
+			name:     "mismatched abi and event chain reading param values",
+			abiInput: mismatchedEventArgumentsTestABI,
+			chainReadingDefinitions: `"Swap":{
+													"chainSpecificName": "Swap",
+													"params":{
+														"malformedParam": "0x0"
+													},
+													"returnValues": [
+														"sender"
+													],
+													"readType": 1
+												}`,
+			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"Swap\", err: params: [malformedParam] don't match abi event indexed inputs: [sender]"),
+		})
+
+	badPathTestCases = append(badPathTestCases,
+		testCase{
+			name:     "mismatched abi and event chain reading return values",
+			abiInput: mismatchedEventArgumentsTestABI,
+			chainReadingDefinitions: `"Swap":{
+													"chainSpecificName": "Swap",
+													"params":{
+														"sender": "0x0"
+													},
+													"returnValues": [
+														"malformedParam"
+													],
+													"readType": 1
+												}`,
+			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"Swap\", err: return values: [malformedParam] don't match abi event inputs: [sender]"),
+		})
+
+	mismatchedFunctionArgumentsTestABI := `{"constant":true,"inputs":[{"internalType":"address","name":"from","type":"address"}],"name":"Swap","outputs":[{"internalType":"address","name":"to","type":"address"}],"payable":false,"stateMutability":"view","type":"function"}`
+	badPathTestCases = append(badPathTestCases,
+		testCase{
+			name:     "mismatched abi and method chain reading param values",
+			abiInput: mismatchedFunctionArgumentsTestABI,
+			chainReadingDefinitions: `"Swap":{
+											"chainSpecificName": "Swap",
+											"params":{
+												"malformedParam": "0x0"
+											},
+											"returnValues": [
+												"to"
+											],
+											"readType": 0
+										}`,
+			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"Swap\", err: params: [malformedParam] don't match abi method inputs: [from]"),
+		},
+	)
+
+	badPathTestCases = append(badPathTestCases,
+		testCase{
+			name:     "mismatched abi and method chain reading return values",
+			abiInput: mismatchedFunctionArgumentsTestABI,
+			chainReadingDefinitions: `"Swap":{
+											"chainSpecificName": "Swap",
+											"params":{
+												"from": "0x0"
+											},
+											"returnValues": [
+												"malformedReturnValue"
+											],
+											"readType": 0
+										}`,
+			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"Swap\", err: return values: [malformedReturnValue] don't match abi method outputs: [to]"),
+		},
+	)
+
+	badPathTestCases = append(badPathTestCases,
+		testCase{
+			name:     "event doesn't exist",
+			abiInput: `{"constant":true,"inputs":[],"name":"someName","outputs":[],"payable":false,"stateMutability":"view","type":"function"}`,
+			chainReadingDefinitions: `"TestMethod":{
+											"chainSpecificName": "Swap",
+											"readType": 1
+										}`,
+			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"TestMethod\", err: event: Swap doesn't exist"),
+		},
+	)
+
+	badPathTestCases = append(badPathTestCases,
+		testCase{
+			name:     "method doesn't exist",
+			abiInput: `{"constant":true,"inputs":[],"name":"someName","outputs":[],"payable":false,"stateMutability":"view","type":"function"}`,
+			chainReadingDefinitions: `"TestMethod":{
+											"chainSpecificName": "Swap",
+											"readType": 0
+										}`,
+			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"TestMethod\", err: method: \"Swap\" doesn't exist"),
+		},
+	)
+
+	for _, tc := range badPathTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := chainReaderTestHelper{}.makeChainReaderConfigFromStrings(tc.abiInput, tc.chainReadingDefinitions)
+			assert.NoError(t, err)
+			if tc.expected == nil {
+				assert.NoError(t, validateChainReaderConfig(cfg))
+			} else {
+				assert.EqualError(t, validateChainReaderConfig(cfg), tc.expected.Error())
+			}
+		})
+	}
 }

@@ -113,7 +113,7 @@ func validateChainReaderConfig(cfg types.ChainReaderConfig) error {
 func validateEvents(contractABI abi.ABI, chainReaderDefinition types.ChainReaderDefinition) error {
 	event, methodExists := contractABI.Events[chainReaderDefinition.ChainSpecificName]
 	if !methodExists {
-		return fmt.Errorf("method: %s doesn't exist", chainReaderDefinition.ChainSpecificName)
+		return fmt.Errorf("event: %s doesn't exist", chainReaderDefinition.ChainSpecificName)
 	}
 
 	if !areChainReaderArgumentsValid(event.Inputs, chainReaderDefinition.ReturnValues) {
