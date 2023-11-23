@@ -14,7 +14,6 @@ import (
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -103,7 +102,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 		}
 		if latestChain.IsValid() {
 			ht.log.Debugw(
-				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", config.FriendlyNumber(latestChain.BlockNumber()), latestChain.BlockHash()),
+				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", latestChain.BlockNumber(), latestChain.BlockHash()),
 				"blockNumber", latestChain.BlockNumber(),
 				"blockHash", latestChain.BlockHash(),
 			)
@@ -193,8 +192,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) getInitialHead(ctx context.Contex
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, head HTH) error {
 	prevHead := ht.headSaver.LatestChain()
 
-	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyNumber(head.BlockNumber())),
-		"blockHeight", head.BlockNumber(),
+	ht.log.Debugw(fmt.Sprintf("Received new head %v", head.BlockNumber()),
 		"blockHash", head.BlockHash(),
 		"parentHeadHash", head.GetParentHash(),
 		"blockTs", head.GetTimestamp(),
