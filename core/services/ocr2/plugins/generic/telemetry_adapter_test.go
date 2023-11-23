@@ -1,13 +1,14 @@
 package generic_test
 
 import (
-	"context"
 	"testing"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
@@ -88,7 +89,7 @@ func TestTelemetryAdapter(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := ta.Send(context.Background(), test.networkID, test.chainID, test.contractID, test.telemetryType, test.payload)
+			err := ta.Send(testutils.Context(t), test.networkID, test.chainID, test.contractID, test.telemetryType, test.payload)
 			if test.errorMsg != "" {
 				assert.ErrorContains(t, err, test.errorMsg)
 			} else {

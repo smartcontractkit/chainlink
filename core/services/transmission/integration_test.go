@@ -1,7 +1,6 @@
 package transmission_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -398,7 +397,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(context.Background(), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
 	require.NoError(t, err)
 
 	// Generate encoded paymaster data to fund the VRF consumer.

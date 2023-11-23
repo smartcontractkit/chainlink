@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"

@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -43,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -112,10 +112,10 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	err = eb.Close()
 	require.NoError(t, err)
 
-	// Can't start more than once (Broadcaster implements utils.StartStopOnce)
+	// Can't start more than once (Broadcaster uses services.StateMachine)
 	err = eb.Start(ctx)
 	require.Error(t, err)
-	// Can't close more than once (Broadcaster implements utils.StartStopOnce)
+	// Can't close more than once (Broadcaster uses services.StateMachine)
 	err = eb.Close()
 	require.Error(t, err)
 
@@ -255,7 +255,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		tr := int32(99)
 		b, err := json.Marshal(txmgr.TxMeta{JobID: &tr})
 		require.NoError(t, err)
-		meta := datatypes.JSON(b)
+		meta := sqlutil.JSON(b)
 		earlierEthTx := txmgr.Tx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,

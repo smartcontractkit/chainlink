@@ -8,29 +8,27 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/patrickmn/go-cache"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mocks"
-
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -205,7 +203,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				e.client = client
 			}
 
-			state, retryable := e.verifyCheckBlock(context.Background(), tc.checkBlock, tc.upkeepId, tc.checkHash)
+			state, retryable := e.verifyCheckBlock(testutils.Context(t), tc.checkBlock, tc.upkeepId, tc.checkHash)
 			assert.Equal(t, tc.state, state)
 			assert.Equal(t, tc.retryable, retryable)
 		})
@@ -350,7 +348,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			e := &EvmRegistry{
 				lggr: lggr,
 				bs:   bs,
-				ctx:  context.Background(),
+				ctx:  testutils.Context(t),
 			}
 
 			if tc.makeEthCall {
@@ -530,7 +528,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			}
 			e.client = client
 
-			results, err := e.checkUpkeeps(context.Background(), tc.inputs)
+			results, err := e.checkUpkeeps(testutils.Context(t), tc.inputs)
 			assert.Equal(t, tc.results, results)
 			assert.Equal(t, tc.err, err)
 		})
@@ -651,7 +649,7 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 				}).Once()
 			e.client = client
 
-			results, err := e.simulatePerformUpkeeps(context.Background(), tc.inputs)
+			results, err := e.simulatePerformUpkeeps(testutils.Context(t), tc.inputs)
 			assert.Equal(t, tc.results, results)
 			assert.Equal(t, tc.err, err)
 		})

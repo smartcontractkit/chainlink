@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 )
 
 // UpkeepStateReader is the interface for reading the current state of upkeeps.

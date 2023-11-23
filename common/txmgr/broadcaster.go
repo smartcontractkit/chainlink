@@ -135,7 +135,7 @@ type Broadcaster[
 	// Each key has its own trigger
 	triggers map[ADDR]chan struct{}
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wg     sync.WaitGroup
 
 	initSync  sync.Mutex
