@@ -1134,7 +1134,8 @@ func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID 
 	defer cancel()
 
 	var count int32
-	err = o.q.GetContext(ctx, &count, `
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.GetContext(ctx, &count, `
     SELECT COUNT(evm.receipts.receipt) FROM evm.txes
     INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
     INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
