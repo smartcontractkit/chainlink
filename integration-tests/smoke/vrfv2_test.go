@@ -8,8 +8,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
@@ -44,7 +44,7 @@ func TestVRFv2Basic(t *testing.T) {
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
 	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
 
-	vrfv2Contracts, subIDs, vrfv2Data, err := vrfv2.SetupVRFV2Environment(
+	vrfv2Contracts, subIDs, vrfv2Data, err := vrfv2_actions.SetupVRFV2Environment(
 		env,
 		vrfv2Config,
 		linkToken,
@@ -61,7 +61,7 @@ func TestVRFv2Basic(t *testing.T) {
 	subscription, err := vrfv2Contracts.Coordinator.GetSubscription(context.Background(), subID)
 	require.NoError(t, err, "error getting subscription information")
 
-	vrfv2.LogSubDetails(l, subscription, subID, vrfv2Contracts.Coordinator)
+	vrfv2_actions.LogSubDetails(l, subscription, subID, vrfv2Contracts.Coordinator)
 
 	t.Run("Request Randomness", func(t *testing.T) {
 		testConfig := vrfv2Config
@@ -72,7 +72,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
-		randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
+		randomWordsFulfilledEvent, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
 			vrfv2Contracts.LoadTestConsumers[0],
 			vrfv2Contracts.Coordinator,
 			vrfv2Data,

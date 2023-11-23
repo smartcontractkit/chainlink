@@ -19,20 +19,20 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 )
 
 var (
 	env              *test_env.CLClusterTestEnv
-	vrfv2Contracts   *vrfv2.VRFV2Contracts
-	vrfv2Data        *vrfv2.VRFV2Data
+	vrfv2Contracts   *vrfv2_actions.VRFV2Contracts
+	vrfv2Data        *vrfv2_actions.VRFV2Data
 	subIDs           []uint64
 	eoaWalletAddress string
 
@@ -130,9 +130,9 @@ func TestVRFV2Performance(t *testing.T) {
 		if cfg.ExistingEnvConfig.CreateFundSubsAndAddConsumers {
 			linkToken, err := env.ContractLoader.LoadLINKToken(vrfv2Config.LinkAddress)
 			require.NoError(t, err)
-			consumers, err = vrfv2.DeployVRFV2Consumers(env.ContractDeployer, coordinator, 1)
+			consumers, err = vrfv2_actions.DeployVRFV2Consumers(env.ContractDeployer, coordinator, 1)
 			require.NoError(t, err)
-			subIDs, err = vrfv2.CreateFundSubsAndAddConsumers(
+			subIDs, err = vrfv2_actions.CreateFundSubsAndAddConsumers(
 				env,
 				vrfv2Config,
 				linkToken,
@@ -151,14 +151,14 @@ func TestVRFV2Performance(t *testing.T) {
 		err = FundNodesIfNeeded(cfg, env.EVMClient, l)
 		require.NoError(t, err)
 
-		vrfv2Contracts = &vrfv2.VRFV2Contracts{
+		vrfv2Contracts = &vrfv2_actions.VRFV2Contracts{
 			Coordinator:       coordinator,
 			LoadTestConsumers: consumers,
 			BHS:               nil,
 		}
 
-		vrfv2Data = &vrfv2.VRFV2Data{
-			VRFV2KeyData: vrfv2.VRFV2KeyData{
+		vrfv2Data = &vrfv2_actions.VRFV2Data{
+			VRFV2KeyData: vrfv2_actions.VRFV2KeyData{
 				VRFKey:            nil,
 				EncodedProvingKey: [2]*big.Int{},
 				KeyHash:           common.HexToHash(vrfv2Config.KeyHash),
@@ -216,7 +216,7 @@ func TestVRFV2Performance(t *testing.T) {
 		linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 		require.NoError(t, err, "error deploying LINK contract")
 
-		vrfv2Contracts, subIDs, vrfv2Data, err = vrfv2.SetupVRFV2Environment(
+		vrfv2Contracts, subIDs, vrfv2Data, err = vrfv2_actions.SetupVRFV2Environment(
 			env,
 			vrfv2Config,
 			linkToken,
@@ -235,7 +235,7 @@ func TestVRFV2Performance(t *testing.T) {
 	for _, subID := range subIDs {
 		subscription, err := vrfv2Contracts.Coordinator.GetSubscription(context.Background(), subID)
 		require.NoError(t, err, "error getting subscription information for subscription %d", subID)
-		vrfv2.LogSubDetails(l, subscription, subID, vrfv2Contracts.Coordinator)
+		vrfv2_actions.LogSubDetails(l, subscription, subID, vrfv2Contracts.Coordinator)
 	}
 
 	singleFeedConfig := &wasp.Config{
@@ -275,7 +275,7 @@ func TestVRFV2Performance(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//todo - timeout should be configurable depending on the perf test type
-		requestCount, fulfilmentCount, err := vrfv2.WaitForRequestCountEqualToFulfilmentCount(consumer, 2*time.Minute, &wg)
+		requestCount, fulfilmentCount, err := vrfv2_actions.WaitForRequestCountEqualToFulfilmentCount(consumer, 2*time.Minute, &wg)
 		require.NoError(t, err)
 		wg.Wait()
 

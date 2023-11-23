@@ -21,8 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf/ocr2vrf_constants"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -162,7 +162,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
 			require.NoError(t, err, "Error deploying Mock ETH/LINK Feed")
 
-			_, _, vrfBeaconContract, consumerContract, subID := ocr2vrf.SetupOCR2VRFUniverse(
+			_, _, vrfBeaconContract, consumerContract, subID := ocr2vrf_actions.SetupOCR2VRFUniverse(
 				t,
 				linkToken,
 				mockETHLinkFeed,
@@ -174,7 +174,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			)
 
 			//Request and Redeem Randomness to verify that process works fine
-			requestID := ocr2vrf.RequestAndRedeemRandomness(
+			requestID := ocr2vrf_actions.RequestAndRedeemRandomness(
 				t,
 				consumerContract,
 				chainClient,
@@ -201,7 +201,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			l.Info().Msg("Chaos Recovered")
 
 			//Request and Redeem Randomness again to see that after Chaos Experiment whole process is still working
-			requestID = ocr2vrf.RequestAndRedeemRandomness(
+			requestID = ocr2vrf_actions.RequestAndRedeemRandomness(
 				t,
 				consumerContract,
 				chainClient,

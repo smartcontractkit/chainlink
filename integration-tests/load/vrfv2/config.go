@@ -3,8 +3,9 @@ package loadvrfv2
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
 	"os"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog/log"

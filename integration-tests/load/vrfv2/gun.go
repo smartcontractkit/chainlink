@@ -7,14 +7,14 @@ import (
 
 	"github.com/smartcontractkit/wasp"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
 )
 
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */
 
 type SingleHashGun struct {
-	contracts   *vrfv2.VRFV2Contracts
+	contracts   *vrfv2_actions.VRFV2Contracts
 	keyHash     [32]byte
 	subIDs      []uint64
 	vrfv2Config vrfv2_config.VRFV2Config
@@ -22,7 +22,7 @@ type SingleHashGun struct {
 }
 
 func NewSingleHashGun(
-	contracts *vrfv2.VRFV2Contracts,
+	contracts *vrfv2_actions.VRFV2Contracts,
 	keyHash [32]byte,
 	subIDs []uint64,
 	vrfv2Config vrfv2_config.VRFV2Config,
@@ -43,11 +43,11 @@ func (m *SingleHashGun) Call(l *wasp.Generator) *wasp.CallResult {
 
 	//randomly increase/decrease randomness request count per TX
 	randomnessRequestCountPerRequest := deviateValue(m.vrfv2Config.RandomnessRequestCountPerRequest, m.vrfv2Config.RandomnessRequestCountPerRequestDeviation)
-	_, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
+	_, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.LoadTestConsumers[0],
 		m.contracts.Coordinator,
-		&vrfv2.VRFV2Data{VRFV2KeyData: vrfv2.VRFV2KeyData{KeyHash: m.keyHash}},
+		&vrfv2_actions.VRFV2Data{VRFV2KeyData: vrfv2_actions.VRFV2KeyData{KeyHash: m.keyHash}},
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		//randomly pick payment type
