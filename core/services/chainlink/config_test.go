@@ -227,11 +227,13 @@ func TestConfig_Marshal(t *testing.T) {
 				Enabled:         ptr(true),
 				CollectorTarget: ptr("localhost:4317"),
 				NodeID:          ptr("clc-ocr-sol-devnet-node-1"),
+				SamplingRatio:   ptr(1.0),
+				Mode:            ptr("tls"),
+				TLSCertPath:     ptr("/path/to/cert.pem"),
 				Attributes: map[string]string{
 					"test": "load",
 					"env":  "dev",
 				},
-				SamplingRatio: ptr(1.0),
 			},
 		},
 	}
@@ -689,6 +691,8 @@ Enabled = true
 CollectorTarget = 'localhost:4317'
 NodeID = 'clc-ocr-sol-devnet-node-1'
 SamplingRatio = 1.0
+Mode = 'tls'
+TLSCertPath = '/path/to/cert.pem'
 
 [Tracing.Attributes]
 env = 'dev'
@@ -1535,6 +1539,82 @@ func TestConfig_SetFrom(t *testing.T) {
 			ts, err := c.TOMLString()
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, ts)
+		})
+	}
+}
+
+func TestConfig_Warnings(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         Config
+		expectedErrors []string
+	}{
+		{
+			name:           "No warnings",
+			config:         Config{},
+			expectedErrors: nil,
+		},
+		{
+			name: "Value warning - unencrypted mode with TLS path set",
+			config: Config{
+				Core: toml.Core{
+					Tracing: toml.Tracing{
+						Enabled:     ptr(true),
+						Mode:        ptr("unencrypted"),
+						TLSCertPath: ptr("/path/to/cert.pem"),
+					},
+				},
+			},
+			expectedErrors: []string{"Tracing.TLSCertPath: invalid value (/path/to/cert.pem): must be empty when Tracing.Mode is 'unencrypted'"},
+		},
+		{
+			name: "Deprecation warning - P2P.V1 fields set",
+			config: Config{
+				Core: toml.Core{
+					P2P: toml.P2P{
+						V1: toml.P2PV1{
+							Enabled: ptr(true),
+						},
+					},
+				},
+			},
+			expectedErrors: []string{
+				"P2P.V1: is deprecated and will be removed in a future version",
+			},
+		},
+		{
+			name: "Value warning and deprecation warning",
+			config: Config{
+				Core: toml.Core{
+					P2P: toml.P2P{
+						V1: toml.P2PV1{
+							Enabled: ptr(true),
+						},
+					},
+					Tracing: toml.Tracing{
+						Enabled:     ptr(true),
+						Mode:        ptr("unencrypted"),
+						TLSCertPath: ptr("/path/to/cert.pem"),
+					},
+				},
+			},
+			expectedErrors: []string{
+				"Tracing.TLSCertPath: invalid value (/path/to/cert.pem): must be empty when Tracing.Mode is 'unencrypted'",
+				"P2P.V1: is deprecated and will be removed in a future version",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.warnings()
+			if len(tt.expectedErrors) == 0 {
+				assert.NoError(t, err)
+			} else {
+				for _, expectedErr := range tt.expectedErrors {
+					assert.Contains(t, err.Error(), expectedErr)
+				}
+			}
 		})
 	}
 }

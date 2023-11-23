@@ -239,6 +239,8 @@ Enabled = true
 CollectorTarget = 'localhost:4317'
 NodeID = 'clc-ocr-sol-devnet-node-1'
 SamplingRatio = 1.0
+Mode = 'tls'
+TLSCertPath = '/path/to/cert.pem'
 
 [Tracing.Attributes]
 env = 'dev'

@@ -137,7 +137,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		return nil, err
 	}
 
-	_, warning := utils.MultiErrorList(o.Config.deprecationWarnings())
+	_, warning := utils.MultiErrorList(o.Config.warnings())
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {

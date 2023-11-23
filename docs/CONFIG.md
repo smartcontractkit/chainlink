@@ -1602,9 +1602,11 @@ DisableRateLimiting skips ratelimiting on asset requests.
 ```toml
 [Tracing]
 Enabled = false # Default
-CollectorTarget = "localhost:4317" # Example
-NodeID = "NodeID" # Example
+CollectorTarget = 'localhost:4317' # Example
+NodeID = 'NodeID' # Example
 SamplingRatio = 1.0 # Example
+Mode = 'tls' # Default
+TLSCertPath = '/path/to/cert.pem' # Example
 ```
 
 
@@ -1616,13 +1618,13 @@ Enabled turns trace collection on or off. On requires an OTEL Tracing Collector.
 
 ### CollectorTarget
 ```toml
-CollectorTarget = "localhost:4317" # Example
+CollectorTarget = 'localhost:4317' # Example
 ```
 CollectorTarget is the logical address of the OTEL Tracing Collector.
 
 ### NodeID
 ```toml
-NodeID = "NodeID" # Example
+NodeID = 'NodeID' # Example
 ```
 NodeID is an unique name for this node relative to any other node traces are collected for.
 
@@ -1632,16 +1634,28 @@ SamplingRatio = 1.0 # Example
 ```
 SamplingRatio is the ratio of traces to sample for this node.
 
+### Mode
+```toml
+Mode = 'tls' # Default
+```
+Mode is a string value. `tls` or `unencrypted` are the only values allowed. If set to `unencrypted`, `TLSCertPath` can be unset, meaning traces will be sent over plaintext to the collector.
+
+### TLSCertPath
+```toml
+TLSCertPath = '/path/to/cert.pem' # Example
+```
+TLSCertPath is the file path to the TLS certificate used for secure communication with an OTEL Tracing Collector.
+
 ## Tracing.Attributes
 ```toml
 [Tracing.Attributes]
-env = "test" # Example
+env = 'test' # Example
 ```
 Tracing.Attributes are user specified key-value pairs to associate in the context of the traces
 
 ### env
 ```toml
-env = "test" # Example
+env = 'test' # Example
 ```
 env is an example user specified key-value pair
 
