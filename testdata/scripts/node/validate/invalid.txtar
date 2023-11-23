@@ -278,6 +278,8 @@ Enabled = false
 CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
+Mode = 'tls'
+TLSCertPath = ''
 
 [[EVM]]
 ChainID = '1'
