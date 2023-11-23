@@ -442,7 +442,6 @@ func RequestRandomnessAndWaitForFulfillment(
 	coordinator contracts.VRFCoordinatorV2,
 	vrfv2Data *VRFV2Data,
 	subID uint64,
-	isNativeBilling bool,
 	randomnessRequestCountPerRequest uint16,
 	vrfv2Config vrfv2_config.VRFV2Config,
 	randomWordsFulfilledEventTimeout time.Duration,
@@ -466,7 +465,6 @@ func RequestRandomnessAndWaitForFulfillment(
 		coordinator,
 		vrfv2Data,
 		subID,
-		isNativeBilling,
 		randomWordsFulfilledEventTimeout,
 		l,
 	)
@@ -477,7 +475,6 @@ func WaitForRequestAndFulfillmentEvents(
 	coordinator contracts.VRFCoordinatorV2,
 	vrfv2Data *VRFV2Data,
 	subID uint64,
-	isNativeBilling bool,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error) {
@@ -491,7 +488,7 @@ func WaitForRequestAndFulfillmentEvents(
 		return nil, fmt.Errorf("%s, err %w", ErrWaitRandomWordsRequestedEvent, err)
 	}
 
-	LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
+	LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent)
 
 	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
 		[]*big.Int{randomWordsRequestedEvent.RequestId},
@@ -501,7 +498,7 @@ func WaitForRequestAndFulfillmentEvents(
 		return nil, fmt.Errorf("%s, err %w", ErrWaitRandomWordsFulfilledEvent, err)
 	}
 
-	LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, isNativeBilling)
+	LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent)
 	return randomWordsFulfilledEvent, err
 }
 
@@ -564,11 +561,9 @@ func LogRandomnessRequestedEvent(
 	l zerolog.Logger,
 	coordinator contracts.VRFCoordinatorV2,
 	randomWordsRequestedEvent *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested,
-	isNativeBilling bool,
 ) {
 	l.Debug().
 		Str("Coordinator", coordinator.Address()).
-		Bool("Native Billing", isNativeBilling).
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
 		Uint64("Subscription ID", randomWordsRequestedEvent.SubId).
 		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
@@ -583,10 +578,8 @@ func LogRandomWordsFulfilledEvent(
 	l zerolog.Logger,
 	coordinator contracts.VRFCoordinatorV2,
 	randomWordsFulfilledEvent *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled,
-	isNativeBilling bool,
 ) {
 	l.Debug().
-		Bool("Native Billing", isNativeBilling).
 		Str("Coordinator", coordinator.Address()).
 		Str("Total Payment", randomWordsFulfilledEvent.Payment.String()).
 		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
