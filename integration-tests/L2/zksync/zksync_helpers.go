@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -49,6 +50,7 @@ type ZKSyncClient struct {
 	ChainClient          blockchain.EVMClient
 	ChainlinkNodes       []*client.ChainlinkK8sClient
 	Mockserver           *ctfClient.MockserverClient
+	TestNetwork          blockchain.EVMNetwork
 }
 
 func Setup(L2RPC string, privateKey string, client blockchain.EVMClient) (*ZKSyncClient, error) {
@@ -111,8 +113,7 @@ func (z *ZKSyncClient) SetPayees(ocrAddress string, payees []string, transmitter
 }
 func (z *ZKSyncClient) CreateKeys(chainlinkNodes []*client.ChainlinkClient) error {
 	var err error
-
-	z.NKeys, _, err = client.CreateNodeKeysBundle(chainlinkNodes, "evm", "280")
+	z.NKeys, _, err = client.CreateNodeKeysBundle(chainlinkNodes, "evm", strconv.FormatInt(z.TestNetwork.ChainID, 10))
 	if err != nil {
 		return err
 	}
@@ -235,6 +236,7 @@ func (z *ZKSyncClient) DeployContracts(chainlinkClient blockchain.EVMClient, ocr
 func (z *ZKSyncClient) DeployOCRFeed(testEnvironment *environment.Environment, chainClient blockchain.EVMClient, chainlinkNodes []*client.ChainlinkK8sClient, testNetwork blockchain.EVMNetwork, l zerolog.Logger) error {
 	z.ChainClient = chainClient
 	z.ChainlinkNodes = chainlinkNodes
+	z.TestNetwork = testNetwork
 
 	var chainlinkClients []*client.ChainlinkClient
 	for _, k8sClient := range z.ChainlinkNodes {

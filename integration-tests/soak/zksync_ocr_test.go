@@ -28,9 +28,6 @@ func TestOCRZKSync(t *testing.T) {
 	timeBetweenRounds, isSet := os.LookupEnv("OCR_TIME_BETWEEN_ROUNDS")
 	require.Equal(t, isSet, true, "OCR_TIME_BETWEEN_ROUNDS should be defined")
 
-	//gauntletBinary, isSet := os.LookupEnv("GAUNTLET_LOCAL_BINARY")
-	require.Equal(t, isSet, true, "GAUNTLET_LOCAL_BINARY should be defined")
-
 	testEnvironment, testNetwork, err := zksync.SetupOCRTest(t)
 	require.NoError(t, err)
 
