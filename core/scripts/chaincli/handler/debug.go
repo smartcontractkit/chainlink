@@ -256,9 +256,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			message("upkeep reverted with StreamsLookup")
 			message(fmt.Sprintf("StreamsLookup data: {FeedParamKey: %s, Feeds: %v, TimeParamKey: %s, Time: %d, ExtraData: %s}", streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time.Uint64(), hexutil.Encode(streamsLookupErr.ExtraData)))
 
-			//ocr2KeepersCheckResult := mustOcr2KeepersCheckResult(upkeepID, checkResult, trigger)
-			//_resultsAfterLookup := streamsLookup.Lookup(ctx, []ocr2keepers.CheckResult{ocr2KeepersCheckResult})
-
+			// check if upkeep is allowed to use mercury
 			_, _, _, allowed, err := streams.AllowedToUseMercury(latestCallOpts, upkeepID)
 			if err != nil {
 				failUnknown("failed to check if upkeep is allowed to use mercury", err)
@@ -266,32 +264,6 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			if !allowed {
 				resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
 			}
-
-			//if streamsLookupErr.FeedParamKey == feedIdHex && streamsLookupErr.TimeParamKey == blockNumber {
-			//	message("using mercury lookup v0.2")
-			//	// handle v0.2
-			//	cfg, err := keeperRegistry21.GetUpkeepPrivilegeConfig(triggerCallOpts, upkeepID)
-			//	if err != nil {
-			//		failUnknown("failed to get upkeep privilege config ", err)
-			//	}
-			//	allowed := false
-			//	if len(cfg) > 0 {
-			//		var privilegeConfig streams.UpkeepPrivilegeConfig
-			//		if err := json.Unmarshal(cfg, &privilegeConfig); err != nil {
-			//			failUnknown("failed to unmarshal privilege config ", err)
-			//		}
-			//		allowed = privilegeConfig.MercuryEnabled
-			//	}
-			//	if !allowed {
-			//		resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
-			//	}
-			//} else if streamsLookupErr.FeedParamKey != feedIDs || streamsLookupErr.TimeParamKey != timestamp {
-			//	// handle v0.3
-			//	resolveIneligible("upkeep reverted with StreamsLookup but the configuration is invalid")
-			//} else {
-			//	message("using mercury lookup v0.3")
-			//}
-			//streamsLookup := &mercury.StreamsLookup{streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time, streamsLookupErr.ExtraData, upkeepID, blockNum}
 
 			streamsLookup := &mercury.StreamsLookup{
 				StreamsLookupError: &mercury.StreamsLookupError{
@@ -309,52 +281,41 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				failCheckConfig("Mercury configs not set properly, check your MERCURY_LEGACY_URL, MERCURY_URL, MERCURY_ID and MERCURY_KEY", nil)
 			}
 
-			// (ctx context.Context, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int)
+			// do mercury request
 			ocr2KeepersCheckResult := mustOcr2KeepersCheckResult(upkeepID, checkResult, trigger)
-			values, err := streams.DoMercuryRequest(ctx, streamsLookup, []ocr2keepers.CheckResult{ocr2KeepersCheckResult}, 0)
+			checkResults := []ocr2keepers.CheckResult{ocr2KeepersCheckResult}
+			values, err := streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
+
+			if checkResults[0].IneligibilityReason == uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput) {
+				resolveIneligible("upkeep used invalid revert data")
+			}
+			if checkResults[0].PipelineExecutionState == uint8(mercury.InvalidMercuryRequest) {
+				resolveIneligible("the mercury request data is invalid")
+			}
 			if err != nil {
 				resolveIneligible("failed to DoMercuryRequest")
 			}
-			//handler := NewMercuryLookupHandler(&MercuryCredentials{k.cfg.MercuryLegacyURL, k.cfg.MercuryURL, k.cfg.MercuryID, k.cfg.MercuryKey}, k.rpcClient)
-			//state, failureReason, values, _, err := handler.doMercuryRequest(ctx, streamsLookup)
-			//if failureReason == UpkeepFailureReasonInvalidRevertDataInput {
-			//	resolveIneligible("upkeep used invalid revert data")
-			//}
-			//if state == InvalidMercuryRequest {
-			//	resolveIneligible("the mercury request data is invalid")
-			//}
-			//if err != nil {
-			//	failCheckConfig("failed to do mercury request ", err)
-			//}
 
-			//ctx context.Context, values [][]byte, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int
-			err = streams.CheckCallback(ctx, values, streamsLookup, []ocr2keepers.CheckResult{ocr2KeepersCheckResult}, 0)
+			// do checkCallback
+			err = streams.CheckCallback(ctx, values, streamsLookup, checkResults, 0)
 			if err != nil {
 				failUnknown("failed to execute mercury callback ", err)
 			}
-			// values is the return of mercury DoRequest
-			// dont need to run callback manually now, just need to bubble up the error
-			//callbackResult, err := keeperRegistry21.CheckCallback(triggerCallOpts, upkeepID, values, streamsLookup.extraData)
-			//if err != nil {
-			//	failUnknown("failed to execute mercury callback ", err)
-			//}
-			//if callbackResult.UpkeepFailureReason != 0 {
-			//	message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
-			//}
-			//upkeepNeeded, performData = callbackResult.UpkeepNeeded, callbackResult.PerformData
-			//// do tenderly simulations
-			//rawCall, err := core.RegistryABI.Pack("checkCallback", upkeepID, values, streamsLookup.extraData)
-			//if err != nil {
-			//	failUnknown("failed to pack raw checkCallback call", err)
-			//}
-			//addLink("checkCallback simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
-			//rawCall, err = core.StreamsCompatibleABI.Pack("checkCallback", values, streamsLookup.extraData)
-			//if err != nil {
-			//	failUnknown("failed to pack raw checkCallback (direct) call", err)
-			//}
-			//addLink("checkCallback (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
-
-			// TODO how to do the above simulation?
+			if checkResults[0].IneligibilityReason != 0 {
+				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResults[0].IneligibilityReason))
+			}
+			upkeepNeeded, performData = checkResults[0].Eligible, checkResults[0].PerformData
+			// do tenderly simulations for checkCallback
+			rawCall, err := core.RegistryABI.Pack("checkCallback", upkeepID, values, streamsLookup.ExtraData)
+			if err != nil {
+				failUnknown("failed to pack raw checkCallback call", err)
+			}
+			addLink("checkCallback simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+			rawCall, err = core.StreamsCompatibleABI.Pack("checkCallback", values, streamsLookup.ExtraData)
+			if err != nil {
+				failUnknown("failed to pack raw checkCallback (direct) call", err)
+			}
+			addLink("checkCallback (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
 		} else {
 			message("did not revert with StreamsLookup error")
 		}
@@ -374,17 +335,13 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 
 func mustOcr2KeepersCheckResult(upkeepID *big.Int, checkResult iregistry21.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
 	upkeepIdentifier := mustUpkeepIdentifier(upkeepID)
-	// mustOcr2KeepersCheckResult
 	checkResult2 := ocr2keepers.CheckResult{
-		//PipelineExecutionState: 0,                // Assuming success, you might need to modify this based on your logic
-		//Retryable:           false,            // Assuming not retryable, you might need to modify this based on your logic
-		//RetryInterval:       30 * time.Second, // Assuming a default retry interval, you might need to modify this based on your logic
 		Eligible:            checkResult.UpkeepNeeded,
 		IneligibilityReason: checkResult.UpkeepFailureReason,
-		UpkeepID:            upkeepIdentifier,                             // *ocr2keepers.UpkeepIdentifier, need type UpkeepIdentifier [32]byte
-		Trigger:             trigger,                                      // Assuming you have a way to get the Trigger
-		WorkID:              core.UpkeepWorkID(upkeepIdentifier, trigger), // Assuming you have a way to get the WorkID
-		GasAllocated:        0,                                            // Assuming a default gas allocated, you might need to modify this based on your logic
+		UpkeepID:            upkeepIdentifier,
+		Trigger:             trigger,
+		WorkID:              core.UpkeepWorkID(upkeepIdentifier, trigger),
+		GasAllocated:        0,
 		PerformData:         checkResult.PerformData,
 		FastGasWei:          checkResult.FastGasWei,
 		LinkNative:          checkResult.LinkNative,
