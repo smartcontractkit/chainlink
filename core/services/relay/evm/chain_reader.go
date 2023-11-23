@@ -30,12 +30,8 @@ type chainReader struct {
 }
 
 // NewChainReaderService constructor for ChainReader
-func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, contractID common.Address, relayConfig *types.RelayConfig) (*chainReader, error) {
-	if relayConfig.ChainReader == nil {
-		return nil, fmt.Errorf("%w: ChainReader missing from RelayConfig", errors.ErrUnsupported)
-	}
-
-	if err := validateChainReaderConfig(*relayConfig.ChainReader); err != nil {
+func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, contractID common.Address, config types.ChainReaderConfig) (*chainReader, error) {
+	if err := validateChainReaderConfig(config); err != nil {
 		return nil, err
 	}
 
@@ -86,6 +82,10 @@ func (cr *chainReader) GetMaxDecodingSize(ctx context.Context, n int, itemType s
 }
 
 func validateChainReaderConfig(cfg types.ChainReaderConfig) error {
+	if len(cfg.ChainContractReaders) == 0 {
+		return fmt.Errorf("chain reader config is empty")
+	}
+
 	for contractName, chainContractReader := range cfg.ChainContractReaders {
 		abi, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
 		if err != nil {

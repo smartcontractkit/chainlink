@@ -530,17 +530,16 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 		medianContract:      medianContract,
 	}
 
-	chainReader, err := NewChainReaderService(lggr, r.chain.LogPoller(), contractID, &relayConfig)
-	if err != nil {
-		if errors.Is(err, errors.ErrUnsupported) {
-			// ignore for now, until we can remove old MedianContract code from MedianProvider
-			lggr.Info("ChainReader missing from RelayConfig; falling back to internal MedianContract")
-			medianProvider.chainReader = nil
-			return &medianProvider, nil
+	// allow fallback until chain reader is default and median contract is removed, but still log just in case
+	var chainReaderService commontypes.ChainReader
+	if relayConfig.ChainReader != nil {
+		if chainReaderService, err = NewChainReaderService(lggr, r.chain.LogPoller(), contractID, *relayConfig.ChainReader); err != nil {
+			return nil, err
 		}
-		return nil, err
+	} else {
+		lggr.Info("ChainReader missing from RelayConfig; falling back to internal MedianContract")
 	}
-	medianProvider.chainReader = chainReader
+	medianProvider.chainReader = chainReaderService
 
 	return &medianProvider, nil
 }
