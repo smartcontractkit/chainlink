@@ -75,9 +75,8 @@ func NewSendOnlyNode[
 ) SendOnlyNode[CHAIN_ID, RPC] {
 	s := new(sendOnlyNode[CHAIN_ID, RPC])
 	s.name = name
-	s.log = logger.Named(lggr, "SendOnlyNode")
-	s.log = logger.Named(lggr, name)
-	s.log = logger.With(lggr,
+	s.log = logger.Named(logger.Named(lggr, "SendOnlyNode"), name)
+	s.log = logger.With(s.log,
 		"nodeTier", "sendonly",
 	)
 	s.rpc = rpc
