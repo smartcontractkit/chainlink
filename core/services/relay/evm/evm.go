@@ -502,6 +502,10 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	if expectedChainID != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
+	if !common.IsHexAddress(relayOpts.ContractID) {
+		return nil, fmt.Errorf("invalid contractID %s, expected hex address", relayOpts.ContractID)
+	}
+	contractID := common.HexToAddress(relayOpts.ContractID)
 
 	configWatcher, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
@@ -526,7 +530,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 		medianContract:      medianContract,
 	}
 
-	chainReader, err := NewChainReaderService(lggr, r.chain.LogPoller(), relayOpts)
+	chainReader, err := NewChainReaderService(lggr, r.chain.LogPoller(), contractID, &relayConfig)
 	if err != nil {
 		if errors.Is(err, errors.ErrUnsupported) {
 			// ignore for now, until we can remove old MedianContract code from MedianProvider
