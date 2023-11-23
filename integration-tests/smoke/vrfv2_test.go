@@ -65,7 +65,6 @@ func TestVRFv2Basic(t *testing.T) {
 
 	t.Run("Request Randomness", func(t *testing.T) {
 		testConfig := vrfv2Config
-		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
 		jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2Data.VRFJob.Data.ID)
@@ -77,7 +76,6 @@ func TestVRFv2Basic(t *testing.T) {
 			vrfv2Contracts.Coordinator,
 			vrfv2Data,
 			subID,
-			isNativeBilling,
 			testConfig.RandomnessRequestCountPerRequest,
 			testConfig,
 			testConfig.RandomWordsFulfilledEventTimeout,
