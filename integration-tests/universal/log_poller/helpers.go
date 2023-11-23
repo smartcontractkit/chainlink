@@ -1064,7 +1064,8 @@ func setupLogPollerTestDocker(
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 
-	waitForChainToFinaliseFirstEpoch(l, env.EVMClient)
+	err = waitForChainToFinaliseFirstEpoch(l, env.EVMClient)
+	require.NoError(t, err, "Error waiting for chain to finalise first epoch")
 
 	env.ParallelTransactions(true)
 	nodeClients := env.ClCluster.NodeAPIs()
@@ -1130,10 +1131,7 @@ func waitForChainToFinaliseFirstEpoch(lggr zerolog.Logger, evmClient blockchain.
 
 	chainStarted := false
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), pollInterval)
-		defer cancel()
-
-		finalized, err := evmClient.GetLatestFinalizedBlockHeader(ctx)
+		finalized, err := evmClient.GetLatestFinalizedBlockHeader(context.Background())
 		if err != nil {
 			if strings.Contains(err.Error(), "finalized block not found") {
 				lggr.Err(err).Msgf("error getting finalized block number for %s", evmClient.GetNetworkName())
