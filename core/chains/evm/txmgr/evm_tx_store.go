@@ -18,16 +18,16 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	nullv4 "gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -115,7 +115,7 @@ type rawOnchainReceipt = evmtypes.Receipt
 // Does not map to a single database table.
 // It's comprised of fields from different tables.
 type dbReceiptPlus struct {
-	ID           uuid.UUID        `db:"id"`
+	ID           uuid.UUID        `db:"pipeline_task_run_id"`
 	Receipt      evmtypes.Receipt `db:"receipt"`
 	FailOnRevert bool             `db:"FailOnRevert"`
 }
@@ -171,15 +171,19 @@ type DbEthTx struct {
 	// Marshalled EvmTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
-	Meta              *datatypes.JSON
+	Meta              *sqlutil.JSON
 	Subject           uuid.NullUUID
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  null.Uint32
 	EVMChainID        utils.Big
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
-	TransmitChecker    *datatypes.JSON
+	TransmitChecker    *sqlutil.JSON
 	InitialBroadcastAt *time.Time
+	// Marks tx requiring callback
+	SignalCallback bool
+	// Marks tx callback as signaled
+	CallbackCompleted bool
 }
 
 func (db *DbEthTx) FromTx(tx *Tx) {
@@ -200,6 +204,8 @@ func (db *DbEthTx) FromTx(tx *Tx) {
 	db.MinConfirmations = tx.MinConfirmations
 	db.TransmitChecker = tx.TransmitChecker
 	db.InitialBroadcastAt = tx.InitialBroadcastAt
+	db.SignalCallback = tx.SignalCallback
+	db.CallbackCompleted = tx.CallbackCompleted
 
 	if tx.ChainID != nil {
 		db.EVMChainID = *utils.NewBig(tx.ChainID)
@@ -233,6 +239,8 @@ func (db DbEthTx) ToTx(tx *Tx) {
 	tx.ChainID = db.EVMChainID.ToInt()
 	tx.TransmitChecker = db.TransmitChecker
 	tx.InitialBroadcastAt = db.InitialBroadcastAt
+	tx.SignalCallback = db.SignalCallback
+	tx.CallbackCompleted = db.CallbackCompleted
 }
 
 func dbEthTxsToEvmEthTxs(dbEthTxs []DbEthTx) []Tx {
@@ -512,8 +520,8 @@ func (o *evmTxStore) InsertTx(etx *Tx) error {
 	if etx.CreatedAt == (time.Time{}) {
 		etx.CreatedAt = time.Now()
 	}
-	const insertEthTxSQL = `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, initial_broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, transmit_checker, idempotency_key) VALUES (
-:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :initial_broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :transmit_checker, :idempotency_key
+	const insertEthTxSQL = `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, initial_broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, transmit_checker, idempotency_key, signal_callback, callback_completed) VALUES (
+:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :initial_broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :transmit_checker, :idempotency_key, :signal_callback, :callback_completed
 ) RETURNING *`
 	var dbTx DbEthTx
 	dbTx.FromTx(etx)
@@ -941,23 +949,38 @@ WHERE evm.tx_attempts.state = 'in_progress' AND evm.txes.from_address = $1 AND e
 	return attempts, pkgerrors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
-func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error) {
+// Find confirmed txes requiring callback but have not yet been signaled
+func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error) {
 	var rs []dbReceiptPlus
 
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	err = o.q.SelectContext(ctx, &rs, `
-	SELECT pipeline_task_runs.id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
-	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
-	INNER JOIN evm.txes ON evm.txes.pipeline_task_run_id = pipeline_task_runs.id
+	SELECT evm.txes.pipeline_task_run_id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM evm.txes
 	INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
 	INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
-	WHERE pipeline_runs.state = 'suspended' AND evm.receipts.block_number <= ($1 - evm.txes.min_confirmations) AND evm.txes.evm_chain_id = $2
+	WHERE evm.txes.pipeline_task_run_id IS NOT NULL AND evm.txes.signal_callback = TRUE AND evm.txes.callback_completed = FALSE
+	AND evm.receipts.block_number <= ($1 - evm.txes.min_confirmations) AND evm.txes.evm_chain_id = $2
 	`, blockNum, chainID.String())
-
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve transactions pending pipeline resume callback: %w", err)
+	}
 	receiptsPlus = fromDBReceiptsPlus(rs)
 	return
+}
+
+// Update tx to mark that its callback has been signaled
+func (o *evmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunId uuid.UUID, chainId *big.Int) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	_, err := qq.Exec(`UPDATE evm.txes SET callback_completed = TRUE WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, pipelineTaskRunId, chainId.String())
+	if err != nil {
+		return fmt.Errorf("failed to mark callback completed for transaction: %w", err)
+	}
+	return nil
 }
 
 func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (nonce evmtypes.Nonce, err error) {
@@ -1084,11 +1107,9 @@ ORDER BY nonce ASC
 	return etxs, pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
 }
 
-func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func saveAttemptWithNewState(ctx context.Context, q pg.Queryer, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
 	var dbAttempt DbEthTxAttempt
 	dbAttempt.FromTxAttempt(&attempt)
-	defer cancel()
 	return pg.SqlxTransaction(ctx, q, logger, func(tx pg.Queryer) error {
 		// In case of null broadcast_at (shouldn't happen) we don't want to
 		// update anyway because it indicates a state where broadcast_at makes
@@ -1110,15 +1131,19 @@ func (o *evmTxStore) SaveInsufficientFundsAttempt(ctx context.Context, timeout t
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
 	attempt.State = txmgrtypes.TxAttemptInsufficientFunds
-	return pkgerrors.Wrap(saveAttemptWithNewState(qq, timeout, o.logger, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
+	ctx, cancel = context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return pkgerrors.Wrap(saveAttemptWithNewState(ctx, qq, o.logger, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
 }
 
-func saveSentAttempt(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *TxAttempt, broadcastAt time.Time) error {
+func saveSentAttempt(ctx context.Context, q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *TxAttempt, broadcastAt time.Time) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	return pkgerrors.Wrap(saveAttemptWithNewState(q, timeout, logger, *attempt, broadcastAt), "saveSentAttempt failed")
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return pkgerrors.Wrap(saveAttemptWithNewState(ctx, q, logger, *attempt, broadcastAt), "saveSentAttempt failed")
 }
 
 func (o *evmTxStore) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt, broadcastAt time.Time) error {
@@ -1126,7 +1151,7 @@ func (o *evmTxStore) SaveSentAttempt(ctx context.Context, timeout time.Duration,
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	return saveSentAttempt(qq, timeout, o.logger, attempt, broadcastAt)
+	return saveSentAttempt(ctx, qq, timeout, o.logger, attempt, broadcastAt)
 }
 
 func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt, broadcastAt time.Time) error {
@@ -1135,7 +1160,7 @@ func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, tim
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err := qq.Transaction(func(tx pg.Queryer) error {
-		if err := saveSentAttempt(tx, timeout, o.logger, attempt, broadcastAt); err != nil {
+		if err := saveSentAttempt(ctx, tx, timeout, o.logger, attempt, broadcastAt); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`UPDATE evm.txes SET state = 'confirmed_missing_receipt' WHERE id = $1`, attempt.TxID); err != nil {
@@ -1426,7 +1451,6 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 }
 
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
-// One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
 func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
@@ -1661,12 +1685,12 @@ func (o *evmTxStore) CreateTransaction(ctx context.Context, txRequest TxRequest,
 			}
 		}
 		err = tx.Get(&dbEtx, `
-INSERT INTO evm.txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker, idempotency_key)
+INSERT INTO evm.txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker, idempotency_key, signal_callback)
 VALUES (
-$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11,$12
+$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11,$12,$13
 )
 RETURNING "txes".*
-`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.IdempotencyKey)
+`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.IdempotencyKey, txRequest.SignalCallback)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert evm tx")
 		}

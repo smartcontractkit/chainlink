@@ -1,12 +1,14 @@
 package loadvrfv2
 
 import (
+	"math/rand"
+
 	"github.com/rs/zerolog"
+
+	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
-	"github.com/smartcontractkit/wasp"
-	"math/rand"
 )
 
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */

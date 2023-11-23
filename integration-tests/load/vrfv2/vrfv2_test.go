@@ -2,28 +2,31 @@ package loadvrfv2
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	"github.com/smartcontractkit/wasp"
 	"math/big"
 	"os"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/kelseyhightower/envconfig"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2"
 )
 
 var (
@@ -292,9 +295,9 @@ func FundNodesIfNeeded(cfg *PerformanceConfig, client blockchain.EVMClient, l ze
 			if err != nil {
 				return err
 			}
-			fundingAtLeast := utils.EtherToWei(big.NewFloat(cfg.ExistingEnvConfig.NodeSendingKeyFundingMin))
+			fundingAtLeast := conversions.EtherToWei(big.NewFloat(cfg.ExistingEnvConfig.NodeSendingKeyFundingMin))
 			fundingToSendWei := new(big.Int).Sub(fundingAtLeast, sendingKeyBalance)
-			fundingToSendEth := utils.WeiToEther(fundingToSendWei)
+			fundingToSendEth := conversions.WeiToEther(fundingToSendWei)
 			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {
 				l.Info().
 					Str("Sending Key", sendingKey).

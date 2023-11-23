@@ -6,11 +6,10 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name sendOnlyClient --structname mockSendOnlyClient --filename "mock_send_only_client_test.go" --inpackage --case=underscore
@@ -59,7 +58,7 @@ type sendOnlyNode[
 	log     logger.Logger
 	name    string
 	chainID CHAIN_ID
-	chStop  utils.StopChan
+	chStop  services.StopChan
 	wg      sync.WaitGroup
 }
 

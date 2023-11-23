@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
@@ -21,7 +23,7 @@ type (
 		ethClient evmclient.Client
 		config    Config
 		logger    logger.Logger
-		chStop    utils.StopChan
+		chStop    services.StopChan
 	}
 )
 

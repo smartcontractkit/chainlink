@@ -32,6 +32,7 @@ images:
 deployments:
   app:
     helm:
+      releaseName: "app"
       chart:
         name: cl-cluster
         path: .
@@ -68,6 +69,7 @@ deployments:
             - name: node-4
               image: ${DEVSPACE_IMAGE}
               version: latest
+        prometheusMonitor: "true"
         podAnnotations: { }
         nodeSelector: { }
         tolerations: [ ]

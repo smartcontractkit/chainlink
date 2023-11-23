@@ -1,6 +1,6 @@
 package ocr2vrf
 
-import ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+import ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 type DKGKeyConfig struct {
 	DKGEncryptionPublicKey string

@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -53,7 +53,7 @@ type HeadTracker[
 	backfillMB   *utils.Mailbox[HTH]
 	broadcastMB  *utils.Mailbox[HTH]
 	headListener types.HeadListener[HTH, BLOCK_HASH]
-	chStop       utils.StopChan
+	chStop       services.StopChan
 	wgDone       sync.WaitGroup
 	getNilHead   func() HTH
 }

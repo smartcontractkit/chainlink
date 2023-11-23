@@ -63,7 +63,7 @@ func (c *ChainlinkK8sClient) UpgradeVersion(testEnvironment *environment.Environ
 			},
 		},
 	}
-	testEnvironment, err := testEnvironment.UpdateHelm(c.ChartName, upgradeVals)
+	_, err := testEnvironment.UpdateHelm(c.ChartName, upgradeVals)
 	return err
 }
 

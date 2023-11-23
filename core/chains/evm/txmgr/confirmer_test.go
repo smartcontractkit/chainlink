@@ -24,7 +24,7 @@ import (
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -157,10 +157,10 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	err = ec.Close()
 	require.NoError(t, err)
 
-	// Can't start more than once (Confirmer implements utils.StartStopOnce)
+	// Can't start more than once (Confirmer uses services.StateMachine)
 	err = ec.Start(ctx)
 	require.Error(t, err)
-	// Can't close more than once (Confirmer implements utils.StartStopOnce)
+	// Can't close more than once (Confirmer use services.StateMachine)
 	err = ec.Close()
 	require.Error(t, err)
 
@@ -2819,7 +2819,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				tx.To().String() == etx1.ToAddress.String()
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{1}, gasPriceWei, fromAddress, overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{1}, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("uses default gas limit if overrideGasLimit is 0", func(t *testing.T) {
@@ -2834,7 +2834,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				tx.To().String() == etx1.ToAddress.String()
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1)}, gasPriceWei, fromAddress, 0))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(1)}, gasPriceWei, fromAddress, 0))
 	})
 
 	t.Run("rebroadcasts several eth_txes in nonce range", func(t *testing.T) {
@@ -2848,7 +2848,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 			return tx.Nonce() == uint64(*etx2.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == uint64(overrideGasLimit)
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1), (2)}, gasPriceWei, fromAddress, overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(1), (2)}, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
@@ -2874,7 +2874,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		}
 		nonces := []evmtypes.Nonce{(1), (2), (3), (4), (5)}
 
-		require.NoError(t, ec.ForceRebroadcast(nonces, gasPriceWei, fromAddress, overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), nonces, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("zero transactions use default gas limit if override wasn't specified", func(t *testing.T) {
@@ -2885,7 +2885,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 			return tx.Nonce() == uint64(0) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && uint32(tx.Gas()) == config.EVM().GasEstimator().LimitDefault()
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(0)}, gasPriceWei, fromAddress, 0))
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(0)}, gasPriceWei, fromAddress, 0))
 	})
 }
 
@@ -2933,11 +2933,12 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 1, fromAddress)
 		cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		// Setting both signal_callback and callback_completed to TRUE to simulate a completed pipeline task
+		// It would only be in a state past suspended if the resume callback was called and callback_completed was set to TRUE
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		err := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
 		require.NoError(t, err)
-
 	})
 
 	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
@@ -2952,15 +2953,15 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
 		cltest.MustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		err := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
 		require.NoError(t, err)
-
 	})
 
 	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
 		ch := make(chan interface{})
+		nonce := evmtypes.Nonce(3)
 		var err error
 		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
@@ -2972,15 +2973,19 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
-		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 		receipt := cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		go func() {
 			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
 			require.NoError(t, err2)
+			// Retrieve Tx to check if callback completed flag was set to true
+			updateTx, err3 := txStore.FindTxWithSequence(testutils.Context(t), fromAddress, nonce)
+			require.NoError(t, err3)
+			require.Equal(t, true, updateTx.CallbackCompleted)
 		}()
 
 		select {
@@ -3000,6 +3005,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	t.Run("processes eth_txes with receipt older than minConfirmations that reverted", func(t *testing.T) {
 		ch := make(chan interface{})
+		nonce := evmtypes.Nonce(4)
 		var err error
 		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
@@ -3011,17 +3017,21 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
-		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 
 		// receipt is not passed through as a value since it reverted and caused an error
 		cltest.MustInsertRevertedEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		go func() {
 			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
 			require.NoError(t, err2)
+			// Retrieve Tx to check if callback completed flag was set to true
+			updateTx, err3 := txStore.FindTxWithSequence(testutils.Context(t), fromAddress, nonce)
+			require.NoError(t, err3)
+			require.Equal(t, true, updateTx.CallbackCompleted)
 		}()
 
 		select {
@@ -3035,6 +3045,28 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		case <-testutils.AfterWaitTimeout(t):
 			t.Fatal("no value received")
 		}
+	})
+
+	t.Run("does not mark callback complete if callback fails", func(t *testing.T) {
+		nonce := evmtypes.Nonce(5)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(uuid.UUID, interface{}, error) error {
+			return errors.New("error")
+		})
+
+		run := cltest.MustInsertPipelineRun(t, db)
+		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
+		cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+
+		err := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
+		require.Error(t, err)
+
+		// Retrieve Tx to check if callback completed flag was left unchanged
+		updateTx, err := txStore.FindTxWithSequence(testutils.Context(t), fromAddress, nonce)
+		require.NoError(t, err)
+		require.Equal(t, false, updateTx.CallbackCompleted)
 	})
 }
 

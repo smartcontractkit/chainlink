@@ -2,11 +2,12 @@ package testreporters
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"math/big"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 
 	"github.com/slack-go/slack"
 
@@ -53,7 +54,7 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 		headerText = fmt.Sprintf(":x: VRF V2 Plus %s Test FAILED :x:", o.TestType)
 	}
 
-	messageBlocks := testreporters.SlackNotifyBlocks(headerText, fmt.Sprintf("%s", os.Getenv("SELECTED_NETWORKS")), []string{
+	messageBlocks := testreporters.SlackNotifyBlocks(headerText, os.Getenv("SELECTED_NETWORKS"), []string{
 		fmt.Sprintf(
 			"Summary\n"+
 				"Perf Test Type: %s\n"+

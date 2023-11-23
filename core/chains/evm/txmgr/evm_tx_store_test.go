@@ -9,7 +9,7 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -617,7 +618,7 @@ func TestORM_GetInProgressTxAttempts(t *testing.T) {
 	assert.Equal(t, etx.TxAttempts[0].ID, attempts[0].ID)
 }
 
-func TestORM_FindReceiptsPendingConfirmation(t *testing.T) {
+func TestORM_FindTxesPendingCallback(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -645,21 +646,50 @@ func TestORM_FindReceiptsPendingConfirmation(t *testing.T) {
 
 	minConfirmations := int64(2)
 
-	run := cltest.MustInsertPipelineRun(t, db)
-	tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
-	pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
-
-	etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
+	// Suspended run waiting for callback
+	run1 := cltest.MustInsertPipelineRun(t, db)
+	tr1 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run1.ID)
+	pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run1.ID)
+	etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
-	attempt := etx.TxAttempts[0]
-	cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt.Hash)
+	attempt1 := etx1.TxAttempts[0]
+	cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt1.Hash)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr1.ID, minConfirmations, etx1.ID)
 
-	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+	// Callback to pipeline service completed. Should be ignored
+	run2 := cltest.MustInsertPipelineRunWithStatus(t, db, 0, pipeline.RunStatusCompleted)
+	tr2 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run2.ID)
+	etx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
+	attempt2 := etx2.TxAttempts[0]
+	cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt2.Hash)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr2.ID, minConfirmations, etx2.ID)
 
-	receiptsPlus, err := txStore.FindReceiptsPendingConfirmation(testutils.Context(t), head.Number, ethClient.ConfiguredChainID())
+	// Suspended run younger than minConfirmations. Should be ignored
+	run3 := cltest.MustInsertPipelineRun(t, db)
+	tr3 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run3.ID)
+	pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run3.ID)
+	etx3 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 5, 1, fromAddress)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
+	attempt3 := etx3.TxAttempts[0]
+	cltest.MustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt3.Hash)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr3.ID, minConfirmations, etx3.ID)
+
+	// Tx not marked for callback. Should be ignore
+	etx4 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 6, 1, fromAddress)
+	attempt4 := etx4.TxAttempts[0]
+	cltest.MustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt4.Hash)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET min_confirmations = $1 WHERE id = $2`, minConfirmations, etx4.ID)
+
+	// Unconfirmed Tx without receipts. Should be ignored
+	etx5 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 1, fromAddress)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET min_confirmations = $1 WHERE id = $2`, minConfirmations, etx5.ID)
+
+	// Search evm.txes table for tx requiring callback
+	receiptsPlus, err := txStore.FindTxesPendingCallback(testutils.Context(t), head.Number, ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	assert.Len(t, receiptsPlus, 1)
-	assert.Equal(t, tr.ID, receiptsPlus[0].ID)
+	assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
 }
 
 func Test_FindTxWithIdempotencyKey(t *testing.T) {
@@ -1568,6 +1598,35 @@ func TestORM_CreateTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, tx1.GetID(), tx2.GetID())
+	})
+
+	t.Run("sets signal callback flag", func(t *testing.T) {
+		subject := uuid.New()
+		strategy := newMockTxStrategy(t)
+		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
+		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("*txmgr.evmTxStore")).Return(int64(0), nil)
+		etx, err := txStore.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			FeeLimit:       gasLimit,
+			Meta:           nil,
+			Strategy:       strategy,
+			SignalCallback: true,
+		}, ethClient.ConfiguredChainID())
+		assert.NoError(t, err)
+
+		assert.Greater(t, etx.ID, int64(0))
+		assert.Equal(t, fromAddress, etx.FromAddress)
+		assert.Equal(t, true, etx.SignalCallback)
+
+		cltest.AssertCount(t, db, "evm.txes", 3)
+
+		var dbEthTx txmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEthTx, `SELECT * FROM evm.txes ORDER BY id DESC LIMIT 1`))
+
+		assert.Equal(t, fromAddress, dbEthTx.FromAddress)
+		assert.Equal(t, true, dbEthTx.SignalCallback)
 	})
 }
 

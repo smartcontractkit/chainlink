@@ -6,21 +6,19 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 type Plugin struct {
 	loop.Plugin
-	stop utils.StopChan
+	stop services.StopChan
 }
 
 func NewPlugin(lggr logger.Logger) *Plugin {
-	return &Plugin{Plugin: loop.Plugin{Logger: lggr}, stop: make(utils.StopChan)}
+	return &Plugin{Plugin: loop.Plugin{Logger: lggr}, stop: make(services.StopChan)}
 }
 
 func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog loop.ErrorLog) (loop.ReportingPluginFactory, error) {

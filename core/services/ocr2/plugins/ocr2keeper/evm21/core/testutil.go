@@ -4,7 +4,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 )
 
 // GenUpkeepID generates an ocr2keepers.UpkeepIdentifier with a specific UpkeepType and some random string

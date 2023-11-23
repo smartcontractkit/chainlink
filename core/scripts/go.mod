@@ -21,10 +21,10 @@ require (
 	github.com/pelletier/go-toml/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/shopspring/decimal v1.3.1
+	github.com/smartcontractkit/chainlink-automation v1.0.0-alpha.0.0.20231120164534-d4cab696c459
+	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20231107151413-13e0202ae8d7
-	github.com/smartcontractkit/ocr2keepers v0.7.28
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.4
@@ -303,10 +303,10 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.9 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231109141932-cb1ea9020255 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231108205920-694ce17a4a78 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231023133638-72f4e799ab05 // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231024133459-1ef3a11319eb // indirect
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231121180428-d7f28e91ccc3 // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231117191236-12eab01a4542 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231117191230-aa6640f2edd1 // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231117204155-b253a2f56664 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect

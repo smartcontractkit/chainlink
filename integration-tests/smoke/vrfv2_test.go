@@ -2,12 +2,14 @@ package smoke
 
 import (
 	"context"
-	"github.com/kelseyhightower/envconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
+
+	"github.com/kelseyhightower/envconfig"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2/vrfv2_config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 

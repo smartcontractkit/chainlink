@@ -17,9 +17,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -868,12 +869,12 @@ func (r *rpcClient) TokenBalance(ctx context.Context, address common.Address, co
 }
 
 // LINKBalance returns the balance of LINK at the given address
-func (r *rpcClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
+func (r *rpcClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*commonassets.Link, error) {
 	balance, err := r.TokenBalance(ctx, address, linkAddress)
 	if err != nil {
-		return assets.NewLinkFromJuels(0), err
+		return commonassets.NewLinkFromJuels(0), err
 	}
-	return (*assets.Link)(balance), nil
+	return (*commonassets.Link)(balance), nil
 }
 
 func (r *rpcClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
