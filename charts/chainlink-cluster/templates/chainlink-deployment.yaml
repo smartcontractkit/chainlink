@@ -47,12 +47,6 @@ spec:
         - name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
           configMap:
             name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
-        - name: temp-volume
-          emptyDir: {}
-        {{ if not $.Values.db.stateful }}
-        - name: postgres
-          emptyDir: {}
-        {{ end }}
       securityContext:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       containers:
@@ -124,14 +118,10 @@ spec:
             - mountPath: /docker-entrypoint-initdb.d/init.sql
               name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
               subPath: init.sql
+            {{ if $.Values.db.stateful }}
             - mountPath: /var/lib/postgresql/data
               name: postgres
-              {{ if $.Values.db.stateful }}
               subPath: postgres-db
-              {{ end }}
-            {{ if not $.Values.db.stateful }}
-            - mountPath: /tmp
-              name: temp-volume
             {{ end }}
         - name: node
           securityContext:

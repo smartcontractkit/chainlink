@@ -10,7 +10,7 @@
 #   image: ethereum/client-go
 #   version: stable
 podSecurityContext:
-  fsGroup: 2000
+  fsGroup: 999
 
 securityContext:
   capabilities:
