@@ -50,7 +50,7 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	if jb.BlockhashStoreSpec == nil {
 		return nil, errors.Errorf(
 			"blockhashstore.Delegate expects a BlockhashStoreSpec to be present, got %+v", jb)
