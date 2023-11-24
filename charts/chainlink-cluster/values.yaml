@@ -18,6 +18,7 @@ securityContext:
       - ALL
   readOnlyRootFilesystem: false
   runAsNonRoot: true
+  runAsUser: 999
 chainlink:
   web_port: 6688
   p2p_port: 8090
