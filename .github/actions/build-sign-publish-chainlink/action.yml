@@ -34,7 +34,7 @@ inputs:
     required: false
   git-commit-sha:
     description: Git commit SHA used as metadata when building the application (appears in logs)
-    default: ${{ github.sha }}
+    default: ${{ github.event.pull_request.head.sha || github.sha }}
     required: false
   aws-role-to-assume:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
