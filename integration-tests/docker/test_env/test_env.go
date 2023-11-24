@@ -283,12 +283,14 @@ func (te *CLClusterTestEnv) collectTestLogs() error {
 		return err
 	}
 
-	absolutePath, err := filepath.Abs(folder)
+	// Getting the absolute path
+	wd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
+	absolutePath := filepath.Join(wd, folder)
 
-	te.l.Info().Str("Logs Location", absolutePath).Msg("Wrote test logs")
+	te.l.Info().Str("Logs absolute Location", absolutePath).Msg("Wrote test logs")
 	return nil
 }
 
