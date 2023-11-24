@@ -128,7 +128,7 @@ spec:
             {{- toYaml $.Values.securityContext | nindent 12 }}
           image: {{ default "public.ecr.aws/chainlink/chainlink" $cfg.image }}
           imagePullPolicy: Always
-          command: ["bash", "-c", "while ! pg_isready --host 0.0.0.0 --port 5432; do echo \"waiting for database to start\"; sleep 1; done && chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials"]
+          command: ["bash", "-c", "while ! pg_isready --host localhost --port 5432; do echo \"waiting for database to start\"; sleep 1; done && chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials"]
           ports:
             - name: access
               containerPort: {{ $.Values.chainlink.web_port }}
@@ -136,7 +136,7 @@ spec:
               containerPort: {{ $.Values.chainlink.p2p_port }}
           env:
             - name: CL_DATABASE_URL
-              value: postgresql://postgres:verylongdatabasepassword@0.0.0.0/chainlink?sslmode=disable
+              value: postgresql://postgres:verylongdatabasepassword@localhost/chainlink?sslmode=disable
             - name: CL_DEV
               value: "false"
           volumeMounts:
