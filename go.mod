@@ -68,7 +68,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v1.0.0-alpha.0.0.20231120164534-d4cab696c459
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231123003013-379db0b9e4c7
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231120072345-ec92d212f606
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231123201501-a0dfbc59a9ed
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231124181840-dbf514e39fb1
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231120192657-3769c7fcc8f0
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/libocr v0.0.0-20231107151413-13e0202ae8d7

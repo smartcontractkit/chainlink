@@ -306,7 +306,7 @@ require (
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231123003013-379db0b9e4c7 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231120072345-ec92d212f606 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231123201501-a0dfbc59a9ed // indirect
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231124181840-dbf514e39fb1 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231120192657-3769c7fcc8f0 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 // indirect
