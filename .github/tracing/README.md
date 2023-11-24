@@ -30,7 +30,14 @@ Another way to generate traces is by enabling traces for PRs. This will instrume
 8. Run `sh replay.sh` to replay those traces to the otel-collector container that was spun up in the last step. 
 9. navigate to `localhost:3000/explore` in a web browser to query for traces
 
-The artifact is not json encoded - each individual line is a well formed and complete json object. 
+The artifact is not json encoded - each individual line is a well formed and complete json object.
+
+
+## Production and NOPs environments
+
+In a production environment, we suggest coupling the lifecycle of nodes and otel-collectors. A best practice is to deploy the otel-collector alongside your node, using infrastructure as code (IAC) to automate deployments and certificate lifecycles. While there are valid use cases for using `Tracing.Mode = unencrypted`, we have set the default encryption setting to `Tracing.Mode = tls`. Externally deployed otel-collectors can not be used with `Tracing.Mode = unencrypted`. i.e. If `Tracing.Mode = unencrypted` and an external URI is detected for `Tracing.CollectorTarget` node configuration will fail to validate and the node will not boot. The node requires a valid encryption mode and collector target to send traces.
+
+Once traces reach the otel-collector, the rest of the observability pipeline is flexible. We recommend deploying (through automation) centrally managed Grafana Tempo and Grafana UI instances to receive from one or many otel-collector instances. Always use networking best practices and encrypt trace data, especially at network boundaries.
 
 ## Configuration
 This folder contains the following config files:
