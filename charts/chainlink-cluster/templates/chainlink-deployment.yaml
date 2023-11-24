@@ -47,6 +47,10 @@ spec:
         - name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
           configMap:
             name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
+        {{ if not $.Values.db.stateful }}
+        - name: postgres
+          emptyDir: {}
+        {{ end }}
       securityContext:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       containers:
@@ -118,12 +122,12 @@ spec:
             - mountPath: /docker-entrypoint-initdb.d/init.sql
               name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
               subPath: init.sql
-          {{ if $.Values.db.stateful }}
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgres
+              {{ if $.Values.db.stateful }}
               subPath: postgres-db
-          {{ end }}
+              {{ end }}
         - name: node
           securityContext:
             {{- toYaml $.Values.securityContext | nindent 12 }}
