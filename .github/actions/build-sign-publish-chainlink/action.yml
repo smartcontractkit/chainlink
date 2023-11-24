@@ -86,7 +86,6 @@ runs:
         SHARED_TAG_LIST=$(cat << EOF
         type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}
         type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}
-        type=sha,format=short,suffix=${{ inputs.ecr-tag-suffix }}
         type=sha,priority=9999,prefix=sha,suffix=${{ inputs.ecr-tag-suffix }},value=${SHORT_SHA}
         EOF
         )
