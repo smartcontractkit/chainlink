@@ -76,20 +76,32 @@ runs:
       shell: bash
       # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
       run: |
-        SHORT_SHA=$(echo "${{ inputs.git-commit-sha }}" | cut -c1-7)
-        SHARED_IMAGES="${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}"
-        echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
-        echo "SHARED_IMAGES=$SHARED_IMAGES" >> $GITHUB_ENV
+        SHORT_SHA=$(echo ${{ inputs.git-commit-sha }} | cut -c1-7)
+        SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
 
-        echo 'SHARED_TAG_LIST<<EOF' >> $GITHUB_ENV
-        echo "type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}" >> $GITHUB_ENV
-        echo "type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}" >> $GITHUB_ENV
-        echo "type=sha,priority=9999,prefix=sha-,suffix=${{ inputs.ecr-tag-suffix }},value=$SHORT_SHA" >> $GITHUB_ENV
-        echo 'EOF' >> $GITHUB_ENV
+        SHARED_TAG_LIST=$(cat << EOF
+        type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}
+        type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}
+        type=sha,priority=9999,prefix=sha-,suffix=${{ inputs.ecr-tag-suffix }},value=${SHORT_SHA}
+        EOF
+        )
 
-        echo 'SHARED_BUILD_ARGS<<EOF' >> $GITHUB_ENV
-        echo "COMMIT_SHA=${{ inputs.git-commit-sha }}" >> $GITHUB_ENV
-        echo 'EOF' >> $GITHUB_ENV
+        SHARED_BUILD_ARGS=$(cat << EOF
+        COMMIT_SHA=${{ inputs.git-commit-sha }}
+        EOF
+        )
+
+        echo "shared-images<<EOF" >> $GITHUB_ENV
+        echo "$SHARED_IMAGES" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+        echo "shared-tag-list<<EOF" >> $GITHUB_ENV
+        echo "$SHARED_TAG_LIST" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+        echo "shared-build-args<<EOF" >> $GITHUB_ENV
+        echo "$SHARED_BUILD_ARGS" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
 
     - if: inputs.publish == 'true'
       # Log in to AWS for publish to ECR
@@ -114,12 +126,12 @@ runs:
       uses: docker/metadata-action@2c0bd771b40637d97bf205cbccdd294a32112176 # v4.5.0
       with:
         # list of Docker images to use as base name for tags
-        images: ${{ env.SHARED_IMAGES }}
+        images: ${{ env.shared-images }}
         # XXX: DO NOT USE SHARED TAGS HERE
         tags: |
           type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}-root
           type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}-root
-          type=sha,format=short,prefix=sha-,value=${{ env.SHORT_SHA }},suffix=${{ inputs.ecr-tag-suffix }}-root
+          type=sha,format=short,suffix=${{ inputs.ecr-tag-suffix }}-root
 
     # To avoid rate limiting from Docker Hub, we login with a paid user account.
     - name: Login to Docker Hub
@@ -141,7 +153,7 @@ runs:
         file: ${{ inputs.dockerfile }}
         build-args: |
           CHAINLINK_USER=root
-          ${{ env.SHARED_BUILD_ARGS }}
+          ${{ env.shared-build-args }}
 
     - name: Save root image name in GITHUB_ENV
       id: save-root-image-name-env
@@ -159,8 +171,8 @@ runs:
           latest=auto
           prefix=
           suffix=
-        images: ${{ env.SHARED_IMAGES }}
-        tags: ${{ env.SHARED_TAG_LIST }}
+        images: ${{ env.shared-images }}
+        tags: ${{ env.shared-tag-list }}
 
     # To avoid rate limiting from Docker Hub, we login with a paid user account.
     - name: Login to Docker Hub
@@ -182,7 +194,7 @@ runs:
         file: ${{ inputs.dockerfile }}
         build-args: |
           CHAINLINK_USER=chainlink
-          ${{ env.SHARED_BUILD_ARGS }}
+          ${{ env.shared-build-args }}
 
     - name: Save non-root image name in GITHUB_ENV and GITHUB_STEP_SUMMARY
       id: save-non-root-image-name-env
