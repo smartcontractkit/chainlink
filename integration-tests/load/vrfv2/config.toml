@@ -1,20 +1,21 @@
 
 [Common]
 minimum_confirmations = 3
+cancel_subs_after_test_run = true
 
 [NewEnvConfig]
-sub_funds_link = 1
-node_sending_key_funding = 10
+sub_funds_link = 1000
+node_sending_key_funding = 1000
 
 [ExistingEnvConfig]
-coordinator_address = "0x50d47e4142598E3411aA864e08a44284e471AC6f"
-#consumer_address = "0x087F232165D9bA1A602f148025e5D0666953F64a"
-#sub_id = "52116875585187328970776211988181422347535732407068188096422095950800466618218"
-key_hash = "0x027f94ff1465b3525f9fc03e9ff7d6d2c0953482246dd6ae07570c45d6631414"
+coordinator_address = ""
+consumer_address = ""
+sub_id = 1
+key_hash = ""
 create_fund_subs_and_add_consumers = true
-link_address = "0xb1D4538B4571d411F07960EF2838Ce337FE1E80E"
-sub_funds_link = 3
-node_sending_key_funding_min = 2
+link_address = ""
+sub_funds_link = 10
+node_sending_key_funding_min = 1
 node_sending_keys = [
     "",
     "",

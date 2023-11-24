@@ -41,8 +41,9 @@ type ExistingEnvConfig struct {
 	LinkAddress        string `toml:"link_address"`
 	SubID              string `toml:"sub_id"`
 	KeyHash            string `toml:"key_hash"`
-	SubFunding
-	CreateFundSubsAndAddConsumers bool `toml:"create_fund_subs_and_add_consumers"`
+	Funding
+	CreateFundSubsAndAddConsumers bool     `toml:"create_fund_subs_and_add_consumers"`
+	NodeSendingKeys               []string `toml:"node_sending_keys"`
 }
 
 type NewEnvConfig struct {
@@ -50,12 +51,14 @@ type NewEnvConfig struct {
 }
 
 type Common struct {
-	MinimumConfirmations uint16 `toml:"minimum_confirmations"`
+	MinimumConfirmations   uint16 `toml:"minimum_confirmations"`
+	CancelSubsAfterTestRun bool   `toml:"cancel_subs_after_test_run"`
 }
 
 type Funding struct {
-	NodeFunds float64 `toml:"node_funds"`
 	SubFunding
+	NodeSendingKeyFunding    float64 `toml:"node_sending_key_funding"`
+	NodeSendingKeyFundingMin float64 `toml:"node_sending_key_funding_min"`
 }
 
 type SubFunding struct {
