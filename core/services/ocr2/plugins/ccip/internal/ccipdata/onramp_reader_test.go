@@ -32,13 +32,7 @@ type onRampReaderTH struct {
 func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
 	_, bc := newSimulation(t)
 	lp := lpmocks.NewLogPoller(t)
-	_, err := ccipdata.NewOnRampReader(
-		logger.TestLogger(t),
-		testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(),
-		common.Address{},
-		lp,
-		bc,
-	)
+	_, err := ccipdata.NewOnRampReader(logger.TestLogger(t), testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), common.Address{}, lp, bc)
 	assert.EqualError(t, err, "expected 'EVM2EVMOnRamp' got '' (no contract code at given address)")
 }
 
