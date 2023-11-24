@@ -122,9 +122,9 @@ runs:
 
     - name: Generate docker metadata for root image
       id: meta-root
-      uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
+      uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
       env:
-        DOCKER_METADATA_PR_HEAD_SHA: "false"
+        DOCKER_METADATA_PR_HEAD_SHA: "true"
       with:
         context: git
         # list of Docker images to use as base name for tags
@@ -167,7 +167,7 @@ runs:
 
     - name: Generate docker metadata for non-root image
       id: meta-nonroot
-      uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
+      uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
       env:
         DOCKER_METADATA_PR_HEAD_SHA: "true"
       with:
