@@ -47,6 +47,8 @@ spec:
         - name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
           configMap:
             name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
+        - name: temp-volume
+          emptyDir: {}
         {{ if not $.Values.db.stateful }}
         - name: postgres
           emptyDir: {}
@@ -127,6 +129,10 @@ spec:
               {{ if $.Values.db.stateful }}
               subPath: postgres-db
               {{ end }}
+            {{ if not $.Values.db.stateful }}
+            - mountPath: /tmp
+              name: temp-volume
+            {{ end }}
         - name: node
           securityContext:
             {{- toYaml $.Values.securityContext | nindent 12 }}
