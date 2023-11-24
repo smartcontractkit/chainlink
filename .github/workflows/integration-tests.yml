@@ -848,7 +848,7 @@ jobs:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
-          artifacts_location: /home/runner/work/chainlink/chainlink/logs
+          artifacts_location: /home/runner/work/chainlink/chainlink/integration-tests/smoke/logs
           publish_check_name: Solana Smoke Test Results
           go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
