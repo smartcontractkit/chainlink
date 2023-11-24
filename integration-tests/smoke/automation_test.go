@@ -1081,6 +1081,7 @@ func setupAutomationTestDocker(
 	clNodeConfig.Keeper.Registry.PerformGasOverhead = ptr.Ptr[uint32](uint32(150000))
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
+	clNodeConfig.P2P.V2.Enabled = ptr.Ptr[bool](true)
 
 	//launch the environment
 	var env *test_env.CLClusterTestEnv
