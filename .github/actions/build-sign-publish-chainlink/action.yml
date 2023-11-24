@@ -82,7 +82,7 @@ runs:
         SHARED_TAG_LIST=$(cat << EOF
         type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}
         type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}
-        type=sha,priority=9999,prefix=sha,suffix=${{ inputs.ecr-tag-suffix }},value=${SHORT_SHA}
+        type=sha,format=short,suffix=${{ inputs.ecr-tag-suffix }}
         EOF
         )
 
@@ -127,7 +127,6 @@ runs:
       env:
         DOCKER_METADATA_PR_HEAD_SHA: "true"
       with:
-        context: git
         # list of Docker images to use as base name for tags
         images: ${{ env.shared-images }}
         # XXX: DO NOT USE SHARED TAGS HERE
@@ -172,7 +171,6 @@ runs:
       env:
         DOCKER_METADATA_PR_HEAD_SHA: "true"
       with:
-        context: git
         flavor: |
           latest=auto
           prefix=
