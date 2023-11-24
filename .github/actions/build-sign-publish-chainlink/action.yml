@@ -124,7 +124,7 @@ runs:
       id: meta-root
       uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
       env:
-        DOCKER_METADATA_PR_HEAD_SHA: "true"
+        DOCKER_METADATA_PR_HEAD_SHA: "false"
       with:
         context: git
         # list of Docker images to use as base name for tags
