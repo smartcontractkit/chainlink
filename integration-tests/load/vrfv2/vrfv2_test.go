@@ -97,25 +97,9 @@ func TestVRFV2Performance(t *testing.T) {
 							Str("Network Name", env.EVMClient.GetNetworkName()).
 							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 					} else {
-						//cancel subs and return funds to sub owner
-						for _, subID := range subIDs {
-							l.Info().
-								Uint64("Returning funds from SubID", subID).
-								Str("Returning funds to", eoaWalletAddress).
-								Msg("Canceling subscription and returning funds to subscription owner")
-							pendingRequestsExist, err := vrfv2Contracts.Coordinator.PendingRequestsExist(context.Background(), subID)
-							if err != nil {
-								l.Error().Err(err).Msg("Error checking if pending requests exist")
-							}
-							if !pendingRequestsExist {
-								_, err := vrfv2Contracts.Coordinator.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
-								if err != nil {
-									l.Error().Err(err).Msg("Error canceling subscription")
-								}
-							} else {
-								l.Error().Uint64("Sub ID", subID).Msg("Pending requests exist for subscription, cannot cancel subscription and return funds")
-							}
-
+						if cfg.Common.CancelSubsAfterTestRun {
+							//cancel subs and return funds to sub owner
+							cancelSubsAndReturnFunds(subIDs, l)
 						}
 					}
 				}).
@@ -186,18 +170,10 @@ func TestVRFV2Performance(t *testing.T) {
 							Str("Network Name", env.EVMClient.GetNetworkName()).
 							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 					} else {
-						for _, subID := range subIDs {
-							l.Info().
-								Uint64("Returning funds from SubID", subID).
-								Str("Returning funds to", eoaWalletAddress).
-								Msg("Canceling subscription and returning funds to subscription owner")
-							_, err := vrfv2Contracts.Coordinator.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
-							if err != nil {
-								l.Error().Err(err).Msg("Error canceling subscription")
-							}
+						if cfg.Common.CancelSubsAfterTestRun {
+							//cancel subs and return funds to sub owner
+							cancelSubsAndReturnFunds(subIDs, l)
 						}
-						//err = vrfv2.ReturnFundsForFulfilledRequests(env.EVMClient, vrfv2Contracts.Coordinator, l)
-						//l.Error().Err(err).Msg("Error returning funds for fulfilled requests")
 					}
 					if err := env.Cleanup(); err != nil {
 						l.Error().Err(err).Msg("Error cleaning up test environment")
@@ -285,6 +261,27 @@ func TestVRFV2Performance(t *testing.T) {
 			Msg("Final Request/Fulfilment Stats")
 	})
 
+}
+
+func cancelSubsAndReturnFunds(subIDs []uint64, l zerolog.Logger) {
+	for _, subID := range subIDs {
+		l.Info().
+			Uint64("Returning funds from SubID", subID).
+			Str("Returning funds to", eoaWalletAddress).
+			Msg("Canceling subscription and returning funds to subscription owner")
+		pendingRequestsExist, err := vrfv2Contracts.Coordinator.PendingRequestsExist(context.Background(), subID)
+		if err != nil {
+			l.Error().Err(err).Msg("Error checking if pending requests exist")
+		}
+		if !pendingRequestsExist {
+			_, err := vrfv2Contracts.Coordinator.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
+			if err != nil {
+				l.Error().Err(err).Msg("Error canceling subscription")
+			}
+		} else {
+			l.Error().Uint64("Sub ID", subID).Msg("Pending requests exist for subscription, cannot cancel subscription and return funds")
+		}
+	}
 }
 
 func FundNodesIfNeeded(cfg *PerformanceConfig, client blockchain.EVMClient, l zerolog.Logger) error {
