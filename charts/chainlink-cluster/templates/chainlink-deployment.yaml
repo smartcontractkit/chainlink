@@ -122,7 +122,6 @@ spec:
             - mountPath: /docker-entrypoint-initdb.d/init.sql
               name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
               subPath: init.sql
-          volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgres
               {{ if $.Values.db.stateful }}
