@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type CommitStoreInterval struct {
@@ -111,6 +112,7 @@ type CommitStoreReader interface {
 	DecodeCommitReport(report []byte) (CommitStoreReport, error)
 	VerifyExecutionReport(ctx context.Context, report ExecReport) (bool, error)
 	GetCommitStoreStaticConfig(ctx context.Context) (CommitStoreStaticConfig, error)
+	RegisterFilters(qopts ...pg.QOpt) error
 }
 
 func NewCommitStoreReader(lggr logger.Logger, address common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator) (CommitStoreReader, error) {

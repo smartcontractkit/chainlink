@@ -90,7 +90,6 @@ func TestLogPollerClient_GetSendRequestsBetweenSeqNums(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	lp := mocks.NewLogPoller(t)
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
 	onRampV2, err := NewOnRampV1_2_0(lggr, 1, 1, onRampAddr, lp, nil)
 	require.NoError(t, err)
 	lp.On("LogsDataWordRange",
