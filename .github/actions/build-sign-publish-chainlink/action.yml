@@ -76,7 +76,7 @@ runs:
       shell: bash
       # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
       run: |
-        SHORT_SHA=$(echo ${{ inputs.git-commit-sha }} | cut -c1-7))
+        SHORT_SHA=$(echo ${{ inputs.git-commit-sha }} | cut -c1-7)
         SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
 
         SHARED_TAG_LIST=$(cat << EOF
