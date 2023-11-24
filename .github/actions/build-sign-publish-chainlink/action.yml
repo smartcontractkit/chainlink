@@ -73,15 +73,21 @@ runs:
   using: composite
   steps:
     - name: Set shared variables
-      shell: sh
+      shell: bash
       # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
       run: |
+        if [[ "${{ github.event_name }}" = "pull_request" ]]; then
+          SHORT_SHA=$(git rev-parse HEAD | cut -c1-7)
+        else
+          SHORT_SHA=${GITHUB_SHA:0:7}
+        fi
         SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
 
         SHARED_TAG_LIST=$(cat << EOF
         type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}
         type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}
         type=sha,format=short,suffix=${{ inputs.ecr-tag-suffix }}
+        type=sha,priority=9999,prefix=sha,suffix=${{ inputs.ecr-tag-suffix }},value=${SHORT_SHA}
         EOF
         )
 
