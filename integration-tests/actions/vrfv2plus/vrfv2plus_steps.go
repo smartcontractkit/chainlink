@@ -301,7 +301,6 @@ func SetupVRFV2_5Environment(
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrGetPrimaryKey, err)
 	}
 	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
-		node.WithVRFv2EVMEstimator(addr),
 		node.WithLogPollInterval(1*time.Second),
 		node.WithVRFv2EVMEstimator(addr, vrfv2PlusConfig.CLNodeMaxGasPriceGWei),
 	)
