@@ -131,6 +131,7 @@ func NewMedianServices(ctx context.Context,
 	}, lggr)
 
 	if medianProvider.ChainReader() != nil {
+		lggr.Info("Chain Reader enabled")
 		medianProvider = medianProviderWrapper{
 			medianProvider, // attach newer MedianContract which uses ChainReader
 			newMedianContract(provider.ChainReader(), common.HexToAddress(spec.ContractID)),
