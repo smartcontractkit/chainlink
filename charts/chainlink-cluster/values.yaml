@@ -12,14 +12,15 @@
 podSecurityContext:
   fsGroup: 999
 
-securityContext:
-  capabilities:
-    drop:
-      - ALL
-  readOnlyRootFilesystem: false
-  runAsNonRoot: true
-  runAsUser: 999
 chainlink:
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 14933
+    runAsGroup: 999
   web_port: 6688
   p2p_port: 8090
   nodes:
@@ -74,6 +75,14 @@ chainlink:
 #
 # if you are running long tests
 db:
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
   stateful: false
   resources:
     requests:
@@ -84,6 +93,14 @@ db:
       memory: 1024Mi
 # default cluster shipped with latest Geth ( dev mode by default )
 geth:
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
   version: v1.12.0
   wsrpc-port: 8546
   httprpc-port: 8544
@@ -99,8 +116,24 @@ geth:
 # mockserver is https://www.mock-server.com/where/kubernetes.html
 # used to stub External Adapters
 mockserver:
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
   enabled: true
 runner:
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
   stateful: false
   resources:
     requests:

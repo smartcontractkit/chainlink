@@ -27,7 +27,7 @@ spec:
       containers:
         - name: runner
           securityContext:
-            {{- toYaml $.Values.securityContext | nindent 12 }}
+            {{- toYaml $.Values.runner.securityContext | nindent 12 }}
           image: {{ default "public.ecr.aws/chainlink/chainlink" .Values.runner.image }}
           imagePullPolicy: Always
           command: [ "/bin/bash", "-c", "--" ]
