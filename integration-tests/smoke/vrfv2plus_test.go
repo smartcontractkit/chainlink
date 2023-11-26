@@ -677,7 +677,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 			//todo - move TransactionByHash to EVMClient in CTF
 			fulfillmentTx, _, err := env.EVMClient.(*blockchain.EthereumMultinodeClient).DefaultClient.(*blockchain.EthereumClient).
 				Client.TransactionByHash(context.Background(), randomWordsFulfilledEvent.Raw.TxHash)
-
+			require.NoError(t, err, "error getting tx from hash")
 			fulfillmentTxFromAddress, err := actions.GetTxFromAddress(fulfillmentTx)
 			require.NoError(t, err, "error getting tx from address")
 			fulfillmentTxFromAddresses = append(fulfillmentTxFromAddresses, fulfillmentTxFromAddress)
