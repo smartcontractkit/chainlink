@@ -32,7 +32,7 @@ type chainReader struct {
 // NewChainReaderService constructor for ChainReader
 func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, contractID common.Address, config types.ChainReaderConfig) (*chainReader, error) {
 	if err := validateChainReaderConfig(config); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w err: %w", commontypes.ErrInvalidConfig, err)
 	}
 
 	// TODO BCF-2814 implement initialisation of chain reading definitions and pass them into chainReader
@@ -83,13 +83,13 @@ func (cr *chainReader) GetMaxDecodingSize(ctx context.Context, n int, itemType s
 
 func validateChainReaderConfig(cfg types.ChainReaderConfig) error {
 	if len(cfg.ChainContractReaders) == 0 {
-		return fmt.Errorf("chain reader config is empty")
+		return fmt.Errorf("config is empty")
 	}
 
 	for contractName, chainContractReader := range cfg.ChainContractReaders {
 		abi, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid abi: %w", err)
 		}
 
 		for chainReadingDefinitionName, chainReaderDefinition := range chainContractReader.ChainReaderDefinitions {
@@ -99,10 +99,10 @@ func validateChainReaderConfig(cfg types.ChainReaderConfig) error {
 			case types.Event:
 				err = validateEvents(abi, chainReaderDefinition)
 			default:
-				return fmt.Errorf("%w: invalid chain reader definition read type: %d", commontypes.ErrInvalidConfig, chainReaderDefinition.ReadType)
+				return fmt.Errorf("invalid chain reading definition read type: %d for contract: %q", chainReaderDefinition.ReadType, contractName)
 			}
 			if err != nil {
-				return fmt.Errorf("%w: invalid chain reader config for contract: %q chain reading definition: %q, err: %w", commontypes.ErrInvalidConfig, contractName, chainReadingDefinitionName, err)
+				return fmt.Errorf("invalid chain reading definition: %q for contract: %q, err: %w", chainReadingDefinitionName, contractName, err)
 			}
 		}
 	}

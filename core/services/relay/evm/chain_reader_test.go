@@ -83,7 +83,8 @@ func TestNewChainReader(t *testing.T) {
 	t.Run("ChainReader config is empty", func(t *testing.T) {
 		emptyChainReaderConfig := evmtypes.ChainReaderConfig{}
 		_, err := NewChainReaderService(lggr, chain.LogPoller(), contractID, emptyChainReaderConfig)
-		assert.EqualError(t, err, "chain reader config is empty")
+		assert.ErrorIs(t, err, commontypes.ErrInvalidConfig)
+		assert.ErrorContains(t, err, "config is empty")
 	})
 }
 
@@ -100,12 +101,11 @@ func TestChainReaderStartClose(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestValidateChainReaderConfig(t *testing.T) {
+func TestValidateChainReaderConfig_HappyPath(t *testing.T) {
 	type testCase struct {
 		name                    string
 		abiInput                string
 		chainReadingDefinitions string
-		expected                error
 	}
 
 	var testCases []testCase
@@ -323,10 +323,19 @@ func TestValidateChainReaderConfig(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NoError(t, validateChainReaderConfig(cfg))
 	})
+}
 
-	var badPathTestCases []testCase
+func TestValidateChainReaderConfig_BadPath(t *testing.T) {
+	type testCase struct {
+		name                    string
+		abiInput                string
+		chainReadingDefinitions string
+		expected                error
+	}
+
+	var testCases []testCase
 	mismatchedEventArgumentsTestABI := `{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"sender","type":"address"}],"name":"Swap","type":"event"}`
-	badPathTestCases = append(badPathTestCases,
+	testCases = append(testCases,
 		testCase{
 			name:     "mismatched abi and event chain reading param values",
 			abiInput: mismatchedEventArgumentsTestABI,
@@ -340,10 +349,10 @@ func TestValidateChainReaderConfig(t *testing.T) {
 													],
 													"readType": 1
 												}`,
-			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"Swap\", err: params: [malformedParam] don't match abi event indexed inputs: [sender]"),
+			expected: fmt.Errorf("invalid chain reading definition: \"Swap\" for contract: \"testContract\", err: params: [malformedParam] don't match abi event indexed inputs: [sender]"),
 		})
 
-	badPathTestCases = append(badPathTestCases,
+	testCases = append(testCases,
 		testCase{
 			name:     "mismatched abi and event chain reading return values",
 			abiInput: mismatchedEventArgumentsTestABI,
@@ -357,11 +366,11 @@ func TestValidateChainReaderConfig(t *testing.T) {
 													],
 													"readType": 1
 												}`,
-			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"Swap\", err: return values: [malformedParam] don't match abi event inputs: [sender]"),
+			expected: fmt.Errorf("invalid chain reading definition: \"Swap\" for contract: \"testContract\", err: return values: [malformedParam] don't match abi event inputs: [sender]"),
 		})
 
 	mismatchedFunctionArgumentsTestABI := `{"constant":true,"inputs":[{"internalType":"address","name":"from","type":"address"}],"name":"Swap","outputs":[{"internalType":"address","name":"to","type":"address"}],"payable":false,"stateMutability":"view","type":"function"}`
-	badPathTestCases = append(badPathTestCases,
+	testCases = append(testCases,
 		testCase{
 			name:     "mismatched abi and method chain reading param values",
 			abiInput: mismatchedFunctionArgumentsTestABI,
@@ -375,11 +384,11 @@ func TestValidateChainReaderConfig(t *testing.T) {
 											],
 											"readType": 0
 										}`,
-			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"Swap\", err: params: [malformedParam] don't match abi method inputs: [from]"),
+			expected: fmt.Errorf("invalid chain reading definition: \"Swap\" for contract: \"testContract\", err: params: [malformedParam] don't match abi method inputs: [from]"),
 		},
 	)
 
-	badPathTestCases = append(badPathTestCases,
+	testCases = append(testCases,
 		testCase{
 			name:     "mismatched abi and method chain reading return values",
 			abiInput: mismatchedFunctionArgumentsTestABI,
@@ -393,11 +402,11 @@ func TestValidateChainReaderConfig(t *testing.T) {
 											],
 											"readType": 0
 										}`,
-			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"Swap\", err: return values: [malformedReturnValue] don't match abi method outputs: [to]"),
+			expected: fmt.Errorf("invalid chain reading definition: \"Swap\" for contract: \"testContract\", err: return values: [malformedReturnValue] don't match abi method outputs: [to]"),
 		},
 	)
 
-	badPathTestCases = append(badPathTestCases,
+	testCases = append(testCases,
 		testCase{
 			name:     "event doesn't exist",
 			abiInput: `{"constant":true,"inputs":[],"name":"someName","outputs":[],"payable":false,"stateMutability":"view","type":"function"}`,
@@ -405,11 +414,11 @@ func TestValidateChainReaderConfig(t *testing.T) {
 											"chainSpecificName": "Swap",
 											"readType": 1
 										}`,
-			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"TestMethod\", err: event: Swap doesn't exist"),
+			expected: fmt.Errorf("invalid chain reading definition: \"TestMethod\" for contract: \"testContract\", err: event: Swap doesn't exist"),
 		},
 	)
 
-	badPathTestCases = append(badPathTestCases,
+	testCases = append(testCases,
 		testCase{
 			name:     "method doesn't exist",
 			abiInput: `{"constant":true,"inputs":[],"name":"someName","outputs":[],"payable":false,"stateMutability":"view","type":"function"}`,
@@ -417,18 +426,35 @@ func TestValidateChainReaderConfig(t *testing.T) {
 											"chainSpecificName": "Swap",
 											"readType": 0
 										}`,
-			expected: fmt.Errorf("invalid configuration: invalid chain reader config for contract: \"testContract\" chain reading definition: \"TestMethod\", err: method: \"Swap\" doesn't exist"),
+			expected: fmt.Errorf("invalid chain reading definition: \"TestMethod\" for contract: \"testContract\", err: method: \"Swap\" doesn't exist"),
 		},
 	)
 
-	for _, tc := range badPathTestCases {
+	testCases = append(testCases, testCase{
+		name:     "invalid abi",
+		abiInput: `broken abi`,
+		chainReadingDefinitions: `"TestMethod":{
+											"chainSpecificName": "Swap",
+											"readType": 0
+										}`,
+		expected: fmt.Errorf("invalid abi"),
+	})
+
+	testCases = append(testCases, testCase{
+		name:                    "invalid read type",
+		abiInput:                `{"constant":true,"inputs":[],"name":"someName","outputs":[],"payable":false,"stateMutability":"view","type":"function"}`,
+		chainReadingDefinitions: `"TestMethod":{"readType": 59}`,
+		expected:                fmt.Errorf("invalid chain reading definition read type: 59"),
+	})
+
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, err := chainReaderTestHelper{}.makeChainReaderConfigFromStrings(tc.abiInput, tc.chainReadingDefinitions)
 			assert.NoError(t, err)
 			if tc.expected == nil {
 				assert.NoError(t, validateChainReaderConfig(cfg))
 			} else {
-				assert.EqualError(t, validateChainReaderConfig(cfg), tc.expected.Error())
+				assert.ErrorContains(t, validateChainReaderConfig(cfg), tc.expected.Error())
 			}
 		})
 	}
