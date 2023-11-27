@@ -19,8 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
@@ -85,7 +85,7 @@ func (p *functionsProvider) Name() string {
 	return p.configWatcher.Name()
 }
 
-func NewFunctionsProvider(chain evm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
+func NewFunctionsProvider(chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
 	relayOpts := evmRelayTypes.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -130,7 +130,7 @@ func NewFunctionsProvider(chain evm.Chain, rargs commontypes.RelayArgs, pargs co
 	}, nil
 }
 
-func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chain evm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
+func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
 	if !common.IsHexAddress(args.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}

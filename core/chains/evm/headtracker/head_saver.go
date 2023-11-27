@@ -5,10 +5,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type headSaver struct {
@@ -26,7 +26,7 @@ func NewHeadSaver(lggr logger.Logger, orm ORM, config Config, htConfig HeadTrack
 		orm:      orm,
 		config:   config,
 		htConfig: htConfig,
-		logger:   lggr.Named("HeadSaver"),
+		logger:   logger.Named(lggr, "HeadSaver"),
 		heads:    NewHeads(),
 	}
 }

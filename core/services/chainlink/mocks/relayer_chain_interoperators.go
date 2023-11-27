@@ -7,7 +7,7 @@ import (
 	services2 "github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
@@ -19,12 +19,12 @@ import (
 // FakeRelayerChainInteroperators is a fake chainlink.RelayerChainInteroperators.
 // This exists because mockery generation doesn't understand how to produce an alias instead of the underlying type (which is not exported in this case).
 type FakeRelayerChainInteroperators struct {
-	EVMChains evm.LegacyChainContainer
+	EVMChains legacyevm.LegacyChainContainer
 	Nodes     []types.NodeStatus
 	NodesErr  error
 }
 
-func (f *FakeRelayerChainInteroperators) LegacyEVMChains() evm.LegacyChainContainer {
+func (f *FakeRelayerChainInteroperators) LegacyEVMChains() legacyevm.LegacyChainContainer {
 	return f.EVMChains
 }
 
