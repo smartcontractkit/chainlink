@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -69,6 +71,8 @@ type AutomationTest struct {
 
 	ChainlinkNodesk8s []*client.ChainlinkK8sClient
 	ChainlinkNodes    []*client.ChainlinkClient
+
+	DockerEnv *test_env.CLClusterTestEnv
 
 	NodeDetails              []NodeDetails
 	DefaultP2Pv2Bootstrapper string
@@ -133,6 +137,10 @@ func (a *AutomationTest) SetTransmitterKeyIndex(index int) {
 
 func (a *AutomationTest) SetUpkeepPrivilegeManager(address string) {
 	a.UpkeepPrivilegeManager = common.HexToAddress(address)
+}
+
+func (a *AutomationTest) SetDockerEnv(env *test_env.CLClusterTestEnv) {
+	a.DockerEnv = env
 }
 
 func (a *AutomationTest) DeployLINK() error {

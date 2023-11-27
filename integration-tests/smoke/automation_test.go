@@ -24,7 +24,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
@@ -35,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -117,17 +115,17 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			isMercuryV03 := name == "registry_2_1_with_mercury_v03"
 			isMercury := isMercuryV02 || isMercuryV03
 
-			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
+			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig, isMercuryV02, isMercuryV03,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
 				t,
-				registry,
-				registrar,
-				linkToken,
-				contractDeployer,
-				chainClient,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
 				defaultAmountOfUpkeeps,
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
@@ -148,7 +146,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 					privilegeConfigBytes, _ := json.Marshal(streams.UpkeepPrivilegeConfig{
 						MercuryEnabled: true,
 					})
-					if err := registry.SetUpkeepPrivilegeConfig(upkeepIDs[i], privilegeConfigBytes); err != nil {
+					if err := a.Registry.SetUpkeepPrivilegeConfig(upkeepIDs[i], privilegeConfigBytes); err != nil {
 						l.Error().Msg("Error when setting upkeep privilege config")
 						return
 					}
@@ -177,7 +175,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				expect := 5
 				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 				for i := 0; i < 5; i++ {
-					err = actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, testEnv.ClCluster.Nodes[i])
+					err = actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, a.DockerEnv.ClCluster.Nodes[i])
 					require.NoError(t, err, "Error when upgrading node %d", i)
 					time.Sleep(time.Second * 10)
 					expect = expect + 5
@@ -196,11 +194,11 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 			// Cancel all the registered upkeeps via the registry
 			for i := 0; i < len(upkeepIDs); i++ {
-				err := registry.CancelUpkeep(upkeepIDs[i])
+				err := a.Registry.CancelUpkeep(upkeepIDs[i])
 				require.NoError(t, err, "Could not cancel upkeep at index %d", i)
 			}
 
-			err = chainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error encountered when waiting for upkeeps to be cancelled")
 
 			var countersAfterCancellation = make([]*big.Int, len(upkeepIDs))
@@ -231,17 +229,17 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
+	a := setupAutomationTestDocker(
 		t, ethereum.RegistryVersion_2_1, automationDefaultRegistryConfig, false, false,
 	)
 
 	consumers, upkeepIDs := actions.DeployConsumers(
 		t,
-		registry,
-		registrar,
-		linkToken,
-		contractDeployer,
-		chainClient,
+		a.Registry,
+		a.Registrar,
+		a.LinkToken,
+		a.Deployer,
+		a.ChainClient,
 		defaultAmountOfUpkeeps,
 		big.NewInt(automationDefaultLinkFunds),
 		automationDefaultUpkeepGasLimit,
@@ -306,11 +304,11 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			return
 		}
 
-		err = registry.SetUpkeepTriggerConfig(upkeepIDs[i], encodedLogTriggerConfig)
+		err = a.Registry.SetUpkeepTriggerConfig(upkeepIDs[i], encodedLogTriggerConfig)
 		require.NoError(t, err, "Could not set upkeep trigger config at index %d", i)
 	}
 
-	err := chainClient.WaitForEvents()
+	err := a.ChainClient.WaitForEvents()
 	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
 
 	var countersAfterSetNoMatch = make([]*big.Int, len(upkeepIDs))
@@ -354,11 +352,11 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			return
 		}
 
-		err = registry.SetUpkeepTriggerConfig(upkeepIDs[i], encodedLogTriggerConfig)
+		err = a.Registry.SetUpkeepTriggerConfig(upkeepIDs[i], encodedLogTriggerConfig)
 		require.NoError(t, err, "Could not set upkeep trigger config at index %d", i)
 	}
 
-	err = chainClient.WaitForEvents()
+	err = a.ChainClient.WaitForEvents()
 	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
 
 	var countersAfterSetMatch = make([]*big.Int, len(upkeepIDs))
@@ -406,11 +404,23 @@ func TestAutomationAddFunds(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
+			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false, false)
+			consumers, upkeepIDs := actions.DeployConsumers(
+				t,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
+				defaultAmountOfUpkeeps,
+				big.NewInt(1),
+				automationDefaultUpkeepGasLimit,
+				false,
+				false,
+			)
 
 			gom := gomega.NewGomegaWithT(t)
 			// Since the upkeep is currently underfunded, check that it doesn't get executed
@@ -422,15 +432,15 @@ func TestAutomationAddFunds(t *testing.T) {
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for setup, 1m assertion
 
 			// Grant permission to the registry to fund the upkeep
-			err := linkToken.Approve(registry.Address(), big.NewInt(9e18))
+			err := a.LinkToken.Approve(a.Registry.Address(), big.NewInt(9e18))
 			require.NoError(t, err, "Could not approve permissions for the registry on the link token contract")
-			err = chainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for events")
 
 			// Add funds to the upkeep whose ID we know from above
-			err = registry.AddUpkeepFunds(upkeepIDs[0], big.NewInt(9e18))
+			err = a.Registry.AddUpkeepFunds(upkeepIDs[0], big.NewInt(9e18))
 			require.NoError(t, err, "Unable to add upkeep")
-			err = chainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for events")
 
 			// Now the new upkeep should be performing because we added enough funds
@@ -457,11 +467,23 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
+			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
+			consumers, upkeepIDs := actions.DeployConsumers(
+				t,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
+				defaultAmountOfUpkeeps,
+				big.NewInt(automationDefaultLinkFunds),
+				automationDefaultUpkeepGasLimit,
+				false,
+				false,
+			)
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
@@ -477,11 +499,11 @@ func TestAutomationPauseUnPause(t *testing.T) {
 
 			// pause all the registered upkeeps via the registry
 			for i := 0; i < len(upkeepIDs); i++ {
-				err := registry.PauseUpkeep(upkeepIDs[i])
+				err := a.Registry.PauseUpkeep(upkeepIDs[i])
 				require.NoError(t, err, "Could not pause upkeep at index %d", i)
 			}
 
-			err := chainClient.WaitForEvents()
+			err := a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for upkeeps to be paused")
 
 			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
@@ -506,11 +528,11 @@ func TestAutomationPauseUnPause(t *testing.T) {
 
 			// unpause all the registered upkeeps via the registry
 			for i := 0; i < len(upkeepIDs); i++ {
-				err := registry.UnpauseUpkeep(upkeepIDs[i])
+				err := a.Registry.UnpauseUpkeep(upkeepIDs[i])
 				require.NoError(t, err, "Could not unpause upkeep at index %d", i)
 			}
 
-			err = chainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for upkeeps to be unpaused")
 
 			gom.Eventually(func(g gomega.Gomega) {
@@ -540,11 +562,23 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
+			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
+			consumers, upkeepIDs := actions.DeployConsumers(
+				t,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
+				defaultAmountOfUpkeeps,
+				big.NewInt(automationDefaultLinkFunds),
+				automationDefaultUpkeepGasLimit,
+				false,
+				false,
+			)
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
 			gom := gomega.NewGomegaWithT(t)
@@ -564,8 +598,8 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 				}
 			}, "4m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
-			newConsumers, _ := actions.RegisterNewUpkeeps(t, contractDeployer, chainClient, linkToken,
-				registry, registrar, automationDefaultUpkeepGasLimit, 1)
+			newConsumers, _ := actions.RegisterNewUpkeeps(t, a.Deployer, a.ChainClient, a.LinkToken,
+				a.Registry, a.Registrar, automationDefaultUpkeepGasLimit, 1)
 
 			// We know that newConsumers has size 1, so we can just use the newly registered upkeep.
 			newUpkeep := newConsumers[0]
@@ -611,11 +645,23 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
+			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
+			consumers, upkeepIDs := actions.DeployConsumers(
+				t,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
+				defaultAmountOfUpkeeps,
+				big.NewInt(automationDefaultLinkFunds),
+				automationDefaultUpkeepGasLimit,
+				false,
+				false,
+			)
 			gom := gomega.NewGomegaWithT(t)
 
 			// Observe that the upkeeps which are initially registered are performing
@@ -629,9 +675,9 @@ func TestAutomationPauseRegistry(t *testing.T) {
 			}, "4m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
 			// Pause the registry
-			err := registry.Pause()
+			err := a.Registry.Pause()
 			require.NoError(t, err, "Error pausing registry")
-			err = chainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for registry to pause")
 
 			// Store how many times each upkeep performed once the registry was successfully paused
@@ -669,13 +715,25 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
+			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
+			consumers, upkeepIDs := actions.DeployConsumers(
+				t,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
+				defaultAmountOfUpkeeps,
+				big.NewInt(automationDefaultLinkFunds),
+				automationDefaultUpkeepGasLimit,
+				false,
+				false,
+			)
 			gom := gomega.NewGomegaWithT(t)
-			nodesWithoutBootstrap := chainlinkNodes[1:]
+			nodesWithoutBootstrap := a.ChainlinkNodes[1:]
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
 
@@ -694,7 +752,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			// Take down 1 node. Currently, using 4 nodes so f=1 and is the max nodes that can go down.
 			err := nodesWithoutBootstrap[0].MustDeleteJob("1")
 			require.NoError(t, err, "Error deleting job from Chainlink node")
-			err = chainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for blockchain events")
 
 			l.Info().Msg("Successfully managed to take down the first half of the nodes")
@@ -716,7 +774,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			for _, nodeToTakeDown := range restOfNodesDown {
 				err = nodeToTakeDown.MustDeleteJob("1")
 				require.NoError(t, err, "Error deleting job from Chainlink node")
-				err = chainClient.WaitForEvents()
+				err = a.ChainClient.WaitForEvents()
 				require.NoError(t, err, "Error waiting for blockchain events")
 			}
 			l.Info().Msg("Successfully managed to take down the second half of the nodes")
@@ -756,17 +814,17 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
+			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig, false, false,
 			)
 
 			consumersPerformance, _ := actions.DeployPerformanceConsumers(
 				t,
-				registry,
-				registrar,
-				linkToken,
-				contractDeployer,
-				chainClient,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
 				defaultAmountOfUpkeeps,
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
@@ -792,7 +850,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 			// Set performGas on consumer to be low, so that performUpkeep starts becoming successful
 			err := consumerPerformance.SetPerformGasToBurn(testcontext.Get(t), big.NewInt(100000))
 			require.NoError(t, err, "Perform gas should be set successfully on consumer")
-			err = chainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for set perform gas tx")
 
 			// Upkeep should now start performing
@@ -820,17 +878,17 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
+			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig, false, false,
 			)
 
 			consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
 				t,
-				registry,
-				registrar,
-				linkToken,
-				contractDeployer,
-				chainClient,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
 				defaultAmountOfUpkeeps,
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
@@ -841,7 +899,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			nodesWithoutBootstrap := chainlinkNodes[1:]
+			nodesWithoutBootstrap := a.ChainlinkNodes[1:]
 			consumerPerformance := consumersPerformance[0]
 			upkeepID := upkeepIDs[0]
 
@@ -856,9 +914,9 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for setup, 1m assertion
 
 			// Increase gas limit for the upkeep, higher than the performGasBurn
-			err := registry.SetUpkeepGasLimit(upkeepID, uint32(4500000))
+			err := a.Registry.SetUpkeepGasLimit(upkeepID, uint32(4500000))
 			require.NoError(t, err, "Error setting upkeep gas limit")
-			err = chainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for SetUpkeepGasLimit tx")
 
 			// Upkeep should now start performing
@@ -873,7 +931,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			// Now increase the checkGasBurn on consumer, upkeep should stop performing
 			err = consumerPerformance.SetCheckGasToBurn(testcontext.Get(t), big.NewInt(3000000))
 			require.NoError(t, err, "Check gas burn should be set successfully on consumer")
-			err = chainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for SetCheckGasToBurn tx")
 
 			// Get existing performed count
@@ -901,12 +959,12 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
 
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress())
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, a.Registrar.Address(), 30*time.Second, a.Registry.RegistryOwnerAddress())
 			require.NoError(t, err, "Error building OCR config")
 
-			err = registry.SetConfig(highCheckGasLimit, ocrConfig)
+			err = a.Registry.SetConfig(highCheckGasLimit, ocrConfig)
 			require.NoError(t, err, "Registry config should be set successfully!")
-			err = chainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for set config tx")
 
 			// Upkeep should start performing again, and it should get regularly performed
@@ -934,17 +992,17 @@ func TestUpdateCheckData(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
+			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig, false, false,
 			)
 
 			performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
 				t,
-				registry,
-				registrar,
-				linkToken,
-				contractDeployer,
-				chainClient,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
 				defaultAmountOfUpkeeps,
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
@@ -965,16 +1023,16 @@ func TestUpdateCheckData(t *testing.T) {
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for setup, 1m assertion
 
 			for i := 0; i < len(upkeepIDs); i++ {
-				err := registry.UpdateCheckData(upkeepIDs[i], []byte(automationExpectedData))
+				err := a.Registry.UpdateCheckData(upkeepIDs[i], []byte(automationExpectedData))
 				require.NoError(t, err, "Could not update check data for upkeep at index %d", i)
 			}
 
-			err := chainClient.WaitForEvents()
+			err := a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error while waiting for check data update")
 
 			// retrieve new check data for all upkeeps
 			for i := 0; i < len(upkeepIDs); i++ {
-				upkeep, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
+				upkeep, err := a.Registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
 				require.NoError(t, err, "Failed to get upkeep info at index %d", i)
 				require.Equal(t, []byte(automationExpectedData), upkeep.CheckData, "Upkeep data not as expected")
 			}
@@ -1004,15 +1062,7 @@ func setupAutomationTestDocker(
 	registryConfig contracts.KeeperRegistrySettings,
 	isMercuryV02 bool,
 	isMercuryV03 bool,
-) (
-	blockchain.EVMClient,
-	[]*client.ChainlinkClient,
-	contracts.ContractDeployer,
-	contracts.LinkToken,
-	contracts.KeeperRegistry,
-	contracts.KeeperRegistrar,
-	*test_env.CLClusterTestEnv,
-) {
+) automationv2.AutomationTest {
 	require.False(t, isMercuryV02 && isMercuryV03, "Cannot run test with both Mercury V02 and V03 on")
 
 	l := logging.GetTestLogger(t)
@@ -1135,6 +1185,7 @@ func setupAutomationTestDocker(
 	}
 
 	a.SetupAutomationDeployment(t)
+	a.SetDockerEnv(env)
 
-	return env.EVMClient, nodeClients, env.ContractDeployer, a.LinkToken, a.Registry, a.Registrar, env
+	return *a
 }
