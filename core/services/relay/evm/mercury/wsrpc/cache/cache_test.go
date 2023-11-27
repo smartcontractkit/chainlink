@@ -152,8 +152,17 @@ func Test_Cache(t *testing.T) {
 			}
 			v.completeFetch(nil, errors.New("foo"), time.Now().Add(neverExpireTTL))
 			assert.Equal(t, expires, v.expiresAt)
-			v.completeFetch(nil, nil, time.Now().Add(neverExpireTTL))
-			assert.Equal(t, neverExpireTTL, v.expiresAt)
+
+			v = &cacheVal{
+				fetching:  true,
+				fetchCh:   make(chan (struct{})),
+				val:       nil,
+				err:       nil,
+				expiresAt: expires,
+			}
+			expires = time.Now().Add(neverExpireTTL)
+			v.completeFetch(nil, nil, expires)
+			assert.Equal(t, expires, v.expiresAt)
 		})
 	})
 
