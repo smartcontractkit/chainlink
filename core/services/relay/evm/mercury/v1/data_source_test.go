@@ -432,7 +432,7 @@ func TestMercury_SetLatestBlocks(t *testing.T) {
 		ds.chainReader = evm.NewChainReader(headTracker)
 
 		obs := relaymercuryv1.Observation{}
-		err := ds.setLatestBlocks(context.Background(), &obs)
+		err := ds.setLatestBlocks(testutils.Context(t), &obs)
 
 		assert.NoError(t, err)
 		assert.Equal(t, h.Number, obs.CurrentBlockNum.Val)
@@ -450,7 +450,7 @@ func TestMercury_SetLatestBlocks(t *testing.T) {
 
 		ds.chainReader = evm.NewChainReader(headTracker)
 		obs := relaymercuryv1.Observation{}
-		err := ds.setLatestBlocks(context.Background(), &obs)
+		err := ds.setLatestBlocks(testutils.Context(t), &obs)
 
 		assert.NoError(t, err)
 		assert.Zero(t, obs.CurrentBlockNum.Val)

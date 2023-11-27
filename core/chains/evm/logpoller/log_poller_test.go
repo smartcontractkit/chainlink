@@ -626,19 +626,19 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	require.Len(t, gethLogs, 2)
 
 	lb, _ := th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
-	th.PollAndSaveLogs(context.Background(), lb.BlockNumber+1)
+	th.PollAndSaveLogs(ctx, lb.BlockNumber+1)
 	lg1, err := th.LogPoller.Logs(0, 20, EmitterABI.Events["Log1"].ID, th.EmitterAddress1,
-		pg.WithParentCtx(testutils.Context(t)))
+		pg.WithParentCtx(ctx))
 	require.NoError(t, err)
 	lg2, err := th.LogPoller.Logs(0, 20, EmitterABI.Events["Log2"].ID, th.EmitterAddress2,
-		pg.WithParentCtx(testutils.Context(t)))
+		pg.WithParentCtx(ctx))
 	require.NoError(t, err)
 
 	// Logs should have correct timestamps
-	b, _ := th.Client.BlockByHash(context.Background(), lg1[0].BlockHash)
+	b, _ := th.Client.BlockByHash(ctx, lg1[0].BlockHash)
 	t.Log(len(lg1), lg1[0].BlockTimestamp)
 	assert.Equal(t, int64(b.Time()), lg1[0].BlockTimestamp.UTC().Unix(), time1)
-	b2, _ := th.Client.BlockByHash(context.Background(), lg2[0].BlockHash)
+	b2, _ := th.Client.BlockByHash(ctx, lg2[0].BlockHash)
 	assert.Equal(t, int64(b2.Time()), lg2[0].BlockTimestamp.UTC().Unix(), time2)
 }
 

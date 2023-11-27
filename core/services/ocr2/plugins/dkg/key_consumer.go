@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/smartcontractkit/ocr2vrf/dkg"
+	"github.com/smartcontractkit/chainlink-vrf/dkg"
 )
 
 type dummyKeyConsumer struct{}

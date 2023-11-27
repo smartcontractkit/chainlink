@@ -19,6 +19,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	nullv4 "gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -172,14 +172,14 @@ type DbEthTx struct {
 	// Marshalled EvmTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
-	Meta              *datatypes.JSON
+	Meta              *sqlutil.JSON
 	Subject           uuid.NullUUID
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  null.Uint32
 	EVMChainID        utils.Big
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
-	TransmitChecker    *datatypes.JSON
+	TransmitChecker    *sqlutil.JSON
 	InitialBroadcastAt *time.Time
 	// Marks tx requiring callback
 	SignalCallback bool
@@ -1179,11 +1179,9 @@ func (o *evmTxStore) GetPipelineRunStats(ctx context.Context) (taskRunsQueued in
 	return taskRunsQueued, runsQueued, err
 }
 
-func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func saveAttemptWithNewState(ctx context.Context, q pg.Queryer, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
 	var dbAttempt DbEthTxAttempt
 	dbAttempt.FromTxAttempt(&attempt)
-	defer cancel()
 	return pg.SqlxTransaction(ctx, q, logger, func(tx pg.Queryer) error {
 		// In case of null broadcast_at (shouldn't happen) we don't want to
 		// update anyway because it indicates a state where broadcast_at makes
@@ -1205,15 +1203,19 @@ func (o *evmTxStore) SaveInsufficientFundsAttempt(ctx context.Context, timeout t
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
 	attempt.State = txmgrtypes.TxAttemptInsufficientFunds
-	return pkgerrors.Wrap(saveAttemptWithNewState(qq, timeout, o.logger, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
+	ctx, cancel = context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return pkgerrors.Wrap(saveAttemptWithNewState(ctx, qq, o.logger, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
 }
 
-func saveSentAttempt(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *TxAttempt, broadcastAt time.Time) error {
+func saveSentAttempt(ctx context.Context, q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *TxAttempt, broadcastAt time.Time) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	return pkgerrors.Wrap(saveAttemptWithNewState(q, timeout, logger, *attempt, broadcastAt), "saveSentAttempt failed")
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return pkgerrors.Wrap(saveAttemptWithNewState(ctx, q, logger, *attempt, broadcastAt), "saveSentAttempt failed")
 }
 
 func (o *evmTxStore) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt, broadcastAt time.Time) error {
@@ -1221,7 +1223,7 @@ func (o *evmTxStore) SaveSentAttempt(ctx context.Context, timeout time.Duration,
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	return saveSentAttempt(qq, timeout, o.logger, attempt, broadcastAt)
+	return saveSentAttempt(ctx, qq, timeout, o.logger, attempt, broadcastAt)
 }
 
 func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt, broadcastAt time.Time) error {
@@ -1230,7 +1232,7 @@ func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, tim
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err := qq.Transaction(func(tx pg.Queryer) error {
-		if err := saveSentAttempt(tx, timeout, o.logger, attempt, broadcastAt); err != nil {
+		if err := saveSentAttempt(ctx, tx, timeout, o.logger, attempt, broadcastAt); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`UPDATE evm.txes SET state = 'confirmed_missing_receipt' WHERE id = $1`, attempt.TxID); err != nil {
@@ -1521,7 +1523,6 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 }
 
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
-// One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
 func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)

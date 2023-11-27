@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"go.uber.org/multierr"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"

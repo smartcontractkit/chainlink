@@ -3,8 +3,9 @@ package transmit
 import (
 	"testing"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/require"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 )
 
 func TestTransmitEventCache_Sanity(t *testing.T) {

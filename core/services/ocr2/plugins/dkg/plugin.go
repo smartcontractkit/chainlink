@@ -8,10 +8,12 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	"github.com/smartcontractkit/ocr2vrf/altbn_128"
-	"github.com/smartcontractkit/ocr2vrf/dkg"
+
+	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
+	"github.com/smartcontractkit/chainlink-vrf/dkg"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
