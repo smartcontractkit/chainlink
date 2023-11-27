@@ -102,7 +102,7 @@ func TestShell_DeleteP2PKey(t *testing.T) {
 	requireP2PKeyCount(t, app, 1)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteP2PKey, set, "")
+	flagSetApplyFromAction(client.DeleteP2PKey, set, "")
 
 	require.NoError(t, set.Set("yes", "true"))
 
@@ -132,7 +132,7 @@ func TestShell_ImportExportP2PKeyBundle(t *testing.T) {
 
 	// Export test invalid id
 	set := flag.NewFlagSet("test P2P export", 0)
-	cltest.FlagSetApplyFromAction(client.ExportP2PKey, set, "")
+	flagSetApplyFromAction(client.ExportP2PKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"0"}))
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
@@ -145,7 +145,7 @@ func TestShell_ImportExportP2PKeyBundle(t *testing.T) {
 
 	// Export test
 	set = flag.NewFlagSet("test P2P export", 0)
-	cltest.FlagSetApplyFromAction(client.ExportP2PKey, set, "")
+	flagSetApplyFromAction(client.ExportP2PKey, set, "")
 
 	require.NoError(t, set.Parse([]string{fmt.Sprint(key.ID())}))
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
@@ -160,7 +160,7 @@ func TestShell_ImportExportP2PKeyBundle(t *testing.T) {
 	requireP2PKeyCount(t, app, 0)
 
 	set = flag.NewFlagSet("test P2P import", 0)
-	cltest.FlagSetApplyFromAction(client.ImportP2PKey, set, "")
+	flagSetApplyFromAction(client.ImportP2PKey, set, "")
 
 	require.NoError(t, set.Parse([]string{keyName}))
 	require.NoError(t, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))

@@ -134,7 +134,7 @@ func EmptyCLIContext() *cli.Context {
 	return cli.NewContext(nil, set, nil)
 }
 
-func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.Tx {
+func NewEthTx(fromAddress common.Address) txmgr.Tx {
 	return txmgr.Tx{
 		FromAddress:    fromAddress,
 		ToAddress:      testutils.NewAddress(),
@@ -156,7 +156,7 @@ func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonc
 			chainID = v
 		}
 	}
-	etx := NewEthTx(t, fromAddress)
+	etx := NewEthTx(fromAddress)
 
 	etx.BroadcastAt = &broadcastAt
 	etx.InitialBroadcastAt = &broadcastAt
@@ -184,95 +184,9 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, txAttemptState txmgrtypes.TxAttemptState, opts ...interface{}) txmgr.Tx {
-	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
-	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-
-	attempt.State = txAttemptState
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
-	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
-	attempt := NewDynamicFeeEthTxAttempt(t, etx.ID)
-
-	addr := testutils.NewAddress()
-	dtx := types.DynamicFeeTx{
-		ChainID:   big.NewInt(0),
-		Nonce:     uint64(nonce),
-		GasTipCap: big.NewInt(1),
-		GasFeeCap: big.NewInt(1),
-		Gas:       242,
-		To:        &addr,
-		Value:     big.NewInt(342),
-		Data:      []byte{2, 3, 4},
-	}
-	tx := types.NewTx(&dtx)
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-
-	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address) txmgr.Tx {
-	timeNow := time.Now()
-	etx := NewEthTx(t, fromAddress)
-
-	etx.BroadcastAt = &timeNow
-	etx.InitialBroadcastAt = &timeNow
-	n := evmtypes.Nonce(nonce)
-	etx.Sequence = &n
-	etx.State = txmgrcommon.TxUnconfirmed
-	require.NoError(t, txStore.InsertTx(&etx))
-	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-
-	attempt.State = txmgrtypes.TxAttemptInsufficientFunds
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-	t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64,
-	broadcastAt time.Time, fromAddress common.Address) txmgr.Tx {
-	etx := NewEthTx(t, fromAddress)
-
-	etx.BroadcastAt = &broadcastAt
-	etx.InitialBroadcastAt = &broadcastAt
-	n := evmtypes.Nonce(nonce)
-	etx.Sequence = &n
-	etx.State = txmgrcommon.TxConfirmedMissingReceipt
-	require.NoError(t, txStore.InsertTx(&etx))
-	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
-	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx.TxAttempts = append(etx.TxAttempts, attempt)
-	return etx
-}
-
 func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
 	timeNow := time.Now()
-	etx := NewEthTx(t, fromAddress)
+	etx := NewEthTx(fromAddress)
 
 	etx.BroadcastAt = &timeNow
 	etx.InitialBroadcastAt = &timeNow
@@ -287,91 +201,6 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestE
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
 	etx.TxAttempts = append(etx.TxAttempts, attempt)
 	return etx
-}
-
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce evmtypes.Nonce, fromAddress common.Address) txmgr.Tx {
-	etx := NewEthTx(t, fromAddress)
-
-	etx.Sequence = &nonce
-	etx.State = txmgrcommon.TxInProgress
-	require.NoError(t, txStore.InsertTx(&etx))
-	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-	attempt.State = txmgrtypes.TxAttemptInProgress
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustCreateUnstartedGeneratedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, chainID *big.Int, opts ...func(*txmgr.TxRequest)) (tx txmgr.Tx) {
-	txRequest := txmgr.TxRequest{
-		FromAddress: fromAddress,
-	}
-
-	// Apply the default options
-	WithDefaults()(&txRequest)
-	// Apply the optional parameters
-	for _, opt := range opts {
-		opt(&txRequest)
-	}
-	return MustCreateUnstartedTxFromEvmTxRequest(t, txStore, txRequest, chainID)
-}
-
-func WithDefaults() func(*txmgr.TxRequest) {
-	return func(tx *txmgr.TxRequest) {
-		tx.ToAddress = testutils.NewAddress()
-		tx.EncodedPayload = []byte{1, 2, 3}
-		tx.Value = big.Int(assets.NewEthValue(142))
-		tx.FeeLimit = uint32(1000000000)
-		tx.Strategy = txmgrcommon.NewSendEveryStrategy()
-		// Set default values for other fields if needed
-	}
-}
-
-func EvmTxRequestWithStrategy(strategy txmgrtypes.TxStrategy) func(*txmgr.TxRequest) {
-	return func(tx *txmgr.TxRequest) {
-		tx.Strategy = strategy
-	}
-}
-
-func EvmTxRequestWithChecker(checker txmgr.TransmitCheckerSpec) func(*txmgr.TxRequest) {
-	return func(tx *txmgr.TxRequest) {
-		tx.Checker = checker
-	}
-}
-func EvmTxRequestWithValue(value big.Int) func(*txmgr.TxRequest) {
-	return func(tx *txmgr.TxRequest) {
-		tx.Value = value
-	}
-}
-
-func EvmTxRequestWithIdempotencyKey(idempotencyKey string) func(*txmgr.TxRequest) {
-	return func(tx *txmgr.TxRequest) {
-		tx.IdempotencyKey = &idempotencyKey
-	}
-}
-
-func MustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint32, value big.Int, chainID *big.Int, opts ...interface{}) (tx txmgr.Tx) {
-	txRequest := txmgr.TxRequest{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: encodedPayload,
-		Value:          value,
-		FeeLimit:       gasLimit,
-		Strategy:       txmgrcommon.NewSendEveryStrategy(),
-	}
-
-	return MustCreateUnstartedTxFromEvmTxRequest(t, txStore, txRequest, chainID)
-}
-
-func MustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStore, txRequest txmgr.TxRequest, chainID *big.Int) (tx txmgr.Tx) {
-	tx, err := txStore.CreateTransaction(testutils.Context(t), txRequest, chainID)
-	require.NoError(t, err)
-	return tx
 }
 
 func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
@@ -407,72 +236,6 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 	}
 }
 
-func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.Receipt {
-	transactionIndex := uint(NewRandomPositiveInt64())
-
-	receipt := evmtypes.Receipt{
-		BlockNumber:      big.NewInt(blockNumber),
-		BlockHash:        blockHash,
-		TxHash:           txHash,
-		TransactionIndex: transactionIndex,
-		Status:           status,
-	}
-
-	r := txmgr.Receipt{
-		BlockNumber:      blockNumber,
-		BlockHash:        blockHash,
-		TxHash:           txHash,
-		TransactionIndex: transactionIndex,
-		Receipt:          receipt,
-	}
-	return r
-}
-
-func MustInsertEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.Receipt {
-	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x1)
-	id, err := txStore.InsertReceipt(&r.Receipt)
-	require.NoError(t, err)
-	r.ID = id
-	return r
-}
-
-func MustInsertRevertedEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.Receipt {
-	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x0)
-	id, err := txStore.InsertReceipt(&r.Receipt)
-	require.NoError(t, err)
-	r.ID = id
-	return r
-}
-
-// Inserts into evm.receipts but does not update evm.txes or evm.tx_attempts
-func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.Tx) {
-	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
-	MustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.TxAttempts[0].Hash)
-	return etx
-}
-
-func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.Tx) {
-	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
-	receipt := evmtypes.Receipt{
-		TxHash:           etx.TxAttempts[0].Hash,
-		BlockHash:        utils.NewHash(),
-		BlockNumber:      big.NewInt(nonce),
-		TransactionIndex: uint(1),
-	}
-	err := txStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&receipt}, &chainID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustInsertFatalErrorEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address) txmgr.Tx {
-	etx := NewEthTx(t, fromAddress)
-	etx.Error = null.StringFrom("something exploded")
-	etx.State = txmgrcommon.TxFatalError
-
-	require.NoError(t, txStore.InsertTx(&etx))
-	return etx
-}
-
 type RandomKey struct {
 	Nonce    int64
 	Disabled bool
@@ -501,7 +264,8 @@ func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2
 
 func (r RandomKey) MustInsertWithState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
 	k, address := r.MustInsert(t, keystore)
-	state := MustGetStateForKey(t, keystore, k)
+	state, err := keystore.GetStateForKey(k)
+	require.NoError(t, err)
 	return state, address
 }
 
