@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
@@ -199,6 +198,7 @@ func TestVRFV2Performance(t *testing.T) {
 			mockETHLinkFeed,
 			//register proving key against EOA address in order to return funds to this address
 			env.EVMClient.GetDefaultWallet().Address(),
+			0,
 			1,
 			vrfv2Config.NumberOfSubToCreate,
 			l,
@@ -302,13 +302,7 @@ func FundNodesIfNeeded(cfg *PerformanceConfig, client blockchain.EVMClient, l ze
 					Str("Should have at least", fundingAtLeast.String()).
 					Str("Funding Amount in ETH", fundingToSendEth.String()).
 					Msg("Funding Node's Sending Key")
-				gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
-					To: &address,
-				})
-				if err != nil {
-					return err
-				}
-				err = client.Fund(sendingKey, fundingToSendEth, gasEstimates)
+				err := actions.FundAddress(client, sendingKey, fundingToSendEth)
 				if err != nil {
 					return err
 				}
