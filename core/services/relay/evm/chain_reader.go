@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -63,22 +62,6 @@ func (cr *chainReader) HealthReport() map[string]error {
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, bc commontypes.BoundContract, method string, params any, returnVal any) error {
 	return fmt.Errorf("Unimplemented method GetLatestValue called %w", errors.ErrUnsupported)
-}
-
-func (cr *chainReader) Encode(ctx context.Context, item any, itemType string) (ocrtypes.Report, error) {
-	return nil, fmt.Errorf("Unimplemented method Encode called %w", errors.ErrUnsupported)
-}
-
-func (cr *chainReader) Decode(_ context.Context, raw []byte, into any, itemType string) error {
-	return fmt.Errorf("Unimplemented method Decode called %w", errors.ErrUnsupported)
-}
-
-func (cr *chainReader) GetMaxEncodingSize(ctx context.Context, n int, itemType string) (int, error) {
-	return 0, fmt.Errorf("Unimplemented method GetMaxDecodingSize called %w", errors.ErrUnsupported)
-}
-
-func (cr *chainReader) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
-	return 0, fmt.Errorf("Unimplemented method GetMaxDecodingSize called %w", errors.ErrUnsupported)
 }
 
 func validateChainReaderConfig(cfg types.ChainReaderConfig) error {
