@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -119,7 +120,7 @@ func (c *chainClient) BlockByNumber(ctx context.Context, number *big.Int) (b *ty
 }
 
 func (c *chainClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	return c.multiNode.CallContext(ctx, result, method)
+	return c.multiNode.CallContext(ctx, result, method, args)
 }
 
 func (c *chainClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
