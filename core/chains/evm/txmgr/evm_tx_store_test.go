@@ -1495,6 +1495,27 @@ func TestORM_CountUnconfirmedTransactions(t *testing.T) {
 	assert.Equal(t, int(count), 3)
 }
 
+func TestORM_CountAllUnconfirmedTransactions(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+
+	_, fromAddress1 := cltest.MustInsertRandomKey(t, ethKeyStore)
+	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
+	_, fromAddress3 := cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress1)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress2)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress3)
+
+	count, err := txStore.CountAllUnconfirmedTransactions(testutils.Context(t), &cltest.FixtureChainID)
+	require.NoError(t, err)
+	assert.Equal(t, int(count), 3)
+}
+
 func TestORM_CountUnstartedTransactions(t *testing.T) {
 	t.Parallel()
 
