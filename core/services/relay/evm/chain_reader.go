@@ -99,14 +99,6 @@ func validateEvents(contractABI abi.ABI, chainReaderDefinition types.ChainReader
 		return fmt.Errorf("event: %s doesn't exist", chainReaderDefinition.ChainSpecificName)
 	}
 
-	if !areChainReaderArgumentsValid(event.Inputs, chainReaderDefinition.ReturnValues) {
-		var abiEventInputsNames []string
-		for _, input := range event.Inputs {
-			abiEventInputsNames = append(abiEventInputsNames, input.Name)
-		}
-		return fmt.Errorf("return values: [%s] don't match abi event inputs: [%s]", strings.Join(chainReaderDefinition.ReturnValues, ","), strings.Join(abiEventInputsNames, ","))
-	}
-
 	var abiEventIndexedInputs []abi.Argument
 	for _, eventInput := range event.Inputs {
 		if eventInput.Indexed {
@@ -148,21 +140,13 @@ func validateMethods(abi abi.ABI, chainReaderDefinition types.ChainReaderDefinit
 		return fmt.Errorf("params: [%s] don't match abi method inputs: [%s]", strings.Join(methodNames, ","), strings.Join(abiMethodInputs, ","))
 	}
 
-	if !areChainReaderArgumentsValid(method.Outputs, chainReaderDefinition.ReturnValues) {
-		var abiMethodOutputs []string
-		for _, input := range method.Outputs {
-			abiMethodOutputs = append(abiMethodOutputs, input.Name)
-		}
-		return fmt.Errorf("return values: [%s] don't match abi method outputs: [%s]", strings.Join(chainReaderDefinition.ReturnValues, ","), strings.Join(abiMethodOutputs, ","))
-	}
-
 	return nil
 }
 
 func areChainReaderArgumentsValid(contractArgs []abi.Argument, chainReaderArgs []string) bool {
-	for _, chArgName := range chainReaderArgs {
+	for _, contractArg := range contractArgs {
 		found := false
-		for _, contractArg := range contractArgs {
+		for _, chArgName := range chainReaderArgs {
 			if chArgName == contractArg.Name {
 				found = true
 				break
@@ -172,5 +156,6 @@ func areChainReaderArgumentsValid(contractArgs []abi.Argument, chainReaderArgs [
 			return false
 		}
 	}
+
 	return true
 }
