@@ -2,9 +2,10 @@ package types
 
 import (
 	"context"
-	"gopkg.in/guregu/null.v4"
 	"math/big"
 	"time"
+
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/google/uuid"
 

@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go.uber.org/multierr"
 	"math/big"
 	"strings"
 	"time"
+
+	"go.uber.org/multierr"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"

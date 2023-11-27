@@ -865,8 +865,8 @@ func TestORM_FindEarliestUnconfirmedTxBlock(t *testing.T) {
 
 	t.Run("verify earliest unconfirmed tx block", func(t *testing.T) {
 		var blockNum int64 = 2
-		tx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 123, blockNum, time.Now(), fromAddress)
-		_ = cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 123, blockNum, time.Now().Add(time.Minute), fromAddress2)
+		tx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 123, blockNum, time.Now(), fromAddress)
+		_ = mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 123, blockNum, time.Now().Add(time.Minute), fromAddress2)
 		err := txStore.UpdateTxsUnconfirmed(testutils.Context(t), []int64{tx.ID})
 		require.NoError(t, err)
 
