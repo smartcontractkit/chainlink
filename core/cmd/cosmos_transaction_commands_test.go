@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
@@ -93,7 +92,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendcosmoscoins", 0)
-			cltest.FlagSetApplyFromAction(client.CosmosSendNativeToken, set, "cosmos")
+			flagSetApplyFromAction(client.CosmosSendNativeToken, set, "cosmos")
 
 			require.NoError(t, set.Set("id", chainID))
 			require.NoError(t, set.Parse([]string{nativeToken, tt.amount, from.Address.String(), to.Address.String()}))

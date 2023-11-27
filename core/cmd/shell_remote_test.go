@@ -123,7 +123,7 @@ func TestShell_ReplayBlocks(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("flagset", 0)
-	cltest.FlagSetApplyFromAction(client.ReplayFromBlock, set, "")
+	flagSetApplyFromAction(client.ReplayFromBlock, set, "")
 
 	require.NoError(t, set.Set("block-number", "42"))
 	require.NoError(t, set.Set("evm-chain-id", "12345678"))
@@ -156,7 +156,7 @@ func TestShell_CreateExternalInitiator(t *testing.T) {
 			client, _ := app.NewShellAndRenderer()
 
 			set := flag.NewFlagSet("create", 0)
-			cltest.FlagSetApplyFromAction(client.CreateExternalInitiator, set, "")
+			flagSetApplyFromAction(client.CreateExternalInitiator, set, "")
 			assert.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
 
@@ -197,7 +197,7 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 			initialExis := len(cltest.AllExternalInitiators(t, app.GetSqlxDB()))
 
 			set := flag.NewFlagSet("create", 0)
-			cltest.FlagSetApplyFromAction(client.CreateExternalInitiator, set, "")
+			flagSetApplyFromAction(client.CreateExternalInitiator, set, "")
 
 			assert.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
@@ -228,7 +228,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteExternalInitiator, set, "")
+	flagSetApplyFromAction(client.DeleteExternalInitiator, set, "")
 
 	require.NoError(t, set.Parse([]string{exi.Name}))
 
@@ -246,7 +246,7 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 	client, r := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteExternalInitiator, set, "")
+	flagSetApplyFromAction(client.DeleteExternalInitiator, set, "")
 
 	require.NoError(t, set.Parse([]string{"bogus-ID"}))
 
@@ -280,7 +280,7 @@ func TestShell_RemoteLogin(t *testing.T) {
 			client := app.NewAuthenticatingShell(prompter)
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+			flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 			require.NoError(t, set.Set("file", test.file))
 			require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -318,7 +318,7 @@ func TestShell_RemoteBuildCompatibility(t *testing.T) {
 
 	// Fails without bypass
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("bypass-version-check", "false"))
 
@@ -329,7 +329,7 @@ func TestShell_RemoteBuildCompatibility(t *testing.T) {
 
 	// Defaults to false
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.RemoteLogin(c)
 	assert.Error(t, err)
@@ -425,7 +425,7 @@ func TestShell_ChangePassword(t *testing.T) {
 	otherClient := app.NewAuthenticatingShell(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -473,7 +473,7 @@ func TestShell_Profile_InvalidSecondsParam(t *testing.T) {
 	client := app.NewAuthenticatingShell(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -504,7 +504,7 @@ func TestShell_Profile(t *testing.T) {
 	client := app.NewAuthenticatingShell(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -595,7 +595,7 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("bypass-version-check", "true"))
 	require.NoError(t, set.Parse([]string{strconv.FormatInt(int64(jb.ID), 10)}))
@@ -613,7 +613,7 @@ func TestShell_RunOCRJob_MissingJobID(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("bypass-version-check", "true"))
 
@@ -630,7 +630,7 @@ func TestShell_RunOCRJob_JobNotFound(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Parse([]string{"1"}))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -659,7 +659,7 @@ func TestShell_AutoLogin(t *testing.T) {
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Logger, app.NewClientOpts(), client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.ListJobs, fs, "")
+	flagSetApplyFromAction(client.ListJobs, fs, "")
 
 	err := client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
@@ -687,7 +687,7 @@ func TestShell_AutoLogin_AuthFails(t *testing.T) {
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Logger, app.NewClientOpts(), client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.ListJobs, fs, "")
+	flagSetApplyFromAction(client.ListJobs, fs, "")
 	err := client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.Error(t, err)
 }
@@ -716,7 +716,7 @@ func TestShell_SetLogConfig(t *testing.T) {
 
 	logLevel := "warn"
 	set := flag.NewFlagSet("loglevel", 0)
-	cltest.FlagSetApplyFromAction(client.SetLogLevel, set, "")
+	flagSetApplyFromAction(client.SetLogLevel, set, "")
 
 	require.NoError(t, set.Set("level", logLevel))
 
@@ -728,7 +728,7 @@ func TestShell_SetLogConfig(t *testing.T) {
 
 	sqlEnabled := true
 	set = flag.NewFlagSet("logsql", 0)
-	cltest.FlagSetApplyFromAction(client.SetLogSQL, set, "")
+	flagSetApplyFromAction(client.SetLogSQL, set, "")
 
 	require.NoError(t, set.Set("enable", strconv.FormatBool(sqlEnabled)))
 	c = cli.NewContext(nil, set, nil)
@@ -739,7 +739,7 @@ func TestShell_SetLogConfig(t *testing.T) {
 
 	sqlEnabled = false
 	set = flag.NewFlagSet("logsql", 0)
-	cltest.FlagSetApplyFromAction(client.SetLogSQL, set, "")
+	flagSetApplyFromAction(client.SetLogSQL, set, "")
 
 	require.NoError(t, set.Set("disable", "true"))
 	c = cli.NewContext(nil, set, nil)

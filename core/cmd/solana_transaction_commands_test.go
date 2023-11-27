@@ -21,7 +21,6 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
 func TestShell_SolanaSendSol(t *testing.T) {
@@ -69,7 +68,7 @@ func TestShell_SolanaSendSol(t *testing.T) {
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendsolcoins", 0)
-			cltest.FlagSetApplyFromAction(client.SolanaSendSol, set, "solana")
+			flagSetApplyFromAction(client.SolanaSendSol, set, "solana")
 
 			require.NoError(t, set.Set("id", chainID))
 			require.NoError(t, set.Parse([]string{tt.amount, from.PublicKey().String(), to.PublicKey().String()}))

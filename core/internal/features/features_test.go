@@ -429,7 +429,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 			pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), testutils.WaitTimeout(t)/2, time.Second)
 			pipelineRun := pipelineRuns[0]
-			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+			assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
 
 			nameAndExternalJobID = uuid.New()
@@ -454,7 +454,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 			pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), testutils.WaitTimeout(t), time.Second)
 			pipelineRun = pipelineRuns[0]
-			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+			assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			v, err := operatorContracts.singleWord.CurrentPriceInt(nil)
 			require.NoError(t, err)
 			assert.Equal(t, big.NewInt(61464), v)
@@ -535,7 +535,7 @@ observationSource   = """
 
 		// The run should have succeeded but with the receipt detailing the reverted transaction
 		pipelineRun := pipelineRuns[0]
-		cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+		assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 
 		outputs := pipelineRun.Outputs.Val.([]interface{})
 		require.Len(t, outputs, 1)
@@ -581,7 +581,7 @@ observationSource   = """
 
 		// The run should have failed as a revert
 		pipelineRun := pipelineRuns[0]
-		cltest.AssertPipelineTaskRunsErrored(t, pipelineRun.PipelineTaskRuns)
+		assertPipelineTaskRunsErrored(t, pipelineRun.PipelineTaskRuns)
 	})
 
 	t.Run("with FailOnRevert disabled, run succeeds with output being reverted receipt", func(t *testing.T) {
@@ -619,7 +619,7 @@ observationSource   = """
 
 		// The run should have succeeded but with the receipt detailing the reverted transaction
 		pipelineRun := pipelineRuns[0]
-		cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+		assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 
 		outputs := pipelineRun.Outputs.Val.([]interface{})
 		require.Len(t, outputs, 1)
@@ -1454,3 +1454,17 @@ func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwo
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func assertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
+	t.Helper()
+	for i, run := range runs {
+		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
+	}
+}
+
+func assertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
+	t.Helper()
+	for i, run := range runs {
+		require.False(t, run.Error.IsZero(), fmt.Sprintf("expected pipeline.Task run to have failed, but it succeeded (idx: %v, dotID: %v, output: '%v')", i, run.GetDotID(), run.Output))
+	}
+}
