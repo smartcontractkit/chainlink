@@ -2,8 +2,8 @@ package cache
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -11,8 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// NOTE: CacheSet holds a set of mercury caches keyed by server URL
-
+// CacheSet holds a set of mercury caches keyed by server URL
 type CacheSet interface {
 	services.Service
 	Get(ctx context.Context, client Client) (Fetcher, error)
@@ -53,14 +52,20 @@ func (cs *cacheSet) Start(context.Context) error {
 }
 
 func (cs *cacheSet) Close() error {
-	return cs.StopOnce("CacheSet", func() (merr error) {
+	return cs.StopOnce("CacheSet", func() error {
 		cs.Lock()
 		defer cs.Unlock()
+		caches := make([]io.Closer, len(cs.caches))
+		var i int
 		for _, c := range cs.caches {
-			merr = errors.Join(merr, c.Close())
+			caches[i] = c
+			i++
+		}
+		if err := services.MultiCloser(caches).Close(); err != nil {
+			return err
 		}
 		cs.caches = nil
-		return
+		return nil
 	})
 }
 
@@ -75,24 +80,24 @@ func (cs *cacheSet) Get(ctx context.Context, client Client) (f Fetcher, err erro
 }
 
 func (cs *cacheSet) get(ctx context.Context, client Client) (Fetcher, error) {
+	sURL := client.ServerURL()
 	// HOT PATH
 	cs.RLock()
-	c, exists := cs.caches[client.ServerURL()]
+	c, exists := cs.caches[sURL]
+	cs.RUnlock()
 	if exists {
-		cs.RUnlock()
 		return c, nil
 	}
-	cs.RUnlock()
 
 	// COLD PATH
 	cs.Lock()
 	defer cs.Unlock()
-	c, exists = cs.caches[client.ServerURL()]
+	c, exists = cs.caches[sURL]
 	if exists {
 		return c, nil
 	}
 	cfg := Config{
-		Logger:          cs.lggr.With("serverURL", client.ServerURL()),
+		Logger:          cs.lggr.With("serverURL", sURL),
 		LatestReportTTL: cs.latestPriceTTL,
 		MaxStaleAge:     cs.maxStaleAge,
 	}
@@ -100,7 +105,7 @@ func (cs *cacheSet) get(ctx context.Context, client Client) (Fetcher, error) {
 	if err := c.Start(ctx); err != nil {
 		return nil, err
 	}
-	cs.caches[client.ServerURL()] = c
+	cs.caches[sURL] = c
 	return c, nil
 }
 

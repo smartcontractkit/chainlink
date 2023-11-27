@@ -45,9 +45,6 @@ var (
 	)
 )
 
-// NOTE: Cache is scoped to one particular mercury server
-// Use CacheSet to hold lookups for multiple servers
-
 type Fetcher interface {
 	LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error)
 }
@@ -58,6 +55,8 @@ type Client interface {
 	RawClient() pb.MercuryClient
 }
 
+// Cache is scoped to one particular mercury server
+// Use CacheSet to hold lookups for multiple servers
 type Cache interface {
 	Fetcher
 	services.Service
