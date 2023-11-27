@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	crand "crypto/rand"
 	"database/sql"
 	"fmt"
 	"log"
@@ -778,11 +779,13 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 	if userOnly {
 		fixturePath = "../store/fixtures/users_only_fixture.sql"
 	}
-	if err := insertFixtures(dbUrl, fixturePath); err != nil {
+	if err = insertFixtures(dbUrl, fixturePath); err != nil {
 		return s.errorOut(err)
 	}
-
-	return s.errorOut(dropDanglingTestDBs(s.Logger, db))
+	if err = dropDanglingTestDBs(s.Logger, db); err != nil {
+		return s.errorOut(err)
+	}
+	return s.errorOut(randomizeTestDBSequences(db))
 }
 
 func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
@@ -820,6 +823,49 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 		err = multierr.Append(err, gerr)
 	}
 	return
+}
+
+type failedToRandomizeTestDBSequencesError struct{}
+
+func (m *failedToRandomizeTestDBSequencesError) Error() string {
+	return "failed to randomize test db sequences"
+}
+
+// randomizeTestDBSequences randomizes sequenced table columns sequence
+// This is necessary as to avoid false positives in some test cases.
+func randomizeTestDBSequences(db *sqlx.DB) error {
+	seqRows, err := db.Query(`SELECT sequence_schema, sequence_name FROM information_schema.sequences WHERE sequence_schema = $1`, "public")
+	if err != nil {
+		return fmt.Errorf("%s: error fetching sequences: %s", failedToRandomizeTestDBSequencesError{}, err)
+	}
+
+	defer seqRows.Close()
+	for seqRows.Next() {
+		var sequenceSchema, sequenceName string
+		if err = seqRows.Scan(&sequenceSchema, &sequenceName); err != nil {
+			return fmt.Errorf("%s: failed scanning sequence rows: %s", failedToRandomizeTestDBSequencesError{}, err)
+		}
+
+		if sequenceName == "goose_migrations_id_seq" || sequenceName == "configurations_id_seq" {
+			continue
+		}
+
+		var randNum *big.Int
+		randNum, err = crand.Int(crand.Reader, utils.NewBigI(10000).ToInt())
+		if err != nil {
+			return fmt.Errorf("%s: failed to generate random number", failedToRandomizeTestDBSequencesError{})
+		}
+
+		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)); err != nil {
+			return fmt.Errorf("%s: failed to alter and restart %s sequence: %w", failedToRandomizeTestDBSequencesError{}, sequenceName, err)
+		}
+	}
+
+	if err = seqRows.Err(); err != nil {
+		return fmt.Errorf("%s: failed to iterate through sequences: %w", failedToRandomizeTestDBSequencesError{}, err)
+	}
+
+	return nil
 }
 
 // PrepareTestDatabaseUserOnly calls ResetDatabase then loads only user fixtures required for local
