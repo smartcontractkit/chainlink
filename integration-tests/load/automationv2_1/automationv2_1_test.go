@@ -15,11 +15,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/slack-go/slack"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocr2keepers30config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
-	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/smartcontractkit/wasp"
+
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
@@ -27,15 +30,17 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
+	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 )
 
 const (
@@ -125,6 +130,7 @@ var (
 )
 
 func TestLogTrigger(t *testing.T) {
+	ctx := tests.Context(t)
 	l := logging.GetTestLogger(t)
 
 	l.Info().Msg("Starting automation v2.1 log trigger load test")
@@ -467,7 +473,7 @@ func TestLogTrigger(t *testing.T) {
 	l.Info().Str("STARTUP_WAIT_TIME", StartupWaitTime.String()).Msg("Waiting for plugin to start")
 	time.Sleep(StartupWaitTime)
 
-	startBlock, err := chainClient.LatestBlockNumber(context.Background())
+	startBlock, err := chainClient.LatestBlockNumber(ctx)
 	require.NoError(t, err, "Error getting latest block number")
 
 	p := wasp.NewProfile()
@@ -511,7 +517,7 @@ func TestLogTrigger(t *testing.T) {
 	endTime := time.Now()
 	testDuration := endTime.Sub(startTime)
 	l.Info().Str("Duration", testDuration.String()).Msg("Test Duration")
-	endBlock, err := chainClient.LatestBlockNumber(context.Background())
+	endBlock, err := chainClient.LatestBlockNumber(ctx)
 	require.NoError(t, err, "Error getting latest block number")
 	l.Info().Uint64("Starting Block", startBlock).Uint64("Ending Block", endBlock).Msg("Test Block Range")
 
@@ -544,7 +550,8 @@ func TestLogTrigger(t *testing.T) {
 					Topics:    [][]common.Hash{{consumerABI.Events["PerformingUpkeep"].ID}},
 				}
 			)
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
 			logsInBatch, err := chainClient.FilterLogs(ctx, filterQuery)
 			cancel()
 			if err != nil {

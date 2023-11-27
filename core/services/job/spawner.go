@@ -11,10 +11,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -26,7 +25,7 @@ type (
 	// services that perform the work described by job specs.  Each active job spec
 	// has 1 or more of these services associated with it.
 	Spawner interface {
-		services.ServiceCtx
+		services.Service
 
 		// CreateJob creates a new job and starts services.
 		// All services must start without errors for the job to be active.
@@ -42,18 +41,23 @@ type (
 		StartService(ctx context.Context, spec Job, qopts ...pg.QOpt) error
 	}
 
+	Checker interface {
+		Register(service services.HealthReporter) error
+		Unregister(name string) error
+	}
+
 	spawner struct {
-		commonservices.StateMachine
+		services.StateMachine
 		orm              ORM
 		config           Config
-		checker          services.Checker
+		checker          Checker
 		jobTypeDelegates map[Type]Delegate
 		activeJobs       map[int32]activeJob
 		activeJobsMu     sync.RWMutex
 		q                pg.Q
 		lggr             logger.Logger
 
-		chStop              utils.StopChan
+		chStop              services.StopChan
 		lbDependentAwaiters []utils.DependentAwaiter
 	}
 
@@ -86,7 +90,7 @@ type (
 
 var _ Spawner = (*spawner)(nil)
 
-func NewSpawner(orm ORM, config Config, checker services.Checker, jobTypeDelegates map[Type]Delegate, db *sqlx.DB, lggr logger.Logger, lbDependentAwaiters []utils.DependentAwaiter) *spawner {
+func NewSpawner(orm ORM, config Config, checker Checker, jobTypeDelegates map[Type]Delegate, db *sqlx.DB, lggr logger.Logger, lbDependentAwaiters []utils.DependentAwaiter) *spawner {
 	namedLogger := lggr.Named("JobSpawner")
 	s := &spawner{
 		orm:                 orm,
@@ -96,7 +100,7 @@ func NewSpawner(orm ORM, config Config, checker services.Checker, jobTypeDelegat
 		q:                   pg.NewQ(db, namedLogger, config),
 		lggr:                namedLogger,
 		activeJobs:          make(map[int32]activeJob),
-		chStop:              make(chan struct{}),
+		chStop:              make(services.StopChan),
 		lbDependentAwaiters: lbDependentAwaiters,
 	}
 	return s
@@ -170,7 +174,7 @@ func (js *spawner) stopService(jobID int32) {
 	for i := len(aj.services) - 1; i >= 0; i-- {
 		service := aj.services[i]
 		sLggr := lggr.With("subservice", i, "serviceType", reflect.TypeOf(service))
-		if c, ok := service.(commonservices.HealthReporter); ok {
+		if c, ok := service.(services.HealthReporter); ok {
 			if err := js.checker.Unregister(c.Name()); err != nil {
 				sLggr.Warnw("Failed to unregister service from health checker", "err", err)
 			}
@@ -230,7 +234,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job, qopts ...pg.QOpt) e
 			lggr.Criticalw("Error starting service for job", "err", err)
 			return err
 		}
-		if c, ok := srv.(commonservices.HealthReporter); ok {
+		if c, ok := srv.(services.HealthReporter); ok {
 			err = js.checker.Register(c)
 			if err != nil {
 				lggr.Errorw("Error registering service with health checker", "err", err)

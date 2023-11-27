@@ -83,7 +83,7 @@ type FluxMonitor struct {
 	backlog       *utils.BoundedPriorityQueue[log.Broadcast]
 	chProcessLogs chan struct{}
 
-	chStop     chan struct{}
+	chStop     services.StopChan
 	waitOnStop chan struct{}
 }
 
@@ -137,7 +137,7 @@ func NewFluxMonitor(
 			PriorityFlagChangedLog:   2,
 		}),
 		chProcessLogs: make(chan struct{}, 1),
-		chStop:        make(chan struct{}),
+		chStop:        make(services.StopChan),
 		waitOnStop:    make(chan struct{}),
 	}
 
@@ -588,7 +588,7 @@ func (fm *FluxMonitor) respondToAnswerUpdatedLog(log flux_aggregator_wrapper.Flu
 // need to poll and submit an answer to the contract regardless of the deviation.
 func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggregatorNewRound, lb log.Broadcast) {
 	started := time.Now()
-	ctx, cancel := utils.StopChan(fm.chStop).NewCtx()
+	ctx, cancel := fm.chStop.NewCtx()
 	defer cancel()
 
 	newRoundLogger := fm.logger.With(
@@ -814,7 +814,7 @@ func (fm *FluxMonitor) checkEligibilityAndAggregatorFunding(roundState flux_aggr
 
 func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker *DeviationChecker, broadcast log.Broadcast) {
 	started := time.Now()
-	ctx, cancel := utils.StopChan(fm.chStop).NewCtx()
+	ctx, cancel := fm.chStop.NewCtx()
 	defer cancel()
 
 	l := fm.logger.With(

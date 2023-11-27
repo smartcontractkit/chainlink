@@ -10,7 +10,6 @@ import (
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // TxStore is a superset of all the needed persistence layer methods
@@ -122,8 +121,6 @@ type ReceiptPlus[R any] struct {
 	Receipt      R         `db:"receipt"`
 	FailOnRevert bool      `db:"fail_on_revert"`
 }
-
-type QueryerFunc = func(tx pg.Queryer) error
 
 type ChainReceipt[TX_HASH, BLOCK_HASH types.Hashable] interface {
 	GetStatus() uint64

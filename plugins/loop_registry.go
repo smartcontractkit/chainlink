@@ -55,8 +55,9 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	if m.cfgTracing != nil {
 		envCfg.TracingEnabled = m.cfgTracing.Enabled()
 		envCfg.TracingCollectorTarget = m.cfgTracing.CollectorTarget()
-		envCfg.TracingAttributes = m.cfgTracing.Attributes()
 		envCfg.TracingSamplingRatio = m.cfgTracing.SamplingRatio()
+		envCfg.TracingTLSCertPath = m.cfgTracing.TLSCertPath()
+		envCfg.TracingAttributes = m.cfgTracing.Attributes()
 	}
 
 	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}
