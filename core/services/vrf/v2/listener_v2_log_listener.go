@@ -197,12 +197,21 @@ func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastPro
 		return currLastProcessedBlock, fmt.Errorf("LogPoller.LogsWithSigs: %w", err)
 	}
 
-	unfulfilled, _, _ := lsn.getUnfulfilled(logs, ll)
+	unfulfilled, unfulfilledLP, _ := lsn.getUnfulfilled(logs, ll)
 	// find request block of earliest unfulfilled request
 	// even if this block is > latest finalized, we use latest finalized as earliest unprocessed
 	// because re-orgs can occur on any unfinalized block.
 	var earliestUnprocessedRequestBlock = latestBlock.FinalizedBlockNumber
-	for _, req := range unfulfilled {
+	for i, req := range unfulfilled {
+		// need to drop requests that have timed out otherwise the earliestUnprocessedRequestBlock
+		// will be unnecessarily far back and our queries will be slower.
+		if unfulfilledLP[i].CreatedAt.Before(time.Now().UTC().Add(-lsn.job.VRFSpec.RequestTimeout)) {
+			// request timed out, don't process
+			lsn.l.Debugw("request timed out, skipping",
+				"reqID", req.RequestID(),
+			)
+			continue
+		}
 		if req.Raw().BlockNumber < uint64(earliestUnprocessedRequestBlock) {
 			earliestUnprocessedRequestBlock = int64(req.Raw().BlockNumber)
 		}
