@@ -15,11 +15,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -76,7 +76,7 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
-func NewPool(logger logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
+func NewPool(lggr logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
 	}
@@ -96,7 +96,8 @@ func NewPool(logger logger.Logger, selectionMode string, leaseDuration time.Dura
 		}
 	}()
 
-	lggr := logger.Named("Pool").With("evmChainID", chainID.String())
+	lggr = logger.Named(lggr, "Pool")
+	lggr = logger.With(lggr, "evmChainID", chainID.String())
 
 	p := &Pool{
 		nodes:               nodes,
@@ -262,10 +263,10 @@ func (p *Pool) report() {
 	}
 
 	live := total - dead
-	p.logger.Tracew(fmt.Sprintf("Pool state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	logger.Tracew(p.logger, fmt.Sprintf("Pool state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	if total == dead {
 		rerr := fmt.Errorf("no EVM primary nodes available: 0/%d nodes are alive", total)
-		p.logger.Criticalw(rerr.Error(), "nodeStates", nodeStates)
+		logger.Criticalw(p.logger, rerr.Error(), "nodeStates", nodeStates)
 		p.SvcErrBuffer.Append(rerr)
 	} else if dead > 0 {
 		p.logger.Errorw(fmt.Sprintf("At least one EVM primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
@@ -310,7 +311,7 @@ func (p *Pool) selectNode() (node Node) {
 	p.activeNode = p.nodeSelector.Select()
 
 	if p.activeNode == nil {
-		p.logger.Criticalw("No live RPC nodes available", "NodeSelectionMode", p.nodeSelector.Name())
+		logger.Criticalw(p.logger, "No live RPC nodes available", "NodeSelectionMode", p.nodeSelector.Name())
 		errmsg := fmt.Errorf("no live nodes available for chain %s", p.chainID.String())
 		p.SvcErrBuffer.Append(errmsg)
 		return &erroringNode{errMsg: errmsg.Error()}
@@ -357,7 +358,7 @@ func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 			if err != nil {
 				p.logger.Debugw("Secondary node BatchCallContext failed", "err", err)
 			} else {
-				p.logger.Trace("Secondary node BatchCallContext success")
+				logger.Trace(p.logger, "Secondary node BatchCallContext success")
 			}
 		}(n)
 	}

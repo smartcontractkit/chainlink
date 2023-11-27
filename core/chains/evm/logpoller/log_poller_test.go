@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -34,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -86,7 +86,7 @@ func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (commo
 func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 	chainId := big.NewInt(137)
 	_, db := heavyweight.FullTestDBV2(b, nil)
-	o := logpoller.NewORM(chainId, db, logger.TestLogger(b), pgtest.NewQConfig(false))
+	o := logpoller.NewORM(chainId, db, logger.Test(b), pgtest.NewQConfig(false))
 	event, address, _ := populateDatabase(b, o, chainId)
 
 	// Setting searchDate to pick around 5k logs
@@ -106,7 +106,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	_, db := heavyweight.FullTestDBV2(t, nil)
 	chainID := big.NewInt(137)
 
-	o := logpoller.NewORM(big.NewInt(137), db, logger.TestLogger(t), pgtest.NewQConfig(true))
+	o := logpoller.NewORM(big.NewInt(137), db, logger.Test(t), pgtest.NewQConfig(true))
 	event1, address1, address2 := populateDatabase(t, o, chainID)
 
 	func() {
@@ -651,7 +651,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 	p := gopter.NewProperties(testParams)
 	numChainInserts := 3
 	finalityDepth := 5
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	db := pgtest.NewSqlxDB(t)
 
 	owner := testutils.MustNewSimTransactor(t)
@@ -1264,7 +1264,7 @@ func TestGetReplayFromBlock(t *testing.T) {
 func TestLogPoller_DBErrorHandling(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID1 := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
@@ -1332,7 +1332,7 @@ func TestNotifyAfterInsert(t *testing.T) {
 		dbURL = s.Database.URL.URL().String()
 	})
 
-	lggr, _ := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+	lggr, _ := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID := big.NewInt(1337)
 	o := logpoller.NewORM(chainID, sqlxDB, lggr, pgtest.NewQConfig(true))
 
@@ -1386,7 +1386,7 @@ type getLogErrData struct {
 func TestTooManyLogResults(t *testing.T) {
 	ctx := testutils.Context(t)
 	ec := evmtest.NewEthClientMockWithDefaultChain(t)
-	lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -17,13 +17,13 @@ const (
 )
 
 type handlerFactory struct {
-	legacyChains evm.LegacyChainContainer
+	legacyChains legacyevm.LegacyChainContainer
 	lggr         logger.Logger
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains evm.LegacyChainContainer, lggr logger.Logger) HandlerFactory {
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, lggr logger.Logger) HandlerFactory {
 	return &handlerFactory{legacyChains, lggr}
 }
 

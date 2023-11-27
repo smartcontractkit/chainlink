@@ -16,7 +16,7 @@ import (
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -203,7 +203,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "2 evm chains with 3 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					ChainOpts: evm.ChainOpts{
+					ChainOpts: legacyevm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
@@ -277,7 +277,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Keystore:    keyStore.Solana(),
 				TOMLConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					ChainOpts: evm.ChainOpts{
+					ChainOpts: legacyevm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},

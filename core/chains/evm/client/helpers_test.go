@@ -9,11 +9,11 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -43,7 +43,7 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	n := NewNode(nodePoolCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID, 1)
 	n.(*node).setLatestReceived(0, utils.NewBigI(0))
 	primaries := []Node{n}
@@ -87,7 +87,7 @@ func NewChainClientWithTestNode(
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
 	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCCLient](
@@ -120,7 +120,7 @@ func NewChainClientWithEmptyNode(
 	chainID *big.Int,
 ) Client {
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	var chainType commonconfig.ChainType
 	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType)

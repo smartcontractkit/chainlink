@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 //go:generate mockery --quiet --name sendOnlyClient --structname mockSendOnlyClient --filename "mock_send_only_client_test.go" --inpackage --case=underscore
@@ -75,7 +75,8 @@ func NewSendOnlyNode[
 ) SendOnlyNode[CHAIN_ID, RPC] {
 	s := new(sendOnlyNode[CHAIN_ID, RPC])
 	s.name = name
-	s.log = lggr.Named("SendOnlyNode").Named(name).With(
+	s.log = logger.Named(logger.Named(lggr, "SendOnlyNode"), name)
+	s.log = logger.With(s.log,
 		"nodeTier", "sendonly",
 	)
 	s.rpc = rpc

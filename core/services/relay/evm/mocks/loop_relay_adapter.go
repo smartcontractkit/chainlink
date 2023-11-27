@@ -6,7 +6,8 @@ import (
 	context "context"
 	big "math/big"
 
-	evm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	legacyevm "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -18,15 +19,15 @@ type LoopRelayAdapter struct {
 }
 
 // Chain provides a mock function with given fields:
-func (_m *LoopRelayAdapter) Chain() evm.Chain {
+func (_m *LoopRelayAdapter) Chain() legacyevm.Chain {
 	ret := _m.Called()
 
-	var r0 evm.Chain
-	if rf, ok := ret.Get(0).(func() evm.Chain); ok {
+	var r0 legacyevm.Chain
+	if rf, ok := ret.Get(0).(func() legacyevm.Chain); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(evm.Chain)
+			r0 = ret.Get(0).(legacyevm.Chain)
 		}
 	}
 

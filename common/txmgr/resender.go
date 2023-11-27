@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -87,7 +88,7 @@ func NewResender[
 		pollInterval,
 		config,
 		txConfig,
-		lggr.Named("Resender"),
+		logger.Named(lggr, "Resender"),
 		make(map[string]time.Time),
 		ctx,
 		cancel,

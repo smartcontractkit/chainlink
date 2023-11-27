@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -44,7 +44,7 @@ var (
 	ErrNoChainFromSpec = fmt.Errorf("could not create chain from spec")
 )
 
-func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, error) {
+func EVMProvider(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, error) {
 	oSpec := spec.OCR2OracleSpec
 	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(db, chain, pr, spec, lggr.Named("OCR2KeeperRelayer"))
 
@@ -71,7 +71,7 @@ func EVMDependencies20(
 	spec job.Job,
 	db *sqlx.DB,
 	lggr logger.Logger,
-	chain evm.Chain,
+	chain legacyevm.Chain,
 	pr pipeline.Runner,
 ) (evmrelay.OCR2KeeperProvider, *kevm20.EvmRegistry, Encoder20, *kevm20.LogProvider, error) {
 	var err error
@@ -112,7 +112,7 @@ func EVMDependencies21(
 	spec job.Job,
 	db *sqlx.DB,
 	lggr logger.Logger,
-	chain evm.Chain,
+	chain legacyevm.Chain,
 	pr pipeline.Runner,
 	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,

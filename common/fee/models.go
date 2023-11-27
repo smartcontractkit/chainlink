@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/chains/label"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 

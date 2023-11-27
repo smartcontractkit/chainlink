@@ -20,13 +20,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -55,7 +56,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
 
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 
@@ -137,7 +138,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 
 func TestLogPoller_ConvertLogs(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	topics := []common.Hash{EmitterABI.Events["Log1"].ID}
 
@@ -192,7 +193,7 @@ func TestFilterName(t *testing.T) {
 
 func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	addr := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
@@ -235,7 +236,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	t.Parallel()
 	addr := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
 
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
@@ -437,7 +438,7 @@ func (lp *logPoller) reset() {
 }
 
 func Test_latestBlockAndFinalityDepth(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
@@ -507,7 +508,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 }
 
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
-	lggr := logger.TestLogger(b)
+	lggr := logger.Test(b)
 	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, false, 2, 3, 2, 1000)
 	for i := 0; i < nFilters; i++ {
 		var addresses []common.Address

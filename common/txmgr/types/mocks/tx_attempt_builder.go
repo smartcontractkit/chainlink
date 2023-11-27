@@ -5,8 +5,8 @@ package mocks
 import (
 	context "context"
 
+	logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	mock "github.com/stretchr/testify/mock"
 

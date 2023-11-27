@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -43,7 +43,7 @@ type multiNodeOpts struct {
 
 func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 	if opts.logger == nil {
-		opts.logger = logger.TestLogger(t)
+		opts.logger = logger.Test(t)
 	}
 
 	result := NewMultiNode[types.ID, *utils.Big, Hashable, Hashable, any, Hashable, any, any,
@@ -211,7 +211,7 @@ func TestMultiNode_Report(t *testing.T) {
 		chainID := types.RandomID()
 		node1 := newHealthyNode(t, chainID)
 		node2 := newNodeWithState(t, chainID, nodeStateOutOfSync)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
@@ -228,7 +228,7 @@ func TestMultiNode_Report(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
 		node := newNodeWithState(t, chainID, nodeStateOutOfSync)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
@@ -252,7 +252,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
 		node := newHealthyNode(t, chainID)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.InfoLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
@@ -268,7 +268,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
 		node := newHealthyNode(t, chainID)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.InfoLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeHighestHead,
 			chainID:       chainID,
@@ -290,7 +290,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		bestNode := newHealthyNode(t, chainID)
 		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(bestNode)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.InfoLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeHighestHead,
 			chainID:       chainID,
@@ -402,7 +402,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 	t.Run("No active nodes - reports critical error", func(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.InfoLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
@@ -541,7 +541,7 @@ func TestMultiNode_BatchCallContextAll(t *testing.T) {
 		mainNode.On("RPC").Return(okRPC)
 		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(mainNode).Once()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       types.RandomID(),
@@ -610,7 +610,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		mainNode.On("RPC").Return(okRPC)
 		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(mainNode).Once()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       types.RandomID(),

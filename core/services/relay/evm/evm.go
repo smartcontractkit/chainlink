@@ -24,8 +24,8 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -48,7 +48,7 @@ var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
 
 type Relayer struct {
 	db               *sqlx.DB
-	chain            evm.Chain
+	chain            legacyevm.Chain
 	lggr             logger.Logger
 	ks               CSAETHKeystore
 	mercuryPool      wsrpc.Pool
@@ -89,7 +89,7 @@ func (c RelayerOpts) Validate() error {
 	return err
 }
 
-func NewRelayer(lggr logger.Logger, chain evm.Chain, opts RelayerOpts) (*Relayer, error) {
+func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*Relayer, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
@@ -244,7 +244,7 @@ type configWatcher struct {
 	contractABI      abi.ABI
 	offchainDigester ocrtypes.OffchainConfigDigester
 	configPoller     types.ConfigPoller
-	chain            evm.Chain
+	chain            legacyevm.Chain
 	runReplay        bool
 	fromBlock        uint64
 	replayCtx        context.Context
@@ -257,7 +257,7 @@ func newConfigWatcher(lggr logger.Logger,
 	contractABI abi.ABI,
 	offchainDigester ocrtypes.OffchainConfigDigester,
 	configPoller types.ConfigPoller,
-	chain evm.Chain,
+	chain legacyevm.Chain,
 	fromBlock uint64,
 	runReplay bool,
 ) *configWatcher {
@@ -321,7 +321,7 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return c.configPoller
 }
 
-func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpts, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
+func newConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
 	}

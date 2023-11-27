@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -39,7 +39,7 @@ type FunctionsServicesConfig struct {
 	BridgeORM         bridges.ORM
 	QConfig           pg.QConfig
 	DB                *sqlx.DB
-	Chain             evm.Chain
+	Chain             legacyevm.Chain
 	ContractID        string
 	Logger            logger.Logger
 	MailMon           *utils.MailboxMonitor

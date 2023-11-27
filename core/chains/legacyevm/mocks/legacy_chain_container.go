@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	evm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	legacyevm "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -31,19 +31,19 @@ func (_m *LegacyChainContainer) ChainNodeConfigs() types.Configs {
 }
 
 // Get provides a mock function with given fields: id
-func (_m *LegacyChainContainer) Get(id string) (evm.Chain, error) {
+func (_m *LegacyChainContainer) Get(id string) (legacyevm.Chain, error) {
 	ret := _m.Called(id)
 
-	var r0 evm.Chain
+	var r0 legacyevm.Chain
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (evm.Chain, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (legacyevm.Chain, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) evm.Chain); ok {
+	if rf, ok := ret.Get(0).(func(string) legacyevm.Chain); ok {
 		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(evm.Chain)
+			r0 = ret.Get(0).(legacyevm.Chain)
 		}
 	}
 
@@ -71,7 +71,7 @@ func (_m *LegacyChainContainer) Len() int {
 }
 
 // List provides a mock function with given fields: ids
-func (_m *LegacyChainContainer) List(ids ...string) ([]evm.Chain, error) {
+func (_m *LegacyChainContainer) List(ids ...string) ([]legacyevm.Chain, error) {
 	_va := make([]interface{}, len(ids))
 	for _i := range ids {
 		_va[_i] = ids[_i]
@@ -80,16 +80,16 @@ func (_m *LegacyChainContainer) List(ids ...string) ([]evm.Chain, error) {
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 []evm.Chain
+	var r0 []legacyevm.Chain
 	var r1 error
-	if rf, ok := ret.Get(0).(func(...string) ([]evm.Chain, error)); ok {
+	if rf, ok := ret.Get(0).(func(...string) ([]legacyevm.Chain, error)); ok {
 		return rf(ids...)
 	}
-	if rf, ok := ret.Get(0).(func(...string) []evm.Chain); ok {
+	if rf, ok := ret.Get(0).(func(...string) []legacyevm.Chain); ok {
 		r0 = rf(ids...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]evm.Chain)
+			r0 = ret.Get(0).([]legacyevm.Chain)
 		}
 	}
 
@@ -103,15 +103,15 @@ func (_m *LegacyChainContainer) List(ids ...string) ([]evm.Chain, error) {
 }
 
 // Slice provides a mock function with given fields:
-func (_m *LegacyChainContainer) Slice() []evm.Chain {
+func (_m *LegacyChainContainer) Slice() []legacyevm.Chain {
 	ret := _m.Called()
 
-	var r0 []evm.Chain
-	if rf, ok := ret.Get(0).(func() []evm.Chain); ok {
+	var r0 []legacyevm.Chain
+	if rf, ok := ret.Get(0).(func() []legacyevm.Chain); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]evm.Chain)
+			r0 = ret.Get(0).([]legacyevm.Chain)
 		}
 	}
 

@@ -9,11 +9,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -59,7 +59,7 @@ func NewHeadListener[
 	return &HeadListener[HTH, S, ID, BLOCK_HASH]{
 		config: config,
 		client: client,
-		logger: lggr.Named("HeadListener"),
+		logger: logger.Named(lggr, "HeadListener"),
 		chStop: chStop,
 	}
 }

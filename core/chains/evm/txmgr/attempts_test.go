@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
@@ -93,7 +93,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 	kst := ksmocks.NewEth(t)
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
 	var n evmtypes.Nonce
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		feeCfg := newFeeConfig()
@@ -165,7 +165,7 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 	gc.priceMin = assets.NewWeiI(10)
 	gc.priceMax = assets.NewWeiI(50)
 	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), gc, kst, nil)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		var n evmtypes.Nonce
@@ -189,7 +189,7 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 	t.Parallel()
 
 	kst := ksmocks.NewEth(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), newFeeConfig(), kst, nil)
 
 	dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
@@ -222,7 +222,7 @@ func TestTxm_EvmTxAttemptBuilder_RetryableEstimatorError(t *testing.T) {
 	est.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint32(0), errors.New("fail"))
 
 	kst := ksmocks.NewEth(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), &feeConfig{eip1559DynamicFees: true}, kst, est)
 
