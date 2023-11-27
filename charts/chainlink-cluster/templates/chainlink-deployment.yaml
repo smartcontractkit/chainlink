@@ -47,19 +47,8 @@ spec:
         - name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
           configMap:
             name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
-        - name: clroot-volume
-          emptyDir: {}
       securityContext:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
-      initContainers:
-      - name: init-clroot
-        securityContext:
-          {{- toYaml $.Values.db.securityContext | nindent 12 }}
-        image: busybox
-        command: ['sh', '-c', 'mkdir -p /clroot && chmod 770 /clroot']
-        volumeMounts:
-        - name: clroot-volume
-          mountPath: /clroot
       containers:
         - name: chainlink-db
           securityContext:

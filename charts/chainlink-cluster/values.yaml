@@ -20,7 +20,7 @@ chainlink:
     readOnlyRootFilesystem: false
     runAsNonRoot: true
     runAsUser: 14933
-    runAsGroup: 999
+    runAsGroup: 14933
   web_port: 6688
   p2p_port: 8090
   nodes:
