@@ -53,6 +53,8 @@ spec:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       initContainers:
       - name: init-clroot
+        securityContext:
+          {{- toYaml $.Values.db.securityContext | nindent 12 }}
         image: busybox
         command: ['sh', '-c', 'mkdir -p /clroot && chown 14933:999 /clroot && chmod 770 /clroot']
         volumeMounts:
