@@ -3,7 +3,9 @@ package contracts
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -182,16 +184,16 @@ func (v *EthereumVRFCoordinatorV2) RegisterProvingKey(
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2) CreateSubscription() error {
+func (v *EthereumVRFCoordinatorV2) CreateSubscription() (*types.Transaction, error) {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx, err := v.coordinator.CreateSubscription(opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return v.client.ProcessTransaction(tx)
+	return tx, v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerAddress string) error {
@@ -208,6 +210,94 @@ func (v *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerAddress str
 		return err
 	}
 	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFCoordinatorV2) PendingRequestsExist(ctx context.Context, subID uint64) (bool, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	pendingRequestExists, err := v.coordinator.PendingRequestExists(opts, subID)
+	if err != nil {
+		return false, err
+	}
+	return pendingRequestExists, nil
+}
+
+// CancelSubscription cancels subscription by Sub owner,
+// return funds to specified address,
+// checks if pending requests for a sub exist
+func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error) {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := v.coordinator.CancelSubscription(
+		opts,
+		subID,
+		to,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tx, v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFCoordinatorV2) FindSubscriptionID(subID uint64) (uint64, error) {
+	owner := v.client.GetDefaultWallet().Address()
+	subscriptionIterator, err := v.coordinator.FilterSubscriptionCreated(
+		nil,
+		[]uint64{subID},
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	if !subscriptionIterator.Next() {
+		return 0, fmt.Errorf("expected at least 1 subID for the given owner %s", owner)
+	}
+
+	return subscriptionIterator.Event.SubId, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsFulfilledEvent(requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error) {
+	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled)
+	subscription, err := v.coordinator.WatchRandomWordsFulfilled(nil, randomWordsFulfilledEventsChannel, requestID)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for RandomWordsFulfilled event")
+		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
+			return randomWordsFulfilledEvent, nil
+		}
+	}
+}
+
+func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
+	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
+	subscription, err := v.coordinator.WatchRandomWordsRequested(nil, randomWordsFulfilledEventsChannel, keyHash, subID, sender)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for RandomWordsRequested event")
+		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
+			return randomWordsFulfilledEvent, nil
+		}
+	}
 }
 
 // GetAllRandomWords get all VRFv2 randomness output words
@@ -390,6 +480,18 @@ func (v *EthereumVRFv2LoadTestConsumer) GetLastRequestId(ctx context.Context) (*
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
+}
+
+func (v *EthereumVRFv2LoadTestConsumer) ResetMetrics() error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.consumer.Reset(opts)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFv2LoadTestConsumer) GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error) {

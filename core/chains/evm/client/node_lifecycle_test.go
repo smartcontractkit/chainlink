@@ -521,7 +521,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		n.wg.Add(1)
 		go func() {
 			defer close(ch)
-			n.aliveLoop()
+			n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return false })
 		}()
 		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected outOfSyncLoop to exit")
