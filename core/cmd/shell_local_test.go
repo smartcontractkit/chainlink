@@ -124,7 +124,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
+			flagSetApplyFromAction(client.RunNode, set, "")
 
 			require.NoError(t, set.Set("password", test.pwdfile))
 
@@ -221,7 +221,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
+			flagSetApplyFromAction(client.RunNode, set, "")
 
 			require.NoError(t, set.Set("api", test.apiFile))
 
@@ -318,7 +318,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	beginningNonce := uint64(7)
 	endingNonce := uint64(10)
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(c.RebroadcastTransactions, set, "")
+	flagSetApplyFromAction(c.RebroadcastTransactions, set, "")
 
 	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(beginningNonce, 10)))
@@ -397,7 +397,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(c.RebroadcastTransactions, set, "")
+			flagSetApplyFromAction(c.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
@@ -477,7 +477,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+			flagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
