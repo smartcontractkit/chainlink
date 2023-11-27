@@ -795,7 +795,7 @@ func TestORM_IsTxFinalized(t *testing.T) {
 
 	t.Run("confirmed tx not past finality_depth", func(t *testing.T) {
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		tx := cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+		tx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 2, tx.ID)
 		require.NoError(t, err)
 		require.False(t, finalized)
@@ -803,7 +803,7 @@ func TestORM_IsTxFinalized(t *testing.T) {
 
 	t.Run("confirmed tx past finality_depth", func(t *testing.T) {
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		tx := cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+		tx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 10, tx.ID)
 		require.NoError(t, err)
 		require.True(t, finalized)
@@ -1406,18 +1406,14 @@ func TestORM_GetNonFatalTransactions(t *testing.T) {
 	})
 
 	t.Run("get in progress, unstarted, and unconfirmed eth transactions", func(t *testing.T) {
-		inProgressTx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
-		unconfirmedTx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 124, fromAddress)
-		unstartedTx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
+		inProgressTx := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
+		unstartedTx := mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
 
 		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t))
 		require.NoError(t, err)
 
 		for _, tx := range txes {
-			require.True(t,
-				tx.ID == inProgressTx.ID ||
-					tx.ID == unconfirmedTx.ID ||
-					tx.ID == unstartedTx.ID)
+			require.True(t, tx.ID == inProgressTx.ID || tx.ID == unstartedTx.ID)
 		}
 	})
 }
@@ -1438,7 +1434,7 @@ func TestORM_GetTxByID(t *testing.T) {
 	})
 
 	t.Run("get transaction by ID", func(t *testing.T) {
-		insertedTx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
+		insertedTx := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
 		tx, err := txStore.GetTxByID(testutils.Context(t), insertedTx.ID)
 		require.NoError(t, err)
 		require.NotNil(t, tx)
@@ -1461,7 +1457,7 @@ func TestORM_GetFatalTransactions(t *testing.T) {
 	})
 
 	t.Run("get fatal transactions", func(t *testing.T) {
-		fatalTx := cltest.MustInsertFatalErrorEthTx(t, txStore, fromAddress)
+		fatalTx := mustInsertFatalErrorEthTx(t, txStore, fromAddress)
 		txes, err := txStore.GetFatalTransactions(testutils.Context(t))
 		require.NoError(t, err)
 		require.Equal(t, txes[0].ID, fatalTx.ID)

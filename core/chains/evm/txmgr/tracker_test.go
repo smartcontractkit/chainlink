@@ -71,9 +71,9 @@ func TestEthTracker_AddressTracking(t *testing.T) {
 		inProgressAddr := cltest.MustGenerateRandomKey(t).Address
 		unconfirmedAddr := cltest.MustGenerateRandomKey(t).Address
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		_ = cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, inProgressAddr)
+		_ = mustInsertInProgressEthTxWithAttempt(t, txStore, 123, inProgressAddr)
 		_ = cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, unconfirmedAddr)
-		_ = cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 
 		err := tracker.Start(context.Background())
 		require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestEthTracker_AddressTracking(t *testing.T) {
 	t.Run("stop tracking finalized tx", func(t *testing.T) {
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		_ = cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 
 		err := tracker.Start(context.Background())
 		require.NoError(t, err)
@@ -118,7 +118,7 @@ func TestEthTracker_ExceedingTTL(t *testing.T) {
 	t.Run("confirmed but unfinalized transaction still tracked", func(t *testing.T) {
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		addr1 := cltest.MustGenerateRandomKey(t).Address
-		_ = cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, addr1, 123, 1)
+		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, addr1, 123, 1)
 
 		err := tracker.Start(context.Background())
 		require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestEthTracker_ExceedingTTL(t *testing.T) {
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		addr1 := cltest.MustGenerateRandomKey(t).Address
 		addr2 := cltest.MustGenerateRandomKey(t).Address
-		tx1 := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, addr1)
+		tx1 := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, addr1)
 		tx2 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr2)
 
 		tracker.XXXTestSetTTL(time.Nanosecond)
