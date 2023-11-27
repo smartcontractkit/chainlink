@@ -303,16 +303,14 @@ func (m *memCache) fetch(req *pb.LatestReportRequest, v *cacheVal) {
 	}()
 
 	for {
-		var ctx context.Context
-		var cancel context.CancelFunc
 		t = time.Now()
 
+		ctx := memcacheCtx
+		cancel := func() {}
 		if m.latestReportDeadline > 0 {
 			ctx, cancel = context.WithTimeoutCause(memcacheCtx, m.latestReportDeadline, errors.New("latest report fetch deadline exceeded"))
-		} else {
-			ctx = memcacheCtx
-			cancel = func() {}
 		}
+
 		// NOTE: must drop down to RawClient here otherwise we enter an
 		// infinite loop of calling a client that calls back to this same cache
 		// and on and on
