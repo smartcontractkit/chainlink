@@ -236,11 +236,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set Database.Backup.Mode=lite or Database.Backup.Mode=full")
 	}
 
-	srvcs = append(srvcs, eventBroadcaster, mailMon)
-	srvcs = append(srvcs, relayerChainInterops.Services()...)
-	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
-	srvcs = append(srvcs, promReporter)
-
 	// EVM chains are used all over the place. This will need to change for fully EVM extraction
 	// TODO: BCF-2510, BCF-2511
 
@@ -248,6 +243,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if legacyEVMChains == nil {
 		return nil, fmt.Errorf("no evm chains found")
 	}
+
+	var (
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
+		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
+		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
+	)
+
+	srvcs = append(srvcs, eventBroadcaster, mailMon)
+	srvcs = append(srvcs, relayerChainInterops.Services()...)
+	promReporter := promreporter.NewPromReporter(txmORM, globalLogger)
+	srvcs = append(srvcs, promReporter)
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
@@ -275,15 +284,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	default:
 		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, sessions.LocalAuth, sessions.LDAPAuth)
 	}
-
-	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
-		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
-		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
-		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
-	)
 
 	for _, chain := range legacyEVMChains.Slice() {
 		chain.HeadBroadcaster().Subscribe(promReporter)

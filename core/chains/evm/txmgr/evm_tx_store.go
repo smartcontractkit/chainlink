@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.uber.org/multierr"
 	"math/big"
 	"strings"
 	"time"
@@ -1107,6 +1108,77 @@ ORDER BY nonce ASC
 	return etxs, pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
 }
 
+func (o *evmTxStore) FindMinUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (broadcastAt nullv4.Time, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		if err = qq.QueryRowContext(ctx, `SELECT min(initial_broadcast_at) FROM evm.txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, chainID.String()).Scan(&broadcastAt); err != nil {
+			return fmt.Errorf("failed to query for unconfirmed eth_tx count: %w", err)
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+	return broadcastAt, err
+}
+
+func (o *evmTxStore) FindEarliestUnconfirmedTxBlock(ctx context.Context, chainID *big.Int) (earliestUnconfirmedTxBlock nullv4.Int, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		err = qq.QueryRowContext(ctx, `
+SELECT MIN(broadcast_before_block_num) FROM evm.tx_attempts
+JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id
+WHERE evm.txes.state = 'unconfirmed'
+AND evm_chain_id = $1`, chainID.String()).Scan(&earliestUnconfirmedTxBlock)
+		if err != nil {
+			return fmt.Errorf("failed to query for earliest unconfirmed tx block: %w", err)
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+	return earliestUnconfirmedTxBlock, err
+}
+
+func (o *evmTxStore) GetPipelineRunStats(ctx context.Context) (taskRunsQueued int, runsQueued int, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var rows *sql.Rows
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		rows, err = qq.QueryContext(ctx, `SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL`)
+		if err != nil {
+			return fmt.Errorf("failed to query for pipeline_run_id: %w", err)
+		}
+		if rows.Err() != nil {
+			return fmt.Errorf("failed to query for pipeline_run_id: %w", rows.Err())
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+
+	defer func() {
+		err = multierr.Combine(err, rows.Close())
+	}()
+
+	taskRunsQueued = 0
+	pipelineRunsQueuedSet := make(map[int32]struct{})
+	for rows.Next() {
+		var pipelineRunID int32
+		if err = rows.Scan(&pipelineRunID); err != nil {
+			return 0, 0, fmt.Errorf("unexpected error scanning row: %w", err)
+		}
+		taskRunsQueued++
+		pipelineRunsQueuedSet[pipelineRunID] = struct{}{}
+	}
+	if err = rows.Err(); err != nil {
+		return 0, 0, err
+	}
+	runsQueued = len(pipelineRunsQueuedSet)
+	return taskRunsQueued, runsQueued, err
+}
+
 func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	var dbAttempt DbEthTxAttempt
@@ -1636,6 +1708,20 @@ func (o *evmTxStore) countTransactionsWithState(ctx context.Context, fromAddress
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
 func (o *evmTxStore) CountUnconfirmedTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (count uint32, err error) {
 	return o.countTransactionsWithState(ctx, fromAddress, txmgr.TxUnconfirmed, chainID)
+}
+
+// CountAllUnconfirmedTransactions returns the number of unconfirmed transactions for all fromAddresses
+func (o *evmTxStore) CountAllUnconfirmedTransactions(ctx context.Context, chainID *big.Int) (count uint32, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Get(&count, `SELECT count(*) FROM evm.txes WHERE state = $1 AND evm_chain_id = $2`,
+		txmgr.TxUnconfirmed, chainID.String())
+	if err != nil {
+		return 0, fmt.Errorf("failed to CountAllUnconfirmedTransactions: %w", err)
+	}
+	return count, nil
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions

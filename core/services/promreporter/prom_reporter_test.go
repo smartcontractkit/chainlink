@@ -27,10 +27,12 @@ func newHead() evmtypes.Head {
 
 func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with nothing in the database", func(t *testing.T) {
-		d := pgtest.NewSqlDB(t)
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewGeneralConfig(t, nil)
+		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := promreporter.NewPromReporter(d, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(txStore, logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		var subscribeCalls atomic.Int32
 
@@ -74,7 +76,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 				subscribeCalls.Add(1)
 			}).
 			Return()
-		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(txStore, logger.TestLogger(t), backend, 10*time.Millisecond)
 		require.NoError(t, reporter.Start(testutils.Context(t)))
 		defer func() { assert.NoError(t, reporter.Close()) }()
 
@@ -91,11 +93,13 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 	t.Run("with unfinished pipeline task runs", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewGeneralConfig(t, nil)
+		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 
 		pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(txStore, logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)

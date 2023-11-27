@@ -14,6 +14,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	null "gopkg.in/guregu/null.v4"
+
 	time "time"
 
 	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -57,6 +59,30 @@ func (_m *EvmTxStore) CheckTxQueueCapacity(ctx context.Context, fromAddress comm
 // Close provides a mock function with given fields:
 func (_m *EvmTxStore) Close() {
 	_m.Called()
+}
+
+// CountAllUnconfirmedTransactions provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) CountAllUnconfirmedTransactions(ctx context.Context, chainID *big.Int) (uint32, error) {
+	ret := _m.Called(ctx, chainID)
+
+	var r0 uint32
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (uint32, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) uint32); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // CountUnconfirmedTransactions provides a mock function with given fields: ctx, fromAddress, chainID
@@ -145,6 +171,30 @@ func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types
 	return r0
 }
 
+// FindEarliestUnconfirmedTxBlock provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) FindEarliestUnconfirmedTxBlock(ctx context.Context, chainID *big.Int) (null.Int, error) {
+	ret := _m.Called(ctx, chainID)
+
+	var r0 null.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (null.Int, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) null.Int); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Get(0).(null.Int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId
 func (_m *EvmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (evmtypes.Nonce, error) {
 	ret := _m.Called(ctx, fromAddress, chainId)
@@ -162,6 +212,30 @@ func (_m *EvmTxStore) FindLatestSequence(ctx context.Context, fromAddress common
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
 		r1 = rf(ctx, fromAddress, chainId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindMinUnconfirmedBroadcastTime provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) FindMinUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (null.Time, error) {
+	ret := _m.Called(ctx, chainID)
+
+	var r0 null.Time
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (null.Time, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) null.Time); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Get(0).(null.Time)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -647,6 +721,37 @@ func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address commo
 	}
 
 	return r0, r1
+}
+
+// GetPipelineRunStats provides a mock function with given fields: ctx
+func (_m *EvmTxStore) GetPipelineRunStats(ctx context.Context) (int, int, error) {
+	ret := _m.Called(ctx)
+
+	var r0 int
+	var r1 int
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (int, int, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) int); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Get(1).(int)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // GetTxInProgress provides a mock function with given fields: ctx, fromAddress
