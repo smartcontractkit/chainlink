@@ -279,6 +279,10 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 			require.NoError(t, err)
 		}
 
+		// Commit on both chains to reach Finality
+		ccipTH.Source.Chain.Commit()
+		ccipTH.Dest.Chain.Commit()
+
 		// create new jobs
 		jobParams = ccipTH.NewCCIPJobSpecParams(tokenPricesUSDPipeline, newConfigBlock)
 		jobParams.Version = "v2"
