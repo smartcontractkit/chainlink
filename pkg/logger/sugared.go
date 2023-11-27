@@ -4,7 +4,9 @@ package logger
 type SugaredLogger interface {
 	Logger
 	// AssumptionViolation variants log at error level with the message prefix "AssumptionViolation: ".
+	AssumptionViolation(args ...interface{})
 	AssumptionViolationf(format string, vals ...interface{})
+	AssumptionViolationw(format string, vals ...interface{})
 	// ErrorIf logs the error if present.
 	ErrorIf(err error, msg string)
 	// ErrorIfFn calls fn() and logs any returned error along with msg.
@@ -37,7 +39,17 @@ func (s *sugared) ErrorIfFn(fn func() error, msg string) {
 	}
 }
 
+// AssumptionViolation wraps Error logs with assumption violation tag.
+func (s *sugared) AssumptionViolation(args ...interface{}) {
+	s.h.Error(append([]interface{}{"AssumptionViolation:"}, args...))
+}
+
 // AssumptionViolationf wraps Errorf logs with assumption violation tag.
 func (s *sugared) AssumptionViolationf(format string, vals ...interface{}) {
 	s.h.Errorf("AssumptionViolation: "+format, vals...)
+}
+
+// AssumptionViolationw wraps Errorw logs with assumption violation tag.
+func (s *sugared) AssumptionViolationw(msg string, keyvals ...interface{}) {
+	s.h.Errorw("AssumptionViolation: "+msg, keyvals...)
 }

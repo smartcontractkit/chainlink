@@ -70,6 +70,11 @@ func Test(tb testing.TB) Logger {
 	return &logger{zaptest.NewLogger(tb).Sugar()}
 }
 
+// TestSugared returns a new test SugaredLogger.
+func TestSugared(tb testing.TB) SugaredLogger {
+	return Sugared(&logger{zaptest.NewLogger(tb).Sugar()})
+}
+
 // TestObserved returns a new test Logger for tb and ObservedLogs at the given Level.
 func TestObserved(tb testing.TB, lvl zapcore.Level) (Logger, *observer.ObservedLogs) {
 	sl, logs := testObserved(tb, lvl)
