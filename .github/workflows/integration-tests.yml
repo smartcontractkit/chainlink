@@ -753,7 +753,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: smartcontractkit/chainlink-solana
-          ref: 23816fcf7d380a30c87b6d87e4fb0ca94419b259 # swtich back to this after the next solana release${{ needs.get_solana_sha.outputs.sha }}
+          ref: a28100b7f2954604a8ca2ff9ec7bccc6ec952953 # swtich back to this after the next solana release${{ needs.get_solana_sha.outputs.sha }}
       - name: Build Test Image
         if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: ./.github/actions/build-test-image
