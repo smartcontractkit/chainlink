@@ -284,3 +284,14 @@ TimeUnit = '5m'
 NoOfTokensPerChain = 1
 NoOfTokensInMsg = 1
 AmountPerToken = 1
+ExistingEnv = 'beta-testnet-2.7.1-ccip1.2.1-beta'
+
+[CCIP.Groups.smoke]
+MsgType = 'WithToken'
+NetworkPairs = ['AVALANCHE_FUJI,OPTIMISM_GOERLI','AVALANCHE_FUJI,ARBITRUM_GOERLI','AVALANCHE_FUJI,SEPOLIA','AVALANCHE_FUJI,BASE_GOERLI','AVALANCHE_FUJI,BSC_TESTNET','OPTIMISM_GOERLI,ARBITRUM_GOERLI','OPTIMISM_GOERLI,SEPOLIA']
+PhaseTimeout = '50m'
+LocalCluster = false
+ExistingDeployment = true
+ReuseContracts = true
+NoOfTokensPerChain = 1
+NoOfTokensInMsg = 1
