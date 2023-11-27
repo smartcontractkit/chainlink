@@ -115,24 +115,17 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 	start := time.Now()
 
 	defer func() {
-		var (
-			totalSucceeded, totalFailed int
-		)
 		for _, subReqs := range confirmed {
 			for _, req := range subReqs {
 				if _, ok := processed[req.req.RequestID().String()]; ok {
 					// add to the inflight cache so that we don't re-process this request
 					lsn.inflightCache.Add(req.req.Raw())
-					totalSucceeded++
-				} else {
-					totalFailed++
 				}
 			}
 		}
 		lsn.l.Infow("Finished processing pending requests",
 			"totalProcessed", len(processed),
-			"totalFailed", totalFailed,
-			"totalSucceeded", totalSucceeded,
+			"totalFailed", len(pendingRequests)-len(processed),
 			"total", len(pendingRequests),
 			"time", time.Since(start).String(),
 			"inflightCacheSize", lsn.inflightCache.Size())

@@ -24,7 +24,7 @@ func (lsn *listenerV2) runLogListener(
 ) {
 	lsn.l.Infow("Listening for run requests via log poller",
 		"minConfs", minConfs)
-	ticker := time.NewTicker(pollPeriod / 2)
+	ticker := time.NewTicker(pollPeriod)
 	defer ticker.Stop()
 	var (
 		lastProcessedBlock int64
@@ -42,7 +42,11 @@ func (lsn *listenerV2) runLogListener(
 			// Filter registration is idempotent, so we can just call it every time
 			// and retry on errors using the ticker.
 			err := lsn.chain.LogPoller().RegisterFilter(logpoller.Filter{
-				Name: fmt.Sprintf("vrf_%s_keyhash_%s_job_%d", lsn.coordinator.Version(), lsn.job.VRFSpec.PublicKey.MustHash().String(), lsn.job.ID),
+				Name: logpoller.FilterName(
+					"VRFListener",
+					"version", lsn.coordinator.Version(),
+					"keyhash", lsn.job.VRFSpec.PublicKey.MustHash(),
+					"coordinatorAddress", lsn.coordinator.Address()),
 				EventSigs: evmtypes.HashArray{
 					lsn.coordinator.RandomWordsFulfilledTopic(),
 					lsn.coordinator.RandomWordsRequestedTopic(),
