@@ -18,5 +18,4 @@ func TestFeatureConfig(t *testing.T) {
 	assert.True(t, f.LogPoller())
 	assert.True(t, f.FeedsManager())
 	assert.True(t, f.UICSAKeys())
-	assert.True(t, f.EVMClientV2())
 }

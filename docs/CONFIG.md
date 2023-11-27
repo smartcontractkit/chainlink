@@ -51,7 +51,6 @@ ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exce
 FeedsManager = true # Default
 LogPoller = false # Default
 UICSAKeys = false # Default
-EVMClientV2 = false # Default
 ```
 
 
@@ -72,12 +71,6 @@ LogPoller enables the log poller, an experimental approach to processing logs, r
 UICSAKeys = false # Default
 ```
 UICSAKeys enables CSA Keys in the UI.
-
-### EVMClientV2
-```toml
-EVMClientV2 = false # Default
-```
-EVMClientV2 enables a generalized MultiNode client for EVM chains.
 
 ## Database
 ```toml
