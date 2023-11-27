@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -102,9 +103,9 @@ type OnRampV1_0_0 struct {
 	lggr                       logger.Logger
 	client                     client.Client
 	leafHasher                 LeafHasherInterface[[32]byte]
-	filterName                 string
 	sendRequestedEventSig      common.Hash
 	sendRequestedSeqNumberWord int
+	filters                    []logpoller.Filter
 }
 
 func (o *OnRampV1_0_0) Address() (common.Address, error) {
@@ -137,20 +138,28 @@ func (o *OnRampV1_0_0) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context
 	return nil, errors.New("USDC not supported in < 1.2.0")
 }
 
+func (o *OnRampV1_0_0) Close(qopts ...pg.QOpt) error {
+	return logpollerutil.UnregisterLpFilters(o.lp, o.filters, qopts...)
+}
+
+func (o *OnRampV1_0_0) RegisterFilters(qopts ...pg.QOpt) error {
+	return logpollerutil.RegisterLpFilters(o.lp, o.filters, qopts...)
+}
+
 func NewOnRampV1_0_0(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAddress common.Address, sourceLP logpoller.LogPoller, source client.Client) (*OnRampV1_0_0, error) {
 	onRamp, err := evm_2_evm_onramp_1_0_0.NewEVM2EVMOnRamp(onRampAddress, source)
 	if err != nil {
 		return nil, err
 	}
 	onRampABI := abihelpers.MustParseABI(evm_2_evm_onramp_1_0_0.EVM2EVMOnRampABI)
-	// Subscribe to the relevant logs
-	name := logpoller.FilterName(COMMIT_CCIP_SENDS, onRampAddress)
 	eventSig := abihelpers.MustGetEventID(CCIPSendRequestedEventNameV1_0_0, onRampABI)
-	err = sourceLP.RegisterFilter(logpoller.Filter{
-		Name:      name,
-		EventSigs: []common.Hash{eventSig},
-		Addresses: []common.Address{onRampAddress},
-	})
+	filters := []logpoller.Filter{
+		{
+			Name:      logpoller.FilterName(COMMIT_CCIP_SENDS, onRampAddress),
+			EventSigs: []common.Hash{eventSig},
+			Addresses: []common.Address{onRampAddress},
+		},
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -159,9 +168,9 @@ func NewOnRampV1_0_0(lggr logger.Logger, sourceSelector, destSelector uint64, on
 		address:    onRampAddress,
 		onRamp:     onRamp,
 		client:     source,
+		filters:    filters,
 		lp:         sourceLP,
 		leafHasher: NewLeafHasherV1_0_0(sourceSelector, destSelector, onRampAddress, hashlib.NewKeccakCtx(), onRamp),
-		filterName: name,
 		// offset || sourceChainID || seqNum || ...
 		sendRequestedSeqNumberWord: 2,
 		sendRequestedEventSig:      eventSig,
@@ -223,8 +232,4 @@ func (o *OnRampV1_0_0) RouterAddress() (common.Address, error) {
 		return common.Address{}, err
 	}
 	return config.Router, nil
-}
-
-func (o *OnRampV1_0_0) Close(qopts ...pg.QOpt) error {
-	return o.lp.UnregisterFilter(o.filterName, qopts...)
 }
