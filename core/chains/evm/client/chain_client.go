@@ -120,7 +120,7 @@ func (c *chainClient) BlockByNumber(ctx context.Context, number *big.Int) (b *ty
 }
 
 func (c *chainClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	return c.multiNode.CallContext(ctx, result, method, args)
+	return c.multiNode.CallContext(ctx, result, method, args...)
 }
 
 func (c *chainClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
