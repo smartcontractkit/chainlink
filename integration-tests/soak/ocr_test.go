@@ -1,6 +1,9 @@
 package soak
 
 import (
+	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,10 +21,10 @@ func TestOCRSoak(t *testing.T) {
 EVMClientV2 = true
 `
 	// Uncomment below for debugging TOML issues on the node
-	// network := networks.MustGetSelectedNetworksFromEnv()[0]
-	// fmt.Println("Using Chainlink TOML\n---------------------")
-	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customNetworkTOML, network))
-	// fmt.Println("---------------------")
+	network := networks.MustGetSelectedNetworksFromEnv()[0]
+	fmt.Println("Using Chainlink TOML\n---------------------")
+	fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customNetworkTOML, network))
+	fmt.Println("---------------------")
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, false)
 	require.NoError(t, err, "Error creating soak test")
