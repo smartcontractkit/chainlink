@@ -211,7 +211,7 @@ type chainIDResps struct {
 }
 
 func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
-	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+	ws := testutils.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		switch method {
 		case "eth_subscribe":
 			resp.Result = `"0x00"`
@@ -223,7 +223,7 @@ func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
 		}
 		t.Errorf("Unexpected method call: %s(%s)", method, params)
 		return
-	})
+	}).WSURL().String()
 
 	wsURL, err := url.Parse(ws)
 	require.NoError(t, err)

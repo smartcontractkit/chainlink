@@ -64,7 +64,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 	})
 
 	// Confirmed in block number 5
-	cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
@@ -119,7 +119,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "evm.txes", 0)
 	})
 
-	cltest.MustInsertFatalErrorEthTx(t, txStore, from)
+	mustInsertFatalErrorEthTx(t, txStore, from)
 
 	t.Run("deletes errored evm.txes that exceed the age threshold", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
