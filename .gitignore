@@ -55,9 +55,6 @@ golangci-lint-output.txt
 # can be left behind by tests
 core/cmd/vrfkey1
 
-# left behind by webpack - compiled frontend assets
-core/web/assets
-
 # Integration Tests
 integration-tests/**/logs/
 tests-*.xml
@@ -79,7 +76,9 @@ MacOSX*
 
 contracts/yarn.lock
 
-
 # Ignore DevSpace cache and log folder
 .devspace/
 go.work*
+
+# This sometimes shows up for some reason
+tools/flakeytests/coverage.txt

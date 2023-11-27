@@ -183,7 +183,7 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = false
+CaptureAutomationCustomTelemetry = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
@@ -278,6 +278,8 @@ Enabled = false
 CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
+Mode = 'tls'
+TLSCertPath = ''
 
 [[EVM]]
 ChainID = '1'

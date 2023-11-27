@@ -11,14 +11,15 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/jmoiron/sqlx"
+
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrnetworkingtypes "github.com/smartcontractkit/libocr/networking/types"
 	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/sqlx"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -194,7 +195,7 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	peerConfig := ocrnetworking.PeerConfig{
 		NetworkingStack: config.NetworkStack(),
 		PrivKey:         key.PrivKey,
-		Logger:          relaylogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
+		Logger:          commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
 		// V1 config
 		V1ListenIP:                         config.V1().ListenIP(),
 		V1ListenPort:                       p2pPort,

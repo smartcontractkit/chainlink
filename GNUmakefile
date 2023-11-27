@@ -61,6 +61,10 @@ chainlink-local-start:
 install-median: ## Build & install the chainlink-median binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
 
+.PHONY: install-medianpoc
+install-medianpoc: ## Build & install the chainlink-medianpoc binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \
@@ -75,7 +79,7 @@ docker-plugins:
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
-	./operator_ui/install.sh
+	go generate ./core/web
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
@@ -134,7 +138,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.55.0 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.55.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 
 GORELEASER_CONFIG ?= .goreleaser.yaml

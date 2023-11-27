@@ -8,16 +8,17 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/go-resty/resty/v2"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
-	"time"
 )
 
 type RPCResponse struct {
@@ -115,7 +116,7 @@ func UploadS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) (uint8, uint64, erro
 	log.Debug().Interface("Result", result).Msg("S4 secrets_set response result")
 	for _, nodeResponse := range result.Result.Body.Payload.NodeResponses {
 		if !nodeResponse.Body.Payload.Success {
-			return 0, 0, fmt.Errorf("node response was not succesful")
+			return 0, 0, fmt.Errorf("node response was not successful")
 		}
 	}
 	return uint8(envelope.SlotID), envelope.Version, nil
@@ -182,12 +183,12 @@ func EncryptS4Secrets(deployerPk *ecdsa.PrivateKey, tdh2Pk *tdh2easy.PublicKey, 
 	donKey = bytes.Join([][]byte{b, donKey}, nil)
 	donPubKey, err := crypto.UnmarshalPubkey(donKey)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to unmarshal DON key")
+		return "", fmt.Errorf("failed to unmarshal DON key: %w", err)
 	}
 	eciesDONPubKey := ecies.ImportECDSAPublic(donPubKey)
 	signature, err := deployerPk.Sign(rand.Reader, []byte(msgJSON), nil)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to sign the msg with Ethereum key")
+		return "", fmt.Errorf("failed to sign the msg with Ethereum key: %w", err)
 	}
 	signedSecrets, err := json.Marshal(struct {
 		Signature []byte `json:"signature"`
@@ -197,29 +198,29 @@ func EncryptS4Secrets(deployerPk *ecdsa.PrivateKey, tdh2Pk *tdh2easy.PublicKey, 
 		Message:   msgJSON,
 	})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to marshal signed secrets")
+		return "", fmt.Errorf("failed to marshal signed secrets: %w", err)
 	}
 	ct, err := ecies.Encrypt(rand.Reader, eciesDONPubKey, signedSecrets, nil, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to encrypt with DON key")
+		return "", fmt.Errorf("failed to encrypt with DON key: %w", err)
 	}
 	ct0xFormat, err := json.Marshal(map[string]interface{}{"0x0": base64.StdEncoding.EncodeToString(ct)})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to marshal DON key encrypted format")
+		return "", fmt.Errorf("failed to marshal DON key encrypted format: %w", err)
 	}
 	ctTDH2Format, err := tdh2easy.Encrypt(tdh2Pk, ct0xFormat)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to encrypt with TDH2 public key")
+		return "", fmt.Errorf("failed to encrypt with TDH2 public key: %w", err)
 	}
 	tdh2Message, err := ctTDH2Format.Marshal()
 	if err != nil {
-		return "", errors.Wrap(err, "failed to marshal TDH2 encrypted msg")
+		return "", fmt.Errorf("failed to marshal TDH2 encrypted msg: %w", err)
 	}
 	finalMsg, err := json.Marshal(map[string]interface{}{
 		"encryptedSecrets": "0x" + hex.EncodeToString(tdh2Message),
 	})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to marshal secrets msg")
+		return "", fmt.Errorf("failed to marshal secrets msg: %w", err)
 	}
 	return string(finalMsg), nil
 }

@@ -10,7 +10,6 @@ import {Routable} from "../../dev/v1_X/Routable.sol";
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsRouterSetup, FunctionsDONSetup, FunctionsSubscriptionSetup} from "./Setup.t.sol";
-import "forge-std/console.sol";
 
 /// @notice #constructor
 contract FunctionsCoordinator_Constructor is FunctionsRouterSetup {

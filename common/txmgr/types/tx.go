@@ -13,11 +13,11 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 )
 
 // TxStrategy controls how txes are queued and sent
@@ -91,6 +91,9 @@ type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 
 	// Checker defines the check that should be run before a transaction is submitted on chain.
 	Checker TransmitCheckerSpec[ADDR]
+
+	// Mark tx requiring callback
+	SignalCallback bool
 }
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
@@ -207,7 +210,7 @@ type Tx[
 	// Marshalled TxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
-	Meta    *datatypes.JSON
+	Meta    *sqlutil.JSON
 	Subject uuid.NullUUID
 	ChainID CHAIN_ID
 
@@ -216,7 +219,12 @@ type Tx[
 
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
-	TransmitChecker *datatypes.JSON
+	TransmitChecker *sqlutil.JSON
+
+	// Marks tx requiring callback
+	SignalCallback bool
+	// Marks tx callback as signaled
+	CallbackCompleted bool
 }
 
 func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetError() error {

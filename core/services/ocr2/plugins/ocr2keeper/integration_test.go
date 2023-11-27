@@ -1,7 +1,6 @@
 package ocr2keeper_test
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -19,22 +18,23 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -61,8 +61,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 const (
@@ -111,7 +109,6 @@ func deployKeeper20Registry(
 func setupNode(
 	t *testing.T,
 	port int,
-	dbName string,
 	nodeKey ethkey.KeyV2,
 	backend *backends.SimulatedBackend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
@@ -119,7 +116,7 @@ func setupNode(
 ) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
 	p2pKey := keystest.NewP2PKeyV2(t)
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
-	cfg, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Feature.LogPoller = ptr(true)
 
 		c.OCR.Enabled = ptr(false)
@@ -172,14 +169,14 @@ func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
 	jb, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &jb)
+	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 }
 
 func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &jb)
+	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 }
 
@@ -197,7 +194,7 @@ func accountsToAddress(accounts []ocrTypes.Account) (addresses []common.Address,
 	return addresses, nil
 }
 
-func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *gethtypes.Transaction, backend *backends.SimulatedBackend) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -240,7 +237,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_keeper_ocr", nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
+	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
@@ -251,7 +248,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
 	for i := 0; i < 4; i++ {
-		app, peerID, transmitter, kb := setupNode(t, ports[i], fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
+		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		}, NewSimulatedMercuryServer())
@@ -501,7 +498,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	effectiveTransmitters := make([]common.Address, 0)
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_keeper_ocr", nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
+	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
 
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
@@ -513,7 +510,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
 	for i := 0; i < 4; i++ {
-		app, peerID, transmitter, kb := setupNode(t, ports[i], fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
+		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		}, NewSimulatedMercuryServer())
@@ -715,7 +712,7 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 	address := common.HexToAddress(hexutil.Encode(b))
 
 	spec := &job.OCR2OracleSpec{
-		PluginType: relaytypes.OCR2Keeper,
+		PluginType: types.OCR2Keeper,
 		ContractID: address.String(), // valid contract addr
 	}
 
@@ -727,7 +724,7 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 	assert.Equal(t, logpoller.FilterName("EvmRegistry - Upkeep events for", address), names[1])
 
 	spec = &job.OCR2OracleSpec{
-		PluginType: relaytypes.OCR2Keeper,
+		PluginType: types.OCR2Keeper,
 		ContractID: "0x5431", // invalid contract addr
 	}
 	_, err = ocr2keeper.FilterNamesFromSpec20(spec)

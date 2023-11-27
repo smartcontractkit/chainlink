@@ -107,6 +107,11 @@ type BridgeTypeData struct {
 	Attributes BridgeTypeAttributes `json:"attributes"`
 }
 
+// Bridges is the model that represents the bridges when read on a Chainlink node
+type Bridges struct {
+	Data []BridgeTypeData `json:"data"`
+}
+
 // BridgeTypeAttributes is the model that represents the bridge when read or created on a Chainlink node
 type BridgeTypeAttributes struct {
 	Name        string `json:"name"`
@@ -884,7 +889,7 @@ contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{el
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} {{.TrackerPollInterval}} {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} {{.TrackerSubscribeInterval}} {{end}}
 contractAddress                        = "{{.ContractAddress}}"
-evmChainID		 		 			   = "{{.EVMChainID}}"
+evmChainID		 		 			               = "{{.EVMChainID}}"
 p2pBootstrapPeers                      = []
 isBootstrapPeer                        = {{.IsBootstrapPeer}}
 p2pPeerID                              = "{{.P2PPeerID}}"`
@@ -983,22 +988,18 @@ contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{el
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} {{.TrackerPollInterval}} {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} {{.TrackerSubscribeInterval}} {{end}}
 contractAddress                        = "{{.ContractAddress}}"
-evmChainID							   = "{{.EVMChainID}}"
+evmChainID							               = "{{.EVMChainID}}"
 {{if .P2PBootstrapPeers}}
-p2pBootstrapPeers                      = [
-  {{range $peer := .P2PBootstrapPeers}}
-  "/dns4/{{$peer.InternalIP}}/tcp/6690/p2p/{{$peer.PeerID}}",
-  {{end}}
-]
+p2pv2Bootstrappers                      = [{{range $peer := .P2PBootstrapPeers}}"{{$peer.PeerID}}@{{$peer.InternalIP}}:6690",{{end}}]
 {{else}}
-p2pBootstrapPeers                      = []
+p2pv2Bootstrappers                      = []
 {{end}}
 isBootstrapPeer                        = {{.IsBootstrapPeer}}
 p2pPeerID                              = "{{.P2PPeerID}}"
 keyBundleID                            = "{{.KeyBundleID}}"
 monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
 transmitterAddress                     = "{{.TransmitterAddress}}"
-forwardingAllowed					   = {{.ForwardingAllowed}}
+forwardingAllowed					             = {{.ForwardingAllowed}}
 observationSource                      = """
 {{.ObservationSource}}
 """`

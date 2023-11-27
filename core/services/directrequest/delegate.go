@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -129,7 +129,7 @@ type listener struct {
 	pipelineORM              pipeline.ORM
 	mailMon                  *utils.MailboxMonitor
 	job                      job.Job
-	runs                     sync.Map // map[string]utils.StopChan
+	runs                     sync.Map // map[string]services.StopChan
 	shutdownWaitGroup        sync.WaitGroup
 	mbOracleRequests         *utils.Mailbox[log.Broadcast]
 	mbOracleCancelRequests   *utils.Mailbox[log.Broadcast]
@@ -178,7 +178,7 @@ func (l *listener) Start(context.Context) error {
 func (l *listener) Close() error {
 	return l.StopOnce("DirectRequestListener", func() error {
 		l.runs.Range(func(key, runCloserChannelIf interface{}) bool {
-			runCloserChannel := runCloserChannelIf.(utils.StopChan)
+			runCloserChannel := runCloserChannelIf.(services.StopChan)
 			close(runCloserChannel)
 			return true
 		})
@@ -338,10 +338,10 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
-	runCloserChannel := make(utils.StopChan)
+	runCloserChannel := make(services.StopChan)
 	runCloserChannelIf, loaded := l.runs.LoadOrStore(formatRequestId(request.RequestId), runCloserChannel)
 	if loaded {
-		runCloserChannel = runCloserChannelIf.(utils.StopChan)
+		runCloserChannel = runCloserChannelIf.(services.StopChan)
 	}
 	ctx, cancel := runCloserChannel.NewCtx()
 	defer cancel()
@@ -398,7 +398,7 @@ func (l *listener) allowRequester(requester common.Address) bool {
 func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorCancelOracleRequest, lb log.Broadcast) {
 	runCloserChannelIf, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
 	if loaded {
-		close(runCloserChannelIf.(utils.StopChan))
+		close(runCloserChannelIf.(services.StopChan))
 	}
 	l.markLogConsumed(lb)
 }

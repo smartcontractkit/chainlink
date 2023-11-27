@@ -85,7 +85,7 @@ func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (commo
 
 func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 	chainId := big.NewInt(137)
-	_, db := heavyweight.FullTestDBV2(b, "logs_scale", nil)
+	_, db := heavyweight.FullTestDBV2(b, nil)
 	o := logpoller.NewORM(chainId, db, logger.TestLogger(b), pgtest.NewQConfig(false))
 	event, address, _ := populateDatabase(b, o, chainId)
 
@@ -103,7 +103,7 @@ func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 
 func TestPopulateLoadedDB(t *testing.T) {
 	t.Skip("Only for local load testing and query analysis")
-	_, db := heavyweight.FullTestDBV2(t, "logs_scale", nil)
+	_, db := heavyweight.FullTestDBV2(t, nil)
 	chainID := big.NewInt(137)
 
 	o := logpoller.NewORM(big.NewInt(137), db, logger.TestLogger(t), pgtest.NewQConfig(true))
@@ -626,19 +626,19 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	require.Len(t, gethLogs, 2)
 
 	lb, _ := th.LogPoller.LatestBlock(pg.WithParentCtx(testutils.Context(t)))
-	th.PollAndSaveLogs(context.Background(), lb.BlockNumber+1)
+	th.PollAndSaveLogs(ctx, lb.BlockNumber+1)
 	lg1, err := th.LogPoller.Logs(0, 20, EmitterABI.Events["Log1"].ID, th.EmitterAddress1,
-		pg.WithParentCtx(testutils.Context(t)))
+		pg.WithParentCtx(ctx))
 	require.NoError(t, err)
 	lg2, err := th.LogPoller.Logs(0, 20, EmitterABI.Events["Log2"].ID, th.EmitterAddress2,
-		pg.WithParentCtx(testutils.Context(t)))
+		pg.WithParentCtx(ctx))
 	require.NoError(t, err)
 
 	// Logs should have correct timestamps
-	b, _ := th.Client.BlockByHash(context.Background(), lg1[0].BlockHash)
+	b, _ := th.Client.BlockByHash(ctx, lg1[0].BlockHash)
 	t.Log(len(lg1), lg1[0].BlockTimestamp)
 	assert.Equal(t, int64(b.Time()), lg1[0].BlockTimestamp.UTC().Unix(), time1)
-	b2, _ := th.Client.BlockByHash(context.Background(), lg2[0].BlockHash)
+	b2, _ := th.Client.BlockByHash(ctx, lg2[0].BlockHash)
 	assert.Equal(t, int64(b2.Time()), lg2[0].BlockTimestamp.UTC().Unix(), time2)
 }
 
@@ -1328,7 +1328,7 @@ func TestNotifyAfterInsert(t *testing.T) {
 	// Use a non-transactional db for this test because notify events
 	// are not delivered until the transaction is committed.
 	var dbURL string
-	_, sqlxDB := heavyweight.FullTestDBV2(t, "notify_after_insert_log", func(c *chainlink.Config, s *chainlink.Secrets) {
+	_, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		dbURL = s.Database.URL.URL().String()
 	})
 

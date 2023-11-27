@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -39,7 +39,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	allowlist.On("Close", mock.Anything).Return(nil)
 	subscriptions.On("Start", mock.Anything).Return(nil)
 	subscriptions.On("Close", mock.Anything).Return(nil)
-	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, subscriptions, *assets.NewLinkFromJuels(0), logger)
+	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, subscriptions, *assets.NewLinkFromJuels(100), logger)
 	require.NoError(t, err)
 
 	handler.SetConnector(connector)
@@ -78,7 +78,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			}
 			storage.On("List", ctx, addr).Return(snapshot, nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
-			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil)
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
@@ -135,7 +134,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 			storage.On("Put", ctx, &key, &record, signature).Return(nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
-			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil)
+			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
@@ -148,6 +147,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			t.Run("orm error", func(t *testing.T) {
 				storage.On("Put", ctx, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("boom")).Once()
 				allowlist.On("Allow", addr).Return(true).Once()
+				subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
@@ -163,6 +163,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				require.NoError(t, msg.Sign(privateKey))
 				storage.On("Put", ctx, mock.Anything, mock.Anything, mock.Anything).Return(s4.ErrWrongSignature).Once()
 				allowlist.On("Allow", addr).Return(true).Once()
+				subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
@@ -177,10 +178,24 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				msg.Body.Payload = json.RawMessage(`{sdfgdfgoscsicosd:sdf:::sdf ::; xx}`)
 				require.NoError(t, msg.Sign(privateKey))
 				allowlist.On("Allow", addr).Return(true).Once()
+				subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"Bad request to set secret: invalid character 's' looking for beginning of object key string"}`, string(msg.Body.Payload))
+
+				}).Return(nil).Once()
+
+				handler.HandleGatewayMessage(ctx, "gw1", &msg)
+			})
+
+			t.Run("insufficient balance", func(t *testing.T) {
+				allowlist.On("Allow", addr).Return(true).Once()
+				subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(0), nil).Once()
+				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
+					msg, ok := args[2].(*api.Message)
+					require.True(t, ok)
+					require.Equal(t, `{"success":false,"error_message":"user subscription has insufficient balance"}`, string(msg.Body.Payload))
 
 				}).Return(nil).Once()
 

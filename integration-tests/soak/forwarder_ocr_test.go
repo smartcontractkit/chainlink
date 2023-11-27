@@ -18,7 +18,7 @@ func TestForwarderOCRSoak(t *testing.T) {
 ForwardersEnabled = true`
 	// Uncomment below for debugging TOML issues on the node
 	// fmt.Println("Using Chainlink TOML\n---------------------")
-	// fmt.Println(client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
+	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
 	// fmt.Println("---------------------")
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, true)

@@ -38,7 +38,7 @@ func TestMultipleMetricsArePublished(t *testing.T) {
 	_, _ = orm.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{{}}, []common.Hash{{}}, 1, pg.WithParentCtx(ctx))
 	_, _ = orm.SelectIndexedLogsCreatedAfter(common.Address{}, common.Hash{}, 1, []common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
 	_ = orm.InsertLogs([]Log{}, pg.WithParentCtx(ctx))
-	_ = orm.InsertBlock(common.Hash{}, 1, time.Now(), 0, pg.WithParentCtx(ctx))
+	_ = orm.InsertLogsWithBlock([]Log{}, NewLogPollerBlock(common.Hash{}, 1, time.Now(), 0), pg.WithParentCtx(ctx))
 
 	require.Equal(t, 13, testutil.CollectAndCount(orm.queryDuration))
 	require.Equal(t, 10, testutil.CollectAndCount(orm.datasetSize))

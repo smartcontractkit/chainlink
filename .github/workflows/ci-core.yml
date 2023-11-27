@@ -84,7 +84,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} ./...
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.cmd == 'go_core_tests' }}
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
@@ -166,6 +166,7 @@ jobs:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           ./runner \
             -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH \
@@ -173,6 +174,7 @@ jobs:
             -gh_sha=$GITHUB_SHA \
             -gh_event_path=$GITHUB_EVENT_PATH \
             -gh_event_name=$GITHUB_EVENT_NAME \
+            -gh_run_id=$GITHUB_RUN_ID \
             -gh_repo=$GITHUB_REPO \
             -command=./tools/bin/go_core_tests \
             `ls -R ./artifacts/go_core_tests*/output.txt`

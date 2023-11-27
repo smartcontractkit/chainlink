@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
@@ -126,6 +126,7 @@ chainID                            = %d
 const forwarderAdditionalEOACount = 4
 
 func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
+	ctx := s.ctx()
 	lggr := logger.Sugared(s.Logger.Named("ConfigureOCR2VRFNode"))
 	lggr.Infow(
 		fmt.Sprintf("Configuring Chainlink Node for job type %s %s at commit %s", c.String("job-type"), static.Version, static.Sha),
@@ -156,15 +157,13 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 
 	cfg := s.Config
 	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
-	rootCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
-	if err = ldb.Open(rootCtx); err != nil {
+	if err = ldb.Open(ctx); err != nil {
 		return nil, s.errorOut(errors.Wrap(err, "opening db"))
 	}
 	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
 
-	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, lggr, ldb.DB())
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, ldb.DB())
 	if err != nil {
 		return nil, s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -179,7 +178,7 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 	}
 
 	// Start application.
-	err = app.Start(rootCtx)
+	err = app.Start(ctx)
 	if err != nil {
 		return nil, s.errorOut(err)
 	}
@@ -243,10 +242,10 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 
 	if c.Bool("isBootstrapper") {
 		// Set up bootstrapper job if bootstrapper.
-		err = createBootstrapperJob(lggr, c, app)
+		err = createBootstrapperJob(ctx, lggr, c, app)
 	} else if c.String("job-type") == "DKG" {
 		// Set up DKG job.
-		err = createDKGJob(lggr, app, dkgTemplateArgs{
+		err = createDKGJob(ctx, lggr, app, dkgTemplateArgs{
 			contractID:              c.String("contractID"),
 			ocrKeyBundleID:          ocr2.ID(),
 			p2pv2BootstrapperPeerID: peerID,
@@ -260,7 +259,7 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 		})
 	} else if c.String("job-type") == "OCR2VRF" {
 		// Set up OCR2VRF job.
-		err = createOCR2VRFJob(lggr, app, ocr2vrfTemplateArgs{
+		err = createOCR2VRFJob(ctx, lggr, app, ocr2vrfTemplateArgs{
 			dkgTemplateArgs: dkgTemplateArgs{
 				contractID:              c.String("dkg-address"),
 				ocrKeyBundleID:          ocr2.ID(),
@@ -320,12 +319,13 @@ func (s *Shell) appendForwarders(chainID int64, ks keystore.Eth, sendingKeys []s
 }
 
 func (s *Shell) authorizeForwarder(c *cli.Context, db *sqlx.DB, lggr logger.Logger, chainID int64, ec *ethclient.Client, owner *bind.TransactOpts, sendingKeysAddresses []common.Address) error {
+	ctx := s.ctx()
 	// Replace the transmitter ID with the forwarder address.
 	forwarderAddress := c.String("forwarder-address")
 
 	// We have to set the authorized senders on-chain here, otherwise the job spawner will fail as the
 	// forwarder will not be recognized.
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
 	f, err := authorized_forwarder.NewAuthorizedForwarder(common.HexToAddress(forwarderAddress), ec)
 	if err != nil {
@@ -400,7 +400,7 @@ func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Mast
 	return nil
 }
 
-func createBootstrapperJob(lggr logger.Logger, c *cli.Context, app chainlink.Application) error {
+func createBootstrapperJob(ctx context.Context, lggr logger.Logger, c *cli.Context, app chainlink.Application) error {
 	sp := fmt.Sprintf(BootstrapTemplate,
 		c.Int64("chainID"),
 		c.String("contractID"),
@@ -418,7 +418,7 @@ func createBootstrapperJob(lggr logger.Logger, c *cli.Context, app chainlink.App
 	}
 	jb.BootstrapSpec = &os
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(ctx, &jb)
 	if err != nil {
 		return errors.Wrap(err, "failed to add job")
 	}
@@ -430,7 +430,7 @@ func createBootstrapperJob(lggr logger.Logger, c *cli.Context, app chainlink.App
 	return nil
 }
 
-func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplateArgs) error {
+func createDKGJob(ctx context.Context, lggr logger.Logger, app chainlink.Application, args dkgTemplateArgs) error {
 	sp := fmt.Sprintf(DKGTemplate,
 		args.contractID,
 		args.ocrKeyBundleID,
@@ -455,7 +455,7 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 	}
 	jb.OCR2OracleSpec = &os
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(ctx, &jb)
 	if err != nil {
 		return errors.Wrap(err, "failed to add job")
 	}
@@ -464,7 +464,7 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 	return nil
 }
 
-func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
+func createOCR2VRFJob(ctx context.Context, lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
 	var sendingKeysString = fmt.Sprintf(`"%s"`, args.sendingKeys[0])
 	for x := 1; x < len(args.sendingKeys); x++ {
 		sendingKeysString = fmt.Sprintf(`%s,"%s"`, sendingKeysString, args.sendingKeys[x])
@@ -498,7 +498,7 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 	}
 	jb.OCR2OracleSpec = &os
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(ctx, &jb)
 	if err != nil {
 		return errors.Wrap(err, "failed to add job")
 	}

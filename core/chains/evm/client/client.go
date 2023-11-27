@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -61,7 +61,7 @@ type Client interface {
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
-	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error)
+	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
 
 	// Wrapped Geth client methods
 	// blockNumber can be specified as `nil` to imply latest block
@@ -211,7 +211,7 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 	return client.pool.HeaderByHash(ctx, h)
 }
 
-func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
+func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := client.SendTransaction(ctx, tx)
 	return ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
 }

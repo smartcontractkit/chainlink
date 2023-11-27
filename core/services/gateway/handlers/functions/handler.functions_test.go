@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -47,7 +47,7 @@ func newFunctionsHandlerForATestDON(t *testing.T, nodes []gc.TestNode, requestTi
 	require.NoError(t, err)
 	nodeRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
-	pendingRequestsCache := hc.NewRequestCache[functions.PendingSecretsRequest](requestTimeout, 1000)
+	pendingRequestsCache := hc.NewRequestCache[functions.PendingRequest](requestTimeout, 1000)
 	handler := functions.NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, minBalance, userRateLimiter, nodeRateLimiter, logger.TestLogger(t))
 	return handler, don, allowlist, subscriptions
 }
@@ -128,7 +128,7 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 				response := <-callbachCh
 				require.Equal(t, api.NoError, response.ErrCode)
 				require.Equal(t, userRequestMsg.Body.MessageId, response.Msg.Body.MessageId)
-				var payload functions.CombinedSecretsResponse
+				var payload functions.CombinedResponse
 				require.NoError(t, json.Unmarshal(response.Msg.Body.Payload, &payload))
 				require.Equal(t, test.expectedGatewayResult, payload.Success)
 				require.Equal(t, test.expectedNodeMessageCount, len(payload.NodeResponses))
@@ -148,11 +148,10 @@ func TestFunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
 	t.Parallel()
 
 	nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
-	handler, _, allowlist, subscriptions := newFunctionsHandlerForATestDON(t, nodes, time.Hour*24)
+	handler, _, allowlist, _ := newFunctionsHandlerForATestDON(t, nodes, time.Hour*24)
 	userRequestMsg := newSignedMessage(t, "1234", "secrets_reveal_all_please", "don_id", user.PrivateKey)
 
 	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
-	subscriptions.On("GetMaxUserBalance", common.HexToAddress(user.Address)).Return(big.NewInt(1000), nil)
 	err := handler.HandleUserMessage(testutils.Context(t), &userRequestMsg, make(chan handlers.UserCallbackPayload))
 	require.Error(t, err)
 }

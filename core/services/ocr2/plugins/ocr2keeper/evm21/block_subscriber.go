@@ -9,9 +9,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -54,6 +55,10 @@ type BlockSubscriber struct {
 	blockSize        int64
 	finalityDepth    uint32
 	lggr             logger.Logger
+}
+
+func (bs *BlockSubscriber) LatestBlock() *ocr2keepers.BlockKey {
+	return bs.latestBlock.Load()
 }
 
 var _ ocr2keepers.BlockSubscriber = &BlockSubscriber{}

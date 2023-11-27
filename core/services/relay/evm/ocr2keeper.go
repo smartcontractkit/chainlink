@@ -8,16 +8,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
-	"github.com/smartcontractkit/sqlx"
-
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -33,19 +34,19 @@ var (
 
 // OCR2KeeperProviderOpts is the custom options to create a keeper provider
 type OCR2KeeperProviderOpts struct {
-	RArgs      relaytypes.RelayArgs
-	PArgs      relaytypes.PluginArgs
+	RArgs      commontypes.RelayArgs
+	PArgs      commontypes.PluginArgs
 	InstanceID int
 }
 
 // OCR2KeeperProvider provides all components needed for a OCR2Keeper plugin.
 type OCR2KeeperProvider interface {
-	relaytypes.Plugin
+	commontypes.Plugin
 }
 
 // OCR2KeeperRelayer contains the relayer and instantiating functions for OCR2Keeper providers.
 type OCR2KeeperRelayer interface {
-	NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (OCR2KeeperProvider, error)
+	NewOCR2KeeperProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2KeeperProvider, error)
 }
 
 // ocr2keeperRelayer is the relayer with added DKG and OCR2Keeper provider functions.
@@ -68,7 +69,7 @@ func NewOCR2KeeperRelayer(db *sqlx.DB, chain evm.Chain, pr pipeline.Runner, spec
 	}
 }
 
-func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (OCR2KeeperProvider, error) {
+func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2KeeperProvider, error) {
 	cfgWatcher, err := newOCR2KeeperConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
@@ -129,7 +130,7 @@ func (c *ocr2keeperProvider) ContractTransmitter() ocrtypes.ContractTransmitter 
 	return c.contractTransmitter
 }
 
-func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relaytypes.RelayArgs) (*configWatcher, error) {
+func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {

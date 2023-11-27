@@ -15,9 +15,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
@@ -185,7 +186,7 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 	}
 
 	var id int64
-	q := s.q.WithOpts(pg.WithParentCtx(context.Background()))
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Transaction(func(tx pg.Queryer) error {
 		var txerr error
 

@@ -56,6 +56,12 @@ install_gotestfmt:
 	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
 	set -euo pipefail
 
+lint:
+	golangci-lint --color=always run ./... --fix -v
+
+build:
+	@go build ./... && SELECTED_NETWORKS=SIMULATED go test -run=^# ./...
+
 # Builds the test image
 # tag: the tag for the test image being built, example: tag=tate
 # base_tag: the tag for the base-test-image to use, example: base_tag=latest

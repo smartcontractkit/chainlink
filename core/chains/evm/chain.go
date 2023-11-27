@@ -11,12 +11,13 @@ import (
 	gotoml "github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	relaychains "github.com/smartcontractkit/chainlink-relay/pkg/chains"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -421,7 +422,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 	nodes := c.cfg.Nodes()
 	total := len(nodes)
 	if start >= total {
-		return nil, total, relaychains.ErrOutOfRange
+		return nil, total, common.ErrOutOfRange
 	}
 	if end > total {
 		end = total
@@ -458,7 +459,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 }
 
 func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
-	return relaychains.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
+	return common.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }
@@ -473,7 +474,7 @@ func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
 
-func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*toml.Node) (evmclient.Client, error) {
+func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType commonconfig.ChainType, nodes []*toml.Node) (evmclient.Client, error) {
 	var primaries []evmclient.Node
 	var sendonlys []evmclient.SendOnlyNode
 	for i, node := range nodes {

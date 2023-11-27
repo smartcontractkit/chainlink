@@ -16,7 +16,7 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -58,7 +58,7 @@ type Listener struct {
 	GethKs         vrfcommon.GethKeyStore
 	MailMon        *utils.MailboxMonitor
 	ReqLogs        *utils.Mailbox[log.Broadcast]
-	ChStop         utils.StopChan
+	ChStop         services.StopChan
 	WaitOnStop     chan struct{}
 	NewHead        chan struct{}
 	LatestHead     uint64

@@ -1,7 +1,6 @@
 package internal_test
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -26,12 +25,13 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2vrf/altbn_128"
-	ocr2dkg "github.com/smartcontractkit/ocr2vrf/dkg"
-	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
+	ocr2dkg "github.com/smartcontractkit/chainlink-vrf/dkg"
+	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -226,7 +226,7 @@ func setupNodeOCR2(
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
 	p2pKey := keystest.NewP2PKeyV2(t)
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.Feature.LogPoller = ptr(true)
@@ -336,6 +336,7 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 }
 
 func runOCR2VRFTest(t *testing.T, useForwarders bool) {
+	ctx := testutils.Context(t)
 	keyID := randomKeyID(t)
 	uni := setupOCR2VRFContracts(t, 5, keyID, false)
 
@@ -409,7 +410,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		}
 	}()
 
-	blockBeforeConfig, err := uni.backend.BlockByNumber(context.Background(), nil)
+	blockBeforeConfig, err := uni.backend.BlockByNumber(ctx, nil)
 	require.NoError(t, err)
 
 	t.Log("Setting DKG config before block:", blockBeforeConfig.Number().String())
@@ -447,7 +448,7 @@ fromBlock           = %d
 	t.Log("Creating bootstrap job:", bootstrapJobSpec)
 	ocrJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(bootstrapJobSpec)
 	require.NoError(t, err)
-	err = bootstrapNode.app.AddJobV2(context.Background(), &ocrJob)
+	err = bootstrapNode.app.AddJobV2(ctx, &ocrJob)
 	require.NoError(t, err)
 
 	t.Log("Creating OCR2VRF jobs")
@@ -499,7 +500,7 @@ linkEthFeedAddress     	= "%s"
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
 		ocrJob2, err2 := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec)
 		require.NoError(t, err2)
-		err2 = apps[i].AddJobV2(context.Background(), &ocrJob2)
+		err2 = apps[i].AddJobV2(ctx, &ocrJob2)
 		require.NoError(t, err2)
 	}
 

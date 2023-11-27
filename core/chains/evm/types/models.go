@@ -18,7 +18,7 @@ import (
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -74,6 +74,10 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 		return nil
 	}
 	return h.Parent
+}
+
+func (h *Head) GetTimestamp() time.Time {
+	return h.Timestamp
 }
 
 func (h *Head) BlockDifficulty() *utils.Big {

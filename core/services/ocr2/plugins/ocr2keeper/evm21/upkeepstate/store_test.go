@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -357,7 +357,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			})
 
 			for _, insert := range test.storedValues {
-				require.NoError(t, store.SetUpkeepState(context.Background(), insert.result, insert.state), "storing states should not produce an error")
+				require.NoError(t, store.SetUpkeepState(ctx, insert.result, insert.state), "storing states should not produce an error")
 			}
 
 			tickerCh <- time.Now()
@@ -408,7 +408,7 @@ func TestUpkeepStateStore_emptyDB(t *testing.T) {
 		scanner := &mockScanner{}
 		store := NewUpkeepStateStore(orm, lggr, scanner)
 
-		states, err := store.SelectByWorkIDs(context.Background(), []string{"0x1", "0x2", "0x3", "0x4"}...)
+		states, err := store.SelectByWorkIDs(testutils.Context(t), []string{"0x1", "0x2", "0x3", "0x4"}...)
 		assert.NoError(t, err)
 		assert.Equal(t, []ocr2keepers.UpkeepState{
 			ocr2keepers.UnknownState,
@@ -454,6 +454,7 @@ func TestUpkeepStateStore_Upsert(t *testing.T) {
 }
 
 func TestUpkeepStateStore_Service(t *testing.T) {
+	ctx := testutils.Context(t)
 	orm := &mockORM{
 		onDelete: func(tm time.Time) {
 
@@ -466,10 +467,10 @@ func TestUpkeepStateStore_Service(t *testing.T) {
 	store.retention = 500 * time.Millisecond
 	store.cleanCadence = 100 * time.Millisecond
 
-	assert.NoError(t, store.Start(context.Background()), "no error from starting service")
+	assert.NoError(t, store.Start(ctx), "no error from starting service")
 
 	// add a value to set up the test
-	require.NoError(t, store.SetUpkeepState(context.Background(), ocr2keepers.CheckResult{
+	require.NoError(t, store.SetUpkeepState(ctx, ocr2keepers.CheckResult{
 		Eligible: false,
 		WorkID:   "0x2",
 		Trigger: ocr2keepers.Trigger{
@@ -481,7 +482,7 @@ func TestUpkeepStateStore_Service(t *testing.T) {
 	time.Sleep(110 * time.Millisecond)
 
 	// select from store to ensure values still exist
-	values, err := store.SelectByWorkIDs(context.Background(), "0x2")
+	values, err := store.SelectByWorkIDs(ctx, "0x2")
 	require.NoError(t, err, "no error from selecting states")
 	require.Equal(t, []ocr2keepers.UpkeepState{ocr2keepers.Ineligible}, values, "selected values should match expected")
 
@@ -489,7 +490,7 @@ func TestUpkeepStateStore_Service(t *testing.T) {
 	time.Sleep(700 * time.Millisecond)
 
 	// select from store to ensure cached values were removed
-	values, err = store.SelectByWorkIDs(context.Background(), "0x2")
+	values, err = store.SelectByWorkIDs(ctx, "0x2")
 	require.NoError(t, err, "no error from selecting states")
 	require.Equal(t, []ocr2keepers.UpkeepState{ocr2keepers.UnknownState}, values, "selected values should match expected")
 

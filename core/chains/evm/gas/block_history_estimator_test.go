@@ -18,8 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -1329,6 +1330,12 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 		assert.Equal(t, true, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 	})
 
+	t.Run("returns false if transaction is of type 0x16 only on WeMix", func(t *testing.T) {
+		cfg.ChainTypeF = "wemix"
+		tx := evmtypes.Transaction{Type: 0x16, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+	})
+
 	t.Run("returns false if transaction has base fee higher than the gas price only on Celo", func(t *testing.T) {
 		cfg.ChainTypeF = "celo"
 		tx := evmtypes.Transaction{Type: 0x0, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
@@ -1341,6 +1348,21 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 		cfg.ChainTypeF = ""
 		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 		assert.Equal(t, true, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+	})
+
+	t.Run("returns false if transaction is of type 0x71 or 0xff only on zkSync", func(t *testing.T) {
+		cfg.ChainTypeF = string(config.ChainZkSync)
+		tx := evmtypes.Transaction{Type: 0x71, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+
+		tx.Type = 0x02
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+
+		tx.Type = 0xff
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+
+		cfg.ChainTypeF = ""
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 	})
 }
 

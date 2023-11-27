@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -167,7 +167,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		v2Bootstrappers = peerWrapper.P2PConfig().V2().DefaultBootstrappers()
 	}
 
-	ocrLogger := relaylogger.NewOCRWrapper(lggr, chain.Config().OCR().TraceLogging(), func(msg string) {
+	ocrLogger := commonlogger.NewOCRWrapper(lggr, chain.Config().OCR().TraceLogging(), func(msg string) {
 		d.jobORM.TryRecordError(jb.ID, msg)
 	})
 
@@ -295,10 +295,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			configOverrider = configOverriderService
 		}
 
+		jb.OCROracleSpec.CaptureEATelemetry = chain.Config().OCR().CaptureEATelemetry()
 		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
 		if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), concreteSpec.ContractAddress.String(), synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
 			services = append(services, enhancedTelemService)
+		} else {
+			lggr.Infow("Enhanced telemetry is disabled for job", "job", jb.Name)
 		}
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{

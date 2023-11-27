@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	logpoller "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
 )
 
@@ -20,8 +21,8 @@ func TestLogPollerFromEnv(t *testing.T) {
 				ExecutionCount: 100,
 			},
 			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 800,
-				MaxEmitWaitTimeMs: 1200,
+				MinEmitWaitTimeMs: 400,
+				MaxEmitWaitTimeMs: 600,
 			},
 		},
 	}
