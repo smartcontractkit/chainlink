@@ -56,7 +56,7 @@ spec:
         securityContext:
           {{- toYaml $.Values.db.securityContext | nindent 12 }}
         image: busybox
-        command: ['sh', '-c', 'mkdir -p /clroot && chown 14933:999 /clroot && chmod 770 /clroot']
+        command: ['sh', '-c', 'mkdir -p /clroot && chmod 770 /clroot']
         volumeMounts:
         - name: clroot-volume
           mountPath: /clroot
