@@ -395,11 +395,11 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 		ccipModule.ARM = arm
 	} else {
-		if ccipModule.ExistingDeployment {
-			return fmt.Errorf("ARM contract address is not provided in lane config")
-		}
 		// deploy a mock ARM contract
 		if ccipModule.ARMContract == nil {
+			if ccipModule.ExistingDeployment {
+				return fmt.Errorf("ARM contract address is not provided in lane config")
+			}
 			ccipModule.ARMContract, err = cd.DeployMockARMContract()
 			if err != nil {
 				return fmt.Errorf("deploying mock ARM contract shouldn't fail %+v", err)
