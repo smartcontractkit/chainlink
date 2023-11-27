@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -49,7 +51,7 @@ func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
 	return utils.WithJitter(interval)
 }
 
-func (n *node) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
+func (n *node) setLatestReceived(blockNumber int64, totalDifficulty *big.Int) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	n.stateLatestBlockNumber = blockNumber
@@ -213,13 +215,13 @@ func (n *node) aliveLoop() {
 					continue
 				}
 			}
-			n.declareOutOfSync(func(num int64, td *utils.Big) bool { return num < highestReceivedBlockNumber })
+			n.declareOutOfSync(func(num int64, td *big.Int) bool { return num < highestReceivedBlockNumber })
 			return
 		}
 	}
 }
 
-func (n *node) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
+func (n *node) isOutOfSync(num int64, td *big.Int) (outOfSync bool) {
 	outOfSync, _ = n.syncStatus(num, td)
 	return
 }
@@ -227,7 +229,7 @@ func (n *node) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
 // syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
 // Always returns outOfSync false for SyncThreshold 0.
 // liveNodes is only included when outOfSync is true.
-func (n *node) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
+func (n *node) syncStatus(num int64, td *big.Int) (outOfSync bool, liveNodes int) {
 	if n.nLiveNodes == nil {
 		return // skip for tests
 	}
@@ -242,8 +244,8 @@ func (n *node) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes i
 	case NodeSelectionMode_HighestHead, NodeSelectionMode_RoundRobin, NodeSelectionMode_PriorityLevel:
 		return num < highest-int64(threshold), ln
 	case NodeSelectionMode_TotalDifficulty:
-		bigThreshold := utils.NewBigI(int64(threshold))
-		return td.Cmp(greatest.Sub(bigThreshold)) < 0, ln
+		bigThreshold := big.NewInt(int64(threshold))
+		return td.Cmp(bigmath.Sub(greatest, bigThreshold)) < 0, ln
 	default:
 		panic("unrecognized NodeSelectionMode: " + mode)
 	}
@@ -255,7 +257,7 @@ const (
 )
 
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
-func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
+func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *big.Int) bool) {
 	defer n.wg.Done()
 
 	{

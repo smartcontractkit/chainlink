@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type TestNodePoolConfig struct {
@@ -45,7 +44,7 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 
 	lggr := logger.TestLogger(t)
 	n := NewNode(nodePoolCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID, 1)
-	n.(*node).setLatestReceived(0, utils.NewBigI(0))
+	n.(*node).setLatestReceived(0, big.NewInt(0))
 	primaries := []Node{n}
 
 	var sendonlys []SendOnlyNode

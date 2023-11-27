@@ -168,8 +168,8 @@ func (p *Pool) Dial(ctx context.Context) error {
 
 // nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
 // totalDifficulty will be 0 if all nodes return nil.
-func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
-	totalDifficulty = utils.NewBigI(0)
+func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *big.Int) {
+	totalDifficulty = big.NewInt(0)
 	for _, n := range p.nodes {
 		if s, num, td := n.StateAndLatest(); s == NodeStateAlive {
 			nLiveNodes++

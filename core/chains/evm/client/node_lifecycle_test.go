@@ -16,7 +16,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func standardHandler(method string, _ gjson.Result) (resp testutils.JSONRPCResponse) {
@@ -161,7 +160,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			}
 			return
 		})
-		n.nLiveNodes = func() (int, int64, *utils.Big) { return 1, 0, nil }
+		n.nLiveNodes = func() (int, int64, *big.Int) { return 1, 0, nil }
 		dial(t, n)
 		defer func() { assert.NoError(t, n.Close()) }()
 
@@ -308,7 +307,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 		iN := NewNode(pollDisabledCfg, testutils.TestInterval, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (int, int64, *utils.Big) { return 1, 0, nil }
+		n.nLiveNodes = func() (int, int64, *big.Int) { return 1, 0, nil }
 		dial(t, n)
 		defer func() { assert.NoError(t, n.Close()) }()
 
@@ -353,7 +352,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 		iN := NewNode(cfg, 0*time.Second, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
 			return 2, highestHead.Load(), nil
 		}
 
@@ -415,7 +414,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 		iN := NewNode(cfg, 0*time.Second, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
 			return 2, highestHead.Load(), nil
 		}
 
@@ -474,7 +473,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 		iN := NewNode(cfg, 0*time.Second, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
 			return 1, highestHead.Load(), nil
 		}
 
@@ -521,7 +520,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		n.wg.Add(1)
 		go func() {
 			defer close(ch)
-			n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return false })
+			n.outOfSyncLoop(func(num int64, td *big.Int) bool { return false })
 		}()
 		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected outOfSyncLoop to exit")
@@ -536,7 +535,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		n.wg.Add(1)
 
-		n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num == 0 })
+		n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num == 0 })
 		assert.Equal(t, NodeStateUnreachable, n.State())
 	})
 
@@ -565,7 +564,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
-		go n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num == 0 })
+		go n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num == 0 })
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
@@ -612,7 +611,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
-		go n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num < 43 })
+		go n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num < 43 })
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
@@ -661,7 +660,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		iN := NewNode(cfg, time.Second*0, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
 			return 2, stall + int64(cfg.SyncThreshold()), nil
 		}
 
@@ -717,14 +716,14 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		iN := NewNode(cfg, testutils.TestInterval, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (int, int64, *utils.Big) { return 0, 0, nil }
+		n.nLiveNodes = func() (int, int64, *big.Int) { return 0, 0, nil }
 
 		dial(t, n)
 		n.setState(NodeStateOutOfSync)
 		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
-		go n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num == 0 })
+		go n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num == 0 })
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 

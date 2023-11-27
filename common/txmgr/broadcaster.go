@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -246,7 +247,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) clos
 	eb.initSync.Lock()
 	defer eb.initSync.Unlock()
 	if !eb.isStarted {
-		return errors.Wrap(utils.ErrAlreadyStopped, "Broadcaster is not started")
+		return errors.Wrap(services.ErrAlreadyStopped, "Broadcaster is not started")
 	}
 	close(eb.chStop)
 	eb.wg.Wait()
