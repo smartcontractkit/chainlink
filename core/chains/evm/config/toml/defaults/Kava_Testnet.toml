@@ -1,5 +1,5 @@
 ChainID = '2221'
-ChainType = 'kava-testnet'
+ChainType = 'kava'
 FinalityDepth = 1
 LogPollInterval = '6s'
 NoNewHeadsThreshold = '40s'
