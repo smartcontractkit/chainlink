@@ -1,15 +1,19 @@
 package smoke
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
@@ -49,12 +53,14 @@ func TestVRFv2Plus(t *testing.T) {
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
 	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
 
+	numberOfTxKeysToCreate := 2
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(
 		env,
 		vrfv2PlusConfig,
 		linkToken,
 		mockETHLinkFeed,
 		defaultWalletAddress,
+		numberOfTxKeysToCreate,
 		1,
 		1,
 		l,
@@ -596,6 +602,97 @@ func TestVRFv2Plus(t *testing.T) {
 	})
 }
 
+func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	var vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
+	err := envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
+	require.NoError(t, err)
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestLogger(t).
+		WithGeth().
+		WithCLNodes(1).
+		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err, "error creating test env")
+
+	env.ParallelTransactions(true)
+
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(vrfv2PlusConfig.LinkNativeFeedResponse))
+	require.NoError(t, err, "error deploying mock ETH/LINK feed")
+
+	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	require.NoError(t, err, "error deploying LINK contract")
+
+	// register proving key against oracle address (sending key) in order to test oracleWithdraw
+	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
+
+	numberOfTxKeysToCreate := 2
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(
+		env,
+		vrfv2PlusConfig,
+		linkToken,
+		mockETHLinkFeed,
+		defaultWalletAddress,
+		numberOfTxKeysToCreate,
+		1,
+		1,
+		l,
+	)
+	require.NoError(t, err, "error setting up VRF v2_5 env")
+
+	subID := subIDs[0]
+
+	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(testcontext.Get(t), subID)
+	require.NoError(t, err, "error getting subscription information")
+
+	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
+
+	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
+		testConfig := vrfv2PlusConfig
+		var isNativeBilling = false
+		txKeys, _, err := env.ClCluster.Nodes[0].API.ReadTxKeys("evm")
+		require.NoError(t, err, "error reading tx keys")
+
+		require.Equal(t, numberOfTxKeysToCreate+1, len(txKeys.Data))
+
+		var fulfillmentTxFromAddresses []string
+		for i := 0; i < numberOfTxKeysToCreate+1; i++ {
+			randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+				vrfv2PlusContracts.LoadTestConsumers[0],
+				vrfv2PlusContracts.Coordinator,
+				vrfv2PlusData,
+				subID,
+				isNativeBilling,
+				testConfig.RandomnessRequestCountPerRequest,
+				testConfig,
+				testConfig.RandomWordsFulfilledEventTimeout,
+				l,
+			)
+			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+			//todo - move TransactionByHash to EVMClient in CTF
+			fulfillmentTx, _, err := env.EVMClient.(*blockchain.EthereumMultinodeClient).DefaultClient.(*blockchain.EthereumClient).
+				Client.TransactionByHash(context.Background(), randomWordsFulfilledEvent.Raw.TxHash)
+			require.NoError(t, err, "error getting tx from hash")
+			fulfillmentTxFromAddress, err := actions.GetTxFromAddress(fulfillmentTx)
+			require.NoError(t, err, "error getting tx from address")
+			fulfillmentTxFromAddresses = append(fulfillmentTxFromAddresses, fulfillmentTxFromAddress)
+		}
+		require.Equal(t, numberOfTxKeysToCreate+1, len(fulfillmentTxFromAddresses))
+		var txKeyAddresses []string
+		for _, txKey := range txKeys.Data {
+			txKeyAddresses = append(txKeyAddresses, txKey.ID)
+		}
+		less := func(a, b string) bool { return a < b }
+		equalIgnoreOrder := cmp.Diff(txKeyAddresses, fulfillmentTxFromAddresses, cmpopts.SortSlices(less)) == ""
+		require.True(t, equalIgnoreOrder)
+	})
+}
+
 func TestVRFv2PlusMigration(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
@@ -622,7 +719,17 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	nativeTokenPrimaryKeyAddress, err := env.ClCluster.NodeAPIs()[0].PrimaryEthAddress()
 	require.NoError(t, err, "error getting primary eth address")
 
-	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, vrfv2PlusConfig, linkAddress, mockETHLinkFeedAddress, nativeTokenPrimaryKeyAddress, 2, 1, l)
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(
+		env,
+		vrfv2PlusConfig,
+		linkAddress,
+		mockETHLinkFeedAddress,
+		nativeTokenPrimaryKeyAddress,
+		0,
+		2,
+		1,
+		l,
+	)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
 
 	subID := subIDs[0]
@@ -671,7 +778,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	_, err = vrfv2plus.CreateVRFV2PlusJob(
 		env.ClCluster.NodeAPIs()[0],
 		newCoordinator.Address(),
-		vrfv2PlusData.PrimaryEthAddress,
+		[]string{vrfv2PlusData.PrimaryEthAddress},
 		vrfv2PlusData.VRFKey.Data.ID,
 		vrfv2PlusData.ChainID.String(),
 		vrfv2PlusConfig.MinimumConfirmations,

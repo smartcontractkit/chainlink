@@ -170,7 +170,7 @@ type VRFv2Consumer interface {
 
 type VRFv2LoadTestConsumer interface {
 	Address() string
-	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32, requestCount uint16) error
+	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32, requestCount uint16) (*types.Transaction, error)
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_load_test_with_metrics.GetRequestStatus, error)
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)

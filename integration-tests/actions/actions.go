@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/ethereum/go-ethereum"
@@ -457,4 +458,26 @@ func GenerateWallet() (common.Address, error) {
 		return common.Address{}, fmt.Errorf("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
 	}
 	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
+}
+
+// todo - move to CTF
+func FundAddress(client blockchain.EVMClient, sendingKey string, fundingToSendEth *big.Float) error {
+	address := common.HexToAddress(sendingKey)
+	gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+		To: &address,
+	})
+	if err != nil {
+		return err
+	}
+	err = client.Fund(sendingKey, fundingToSendEth, gasEstimates)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// todo - move to CTF
+func GetTxFromAddress(tx *types.Transaction) (string, error) {
+	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+	return from.String(), err
 }

@@ -11,6 +11,7 @@ require (
 	github.com/cli/go-gh/v2 v2.0.0
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/go-resty/resty/v2 v2.7.0
+	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.1
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -191,7 +192,6 @@ require (
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/go-tpm v0.9.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
