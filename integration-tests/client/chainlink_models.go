@@ -1128,6 +1128,7 @@ type VRFV2PlusJobSpec struct {
 	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
 	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
 	BackOffMaxDelay          time.Duration `toml:"backOffMaxDelay"`
+	PollPeriod               time.Duration `toml:"pollPeriod"`
 }
 
 // Type returns the type of the job
