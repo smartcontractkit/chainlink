@@ -66,6 +66,7 @@ type RelayerOpts struct {
 	pg.QConfig
 	CSAETHKeystore
 	pg.EventBroadcaster
+	MercuryPool wsrpc.Pool
 }
 
 func (c RelayerOpts) Validate() error {
@@ -100,7 +101,7 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		chain:            chain,
 		lggr:             lggr,
 		ks:               opts.CSAETHKeystore,
-		mercuryPool:      wsrpc.NewPool(lggr),
+		mercuryPool:      opts.MercuryPool,
 		eventBroadcaster: opts.EventBroadcaster,
 		pgCfg:            opts.QConfig,
 	}, nil
@@ -116,17 +117,16 @@ func (r *Relayer) Start(context.Context) error {
 }
 
 func (r *Relayer) Close() error {
-	return r.mercuryPool.Close()
+	return nil
 }
 
 // Ready does noop: always ready
 func (r *Relayer) Ready() error {
-	return r.mercuryPool.Ready()
+	return nil
 }
 
 func (r *Relayer) HealthReport() (report map[string]error) {
 	report = make(map[string]error)
-	services.CopyHealth(report, r.mercuryPool.HealthReport())
 	return
 }
 
