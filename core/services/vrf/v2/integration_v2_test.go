@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -41,6 +40,7 @@ import (
 	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -1606,7 +1606,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.Zero(t, key.Cmp(keys[0]))
 
 	require.NoError(t, app.Start(testutils.Context(t)))
-	var chain evm.Chain
+	var chain legacyevm.Chain
 	chain, err = app.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	listenerV2 := v22.MakeTestListenerV2(chain)
