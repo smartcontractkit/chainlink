@@ -1,7 +1,6 @@
 package v2_test
 
 import (
-	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -13,8 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1741,43 +1738,4 @@ func testMaliciousConsumer(
 		requests = append(requests, it2.Event())
 	}
 	require.Equal(t, 1, len(requests))
-}
-
-func getMetricInt64(c prometheus.Collector) (int64, error) {
-	var (
-		m      prometheus.Metric
-		mCount int
-		mChan  = make(chan prometheus.Metric)
-		done   = make(chan struct{})
-	)
-
-	go func() {
-		for m = range mChan {
-			mCount++
-		}
-		close(done)
-	}()
-
-	c.Collect(mChan)
-	close(mChan)
-	<-done
-
-	if mCount != 1 {
-		return 0.0, fmt.Errorf("collected %d metrics instead of exactly 1", mCount)
-	}
-
-	pb := &dto.Metric{}
-	if err := m.Write(pb); err != nil {
-		return 0.0, fmt.Errorf("error happened while collecting metrics: %w", err)
-	}
-	if pb.Gauge != nil {
-		return int64(pb.Gauge.GetValue()), nil
-	}
-	if pb.Counter != nil {
-		return int64(pb.Counter.GetValue()), nil
-	}
-	if pb.Untyped != nil {
-		return int64(pb.Untyped.GetValue()), nil
-	}
-	return 0.0, fmt.Errorf("collected a non-gauge/counter/untyped metric: %s", pb)
 }
