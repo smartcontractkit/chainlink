@@ -246,3 +246,9 @@ func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfig
 
 	}
 }
+
+func WithLogPollInterval(interval time.Duration) NodeConfigOpt {
+	return func(c *chainlink.Config) {
+		c.EVM[0].Chain.LogPollInterval = models.MustNewDuration(interval)
+	}
+}
