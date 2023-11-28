@@ -113,6 +113,9 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	duration := int(endTime.Sub(startTime).Seconds())
 	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
+	//TODO without sleep it fails as loads of logs are not processed when check next hits, our PoS is way slower than PoW. I think I should wait for mempool to be empty, can use eth_pendingTransactions jRPC call for that
+	// time.Sleep(8 * time.Minute)
+
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
 	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
@@ -126,7 +129,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 
 	// Wait until last block in which events were emitted has been finalised
 	// how long should we wait here until all logs are processed? wait for block X to be processed by all nodes?
-	waitDuration := "15m"
+	waitDuration := "5m"
 	l.Warn().Str("Duration", waitDuration).Msg("Waiting for logs to be processed by all nodes and for chain to advance beyond finality")
 
 	gom.Eventually(func(g gomega.Gomega) {
