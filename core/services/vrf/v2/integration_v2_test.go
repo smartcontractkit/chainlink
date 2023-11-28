@@ -183,6 +183,10 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		vrf_coordinator_v2.VRFCoordinatorV2ABI))
 	require.NoError(t, err)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+	blockTime := time.UnixMilli(int64(backend.Blockchain().CurrentHeader().Time))
+	err = backend.AdjustTime(time.Since(blockTime) - 24*time.Hour)
+	require.NoError(t, err)
+	backend.Commit()
 	// Deploy link
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend)
