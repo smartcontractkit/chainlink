@@ -49,7 +49,6 @@ func RunHealthy(tb TestingT, s services.Service) {
 			for k, v := range s.HealthReport() {
 				err = errors.Join(err, fmt.Errorf("%s: %w", k, v))
 			}
-			fmt.Println("Health report: ", err)
 			return
 		}
 		for s.Ready() != nil {
