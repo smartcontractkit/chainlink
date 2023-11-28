@@ -623,6 +623,10 @@ jobs:
         id: getshortsha
         run: |
           sol_ver=$(go list -m -json github.com/smartcontractkit/chainlink-solana  | jq -r .Version)
+          if [ -z "${sol_ver}" ]; then
+              echo "Error: could not get the solana version from the go.mod file, look above for error(s)"
+              exit 1
+          fi
           short_sha="${sol_ver##*-}"
           echo "short sha is: ${short_sha}"
           echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
@@ -638,6 +642,10 @@ jobs:
         run: |
           cd solanapath
           full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}})
+          if [ -z "${full_sha}" ]; then
+              echo "Error: could not get the full sha from the short sha using git, look above for error(s)"
+              exit 1
+          fi
           echo "sha is: ${full_sha}"
           echo "sha=${full_sha}" >> "$GITHUB_OUTPUT"
 
