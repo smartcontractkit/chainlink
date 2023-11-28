@@ -3,3 +3,7 @@ name: chainlink-cluster
 description: Chainlink nodes cluster
 version: 0.1.3
 appVersion: '2.6.0'
+dependencies:
+  - name: "killgrave"
+    version: "1.0.1"
+    repository: "https://charts.deliveryhero.io/"

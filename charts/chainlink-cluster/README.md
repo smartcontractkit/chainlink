@@ -55,10 +55,8 @@ Destroy the cluster
 devspace purge
 ```
 
-If you need to run some system level tests inside k8s use `runner` profile:
-```
-devspace dev -p runner
-```
+## Running load tests
+Check this [doc](../../integration-tests/load/ocr/README.md)
 
 If you used `devspace dev ...` always use `devspace reset pods` to switch the pods back
 
@@ -66,8 +64,6 @@ If you used `devspace dev ...` always use `devspace reset pods` to switch the po
 If you need to debug CL node that is already deployed change `dev.app.container` and `dev.app.labelSelector` in [devspace.yaml](devspace.yaml) if they are not default and run:
 ```
 devspace dev -p node
-or
-devspace dev -p runner
 ```
 
 ## Automatic file sync
@@ -85,7 +81,7 @@ helm install -f values-raw-helm.yaml cl-cluster .
 ```
 Forward all apps (in another terminal)
 ```
-sudo kubefwd svc
+sudo kubefwd svc -n cl-cluster
 ```
 Then you can connect and run your tests
 
