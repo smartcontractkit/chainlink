@@ -342,6 +342,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   /// @dev Report transmitted by OCR to transmit function
   struct Report {
     ChainConfig[] cfgs;
+    uint256 linkNative;
     uint256[] upkeepIds;
     uint256[] gasLimits;
     bytes[] triggers;
@@ -406,9 +407,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   struct ChainConfig {
     uint256 fastGas;
-    uint256 linkNative;
-    uint256 executionL1GasCost;
-    uint256 estimatedL1GasCost;
+    uint256 l1GasCost;
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
@@ -528,6 +527,27 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
+   * @dev retrieves feed data link/native prices. if the feed data is stale it uses the configured fallback price.
+   * Once a price is picked for gas it takes the min of gas price in the transaction or the fast gas
+   * price in order to reduce costs for the upkeep clients.
+   */
+  function _getFeedData(HotVars memory hotVars) internal view returns (uint256 linkNative) {
+    uint32 stalenessSeconds = hotVars.stalenessSeconds;
+    bool staleFallback = stalenessSeconds > 0;
+    uint256 timestamp;
+    int256 feedValue;
+    (, feedValue, , timestamp, ) = i_linkNativeFeed.latestRoundData();
+    if (
+      feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
+    ) {
+      linkNative = s_fallbackLinkPrice;
+    } else {
+      linkNative = uint256(feedValue);
+    }
+    return linkNative;
+  }
+
+  /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
    * @param gasOverhead the amount of gas overhead
@@ -536,6 +556,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   function _calculatePaymentAmount(
     HotVars memory hotVars,
     ChainConfig memory cfg,
+    uint256 linkNative,
     uint256 gasLimit,
     uint256 gasOverhead,
     bool isExecution
@@ -549,9 +570,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 l1CostWei;
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
-      l1CostWei = hotVars.gasCeilingMultiplier * cfg.estimatedL1GasCost;
+      l1CostWei = hotVars.gasCeilingMultiplier * cfg.l1GasCost;
     } else {
-      l1CostWei = cfg.executionL1GasCost;
+      l1CostWei = cfg.l1GasCost;
     }
 
     // this calculation was for splitting the L1 gas cost evenly because the old way of calculation depends on msg.data
@@ -560,9 +581,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // in the new approach, L1 gas cost is calculated in offchain for individual upkeep, this division is not needed.
     // l1CostWei = l1CostWei / numBatchedUpkeeps;
 
-    uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / cfg.linkNative;
+    uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / linkNative;
     uint256 premium = (((gasWei * gasLimit) + l1CostWei) * 1e9 * hotVars.paymentPremiumPPB) /
-      cfg.linkNative +
+      linkNative +
       uint256(hotVars.flatFeeMicroLink) *
       1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
@@ -579,12 +600,14 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     Trigger triggerType,
     uint32 performGas,
     uint32 performDataLength,
+    uint256 linkNative,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (uint96) {
     uint256 gasOverhead = _getMaxGasOverhead(triggerType, performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       cfg,
+      linkNative,
       performGas,
       gasOverhead,
       isExecution
@@ -745,7 +768,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   function _validateLogTrigger(
     uint256 upkeepId,
     bytes memory rawTrigger,
-    UpkeepTransmitInfo memory transmitInfo
+    UpkeepTransmitInfo memory transmitInfo // not used, remove?
   ) internal returns (bool, bytes32) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
@@ -826,6 +849,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     HotVars memory hotVars,
     ChainConfig memory cfg,
     uint256 upkeepId,
+    uint256 linkNative,
     UpkeepTransmitInfo memory upkeepTransmitInfo
   ) internal returns (uint96 gasReimbursement, uint96 premium) {
     (gasReimbursement, premium) = _calculatePaymentAmount(
@@ -833,6 +857,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       cfg,
       upkeepTransmitInfo.gasUsed,
       upkeepTransmitInfo.gasOverhead,
+      linkNative,
       true
     );
 

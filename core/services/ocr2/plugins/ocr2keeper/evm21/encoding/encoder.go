@@ -32,9 +32,8 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 	}
 
 	report := automation_utils_2_1.KeeperRegistryBase21Report{
-		FastGasWei: big.NewInt(0),
-		LinkNative: big.NewInt(0),
-		// Cfgs: make([]ChainConfig, len(results)),
+		LinkNative:   big.NewInt(0),
+		Cfgs:         make([]automation_utils_2_1.KeeperRegistryBase21ChainConfig, len(results)),
 		UpkeepIds:    make([]*big.Int, len(results)),
 		GasLimits:    make([]*big.Int, len(results)),
 		Triggers:     make([][]byte, len(results)),
@@ -49,15 +48,14 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 
 		if checkBlock.Cmp(highestCheckBlock) == 1 {
 			highestCheckBlock = checkBlock
-			if result.FastGasWei != nil {
-				report.FastGasWei = result.FastGasWei
-			}
 			if result.LinkNative != nil {
 				report.LinkNative = result.LinkNative
 			}
 		}
-		// report.Cfgs[i] = ChainConfig(result.l1GasCost, result.fastGas, result.linkNative)
 		id := result.UpkeepID.BigInt()
+		// ocr2keepers.CheckResult should include a l1GasCost
+		// report.Cfgs[i].l1GasCost = result.l1GasCost
+		// report.Cfgs[i].fastGas = result.fastGas
 		report.UpkeepIds[i] = id
 		report.GasLimits[i] = big.NewInt(0).SetUint64(result.GasAllocated)
 

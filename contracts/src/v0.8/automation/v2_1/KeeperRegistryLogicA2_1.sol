@@ -56,31 +56,31 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
       uint256 gasUsed,
-      uint256 gasLimit//,
-      // likely these 2 values don't need to be returned anymore. otherwise, we can just pass the values from chain config here.
-      // uint256 fastGasWei,
-      // uint256 linkNative
+      uint256 gasLimit,
+      uint256 linkNative
     )
   {
     Trigger triggerType = _getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
 
-    if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas);
+    if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas, 0);
     if (upkeep.maxValidBlocknumber != UINT32_MAX)
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas);
-    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas);
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas, 0);
+    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0);
 
+    linkNative = _getFeedData(hotVars);
     uint96 maxLinkPayment = _getMaxLinkPayment(
       hotVars,
       cfg,
       triggerType,
       upkeep.performGas,
       s_storage.maxPerformDataSize,
+      linkNative,
       false
     );
     if (upkeep.balance < maxLinkPayment) {
-      return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas);
+      return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0);
     }
 
     bytes memory callData = _checkPayload(id, triggerType, triggerData);
@@ -97,7 +97,8 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
           bytes(""),
           UpkeepFailureReason.REVERT_DATA_EXCEEDS_LIMIT,
           gasUsed,
-          upkeep.performGas
+          upkeep.performGas,
+          0
         );
       }
       return (
@@ -105,7 +106,8 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
         result,
         UpkeepFailureReason.TARGET_CHECK_REVERTED,
         gasUsed,
-        upkeep.performGas
+        upkeep.performGas,
+        0
       );
     }
 
@@ -116,7 +118,8 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
         bytes(""),
         UpkeepFailureReason.UPKEEP_NOT_NEEDED,
         gasUsed,
-        upkeep.performGas
+        upkeep.performGas,
+        0
       );
 
     if (performData.length > s_storage.maxPerformDataSize)
@@ -125,10 +128,11 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
         bytes(""),
         UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
         gasUsed,
-        upkeep.performGas
+        upkeep.performGas,
+        0
       );
 
-    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, upkeep.performGas);
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, upkeep.performGas, 0);
   }
 
   /**
@@ -145,7 +149,8 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
       uint256 gasUsed,
-      uint256 gasLimit
+      uint256 gasLimit,
+      uint256 linkNative
     )
   {
     return checkUpkeep(id, bytes(""), cfg);

@@ -191,12 +191,10 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		}
 
 		// call gas estimator (GE) component to get L2 gas cost
-		// estimatedL1GasCost = GE.getL1GasCost(chain_id, block_number, block_hash, estimated_tx_call_data)
-		// fast_gas = GE.getFastGas(chain_id, block_number)
-		// link_native = ...
-		// results[i].estimatedL1GasCost = estimatedL1GasCost
+		// estimatedL1GasCost, _, _, ... = GE.getL1GasCost(block_number, estimated_tx_call_data)
+		// fastGas = GE.getFastGas(blockNumber or no param depending on design)
+		// results[i].l1GasCost = estimatedL1GasCost
 		// results[i].fastGas = fastGas
-		// results[i].linkNative = linkNative
 
 		opts := r.buildCallOpts(ctx, block)
 		var payload []byte
@@ -212,7 +210,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			}
 
 			// check data will include the log trigger config
-			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData /* ChainConfig(estimatedL1GasCost, fast_gas, link_native) */)
+			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData /* ChainConfig(estimatedL1GasCost, fastGas) */)
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack log trigger checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
@@ -372,9 +370,9 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		} else {
 			// at this point, the core node knows the exact perform data of the upkeep and the call data to L1.
 			// it can calculate a relatively accurate L1 gas cost
-			// executionL1GasCost = GE.getL1GasCost(checkResults[performToKeyIdx[i]].PerformData + bytes padding);
-			// checkResults[performToKeyIdx[i]].fastGas = GE.getFastGas(chain_id, block_number)
-			// checkResults[performToKeyIdx[i]].executionL1GasCost = executionL1GasCost
+			// executionL1GasCost, _, _, ... = GE.getL1GasCost(checkResults[performToKeyIdx[i]].PerformData + bytes padding);
+			// checkResults[performToKeyIdx[i]].fastGas = GE.getFastGas(blockNumber or no param depending on design)
+			// checkResults[performToKeyIdx[i]].l1GasCost = executionL1GasCost
 		}
 	}
 

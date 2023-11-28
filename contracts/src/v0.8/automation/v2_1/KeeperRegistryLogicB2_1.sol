@@ -474,8 +474,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    */
   function getMaxPaymentForGas(Trigger triggerType, ChainConfig memory cfg, uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
+    uint256 linkNative = _getFeedData(hotVars);
     return
-      _getMaxLinkPayment(hotVars, cfg, triggerType, gasLimit, s_storage.maxPerformDataSize, false);
+      _getMaxLinkPayment(hotVars, cfg, triggerType, gasLimit, s_storage.maxPerformDataSize, linkNative, false);
   }
 
   /**
