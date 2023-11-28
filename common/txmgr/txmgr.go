@@ -11,12 +11,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -331,7 +331,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				select {
 				case <-time.After(backoff.Duration()):
 					if err := b.broadcaster.startInternal(); err != nil {
-						b.logger.Criticalw("Failed to start Broadcaster", "err", err)
+						logger.Criticalw(b.logger, "Failed to start Broadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
@@ -350,7 +350,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				select {
 				case <-time.After(backoff.Duration()):
 					if err := b.confirmer.startInternal(); err != nil {
-						b.logger.Criticalw("Failed to start Confirmer", "err", err)
+						logger.Criticalw(b.logger, "Failed to start Confirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
@@ -410,7 +410,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			}
 			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(b.chainID)
 			if err != nil {
-				b.logger.Criticalf("Failed to reload key states after key change")
+				logger.Criticalf(b.logger, "Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
 				continue
 			}

@@ -11,7 +11,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -89,8 +91,9 @@ func (n *node) aliveLoop() {
 	pollFailureThreshold := n.nodePoolCfg.PollFailureThreshold()
 	pollInterval := n.nodePoolCfg.PollInterval()
 
-	lggr := n.lfcLog.Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
-	lggr.Tracew("Alive loop starting", "nodeState", n.State())
+	lggr := logger.Named(n.lfcLog, "Alive")
+	lggr = logger.With(lggr, "noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
+	logger.Tracew(lggr, "Alive loop starting", "nodeState", n.State())
 
 	headsC := make(chan *evmtypes.Head)
 	sub, err := n.EthSubscribe(n.nodeCtx, headsC, "newHeads")
@@ -139,7 +142,7 @@ func (n *node) aliveLoop() {
 		case <-pollCh:
 			var version string
 			promEVMPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
-			lggr.Tracew("Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
+			logger.Tracew(lggr, "Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
 			ctx, cancel := context.WithTimeout(n.nodeCtx, pollInterval)
 			ctx, cancel2 := n.makeQueryCtx(ctx)
 			err := n.CallContext(ctx, &version, "web3_clientVersion")
@@ -161,7 +164,7 @@ func (n *node) aliveLoop() {
 				lggr.Errorw(fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailures), "pollFailures", pollFailures, "nodeState", n.State())
 				if n.nLiveNodes != nil {
 					if l, _, _ := n.nLiveNodes(); l < 2 {
-						lggr.Criticalf("RPC endpoint failed to respond to polls; %s %s", msgCannotDisable, msgDegradedState)
+						logger.Criticalf(lggr, "RPC endpoint failed to respond to polls; %s %s", msgCannotDisable, msgDegradedState)
 						continue
 					}
 				}
@@ -173,7 +176,7 @@ func (n *node) aliveLoop() {
 				// note: there must be another live node for us to be out of sync
 				lggr.Errorw("RPC endpoint has fallen behind", "blockNumber", num, "totalDifficulty", td, "nodeState", n.State())
 				if liveNodes < 2 {
-					lggr.Criticalf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
+					logger.Criticalf(lggr, "RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
 					continue
 				}
 				n.declareOutOfSync(n.isOutOfSync)
@@ -186,13 +189,13 @@ func (n *node) aliveLoop() {
 				return
 			}
 			promEVMPoolRPCNodeNumSeenBlocks.WithLabelValues(n.chainID.String(), n.name).Inc()
-			lggr.Tracew("Got head", "head", bh)
+			logger.Tracew(lggr, "Got head", "head", bh)
 			if bh.Number > highestReceivedBlockNumber {
 				promEVMPoolRPCNodeHighestSeenBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(bh.Number))
-				lggr.Tracew("Got higher block number, resetting timer", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
+				logger.Tracew(lggr, "Got higher block number, resetting timer", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
 				highestReceivedBlockNumber = bh.Number
 			} else {
-				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
+				logger.Tracew(lggr, "Ignoring previously seen block number", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
 			}
 			if outOfSyncT != nil {
 				outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
@@ -208,7 +211,7 @@ func (n *node) aliveLoop() {
 			lggr.Errorw(fmt.Sprintf("RPC endpoint detected out of sync; no new heads received for %s (last head received was %v)", noNewHeadsTimeoutThreshold, highestReceivedBlockNumber), "nodeState", n.State(), "latestReceivedBlockNumber", highestReceivedBlockNumber, "noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold)
 			if n.nLiveNodes != nil {
 				if l, _, _ := n.nLiveNodes(); l < 2 {
-					lggr.Criticalf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
+					logger.Criticalf(lggr, "RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
 					// check regularly and log noisily in this state
 					outOfSyncT.Reset(zombieNodeCheckInterval(n.noNewHeadsThreshold))
@@ -274,7 +277,7 @@ func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *big.Int) bool) {
 
 	outOfSyncAt := time.Now()
 
-	lggr := n.lfcLog.Named("OutOfSync")
+	lggr := logger.Named(n.lfcLog, "OutOfSync")
 	lggr.Debugw("Trying to revive out-of-sync RPC node", "nodeState", n.State())
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
@@ -291,7 +294,7 @@ func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *big.Int) bool) {
 		return
 	}
 
-	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "nodeState", n.State())
+	logger.Tracew(lggr, "Successfully subscribed to heads feed on out-of-sync RPC node", "nodeState", n.State())
 
 	ch := make(chan *evmtypes.Head)
 	subCtx, cancel := n.makeQueryCtx(n.nodeCtx)
@@ -326,7 +329,7 @@ func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *big.Int) bool) {
 		case <-time.After(zombieNodeCheckInterval(n.noNewHeadsThreshold)):
 			if n.nLiveNodes != nil {
 				if l, _, _ := n.nLiveNodes(); l < 1 {
-					lggr.Critical("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
+					logger.Critical(lggr, "RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
 					n.declareInSync()
 					return
 				}
@@ -356,7 +359,7 @@ func (n *node) unreachableLoop() {
 
 	unreachableAt := time.Now()
 
-	lggr := n.lfcLog.Named("Unreachable")
+	lggr := logger.Named(n.lfcLog, "Unreachable")
 	lggr.Debugw("Trying to revive unreachable RPC node", "nodeState", n.State())
 
 	dialRetryBackoff := utils.NewRedialBackoff()
@@ -366,7 +369,7 @@ func (n *node) unreachableLoop() {
 		case <-n.nodeCtx.Done():
 			return
 		case <-time.After(dialRetryBackoff.Duration()):
-			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.State())
+			logger.Tracew(lggr, "Trying to re-dial RPC node", "nodeState", n.State())
 
 			err := n.dial(n.nodeCtx)
 			if err != nil {
@@ -412,7 +415,7 @@ func (n *node) invalidChainIDLoop() {
 
 	invalidAt := time.Now()
 
-	lggr := n.lfcLog.Named("InvalidChainID")
+	lggr := logger.Named(n.lfcLog, "InvalidChainID")
 	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with invalid chain ID", n.String()), "nodeState", n.State())
 
 	chainIDRecheckBackoff := utils.NewRedialBackoff()
