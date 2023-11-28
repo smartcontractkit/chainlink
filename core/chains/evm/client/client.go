@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum"
@@ -99,7 +99,6 @@ func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc
 
 // client represents an abstract client that manages connections to
 // multiple nodes for a single chain id
-// Deprecated: use chainClient instead
 type client struct {
 	logger logger.Logger
 	pool   *Pool
@@ -110,7 +109,6 @@ var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.H
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-// Deprecated: use chainClient instead
 func NewClientWithNodes(logger logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsThreshold time.Duration, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
 	pool := NewPool(logger, selectionMode, leaseDuration, noNewHeadsThreshold, primaryNodes, sendOnlyNodes, chainID, chainType)
 	return &client{

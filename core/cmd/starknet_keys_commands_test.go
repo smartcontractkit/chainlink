@@ -94,7 +94,7 @@ func TestShell_StarkNetKeys(t *testing.T) {
 		require.NoError(t, err)
 		requireStarkNetKeyCount(t, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).DeleteKey, set, "starknet")
+		flagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).DeleteKey, set, "starknet")
 
 		require.NoError(tt, set.Set("yes", "true"))
 
@@ -121,7 +121,7 @@ func TestShell_StarkNetKeys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test StarkNet export", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).ExportKey, set, "starknet")
+		flagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).ExportKey, set, "starknet")
 
 		require.NoError(tt, set.Parse([]string{"0"}))
 		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
@@ -134,7 +134,7 @@ func TestShell_StarkNetKeys(t *testing.T) {
 
 		// Export test
 		set = flag.NewFlagSet("test StarkNet export", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).ExportKey, set, "starknet")
+		flagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).ExportKey, set, "starknet")
 
 		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
 		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
@@ -149,7 +149,7 @@ func TestShell_StarkNetKeys(t *testing.T) {
 		requireStarkNetKeyCount(t, app, 0)
 
 		set = flag.NewFlagSet("test StarkNet import", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).ImportKey, set, "starknet")
+		flagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).ImportKey, set, "starknet")
 
 		require.NoError(tt, set.Parse([]string{keyName}))
 		require.NoError(tt, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
