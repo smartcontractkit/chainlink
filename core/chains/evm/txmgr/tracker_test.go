@@ -2,6 +2,7 @@ package txmgr_test
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"math/big"
 	"testing"
 	"time"
@@ -47,7 +48,7 @@ func containsID(txes []*txmgr.Tx, id int64) bool {
 	return false
 }
 
-func TestEthTracker_Initialization(t *testing.T) {
+func TestEvmTracker_Initialization(t *testing.T) {
 	t.Parallel()
 
 	tracker, _, _, _ := newTestEvmTrackerSetup(t)
@@ -63,17 +64,20 @@ func TestEthTracker_Initialization(t *testing.T) {
 	})
 }
 
-func TestEthTracker_AddressTracking(t *testing.T) {
+func TestEvmTracker_AddressTracking(t *testing.T) {
 	t.Parallel()
 
 	t.Run("track abandoned addresses", func(t *testing.T) {
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		inProgressAddr := cltest.MustGenerateRandomKey(t).Address
+		unstartedAddr := cltest.MustGenerateRandomKey(t).Address
 		unconfirmedAddr := cltest.MustGenerateRandomKey(t).Address
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
 		_ = mustInsertInProgressEthTxWithAttempt(t, txStore, 123, inProgressAddr)
 		_ = cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, unconfirmedAddr)
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+		_ = mustCreateUnstartedTx(t, txStore, unstartedAddr, cltest.MustGenerateRandomKey(t).Address, []byte{}, 0, big.Int{}, ethClient.ConfiguredChainID())
 
 		err := tracker.Start(context.Background())
 		require.NoError(t, err)
@@ -84,6 +88,7 @@ func TestEthTracker_AddressTracking(t *testing.T) {
 
 		addrs := tracker.GetAbandonedAddresses()
 		require.NotContains(t, addrs, inProgressAddr)
+		require.NotContains(t, addrs, unstartedAddr)
 		require.Contains(t, addrs, confirmedAddr)
 		require.Contains(t, addrs, unconfirmedAddr)
 	})
@@ -112,7 +117,7 @@ func TestEthTracker_AddressTracking(t *testing.T) {
 	})
 }
 
-func TestEthTracker_ExceedingTTL(t *testing.T) {
+func TestEvmTracker_ExceedingTTL(t *testing.T) {
 	t.Parallel()
 
 	t.Run("confirmed but unfinalized transaction still tracked", func(t *testing.T) {

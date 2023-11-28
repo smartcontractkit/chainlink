@@ -150,11 +150,11 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 				if tr.ctx.Err() != nil {
 					return
 				}
-				bockHeight, exists := tr.mb.Retrieve()
+				blockHeight, exists := tr.mb.Retrieve()
 				if !exists {
 					break
 				}
-				if err := tr.HandleTxesByState(tr.ctx, bockHeight); err != nil {
+				if err := tr.HandleTxesByState(tr.ctx, blockHeight); err != nil {
 					tr.lggr.Errorw(fmt.Errorf("failed to handle txes by state: %w", err).Error())
 				}
 			}
@@ -276,7 +276,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleConfi
 	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	blockHeight int64,
 ) error {
-	finalized, err := tr.txStore.IsTxFinalized(context.Background(), blockHeight, tx.ID, tr.chainID)
+	finalized, err := tr.txStore.IsTxFinalized(tr.ctx, blockHeight, tx.ID, tr.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to check if tx is finalized: %w", err)
 	}
