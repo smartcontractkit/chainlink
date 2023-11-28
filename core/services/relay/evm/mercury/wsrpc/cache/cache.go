@@ -148,7 +148,7 @@ func (v *cacheVal) waitForResult(ctx context.Context, chResult <-chan struct{}, 
 		_, err := v.read()
 		return nil, errors.Join(err, ctx.Err())
 	case <-chStop:
-		return nil, ErrStopped{}
+		return nil, errors.New("stopped")
 	case <-chResult:
 		return v.read()
 	}
@@ -186,12 +186,6 @@ func newMemCache(client Client, cfg Config) *memCache {
 		sync.WaitGroup{},
 		make(chan (struct{})),
 	}
-}
-
-type ErrStopped struct{}
-
-func (e ErrStopped) Error() string {
-	return "memCache was stopped"
 }
 
 // LatestReport

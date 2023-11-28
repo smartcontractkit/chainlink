@@ -3,12 +3,12 @@ package cache
 import (
 	"context"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"golang.org/x/exp/maps"
 )
 
 // CacheSet holds a set of mercury caches keyed by server URL
@@ -55,12 +55,7 @@ func (cs *cacheSet) Close() error {
 	return cs.StopOnce("CacheSet", func() error {
 		cs.Lock()
 		defer cs.Unlock()
-		caches := make([]io.Closer, len(cs.caches))
-		var i int
-		for _, c := range cs.caches {
-			caches[i] = c
-			i++
-		}
+		caches := maps.Values(cs.caches)
 		if err := services.MultiCloser(caches).Close(); err != nil {
 			return err
 		}
