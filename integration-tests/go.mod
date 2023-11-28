@@ -25,7 +25,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chain-selectors v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231117021201-6814387d8d3e
-	github.com/smartcontractkit/chainlink-testing-framework v1.19.4-0.20231121214134-3da44f9979b6
+	github.com/smartcontractkit/chainlink-testing-framework v1.19.7-0.20231128215954-11362fc02bc5
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20231107151413-13e0202ae8d7
 	github.com/smartcontractkit/ocr2keepers v0.7.28
