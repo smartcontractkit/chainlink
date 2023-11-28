@@ -27,16 +27,16 @@ func main() {
 					),
 					timeseries.WithPrometheusTarget(
 						`
-					last_over_time({type="vrfv2_contracts_load_summary", go_test_name=~"${go_test_name:pipe}", branch=~"${branch:pipe}", commit=~"${commit:pipe}", gen_name=~"${gen_name:pipe}"}
+					last_over_time({type="vrfv2_contracts_load_summary", network=~"${network:pipe}", test_type=~"${test_type:pipe}", run_id=~"${run_id:pipe}", go_test_name=~"${go_test_name:pipe}", branch=~"${branch:pipe}", commit=~"${commit:pipe}", gen_name=~"${gen_name:pipe}"}
 					| json
-					| unwrap RequestCount [$__interval]) by (node_id, go_test_name, gen_name)
+					| unwrap RequestCount [$__interval]) by (node_id, go_test_name, gen_name, run_id, test_type, network)
 					`, prometheus.Legend("{{go_test_name}} requests"),
 					),
 					timeseries.WithPrometheusTarget(
 						`
-					last_over_time({type="vrfv2_contracts_load_summary", go_test_name=~"${go_test_name:pipe}", branch=~"${branch:pipe}", commit=~"${commit:pipe}", gen_name=~"${gen_name:pipe}"}
+					last_over_time({type="vrfv2_contracts_load_summary", network=~"${network:pipe}", test_type=~"${test_type:pipe}", run_id=~"${run_id:pipe}", go_test_name=~"${go_test_name:pipe}", branch=~"${branch:pipe}", commit=~"${commit:pipe}", gen_name=~"${gen_name:pipe}"}
 					| json
-					| unwrap FulfilmentCount [$__interval]) by (node_id, go_test_name, gen_name)
+					| unwrap FulfilmentCount [$__interval]) by (node_id, go_test_name, gen_name, run_id, test_type, network)
 					`, prometheus.Legend("{{go_test_name}} fulfillments"),
 					),
 				),
@@ -50,23 +50,23 @@ func main() {
 					),
 					timeseries.WithPrometheusTarget(
 						`
-					last_over_time({type="vrfv2_contracts_load_summary", go_test_name=~"${go_test_name:pipe}", branch=~"${branch:pipe}", commit=~"${commit:pipe}", gen_name=~"${gen_name:pipe}"}
+					last_over_time({type="vrfv2_contracts_load_summary", network=~"${network:pipe}", test_type=~"${test_type:pipe}", run_id=~"${run_id:pipe}", go_test_name=~"${go_test_name:pipe}", branch=~"${branch:pipe}", commit=~"${commit:pipe}", gen_name=~"${gen_name:pipe}"}
 					| json
-					| unwrap AverageFulfillmentInMillions [$__interval]) by (node_id, go_test_name, gen_name) / 1e6
+					| unwrap AverageFulfillmentInMillions [$__interval]) by (node_id, go_test_name, gen_name, run_id, test_type, network) / 1e6
 					`, prometheus.Legend("{{go_test_name}} avg"),
 					),
 					timeseries.WithPrometheusTarget(
 						`
-					last_over_time({type="vrfv2_contracts_load_summary", go_test_name=~"${go_test_name:pipe}", branch=~"${branch:pipe}", commit=~"${commit:pipe}", gen_name=~"${gen_name:pipe}"}
+					last_over_time({type="vrfv2_contracts_load_summary", network=~"${network:pipe}", test_type=~"${test_type:pipe}", run_id=~"${run_id:pipe}", go_test_name=~"${go_test_name:pipe}", branch=~"${branch:pipe}", commit=~"${commit:pipe}", gen_name=~"${gen_name:pipe}"}
 					| json
-					| unwrap SlowestFulfillment [$__interval]) by (node_id, go_test_name, gen_name)
+					| unwrap SlowestFulfillment [$__interval]) by (node_id, go_test_name, gen_name, run_id, test_type, network)
 					`, prometheus.Legend("{{go_test_name}} slowest"),
 					),
 					timeseries.WithPrometheusTarget(
 						`
-					last_over_time({type="vrfv2_contracts_load_summary", go_test_name=~"${go_test_name:pipe}", branch=~"${branch:pipe}", commit=~"${commit:pipe}", gen_name=~"${gen_name:pipe}"}
+					last_over_time({type="vrfv2_contracts_load_summary", network=~"${network:pipe}", test_type=~"${test_type:pipe}", run_id=~"${run_id:pipe}", go_test_name=~"${go_test_name:pipe}", branch=~"${branch:pipe}", commit=~"${commit:pipe}", gen_name=~"${gen_name:pipe}"}
 					| json
-					| unwrap FastestFulfillment [$__interval]) by (node_id, go_test_name, gen_name)
+					| unwrap FastestFulfillment [$__interval]) by (node_id, go_test_name, gen_name, run_id, test_type, network)
 					`, prometheus.Legend("{{go_test_name}} fastest"),
 					),
 				),
