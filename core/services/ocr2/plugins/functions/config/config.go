@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
@@ -23,7 +23,11 @@ type PluginConfig struct {
 	EnableRequestSignatureCheck        bool                                  `json:"enableRequestSignatureCheck"`
 	DONID                              string                                `json:"donID"`
 	ContractVersion                    uint32                                `json:"contractVersion"`
+	MinRequestConfirmations            uint32                                `json:"minRequestConfirmations"`
+	MinResponseConfirmations           uint32                                `json:"minResponseConfirmations"`
 	MinIncomingConfirmations           uint32                                `json:"minIncomingConfirmations"`
+	PastBlocksToPoll                   uint32                                `json:"pastBlocksToPoll"`
+	LogPollerCacheDurationSec          uint32                                `json:"logPollerCacheDurationSec"` // Duration to cache previously detected request or response logs such that they can be filtered when calling logpoller_wrapper.LatestEvents()
 	RequestTimeoutSec                  uint32                                `json:"requestTimeoutSec"`
 	RequestTimeoutCheckFrequencySec    uint32                                `json:"requestTimeoutCheckFrequencySec"`
 	RequestTimeoutBatchLookupSize      uint32                                `json:"requestTimeoutBatchLookupSize"`

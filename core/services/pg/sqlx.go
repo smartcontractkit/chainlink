@@ -7,9 +7,9 @@ import (
 	"github.com/pkg/errors"
 	mapper "github.com/scylladb/go-reflectx"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type Queryer interface {
@@ -35,7 +35,7 @@ func WrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {
 	return db
 }
 
-func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) (err error) {
+func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOption) (err error) {
 	switch db := q.(type) {
 	case *sqlx.Tx:
 		// nested transaction: just use the outer transaction

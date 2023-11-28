@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/logs"
 	"github.com/K-Phoen/grabana/row"
@@ -8,7 +10,6 @@ import (
 	"github.com/K-Phoen/grabana/timeseries"
 	"github.com/K-Phoen/grabana/timeseries/axis"
 	"github.com/smartcontractkit/wasp"
-	"os"
 )
 
 func main() {

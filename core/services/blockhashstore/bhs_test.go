@@ -1,7 +1,6 @@
 package blockhashstore_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,7 +11,8 @@ import (
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -66,9 +66,11 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 		return tx.FromAddress.String() == k2.Address.String()
 	})).Once().Return(txmgr.Tx{}, nil)
 
+	ctx := testutils.Context(t)
+
 	// store 2 blocks
-	err = bhs.Store(context.Background(), 1)
+	err = bhs.Store(ctx, 1)
 	require.NoError(t, err)
-	err = bhs.Store(context.Background(), 2)
+	err = bhs.Store(ctx, 2)
 	require.NoError(t, err)
 }

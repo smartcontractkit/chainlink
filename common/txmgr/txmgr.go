@@ -10,14 +10,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	pkgerrors "github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -48,6 +47,14 @@ type TxManager[
 	RegisterResumeCallback(fn ResumeCallback)
 	SendNativeToken(ctx context.Context, chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	Reset(addr ADDR, abandon bool) error
+	// Find transactions by a field in the TxMeta blob and transaction states
+	FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
+	// Find transactions with a non-null TxMeta field that was provided by transaction states
+	FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
+	// Find transactions with a non-null TxMeta field that was provided and a receipt block number greater than or equal to the one provided
+	FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
+	// Find transactions loaded with transaction attempts and receipts by transaction IDs and states
+	FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 }
 
 type reset struct {
@@ -69,7 +76,7 @@ type Txm[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
-	utils.StartStopOnce
+	services.StateMachine
 	logger         logger.Logger
 	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	config         txmgrtypes.TransactionManagerChainConfig
@@ -83,7 +90,7 @@ type Txm[
 	reset          chan reset
 	resumeCallback ResumeCallback
 
-	chStop   chan struct{}
+	chStop   services.StopChan
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
@@ -166,14 +173,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 	return b.StartOnce("Txm", func() error {
 		var ms services.MultiStart
 		if err := ms.Start(ctx, b.broadcaster); err != nil {
-			return pkgerrors.Wrap(err, "Txm: Broadcaster failed to start")
+			return fmt.Errorf("Txm: Broadcaster failed to start: %w", err)
 		}
 		if err := ms.Start(ctx, b.confirmer); err != nil {
-			return pkgerrors.Wrap(err, "Txm: Confirmer failed to start")
+			return fmt.Errorf("Txm: Confirmer failed to start: %w", err)
 		}
 
 		if err := ms.Start(ctx, b.txAttemptBuilder); err != nil {
-			return pkgerrors.Wrap(err, "Txm: Estimator failed to start")
+			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
 
 		b.wg.Add(1)
@@ -190,7 +197,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 
 		if b.fwdMgr != nil {
 			if err := ms.Start(ctx, b.fwdMgr); err != nil {
-				return pkgerrors.Wrap(err, "Txm: ForwarderManager failed to start")
+				return fmt.Errorf("Txm: ForwarderManager failed to start: %w", err)
 			}
 		}
 
@@ -221,10 +228,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(addr
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while Broadcaster or Confirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(addr ADDR) (err error) {
-	ctx, cancel := utils.StopChan(b.chStop).NewCtx()
+	ctx, cancel := services.StopChan(b.chStop).NewCtx()
 	defer cancel()
-	err = b.txStore.Abandon(ctx, b.chainID, addr)
-	return pkgerrors.Wrapf(err, "abandon failed to update txes for key %s", addr.String())
+	if err = b.txStore.Abandon(ctx, b.chainID, addr); err != nil {
+		return fmt.Errorf("abandon failed to update txes for key %s: %w", addr.String(), err)
+	}
+	return nil
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (merr error) {
@@ -241,14 +250,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (m
 		}
 		if b.fwdMgr != nil {
 			if err := b.fwdMgr.Close(); err != nil {
-				merr = errors.Join(merr, pkgerrors.Wrap(err, "Txm: failed to stop ForwarderManager"))
+				merr = errors.Join(merr, fmt.Errorf("Txm: failed to stop ForwarderManager: %w", err))
 			}
 		}
 
 		b.wg.Wait()
 
 		if err := b.txAttemptBuilder.Close(); err != nil {
-			merr = errors.Join(merr, pkgerrors.Wrap(err, "Txm: failed to close TxAttemptBuilder"))
+			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close TxAttemptBuilder: %w", err))
 		}
 
 		return nil
@@ -322,7 +331,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				select {
 				case <-time.After(backoff.Duration()):
 					if err := b.broadcaster.startInternal(); err != nil {
-						b.logger.Criticalw("Failed to start Broadcaster", "err", err)
+						logger.Criticalw(b.logger, "Failed to start Broadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
@@ -341,7 +350,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				select {
 				case <-time.After(backoff.Duration()):
 					if err := b.confirmer.startInternal(); err != nil {
-						b.logger.Criticalw("Failed to start Confirmer", "err", err)
+						logger.Criticalw(b.logger, "Failed to start Confirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
@@ -399,7 +408,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			}
 			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(b.chainID)
 			if err != nil {
-				b.logger.Criticalf("Failed to reload key states after key change")
+				logger.Criticalf(b.logger, "Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
 				continue
 			}
@@ -444,7 +453,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		var existingTx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 		existingTx, err = b.txStore.FindTxWithIdempotencyKey(ctx, *txRequest.IdempotencyKey, b.chainID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return tx, pkgerrors.Wrap(err, "Failed to search for transaction with IdempotencyKey")
+			return tx, fmt.Errorf("Failed to search for transaction with IdempotencyKey: %w", err)
 		}
 		if existingTx != nil {
 			b.logger.Infow("Found a Tx with IdempotencyKey. Returning existing Tx without creating a new one.", "IdempotencyKey", *txRequest.IdempotencyKey)
@@ -470,31 +479,40 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 			txRequest.ToAddress = txRequest.ForwarderAddress
 			txRequest.EncodedPayload = fwdPayload
 		} else {
-			b.logger.Errorf("Failed to use forwarder set upstream: %s", fwdErr.Error())
+			b.logger.Errorf("Failed to use forwarder set upstream: %w", fwdErr.Error())
 		}
 	}
 
 	err = b.txStore.CheckTxQueueCapacity(ctx, txRequest.FromAddress, b.txConfig.MaxQueued(), b.chainID)
 	if err != nil {
-		return tx, pkgerrors.Wrap(err, "Txm#CreateTransaction")
+		return tx, fmt.Errorf("Txm#CreateTransaction: %w", err)
 	}
 
 	tx, err = b.txStore.CreateTransaction(ctx, txRequest, b.chainID)
-	return
+	if err != nil {
+		return tx, err
+	}
+
+	// Trigger the Broadcaster to check for new transaction
+	b.broadcaster.Trigger(txRequest.FromAddress)
+
+	return tx, nil
 }
 
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error) {
 	if !b.txConfig.ForwardersEnabled() {
-		return forwarder, pkgerrors.Errorf("Forwarding is not enabled, to enable set Transactions.ForwardersEnabled =true")
+		return forwarder, fmt.Errorf("forwarding is not enabled, to enable set Transactions.ForwardersEnabled =true")
 	}
 	forwarder, err = b.fwdMgr.ForwarderFor(eoa)
 	return
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(addr ADDR) error {
-	err := b.keyStore.CheckEnabled(addr, b.chainID)
-	return pkgerrors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr, b.chainID.String())
+	if err := b.keyStore.CheckEnabled(addr, b.chainID); err != nil {
+		return fmt.Errorf("cannot send transaction from %s on chain ID %s: %w", addr, b.chainID.String(), err)
+	}
+	return nil
 }
 
 // SendNativeToken creates a transaction that transfers the given value of native tokens
@@ -511,7 +529,33 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 		Strategy:       NewSendEveryStrategy(),
 	}
 	etx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
-	return etx, pkgerrors.Wrap(err, "SendNativeToken failed to insert tx")
+	if err != nil {
+		return etx, fmt.Errorf("SendNativeToken failed to insert tx: %w", err)
+	}
+
+	// Trigger the Broadcaster to check for new transaction
+	b.broadcaster.Trigger(from)
+	return etx, nil
+}
+
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	txes, err = b.txStore.FindTxesByMetaFieldAndStates(ctx, metaField, metaValue, states, chainID)
+	return
+}
+
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	txes, err = b.txStore.FindTxesWithMetaFieldByStates(ctx, metaField, states, chainID)
+	return
+}
+
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	txes, err = b.txStore.FindTxesWithMetaFieldByReceiptBlockNum(ctx, metaField, blockNum, chainID)
+	return
+}
+
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	txes, err = b.txStore.FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx, ids, states, chainID)
+	return
 }
 
 type NullTxManager[
@@ -567,4 +611,16 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Hea
 	return map[string]error{}
 }
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
+}
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	return txes, errors.New(n.ErrMsg)
+}
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	return txes, errors.New(n.ErrMsg)
+}
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	return txes, errors.New(n.ErrMsg)
+}
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	return txes, errors.New(n.ErrMsg)
 }

@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
 	"github.com/stretchr/testify/assert"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 )
 
 func TestEVMAutomationEncoder20(t *testing.T) {

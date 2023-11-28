@@ -13,6 +13,7 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -21,15 +22,14 @@ import (
 //go:generate mockery --quiet --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
 type (
 	promReporter struct {
+		services.StateMachine
 		db           *sql.DB
 		lggr         logger.Logger
 		backend      PrometheusBackend
 		newHeads     *utils.Mailbox[*evmtypes.Head]
-		chStop       utils.StopChan
+		chStop       services.StopChan
 		wgDone       sync.WaitGroup
 		reportPeriod time.Duration
-
-		utils.StartStopOnce
 	}
 
 	PrometheusBackend interface {
@@ -130,7 +130,7 @@ func (pr *promReporter) Name() string {
 }
 
 func (pr *promReporter) HealthReport() map[string]error {
-	return map[string]error{pr.Name(): pr.StartStopOnce.Healthy()}
+	return map[string]error{pr.Name(): pr.Healthy()}
 }
 
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {

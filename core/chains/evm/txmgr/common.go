@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Tries to send transactions in batches. Even if some batch(es) fail to get sent, it tries all remaining batches,
@@ -68,11 +68,4 @@ func batchSendTransactions(
 		successfulBroadcast = append(successfulBroadcast, ethTxIDs[i:j]...)
 	}
 	return reqs, now, successfulBroadcast, nil
-}
-
-func stringToGethAddress(s string) (common.Address, error) {
-	if !common.IsHexAddress(s) {
-		return common.Address{}, fmt.Errorf("invalid hex address: %s", s)
-	}
-	return common.HexToAddress(s), nil
 }

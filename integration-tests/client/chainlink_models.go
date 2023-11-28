@@ -9,6 +9,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -104,6 +105,11 @@ type BridgeType struct {
 // BridgeTypeData is the model that represents the bridge when read or created on a Chainlink node
 type BridgeTypeData struct {
 	Attributes BridgeTypeAttributes `json:"attributes"`
+}
+
+// Bridges is the model that represents the bridges when read on a Chainlink node
+type Bridges struct {
+	Data []BridgeTypeData `json:"data"`
 }
 
 // BridgeTypeAttributes is the model that represents the bridge when read or created on a Chainlink node
@@ -883,7 +889,7 @@ contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{el
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} {{.TrackerPollInterval}} {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} {{.TrackerSubscribeInterval}} {{end}}
 contractAddress                        = "{{.ContractAddress}}"
-evmChainID		 		 			   = "{{.EVMChainID}}"
+evmChainID		 		 			               = "{{.EVMChainID}}"
 p2pBootstrapPeers                      = []
 isBootstrapPeer                        = {{.IsBootstrapPeer}}
 p2pPeerID                              = "{{.P2PPeerID}}"`
@@ -982,22 +988,18 @@ contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{el
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} {{.TrackerPollInterval}} {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} {{.TrackerSubscribeInterval}} {{end}}
 contractAddress                        = "{{.ContractAddress}}"
-evmChainID							   = "{{.EVMChainID}}"
+evmChainID							               = "{{.EVMChainID}}"
 {{if .P2PBootstrapPeers}}
-p2pBootstrapPeers                      = [
-  {{range $peer := .P2PBootstrapPeers}}
-  "/dns4/{{$peer.InternalIP}}/tcp/6690/p2p/{{$peer.PeerID}}",
-  {{end}}
-]
+p2pv2Bootstrappers                      = [{{range $peer := .P2PBootstrapPeers}}"{{$peer.PeerID}}@{{$peer.InternalIP}}:6690",{{end}}]
 {{else}}
-p2pBootstrapPeers                      = []
+p2pv2Bootstrappers                      = []
 {{end}}
 isBootstrapPeer                        = {{.IsBootstrapPeer}}
 p2pPeerID                              = "{{.P2PPeerID}}"
 keyBundleID                            = "{{.KeyBundleID}}"
 monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
 transmitterAddress                     = "{{.TransmitterAddress}}"
-forwardingAllowed					   = {{.ForwardingAllowed}}
+forwardingAllowed					             = {{.ForwardingAllowed}}
 observationSource                      = """
 {{.ObservationSource}}
 """`
@@ -1126,6 +1128,7 @@ type VRFV2PlusJobSpec struct {
 	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
 	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
 	BackOffMaxDelay          time.Duration `toml:"backOffMaxDelay"`
+	PollPeriod               time.Duration `toml:"pollPeriod"`
 }
 
 // Type returns the type of the job
@@ -1406,4 +1409,17 @@ type ForwarderAttributes struct {
 	ChainID   string    `json:"evmChainId"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type ReplayResponse struct {
+	Data ReplayResponseData `json:"data"`
+}
+
+type ReplayResponseData struct {
+	Attributes ReplayResponseAttributes `json:"attributes"`
+}
+
+type ReplayResponseAttributes struct {
+	Message    string     `json:"message"`
+	EVMChainID *utils.Big `json:"evmChainID"`
 }

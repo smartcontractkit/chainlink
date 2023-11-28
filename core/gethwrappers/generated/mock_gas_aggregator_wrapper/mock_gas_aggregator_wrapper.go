@@ -50,7 +50,7 @@ func DeployMockGASAggregator(auth *bind.TransactOpts, backend bind.ContractBacke
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &MockGASAggregator{MockGASAggregatorCaller: MockGASAggregatorCaller{contract: contract}, MockGASAggregatorTransactor: MockGASAggregatorTransactor{contract: contract}, MockGASAggregatorFilterer: MockGASAggregatorFilterer{contract: contract}}, nil
+	return address, tx, &MockGASAggregator{address: address, abi: *parsed, MockGASAggregatorCaller: MockGASAggregatorCaller{contract: contract}, MockGASAggregatorTransactor: MockGASAggregatorTransactor{contract: contract}, MockGASAggregatorFilterer: MockGASAggregatorFilterer{contract: contract}}, nil
 }
 
 type MockGASAggregator struct {

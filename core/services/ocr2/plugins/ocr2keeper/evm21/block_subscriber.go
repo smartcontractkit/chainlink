@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -34,7 +37,7 @@ var (
 )
 
 type BlockSubscriber struct {
-	utils.StartStopOnce
+	services.StateMachine
 	threadCtrl utils.ThreadControl
 
 	mu               sync.RWMutex
@@ -52,6 +55,10 @@ type BlockSubscriber struct {
 	blockSize        int64
 	finalityDepth    uint32
 	lggr             logger.Logger
+}
+
+func (bs *BlockSubscriber) LatestBlock() *ocr2keepers.BlockKey {
+	return bs.latestBlock.Load()
 }
 
 var _ ocr2keepers.BlockSubscriber = &BlockSubscriber{}
@@ -77,12 +84,13 @@ func (bs *BlockSubscriber) getBlockRange(ctx context.Context) ([]uint64, error) 
 	if err != nil {
 		return nil, err
 	}
-	bs.lggr.Infof("latest block from log poller is %d", h)
+	latestBlockNumber := h.BlockNumber
+	bs.lggr.Infof("latest block from log poller is %d", latestBlockNumber)
 
 	var blocks []uint64
 	for i := bs.blockSize - 1; i >= 0; i-- {
-		if h-i > 0 {
-			blocks = append(blocks, uint64(h-i))
+		if latestBlockNumber-i > 0 {
+			blocks = append(blocks, uint64(latestBlockNumber-i))
 		}
 	}
 	return blocks, nil

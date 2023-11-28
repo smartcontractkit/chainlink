@@ -8,10 +8,10 @@ import (
 
 	gotoml "github.com/pelletier/go-toml/v2"
 
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -36,7 +36,7 @@ type Config struct {
 
 	EVM evmcfg.EVMConfigs `toml:",omitempty"`
 
-	Cosmos cosmos.CosmosConfigs `toml:",omitempty"`
+	Cosmos coscfg.TOMLConfigs `toml:",omitempty"`
 
 	Solana solana.TOMLConfigs `toml:",omitempty"`
 
@@ -50,6 +50,27 @@ func (c *Config) TOMLString() (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+// warnings aggregates warnings from valueWarnings and deprecationWarnings
+func (c *Config) warnings() (err error) {
+	deprecationErr := c.deprecationWarnings()
+	warningErr := c.valueWarnings()
+	err = multierr.Append(deprecationErr, warningErr)
+	_, list := utils.MultiErrorList(err)
+	return list
+}
+
+// valueWarnings returns an error if the Config contains values that hint at misconfiguration before defaults are applied.
+func (c *Config) valueWarnings() (err error) {
+	if c.Tracing.Enabled != nil && *c.Tracing.Enabled {
+		if c.Tracing.Mode != nil && *c.Tracing.Mode == "unencrypted" {
+			if c.Tracing.TLSCertPath != nil {
+				err = multierr.Append(err, config.ErrInvalid{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
+			}
+		}
+	}
+	return
 }
 
 // deprecationWarnings returns an error if the Config contains deprecated fields.
@@ -119,7 +140,7 @@ func (c *Config) setDefaults() {
 
 	for i := range c.Cosmos {
 		if c.Cosmos[i] == nil {
-			c.Cosmos[i] = new(cosmos.CosmosConfig)
+			c.Cosmos[i] = new(coscfg.TOMLConfig)
 		}
 		c.Cosmos[i].Chain.SetDefaults()
 	}
@@ -168,28 +189,32 @@ type Secrets struct {
 }
 
 func (s *Secrets) SetFrom(f *Secrets) (err error) {
-	if err1 := s.Database.SetFrom(&f.Database); err1 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err1, "Database"))
+	if err2 := s.Database.SetFrom(&f.Database); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Database"))
 	}
 
 	if err2 := s.Password.SetFrom(&f.Password); err2 != nil {
 		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Password"))
 	}
 
-	if err3 := s.Pyroscope.SetFrom(&f.Pyroscope); err3 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Pyroscope"))
+	if err2 := s.WebServer.SetFrom(&f.WebServer); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "WebServer"))
 	}
 
-	if err4 := s.Prometheus.SetFrom(&f.Prometheus); err4 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Prometheus"))
+	if err2 := s.Pyroscope.SetFrom(&f.Pyroscope); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Pyroscope"))
 	}
 
-	if err5 := s.Mercury.SetFrom(&f.Mercury); err5 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err5, "Mercury"))
+	if err2 := s.Prometheus.SetFrom(&f.Prometheus); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Prometheus"))
 	}
 
-	if err6 := s.Threshold.SetFrom(&f.Threshold); err6 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err6, "Threshold"))
+	if err2 := s.Mercury.SetFrom(&f.Mercury); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Mercury"))
+	}
+
+	if err2 := s.Threshold.SetFrom(&f.Threshold); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Threshold"))
 	}
 
 	_, err = utils.MultiErrorList(err)

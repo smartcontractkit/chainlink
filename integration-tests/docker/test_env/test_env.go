@@ -1,18 +1,17 @@
 package test_env
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -23,11 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 var (
@@ -40,26 +39,26 @@ type CLClusterTestEnv struct {
 	LogWatch *logwatch.LogWatch
 
 	/* components */
-	ClCluster        *ClCluster
-	Geth             *test_env.Geth          // for tests using --dev networks
-	PrivateChain     []test_env.PrivateChain // for tests using non-dev networks
-	MockAdapter      *test_env.Killgrave
-	EVMClient        blockchain.EVMClient
-	ContractDeployer contracts.ContractDeployer
-	ContractLoader   contracts.ContractLoader
-	l                zerolog.Logger
-	t                *testing.T
+	ClCluster             *ClCluster
+	PrivateChain          []test_env.PrivateChain // for tests using non-dev networks -- unify it with new approach
+	MockAdapter           *test_env.Killgrave
+	EVMClient             blockchain.EVMClient
+	ContractDeployer      contracts.ContractDeployer
+	ContractLoader        contracts.ContractLoader
+	RpcProvider           test_env.RpcProvider
+	PrivateEthereumConfig *test_env.EthereumNetwork // new approach to private chains, supporting eth1 and eth2
+	l                     zerolog.Logger
+	t                     *testing.T
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
-	utils.SetupCoreDockerEnvLogger()
+	log.Logger = logging.GetLogger(nil, "CORE_DOCKER_ENV_LOG_LEVEL")
 	network, err := docker.CreateNetwork(log.Logger)
 	if err != nil {
 		return nil, err
 	}
 	n := []string{network.Name}
 	return &CLClusterTestEnv{
-		Geth:        test_env.NewGeth(n),
 		MockAdapter: test_env.NewKillgrave(n, ""),
 		Network:     network,
 		l:           log.Logger,
@@ -67,11 +66,10 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 }
 
 // WithTestEnvConfig sets the test environment cfg.
-// Sets up the Geth and MockAdapter containers with the provided cfg.
+// Sets up private ethereum chain and MockAdapter containers with the provided cfg.
 func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
 	te.Cfg = cfg
 	n := []string{te.Network.Name}
-	te.Geth = test_env.NewGeth(n, test_env.WithContainerName(te.Cfg.Geth.ContainerName))
 	te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
 	return te
 }
@@ -79,7 +77,6 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
 	te.t = t
 	te.l = logging.GetTestLogger(t)
-	te.Geth.WithTestLogger(t)
 	te.MockAdapter.WithTestLogger(t)
 	return te
 }
@@ -114,7 +111,7 @@ func (te *CLClusterTestEnv) StartPrivateChain() error {
 	for _, chain := range te.PrivateChain {
 		primaryNode := chain.GetPrimaryNode()
 		if primaryNode == nil {
-			return errors.WithStack(fmt.Errorf("primary node is nil in PrivateChain interface"))
+			return fmt.Errorf("primary node is nil in PrivateChain interface, stack: %s", string(debug.Stack()))
 		}
 		err := primaryNode.Start()
 		if err != nil {
@@ -128,8 +125,26 @@ func (te *CLClusterTestEnv) StartPrivateChain() error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, test_env.InternalDockerUrls, error) {
-	return te.Geth.StartContainer()
+func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *test_env.EthereumNetwork) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
+	// if environment is being restored from a previous state, use the existing config
+	// this might fail terribly if temporary folders with chain data on the host machine were removed
+	if te.Cfg != nil && te.Cfg.EthereumNetwork != nil {
+		builder := test_env.NewEthereumNetworkBuilder()
+		c, err := builder.WithExistingConfig(*te.Cfg.EthereumNetwork).
+			WithTest(te.t).
+			Build()
+		if err != nil {
+			return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
+		}
+		cfg = &c
+	}
+	n, rpc, err := cfg.Start()
+
+	if err != nil {
+		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
+	}
+
+	return n, rpc, nil
 }
 
 func (te *CLClusterTestEnv) StartMockAdapter() error {
@@ -142,7 +157,7 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 	} else {
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode := NewClNode([]string{te.Network.Name}, nodeConfig,
+			ocrNode := NewClNode([]string{te.Network.Name}, os.Getenv("CHAINLINK_IMAGE"), os.Getenv("CHAINLINK_VERSION"), nodeConfig,
 				WithSecrets(secretsConfig),
 			)
 			te.ClCluster.Nodes = append(te.ClCluster.Nodes, ocrNode)
@@ -164,8 +179,9 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	for _, cl := range te.ClCluster.Nodes {
 		if err := cl.Fund(te.EVMClient, amount); err != nil {
-			return errors.Wrap(err, ErrFundCLNode)
+			return fmt.Errorf("%s, err: %w", ErrFundCLNode, err)
 		}
+		time.Sleep(5 * time.Second)
 	}
 	return te.EVMClient.WaitForEvents()
 }
@@ -180,11 +196,13 @@ func (te *CLClusterTestEnv) Terminate() error {
 func (te *CLClusterTestEnv) Cleanup() error {
 	te.l.Info().Msg("Cleaning up test environment")
 	if te.t == nil {
-		return errors.New("cannot cleanup test environment without a testing.T")
+		return fmt.Errorf("cannot cleanup test environment without a testing.T")
 	}
 	if te.ClCluster == nil || len(te.ClCluster.Nodes) == 0 {
-		return errors.New("chainlink nodes are nil, unable cleanup chainlink nodes")
+		return fmt.Errorf("chainlink nodes are nil, unable cleanup chainlink nodes")
 	}
+
+	te.logWhetherAllContainersAreRunning()
 
 	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
 	// Collect logs if the test fails, or if we just want them
@@ -195,7 +213,7 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	}
 
 	if te.EVMClient == nil {
-		return errors.New("evm client is nil, unable to return funds from chainlink nodes during cleanup")
+		return fmt.Errorf("evm client is nil, unable to return funds from chainlink nodes during cleanup")
 	} else if te.EVMClient.NetworkSimulated() {
 		te.l.Info().
 			Str("Network Name", te.EVMClient.GetNetworkName()).
@@ -213,6 +231,21 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	}
 
 	return nil
+}
+
+func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
+	for _, node := range te.ClCluster.Nodes {
+		isCLRunning := node.Container.IsRunning()
+		isDBRunning := node.PostgresDb.Container.IsRunning()
+
+		if !isCLRunning {
+			te.l.Warn().Str("Node", node.ContainerName).Msg("Chainlink node was not running, when test ended")
+		}
+
+		if !isDBRunning {
+			te.l.Warn().Str("Node", node.ContainerName).Msg("Postgres DB is not running, when test ended")
+		}
+	}
 }
 
 // collectTestLogs collects the logs from all the Chainlink nodes in the test environment and writes them to local files
@@ -233,7 +266,7 @@ func (te *CLClusterTestEnv) collectTestLogs() error {
 				return err
 			}
 			defer logFile.Close()
-			logReader, err := node.Container.Logs(context.Background())
+			logReader, err := node.Container.Logs(testcontext.Get(te.t))
 			if err != nil {
 				return err
 			}

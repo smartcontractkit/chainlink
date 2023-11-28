@@ -2,11 +2,13 @@ package loadvrfv2plus
 
 import (
 	"context"
-	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
-	"github.com/smartcontractkit/wasp"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 /* Monitors on-chain stats of LoadConsumer and pushes them to Loki every second */
@@ -18,11 +20,12 @@ const (
 	ErrLokiPush   = "failed to push monitoring metrics to Loki"
 )
 
-func MonitorLoadStats(lc *wasp.LokiClient, vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts, labels map[string]string) {
+func MonitorLoadStats(lc *wasp.LokiClient, consumer contracts.VRFv2PlusLoadTestConsumer, labels map[string]string) {
 	go func() {
 		for {
 			time.Sleep(1 * time.Second)
-			SendLoadTestMetricsToLoki(vrfv2PlusContracts, lc, labels)
+			metrics := GetLoadTestMetrics(consumer)
+			SendMetricsToLoki(metrics, lc, labels)
 		}
 	}()
 }
@@ -38,13 +41,16 @@ func UpdateLabels(labels map[string]string, t *testing.T) map[string]string {
 	return updatedLabels
 }
 
-func SendLoadTestMetricsToLoki(vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts, lc *wasp.LokiClient, updatedLabels map[string]string) {
-	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
-	metrics, err := vrfv2PlusContracts.LoadTestConsumers[0].GetLoadTestMetrics(context.Background())
-	if err != nil {
-		log.Error().Err(err).Msg(ErrMetrics)
-	}
+func SendMetricsToLoki(metrics *contracts.VRFLoadTestMetrics, lc *wasp.LokiClient, updatedLabels map[string]string) {
 	if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
 		log.Error().Err(err).Msg(ErrLokiPush)
 	}
+}
+
+func GetLoadTestMetrics(consumer contracts.VRFv2PlusLoadTestConsumer) *contracts.VRFLoadTestMetrics {
+	metrics, err := consumer.GetLoadTestMetrics(context.Background())
+	if err != nil {
+		log.Error().Err(err).Msg(ErrMetrics)
+	}
+	return metrics
 }

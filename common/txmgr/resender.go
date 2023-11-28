@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"time"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -87,7 +88,7 @@ func NewResender[
 		pollInterval,
 		config,
 		txConfig,
-		lggr.Named("Resender"),
+		logger.Named(lggr, "Resender"),
 		make(map[string]time.Time),
 		ctx,
 		cancel,
@@ -175,13 +176,13 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfi
 	return nil
 }
 
-func logResendResult(lggr logger.Logger, codes []clienttypes.SendTxReturnCode) {
+func logResendResult(lggr logger.Logger, codes []client.SendTxReturnCode) {
 	var nNew int
 	var nFatal int
 	for _, c := range codes {
-		if c == clienttypes.Successful {
+		if c == client.Successful {
 			nNew++
-		} else if c == clienttypes.Fatal {
+		} else if c == client.Fatal {
 			nFatal++
 		}
 	}

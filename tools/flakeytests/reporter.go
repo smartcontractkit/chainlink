@@ -33,8 +33,11 @@ type numFlakes struct {
 }
 
 type Context struct {
-	CommitSHA      string `json:"commit_sha,omitempty"`
+	CommitSHA      string `json:"commit_sha"`
 	PullRequestURL string `json:"pull_request_url,omitempty"`
+	Repository     string `json:"repository"`
+	Type           string `json:"event_type"`
+	RunURL         string `json:"run_url,omitempty"`
 }
 
 type LokiReporter struct {

@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -68,19 +68,15 @@ func NewObservedORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QC
 	}
 }
 
-func (o *ObservedORM) Q() pg.Q {
-	return o.ORM.Q()
-}
-
 func (o *ObservedORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	return withObservedExec(o, "InsertLogs", func() error {
 		return o.ORM.InsertLogs(logs, qopts...)
 	})
 }
 
-func (o *ObservedORM) InsertBlock(hash common.Hash, blockNumber int64, blockTimestamp time.Time, lastFinalizedBlock int64, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "InsertBlock", func() error {
-		return o.ORM.InsertBlock(hash, blockNumber, blockTimestamp, lastFinalizedBlock, qopts...)
+func (o *ObservedORM) InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error {
+	return withObservedExec(o, "InsertLogsWithBlock", func() error {
+		return o.ORM.InsertLogsWithBlock(logs, block, qopts...)
 	})
 }
 
@@ -102,21 +98,15 @@ func (o *ObservedORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
 	})
 }
 
-func (o *ObservedORM) DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "DeleteBlocksAfter", func() error {
-		return o.ORM.DeleteBlocksAfter(start, qopts...)
-	})
-}
-
 func (o *ObservedORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 	return withObservedExec(o, "DeleteBlocksBefore", func() error {
 		return o.ORM.DeleteBlocksBefore(end, qopts...)
 	})
 }
 
-func (o *ObservedORM) DeleteLogsAfter(start int64, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "DeleteLogsAfter", func() error {
-		return o.ORM.DeleteLogsAfter(start, qopts...)
+func (o *ObservedORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
+	return withObservedExec(o, "DeleteLogsAndBlocksAfter", func() error {
+		return o.ORM.DeleteLogsAndBlocksAfter(start, qopts...)
 	})
 }
 

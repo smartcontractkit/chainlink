@@ -4,11 +4,12 @@ import "time"
 
 type VRFV2PlusConfig struct {
 	ChainlinkNodeFunding            float64 `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"`                     // Amount of native currency to fund each chainlink node with
+	CLNodeMaxGasPriceGWei           int64   `envconfig:"MAX_GAS_PRICE_GWEI" default:"1000"`                       // Max gas price in GWei for the chainlink node
 	IsNativePayment                 bool    `envconfig:"IS_NATIVE_PAYMENT" default:"false"`                       // Whether to use native payment or LINK token
 	LinkNativeFeedResponse          int64   `envconfig:"LINK_NATIVE_FEED_RESPONSE" default:"1000000000000000000"` // Response of the LINK/ETH feed
 	MinimumConfirmations            uint16  `envconfig:"MINIMUM_CONFIRMATIONS" default:"3"`                       // Minimum number of confirmations for the VRF Coordinator
-	SubscriptionFundingAmountLink   int64   `envconfig:"SUBSCRIPTION_FUNDING_AMOUNT_LINK" default:"10"`           // Amount of LINK to fund the subscription with
-	SubscriptionFundingAmountNative int64   `envconfig:"SUBSCRIPTION_FUNDING_AMOUNT_NATIVE" default:"1"`          // Amount of native currency to fund the subscription with
+	SubscriptionFundingAmountLink   float64 `envconfig:"SUBSCRIPTION_FUNDING_AMOUNT_LINK" default:"5"`            // Amount of LINK to fund the subscription with
+	SubscriptionFundingAmountNative float64 `envconfig:"SUBSCRIPTION_FUNDING_AMOUNT_NATIVE" default:"1"`          // Amount of native currency to fund the subscription with
 	NumberOfWords                   uint32  `envconfig:"NUMBER_OF_WORDS" default:"3"`                             // Number of words to request
 	CallbackGasLimit                uint32  `envconfig:"CALLBACK_GAS_LIMIT" default:"1000000"`                    // Gas limit for the callback
 	MaxGasLimitCoordinatorConfig    uint32  `envconfig:"MAX_GAS_LIMIT_COORDINATOR_CONFIG" default:"2500000"`      // Max gas limit for the VRF Coordinator config
@@ -18,8 +19,12 @@ type VRFV2PlusConfig struct {
 	FulfillmentFlatFeeLinkPPM       uint32  `envconfig:"FULFILLMENT_FLAT_FEE_LINK_PPM" default:"500"`             // Flat fee in ppm for LINK for the VRF Coordinator config
 	FulfillmentFlatFeeNativePPM     uint32  `envconfig:"FULFILLMENT_FLAT_FEE_NATIVE_PPM" default:"500"`           // Flat fee in ppm for native currency for the VRF Coordinator config
 
+	NumberOfSubToCreate int `envconfig:"NUMBER_OF_SUB_TO_CREATE" default:"1"` // Number of subscriptions to create
+
 	RandomnessRequestCountPerRequest          uint16 `envconfig:"RANDOMNESS_REQUEST_COUNT_PER_REQUEST" default:"1"`           // How many randomness requests to send per request
 	RandomnessRequestCountPerRequestDeviation uint16 `envconfig:"RANDOMNESS_REQUEST_COUNT_PER_REQUEST_DEVIATION" default:"0"` // How many randomness requests to send per request
+
+	RandomWordsFulfilledEventTimeout time.Duration `envconfig:"RANDOM_WORDS_FULFILLED_EVENT_TIMEOUT" default:"2m"` // How long to wait for the RandomWordsFulfilled event to be emitted
 
 	//Wrapper Config
 	WrapperGasOverhead                      uint32  `envconfig:"WRAPPER_GAS_OVERHEAD" default:"50000"`
@@ -37,6 +42,7 @@ type VRFV2PlusConfig struct {
 	UseExistingEnv     bool   `envconfig:"USE_EXISTING_ENV" default:"false"` // Whether to use an existing environment or create a new one
 	CoordinatorAddress string `envconfig:"COORDINATOR_ADDRESS" default:""`   // Coordinator address
 	ConsumerAddress    string `envconfig:"CONSUMER_ADDRESS" default:""`      // Consumer address
+	LinkAddress        string `envconfig:"LINK_ADDRESS" default:""`          // Link address
 	SubID              string `envconfig:"SUB_ID" default:""`                // Subscription ID
 	KeyHash            string `envconfig:"KEY_HASH" default:""`
 }

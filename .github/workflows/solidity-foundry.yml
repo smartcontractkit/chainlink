@@ -12,7 +12,7 @@ jobs:
       changes: ${{ steps.changes.outputs.src }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
@@ -34,14 +34,15 @@ jobs:
       matrix:
         product: [vrf, automation, llo-feeds, functions, shared]
     needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
-    name: Tests
+    name: Foundry Tests ${{ matrix.product }}
     # See https://github.com/foundry-rs/foundry/issues/3827
     runs-on: ubuntu-22.04
 
+    # The if statements for steps after checkout repo is workaround for
+    # passing required check for PRs that don't have filtered changes.
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: recursive
 
@@ -49,15 +50,18 @@ jobs:
       # and not native Foundry. This is to make sure the dependencies
       # stay in sync.
       - name: Setup NodeJS
+        if: needs.changes.outputs.changes == 'true'
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
+        if: needs.changes.outputs.changes == 'true'
         uses: foundry-rs/foundry-toolchain@v1
         with:
           # Has to match the `make foundry` version.
-          version: nightly-5be158ba6dc7c798a6f032026fe60fc01686b33b
+          version: nightly-09fe3e041369a816365a020f715ad6f94dbce9f2
 
       - name: Run Forge build
+        if: needs.changes.outputs.changes == 'true'
         run: |
           forge --version
           forge build
@@ -67,6 +71,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge tests
+        if: needs.changes.outputs.changes == 'true'
         run: |
           forge test -vvv
         id: test
@@ -75,7 +80,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge snapshot
-        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) }}
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
         run: |
           forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot
@@ -84,9 +89,9 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Collect Metrics
-        if: always()
+        if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

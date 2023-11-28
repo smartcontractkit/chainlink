@@ -31,6 +31,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 const (
@@ -38,9 +40,6 @@ const (
 	DefaultSecretSize = 48
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
-
-	// defaultErrorBufferCap is the default cap on the errors an error buffer can store at any time
-	defaultErrorBufferCap = 50
 )
 
 // ZeroAddress is an address of all zeroes, otherwise in Ethereum as
@@ -306,22 +305,6 @@ func Sha256(in string) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-// IsQuoted checks if the first and last characters are either " or '.
-func IsQuoted(input []byte) bool {
-	return len(input) >= 2 &&
-		((input[0] == '"' && input[len(input)-1] == '"') ||
-			(input[0] == '\'' && input[len(input)-1] == '\''))
-}
-
-// RemoveQuotes removes the first and last character if they are both either
-// " or ', otherwise it is a noop.
-func RemoveQuotes(input []byte) []byte {
-	if IsQuoted(input) {
-		return input[1 : len(input)-1]
-	}
-	return input
-}
-
 // EIP55CapitalizedAddress returns true iff possibleAddressString has the correct
 // capitalization for an Ethereum address, per EIP 55
 func EIP55CapitalizedAddress(possibleAddressString string) bool {
@@ -416,68 +399,28 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 }
 
 // WithCloseChan wraps a context so that it is canceled if the passed in channel is closed.
-// Deprecated: Call StopChan.Ctx directly
+// Deprecated: Call [services.StopChan.Ctx] directly
 func WithCloseChan(parentCtx context.Context, chStop chan struct{}) (context.Context, context.CancelFunc) {
-	return StopChan(chStop).Ctx(parentCtx)
+	return services.StopChan(chStop).Ctx(parentCtx)
 }
 
 // ContextFromChan creates a context that finishes when the provided channel receives or is closed.
-// Deprecated: Call StopChan.NewCtx directly.
+// Deprecated: Call [services.StopChan.NewCtx] directly.
 func ContextFromChan(chStop chan struct{}) (context.Context, context.CancelFunc) {
-	return StopChan(chStop).NewCtx()
+	return services.StopChan(chStop).NewCtx()
 }
 
 // ContextFromChanWithTimeout creates a context with a timeout that finishes when the provided channel receives or is closed.
-// Deprecated: Call StopChan.CtxCancel directly
+// Deprecated: Call [services.StopChan.CtxCancel] directly
 func ContextFromChanWithTimeout(chStop chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
-	return StopChan(chStop).CtxCancel(context.WithTimeout(context.Background(), timeout))
+	return services.StopChan(chStop).CtxCancel(context.WithTimeout(context.Background(), timeout))
 }
 
-// A StopChan signals when some work should stop.
-type StopChan chan struct{}
+// Deprecated: use services.StopChan
+type StopChan = services.StopChan
 
-// NewCtx returns a background [context.Context] that is cancelled when StopChan is closed.
-func (s StopChan) NewCtx() (context.Context, context.CancelFunc) {
-	return StopRChan((<-chan struct{})(s)).NewCtx()
-}
-
-// Ctx cancels a [context.Context] when StopChan is closed.
-func (s StopChan) Ctx(ctx context.Context) (context.Context, context.CancelFunc) {
-	return StopRChan((<-chan struct{})(s)).Ctx(ctx)
-}
-
-// CtxCancel cancels a [context.Context] when StopChan is closed.
-// Returns ctx and cancel unmodified, for convenience.
-func (s StopChan) CtxCancel(ctx context.Context, cancel context.CancelFunc) (context.Context, context.CancelFunc) {
-	return StopRChan((<-chan struct{})(s)).CtxCancel(ctx, cancel)
-}
-
-// A StopRChan signals when some work should stop.
-// This version is receive-only.
-type StopRChan <-chan struct{}
-
-// NewCtx returns a background [context.Context] that is cancelled when StopChan is closed.
-func (s StopRChan) NewCtx() (context.Context, context.CancelFunc) {
-	return s.Ctx(context.Background())
-}
-
-// Ctx cancels a [context.Context] when StopChan is closed.
-func (s StopRChan) Ctx(ctx context.Context) (context.Context, context.CancelFunc) {
-	return s.CtxCancel(context.WithCancel(ctx))
-}
-
-// CtxCancel cancels a [context.Context] when StopChan is closed.
-// Returns ctx and cancel unmodified, for convenience.
-func (s StopRChan) CtxCancel(ctx context.Context, cancel context.CancelFunc) (context.Context, context.CancelFunc) {
-	go func() {
-		select {
-		case <-s:
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-	return ctx, cancel
-}
+// Deprecated: use services.StopRChan
+type StopRChan = services.StopRChan
 
 // DependentAwaiter contains Dependent funcs
 type DependentAwaiter interface {
@@ -819,14 +762,6 @@ func EVMBytesToUint64(buf []byte) uint64 {
 	return result
 }
 
-type errNotStarted struct {
-	state StartStopOnceState
-}
-
-func (e *errNotStarted) Error() string {
-	return fmt.Sprintf("service is %q, not started", e.state)
-}
-
 var (
 	ErrAlreadyStopped      = errors.New("already stopped")
 	ErrCannotStopUnstarted = errors.New("cannot stop unstarted service")
@@ -834,176 +769,7 @@ var (
 
 // StartStopOnce contains a StartStopOnceState integer
 // Deprecated: use services.StateMachine
-type StartStopOnce struct {
-	state        atomic.Int32
-	sync.RWMutex // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state
-
-	// SvcErrBuffer is an ErrorBuffer that let service owners track critical errors happening in the service.
-	//
-	// SvcErrBuffer.SetCap(int) Overrides buffer limit from defaultErrorBufferCap
-	// SvcErrBuffer.Append(error) Appends an error to the buffer
-	// SvcErrBuffer.Flush() error returns all tracked errors as a single joined error
-	SvcErrBuffer ErrorBuffer
-}
-
-// StartStopOnceState holds the state for StartStopOnce
-type StartStopOnceState int32
-
-// nolint
-const (
-	StartStopOnce_Unstarted StartStopOnceState = iota
-	StartStopOnce_Started
-	StartStopOnce_Starting
-	StartStopOnce_StartFailed
-	StartStopOnce_Stopping
-	StartStopOnce_Stopped
-	StartStopOnce_StopFailed
-)
-
-func (s StartStopOnceState) String() string {
-	switch s {
-	case StartStopOnce_Unstarted:
-		return "Unstarted"
-	case StartStopOnce_Started:
-		return "Started"
-	case StartStopOnce_Starting:
-		return "Starting"
-	case StartStopOnce_StartFailed:
-		return "StartFailed"
-	case StartStopOnce_Stopping:
-		return "Stopping"
-	case StartStopOnce_Stopped:
-		return "Stopped"
-	case StartStopOnce_StopFailed:
-		return "StopFailed"
-	default:
-		return fmt.Sprintf("unrecognized state: %d", s)
-	}
-}
-
-// StartOnce sets the state to Started
-func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
-	// SAFETY: We do this compare-and-swap outside of the lock so that
-	// concurrent StartOnce() calls return immediately.
-	success := once.state.CompareAndSwap(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
-
-	if !success {
-		return pkgerrors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
-	}
-
-	once.Lock()
-	defer once.Unlock()
-
-	// Setting cap before calling startup fn in case of crits in startup
-	once.SvcErrBuffer.SetCap(defaultErrorBufferCap)
-	err := fn()
-
-	if err == nil {
-		success = once.state.CompareAndSwap(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
-	} else {
-		success = once.state.CompareAndSwap(int32(StartStopOnce_Starting), int32(StartStopOnce_StartFailed))
-	}
-
-	if !success {
-		// SAFETY: If this is reached, something must be very wrong: once.state
-		// was tampered with outside of the lock.
-		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to started", name))
-	}
-
-	return err
-}
-
-// StopOnce sets the state to Stopped
-func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
-	// SAFETY: We hold the lock here so that Stop blocks until StartOnce
-	// executes. This ensures that a very fast call to Stop will wait for the
-	// code to finish starting up before teardown.
-	once.Lock()
-	defer once.Unlock()
-
-	success := once.state.CompareAndSwap(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
-
-	if !success {
-		state := once.state.Load()
-		switch state {
-		case int32(StartStopOnce_Stopped):
-			return pkgerrors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
-		case int32(StartStopOnce_Unstarted):
-			return pkgerrors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
-		default:
-			return pkgerrors.Errorf("%v cannot be stopped from this state; state=%v", name, StartStopOnceState(state))
-		}
-	}
-
-	err := fn()
-
-	if err == nil {
-		success = once.state.CompareAndSwap(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
-	} else {
-		success = once.state.CompareAndSwap(int32(StartStopOnce_Stopping), int32(StartStopOnce_StopFailed))
-	}
-
-	if !success {
-		// SAFETY: If this is reached, something must be very wrong: once.state
-		// was tampered with outside of the lock.
-		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to stopped", name))
-	}
-
-	return err
-}
-
-// State retrieves the current state
-func (once *StartStopOnce) State() StartStopOnceState {
-	state := once.state.Load()
-	return StartStopOnceState(state)
-}
-
-// IfStarted runs the func and returns true only if started, otherwise returns false
-func (once *StartStopOnce) IfStarted(f func()) (ok bool) {
-	once.RLock()
-	defer once.RUnlock()
-
-	state := once.state.Load()
-
-	if StartStopOnceState(state) == StartStopOnce_Started {
-		f()
-		return true
-	}
-	return false
-}
-
-// IfNotStopped runs the func and returns true if in any state other than Stopped
-func (once *StartStopOnce) IfNotStopped(f func()) (ok bool) {
-	once.RLock()
-	defer once.RUnlock()
-
-	state := once.state.Load()
-
-	if StartStopOnceState(state) == StartStopOnce_Stopped {
-		return false
-	}
-	f()
-	return true
-}
-
-// Ready returns ErrNotStarted if the state is not started.
-func (once *StartStopOnce) Ready() error {
-	state := once.State()
-	if state == StartStopOnce_Started {
-		return nil
-	}
-	return &errNotStarted{state: state}
-}
-
-// Healthy returns ErrNotStarted if the state is not started.
-// Override this per-service with more specific implementations.
-func (once *StartStopOnce) Healthy() error {
-	state := once.State()
-	if state == StartStopOnce_Started {
-		return once.SvcErrBuffer.Flush()
-	}
-	return &errNotStarted{state: state}
-}
+type StartStopOnce = services.StateMachine
 
 // EnsureClosed closes the io.Closer, returning nil if it was already
 // closed or not started yet

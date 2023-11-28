@@ -15,17 +15,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -70,7 +71,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client legacyevm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -135,7 +136,7 @@ type activeUpkeep struct {
 
 type EvmRegistry struct {
 	HeadProvider
-	sync          utils.StartStopOnce
+	sync          services.StateMachine
 	lggr          logger.Logger
 	poller        logpoller.LogPoller
 	addr          common.Address
@@ -346,7 +347,7 @@ func (r *EvmRegistry) initialize() error {
 
 func (r *EvmRegistry) pollLogs() error {
 	var latest int64
-	var end int64
+	var end logpoller.LogPollerBlock
 	var err error
 
 	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
@@ -355,11 +356,11 @@ func (r *EvmRegistry) pollLogs() error {
 
 	r.mu.Lock()
 	latest = r.lastPollBlock
-	r.lastPollBlock = end
+	r.lastPollBlock = end.BlockNumber
 	r.mu.Unlock()
 
 	// if start and end are the same, no polling needs to be done
-	if latest == 0 || latest == end {
+	if latest == 0 || latest == end.BlockNumber {
 		return nil
 	}
 
@@ -367,8 +368,8 @@ func (r *EvmRegistry) pollLogs() error {
 		var logs []logpoller.Log
 
 		if logs, err = r.poller.LogsWithSigs(
-			end-logEventLookback,
-			end,
+			end.BlockNumber-logEventLookback,
+			end.BlockNumber,
 			upkeepStateEvents,
 			r.addr,
 			pg.WithParentCtx(r.ctx),

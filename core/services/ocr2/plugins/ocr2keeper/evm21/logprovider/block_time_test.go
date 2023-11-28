@@ -1,7 +1,6 @@
 package logprovider
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestBlockTimeResolver_BlockTime(t *testing.T) {
@@ -63,13 +63,12 @@ func TestBlockTimeResolver_BlockTime(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := testutils.Context(t)
 
 			lp := new(lpmocks.LogPoller)
 			resolver := newBlockTimeResolver(lp)
 
-			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, tc.latestBlockErr)
+			lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: tc.latestBlock}, tc.latestBlockErr)
 			lp.On("GetBlocksRange", mock.Anything, mock.Anything).Return(tc.blocksRange, tc.blocksRangeErr)
 
 			blockTime, err := resolver.BlockTime(ctx, tc.blockSampleSize)

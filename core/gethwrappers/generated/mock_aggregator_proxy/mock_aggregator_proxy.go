@@ -50,7 +50,7 @@ func DeployMockAggregatorProxy(auth *bind.TransactOpts, backend bind.ContractBac
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &MockAggregatorProxy{MockAggregatorProxyCaller: MockAggregatorProxyCaller{contract: contract}, MockAggregatorProxyTransactor: MockAggregatorProxyTransactor{contract: contract}, MockAggregatorProxyFilterer: MockAggregatorProxyFilterer{contract: contract}}, nil
+	return address, tx, &MockAggregatorProxy{address: address, abi: *parsed, MockAggregatorProxyCaller: MockAggregatorProxyCaller{contract: contract}, MockAggregatorProxyTransactor: MockAggregatorProxyTransactor{contract: contract}, MockAggregatorProxyFilterer: MockAggregatorProxyFilterer{contract: contract}}, nil
 }
 
 type MockAggregatorProxy struct {

@@ -27,7 +27,6 @@ func DeployOCRContracts(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	bootstrapNode *client.ChainlinkK8sClient,
 	workerNodes []*client.ChainlinkK8sClient,
 	client blockchain.EVMClient,
 ) ([]contracts.OffchainAggregator, error) {

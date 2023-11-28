@@ -10,18 +10,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestORM_broadcasts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
@@ -134,7 +134,7 @@ func TestORM_broadcasts(t *testing.T) {
 func TestORM_pending(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
 	num, err := orm.GetPendingMinBlock()
@@ -160,7 +160,7 @@ func TestORM_pending(t *testing.T) {
 func TestORM_MarkUnconsumed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
@@ -259,7 +259,7 @@ func TestORM_Reinitialize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewGeneralConfig(t, nil)
-			lggr := logger.TestLogger(t)
+			lggr := logger.Test(t)
 			orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
 			jobID := cltest.MustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID

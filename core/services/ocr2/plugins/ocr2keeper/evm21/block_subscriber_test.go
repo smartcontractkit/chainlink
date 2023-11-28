@@ -1,15 +1,15 @@
 package evm
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -97,7 +97,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
 			lp := new(mocks.LogPoller)
-			lp.On("LatestBlock", mock.Anything).Return(tc.LatestBlock, tc.LatestBlockErr)
+			lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: tc.LatestBlock}, tc.LatestBlockErr)
 			bs := NewBlockSubscriber(hb, lp, finality, lggr)
 			bs.blockHistorySize = historySize
 			bs.blockSize = blockSize
@@ -278,7 +278,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	hb := commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
 	lp := new(mocks.LogPoller)
-	lp.On("LatestBlock", mock.Anything).Return(int64(100), nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
 	blocks := []uint64{97, 98, 99, 100}
 	pollerBlocks := []logpoller.LogPollerBlock{
 		{
@@ -304,7 +304,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	bs := NewBlockSubscriber(hb, lp, finality, lggr)
 	bs.blockHistorySize = historySize
 	bs.blockSize = blockSize
-	err := bs.Start(context.Background())
+	err := bs.Start(testutils.Context(t))
 	assert.Nil(t, err)
 
 	h97 := evmtypes.Head{

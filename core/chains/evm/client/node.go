@@ -19,9 +19,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -82,6 +84,8 @@ var (
 //go:generate mockery --quiet --name Node --output ../mocks/ --case=underscore
 
 // Node represents a client that connects to an ethereum-compatible RPC node
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.Node]
 type Node interface {
 	Start(ctx context.Context) error
 	Close() error
@@ -132,7 +136,7 @@ type rawclient struct {
 // Node represents one ethereum node.
 // It must have a ws url and may have a http url
 type node struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lfcLog              logger.Logger
 	rpcLog              logger.Logger
 	name                string
@@ -177,6 +181,8 @@ type node struct {
 }
 
 // NewNode returns a new *node as Node
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewNode]
 func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, nodeOrder int32) Node {
 	n := new(node)
 	n.name = name
@@ -191,7 +197,8 @@ func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr lo
 	}
 	n.chStopInFlight = make(chan struct{})
 	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
-	lggr = lggr.Named("Node").With(
+	lggr = logger.Named(lggr, "Node")
+	lggr = logger.With(lggr,
 		"nodeTier", "primary",
 		"nodeName", name,
 		"node", n.String(),
@@ -199,8 +206,8 @@ func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr lo
 		"nodeOrder", n.order,
 		"mode", n.getNodeMode(),
 	)
-	n.lfcLog = lggr.Named("Lifecycle")
-	n.rpcLog = lggr.Named("RPC")
+	n.lfcLog = logger.Named(lggr, "Lifecycle")
+	n.rpcLog = logger.Named(lggr, "RPC")
 	n.stateLatestBlockNumber = -1
 
 	return n
@@ -258,9 +265,9 @@ func (n *node) dial(callerCtx context.Context) error {
 	defer cancel()
 
 	promEVMPoolRPCNodeDials.WithLabelValues(n.chainID.String(), n.name).Inc()
-	lggr := n.lfcLog.With("wsuri", n.ws.uri.Redacted())
+	lggr := logger.With(n.lfcLog, "wsuri", n.ws.uri.Redacted())
 	if n.http != nil {
-		lggr = lggr.With("httpuri", n.http.uri.Redacted())
+		lggr = logger.With(lggr, "httpuri", n.http.uri.Redacted())
 	}
 	lggr.Debugw("RPC dial: evmclient.Client#dial")
 
@@ -447,7 +454,7 @@ func (n *node) CallContext(ctx context.Context, result interface{}, method strin
 		return err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With(
+	lggr := logger.With(n.newRqLggr(),
 		"method", method,
 		"args", args,
 	)
@@ -472,9 +479,9 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 		return err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
+	lggr := logger.With(n.newRqLggr(), "nBatchElems", len(b), "batchElems", b)
 
-	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
+	logger.Trace(lggr, "RPC call: evmclient.Client#BatchCallContext")
 	start := time.Now()
 	if http != nil {
 		err = n.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
@@ -494,7 +501,7 @@ func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, 
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("args", args)
+	lggr := logger.With(n.newRqLggr(), "args", args)
 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
@@ -517,7 +524,7 @@ func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (rece
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("txHash", txHash)
+	lggr := logger.With(n.newRqLggr(), "txHash", txHash)
 
 	lggr.Debug("RPC call: evmclient.Client#TransactionReceipt")
 
@@ -544,7 +551,7 @@ func (n *node) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *t
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("txHash", txHash)
+	lggr := logger.With(n.newRqLggr(), "txHash", txHash)
 
 	lggr.Debug("RPC call: evmclient.Client#TransactionByHash")
 
@@ -571,7 +578,7 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("number", number)
+	lggr := logger.With(n.newRqLggr(), "number", number)
 
 	lggr.Debug("RPC call: evmclient.Client#HeaderByNumber")
 	start := time.Now()
@@ -595,7 +602,7 @@ func (n *node) HeaderByHash(ctx context.Context, hash common.Hash) (header *type
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("hash", hash)
+	lggr := logger.With(n.newRqLggr(), "hash", hash)
 
 	lggr.Debug("RPC call: evmclient.Client#HeaderByHash")
 	start := time.Now()
@@ -621,7 +628,7 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error
 		return err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("tx", tx)
+	lggr := logger.With(n.newRqLggr(), "tx", tx)
 
 	lggr.Debug("RPC call: evmclient.Client#SendTransaction")
 	start := time.Now()
@@ -644,7 +651,7 @@ func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonc
 		return 0, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("account", account)
+	lggr := logger.With(n.newRqLggr(), "account", account)
 
 	lggr.Debug("RPC call: evmclient.Client#PendingNonceAt")
 	start := time.Now()
@@ -673,7 +680,7 @@ func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber 
 		return 0, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("account", account, "blockNumber", blockNumber)
+	lggr := logger.With(n.newRqLggr(), "account", account, "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#NonceAt")
 	start := time.Now()
@@ -699,7 +706,7 @@ func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code 
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("account", account)
+	lggr := logger.With(n.newRqLggr(), "account", account)
 
 	lggr.Debug("RPC call: evmclient.Client#PendingCodeAt")
 	start := time.Now()
@@ -725,7 +732,7 @@ func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("account", account, "blockNumber", blockNumber)
+	lggr := logger.With(n.newRqLggr(), "account", account, "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#CodeAt")
 	start := time.Now()
@@ -751,7 +758,7 @@ func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint
 		return 0, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("call", call)
+	lggr := logger.With(n.newRqLggr(), "call", call)
 
 	lggr.Debug("RPC call: evmclient.Client#EstimateGas")
 	start := time.Now()
@@ -803,7 +810,7 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("callMsg", msg, "blockNumber", blockNumber)
+	lggr := logger.With(n.newRqLggr(), "callMsg", msg, "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#CallContract")
 	start := time.Now()
@@ -830,7 +837,7 @@ func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Blo
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("number", number)
+	lggr := logger.With(n.newRqLggr(), "number", number)
 
 	lggr.Debug("RPC call: evmclient.Client#BlockByNumber")
 	start := time.Now()
@@ -856,7 +863,7 @@ func (n *node) BlockByHash(ctx context.Context, hash common.Hash) (b *types.Bloc
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("hash", hash)
+	lggr := logger.With(n.newRqLggr(), "hash", hash)
 
 	lggr.Debug("RPC call: evmclient.Client#BlockByHash")
 	start := time.Now()
@@ -908,7 +915,7 @@ func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumbe
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("account", account.Hex(), "blockNumber", blockNumber)
+	lggr := logger.With(n.newRqLggr(), "account", account.Hex(), "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#BalanceAt")
 	start := time.Now()
@@ -934,7 +941,7 @@ func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []type
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("q", q)
+	lggr := logger.With(n.newRqLggr(), "q", q)
 
 	lggr.Debug("RPC call: evmclient.Client#FilterLogs")
 	start := time.Now()
@@ -960,7 +967,7 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr().With("q", q)
+	lggr := logger.With(n.newRqLggr(), "q", q)
 
 	lggr.Debug("RPC call: evmclient.Client#SubscribeFilterLogs")
 	start := time.Now()
@@ -1006,7 +1013,7 @@ func (n *node) ChainID() (chainID *big.Int) { return n.chainID }
 
 // newRqLggr generates a new logger with a unique request ID
 func (n *node) newRqLggr() logger.Logger {
-	return n.rpcLog.With(
+	return logger.With(n.rpcLog,
 		"requestID", uuid.New(),
 	)
 }
@@ -1019,11 +1026,11 @@ func (n *node) logResult(
 	callName string,
 	results ...interface{},
 ) {
-	lggr = lggr.With("duration", callDuration, "rpcDomain", rpcDomain, "callName", callName)
+	lggr = logger.With(lggr, "duration", callDuration, "rpcDomain", rpcDomain, "callName", callName)
 	promEVMPoolRPCNodeCalls.WithLabelValues(n.chainID.String(), n.name).Inc()
 	if err == nil {
 		promEVMPoolRPCNodeCallsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
-		lggr.Tracew(
+		logger.Tracew(lggr,
 			fmt.Sprintf("evmclient.Client#%s RPC call success", callName),
 			results...,
 		)
@@ -1056,7 +1063,7 @@ func (n *node) wrapHTTP(err error) error {
 	if err != nil {
 		n.rpcLog.Debugw("Call failed", "err", err)
 	} else {
-		n.rpcLog.Trace("Call succeeded")
+		logger.Trace(n.rpcLog, "Call succeeded")
 	}
 	return err
 }
@@ -1100,7 +1107,7 @@ func (n *node) makeQueryCtx(ctx context.Context) (context.Context, context.Cance
 // 1. Passed in ctx cancels
 // 2. Passed in channel is closed
 // 3. Default timeout is reached (queryTimeout)
-func makeQueryCtx(ctx context.Context, ch utils.StopChan) (context.Context, context.CancelFunc) {
+func makeQueryCtx(ctx context.Context, ch services.StopChan) (context.Context, context.CancelFunc) {
 	var chCancel, timeoutCancel context.CancelFunc
 	ctx, chCancel = ch.Ctx(ctx)
 	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)

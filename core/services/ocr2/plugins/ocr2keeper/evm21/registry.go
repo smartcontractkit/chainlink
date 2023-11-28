@@ -17,11 +17,13 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -29,15 +31,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
+	defaultPluginRetryExpiration = 30 * time.Minute
 	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
-	defaultAllowListExpiration = 20 * time.Minute
-	// allowListCleanupInterval decides when the expired items in allowList cache will be deleted.
-	allowListCleanupInterval   = 5 * time.Minute
+	defaultAllowListExpiration = 10 * time.Minute
+	// cleanupInterval decides when the expired items in cache will be deleted.
+	cleanupInterval            = 5 * time.Minute
 	logTriggerRefreshBatchSize = 32
 )
 
@@ -75,7 +79,7 @@ type HttpClient interface {
 func NewEvmRegistry(
 	lggr logger.Logger,
 	addr common.Address,
-	client evm.Chain,
+	client legacyevm.Chain,
 	registry *iregistry21.IKeeperRegistryMaster,
 	mc *models.MercuryCredentials,
 	al ActiveUpkeepList,
@@ -84,29 +88,34 @@ func NewEvmRegistry(
 	blockSub *BlockSubscriber,
 	finalityDepth uint32,
 ) *EvmRegistry {
+	mercuryConfig := &MercuryConfig{
+		cred:             mc,
+		Abi:              core.StreamsCompatibleABI,
+		AllowListCache:   cache.New(defaultAllowListExpiration, cleanupInterval),
+		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
+	}
+
+	hc := http.DefaultClient
+
 	return &EvmRegistry{
-		ctx:          context.Background(),
-		threadCtrl:   utils.NewThreadControl(),
-		lggr:         lggr.Named(RegistryServiceName),
-		poller:       client.LogPoller(),
-		addr:         addr,
-		client:       client.Client(),
-		logProcessed: make(map[string]bool),
-		registry:     registry,
-		abi:          core.RegistryABI,
-		active:       al,
-		packer:       packer,
-		headFunc:     func(ocr2keepers.BlockKey) {},
-		chLog:        make(chan logpoller.Log, 1000),
-		mercury: &MercuryConfig{
-			cred:           mc,
-			abi:            core.StreamsCompatibleABI,
-			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
-		},
-		hc:               http.DefaultClient,
+		ctx:              context.Background(),
+		threadCtrl:       utils.NewThreadControl(),
+		lggr:             lggr.Named(RegistryServiceName),
+		poller:           client.LogPoller(),
+		addr:             addr,
+		client:           client.Client(),
+		logProcessed:     make(map[string]bool),
+		registry:         registry,
+		abi:              core.RegistryABI,
+		active:           al,
+		packer:           packer,
+		headFunc:         func(ocr2keepers.BlockKey) {},
+		chLog:            make(chan logpoller.Log, 1000),
+		hc:               hc,
 		logEventProvider: logEventProvider,
 		bs:               blockSub,
 		finalityDepth:    finalityDepth,
+		streams:          streams.NewStreamsLookup(packer, mercuryConfig, blockSub, client.Client(), registry, lggr),
 	}
 }
 
@@ -122,13 +131,43 @@ var upkeepStateEvents = []common.Hash{
 
 type MercuryConfig struct {
 	cred *models.MercuryCredentials
-	abi  abi.ABI
-	// allowListCache stores the upkeeps privileges. In 2.1, this only includes a JSON bytes for allowed to use mercury
-	allowListCache *cache.Cache
+	Abi  abi.ABI
+	// AllowListCache stores the upkeeps privileges. In 2.1, this only includes a JSON bytes for allowed to use mercury
+	AllowListCache   *cache.Cache
+	pluginRetryCache *cache.Cache
+}
+
+func NewMercuryConfig(credentials *models.MercuryCredentials, abi abi.ABI) *MercuryConfig {
+	return &MercuryConfig{
+		cred:             credentials,
+		Abi:              abi,
+		AllowListCache:   cache.New(defaultPluginRetryExpiration, cleanupInterval),
+		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
+	}
+}
+
+func (c *MercuryConfig) Credentials() *models.MercuryCredentials {
+	return c.cred
+}
+
+func (c *MercuryConfig) IsUpkeepAllowed(k string) (interface{}, bool) {
+	return c.AllowListCache.Get(k)
+}
+
+func (c *MercuryConfig) SetUpkeepAllowed(k string, v interface{}, d time.Duration) {
+	c.AllowListCache.Set(k, v, d)
+}
+
+func (c *MercuryConfig) GetPluginRetry(k string) (interface{}, bool) {
+	return c.pluginRetryCache.Get(k)
+}
+
+func (c *MercuryConfig) SetPluginRetry(k string, v interface{}, d time.Duration) {
+	c.pluginRetryCache.Set(k, v, d)
 }
 
 type EvmRegistry struct {
-	utils.StartStopOnce
+	services.StateMachine
 	threadCtrl       utils.ThreadControl
 	lggr             logger.Logger
 	poller           logpoller.LogPoller
@@ -150,6 +189,7 @@ type EvmRegistry struct {
 	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
 	finalityDepth    uint32
+	streams          streams.Lookup
 }
 
 func (r *EvmRegistry) Name() string {
@@ -361,7 +401,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 
 func (r *EvmRegistry) pollUpkeepStateLogs() error {
 	var latest int64
-	var end int64
+	var end logpoller.LogPollerBlock
 	var err error
 
 	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
@@ -370,18 +410,18 @@ func (r *EvmRegistry) pollUpkeepStateLogs() error {
 
 	r.mu.Lock()
 	latest = r.lastPollBlock
-	r.lastPollBlock = end
+	r.lastPollBlock = end.BlockNumber
 	r.mu.Unlock()
 
 	// if start and end are the same, no polling needs to be done
-	if latest == 0 || latest == end {
+	if latest == 0 || latest == end.BlockNumber {
 		return nil
 	}
 
 	var logs []logpoller.Log
 	if logs, err = r.poller.LogsWithSigs(
-		end-logEventLookback,
-		end,
+		end.BlockNumber-logEventLookback,
+		end.BlockNumber,
 		upkeepStateEvents,
 		r.addr,
 		pg.WithParentCtx(r.ctx),

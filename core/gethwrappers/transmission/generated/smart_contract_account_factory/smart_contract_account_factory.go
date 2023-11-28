@@ -52,7 +52,7 @@ func DeploySmartContractAccountFactory(auth *bind.TransactOpts, backend bind.Con
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &SmartContractAccountFactory{SmartContractAccountFactoryCaller: SmartContractAccountFactoryCaller{contract: contract}, SmartContractAccountFactoryTransactor: SmartContractAccountFactoryTransactor{contract: contract}, SmartContractAccountFactoryFilterer: SmartContractAccountFactoryFilterer{contract: contract}}, nil
+	return address, tx, &SmartContractAccountFactory{address: address, abi: *parsed, SmartContractAccountFactoryCaller: SmartContractAccountFactoryCaller{contract: contract}, SmartContractAccountFactoryTransactor: SmartContractAccountFactoryTransactor{contract: contract}, SmartContractAccountFactoryFilterer: SmartContractAccountFactoryFilterer{contract: contract}}, nil
 }
 
 type SmartContractAccountFactory struct {

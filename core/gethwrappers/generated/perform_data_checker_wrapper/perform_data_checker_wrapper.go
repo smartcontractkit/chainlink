@@ -50,7 +50,7 @@ func DeployPerformDataChecker(auth *bind.TransactOpts, backend bind.ContractBack
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &PerformDataChecker{PerformDataCheckerCaller: PerformDataCheckerCaller{contract: contract}, PerformDataCheckerTransactor: PerformDataCheckerTransactor{contract: contract}, PerformDataCheckerFilterer: PerformDataCheckerFilterer{contract: contract}}, nil
+	return address, tx, &PerformDataChecker{address: address, abi: *parsed, PerformDataCheckerCaller: PerformDataCheckerCaller{contract: contract}, PerformDataCheckerTransactor: PerformDataCheckerTransactor{contract: contract}, PerformDataCheckerFilterer: PerformDataCheckerFilterer{contract: contract}}, nil
 }
 
 type PerformDataChecker struct {

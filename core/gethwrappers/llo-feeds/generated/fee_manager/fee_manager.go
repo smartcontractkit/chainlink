@@ -67,7 +67,7 @@ func DeployFeeManager(auth *bind.TransactOpts, backend bind.ContractBackend, _li
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &FeeManager{FeeManagerCaller: FeeManagerCaller{contract: contract}, FeeManagerTransactor: FeeManagerTransactor{contract: contract}, FeeManagerFilterer: FeeManagerFilterer{contract: contract}}, nil
+	return address, tx, &FeeManager{address: address, abi: *parsed, FeeManagerCaller: FeeManagerCaller{contract: contract}, FeeManagerTransactor: FeeManagerTransactor{contract: contract}, FeeManagerFilterer: FeeManagerFilterer{contract: contract}}, nil
 }
 
 type FeeManager struct {

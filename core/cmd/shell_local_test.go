@@ -8,15 +8,15 @@ import (
 	"testing"
 	"time"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -25,7 +25,7 @@ import (
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -39,7 +39,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
+func genTestEVMRelayers(t *testing.T, opts legacyevm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
 	f := chainlink.RelayerFactory{
 		Logger:       opts.Logger,
 		LoopRegistry: plugins.NewLoopRegistry(opts.Logger, opts.AppConfig.Tracing()),
@@ -79,14 +79,14 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			})
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
+			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			lggr := logger.TestLogger(t)
 
-			opts := evm.ChainRelayExtenderConfig{
+			opts := legacyevm.ChainRelayExtenderConfig{
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
-				ChainOpts: evm.ChainOpts{
+				ChainOpts: legacyevm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
@@ -100,7 +100,8 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			app := mocks.NewApplication(t)
-			app.On("SessionORM").Return(sessionORM).Maybe()
+			app.On("AuthenticationProvider").Return(authProviderORM).Maybe()
+			app.On("BasicAdminUsersORM").Return(authProviderORM).Maybe()
 			app.On("GetKeyStore").Return(keyStore).Maybe()
 			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
@@ -123,7 +124,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
+			flagSetApplyFromAction(client.RunNode, set, "")
 
 			require.NoError(t, set.Set("password", test.pwdfile))
 
@@ -171,7 +172,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
+			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -187,10 +188,10 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
 			lggr := logger.TestLogger(t)
-			opts := evm.ChainRelayExtenderConfig{
+			opts := legacyevm.ChainRelayExtenderConfig{
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
-				ChainOpts: evm.ChainOpts{
+				ChainOpts: legacyevm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
@@ -199,7 +200,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
 			app := mocks.NewApplication(t)
-			app.On("SessionORM").Return(sessionORM)
+			app.On("BasicAdminUsersORM").Return(authProviderORM)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
@@ -220,7 +221,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
+			flagSetApplyFromAction(client.RunNode, set, "")
 
 			require.NoError(t, set.Set("api", test.apiFile))
 
@@ -279,7 +280,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Dialect = dialects.Postgres
 		// evm config is used in this test. but if set, it must be pass config validation.
 		// simplest to make it nil
@@ -302,12 +303,11 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
-	mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
-	mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+	mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 	app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
-	client := cmd.Shell{
+	c := cmd.Shell{
 		Config:                 config,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
@@ -318,7 +318,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	beginningNonce := uint64(7)
 	endingNonce := uint64(10)
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+	flagSetApplyFromAction(c.RebroadcastTransactions, set, "")
 
 	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(beginningNonce, 10)))
@@ -328,16 +328,16 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	require.NoError(t, set.Set("address", fromAddress.Hex()))
 	require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 
-	c := cli.NewContext(nil, set, nil)
+	ctx := cli.NewContext(nil, set, nil)
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == n
-		}), mock.Anything).Once().Return(clienttypes.Successful, nil)
+		}), mock.Anything).Once().Return(client.Successful, nil)
 	}
 
-	assert.NoError(t, client.RebroadcastTransactions(c))
+	assert.NoError(t, c.RebroadcastTransactions(ctx))
 }
 
 func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
@@ -359,7 +359,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			// Use the non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
+			config, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Dialect = dialects.Postgres
 				// evm config is used in this test. but if set, it must be pass config validation.
 				// simplest to make it nil
@@ -385,11 +385,10 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
-			mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
-			mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+			mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 
-			client := cmd.Shell{
+			c := cmd.Shell{
 				Config:                 config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
@@ -398,7 +397,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+			flagSetApplyFromAction(c.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
@@ -408,16 +407,16 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
 
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
-			c := cli.NewContext(nil, set, nil)
+			ctx := cli.NewContext(nil, set, nil)
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i
 				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 					return uint(tx.Nonce()) == n
-				}), mock.Anything).Once().Return(clienttypes.Successful, nil)
+				}), mock.Anything).Once().Return(client.Successful, nil)
 			}
 
-			assert.NoError(t, client.RebroadcastTransactions(c))
+			assert.NoError(t, c.RebroadcastTransactions(ctx))
 
 			cltest.AssertEthTxAttemptCountStays(t, app.GetSqlxDB(), 1)
 		})
@@ -438,7 +437,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
-			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
+			config, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Dialect = dialects.Postgres
 
 				c.EVM = nil
@@ -465,10 +464,9 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
-			mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
-			mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+			mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
-			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
+			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(client.Successful, nil)
 
 			client := cmd.Shell{
 				Config:                 config,
@@ -479,7 +477,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+			flagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("address", fromAddress.Hex()))

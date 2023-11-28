@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,14 +14,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -61,29 +63,31 @@ type FunctionsHandlerConfig struct {
 	OnchainSubscriptions       *OnchainSubscriptionsConfig `json:"onchainSubscriptions"`
 	MinimumSubscriptionBalance *assets.Link                `json:"minimumSubscriptionBalance"`
 	// Not specifying RateLimiter config disables rate limiting
-	UserRateLimiter      *hc.RateLimiterConfig `json:"userRateLimiter"`
-	NodeRateLimiter      *hc.RateLimiterConfig `json:"nodeRateLimiter"`
-	MaxPendingRequests   uint32                `json:"maxPendingRequests"`
-	RequestTimeoutMillis int64                 `json:"requestTimeoutMillis"`
+	UserRateLimiter            *hc.RateLimiterConfig `json:"userRateLimiter"`
+	NodeRateLimiter            *hc.RateLimiterConfig `json:"nodeRateLimiter"`
+	MaxPendingRequests         uint32                `json:"maxPendingRequests"`
+	RequestTimeoutMillis       int64                 `json:"requestTimeoutMillis"`
+	AllowedHeartbeatInitiators []string              `json:"allowedHeartbeatInitiators"`
 }
 
 type functionsHandler struct {
-	utils.StartStopOnce
+	services.StateMachine
 
-	handlerConfig   FunctionsHandlerConfig
-	donConfig       *config.DONConfig
-	don             handlers.DON
-	pendingRequests hc.RequestCache[PendingSecretsRequest]
-	allowlist       OnchainAllowlist
-	subscriptions   OnchainSubscriptions
-	minimumBalance  *assets.Link
-	userRateLimiter *hc.RateLimiter
-	nodeRateLimiter *hc.RateLimiter
-	chStop          utils.StopChan
-	lggr            logger.Logger
+	handlerConfig              FunctionsHandlerConfig
+	donConfig                  *config.DONConfig
+	don                        handlers.DON
+	pendingRequests            hc.RequestCache[PendingRequest]
+	allowlist                  OnchainAllowlist
+	subscriptions              OnchainSubscriptions
+	minimumBalance             *assets.Link
+	userRateLimiter            *hc.RateLimiter
+	nodeRateLimiter            *hc.RateLimiter
+	allowedHeartbeatInitiators map[string]struct{}
+	chStop                     services.StopChan
+	lggr                       logger.Logger
 }
 
-type PendingSecretsRequest struct {
+type PendingRequest struct {
 	request    *api.Message
 	responses  map[string]*api.Message
 	successful []*api.Message
@@ -92,7 +96,7 @@ type PendingSecretsRequest struct {
 
 var _ handlers.Handler = (*functionsHandler)(nil)
 
-func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains evm.LegacyChainContainer, lggr logger.Logger) (handlers.Handler, error) {
+func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains legacyevm.LegacyChainContainer, lggr logger.Logger) (handlers.Handler, error) {
 	var cfg FunctionsHandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -134,33 +138,39 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err2
 		}
 	}
-	pendingRequestsCache := hc.NewRequestCache[PendingSecretsRequest](time.Millisecond*time.Duration(cfg.RequestTimeoutMillis), cfg.MaxPendingRequests)
-	return NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, cfg.MinimumSubscriptionBalance, userRateLimiter, nodeRateLimiter, lggr), nil
+	allowedHeartbeatInitiators := make(map[string]struct{})
+	for _, initiator := range cfg.AllowedHeartbeatInitiators {
+		allowedHeartbeatInitiators[strings.ToLower(initiator)] = struct{}{}
+	}
+	pendingRequestsCache := hc.NewRequestCache[PendingRequest](time.Millisecond*time.Duration(cfg.RequestTimeoutMillis), cfg.MaxPendingRequests)
+	return NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, cfg.MinimumSubscriptionBalance, userRateLimiter, nodeRateLimiter, allowedHeartbeatInitiators, lggr), nil
 }
 
 func NewFunctionsHandler(
 	cfg FunctionsHandlerConfig,
 	donConfig *config.DONConfig,
 	don handlers.DON,
-	pendingRequestsCache hc.RequestCache[PendingSecretsRequest],
+	pendingRequestsCache hc.RequestCache[PendingRequest],
 	allowlist OnchainAllowlist,
 	subscriptions OnchainSubscriptions,
 	minimumBalance *assets.Link,
 	userRateLimiter *hc.RateLimiter,
 	nodeRateLimiter *hc.RateLimiter,
+	allowedHeartbeatInitiators map[string]struct{},
 	lggr logger.Logger) handlers.Handler {
 	return &functionsHandler{
-		handlerConfig:   cfg,
-		donConfig:       donConfig,
-		don:             don,
-		pendingRequests: pendingRequestsCache,
-		allowlist:       allowlist,
-		subscriptions:   subscriptions,
-		minimumBalance:  minimumBalance,
-		userRateLimiter: userRateLimiter,
-		nodeRateLimiter: nodeRateLimiter,
-		chStop:          make(utils.StopChan),
-		lggr:            lggr,
+		handlerConfig:              cfg,
+		donConfig:                  donConfig,
+		don:                        don,
+		pendingRequests:            pendingRequestsCache,
+		allowlist:                  allowlist,
+		subscriptions:              subscriptions,
+		minimumBalance:             minimumBalance,
+		userRateLimiter:            userRateLimiter,
+		nodeRateLimiter:            nodeRateLimiter,
+		allowedHeartbeatInitiators: allowedHeartbeatInitiators,
+		chStop:                     make(services.StopChan),
+		lggr:                       lggr,
 	}
 }
 
@@ -176,15 +186,29 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 		promHandlerError.WithLabelValues(h.donConfig.DonId, ErrRateLimited.Error()).Inc()
 		return ErrRateLimited
 	}
-	if h.subscriptions != nil && h.minimumBalance != nil {
-		if balance, err := h.subscriptions.GetMaxUserBalance(sender); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
-			h.lggr.Debug("received a message from a user having insufficient balance", "sender", msg.Body.Sender, "balance", balance.String())
+	if msg.Body.Method == MethodSecretsSet && h.subscriptions != nil && h.minimumBalance != nil {
+		balance, err := h.subscriptions.GetMaxUserBalance(sender)
+		if err != nil {
+			h.lggr.Debugw("error getting max user balance", "sender", msg.Body.Sender, "err", err)
+		}
+		if balance == nil {
+			balance = big.NewInt(0)
+		}
+		if err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
+			h.lggr.Debugw("received a message from a user having insufficient balance", "sender", msg.Body.Sender, "balance", balance.String())
 			return fmt.Errorf("sender has insufficient balance: %v juels", balance.String())
 		}
 	}
 	switch msg.Body.Method {
 	case MethodSecretsSet, MethodSecretsList:
-		return h.handleSecretsRequest(ctx, msg, callbackCh)
+		return h.handleRequest(ctx, msg, callbackCh)
+	case MethodHeartbeat:
+		if _, ok := h.allowedHeartbeatInitiators[msg.Body.Sender]; !ok {
+			h.lggr.Debugw("received heartbeat request from a non-allowed sender", "sender", msg.Body.Sender)
+			promHandlerError.WithLabelValues(h.donConfig.DonId, ErrNotAllowlisted.Error()).Inc()
+			return ErrUnsupportedMethod
+		}
+		return h.handleRequest(ctx, msg, callbackCh)
 	default:
 		h.lggr.Debugw("unsupported method", "method", msg.Body.Method)
 		promHandlerError.WithLabelValues(h.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
@@ -192,11 +216,11 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 	}
 }
 
-func (h *functionsHandler) handleSecretsRequest(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
-	h.lggr.Debugw("handleSecretsRequest: processing message", "sender", msg.Body.Sender, "messageId", msg.Body.MessageId)
-	err := h.pendingRequests.NewRequest(msg, callbackCh, &PendingSecretsRequest{request: msg, responses: make(map[string]*api.Message)})
+func (h *functionsHandler) handleRequest(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+	h.lggr.Debugw("handleRequest: processing message", "sender", msg.Body.Sender, "messageId", msg.Body.MessageId)
+	err := h.pendingRequests.NewRequest(msg, callbackCh, &PendingRequest{request: msg, responses: make(map[string]*api.Message)})
 	if err != nil {
-		h.lggr.Warnw("handleSecretsRequest: error adding new request", "sender", msg.Body.Sender, "err", err)
+		h.lggr.Warnw("handleRequest: error adding new request", "sender", msg.Body.Sender, "err", err)
 		promHandlerError.WithLabelValues(h.donConfig.DonId, err.Error()).Inc()
 		return err
 	}
@@ -204,7 +228,7 @@ func (h *functionsHandler) handleSecretsRequest(ctx context.Context, msg *api.Me
 	for _, member := range h.donConfig.Members {
 		err := h.don.SendToNode(ctx, member.Address, msg)
 		if err != nil {
-			h.lggr.Debugw("handleSecretsRequest: failed to send to a node", "node", member.Address, "err", err)
+			h.lggr.Debugw("handleRequest: failed to send to a node", "node", member.Address, "err", err)
 		}
 	}
 	return nil
@@ -219,14 +243,16 @@ func (h *functionsHandler) HandleNodeMessage(ctx context.Context, msg *api.Messa
 	switch msg.Body.Method {
 	case MethodSecretsSet, MethodSecretsList:
 		return h.pendingRequests.ProcessResponse(msg, h.processSecretsResponse)
+	case MethodHeartbeat:
+		return h.pendingRequests.ProcessResponse(msg, h.processHeartbeatResponse)
 	default:
 		h.lggr.Debugw("unsupported method", "method", msg.Body.Method)
 		return ErrUnsupportedMethod
 	}
 }
 
-// Conforms to ResponseProcessor[*PendingSecretsRequest]
-func (h *functionsHandler) processSecretsResponse(response *api.Message, responseData *PendingSecretsRequest) (*handlers.UserCallbackPayload, *PendingSecretsRequest, error) {
+// Conforms to ResponseProcessor[*PendingRequest]
+func (h *functionsHandler) processSecretsResponse(response *api.Message, responseData *PendingRequest) (*handlers.UserCallbackPayload, *PendingRequest, error) {
 	if _, exists := responseData.responses[response.Body.Sender]; exists {
 		return nil, nil, errors.New("duplicate response")
 	}
@@ -234,7 +260,7 @@ func (h *functionsHandler) processSecretsResponse(response *api.Message, respons
 		return nil, responseData, errors.New("invalid method")
 	}
 	responseData.responses[response.Body.Sender] = response
-	var responsePayload SecretsResponseBase
+	var responsePayload ResponseBase
 	err := json.Unmarshal(response.Body.Payload, &responsePayload)
 	if err != nil {
 		responseData.errors = append(responseData.errors, response)
@@ -261,7 +287,7 @@ func (h *functionsHandler) processSecretsResponse(response *api.Message, respons
 }
 
 func newSecretsResponse(request *api.Message, success bool, responses []*api.Message) (*handlers.UserCallbackPayload, error) {
-	payload := CombinedSecretsResponse{SecretsResponseBase: SecretsResponseBase{Success: success}, NodeResponses: responses}
+	payload := CombinedResponse{ResponseBase: ResponseBase{Success: success}, NodeResponses: responses}
 	payloadJson, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -285,6 +311,38 @@ func newSecretsResponse(request *api.Message, success bool, responses []*api.Mes
 	userResponse.Body.Receiver = request.Body.Sender
 	userResponse.Body.Payload = payloadJson
 	return &handlers.UserCallbackPayload{Msg: &userResponse, ErrCode: api.NoError, ErrMsg: ""}, nil
+}
+
+// Conforms to ResponseProcessor[*PendingRequest]
+func (h *functionsHandler) processHeartbeatResponse(response *api.Message, responseData *PendingRequest) (*handlers.UserCallbackPayload, *PendingRequest, error) {
+	if _, exists := responseData.responses[response.Body.Sender]; exists {
+		return nil, nil, errors.New("duplicate response")
+	}
+	if response.Body.Method != responseData.request.Body.Method {
+		return nil, responseData, errors.New("invalid method")
+	}
+	responseData.responses[response.Body.Sender] = response
+
+	// user response is ready with F+1 node responses
+	if len(responseData.responses) >= h.donConfig.F+1 {
+		var responseList []*api.Message
+		for _, response := range responseData.responses {
+			responseList = append(responseList, response)
+		}
+		userResponse := *responseData.request
+		userResponse.Body.Receiver = responseData.request.Body.Sender
+		// success = true only means that we got F+1 responses
+		// it's up to the heartbeat sender to validate computation results
+		payload := CombinedResponse{ResponseBase: ResponseBase{Success: true}, NodeResponses: responseList}
+		payloadJson, err := json.Marshal(payload)
+		if err != nil {
+			return &handlers.UserCallbackPayload{Msg: &userResponse, ErrCode: api.NodeReponseEncodingError, ErrMsg: ""}, nil, nil
+		}
+		userResponse.Body.Payload = payloadJson
+		return &handlers.UserCallbackPayload{Msg: &userResponse, ErrCode: api.NoError, ErrMsg: ""}, nil, nil
+	}
+	// not ready to be processed yet
+	return nil, responseData, nil
 }
 
 func (h *functionsHandler) Start(ctx context.Context) error {

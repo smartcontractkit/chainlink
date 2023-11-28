@@ -66,7 +66,7 @@ func DeployPaymaster(auth *bind.TransactOpts, backend bind.ContractBackend, link
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &Paymaster{PaymasterCaller: PaymasterCaller{contract: contract}, PaymasterTransactor: PaymasterTransactor{contract: contract}, PaymasterFilterer: PaymasterFilterer{contract: contract}}, nil
+	return address, tx, &Paymaster{address: address, abi: *parsed, PaymasterCaller: PaymasterCaller{contract: contract}, PaymasterTransactor: PaymasterTransactor{contract: contract}, PaymasterFilterer: PaymasterFilterer{contract: contract}}, nil
 }
 
 type Paymaster struct {

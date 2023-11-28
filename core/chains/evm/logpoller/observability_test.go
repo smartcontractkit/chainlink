@@ -14,9 +14,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -38,7 +38,7 @@ func TestMultipleMetricsArePublished(t *testing.T) {
 	_, _ = orm.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{{}}, []common.Hash{{}}, 1, pg.WithParentCtx(ctx))
 	_, _ = orm.SelectIndexedLogsCreatedAfter(common.Address{}, common.Hash{}, 1, []common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
 	_ = orm.InsertLogs([]Log{}, pg.WithParentCtx(ctx))
-	_ = orm.InsertBlock(common.Hash{}, 1, time.Now(), 0, pg.WithParentCtx(ctx))
+	_ = orm.InsertLogsWithBlock([]Log{}, NewLogPollerBlock(common.Hash{}, 1, time.Now(), 0), pg.WithParentCtx(ctx))
 
 	require.Equal(t, 13, testutil.CollectAndCount(orm.queryDuration))
 	require.Equal(t, 10, testutil.CollectAndCount(orm.datasetSize))
@@ -97,7 +97,7 @@ func TestMetricsAreProperlyPopulatedForWrites(t *testing.T) {
 }
 
 func createObservedORM(t *testing.T, chainId int64) *ObservedORM {
-	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
 	db := pgtest.NewSqlxDB(t)
 	return NewObservedORM(
 		big.NewInt(chainId), db, lggr, pgtest.NewQConfig(true),
