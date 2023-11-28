@@ -66,7 +66,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
-  AggregatorV3Interface internal immutable i_fastGasFeed;
   Mode internal immutable i_mode;
   address internal immutable i_automationForwarderLogic;
 
@@ -451,19 +450,16 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param mode the contract mode of default, Arbitrum, or Optimism
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
-   * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
     Mode mode,
     address link,
     address linkNativeFeed,
-    address fastGasFeed,
     address automationForwarderLogic
   ) ConfirmedOwner(msg.sender) {
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
-    i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
     i_automationForwarderLogic = automationForwarderLogic;
   }
 

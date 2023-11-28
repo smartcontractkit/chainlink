@@ -29,7 +29,6 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       logicB.getMode(),
       logicB.getLinkAddress(),
       logicB.getLinkNativeFeedAddress(),
-      logicB.getFastGasFeedAddress(),
       logicB.getAutomationForwarderLogic()
     )
     Chainable(address(logicB))
