@@ -822,7 +822,7 @@ func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	})
 }
 
-func TestORM_FindMinUnconfirmedBroadcastTime(t *testing.T) {
+func TestORM_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -833,20 +833,20 @@ func TestORM_FindMinUnconfirmedBroadcastTime(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("no unconfirmed eth txes", func(t *testing.T) {
-		broadcastAt, err := txStore.FindMinUnconfirmedBroadcastTime(testutils.Context(t), ethClient.ConfiguredChainID())
+		broadcastAt, err := txStore.FindEarliestUnconfirmedBroadcastTime(testutils.Context(t), ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.False(t, broadcastAt.Valid)
 	})
 
 	t.Run("verify broadcast time", func(t *testing.T) {
 		tx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, fromAddress)
-		broadcastAt, err := txStore.FindMinUnconfirmedBroadcastTime(testutils.Context(t), ethClient.ConfiguredChainID())
+		broadcastAt, err := txStore.FindEarliestUnconfirmedBroadcastTime(testutils.Context(t), ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.True(t, broadcastAt.Ptr().Equal(*tx.BroadcastAt))
 	})
 }
 
-func TestORM_FindEarliestUnconfirmedTxBlock(t *testing.T) {
+func TestORM_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -858,7 +858,7 @@ func TestORM_FindEarliestUnconfirmedTxBlock(t *testing.T) {
 	_, fromAddress2 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("no earliest unconfirmed tx block", func(t *testing.T) {
-		earliestBlock, err := txStore.FindEarliestUnconfirmedTxBlock(testutils.Context(t), ethClient.ConfiguredChainID())
+		earliestBlock, err := txStore.FindEarliestUnconfirmedTxAttemptBlock(testutils.Context(t), ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.False(t, earliestBlock.Valid)
 	})
@@ -870,39 +870,10 @@ func TestORM_FindEarliestUnconfirmedTxBlock(t *testing.T) {
 		err := txStore.UpdateTxsUnconfirmed(testutils.Context(t), []int64{tx.ID})
 		require.NoError(t, err)
 
-		earliestBlock, err := txStore.FindEarliestUnconfirmedTxBlock(testutils.Context(t), ethClient.ConfiguredChainID())
+		earliestBlock, err := txStore.FindEarliestUnconfirmedTxAttemptBlock(testutils.Context(t), ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.True(t, earliestBlock.Valid)
 		require.Equal(t, blockNum, earliestBlock.Int64)
-	})
-}
-
-func TestORM_GetPipelineRunStats(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
-
-	t.Run("no pipeline run tasks", func(t *testing.T) {
-		taskRunsQueued, runsQueued, err := txStore.GetPipelineRunStats(testutils.Context(t))
-		require.NoError(t, err)
-		require.Equal(t, 0, taskRunsQueued)
-		require.Equal(t, 0, runsQueued)
-	})
-
-	t.Run("queued pipeline run tasks", func(t *testing.T) {
-		pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
-
-		numRuns := int64(5)
-		for id := int64(0); id < numRuns; id++ {
-			cltest.MustInsertUnfinishedPipelineTaskRun(t, db, id)
-		}
-
-		taskRunsQueued, runsQueued, err := txStore.GetPipelineRunStats(testutils.Context(t))
-		require.NoError(t, err)
-		require.Equal(t, int(numRuns), taskRunsQueued)
-		require.Equal(t, int(numRuns), runsQueued)
 	})
 }
 
@@ -1495,7 +1466,7 @@ func TestORM_CountUnconfirmedTransactions(t *testing.T) {
 	assert.Equal(t, int(count), 3)
 }
 
-func TestORM_CountAllUnconfirmedTransactions(t *testing.T) {
+func TestORM_CountTransactionsByState(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1511,7 +1482,7 @@ func TestORM_CountAllUnconfirmedTransactions(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress2)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress3)
 
-	count, err := txStore.CountAllUnconfirmedTransactions(testutils.Context(t), &cltest.FixtureChainID)
+	count, err := txStore.CountTransactionsByState(testutils.Context(t), txmgrcommon.TxUnconfirmed, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 3)
 }

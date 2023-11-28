@@ -2,11 +2,14 @@ package promreporter
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
 	"github.com/pkg/errors"
@@ -24,7 +27,8 @@ import (
 type (
 	promReporter struct {
 		services.StateMachine
-		txStore      txmgr.TxStore
+		db           *sql.DB
+		chains       evm.LegacyChainContainer
 		lggr         logger.Logger
 		backend      PrometheusBackend
 		newHeads     *utils.Mailbox[*evmtypes.Head]
@@ -87,7 +91,7 @@ func (defaultBackend) SetPipelineTaskRunsQueued(n int) {
 	promPipelineRunsQueued.Set(float64(n))
 }
 
-func NewPromReporter(txStore txmgr.TxStore, lggr logger.Logger, opts ...interface{}) *promReporter {
+func NewPromReporter(db *sql.DB, chainContainer evm.LegacyChainContainer, lggr logger.Logger, opts ...interface{}) *promReporter {
 	var backend PrometheusBackend = defaultBackend{}
 	period := 15 * time.Second
 	for _, opt := range opts {
@@ -101,7 +105,8 @@ func NewPromReporter(txStore txmgr.TxStore, lggr logger.Logger, opts ...interfac
 
 	chStop := make(chan struct{})
 	return &promReporter{
-		txStore:      txStore,
+		db:           db,
+		chains:       chainContainer,
 		lggr:         lggr.Named("PromReporter"),
 		backend:      backend,
 		newHeads:     utils.NewSingleMailbox[*evmtypes.Head](),
@@ -162,6 +167,14 @@ func (pr *promReporter) eventLoop() {
 	}
 }
 
+func (pr *promReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, error) {
+	chain, err := pr.chains.Get(evmChainID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain: %w", err)
+	}
+	return chain.TxManager(), nil
+}
+
 func (pr *promReporter) reportHeadMetrics(ctx context.Context, head *evmtypes.Head) {
 	evmChainID := head.EVMChainID.ToInt()
 	err := multierr.Combine(
@@ -176,7 +189,12 @@ func (pr *promReporter) reportHeadMetrics(ctx context.Context, head *evmtypes.He
 }
 
 func (pr *promReporter) reportPendingEthTxes(ctx context.Context, evmChainID *big.Int) (err error) {
-	unconfirmed, err := pr.txStore.CountAllUnconfirmedTransactions(ctx, evmChainID)
+	txm, err := pr.getTxm(evmChainID)
+	if err != nil {
+		return fmt.Errorf("failed to get txm: %w", err)
+	}
+
+	unconfirmed, err := txm.CountTransactionsByState(ctx, txmgrcommon.TxUnconfirmed, evmChainID)
 	if err != nil {
 		return fmt.Errorf("failed to query for unconfirmed eth_tx count: %w", err)
 	}
@@ -185,23 +203,31 @@ func (pr *promReporter) reportPendingEthTxes(ctx context.Context, evmChainID *bi
 }
 
 func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context, evmChainID *big.Int) (err error) {
-	now := time.Now()
-	broadcastAt, err := pr.txStore.FindMinUnconfirmedBroadcastTime(ctx, evmChainID)
+	txm, err := pr.getTxm(evmChainID)
+	if err != nil {
+		return fmt.Errorf("failed to get txm: %w", err)
+	}
+
+	broadcastAt, err := txm.FindEarliestUnconfirmedBroadcastTime(ctx, evmChainID)
 	if err != nil {
 		return fmt.Errorf("failed to query for min broadcast time: %w", err)
 	}
 
 	var seconds float64
 	if broadcastAt.Valid {
-		nanos := now.Sub(broadcastAt.ValueOrZero())
-		seconds = float64(nanos) / 1000000000
+		seconds = time.Since(broadcastAt.ValueOrZero()).Seconds()
 	}
 	pr.backend.SetMaxUnconfirmedAge(evmChainID, seconds)
 	return nil
 }
 
 func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head *evmtypes.Head) (err error) {
-	earliestUnconfirmedTxBlock, err := pr.txStore.FindEarliestUnconfirmedTxBlock(ctx, head.EVMChainID.ToInt())
+	txm, err := pr.getTxm(head.EVMChainID.ToInt())
+	if err != nil {
+		return fmt.Errorf("failed to get txm: %w", err)
+	}
+
+	earliestUnconfirmedTxBlock, err := txm.FindEarliestUnconfirmedTxAttemptBlock(ctx, head.EVMChainID.ToInt())
 	if err != nil {
 		return fmt.Errorf("failed to query for earliest unconfirmed tx block: %w", err)
 	}
@@ -215,10 +241,30 @@ func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head *ev
 }
 
 func (pr *promReporter) reportPipelineRunStats(ctx context.Context) (err error) {
-	pipelineTaskRunsQueued, pipelineRunsQueued, err := pr.txStore.GetPipelineRunStats(ctx)
+	rows, err := pr.db.QueryContext(ctx, `
+SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL
+`)
 	if err != nil {
-		return fmt.Errorf("failed to query for pipeline run stats: %w", err)
+		return errors.Wrap(err, "failed to query for pipeline_run_id")
 	}
+	defer func() {
+		err = multierr.Combine(err, rows.Close())
+	}()
+
+	pipelineTaskRunsQueued := 0
+	pipelineRunsQueuedSet := make(map[int32]struct{})
+	for rows.Next() {
+		var pipelineRunID int32
+		if err = rows.Scan(&pipelineRunID); err != nil {
+			return errors.Wrap(err, "unexpected error scanning row")
+		}
+		pipelineTaskRunsQueued++
+		pipelineRunsQueuedSet[pipelineRunID] = struct{}{}
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	pipelineRunsQueued := len(pipelineRunsQueuedSet)
 
 	pr.backend.SetPipelineTaskRunsQueued(pipelineTaskRunsQueued)
 	pr.backend.SetPipelineRunsQueued(pipelineRunsQueued)

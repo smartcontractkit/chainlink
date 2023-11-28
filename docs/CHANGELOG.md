@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `PromReporter` no longer reads directly from the db, and instead uses the txStore API.
+- `PromReporter` no longer directly reads txm related status from the db, and instead uses the txStore API.
 - `L2Suggested` mode is now called `SuggestedPrice`
 
 ### Removed

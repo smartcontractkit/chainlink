@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/multierr"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
@@ -1109,7 +1107,7 @@ ORDER BY nonce ASC
 	return etxs, pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
 }
 
-func (o *evmTxStore) FindMinUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (broadcastAt nullv4.Time, err error) {
+func (o *evmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (broadcastAt nullv4.Time, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1123,7 +1121,7 @@ func (o *evmTxStore) FindMinUnconfirmedBroadcastTime(ctx context.Context, chainI
 	return broadcastAt, err
 }
 
-func (o *evmTxStore) FindEarliestUnconfirmedTxBlock(ctx context.Context, chainID *big.Int) (earliestUnconfirmedTxBlock nullv4.Int, err error) {
+func (o *evmTxStore) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID *big.Int) (earliestUnconfirmedTxBlock nullv4.Int, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1140,44 +1138,6 @@ AND evm_chain_id = $1`, chainID.String()).Scan(&earliestUnconfirmedTxBlock)
 		return nil
 	}, pg.OptReadOnlyTx())
 	return earliestUnconfirmedTxBlock, err
-}
-
-func (o *evmTxStore) GetPipelineRunStats(ctx context.Context) (taskRunsQueued int, runsQueued int, err error) {
-	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
-	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	var rows *sql.Rows
-	err = qq.Transaction(func(tx pg.Queryer) error {
-		rows, err = qq.QueryContext(ctx, `SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL`)
-		if err != nil {
-			return fmt.Errorf("failed to query for pipeline_run_id: %w", err)
-		}
-		if rows.Err() != nil {
-			return fmt.Errorf("failed to query for pipeline_run_id: %w", rows.Err())
-		}
-		return nil
-	}, pg.OptReadOnlyTx())
-
-	defer func() {
-		err = multierr.Combine(err, rows.Close())
-	}()
-
-	taskRunsQueued = 0
-	pipelineRunsQueuedSet := make(map[int32]struct{})
-	for rows.Next() {
-		var pipelineRunID int32
-		if err = rows.Scan(&pipelineRunID); err != nil {
-			return 0, 0, fmt.Errorf("unexpected error scanning row: %w", err)
-		}
-		taskRunsQueued++
-		pipelineRunsQueuedSet[pipelineRunID] = struct{}{}
-	}
-	if err = rows.Err(); err != nil {
-		return 0, 0, err
-	}
-	runsQueued = len(pipelineRunsQueuedSet)
-	return taskRunsQueued, runsQueued, err
 }
 
 func saveAttemptWithNewState(ctx context.Context, q pg.Queryer, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
@@ -1712,16 +1672,16 @@ func (o *evmTxStore) CountUnconfirmedTransactions(ctx context.Context, fromAddre
 	return o.countTransactionsWithState(ctx, fromAddress, txmgr.TxUnconfirmed, chainID)
 }
 
-// CountAllUnconfirmedTransactions returns the number of unconfirmed transactions for all fromAddresses
-func (o *evmTxStore) CountAllUnconfirmedTransactions(ctx context.Context, chainID *big.Int) (count uint32, err error) {
+// CountTransactionsByState returns the number of transactions with any fromAddress in the given state
+func (o *evmTxStore) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID *big.Int) (count uint32, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Get(&count, `SELECT count(*) FROM evm.txes WHERE state = $1 AND evm_chain_id = $2`,
-		txmgr.TxUnconfirmed, chainID.String())
+		state, chainID.String())
 	if err != nil {
-		return 0, fmt.Errorf("failed to CountAllUnconfirmedTransactions: %w", err)
+		return 0, fmt.Errorf("failed to CountTransactionsByState: %w", err)
 	}
 	return count, nil
 }

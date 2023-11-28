@@ -58,23 +58,23 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() {
 	_m.Called()
 }
 
-// CountAllUnconfirmedTransactions provides a mock function with given fields: ctx, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountAllUnconfirmedTransactions(ctx context.Context, chainID CHAIN_ID) (uint32, error) {
-	ret := _m.Called(ctx, chainID)
+// CountTransactionsByState provides a mock function with given fields: ctx, state, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) (uint32, error) {
+	ret := _m.Called(ctx, state, chainID)
 
 	var r0 uint32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) (uint32, error)); ok {
-		return rf(ctx, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.TxState, CHAIN_ID) (uint32, error)); ok {
+		return rf(ctx, state, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) uint32); ok {
-		r0 = rf(ctx, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.TxState, CHAIN_ID) uint32); ok {
+		r0 = rf(ctx, state, chainID)
 	} else {
 		r0 = ret.Get(0).(uint32)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID) error); ok {
-		r1 = rf(ctx, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, txmgrtypes.TxState, CHAIN_ID) error); ok {
+		r1 = rf(ctx, state, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -168,8 +168,32 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DeleteInPro
 	return r0
 }
 
-// FindEarliestUnconfirmedTxBlock provides a mock function with given fields: ctx, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEarliestUnconfirmedTxBlock(ctx context.Context, chainID CHAIN_ID) (null.Int, error) {
+// FindEarliestUnconfirmedBroadcastTime provides a mock function with given fields: ctx, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID CHAIN_ID) (null.Time, error) {
+	ret := _m.Called(ctx, chainID)
+
+	var r0 null.Time
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) (null.Time, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) null.Time); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Get(0).(null.Time)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindEarliestUnconfirmedTxAttemptBlock provides a mock function with given fields: ctx, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID CHAIN_ID) (null.Int, error) {
 	ret := _m.Called(ctx, chainID)
 
 	var r0 null.Int
@@ -209,30 +233,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestS
 
 	if rf, ok := ret.Get(1).(func(context.Context, ADDR, CHAIN_ID) error); ok {
 		r1 = rf(ctx, fromAddress, chainId)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FindMinUnconfirmedBroadcastTime provides a mock function with given fields: ctx, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindMinUnconfirmedBroadcastTime(ctx context.Context, chainID CHAIN_ID) (null.Time, error) {
-	ret := _m.Called(ctx, chainID)
-
-	var r0 null.Time
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) (null.Time, error)); ok {
-		return rf(ctx, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) null.Time); ok {
-		r0 = rf(ctx, chainID)
-	} else {
-		r0 = ret.Get(0).(null.Time)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID) error); ok {
-		r1 = rf(ctx, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -616,37 +616,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetInProgre
 	}
 
 	return r0, r1
-}
-
-// GetPipelineRunStats provides a mock function with given fields: ctx
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetPipelineRunStats(ctx context.Context) (int, int, error) {
-	ret := _m.Called(ctx)
-
-	var r0 int
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int, int, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) int); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
-		r2 = rf(ctx)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
 }
 
 // GetTxInProgress provides a mock function with given fields: ctx, fromAddress

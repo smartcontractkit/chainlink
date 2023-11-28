@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	nullv4 "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -55,6 +55,9 @@ type TxManager[
 	FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	// Find transactions loaded with transaction attempts and receipts by transaction IDs and states
 	FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
+	FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID CHAIN_ID) (nullv4.Time, error)
+	FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID CHAIN_ID) (nullv4.Int, error)
+	CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) (count uint32, err error)
 }
 
 type reset struct {
@@ -558,6 +561,18 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWi
 	return
 }
 
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID CHAIN_ID) (nullv4.Time, error) {
+	return b.txStore.FindEarliestUnconfirmedBroadcastTime(ctx, chainID)
+}
+
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID CHAIN_ID) (nullv4.Int, error) {
+	return b.txStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, chainID)
+}
+
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) (count uint32, err error) {
+	return b.txStore.CountTransactionsByState(ctx, state, chainID)
+}
+
 type NullTxManager[
 	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
@@ -623,4 +638,16 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Fin
 }
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	return txes, errors.New(n.ErrMsg)
+}
+
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID CHAIN_ID) (nullv4.Time, error) {
+	return nullv4.Time{}, errors.New(n.ErrMsg)
+}
+
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID CHAIN_ID) (nullv4.Int, error) {
+	return nullv4.Int{}, errors.New(n.ErrMsg)
+}
+
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) (count uint32, err error) {
+	return count, errors.New(n.ErrMsg)
 }

@@ -244,6 +244,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		return nil, fmt.Errorf("no evm chains found")
 	}
 
+	srvcs = append(srvcs, eventBroadcaster, mailMon)
+	srvcs = append(srvcs, relayerChainInterops.Services()...)
+	promReporter := promreporter.NewPromReporter(db.DB, legacyEVMChains, globalLogger)
+	srvcs = append(srvcs, promReporter)
+
+	// Initialize Local Users ORM and Authentication Provider specified in config
+	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
+	localAdminUsersORM := localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
@@ -252,15 +261,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
 	)
-
-	srvcs = append(srvcs, eventBroadcaster, mailMon)
-	srvcs = append(srvcs, relayerChainInterops.Services()...)
-	promReporter := promreporter.NewPromReporter(txmORM, globalLogger)
-	srvcs = append(srvcs, promReporter)
-
-	// Initialize Local Users ORM and Authentication Provider specified in config
-	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
-	localAdminUsersORM := localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 
 	// Initialize Sessions ORM based on environment configured authenticator
 	// localDB auth or remote LDAP auth
