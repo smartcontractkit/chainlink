@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -27,6 +28,12 @@ type configOverriderUni struct {
 	contractAddress ethkey.EIP55Address
 }
 
+type deltaCConfig struct{}
+
+func (d deltaCConfig) DeltaCOverride() time.Duration { return time.Hour * 24 * 7 }
+
+func (d deltaCConfig) DeltaCJitterOverride() time.Duration { return time.Hour }
+
 func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsContract *mocks.Flags) (uni configOverriderUni) {
 	var testLogger = logger.TestLogger(t)
 	contractAddress := cltest.NewEIP55Address()
@@ -35,6 +42,7 @@ func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsCont
 	var err error
 	uni.overrider, err = ocr.NewConfigOverriderImpl(
 		testLogger,
+		deltaCConfig{},
 		contractAddress,
 		flags,
 		pollITicker,
@@ -141,6 +149,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 		flags := &ocr.ContractFlags{FlagsInterface: nil}
 		_, err := ocr.NewConfigOverriderImpl(
 			testLogger,
+			deltaCConfig{},
 			contractAddress,
 			flags,
 			nil,
@@ -160,18 +169,18 @@ func Test_OCRConfigOverrider(t *testing.T) {
 		address2, err := ethkey.NewEIP55Address(common.BigToAddress(big.NewInt(1234567890)).Hex())
 		require.NoError(t, err)
 
-		overrider1a, err := ocr.NewConfigOverriderImpl(testLogger, address1, flags, nil)
+		overrider1a, err := ocr.NewConfigOverriderImpl(testLogger, deltaCConfig{}, address1, flags, nil)
 		require.NoError(t, err)
 
-		overrider1b, err := ocr.NewConfigOverriderImpl(testLogger, address1, flags, nil)
+		overrider1b, err := ocr.NewConfigOverriderImpl(testLogger, deltaCConfig{}, address1, flags, nil)
 		require.NoError(t, err)
 
-		overrider2, err := ocr.NewConfigOverriderImpl(testLogger, address2, flags, nil)
+		overrider2, err := ocr.NewConfigOverriderImpl(testLogger, deltaCConfig{}, address2, flags, nil)
 		require.NoError(t, err)
 
-		require.Equal(t, overrider1a.DeltaCFromAddress, time.Duration(85600000000000))
-		require.Equal(t, overrider1b.DeltaCFromAddress, time.Duration(85600000000000))
-		require.Equal(t, overrider2.DeltaCFromAddress, time.Duration(84690000000000))
+		assert.Equal(t, cltest.MustParseDuration(t, "168h46m40s"), overrider1a.DeltaCFromAddress)
+		assert.Equal(t, cltest.MustParseDuration(t, "168h46m40s"), overrider1b.DeltaCFromAddress)
+		assert.Equal(t, cltest.MustParseDuration(t, "168h31m30s"), overrider2.DeltaCFromAddress)
 	})
 }
 
