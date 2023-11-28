@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // NonceSyncer manages the delicate task of syncing the local nonce with the
@@ -61,7 +61,7 @@ func NewNonceSyncer(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
 ) NonceSyncer {
-	lggr = lggr.Named("NonceSyncer")
+	lggr = logger.Named(lggr, "NonceSyncer")
 	return &nonceSyncerImpl{
 		txStore: txStore,
 		client:  NewEvmTxmClient(ethClient),
