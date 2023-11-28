@@ -274,7 +274,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			effectiveTransmitterAddress,
 		)
 
-		runResults := make(chan *pipeline.Run, chain.Config().JobPipeline().ResultWriteQueueDepth())
+		saver := ocrcommon.NewResultRunSaver(
+			d.pipelineRunner,
+			lggr,
+			cfg.JobPipeline().MaxSuccessfulRuns(),
+			cfg.JobPipeline().ResultWriteQueueDepth(),
+		)
 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)
@@ -311,7 +316,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 				jb,
 				*jb.PipelineSpec,
 				lggr,
-				runResults,
+				saver,
 				enhancedTelemChan,
 			),
 			LocalConfig:                  lc,
@@ -334,13 +339,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		// RunResultSaver needs to be started first so its available
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
-		services = append([]job.ServiceCtx{ocrcommon.NewResultRunSaver(
-			runResults,
-			d.pipelineRunner,
-			make(chan struct{}),
-			lggr,
-			cfg.JobPipeline().MaxSuccessfulRuns(),
-		)}, services...)
+		services = append([]job.ServiceCtx{saver}, services...)
 	}
 
 	return services, nil

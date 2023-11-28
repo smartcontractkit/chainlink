@@ -425,24 +425,22 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	spec.CaptureEATelemetry = d.cfg.OCR2().CaptureEATelemetry()
 
-	runResults := make(chan *pipeline.Run, d.cfg.JobPipeline().ResultWriteQueueDepth())
-
 	ctx := lggrCtx.ContextWithValues(context.Background())
 	switch spec.PluginType {
 	case types.Mercury:
-		return d.newServicesMercury(ctx, lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesMercury(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case types.Median:
-		return d.newServicesMedian(ctx, lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesMedian(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case types.DKG:
 		return d.newServicesDKG(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case types.OCR2VRF:
-		return d.newServicesOCR2VRF(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc)
+		return d.newServicesOCR2VRF(lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.OCR2Keeper:
-		return d.newServicesOCR2Keepers(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesOCR2Keepers(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case types.Functions:
 		const (
@@ -452,7 +450,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		)
 		thresholdPluginDB := NewDB(d.db, spec.ID, thresholdPluginId, lggr, d.cfg.Database())
 		s4PluginDB := NewDB(d.db, spec.ID, s4PluginId, lggr, d.cfg.Database())
-		return d.newServicesOCR2Functions(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
+		return d.newServicesOCR2Functions(lggr, jb, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
 
 	case types.GenericPlugin:
 		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
@@ -642,7 +640,6 @@ func (d *Delegate) newServicesMercury(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -710,7 +707,7 @@ func (d *Delegate) newServicesMercury(
 
 	chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
 
-	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
+	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("EnhancedTelemetryMercury"))
@@ -726,7 +723,6 @@ func (d *Delegate) newServicesMedian(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -752,14 +748,18 @@ func (d *Delegate) newServicesMedian(
 	}
 	errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
 	enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
-	mConfig := median.NewMedianConfig(d.cfg.JobPipeline().MaxSuccessfulRuns(), d.cfg)
+	mConfig := median.NewMedianConfig(
+		d.cfg.JobPipeline().MaxSuccessfulRuns(),
+		d.cfg.JobPipeline().ResultWriteQueueDepth(),
+		d.cfg,
+	)
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
 	}
 
-	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
+	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
@@ -842,7 +842,6 @@ func (d *Delegate) newServicesDKG(
 func (d *Delegate) newServicesOCR2VRF(
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -1009,28 +1008,16 @@ func (d *Delegate) newServicesOCR2VRF(
 		return nil, errors.Wrap(err2, "new ocr2vrf")
 	}
 
-	// RunResultSaver needs to be started first, so it's available
-	// to read odb writes. It is stopped last after the OraclePlugin is shut down
-	// so no further runs are enqueued, and we can drain the queue.
-	runResultSaver := ocrcommon.NewResultRunSaver(
-		runResults,
-		d.pipelineRunner,
-		make(chan struct{}),
-		lggr,
-		d.cfg.JobPipeline().MaxSuccessfulRuns(),
-	)
-
 	// NOTE: we return from here with the services because the OCR2VRF oracles are defined
 	// and exported from the ocr2vrf library. It takes care of running the DKG and OCR2VRF
 	// oracles under the hood together.
 	oracleCtx := job.NewServiceAdapter(oracles)
-	return []job.ServiceCtx{runResultSaver, vrfProvider, dkgProvider, oracleCtx}, nil
+	return []job.ServiceCtx{vrfProvider, dkgProvider, oracleCtx}, nil
 }
 
 func (d *Delegate) newServicesOCR2Keepers(
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -1049,18 +1036,17 @@ func (d *Delegate) newServicesOCR2Keepers(
 
 	switch cfg.ContractVersion {
 	case "v2.1":
-		return d.newServicesOCR2Keepers21(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers21(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	case "v2.0":
-		return d.newServicesOCR2Keepers20(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	default:
-		return d.newServicesOCR2Keepers20(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	}
 }
 
 func (d *Delegate) newServicesOCR2Keepers21(
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -1152,19 +1138,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 	}
 
-	// RunResultSaver needs to be started first, so it's available
-	// to read odb writes. It is stopped last after the OraclePlugin is shut down
-	// so no further runs are enqueued, and we can drain the queue.
-	runResultSaver := ocrcommon.NewResultRunSaver(
-		runResults,
-		d.pipelineRunner,
-		make(chan struct{}),
-		lggr,
-		d.cfg.JobPipeline().MaxSuccessfulRuns(),
-	)
-
 	automationServices := []job.ServiceCtx{
-		runResultSaver,
 		keeperProvider,
 		services.Registry(),
 		services.BlockSubscriber(),
@@ -1196,7 +1170,6 @@ func (d *Delegate) newServicesOCR2Keepers21(
 func (d *Delegate) newServicesOCR2Keepers20(
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -1306,20 +1279,8 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 	}
 
-	// RunResultSaver needs to be started first, so it's available
-	// to read odb writes. It is stopped last after the OraclePlugin is shut down
-	// so no further runs are enqueued, and we can drain the queue.
-	runResultSaver := ocrcommon.NewResultRunSaver(
-		runResults,
-		d.pipelineRunner,
-		make(chan struct{}),
-		lggr,
-		d.cfg.JobPipeline().MaxSuccessfulRuns(),
-	)
-
 	return []job.ServiceCtx{
 		job.NewServiceAdapter(runr),
-		runResultSaver,
 		keeperProvider,
 		rgstry,
 		logProvider,
@@ -1330,7 +1291,6 @@ func (d *Delegate) newServicesOCR2Keepers20(
 func (d *Delegate) newServicesOCR2Functions(
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	functionsOcrDB *db,
@@ -1470,18 +1430,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 	}
 
-	// RunResultSaver needs to be started first, so it's available
-	// to read odb writes. It is stopped last after the OraclePlugin is shut down
-	// so no further runs are enqueued, and we can drain the queue.
-	runResultSaver := ocrcommon.NewResultRunSaver(
-		runResults,
-		d.pipelineRunner,
-		make(chan struct{}),
-		lggr,
-		d.cfg.JobPipeline().MaxSuccessfulRuns(),
-	)
-
-	return append([]job.ServiceCtx{runResultSaver, functionsProvider, thresholdProvider, s4Provider}, functionsServices...), nil
+	return append([]job.ServiceCtx{functionsProvider, thresholdProvider, s4Provider}, functionsServices...), nil
 }
 
 // errorLog implements [loop.ErrorLog]
