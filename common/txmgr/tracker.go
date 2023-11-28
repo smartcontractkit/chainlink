@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -81,7 +81,7 @@ func NewTracker[
 		txStore:      txStore,
 		keyStore:     keyStore,
 		chainID:      chainID,
-		lggr:         lggr.Named("Tracker"),
+		lggr:         logger.Named(lggr, "TxMgrTracker"),
 		enabledAddrs: map[ADDR]bool{},
 		txCache:      map[int64]AbandonedTx[ADDR]{},
 		ttl:          defaultTTL,
@@ -110,13 +110,13 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 		return fmt.Errorf("failed to track abandoned txes: %w", err)
 	}
 
+	tr.isStarted = true
 	if len(tr.txCache) == 0 {
 		tr.lggr.Infow("no abandoned txes found, skipping runLoop")
 		return nil
 	}
 	tr.wg.Add(1)
 	go tr.runLoop()
-	tr.isStarted = true
 	return nil
 }
 
