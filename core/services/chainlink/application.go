@@ -48,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -160,6 +161,7 @@ type ApplicationOpts struct {
 	SecretGenerator            SecretGenerator
 	LoopRegistry               *plugins.LoopRegistry
 	GRPCOpts                   loop.GRPCOpts
+	MercuryPool                wsrpc.Pool
 }
 
 // NewApplication initializes a new store if one is not already
@@ -235,6 +237,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set Database.Backup.Mode=lite or Database.Backup.Mode=full")
 	}
+
+	srvcs = append(srvcs, eventBroadcaster, mailMon)
+	srvcs = append(srvcs, relayerChainInterops.Services()...)
+	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
+	srvcs = append(srvcs, promReporter)
+
+	// pool must be started before all relayers and stopped after them
+	srvcs = append(srvcs, opts.MercuryPool)
 
 	// EVM chains are used all over the place. This will need to change for fully EVM extraction
 	// TODO: BCF-2510, BCF-2511
@@ -457,6 +467,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	for _, s := range srvcs {
+		if s == nil {
+			panic("service unexpectedly nil")
+		}
 		if err := healthChecker.Register(s); err != nil {
 			return nil, err
 		}

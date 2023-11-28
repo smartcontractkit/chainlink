@@ -296,6 +296,12 @@ SamplingRatio = 0.0
 Mode = 'unencrypted'
 TLSCertPath = 'something'
 
+[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1s'
+MaxStaleAge = '1h0m0s'
+LatestReportDeadline = '5s'
+
 # Configuration warning:
 3 errors:
 	- P2P.V1: is deprecated and will be removed in a future version

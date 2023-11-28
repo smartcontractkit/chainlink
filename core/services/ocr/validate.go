@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -37,7 +37,7 @@ type insecureConfig interface {
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(legacyChains evm.LegacyChainContainer, tomlString string) (job.Job, error) {
+func ValidatedOracleSpecToml(legacyChains legacyevm.LegacyChainContainer, tomlString string) (job.Job, error) {
 	return ValidatedOracleSpecTomlCfg(func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
 		c, err := legacyChains.Get(id.String())
 		if err != nil {

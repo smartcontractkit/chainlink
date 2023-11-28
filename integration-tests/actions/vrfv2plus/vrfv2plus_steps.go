@@ -136,6 +136,7 @@ func CreateVRFV2PlusJob(
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 		BatchFulfillmentEnabled:  false,
+		PollPeriod:               time.Second,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2PlusJob, err)
@@ -301,9 +302,10 @@ func SetupVRFV2_5Environment(
 	// [[EVM.KeySpecific]]
 	//	Key = '...'
 	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
+		node.WithLogPollInterval(1*time.Second),
 		node.WithVRFv2EVMEstimator(allNativeTokenKeyAddresses, vrfv2PlusConfig.CLNodeMaxGasPriceGWei),
 	)
-	l.Info().Msg("Restarting Node with new sending key PriceMax configuration")
+	l.Info().Msg("Restarting Node with new sending key PriceMax configuration and log poll period configuration")
 	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrRestartCLNode, err)

@@ -20,6 +20,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -34,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -88,7 +88,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 		}
 	})
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
@@ -265,7 +265,7 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 	var rec received
 	return &simpleLogListener{
 		db:       db,
-		lggr:     logger.TestLogger(t),
+		lggr:     logger.Test(t),
 		cfg:      helper.config.Database(),
 		name:     name,
 		received: &rec,
@@ -281,7 +281,7 @@ func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
 func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
 	listener.received.Lock()
 	defer listener.received.Unlock()
-	listener.lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+	logger.Tracef(listener.lggr, "Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)

@@ -67,7 +67,7 @@ func CreateAndStartBHSJob(
 		TrustedBlockhashStoreAddress:   trustedBlockhashStoreAddress,
 		TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
 		PollPeriod:                     time.Second,
-		RunTimeout:                     100 * time.Millisecond,
+		RunTimeout:                     10 * time.Second,
 		EVMChainID:                     1337,
 		FromAddresses:                  fromAddresses,
 	})
