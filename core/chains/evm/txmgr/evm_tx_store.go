@@ -18,16 +18,16 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	nullv4 "gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -171,14 +171,14 @@ type DbEthTx struct {
 	// Marshalled EvmTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
-	Meta              *datatypes.JSON
+	Meta              *sqlutil.JSON
 	Subject           uuid.NullUUID
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  null.Uint32
 	EVMChainID        utils.Big
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
-	TransmitChecker    *datatypes.JSON
+	TransmitChecker    *sqlutil.JSON
 	InitialBroadcastAt *time.Time
 	// Marks tx requiring callback
 	SignalCallback bool
@@ -333,7 +333,7 @@ func NewTxStore(
 	lggr logger.Logger,
 	cfg pg.QConfig,
 ) *evmTxStore {
-	namedLogger := lggr.Named("TxmStore")
+	namedLogger := logger.Named(lggr, "TxmStore")
 	ctx, cancel := context.WithCancel(context.Background())
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
 	return &evmTxStore{
@@ -1371,7 +1371,7 @@ GROUP BY e.id
 				txHashesHex[i] = common.BytesToAddress(r.TxHashes[i])
 			}
 
-			o.logger.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+			logger.Criticalw(o.logger, fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
 				"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
 				"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
 				"an external wallet has been used to send a transaction from account %s with nonce %v."+
@@ -1451,7 +1451,6 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 }
 
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
-// One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
 func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)

@@ -238,10 +238,18 @@ Enabled = false
 CollectorTarget = 'localhost:4317'
 NodeID = 'NodeID'
 SamplingRatio = 1.0
+Mode = 'tls'
+TLSCertPath = '/path/to/cert.pem'
 
 [Tracing.Attributes]
 env = 'dev'
 test = 'load'
+
+[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1m40s'
+MaxStaleAge = '1m41s'
+LatestReportDeadline = '1m42s'
 
 [[EVM]]
 ChainID = '1'

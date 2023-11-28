@@ -3,7 +3,6 @@ package v2
 import (
 	"encoding/json"
 	"math/big"
-	"sync"
 	"testing"
 	"time"
 
@@ -12,23 +11,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -49,7 +44,7 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 	return txm
 }
 
-func MakeTestListenerV2(chain evm.Chain) *listenerV2 {
+func MakeTestListenerV2(chain legacyevm.Chain) *listenerV2 {
 	return &listenerV2{chainID: chain.Client().ConfiguredChainID(), chain: chain}
 }
 
@@ -77,7 +72,7 @@ func addEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.Address, s
 		RequestTxHash: &reqTxHash,
 	})
 	require.NoError(t, err)
-	meta := datatypes.JSON(b)
+	meta := sqlutil.JSON(b)
 	tx := &txmgr.Tx{
 		FromAddress:       from,
 		ToAddress:         from,
@@ -103,7 +98,7 @@ func addConfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.A
 		GlobalSubID: txMetaGlobalSubID,
 	})
 	require.NoError(t, err)
-	meta := datatypes.JSON(b)
+	meta := sqlutil.JSON(b)
 	now := time.Now()
 
 	tx := &txmgr.Tx{
@@ -135,7 +130,7 @@ func addEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, from comm
 		RequestTxHash: &reqTxHash,
 	})
 	require.NoError(t, err)
-	meta := datatypes.JSON(b)
+	meta := sqlutil.JSON(b)
 	tx := &txmgr.Tx{
 		FromAddress:       from,
 		ToAddress:         from,
@@ -161,7 +156,7 @@ func addConfirmedEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, 
 		GlobalSubID: txMetaGlobalSubID,
 	})
 	require.NoError(t, err)
-	meta := datatypes.JSON(b)
+	meta := sqlutil.JSON(b)
 	now := time.Now()
 	tx := &txmgr.Tx{
 		Sequence:           &nonce,
@@ -501,78 +496,4 @@ func TestListener_Backoff(t *testing.T) {
 			require.Equal(t, test.expected, lsn.ready(req, 10))
 		})
 	}
-}
-
-func TestListener_handleLog(tt *testing.T) {
-	lb := mocks.NewBroadcaster(tt)
-	chainID := int64(2)
-	minConfs := uint32(3)
-	blockNumber := uint64(5)
-	requestID := int64(6)
-	tt.Run("v2", func(t *testing.T) {
-		j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-			VRFVersion:          vrfcommon.V2,
-			RequestedConfsDelay: 10,
-			FromAddresses:       []string{"0xF2982b7Ef6E3D8BB738f8Ea20502229781f6Ad97"},
-		}).Toml())
-		require.NoError(t, err)
-		fulfilledLog := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{
-			RequestId: big.NewInt(requestID),
-			Raw:       types.Log{BlockNumber: blockNumber},
-		}
-		log := log.NewLogBroadcast(types.Log{}, *big.NewInt(chainID), &fulfilledLog)
-		lb.On("WasAlreadyConsumed", log).Return(false, nil).Once()
-		lb.On("MarkConsumed", log).Return(nil).Once()
-		defer lb.AssertExpectations(t)
-		chain := evmmocks.NewChain(t)
-		chain.On("LogBroadcaster").Return(lb)
-		listener := &listenerV2{
-			respCount:          map[string]uint64{},
-			job:                j,
-			blockNumberToReqID: pairing.New(),
-			latestHeadMu:       sync.RWMutex{},
-			chain:              chain,
-			l:                  logger.TestLogger(t),
-		}
-		listener.handleLog(log, minConfs)
-		require.Equal(t, listener.respCount[fulfilledLog.RequestId.String()], uint64(1))
-		req, ok := listener.blockNumberToReqID.FindMin().(fulfilledReqV2)
-		require.True(t, ok)
-		require.Equal(t, req.blockNumber, blockNumber)
-		require.Equal(t, req.reqID, "6")
-	})
-
-	tt.Run("v2 plus", func(t *testing.T) {
-		j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-			VRFVersion:          vrfcommon.V2Plus,
-			RequestedConfsDelay: 10,
-			FromAddresses:       []string{"0xF2982b7Ef6E3D8BB738f8Ea20502229781f6Ad97"},
-		}).Toml())
-		require.NoError(t, err)
-		fulfilledLog := vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{
-			RequestId: big.NewInt(requestID),
-			Raw:       types.Log{BlockNumber: blockNumber},
-		}
-		log := log.NewLogBroadcast(types.Log{}, *big.NewInt(chainID), &fulfilledLog)
-		lb.On("WasAlreadyConsumed", log).Return(false, nil).Once()
-		lb.On("MarkConsumed", log).Return(nil).Once()
-		defer lb.AssertExpectations(t)
-		chain := evmmocks.NewChain(t)
-		chain.On("LogBroadcaster").Return(lb)
-		listener := &listenerV2{
-			respCount:          map[string]uint64{},
-			job:                j,
-			blockNumberToReqID: pairing.New(),
-			latestHeadMu:       sync.RWMutex{},
-			chain:              chain,
-			l:                  logger.TestLogger(t),
-		}
-		listener.handleLog(log, minConfs)
-		require.Equal(t, listener.respCount[fulfilledLog.RequestId.String()], uint64(1))
-		req, ok := listener.blockNumberToReqID.FindMin().(fulfilledReqV2)
-		require.True(t, ok)
-		require.Equal(t, req.blockNumber, blockNumber)
-		require.Equal(t, req.reqID, "6")
-	})
-
 }
