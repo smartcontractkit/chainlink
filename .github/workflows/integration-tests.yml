@@ -32,6 +32,9 @@ jobs:
         id: condition-check
         run: |
           echo "Checking event condition..."
+          echo "event-name:$GITHUB_EVENT_NAME"
+          echo "event-path:"
+          cat "$GITHUB_EVENT_PATH"
           SHOULD_ENFORCE="false"
           if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
               event_payload=$(cat $GITHUB_EVENT_PATH)
