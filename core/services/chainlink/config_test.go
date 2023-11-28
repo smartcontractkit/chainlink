@@ -574,6 +574,8 @@ func TestConfig_Marshal(t *testing.T) {
 					ContractConfirmations:              ptr[uint16](11),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
+					DeltaCOverride:                     models.MustNewDuration(time.Hour),
+					DeltaCJitterOverride:               models.MustNewDuration(time.Second),
 					ObservationGracePeriod:             &second,
 				},
 				OCR2: evmcfg.OCR2{
@@ -1019,6 +1021,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
+DeltaCOverride = '1h0m0s'
+DeltaCJitterOverride = '1s'
 ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
