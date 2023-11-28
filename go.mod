@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/v2
 
-go 1.21
+go 1.21.3
 
 require (
 	github.com/Depado/ginprom v1.7.11
@@ -65,9 +65,10 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
-	github.com/smartcontractkit/chainlink-automation v1.0.0-alpha.0.0.20231120164534-d4cab696c459
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231121180428-d7f28e91ccc3
+	github.com/smartcontractkit/chainlink-automation v1.0.1
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231127213516-5b67a57f9248
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231117191236-12eab01a4542
+	github.com/smartcontractkit/chainlink-feeds v0.0.0-20231127231053-2232d3a6766d
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231117191230-aa6640f2edd1
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231117204155-b253a2f56664
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868

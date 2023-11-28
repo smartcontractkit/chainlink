@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -26,7 +26,7 @@ func newTestListener(t *testing.T, jobID int32) testListener {
 }
 
 func newTestRegistrations(t *testing.T) *registrations {
-	return newRegistrations(logger.TestLogger(t), *testutils.FixtureChainID)
+	return newRegistrations(logger.Test(t), *testutils.FixtureChainID)
 }
 
 func newTopic() Topic {

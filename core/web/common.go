@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 var (
@@ -15,7 +15,7 @@ var (
 	ErrMultipleChains = errors.New("more than one chain available, you must specify chain id parameter")
 )
 
-func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain evm.Chain, err error) {
+func getChain(legacyChains legacyevm.LegacyChainContainer, chainIDstr string) (chain legacyevm.Chain, err error) {
 
 	if chainIDstr != "" && chainIDstr != "<nil>" {
 		// evm keys are expected to be parsable as a big int
