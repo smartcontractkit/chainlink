@@ -389,12 +389,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			// be in an Unstarted state here, if execReset exited early.
 			//
 			// In this case, we don't care about stopping them since they are
-			// already "stopped", hence the usage of utils.EnsureClosed.
-			if err := utils.EnsureClosed(b.broadcaster); err != nil {
-				b.logger.Panicw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
+			// already "stopped".
+			err := b.broadcaster.Close()
+			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
+				b.logger.Errorw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
 			}
-			if err := utils.EnsureClosed(b.confirmer); err != nil {
-				b.logger.Panicw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
+			err = b.confirmer.Close()
+			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
+				b.logger.Errorw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
 			}
 			return
 		case <-keysChanged:
