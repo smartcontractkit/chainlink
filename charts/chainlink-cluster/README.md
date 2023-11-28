@@ -126,14 +126,9 @@ export GRAFANA_URL=...
 export GRAFANA_TOKEN=...
 export LOKI_DATA_SOURCE_NAME=Loki
 export PROMETHEUS_DATA_SOURCE_NAME=Thanos
-export DASHBOARD_FOLDER=CLClusterEphemeralDevspace
+export DASHBOARD_FOLDER=CRIB
 export DASHBOARD_NAME=ChainlinkCluster
 
 cd dashboard/cmd && go run dashboard_deploy.go
 ```
-Open Grafana folder `CLClusterEphemeralDevspace` and find dashboard `ChainlinkCluster`
-
-If you'd like to add more metrics or verify that all of them are added you can have the full list using IDE search or `ripgrep`:
-```
-rg -U ".*promauto.*\n.*Name: \"(.*)\"" ../.. > metrics.txt
-```
+Open Grafana folder `CRIB` and find dashboard `ChainlinkCluster`
