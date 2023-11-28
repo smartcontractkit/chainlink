@@ -23,7 +23,7 @@ spec:
         prometheus.io/scrape: 'true'
     spec:
       securityContext:
-        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+        {{- toYaml $.Values.runner.podSecurityContext | nindent 8 }}
       containers:
         - name: runner
           securityContext:

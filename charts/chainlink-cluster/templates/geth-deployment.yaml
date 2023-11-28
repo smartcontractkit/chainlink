@@ -23,7 +23,7 @@ spec:
         configMap:
           name: geth-cm
       securityContext:
-        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+        {{- toYaml $.Values.geth.podSecurityContext | nindent 8 }}
       containers:
       - name: geth-network
         securityContext:
