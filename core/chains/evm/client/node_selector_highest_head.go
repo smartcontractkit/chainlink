@@ -6,6 +6,7 @@ import (
 
 type highestHeadNodeSelector []Node
 
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewHighestHeadNodeSelector]
 func NewHighestHeadNodeSelector(nodes []Node) NodeSelector {
 	return highestHeadNodeSelector(nodes)
 }
