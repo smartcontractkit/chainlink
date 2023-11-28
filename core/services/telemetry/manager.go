@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -140,11 +139,10 @@ func (m *Manager) Name() string {
 }
 
 func (m *Manager) HealthReport() map[string]error {
-	hr := make(map[string]error)
-	hr[m.lggr.Name()] = m.Healthy()
+	hr := map[string]error{m.Name(): m.Healthy()}
+
 	for _, e := range m.endpoints {
-		name := fmt.Sprintf("%s.%s.%s", m.lggr.Name(), e.Network, e.ChainID)
-		hr[name] = e.Healthy()
+		services.CopyHealth(hr, e.client.HealthReport())
 	}
 	return hr
 }
