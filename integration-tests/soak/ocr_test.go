@@ -17,9 +17,7 @@ import (
 func TestOCRSoak(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
-	customNetworkTOML := `[Feature]
-EVMClientV2 = true
-`
+	customNetworkTOML := ``
 	// Uncomment below for debugging TOML issues on the node
 	network := networks.MustGetSelectedNetworksFromEnv()[0]
 	fmt.Println("Using Chainlink TOML\n---------------------")
