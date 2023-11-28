@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -32,6 +33,7 @@ type RelayerFactory struct {
 	logger.Logger
 	*plugins.LoopRegistry
 	loop.GRPCOpts
+	MercuryPool wsrpc.Pool
 }
 
 type EVMFactoryConfig struct {
@@ -68,6 +70,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 			QConfig:          ccOpts.AppConfig.Database(),
 			CSAETHKeystore:   config.CSAETHKeystore,
 			EventBroadcaster: ccOpts.EventBroadcaster,
+			MercuryPool:      r.MercuryPool,
 		}
 		relayer, err2 := evmrelay.NewRelayer(r.Logger.Named("EVM").Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
