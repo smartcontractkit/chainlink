@@ -6,16 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	utilstests "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type HelperProcessCommand test.HelperProcessCommand
@@ -48,8 +45,7 @@ func TestLOOPPService(t *testing.T) {
 			return NewHelperProcessCommand(ts.Plugin)
 		}, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{})
 		hook := looppSvc.XXXTestHook()
-		require.NoError(t, looppSvc.Start(utilstests.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, looppSvc.Close()) })
+		servicetest.Run(t, looppSvc)
 
 		t.Run("control", func(t *testing.T) {
 			test.ReportingPluginFactory(t, looppSvc)
@@ -85,8 +81,7 @@ func TestLOOPPService_recovery(t *testing.T) {
 		}
 		return h.New()
 	}, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{})
-	require.NoError(t, looppSvc.Start(utilstests.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, looppSvc.Close()) })
+	servicetest.Run(t, looppSvc)
 
 	test.ReportingPluginFactory(t, looppSvc)
 }

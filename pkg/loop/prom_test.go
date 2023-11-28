@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -27,18 +28,17 @@ func TestPromServer(t *testing.T) {
 	// check that port is not resolved yet
 	require.Equal(t, -1, s.Port())
 	require.NoError(t, s.Start())
+	t.Cleanup(func() { assert.NoError(t, s.Close()) })
 
 	url := fmt.Sprintf("http://localhost:%d/metrics", s.Port())
 	resp, err := http.Get(url) //nolint
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.NoError(t, err, "endpoint %s", url)
 	require.NotNil(t, resp.Body)
 	b, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Contains(t, string(b), "test_metric")
-	defer resp.Body.Close()
-
-	require.NoError(t, s.Close())
 }
 
 // Port is the resolved port and is only known after Start().

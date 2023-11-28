@@ -6,14 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 )
 
 func TestRelayerService(t *testing.T) {
@@ -22,8 +19,7 @@ func TestRelayerService(t *testing.T) {
 		return NewHelperProcessCommand(loop.PluginRelayerName)
 	}, test.ConfigTOML, test.StaticKeystore{})
 	hook := relayer.XXXTestHook()
-	require.NoError(t, relayer.Start(tests.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, relayer.Close()) })
+	servicetest.Run(t, relayer)
 
 	t.Run("control", func(t *testing.T) {
 		test.RunRelayer(t, relayer)
@@ -58,8 +54,7 @@ func TestRelayerService_recovery(t *testing.T) {
 		}
 		return h.New()
 	}, test.ConfigTOML, test.StaticKeystore{})
-	require.NoError(t, relayer.Start(tests.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, relayer.Close()) })
+	servicetest.Run(t, relayer)
 
 	test.RunRelayer(t, relayer)
 }

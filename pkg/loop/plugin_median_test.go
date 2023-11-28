@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -67,13 +67,11 @@ func newMedianProvider(t *testing.T, pr loop.PluginRelayer) types.MedianProvider
 	ctx := context.Background()
 	r, err := pr.NewRelayer(ctx, test.ConfigTOML, test.StaticKeystore{})
 	require.NoError(t, err)
-	require.NoError(t, r.Start(ctx))
-	t.Cleanup(func() { assert.NoError(t, r.Close()) })
+	servicetest.Run(t, r)
 	p, err := r.NewPluginProvider(ctx, test.RelayArgs, test.PluginArgs)
 	mp, ok := p.(types.MedianProvider)
 	require.True(t, ok)
 	require.NoError(t, err)
-	require.NoError(t, mp.Start(ctx))
-	t.Cleanup(func() { assert.NoError(t, mp.Close()) })
+	servicetest.Run(t, mp)
 	return mp
 }

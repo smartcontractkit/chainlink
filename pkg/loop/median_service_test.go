@@ -6,14 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 )
 
 func TestMedianService(t *testing.T) {
@@ -22,8 +19,7 @@ func TestMedianService(t *testing.T) {
 		return NewHelperProcessCommand(loop.PluginMedianName)
 	}, test.StaticMedianProvider{}, test.StaticDataSource(), test.StaticJuelsPerFeeCoinDataSource(), &test.StaticErrorLog{})
 	hook := median.PluginService.XXXTestHook()
-	require.NoError(t, median.Start(tests.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, median.Close()) })
+	servicetest.Run(t, median)
 
 	t.Run("control", func(t *testing.T) {
 		test.ReportingPluginFactory(t, median)
@@ -58,8 +54,7 @@ func TestMedianService_recovery(t *testing.T) {
 		}
 		return h.New()
 	}, test.StaticMedianProvider{}, test.StaticDataSource(), test.StaticJuelsPerFeeCoinDataSource(), &test.StaticErrorLog{})
-	require.NoError(t, median.Start(tests.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, median.Close()) })
+	servicetest.Run(t, median)
 
 	test.ReportingPluginFactory(t, median)
 }
