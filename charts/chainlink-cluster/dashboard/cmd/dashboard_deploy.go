@@ -1,14 +1,13 @@
 package main
 
 import (
-	"context"
 	"os"
 
 	"github.com/smartcontractkit/chainlink/v2/dashboard/dashboard"
+	"github.com/smartcontractkit/wasp"
 )
 
 func main() {
-	ctx := context.Background()
 	name := os.Getenv("DASHBOARD_NAME")
 	if name == "" {
 		panic("DASHBOARD_NAME must be provided")
@@ -20,6 +19,10 @@ func main() {
 	pdsn := os.Getenv("PROMETHEUS_DATA_SOURCE_NAME")
 	if ldsn == "" {
 		panic("DATA_SOURCE_NAME must be provided")
+	}
+	waspDsn := os.Getenv("DATA_SOURCE_NAME")
+	if waspDsn == "" {
+		panic("DATA_SOURCE_NAME must be provided, should be the same as LOKI_DATA_SOURCE_NAME")
 	}
 	dbf := os.Getenv("DASHBOARD_FOLDER")
 	if dbf == "" {
@@ -38,7 +41,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := db.Deploy(ctx); err != nil {
+	// here we are extending load testing dashboard with core metrics, for example
+	wdb, err := wasp.NewDashboard(nil, db.Opts())
+	if err != nil {
+		panic(err)
+	}
+	if _, err := wdb.Deploy(); err != nil {
 		panic(err)
 	}
 }
