@@ -358,7 +358,7 @@ func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain legacy
 		}
 
 		ticker := utils.NewPausableTicker(ConfigOverriderPollInterval)
-		return NewConfigOverriderImpl(logger, contractAddress, flags, &ticker)
+		return NewConfigOverriderImpl(logger, chain.Config().EVM().OCR(), contractAddress, flags, &ticker)
 	}
 	return nil, nil
 }
