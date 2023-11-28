@@ -55,6 +55,7 @@ LatestReportDeadline = "5s" # Default
 
 - `PromReporter` no longer directly reads txm related status from the db, and instead uses the txStore API.
 - `L2Suggested` mode is now called `SuggestedPrice`
+- Console logs will now escape (non-whitespace) control characters
 
 ### Removed
 
