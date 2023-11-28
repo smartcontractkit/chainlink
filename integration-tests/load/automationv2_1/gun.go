@@ -9,34 +9,56 @@ import (
 
 type LogTriggerGun struct {
 	triggerContract contracts.LogEmitter
-	upkeepContract  contracts.KeeperConsumer
 	logger          zerolog.Logger
-	numberOfEvents  int
+	triggerPayload  []int
+	spamPayload     []int
 }
 
 func NewLogTriggerUser(
 	triggerContract contracts.LogEmitter,
-	upkeepContract contracts.KeeperConsumer,
 	logger zerolog.Logger,
 	numberOfEvents int,
+	numberOfSpamEvents int,
 ) *LogTriggerGun {
+
+	triggerPayload := make([]int, 0)
+	spamPayload := make([]int, 0)
+
+	if numberOfEvents > 0 {
+		for i := 0; i < numberOfEvents; i++ {
+			triggerPayload = append(triggerPayload, 1)
+		}
+	}
+
+	if numberOfSpamEvents > 0 {
+		for i := 0; i < numberOfSpamEvents; i++ {
+			spamPayload = append(spamPayload, 1)
+		}
+	}
+
 	return &LogTriggerGun{
 		triggerContract: triggerContract,
-		upkeepContract:  upkeepContract,
 		logger:          logger,
-		numberOfEvents:  numberOfEvents,
+		triggerPayload:  triggerPayload,
+		spamPayload:     spamPayload,
 	}
 }
 
 func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.logger.Debug().Str("Trigger address", m.triggerContract.Address().String()).Msg("Triggering upkeep")
-	payload := make([]int, 0)
-	for i := 0; i < m.numberOfEvents; i++ {
-		payload = append(payload, 1)
+
+	if len(m.triggerPayload) > 0 {
+		_, err := m.triggerContract.EmitLogInts(m.triggerPayload)
+		if err != nil {
+			return &wasp.Response{Error: err.Error(), Failed: true}
+		}
 	}
-	_, err := m.triggerContract.EmitLogInts(payload)
-	if err != nil {
-		return &wasp.Response{Error: err.Error(), Failed: true}
+
+	if len(m.spamPayload) > 0 {
+		_, err := m.triggerContract.EmitLogIntsIndexed(m.spamPayload)
+		if err != nil {
+			return &wasp.Response{Error: err.Error(), Failed: true}
+		}
 	}
 
 	return &wasp.Response{}

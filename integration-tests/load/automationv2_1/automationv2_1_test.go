@@ -119,14 +119,15 @@ ListenAddresses = ["0.0.0.0:6690"]`
 )
 
 var (
-	numberofNodes, _   = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))      // Number of nodes in the DON
-	numberOfUpkeeps, _ = strconv.Atoi(getEnv("NUMBEROFUPKEEPS", "100"))  // Number of log triggered upkeeps
-	duration, _        = strconv.Atoi(getEnv("DURATION", "900"))         // Test duration in seconds
-	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))          // Block time in seconds for geth simulated dev network
-	numberOfEvents, _  = strconv.Atoi(getEnv("NUMBEROFEVENTS", "1"))     // Number of events to emit per trigger
-	specType           = getEnv("SPECTYPE", "minimum")                   // minimum, recommended, local specs for the test
-	logLevel           = getEnv("LOGLEVEL", "info")                      // log level for the chainlink nodes
-	pyroscope, _       = strconv.ParseBool(getEnv("PYROSCOPE", "false")) // enable pyroscope for the chainlink nodes
+	numberofNodes, _   = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))        // Number of nodes in the DON
+	numberOfUpkeeps, _ = strconv.Atoi(getEnv("NUMBEROFUPKEEPS", "100"))    // Number of log triggered upkeeps
+	duration, _        = strconv.Atoi(getEnv("DURATION", "900"))           // Test duration in seconds
+	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))            // Block time in seconds for geth simulated dev network
+	numberOfEvents, _  = strconv.Atoi(getEnv("NUMBEROFEVENTS", "1"))       // Number of events to emit per trigger
+	numberOfSEvents, _ = strconv.Atoi(getEnv("NUMBEROFSPAMEVENTS", "100")) // Number of events to emit per trigger
+	specType           = getEnv("SPECTYPE", "minimum")                     // minimum, recommended, local specs for the test
+	logLevel           = getEnv("LOGLEVEL", "info")                        // log level for the chainlink nodes
+	pyroscope, _       = strconv.ParseBool(getEnv("PYROSCOPE", "false"))   // enable pyroscope for the chainlink nodes
 )
 
 func TestLogTrigger(t *testing.T) {
@@ -336,6 +337,11 @@ func TestLogTrigger(t *testing.T) {
 	}
 
 	upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
+	cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
+	require.NoError(t, err, "Error building concurrent chain client")
+
+	cContractDeployer, err := contracts.NewContractDeployer(cEVMClient, l)
+	require.NoError(t, err, "Error building concurrent contract deployer")
 
 	for i := 0; i < numberOfUpkeeps; i++ {
 		consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
@@ -346,12 +352,6 @@ func TestLogTrigger(t *testing.T) {
 			Int("Number", i+1).
 			Int("Out Of", numberOfUpkeeps).
 			Msg("Deployed Automation Log Trigger Consumer Contract")
-
-		cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
-		require.NoError(t, err, "Error building concurrent chain client")
-
-		cContractDeployer, err := contracts.NewContractDeployer(cEVMClient, l)
-		require.NoError(t, err, "Error building concurrent contract deployer")
 
 		triggerContract, err := cContractDeployer.DeployLogEmitterContract()
 		require.NoError(t, err, "Error deploying log emitter contract")
@@ -413,7 +413,7 @@ func TestLogTrigger(t *testing.T) {
 
 	p := wasp.NewProfile()
 
-	for i, triggerContract := range triggerContracts {
+	for _, triggerContract := range triggerContracts {
 		g, err := wasp.NewGenerator(&wasp.Config{
 			T:           t,
 			LoadType:    wasp.RPS,
@@ -425,9 +425,9 @@ func TestLogTrigger(t *testing.T) {
 			),
 			Gun: NewLogTriggerUser(
 				triggerContract,
-				consumerContracts[i],
 				l,
 				numberOfEvents,
+				numberOfSEvents,
 			),
 			CallResultBufLen: 1000000,
 		})
