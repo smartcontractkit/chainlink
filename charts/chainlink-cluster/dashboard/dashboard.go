@@ -93,6 +93,7 @@ core/chains/evm/client/node.go:evm_pool_rpc_node_calls_failed
 core/chains/evm/client/node.go:evm_pool_rpc_node_calls_success
 core/chains/evm/client/node.go:evm_pool_rpc_node_rpc_call_time
 core/chains/evm/client/pool.go:evm_pool_rpc_node_states
+core/utils/mailbox_prom.go:mailbox_load_percent
 core/services/pg/stats.go:db_conns_max
 core/services/pg/stats.go:db_conns_open
 core/services/pg/stats.go:db_conns_used
@@ -103,9 +104,6 @@ core/chains/evm/client/node_lifecycle.go:evm_pool_rpc_node_num_seen_blocks
 core/chains/evm/client/node_lifecycle.go:evm_pool_rpc_node_polls_total
 core/chains/evm/client/node_lifecycle.go:evm_pool_rpc_node_polls_failed
 core/chains/evm/client/node_lifecycle.go:evm_pool_rpc_node_polls_success
-
-not-covered yet
-
 core/services/relay/evm/config_poller.go:ocr2_failed_rpc_contract_calls
 core/services/feeds/service.go:feeds_job_proposal_requests
 core/services/feeds/service.go:feeds_job_proposal_count
@@ -403,20 +401,61 @@ func (m *CLClusterDashboard) generate() error {
 				"{{ pod }}",
 			),
 		),
-
-		//core/services/relay/evm/config_poller.go:ocr2_failed_rpc_contract_calls
-		//core/services/feeds/service.go:feeds_job_proposal_requests
-		//core/services/feeds/service.go:feeds_job_proposal_count
-		//core/services/ocrcommon/prom.go:bridge_json_parse_values
-		//core/services/ocrcommon/prom.go:ocr_median_values
-		//core/chains/evm/logpoller/observability.go:log_poller_query_dataset_size
+		dashboard.Row("LogPoller",
+			row.Collapse(),
+			m.timeseriesRowOption(
+				"LogPoller Query Dataset Size",
+				"",
+				`log_poller_query_dataset_size{namespace="${namespace}"}`,
+				"{{ pod }}",
+			),
+		),
+		dashboard.Row("OCRCommon",
+			row.Collapse(),
+			m.timeseriesRowOption(
+				"Bridge JSON Parse Values",
+				"",
+				`bridge_json_parse_values{namespace="${namespace}"}`,
+				"{{ pod }}",
+			),
+			m.timeseriesRowOption(
+				"OCR Median Values",
+				"",
+				`ocr_median_values{namespace="${namespace}"}`,
+				"{{ pod }}",
+			),
+		),
+		dashboard.Row("Relay Config Poller",
+			row.Collapse(),
+			m.timeseriesRowOption(
+				"Relay Config Poller RPC Contract Calls",
+				"",
+				`ocr2_failed_rpc_contract_calls{namespace="${namespace}"}`,
+				"{{ pod }}",
+			),
+		),
+		dashboard.Row("Feeds Jobs",
+			row.Collapse(),
+			m.timeseriesRowOption(
+				"Feeds Job Proposal Requests",
+				"",
+				`feeds_job_proposal_requests{namespace="${namespace}"}`,
+				"{{ pod }}",
+			),
+			m.timeseriesRowOption(
+				"Feeds Job Proposal Count",
+				"",
+				`feeds_job_proposal_count{namespace="${namespace}"}`,
+				"{{ pod }}",
+			),
+		),
 		dashboard.Row("Mailbox",
 			row.Collapse(),
 			m.timeseriesRowOption(
 				"Mailbox Load Percent",
 				"",
 				`mailbox_load_percent{namespace="${namespace}"}`,
-				"{{ pod }}",
+				"{{ pod }} {{ name }}",
 			),
 		),
 		dashboard.Row("Multi Node States",
@@ -428,7 +467,6 @@ func (m *CLClusterDashboard) generate() error {
 				"{{ pod }}",
 			),
 		),
-		// BlockHistoryGasEstimator
 		dashboard.Row("Block History Estimator",
 			row.Collapse(),
 			m.timeseriesRowOption(
