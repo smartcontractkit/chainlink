@@ -15,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
@@ -29,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestFactory(t *testing.T) {
@@ -105,7 +106,7 @@ func TestFactory(t *testing.T) {
 
 func TestTransmitCheckers(t *testing.T) {
 	client := evmtest.NewEthClientMockWithDefaultChain(t)
-	log := logger.TestLogger(t)
+	log := logger.Test(t)
 	ctx := testutils.Context(t)
 
 	t.Run("no checker", func(t *testing.T) {
