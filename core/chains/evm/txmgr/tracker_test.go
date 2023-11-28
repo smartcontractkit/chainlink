@@ -2,13 +2,13 @@ package txmgr_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
