@@ -235,6 +235,12 @@ SamplingRatio = 0.0
 Mode = 'tls'
 TLSCertPath = ''
 
+[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1s'
+MaxStaleAge = '1h0m0s'
+LatestReportDeadline = '5s'
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true

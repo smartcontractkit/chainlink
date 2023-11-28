@@ -76,6 +76,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -342,10 +344,18 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
 
+	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
+		Logger:               lggr,
+		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
+		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
+		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
+	})
+
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,
 		LoopRegistry: loopRegistry,
 		GRPCOpts:     loop.GRPCOpts{},
+		MercuryPool:  mercuryPool,
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
@@ -419,6 +429,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		UnrestrictedHTTPClient:     c,
 		SecretGenerator:            MockSecretGenerator{},
 		LoopRegistry:               plugins.NewLoopRegistry(lggr, nil),
+		MercuryPool:                mercuryPool,
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)

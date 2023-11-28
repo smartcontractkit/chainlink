@@ -668,6 +668,13 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
+	full.Mercury = toml.Mercury{
+		Cache: toml.MercuryCache{
+			LatestReportTTL:      models.MustNewDuration(100 * time.Second),
+			MaxStaleAge:          models.MustNewDuration(101 * time.Second),
+			LatestReportDeadline: models.MustNewDuration(102 * time.Second),
+		},
+	}
 
 	for _, tt := range []struct {
 		name   string
@@ -1103,6 +1110,12 @@ ConfirmationPoll = '42s'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+`},
+		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1m40s'
+MaxStaleAge = '1m41s'
+LatestReportDeadline = '1m42s'
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},

@@ -54,6 +54,7 @@ type Core struct {
 	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
+	Mercury          Mercury          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -82,6 +83,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
 	c.Keeper.setFrom(&f.Keeper)
+	c.Mercury.setFrom(&f.Mercury)
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
@@ -1356,6 +1358,32 @@ func (ins *Insecure) setFrom(f *Insecure) {
 	if v := f.OCRDevelopmentMode; v != nil {
 		ins.OCRDevelopmentMode = f.OCRDevelopmentMode
 	}
+}
+
+type MercuryCache struct {
+	LatestReportTTL      *models.Duration
+	MaxStaleAge          *models.Duration
+	LatestReportDeadline *models.Duration
+}
+
+func (mc *MercuryCache) setFrom(f *MercuryCache) {
+	if v := f.LatestReportTTL; v != nil {
+		mc.LatestReportTTL = v
+	}
+	if v := f.MaxStaleAge; v != nil {
+		mc.MaxStaleAge = v
+	}
+	if v := f.LatestReportDeadline; v != nil {
+		mc.LatestReportDeadline = v
+	}
+}
+
+type Mercury struct {
+	Cache MercuryCache `toml:",omitempty"`
+}
+
+func (m *Mercury) setFrom(f *Mercury) {
+	m.Cache.setFrom(&f.Cache)
 }
 
 type MercuryCredentials struct {
