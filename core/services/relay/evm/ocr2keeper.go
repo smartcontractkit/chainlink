@@ -22,8 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -51,21 +50,19 @@ type OCR2KeeperRelayer interface {
 
 // ocr2keeperRelayer is the relayer with added DKG and OCR2Keeper provider functions.
 type ocr2keeperRelayer struct {
-	db    *sqlx.DB
-	chain legacyevm.Chain
-	pr    pipeline.Runner
-	spec  job.Job
-	lggr  logger.Logger
+	db          *sqlx.DB
+	chain       legacyevm.Chain
+	lggr        logger.Logger
+	ethKeystore keystore.Eth
 }
 
 // NewOCR2KeeperRelayer is the constructor of ocr2keeperRelayer
-func NewOCR2KeeperRelayer(db *sqlx.DB, chain legacyevm.Chain, pr pipeline.Runner, spec job.Job, lggr logger.Logger) OCR2KeeperRelayer {
+func NewOCR2KeeperRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2KeeperRelayer {
 	return &ocr2keeperRelayer{
-		db:    db,
-		chain: chain,
-		pr:    pr,
-		spec:  spec,
-		lggr:  lggr,
+		db:          db,
+		chain:       chain,
+		lggr:        lggr,
+		ethKeystore: ethKeystore,
 	}
 }
 
@@ -74,9 +71,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	if err != nil {
 		return nil, err
 	}
-
-	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
-	contractTransmitter, err := newPipelineContractTransmitter(r.lggr, rargs, pargs.TransmitterID, &gasLimit, cfgWatcher, r.spec, r.pr)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, cfgWatcher, r.ethKeystore, cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit())
 	if err != nil {
 		return nil, err
 	}

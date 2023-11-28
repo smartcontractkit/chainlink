@@ -57,7 +57,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -411,15 +410,6 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	}
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
 
-	// check pipeline runs
-	var allRuns []pipeline.Run
-	for _, node := range nodes {
-		runs, err2 := node.App.PipelineORM().GetAllRuns()
-		require.NoError(t, err2)
-		allRuns = append(allRuns, runs...)
-	}
-	require.GreaterOrEqual(t, len(allRuns), 1)
-
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
 	require.NoError(t, err)
@@ -682,15 +672,6 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		return received
 	}
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
-
-	// check pipeline runs
-	var allRuns []pipeline.Run
-	for _, node := range nodes {
-		runs, err2 := node.App.PipelineORM().GetAllRuns()
-		require.NoError(t, err2)
-		allRuns = append(allRuns, runs...)
-	}
-	require.GreaterOrEqual(t, len(allRuns), 1)
 
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)

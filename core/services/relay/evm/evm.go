@@ -27,13 +27,11 @@ import (
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -373,7 +371,7 @@ func newConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.Re
 	return newConfigWatcher(lggr, aggregatorAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, opts.New), nil
 }
 
-func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth) (*contractTransmitter, error) {
+func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, gasLimit uint32) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -410,7 +408,6 @@ func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, tra
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
-	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
 	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
 	if ocr2Limit != nil {
 		gasLimit = *ocr2Limit
@@ -442,55 +439,6 @@ func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, tra
 	)
 }
 
-func newPipelineContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, pluginGasLimit *uint32, configWatcher *configWatcher, spec job.Job, pr pipeline.Runner) (*contractTransmitter, error) {
-	var relayConfig types.RelayConfig
-	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
-		return nil, err
-	}
-
-	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
-	}
-	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
-	transmitterAddress := common.HexToAddress(transmitterID)
-	scoped := configWatcher.chain.Config()
-	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
-
-	var checker txm.TransmitCheckerSpec
-	if configWatcher.chain.Config().OCR2().SimulateTransactions() {
-		checker.CheckerType = txm.TransmitCheckerTypeSimulate
-	}
-
-	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
-	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
-	if ocr2Limit != nil {
-		gasLimit = *ocr2Limit
-	}
-	if pluginGasLimit != nil {
-		gasLimit = *pluginGasLimit
-	}
-
-	return NewOCRContractTransmitter(
-		configWatcher.contractAddress,
-		configWatcher.chain.Client(),
-		configWatcher.contractABI,
-		ocrcommon.NewPipelineTransmitter(
-			lggr,
-			transmitterAddress,
-			gasLimit,
-			effectiveTransmitterAddress,
-			strategy,
-			checker,
-			pr,
-			spec,
-			configWatcher.chain.ID().String(),
-		),
-		configWatcher.chain.LogPoller(),
-		lggr,
-		nil,
-	)
-}
-
 func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
 	lggr := r.lggr.Named("MedianProvider").Named(rargs.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(rargs)
@@ -513,7 +461,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 
 	reportCodec := evmreportcodec.ReportCodec{}
-	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth())
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth(), configWatcher.chain.Config().EVM().GasEstimator().LimitDefault())
 	if err != nil {
 		return nil, err
 	}

@@ -53,8 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -117,7 +115,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	require.NoError(t, err)
 	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
-	nodes, _ := setupNodes(t, nodeKeys, registry, backend, steve)
+	setupNodes(t, nodeKeys, registry, backend, steve)
 
 	<-time.After(time.Second * 5)
 
@@ -159,8 +157,6 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 		return received
 	}
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
-
-	checkPipelineRuns(t, nodes, 1)
 
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
@@ -204,7 +200,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	require.NoError(t, err)
 
 	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
-	nodes, _ := setupNodes(t, nodeKeys, registry, backend, steve)
+	setupNodes(t, nodeKeys, registry, backend, steve)
 	upkeeps := 1
 
 	_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
@@ -228,8 +224,6 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	done()
 
-	runs := checkPipelineRuns(t, nodes, 1)
-
 	t.Run("recover logs", func(t *testing.T) {
 
 		addr, contract := addrs[0], contracts[0]
@@ -252,11 +246,6 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			backend.Commit()
 			time.Sleep(time.Millisecond * 10)
 		}
-		t.Logf("Mined %d blocks, waiting for logs to be recovered", dummyBlocks)
-
-		expectedPostRecover := runs + emits
-		waitPipelineRuns(t, nodes, expectedPostRecover, testutils.WaitTimeout(t), cltest.DBPollingInterval)
-
 	})
 }
 
@@ -296,7 +285,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 
 	registry := deployKeeper21Registry(t, registryOwner, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
-	nodes, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner)
+	_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner)
 
 	const upkeepCount = 10
 	const mercuryFailCount = upkeepCount * 3 * 2
@@ -374,39 +363,6 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
 
 	done()
-
-	_ = checkPipelineRuns(t, nodes, 1*len(nodes)) // TODO: TBD
-}
-
-func waitPipelineRuns(t *testing.T, nodes []Node, n int, timeout, interval time.Duration) {
-	ctx, cancel := context.WithTimeout(testutils.Context(t), timeout)
-	defer cancel()
-	var allRuns []pipeline.Run
-	for len(allRuns) < n && ctx.Err() == nil {
-		allRuns = []pipeline.Run{}
-		for _, node := range nodes {
-			runs, err := node.App.PipelineORM().GetAllRuns()
-			require.NoError(t, err)
-			allRuns = append(allRuns, runs...)
-		}
-		time.Sleep(interval)
-	}
-	runs := len(allRuns)
-	t.Logf("found %d pipeline runs", runs)
-	require.GreaterOrEqual(t, runs, n)
-}
-
-func checkPipelineRuns(t *testing.T, nodes []Node, n int) int {
-	var allRuns []pipeline.Run
-	for _, node := range nodes {
-		runs, err2 := node.App.PipelineORM().GetAllRuns()
-		require.NoError(t, err2)
-		allRuns = append(allRuns, runs...)
-	}
-	runs := len(allRuns)
-	t.Logf("found %d pipeline runs", runs)
-	require.GreaterOrEqual(t, runs, n)
-	return runs
 }
 
 func emitEvents(ctx context.Context, t *testing.T, n int, contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter, carrol *bind.TransactOpts, afterEmit func()) {
