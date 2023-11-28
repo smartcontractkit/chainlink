@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"math/big"
 	"sync"
 	"time"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
 	"github.com/pkg/errors"
@@ -28,7 +28,7 @@ type (
 	promReporter struct {
 		services.StateMachine
 		db           *sql.DB
-		chains       evm.LegacyChainContainer
+		chains       legacyevm.LegacyChainContainer
 		lggr         logger.Logger
 		backend      PrometheusBackend
 		newHeads     *utils.Mailbox[*evmtypes.Head]
@@ -91,7 +91,7 @@ func (defaultBackend) SetPipelineTaskRunsQueued(n int) {
 	promPipelineRunsQueued.Set(float64(n))
 }
 
-func NewPromReporter(db *sql.DB, chainContainer evm.LegacyChainContainer, lggr logger.Logger, opts ...interface{}) *promReporter {
+func NewPromReporter(db *sql.DB, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, opts ...interface{}) *promReporter {
 	var backend PrometheusBackend = defaultBackend{}
 	period := 15 * time.Second
 	for _, opt := range opts {
