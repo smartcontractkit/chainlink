@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -39,7 +39,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
+func genTestEVMRelayers(t *testing.T, opts legacyevm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
 	f := chainlink.RelayerFactory{
 		Logger:       opts.Logger,
 		LoopRegistry: plugins.NewLoopRegistry(opts.Logger, opts.AppConfig.Tracing()),
@@ -83,10 +83,10 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 
 			lggr := logger.TestLogger(t)
 
-			opts := evm.ChainRelayExtenderConfig{
+			opts := legacyevm.ChainRelayExtenderConfig{
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
-				ChainOpts: evm.ChainOpts{
+				ChainOpts: legacyevm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
@@ -124,7 +124,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
+			flagSetApplyFromAction(client.RunNode, set, "")
 
 			require.NoError(t, set.Set("password", test.pwdfile))
 
@@ -188,10 +188,10 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
 			lggr := logger.TestLogger(t)
-			opts := evm.ChainRelayExtenderConfig{
+			opts := legacyevm.ChainRelayExtenderConfig{
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
-				ChainOpts: evm.ChainOpts{
+				ChainOpts: legacyevm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
@@ -221,7 +221,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
+			flagSetApplyFromAction(client.RunNode, set, "")
 
 			require.NoError(t, set.Set("api", test.apiFile))
 
@@ -318,7 +318,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	beginningNonce := uint64(7)
 	endingNonce := uint64(10)
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(c.RebroadcastTransactions, set, "")
+	flagSetApplyFromAction(c.RebroadcastTransactions, set, "")
 
 	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(beginningNonce, 10)))
@@ -397,7 +397,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(c.RebroadcastTransactions, set, "")
+			flagSetApplyFromAction(c.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
@@ -477,7 +477,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+			flagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("address", fromAddress.Hex()))

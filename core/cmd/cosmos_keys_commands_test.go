@@ -95,7 +95,7 @@ func TestShell_CosmosKeys(t *testing.T) {
 		require.NoError(t, err)
 		requireCosmosKeyCount(t, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewCosmosKeysClient(client).DeleteKey, set, "cosmos")
+		flagSetApplyFromAction(cmd.NewCosmosKeysClient(client).DeleteKey, set, "cosmos")
 
 		strID := key.ID()
 		require.NoError(tt, set.Set("yes", "true"))
@@ -121,7 +121,7 @@ func TestShell_CosmosKeys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test Cosmos export", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewCosmosKeysClient(client).ExportKey, set, "cosmos")
+		flagSetApplyFromAction(cmd.NewCosmosKeysClient(client).ExportKey, set, "cosmos")
 
 		require.NoError(tt, set.Parse([]string{"0"}))
 		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
@@ -135,7 +135,7 @@ func TestShell_CosmosKeys(t *testing.T) {
 
 		// Export test
 		set = flag.NewFlagSet("test Cosmos export", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewCosmosKeysClient(client).ExportKey, set, "cosmos")
+		flagSetApplyFromAction(cmd.NewCosmosKeysClient(client).ExportKey, set, "cosmos")
 
 		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
 		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
@@ -150,7 +150,7 @@ func TestShell_CosmosKeys(t *testing.T) {
 		requireCosmosKeyCount(t, app, 0)
 
 		set = flag.NewFlagSet("test Cosmos import", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewCosmosKeysClient(client).ImportKey, set, "cosmos")
+		flagSetApplyFromAction(cmd.NewCosmosKeysClient(client).ImportKey, set, "cosmos")
 
 		require.NoError(tt, set.Parse([]string{keyName}))
 		require.NoError(tt, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))

@@ -74,7 +74,7 @@ type (
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
-		chStop          utils.StopChan
+		chStop          services.StopChan
 		wg              sync.WaitGroup
 		unsubscribeLogs func()
 
@@ -134,7 +134,7 @@ func NewOCRContractTracker(
 		cfg:                  cfg,
 		mailMon:              mailMon,
 		headBroadcaster:      headBroadcaster,
-		chStop:               make(chan struct{}),
+		chStop:               make(services.StopChan),
 		latestRoundRequested: offchainaggregator.OffchainAggregatorRoundRequested{},
 		configsMB:            utils.NewMailbox[ocrtypes.ContractConfig](configMailboxSanityLimit),
 		chConfigs:            make(chan ocrtypes.ContractConfig),

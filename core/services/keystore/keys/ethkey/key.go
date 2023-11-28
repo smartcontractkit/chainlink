@@ -3,7 +3,7 @@ package ethkey
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 // NOTE: This model refers to the OLD key and is only used for migrations
@@ -15,10 +15,10 @@ import (
 type Key struct {
 	ID        int32
 	Address   EIP55Address
-	JSON      datatypes.JSON `json:"-"`
-	CreatedAt time.Time      `json:"-"`
-	UpdatedAt time.Time      `json:"-"`
-	DeletedAt *time.Time     `json:"-"`
+	JSON      sqlutil.JSON `json:"-"`
+	CreatedAt time.Time    `json:"-"`
+	UpdatedAt time.Time    `json:"-"`
+	DeletedAt *time.Time   `json:"-"`
 	// IsFunding marks the address as being used for rescuing the  node and the pending transactions
 	// Only one key can be IsFunding=true at a time.
 	IsFunding bool

@@ -20,11 +20,11 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
@@ -130,11 +130,13 @@ type logPoller struct {
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
 func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration,
 	useFinalityTag bool, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepFinalizedBlocksDepth int64) *logPoller {
-
+	ctx, cancel := context.WithCancel(context.Background())
 	return &logPoller{
+		ctx:                      ctx,
+		cancel:                   cancel,
 		ec:                       ec,
 		orm:                      orm,
-		lggr:                     lggr.Named("LogPoller"),
+		lggr:                     logger.Named(lggr, "LogPoller"),
 		replayStart:              make(chan int64),
 		replayComplete:           make(chan error),
 		pollPeriod:               pollPeriod,
@@ -371,18 +373,15 @@ func (lp *logPoller) recvReplayComplete() {
 func (lp *logPoller) ReplayAsync(fromBlock int64) {
 	lp.wg.Add(1)
 	go func() {
-		if err := lp.Replay(context.Background(), fromBlock); err != nil {
+		if err := lp.Replay(lp.ctx, fromBlock); err != nil {
 			lp.lggr.Error(err)
 		}
 		lp.wg.Done()
 	}()
 }
 
-func (lp *logPoller) Start(parentCtx context.Context) error {
+func (lp *logPoller) Start(context.Context) error {
 	return lp.StartOnce("LogPoller", func() error {
-		ctx, cancel := context.WithCancel(parentCtx)
-		lp.ctx = ctx
-		lp.cancel = cancel
 		lp.wg.Add(1)
 		go lp.run()
 		return nil
@@ -662,7 +661,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 				}
 			}
 			if batchSize == 1 {
-				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
+				logger.Criticalw(lp.lggr, "Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
 				return err
 			}
 			batchSize /= 2
@@ -917,7 +916,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 			return nil, err
 		}
 	}
-	lp.lggr.Criticalw("Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
+	logger.Criticalw(lp.lggr, "Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
 	rerr := errors.New("Reorg greater than finality depth")
 	lp.SvcErrBuffer.Append(rerr)
 	return nil, rerr

@@ -28,11 +28,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
@@ -98,7 +98,7 @@ func New(
 	cfg vrfcommon.Config,
 	feeCfg vrfcommon.FeeConfig,
 	l logger.Logger,
-	chain evm.Chain,
+	chain legacyevm.Chain,
 	chainID *big.Int,
 	q pg.Q,
 	coordinator CoordinatorV2_X,
@@ -128,7 +128,7 @@ func New(
 		q:                  q,
 		gethks:             gethks,
 		reqLogs:            reqLogs,
-		chStop:             make(chan struct{}),
+		chStop:             make(services.StopChan),
 		reqAdded:           reqAdded,
 		blockNumberToReqID: pairing.New(),
 		latestHeadMu:       sync.RWMutex{},
@@ -170,7 +170,7 @@ type listenerV2 struct {
 	cfg     vrfcommon.Config
 	feeCfg  vrfcommon.FeeConfig
 	l       logger.SugaredLogger
-	chain   evm.Chain
+	chain   legacyevm.Chain
 	chainID *big.Int
 	mailMon *utils.MailboxMonitor
 
@@ -183,7 +183,7 @@ type listenerV2 struct {
 	q              pg.Q
 	gethks         keystore.Eth
 	reqLogs        *utils.Mailbox[log.Broadcast]
-	chStop         utils.StopChan
+	chStop         services.StopChan
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.

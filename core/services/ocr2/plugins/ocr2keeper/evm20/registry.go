@@ -17,12 +17,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"go.uber.org/multierr"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -71,7 +71,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client legacyevm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)

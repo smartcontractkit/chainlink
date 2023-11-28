@@ -34,7 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -166,7 +166,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
 		CSAETHKeystore: keyStore,
-		ChainOpts:      evm.ChainOpts{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon, DB: db},
+		ChainOpts:      legacyevm.ChainOpts{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon, DB: db},
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
@@ -176,6 +176,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		cosmosCfg := chainlink.CosmosFactoryConfig{
 			Keystore:    keyStore.Cosmos(),
 			TOMLConfigs: cfg.CosmosConfigs(),
+			DB:          db,
+			QConfig:     cfg.Database(),
 		}
 		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
 	}

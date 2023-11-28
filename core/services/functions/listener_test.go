@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
@@ -195,6 +196,7 @@ func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
 		RequestInitiator:  SubscriptionOwner.Bytes(),
 		SubscriptionId:    uint64(SubscriptionID),
 		SubscriptionOwner: SubscriptionOwner.Bytes(),
+		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
 	}
 	require.NoError(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
@@ -210,12 +212,17 @@ func TestFunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
 		RequestInitiator:  []byte("invalid_address"),
 		SubscriptionId:    uint64(SubscriptionID),
 		SubscriptionOwner: SubscriptionOwner.Bytes(),
+		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
 	}
 	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
 
 	request.RequestInitiator = SubscriptionOwner.Bytes()
 	request.SubscriptionOwner = []byte("invalid_address")
+	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
+
+	request.SubscriptionOwner = SubscriptionOwner.Bytes()
+	request.Timestamp = 1
 	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
 }
 
@@ -233,6 +240,7 @@ func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
 		RequestInitiator:  SubscriptionOwner.Bytes(),
 		SubscriptionId:    uint64(SubscriptionID),
 		SubscriptionOwner: SubscriptionOwner.Bytes(),
+		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
 	}
 	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))

@@ -2,7 +2,6 @@ package v03
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"math/big"
@@ -14,6 +13,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mocks"
@@ -162,7 +162,7 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 			}
 			c.httpClient = hc
 
-			state, reason, values, retryable, retryInterval, reqErr := c.DoRequest(context.Background(), tt.lookup, tt.pluginRetryKey)
+			state, reason, values, retryable, retryInterval, reqErr := c.DoRequest(testutils.Context(t), tt.lookup, tt.pluginRetryKey)
 
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
@@ -514,7 +514,7 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 			c.httpClient = hc
 
 			ch := make(chan mercury.MercuryData, 1)
-			c.multiFeedsRequest(context.Background(), ch, tt.lookup)
+			c.multiFeedsRequest(testutils.Context(t), ch, tt.lookup)
 
 			m := <-ch
 			assert.Equal(t, 0, m.Index)

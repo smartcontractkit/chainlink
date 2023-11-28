@@ -11,17 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestNullClient(t *testing.T) {
 	t.Parallel()
 
 	t.Run("chain id", func(t *testing.T) {
-		lggr := logger.TestLogger(t)
+		lggr := logger.Test(t)
 		cid := big.NewInt(123)
 		nc := client.NewNullClient(cid, lggr)
 		require.Equal(t, cid, nc.ConfiguredChainID())
@@ -31,7 +31,7 @@ func TestNullClient(t *testing.T) {
 	})
 
 	t.Run("CL client methods", func(t *testing.T) {
-		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
 		ctx := testutils.Context(t)
 
@@ -77,7 +77,7 @@ func TestNullClient(t *testing.T) {
 	})
 
 	t.Run("Geth client methods", func(t *testing.T) {
-		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
 		ctx := testutils.Context(t)
 

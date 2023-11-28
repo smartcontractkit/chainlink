@@ -8,27 +8,27 @@ import (
 	"log"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"gopkg.in/guregu/null.v4"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-
-	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocr2keepers20 "github.com/smartcontractkit/ocr2keepers/pkg/v2"
-	ocr2keepers20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
-	ocr2keepers20coordinator "github.com/smartcontractkit/ocr2keepers/pkg/v2/coordinator"
-	ocr2keepers20polling "github.com/smartcontractkit/ocr2keepers/pkg/v2/observer/polling"
-	ocr2keepers20runner "github.com/smartcontractkit/ocr2keepers/pkg/v2/runner"
-	ocr2keepers21config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
-	ocr2keepers21 "github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
-	"github.com/smartcontractkit/ocr2vrf/altbn_128"
-	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
-	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
+
+	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
+	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
+	ocr2keepers20coordinator "github.com/smartcontractkit/chainlink-automation/pkg/v2/coordinator"
+	ocr2keepers20polling "github.com/smartcontractkit/chainlink-automation/pkg/v2/observer/polling"
+	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
+	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+
+	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
+	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
+	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -36,7 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -67,7 +67,6 @@ import (
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -119,7 +118,7 @@ type Delegate struct {
 	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon           *utils.MailboxMonitor
 
-	legacyChains evm.LegacyChainContainer // legacy: use relayers instead
+	legacyChains legacyevm.LegacyChainContainer // legacy: use relayers instead
 }
 
 type DelegateConfig interface {
@@ -218,7 +217,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
-	legacyChains evm.LegacyChainContainer,
+	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg DelegateConfig,
 	ks keystore.OCR2,
@@ -463,7 +462,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 }
 
-func GetEVMEffectiveTransmitterID(jb *job.Job, chain evm.Chain, lggr logger.SugaredLogger) (string, error) {
+func GetEVMEffectiveTransmitterID(jb *job.Job, chain legacyevm.Chain, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.PluginType == types.Mercury {
 		return spec.TransmitterID.String, nil

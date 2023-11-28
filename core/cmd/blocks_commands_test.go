@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -24,7 +23,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ReplayFromBlock, set, "")
+	flagSetApplyFromAction(client.ReplayFromBlock, set, "")
 
 	//Incorrect block number
 	require.NoError(t, set.Set("block-number", "0"))

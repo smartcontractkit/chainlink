@@ -6,10 +6,10 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // TxmClient is a superset of all the methods needed for the txm

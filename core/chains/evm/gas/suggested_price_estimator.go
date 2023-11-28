@@ -9,12 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -40,7 +41,7 @@ type SuggestedPriceEstimator struct {
 
 	chForceRefetch chan (chan struct{})
 	chInitialised  chan struct{}
-	chStop         utils.StopChan
+	chStop         services.StopChan
 	chDone         chan struct{}
 }
 
@@ -49,7 +50,7 @@ func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimat
 	return &SuggestedPriceEstimator{
 		client:         client,
 		pollPeriod:     10 * time.Second,
-		logger:         lggr.Named("SuggestedPriceEstimator"),
+		logger:         logger.Named(lggr, "SuggestedPriceEstimator"),
 		chForceRefetch: make(chan (chan struct{})),
 		chInitialised:  make(chan struct{}),
 		chStop:         make(chan struct{}),

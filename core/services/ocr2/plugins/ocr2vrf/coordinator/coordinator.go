@@ -17,12 +17,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/smartcontractkit/libocr/commontypes"
-	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2vrf/dkg"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/libocr/commontypes"
+	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-vrf/dkg"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"

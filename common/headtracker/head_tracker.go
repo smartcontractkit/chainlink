@@ -10,12 +10,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -53,7 +53,7 @@ type HeadTracker[
 	backfillMB   *utils.Mailbox[HTH]
 	broadcastMB  *utils.Mailbox[HTH]
 	headListener types.HeadListener[HTH, BLOCK_HASH]
-	chStop       utils.StopChan
+	chStop       services.StopChan
 	wgDone       sync.WaitGroup
 	getNilHead   func() HTH
 }
@@ -75,7 +75,7 @@ func NewHeadTracker[
 	getNilHead func() HTH,
 ) types.HeadTracker[HTH, BLOCK_HASH] {
 	chStop := make(chan struct{})
-	lggr = lggr.Named("HeadTracker")
+	lggr = logger.Named(lggr, "HeadTracker")
 	return &HeadTracker[HTH, S, ID, BLOCK_HASH]{
 		headBroadcaster: headBroadcaster,
 		client:          client,
@@ -229,7 +229,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		prevUnFinalizedHead := prevHead.BlockNumber() - int64(ht.config.FinalityDepth())
 		if head.BlockNumber() < prevUnFinalizedHead {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
-			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
+			logger.Criticalf(ht.log, "Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
 			ht.SvcErrBuffer.Append(errors.New("got very old block"))
 		}
 	}
@@ -312,7 +312,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 	}
 	mark := time.Now()
 	fetched := 0
-	l := ht.log.With("blockNumber", headBlockNumber,
+	l := logger.With(ht.log, "blockNumber", headBlockNumber,
 		"n", headBlockNumber-baseHeight,
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", headBlockNumber-1)

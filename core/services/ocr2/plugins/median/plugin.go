@@ -10,17 +10,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Plugin struct {
 	loop.Plugin
-	stop utils.StopChan
+	stop services.StopChan
 }
 
 func NewPlugin(lggr logger.Logger) *Plugin {
-	return &Plugin{Plugin: loop.Plugin{Logger: lggr}, stop: make(utils.StopChan)}
+	return &Plugin{Plugin: loop.Plugin{Logger: lggr}, stop: make(services.StopChan)}
 }
 
 func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog loop.ErrorLog) (loop.ReportingPluginFactory, error) {

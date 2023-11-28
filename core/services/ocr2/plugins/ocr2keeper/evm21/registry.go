@@ -17,13 +17,13 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -78,7 +79,7 @@ type HttpClient interface {
 func NewEvmRegistry(
 	lggr logger.Logger,
 	addr common.Address,
-	client evm.Chain,
+	client legacyevm.Chain,
 	registry *iregistry21.IKeeperRegistryMaster,
 	mc *models.MercuryCredentials,
 	al ActiveUpkeepList,
@@ -166,7 +167,7 @@ func (c *MercuryConfig) SetPluginRetry(k string, v interface{}, d time.Duration)
 }
 
 type EvmRegistry struct {
-	utils.StartStopOnce
+	services.StateMachine
 	threadCtrl       utils.ThreadControl
 	lggr             logger.Logger
 	poller           logpoller.LogPoller
