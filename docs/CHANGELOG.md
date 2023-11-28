@@ -54,6 +54,7 @@ LatestReportDeadline = "5s" # Default
 ### Changed
 
 - `L2Suggested` mode is now called `SuggestedPrice`
+- Console logs will now escape (non-whitespace) control characters
 
 ### Removed
 
