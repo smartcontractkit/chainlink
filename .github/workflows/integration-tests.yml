@@ -32,14 +32,12 @@ jobs:
         id: condition-check
         run: |
           echo "Checking event condition..."
-          echo "event-name:$GITHUB_EVENT_NAME"
-          echo "event-path:"
-          cat "$GITHUB_EVENT_PATH"
           SHOULD_ENFORCE="false"
           if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
-              event_payload=$(cat $GITHUB_EVENT_PATH)
-              target_branch=$(echo $event_payload | jq -r .pull_request.base.ref)
-              if [[ "$target_branch" == "develop" ]]; then
+              echo "We are in a merge_group event, now check if we are on the develop branch"
+              target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .merge_group.base_ref)
+              if [[ "$target_branch" == "refs/heads/develop" ]]; then
+                  echo "We are on the develop branch, we should enforce ctf version"
                   SHOULD_ENFORCE="true"
               fi
           fi
