@@ -326,19 +326,20 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
     vm.expectCall(address(s_receiver), data);
     vm.resumeGasMetering();
 
-    bool sufficientGas = s_caller.callWithExactGasEvenIfTargetIsNoContract(
+    (bool success, bool sufficientGas) = s_caller.callWithExactGasEvenIfTargetIsNoContract(
       data,
       address(s_receiver),
       DEFAULT_GAS_LIMIT,
       DEFAULT_GAS_FOR_CALL_EXACT_CHECK
     );
 
+    assertTrue(success);
     assertTrue(sufficientGas);
   }
 
   function test_CallWithExactGasEvenIfTargetIsNoContractExactGasSuccess() public {
     // The calculated overhead for otherwise unaccounted for gas usage
-    uint256 overheadForCallWithExactGas = 440;
+    uint256 overheadForCallWithExactGas = 446;
 
     bytes memory data = abi.encode("0x52656E73");
 
@@ -359,12 +360,14 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
     allowedGas = (allowedGas * 64) / 63;
 
     vm.expectCall(address(s_receiver), data);
-    (bool success, bytes memory sufficientGas) = address(s_caller).call{gas: allowedGas}(payload);
+    (bool outerCallSuccess, bytes memory SuccessAndSufficientGas) = address(s_caller).call{gas: allowedGas}(payload);
 
     // The call succeeds
+    assertTrue(outerCallSuccess);
+
+    (bool success, bool sufficientGas) = abi.decode(SuccessAndSufficientGas, (bool, bool));
     assertTrue(success);
-    // It returns true
-    assertEq(abi.encode(true), sufficientGas);
+    assertTrue(sufficientGas);
   }
 
   function test_CallWithExactGasEvenIfTargetIsNoContractReceiverErrorSuccess() public {
@@ -379,7 +382,7 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
 
     vm.expectCall(address(s_receiver), data);
 
-    bool sufficientGas = s_caller.callWithExactGasEvenIfTargetIsNoContract(
+    (bool success, bool sufficientGas) = s_caller.callWithExactGasEvenIfTargetIsNoContract(
       data,
       address(s_receiver),
       DEFAULT_GAS_LIMIT * 10,
@@ -387,6 +390,7 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
     );
 
     // We don't care if it reverts, we only care if we have enough gas
+    assertFalse(success);
     assertTrue(sufficientGas);
   }
 
@@ -394,13 +398,14 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
     bytes memory data = abi.encode("0x52656E73");
     address addressWithoutContract = address(1337);
 
-    bool sufficientGas = s_caller.callWithExactGasEvenIfTargetIsNoContract(
+    (bool success, bool sufficientGas) = s_caller.callWithExactGasEvenIfTargetIsNoContract(
       data,
       addressWithoutContract,
       DEFAULT_GAS_LIMIT,
       DEFAULT_GAS_FOR_CALL_EXACT_CHECK
     );
 
+    assertTrue(success);
     assertTrue(sufficientGas);
   }
 
@@ -413,14 +418,16 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
       DEFAULT_GAS_FOR_CALL_EXACT_CHECK
     );
 
-    (bool success, bytes memory sufficientGas) = address(s_caller).call{gas: DEFAULT_GAS_FOR_CALL_EXACT_CHECK - 1}(
-      payload
-    );
+    (bool outerCallSuccess, bytes memory SuccessAndSufficientGas) = address(s_caller).call{
+      gas: DEFAULT_GAS_FOR_CALL_EXACT_CHECK - 1
+    }(payload);
 
     // The call succeeds
-    assertTrue(success);
-    // It returns false
-    assertEq(sufficientGas, abi.encode(false));
+    assertTrue(outerCallSuccess);
+
+    (bool success, bool sufficientGas) = abi.decode(SuccessAndSufficientGas, (bool, bool));
+    assertFalse(success);
+    assertFalse(sufficientGas);
   }
 
   function test_NotEnoughGasForCallReturnsFalseSuccess() public {
@@ -440,11 +447,13 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
     allowedGas = (allowedGas * 64) / 63;
 
     // Expect this call to fail due to not having enough gas for the final call
-    (bool success, bytes memory sufficientGas) = address(s_caller).call{gas: allowedGas}(payload);
+    (bool outerCallSuccess, bytes memory SuccessAndSufficientGas) = address(s_caller).call{gas: allowedGas}(payload);
 
     // The call succeeds
-    assertTrue(success);
-    // It returns false
-    assertEq(sufficientGas, abi.encode(false));
+    assertTrue(outerCallSuccess);
+
+    (bool success, bool sufficientGas) = abi.decode(SuccessAndSufficientGas, (bool, bool));
+    assertFalse(success);
+    assertFalse(sufficientGas);
   }
 }

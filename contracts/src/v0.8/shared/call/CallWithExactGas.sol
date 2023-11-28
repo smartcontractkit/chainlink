@@ -31,8 +31,8 @@ library CallWithExactGas {
       // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
       // doesn't need to account for it.
       if iszero(extcodesize(target)) {
-        mstore(0, NO_CONTRACT_SIG)
-        revert(0, 0x4)
+        mstore(0x0, NO_CONTRACT_SIG)
+        revert(0x0, 0x4)
       }
 
       let g := gas()
@@ -43,19 +43,19 @@ library CallWithExactGas {
       // gas. gasForCallExactCheck ensures we have at least enough gas to be able
       // to revert if gasAmount >  63//64*gas available.
       if lt(g, gasForCallExactCheck) {
-        mstore(0, NO_GAS_FOR_CALL_EXACT_CHECK_SIG)
-        revert(0, 0x4)
+        mstore(0x0, NO_GAS_FOR_CALL_EXACT_CHECK_SIG)
+        revert(0x0, 0x4)
       }
       g := sub(g, gasForCallExactCheck)
       // if g - g//64 <= gasAmount, revert. We subtract g//64 because of EIP-150
       if iszero(gt(sub(g, div(g, 64)), gasLimit)) {
-        mstore(0, NOT_ENOUGH_GAS_FOR_CALL_SIG)
-        revert(0, 0x4)
+        mstore(0x0, NOT_ENOUGH_GAS_FOR_CALL_SIG)
+        revert(0x0, 0x4)
       }
 
       // call and return whether we succeeded. ignore return data
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      success := call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0, 0)
+      success := call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
     }
     return success;
   }
@@ -85,8 +85,8 @@ library CallWithExactGas {
       // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
       // doesn't need to account for it.
       if iszero(extcodesize(target)) {
-        mstore(0, NO_CONTRACT_SIG)
-        revert(0, 0x4)
+        mstore(0x0, NO_CONTRACT_SIG)
+        revert(0x0, 0x4)
       }
 
       let g := gas()
@@ -97,21 +97,21 @@ library CallWithExactGas {
       // gas. gasForCallExactCheck ensures we have at least enough gas to be able
       // to revert if gasAmount >  63//64*gas available.
       if lt(g, gasForCallExactCheck) {
-        mstore(0, NO_GAS_FOR_CALL_EXACT_CHECK_SIG)
-        revert(0, 0x4)
+        mstore(0x0, NO_GAS_FOR_CALL_EXACT_CHECK_SIG)
+        revert(0x0, 0x4)
       }
       g := sub(g, gasForCallExactCheck)
       // if g - g//64 <= gasAmount, revert. We subtract g//64 because of EIP-150
       if iszero(gt(sub(g, div(g, 64)), gasLimit)) {
-        mstore(0, NOT_ENOUGH_GAS_FOR_CALL_SIG)
-        revert(0, 0x4)
+        mstore(0x0, NOT_ENOUGH_GAS_FOR_CALL_SIG)
+        revert(0x0, 0x4)
       }
 
       // We save the gas before the call so we can calculate how much gas the call used
       let gasBeforeCall := gas()
       // call and return whether we succeeded. ignore return data
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      success := call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0, 0)
+      success := call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
       gasUsed := sub(gasBeforeCall, gas())
 
       // limit our copy to maxReturnBytes bytes
@@ -122,7 +122,7 @@ library CallWithExactGas {
       // Store the length of the copied bytes
       mstore(retData, toCopy)
       // copy the bytes from retData[0:_toCopy]
-      returndatacopy(add(retData, 0x20), 0, toCopy)
+      returndatacopy(add(retData, 0x20), 0x0, toCopy)
     }
     return (success, retData, gasUsed);
   }
@@ -132,13 +132,14 @@ library CallWithExactGas {
   /// @dev Does not check if target is a contract. If it is not a contract, the low-level
   /// call will still be made and it will succeed.
   /// @dev Ignores the return data, which makes it immune to gas bomb attacks.
+  /// @return success whether the call succeeded
   /// @return sufficientGas Whether there was enough gas to make the call
   function _callWithExactGasEvenIfTargetIsNoContract(
     bytes memory payload,
     address target,
     uint256 gasLimit,
     uint16 gasForCallExactCheck
-  ) internal returns (bool sufficientGas) {
+  ) internal returns (bool success, bool sufficientGas) {
     assembly {
       let g := gas()
       // Compute g -= CALL_WITH_EXACT_GAS_CUSHION and check for underflow. We
@@ -151,11 +152,11 @@ library CallWithExactGas {
         if gt(sub(g, div(g, 64)), gasLimit) {
           // Call and ignore success/return data. Note that we did not check
           // whether a contract actually exists at the target address.
-          pop(call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0, 0))
+          success := call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
           sufficientGas := true
         }
       }
     }
-    return sufficientGas;
+    return (success, sufficientGas);
   }
 }

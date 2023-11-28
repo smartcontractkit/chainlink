@@ -29,7 +29,7 @@ contract CallWithExactGasHelper {
     address target,
     uint256 gasLimit,
     uint16 gasForCallExactCheck
-  ) public returns (bool sufficientGas) {
+  ) public returns (bool success, bool sufficientGas) {
     return CallWithExactGas._callWithExactGasEvenIfTargetIsNoContract(payload, target, gasLimit, gasForCallExactCheck);
   }
 }
