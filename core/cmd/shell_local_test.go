@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -89,7 +91,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				ChainOpts: legacyevm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
-					MailMon:          &utils.MailboxMonitor{},
+					MailMon:          &mailbox.MailboxMonitor{},
 					DB:               db,
 				},
 			}
@@ -194,7 +196,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				ChainOpts: legacyevm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
-					MailMon:          &utils.MailboxMonitor{},
+					MailMon:          &mailbox.MailboxMonitor{},
 					DB:               db,
 				},
 			}

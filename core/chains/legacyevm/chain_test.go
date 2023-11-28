@@ -8,12 +8,13 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestLegacyChains(t *testing.T) {
@@ -35,7 +36,7 @@ func TestChainOpts_Validate(t *testing.T) {
 	type fields struct {
 		AppConfig        legacyevm.AppConfig
 		EventBroadcaster pg.EventBroadcaster
-		MailMon          *utils.MailboxMonitor
+		MailMon          *mailbox.MailboxMonitor
 		DB               *sqlx.DB
 	}
 	tests := []struct {
@@ -48,7 +49,7 @@ func TestChainOpts_Validate(t *testing.T) {
 			fields: fields{
 				AppConfig:        configtest.NewTestGeneralConfig(t),
 				EventBroadcaster: pg.NewNullEventBroadcaster(),
-				MailMon:          &utils.MailboxMonitor{},
+				MailMon:          &mailbox.MailboxMonitor{},
 				DB:               pgtest.NewSqlxDB(t),
 			},
 		},

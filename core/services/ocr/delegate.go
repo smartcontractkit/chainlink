@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -44,7 +45,7 @@ type Delegate struct {
 	legacyChains          legacyevm.LegacyChainContainer
 	lggr                  logger.Logger
 	cfg                   Config
-	mailMon               *utils.MailboxMonitor
+	mailMon               *mailbox.MailboxMonitor
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -61,7 +62,7 @@ func NewDelegate(
 	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg Config,
-	mailMon *utils.MailboxMonitor,
+	mailMon *mailbox.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
 		db:                    db,

@@ -12,9 +12,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/common/internal"
 )
 
 var (
@@ -360,7 +361,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 	lggr := logger.Named(n.lfcLog, "Unreachable")
 	lggr.Debugw("Trying to revive unreachable RPC node", "nodeState", n.State())
 
-	dialRetryBackoff := utils.NewRedialBackoff()
+	dialRetryBackoff := internal.NewRedialBackoff()
 
 	for {
 		select {
@@ -416,7 +417,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 	lggr := logger.Named(n.lfcLog, "InvalidChainID")
 	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with invalid chain ID", n.String()), "nodeState", n.State())
 
-	chainIDRecheckBackoff := utils.NewRedialBackoff()
+	chainIDRecheckBackoff := internal.NewRedialBackoff()
 
 	for {
 		select {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type (
@@ -31,7 +31,7 @@ type (
 		pipelineORM    pipeline.ORM
 		chHeads        chan *evmtypes.Head
 		legacyChains   legacyevm.LegacyChainContainer
-		mailMon        *utils.MailboxMonitor
+		mailMon        *mailbox.MailboxMonitor
 	}
 
 	Config interface {
@@ -47,7 +47,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
 	legacyChains legacyevm.LegacyChainContainer,
-	mailMon *utils.MailboxMonitor,
+	mailMon *mailbox.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
 		logger:         logger.Named("DirectRequest"),
@@ -101,8 +101,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		pipelineORM:              d.pipelineORM,
 		mailMon:                  d.mailMon,
 		job:                      jb,
-		mbOracleRequests:         utils.NewHighCapacityMailbox[log.Broadcast](),
-		mbOracleCancelRequests:   utils.NewHighCapacityMailbox[log.Broadcast](),
+		mbOracleRequests:         mailbox.NewHighCapacityMailbox[log.Broadcast](),
+		mbOracleCancelRequests:   mailbox.NewHighCapacityMailbox[log.Broadcast](),
 		minIncomingConfirmations: concreteSpec.MinIncomingConfirmations.Uint32,
 		requesters:               concreteSpec.Requesters,
 		minContractPayment:       concreteSpec.MinContractPayment,
@@ -127,12 +127,12 @@ type listener struct {
 	oracle                   operator_wrapper.OperatorInterface
 	pipelineRunner           pipeline.Runner
 	pipelineORM              pipeline.ORM
-	mailMon                  *utils.MailboxMonitor
+	mailMon                  *mailbox.MailboxMonitor
 	job                      job.Job
 	runs                     sync.Map // map[string]services.StopChan
 	shutdownWaitGroup        sync.WaitGroup
-	mbOracleRequests         *utils.Mailbox[log.Broadcast]
-	mbOracleCancelRequests   *utils.Mailbox[log.Broadcast]
+	mbOracleRequests         *mailbox.Mailbox[log.Broadcast]
+	mbOracleCancelRequests   *mailbox.Mailbox[log.Broadcast]
 	minIncomingConfirmations uint32
 	requesters               models.AddressCollection
 	minContractPayment       *assets.Link
@@ -238,7 +238,7 @@ func (l *listener) processCancelOracleRequests() {
 	}
 }
 
-func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
+func (l *listener) handleReceivedLogs(mailbox *mailbox.Mailbox[log.Broadcast]) {
 	for {
 		select {
 		case <-l.chStop:

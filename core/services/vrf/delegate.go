@@ -12,6 +12,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -29,7 +30,6 @@ import (
 	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Delegate struct {
@@ -39,7 +39,7 @@ type Delegate struct {
 	ks           keystore.Master
 	legacyChains legacyevm.LegacyChainContainer
 	lggr         logger.Logger
-	mailMon      *utils.MailboxMonitor
+	mailMon      *mailbox.MailboxMonitor
 }
 
 func NewDelegate(
@@ -50,7 +50,7 @@ func NewDelegate(
 	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg pg.QConfig,
-	mailMon *utils.MailboxMonitor) *Delegate {
+	mailMon *mailbox.MailboxMonitor) *Delegate {
 	return &Delegate{
 		q:            pg.NewQ(db, lggr, cfg),
 		ks:           ks,
@@ -175,7 +175,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.ks.Eth(),
 				jb,
 				d.mailMon,
-				utils.NewHighCapacityMailbox[log.Broadcast](),
+				mailbox.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
 				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
@@ -226,7 +226,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.ks.Eth(),
 				jb,
 				d.mailMon,
-				utils.NewHighCapacityMailbox[log.Broadcast](),
+				mailbox.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
 				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
@@ -243,7 +243,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				MailMon:        d.mailMon,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				ReqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
+				ReqLogs:            mailbox.NewHighCapacityMailbox[log.Broadcast](),
 				ChStop:             make(chan struct{}),
 				WaitOnStop:         make(chan struct{}),
 				NewHead:            make(chan struct{}, 1),

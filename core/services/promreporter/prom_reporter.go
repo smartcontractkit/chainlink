@@ -14,9 +14,10 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
@@ -26,7 +27,7 @@ type (
 		db           *sql.DB
 		lggr         logger.Logger
 		backend      PrometheusBackend
-		newHeads     *utils.Mailbox[*evmtypes.Head]
+		newHeads     *mailbox.Mailbox[*evmtypes.Head]
 		chStop       services.StopChan
 		wgDone       sync.WaitGroup
 		reportPeriod time.Duration
@@ -103,7 +104,7 @@ func NewPromReporter(db *sql.DB, lggr logger.Logger, opts ...interface{}) *promR
 		db:           db,
 		lggr:         lggr.Named("PromReporter"),
 		backend:      backend,
-		newHeads:     utils.NewSingleMailbox[*evmtypes.Head](),
+		newHeads:     mailbox.NewSingleMailbox[*evmtypes.Head](),
 		chStop:       chStop,
 		reportPeriod: period,
 	}

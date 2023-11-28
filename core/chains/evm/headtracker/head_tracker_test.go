@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -992,7 +993,7 @@ func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtrac
 	lggr := logger.Test(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
-	mailMon := utils.NewMailboxMonitor(t.Name())
+	mailMon := mailbox.NewMailboxMonitor(t.Name())
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
 		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, htConfig, hb, hs, mailMon),
@@ -1007,7 +1008,7 @@ func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client,
 	lggr := logger.Test(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, evmcfg.EVM(), evmcfg.EVM().HeadTracker())
-	mailMon := utils.NewMailboxMonitor(t.Name())
+	mailMon := mailbox.NewMailboxMonitor(t.Name())
 	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), hb, hs, mailMon)
 	_, err := hs.Load(testutils.Context(t))
 	require.NoError(t, err)
@@ -1025,7 +1026,7 @@ func createHeadTrackerWithChecker(t *testing.T, ethClient evmclient.Client, conf
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
 	hb.Subscribe(checker)
-	mailMon := utils.NewMailboxMonitor(t.Name())
+	mailMon := mailbox.NewMailboxMonitor(t.Name())
 	ht := headtracker.NewHeadTracker(lggr, ethClient, config, htConfig, hb, hs, mailMon)
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
@@ -1042,7 +1043,7 @@ type headTrackerUniverse struct {
 	headTracker     httypes.HeadTracker
 	headBroadcaster httypes.HeadBroadcaster
 	headSaver       httypes.HeadSaver
-	mailMon         *utils.MailboxMonitor
+	mailMon         *mailbox.MailboxMonitor
 }
 
 func (u *headTrackerUniverse) Backfill(ctx context.Context, head *evmtypes.Head, depth uint) error {

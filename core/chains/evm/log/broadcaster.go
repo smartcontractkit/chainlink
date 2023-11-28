@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -102,11 +103,11 @@ type (
 		registrations *registrations
 		logPool       *logPool
 
-		mailMon *utils.MailboxMonitor
+		mailMon *mailbox.MailboxMonitor
 		// Use the same channel for subs/unsubs so ordering is preserved
 		// (unsubscribe must happen after subscribe)
-		changeSubscriberStatus *utils.Mailbox[changeSubscriberStatus]
-		newHeads               *utils.Mailbox[*evmtypes.Head]
+		changeSubscriberStatus *mailbox.Mailbox[changeSubscriberStatus]
+		newHeads               *mailbox.Mailbox[*evmtypes.Head]
 
 		utils.DependentAwaiter
 
@@ -165,7 +166,7 @@ const (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *utils.MailboxMonitor) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *mailbox.MailboxMonitor) *broadcaster {
 	chStop := make(chan struct{})
 	lggr = logger.Named(lggr, "LogBroadcaster")
 	chainId := ethClient.ConfiguredChainID()
@@ -178,8 +179,8 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 		registrations:          newRegistrations(lggr, *chainId),
 		logPool:                newLogPool(lggr),
 		mailMon:                mailMon,
-		changeSubscriberStatus: utils.NewHighCapacityMailbox[changeSubscriberStatus](),
-		newHeads:               utils.NewSingleMailbox[*evmtypes.Head](),
+		changeSubscriberStatus: mailbox.NewHighCapacityMailbox[changeSubscriberStatus](),
+		newHeads:               mailbox.NewSingleMailbox[*evmtypes.Head](),
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		chStop:                 chStop,
 		highestSavedHead:       highestSavedHead,

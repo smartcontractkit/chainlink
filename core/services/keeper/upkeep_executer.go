@@ -13,6 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -23,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -62,7 +63,7 @@ type UpkeepExecuter struct {
 	headBroadcaster        httypes.HeadBroadcasterRegistry
 	gasEstimator           gas.EvmFeeEstimator
 	job                    job.Job
-	mailbox                *utils.Mailbox[*evmtypes.Head]
+	mailbox                *mailbox.Mailbox[*evmtypes.Head]
 	orm                    ORM
 	pr                     pipeline.Runner
 	logger                 logger.Logger
@@ -89,7 +90,7 @@ func NewUpkeepExecuter(
 		headBroadcaster:        headBroadcaster,
 		gasEstimator:           gasEstimator,
 		job:                    job,
-		mailbox:                utils.NewSingleMailbox[*evmtypes.Head](),
+		mailbox:                mailbox.NewSingleMailbox[*evmtypes.Head](),
 		config:                 config,
 		orm:                    orm,
 		pr:                     pr,

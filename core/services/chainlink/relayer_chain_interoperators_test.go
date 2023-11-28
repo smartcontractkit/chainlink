@@ -11,6 +11,8 @@ import (
 
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
@@ -206,7 +208,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					ChainOpts: legacyevm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
-						MailMon:          &utils.MailboxMonitor{},
+						MailMon:          &mailbox.MailboxMonitor{},
 						DB:               db,
 					},
 					CSAETHKeystore: keyStore,
@@ -280,7 +282,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					ChainOpts: legacyevm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
-						MailMon:          &utils.MailboxMonitor{},
+						MailMon:          &mailbox.MailboxMonitor{},
 						DB:               db,
 					},
 					CSAETHKeystore: keyStore,

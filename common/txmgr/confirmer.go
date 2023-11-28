@@ -13,17 +13,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/constraints"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -129,7 +131,7 @@ type Confirmer[
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
-	mb        *utils.Mailbox[HEAD]
+	mb        *mailbox.Mailbox[HEAD]
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	wg        sync.WaitGroup
@@ -174,7 +176,7 @@ func NewConfirmer[
 		dbConfig:         dbConfig,
 		chainID:          client.ConfiguredChainID(),
 		ks:               keystore,
-		mb:               utils.NewSingleMailbox[HEAD](),
+		mb:               mailbox.NewSingleMailbox[HEAD](),
 		isReceiptNil:     isReceiptNil,
 	}
 }
@@ -223,7 +225,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) clo
 	ec.initSync.Lock()
 	defer ec.initSync.Unlock()
 	if !ec.isStarted {
-		return errors.Wrap(utils.ErrAlreadyStopped, "Confirmer is not started")
+		return errors.Wrap(services.ErrAlreadyStopped, "Confirmer is not started")
 	}
 	ec.ctxCancel()
 	ec.wg.Wait()
@@ -1144,7 +1146,7 @@ func observeUntilTxConfirmed[
 
 			// Since a tx can have many attempts, we take the number of blocks to confirm as the block number
 			// of the receipt minus the block number of the first ever broadcast for this transaction.
-			broadcastBefore := utils.MinKey(attempt.Tx.TxAttempts, func(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int64 {
+			broadcastBefore := minKey(attempt.Tx.TxAttempts, func(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int64 {
 				if attempt.BroadcastBeforeBlockNum != nil {
 					return *attempt.BroadcastBeforeBlockNum
 				}
@@ -1158,4 +1160,24 @@ func observeUntilTxConfirmed[
 			}
 		}
 	}
+}
+
+// minKey returns the minimum value of the given element array with respect
+// to the given key function. In the event U is not a compound type (e.g a
+// struct) an identity function can be provided.
+func minKey[U any, T constraints.Ordered](elems []U, key func(U) T) T {
+	var min T
+	if len(elems) == 0 {
+		return min
+	}
+
+	min = key(elems[0])
+	for i := 1; i < len(elems); i++ {
+		v := key(elems[i])
+		if v < min {
+			min = v
+		}
+	}
+
+	return min
 }

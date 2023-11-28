@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -65,7 +66,7 @@ type TestChainOpts struct {
 	DB             *sqlx.DB
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
-	MailMon        *utils.MailboxMonitor
+	MailMon        *mailbox.MailboxMonitor
 	GasEstimator   gas.EvmFeeEstimator
 }
 
@@ -118,7 +119,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainR
 		}
 	}
 	if opts.MailMon == nil {
-		opts.MailMon = srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+		opts.MailMon = srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name()))
 	}
 	if testopts.GasEstimator != nil {
 		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {

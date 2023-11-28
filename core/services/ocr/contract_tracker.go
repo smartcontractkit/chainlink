@@ -21,6 +21,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -31,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // configMailboxSanityLimit is the maximum number of configs that can be held
@@ -67,7 +67,7 @@ type (
 		q                pg.Q
 		blockTranslator  ocrcommon.BlockTranslator
 		cfg              ocrcommon.Config
-		mailMon          *utils.MailboxMonitor
+		mailMon          *mailbox.MailboxMonitor
 
 		// HeadBroadcaster
 		headBroadcaster  httypes.HeadBroadcaster
@@ -83,7 +83,7 @@ type (
 		lrrMu                sync.RWMutex
 
 		// ContractConfig
-		configsMB *utils.Mailbox[ocrtypes.ContractConfig]
+		configsMB *mailbox.Mailbox[ocrtypes.ContractConfig]
 		chConfigs chan ocrtypes.ContractConfig
 
 		// LatestBlockHeight
@@ -117,7 +117,7 @@ func NewOCRContractTracker(
 	cfg ocrcommon.Config,
 	q pg.QConfig,
 	headBroadcaster httypes.HeadBroadcaster,
-	mailMon *utils.MailboxMonitor,
+	mailMon *mailbox.MailboxMonitor,
 ) (o *OCRContractTracker) {
 	logger = logger.Named("OCRContractTracker")
 	return &OCRContractTracker{
@@ -136,7 +136,7 @@ func NewOCRContractTracker(
 		headBroadcaster:      headBroadcaster,
 		chStop:               make(services.StopChan),
 		latestRoundRequested: offchainaggregator.OffchainAggregatorRoundRequested{},
-		configsMB:            utils.NewMailbox[ocrtypes.ContractConfig](configMailboxSanityLimit),
+		configsMB:            mailbox.NewMailbox[ocrtypes.ContractConfig](configMailboxSanityLimit),
 		chConfigs:            make(chan ocrtypes.ContractConfig),
 		latestBlockHeight:    -1,
 	}

@@ -9,9 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const TrackableCallbackTimeout = 2 * time.Second
@@ -30,7 +30,7 @@ type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct
 	services.StateMachine
 	logger         logger.Logger
 	callbacks      callbackSet[H, BLOCK_HASH]
-	mailbox        *utils.Mailbox[H]
+	mailbox        *mailbox.Mailbox[H]
 	mutex          sync.Mutex
 	chClose        services.StopChan
 	wgDone         sync.WaitGroup
@@ -48,7 +48,7 @@ func NewHeadBroadcaster[
 	return &HeadBroadcaster[H, BLOCK_HASH]{
 		logger:    logger.Named(lggr, "HeadBroadcaster"),
 		callbacks: make(callbackSet[H, BLOCK_HASH]),
-		mailbox:   utils.NewSingleMailbox[H](),
+		mailbox:   mailbox.NewSingleMailbox[H](),
 		chClose:   make(chan struct{}),
 	}
 }

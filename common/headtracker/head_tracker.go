@@ -12,11 +12,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -44,14 +44,14 @@ type HeadTracker[
 	log             logger.Logger
 	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH]
 	headSaver       types.HeadSaver[HTH, BLOCK_HASH]
-	mailMon         *utils.MailboxMonitor
+	mailMon         *mailbox.MailboxMonitor
 	client          htrktypes.Client[HTH, S, ID, BLOCK_HASH]
 	chainID         ID
 	config          htrktypes.Config
 	htConfig        htrktypes.HeadTrackerConfig
 
-	backfillMB   *utils.Mailbox[HTH]
-	broadcastMB  *utils.Mailbox[HTH]
+	backfillMB   *mailbox.Mailbox[HTH]
+	broadcastMB  *mailbox.Mailbox[HTH]
 	headListener types.HeadListener[HTH, BLOCK_HASH]
 	chStop       services.StopChan
 	wgDone       sync.WaitGroup
@@ -71,7 +71,7 @@ func NewHeadTracker[
 	htConfig htrktypes.HeadTrackerConfig,
 	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH],
 	headSaver types.HeadSaver[HTH, BLOCK_HASH],
-	mailMon *utils.MailboxMonitor,
+	mailMon *mailbox.MailboxMonitor,
 	getNilHead func() HTH,
 ) types.HeadTracker[HTH, BLOCK_HASH] {
 	chStop := make(chan struct{})
@@ -83,8 +83,8 @@ func NewHeadTracker[
 		config:          config,
 		htConfig:        htConfig,
 		log:             lggr,
-		backfillMB:      utils.NewSingleMailbox[HTH](),
-		broadcastMB:     utils.NewMailbox[HTH](HeadsBufferSize),
+		backfillMB:      mailbox.NewSingleMailbox[HTH](),
+		broadcastMB:     mailbox.NewMailbox[HTH](HeadsBufferSize),
 		chStop:          chStop,
 		headListener:    NewHeadListener[HTH, S, ID, BLOCK_HASH](lggr, client, config, chStop),
 		headSaver:       headSaver,

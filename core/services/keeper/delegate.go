@@ -5,12 +5,12 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // To make sure Delegate struct implements job.Delegate interface
@@ -22,7 +22,7 @@ type Delegate struct {
 	jrm          job.ORM
 	pr           pipeline.Runner
 	legacyChains legacyevm.LegacyChainContainer
-	mailMon      *utils.MailboxMonitor
+	mailMon      *mailbox.MailboxMonitor
 }
 
 // NewDelegate is the constructor of Delegate
@@ -32,7 +32,7 @@ func NewDelegate(
 	pr pipeline.Runner,
 	logger logger.Logger,
 	legacyChains legacyevm.LegacyChainContainer,
-	mailMon *utils.MailboxMonitor,
+	mailMon *mailbox.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
 		logger:       logger,

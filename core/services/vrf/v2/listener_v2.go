@@ -26,6 +26,8 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -108,8 +110,8 @@ func New(
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
-	mailMon *utils.MailboxMonitor,
-	reqLogs *utils.Mailbox[log.Broadcast],
+	mailMon *mailbox.MailboxMonitor,
+	reqLogs *mailbox.Mailbox[log.Broadcast],
 	reqAdded func(),
 	deduper *vrfcommon.LogDeduper,
 ) job.ServiceCtx {
@@ -172,7 +174,7 @@ type listenerV2 struct {
 	l       logger.SugaredLogger
 	chain   legacyevm.Chain
 	chainID *big.Int
-	mailMon *utils.MailboxMonitor
+	mailMon *mailbox.MailboxMonitor
 
 	coordinator      CoordinatorV2_X
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface
@@ -182,7 +184,7 @@ type listenerV2 struct {
 	job            job.Job
 	q              pg.Q
 	gethks         keystore.Eth
-	reqLogs        *utils.Mailbox[log.Broadcast]
+	reqLogs        *mailbox.Mailbox[log.Broadcast]
 	chStop         services.StopChan
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
