@@ -26,23 +26,22 @@ func (b *chainBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*d
 		keyOrder[key.String()] = ix
 	}
 
-	// Fetch relayers
-	var css []types.ChainStatus
+	var cs []types.ChainStatus
 	relayers := b.app.GetRelayers().Slice()
 
 	for _, r := range relayers {
-		cs, err := r.GetChainStatus(ctx)
+		s, err := r.GetChainStatus(ctx)
 		if err != nil {
 			return []*dataloader.Result{{Data: nil, Error: err}}
 		}
 
-		if slices.Contains(chainIDs, cs.ID) {
-			css = append(css, cs)
+		if slices.Contains(chainIDs, s.ID) {
+			cs = append(cs, s)
 		}
 	}
 
 	results := make([]*dataloader.Result, len(keys))
-	for _, c := range css {
+	for _, c := range cs {
 		ix, ok := keyOrder[c.ID]
 		// if found, remove from index lookup map, so we know elements were found
 		if ok {
@@ -50,23 +49,6 @@ func (b *chainBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*d
 			delete(keyOrder, c.ID)
 		}
 	}
-
-	// Fetch the chains
-	//cs, _, err := b.app.EVMORM().Chains(chainIDs...)
-	//if err != nil {
-	//	return []*dataloader.Result{{Data: nil, Error: err}}
-	//}
-
-	// Construct the output array of dataloader results
-	//results := make([]*dataloader.Result, len(keys))
-	//for _, c := range cs {
-	//	ix, ok := keyOrder[c.ID]
-	//	// if found, remove from index lookup map, so we know elements were found
-	//	if ok {
-	//		results[ix] = &dataloader.Result{Data: c, Error: nil}
-	//		delete(keyOrder, c.ID)
-	//	}
-	//}
 
 	// fill array positions without any nodes
 	for _, ix := range keyOrder {

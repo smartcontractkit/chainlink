@@ -172,7 +172,7 @@ func RunGQLTests(t *testing.T, testCases []GQLTestCase) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+			//t.Parallel()
 
 			var (
 				f = setupFramework(t)

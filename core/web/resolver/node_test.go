@@ -6,19 +6,18 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
 func TestResolver_Nodes(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 
 	var (
-		chainID = *utils.NewBigI(1)
-
 		query = `
 			query GetNodes {
 				nodes {
@@ -43,16 +42,24 @@ func TestResolver_Nodes(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("GetRelayers").Return(chainlink.RelayerChainInteroperators(f.Mocks.relayerChainInterops))
-				f.Mocks.relayerChainInterops.Nodes = []types.NodeStatus{
-					{
-						Name:    "node-name",
-						ChainID: chainID.String(),
-						Config:  `Name = 'node-name'`,
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
+					Nodes: []types.NodeStatus{
+						{
+							ChainID: "1",
+							Name:    "node-name",
+							Config:  "",
+							State:   "alive",
+						},
 					},
-				}
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
+					Relayers: []loop.Relayer{
+						testutils.MockRelayer{ChainStatus: types.ChainStatus{
+							ID:      "1",
+							Enabled: true,
+							Config:  "",
+						}},
+					},
+				})
+
 			},
 			query: query,
 			result: `
