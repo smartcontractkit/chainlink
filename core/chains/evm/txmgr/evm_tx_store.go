@@ -1128,7 +1128,7 @@ ORDER BY nonce ASC
 	return etxs, pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
 }
 
-func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64) (finalized bool, err error) {
+func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (finalized bool, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1139,8 +1139,8 @@ func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID 
     SELECT COUNT(evm.receipts.receipt) FROM evm.txes
     INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
     INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
-    WHERE evm.receipts.block_number <= ($1 - evm.txes.min_confirmations) AND evm.txes.id = $2
-    `, blockHeight, txID)
+    WHERE evm.receipts.block_number <= ($1 - evm.txes.min_confirmations)
+    AND evm.txes.id = $2 AND evm.txes.evm_chain_id = $3`, blockHeight, txID, chainID.String())
 	if err != nil {
 		return false, fmt.Errorf("failed to retrieve transaction reciepts: %w", err)
 	}
@@ -1263,15 +1263,15 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 	return nil
 }
 
-func (o *evmTxStore) GetNonFatalTransactions(ctx context.Context) (txes []*Tx, err error) {
+func (o *evmTxStore) GetNonFatalTransactions(ctx context.Context, chainID *big.Int) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
-		stmt := `SELECT * FROM evm.txes WHERE state <> 'fatal_error'`
+		stmt := `SELECT * FROM evm.txes WHERE state <> 'fatal_error' AND evm_chain_id = $1`
 		var dbEtxs []DbEthTx
-		if err = tx.Select(&dbEtxs, stmt); err != nil {
+		if err = tx.Select(&dbEtxs, stmt, chainID.String()); err != nil {
 			return fmt.Errorf("failed to load evm.txes: %w", err)
 		}
 		txes = make([]*Tx, len(dbEtxs))

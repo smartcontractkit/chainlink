@@ -110,6 +110,10 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 		return fmt.Errorf("failed to track abandoned txes: %w", err)
 	}
 
+	if len(tr.txCache) == 0 {
+		tr.lggr.Infow("no abandoned txes found, skipping runLoop")
+		return nil
+	}
 	tr.wg.Add(1)
 	go tr.runLoop()
 	tr.isStarted = true
@@ -207,7 +211,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbando
 		return fmt.Errorf("tracker already started")
 	}
 
-	nonFatalTxes, err := tr.txStore.GetNonFatalTransactions(ctx)
+	nonFatalTxes, err := tr.txStore.GetNonFatalTransactions(ctx, tr.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to get non fatal txes from txStore: %w", err)
 	}
@@ -252,7 +256,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 			// Tx could never be sent on chain even once. That means that we need to sign
 			// an attempt to even broadcast this Tx to the chain. Since the fromAddress
 			// is deleted, we can't sign it.
-			errMsg := "abandoned transaction could not be sent on chain"
+			errMsg := "The FromAddress for this Tx was deleted before this Tx could be broadcast to the chain."
 			if err := tr.markTxFatal(ctx, tx, errMsg); err != nil {
 				return fmt.Errorf("failed to mark tx as fatal: %w", err)
 			}
@@ -272,7 +276,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleConfi
 	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	blockHeight int64,
 ) error {
-	finalized, err := tr.txStore.IsTxFinalized(context.Background(), blockHeight, tx.ID)
+	finalized, err := tr.txStore.IsTxFinalized(context.Background(), blockHeight, tx.ID, tr.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to check if tx is finalized: %w", err)
 	}
@@ -315,7 +319,8 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllTxes
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 	errMsg := fmt.Sprintf(
-		"abandoned transaction exceeded time to live of %d hours", int(tr.ttl.Hours()))
+		"fromAddress for this Tx was deleted, and existing attempts onchain didn't finalize within %d hours, thus this Tx was abandoned.",
+		int(tr.ttl.Hours()))
 
 	for _, atx := range tr.txCache {
 		tx, err := tr.txStore.GetTxByID(ctx, atx.id)

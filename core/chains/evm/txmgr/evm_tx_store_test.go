@@ -792,11 +792,12 @@ func TestORM_IsTxFinalized(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	t.Run("confirmed tx not past finality_depth", func(t *testing.T) {
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
 		tx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
-		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 2, tx.ID)
+		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 2, tx.ID, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.False(t, finalized)
 	})
@@ -804,7 +805,7 @@ func TestORM_IsTxFinalized(t *testing.T) {
 	t.Run("confirmed tx past finality_depth", func(t *testing.T) {
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
 		tx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
-		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 10, tx.ID)
+		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 10, tx.ID, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.True(t, finalized)
 	})
@@ -1400,7 +1401,7 @@ func TestORM_GetNonFatalTransactions(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("gets 0 non finalized eth transaction", func(t *testing.T) {
-		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t))
+		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t), ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.Empty(t, txes)
 	})
@@ -1409,7 +1410,7 @@ func TestORM_GetNonFatalTransactions(t *testing.T) {
 		inProgressTx := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
 		unstartedTx := mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
 
-		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t))
+		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t), ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 
 		for _, tx := range txes {

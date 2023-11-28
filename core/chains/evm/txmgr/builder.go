@@ -51,14 +51,14 @@ func NewTxm(
 	feeCfg := NewEvmTxmFeeConfig(fCfg)     // wrap Evm specific config
 	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
 	chainID := txmClient.ConfiguredChainID()
-	ethBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, txNonceSyncer, lggr, checker, chainConfig.NonceAutoSync())
-	ethTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
-	ethConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
-	var ethResender *Resender
+	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, txNonceSyncer, lggr, checker, chainConfig.NonceAutoSync())
+	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
+	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
+	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
-		ethResender = NewEvmResender(lggr, txStore, txmClient, ethTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
+		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
 	}
-	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender, ethTracker)
+	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, evmBroadcaster, evmConfirmer, evmResender, evmTracker)
 	return txm, nil
 }
 
