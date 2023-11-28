@@ -16,7 +16,7 @@ type nodeWithPriority struct {
 	priority int32
 }
 
-// Deprecated: use corresponding function from common/client
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewPriorityLevelNodeSelector]
 func NewPriorityLevelNodeSelector(nodes []Node) NodeSelector {
 	return &priorityLevelNodeSelector{
 		nodes:           nodes,

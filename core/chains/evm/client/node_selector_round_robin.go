@@ -7,7 +7,7 @@ type roundRobinSelector struct {
 	roundRobinCount atomic.Uint32
 }
 
-// Deprecated: use corresponding function from common/client
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewRoundRobinSelector]
 func NewRoundRobinSelector(nodes []Node) NodeSelector {
 	return &roundRobinSelector{
 		nodes: nodes,

@@ -84,7 +84,8 @@ var (
 //go:generate mockery --quiet --name Node --output ../mocks/ --case=underscore
 
 // Node represents a client that connects to an ethereum-compatible RPC node
-// Deprecated: use chainClient instead
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.Node]
 type Node interface {
 	Start(ctx context.Context) error
 	Close() error
@@ -134,7 +135,6 @@ type rawclient struct {
 
 // Node represents one ethereum node.
 // It must have a ws url and may have a http url
-// Deprecated: use chainClient instead
 type node struct {
 	services.StateMachine
 	lfcLog              logger.Logger
@@ -181,6 +181,8 @@ type node struct {
 }
 
 // NewNode returns a new *node as Node
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewNode]
 func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, nodeOrder int32) Node {
 	n := new(node)
 	n.name = name

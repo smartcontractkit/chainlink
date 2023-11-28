@@ -6,7 +6,7 @@ import (
 
 type totalDifficultyNodeSelector []Node
 
-// Deprecated: use corresponding function from common/client
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewTotalDifficultyNodeSelector]
 func NewTotalDifficultyNodeSelector(nodes []Node) NodeSelector {
 	return totalDifficultyNodeSelector(nodes)
 }
