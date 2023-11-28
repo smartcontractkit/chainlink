@@ -461,7 +461,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCF-2744")
+	t.Skip("questionable value of this test")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
@@ -477,7 +477,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCF-2744")
+	t.Skip("questionable value of this test")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)

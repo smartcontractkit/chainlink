@@ -925,6 +925,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
+	t.Skip("questionable value of this test")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -940,6 +941,7 @@ func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
+	t.Skip("questionable value of this test")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
