@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -35,12 +36,17 @@ var (
 	subIDs           []uint64
 	eoaWalletAddress string
 
-	labels = map[string]string{
-		"branch": "vrfv2_healthcheck",
-		"commit": "vrfv2_healthcheck",
-	}
+	runID       = uuid.New().String()
+	networkName = os.Getenv("SELECTED_NETWORKS")
 
 	testType = os.Getenv("TEST_TYPE")
+	labels   = map[string]string{
+		"branch":    "vrfv2_healthcheck",
+		"commit":    "vrfv2_healthcheck",
+		"network":   networkName,
+		"run_id":    runID,
+		"test_type": testType,
+	}
 )
 
 func TestVRFV2Performance(t *testing.T) {
@@ -75,6 +81,8 @@ func TestVRFV2Performance(t *testing.T) {
 		Uint16("RandomnessRequestCountPerRequest", vrfv2Config.RandomnessRequestCountPerRequest).
 		Uint16("RandomnessRequestCountPerRequestDeviation", vrfv2Config.RandomnessRequestCountPerRequestDeviation).
 		Bool("UseExistingEnv", vrfv2Config.UseExistingEnv).
+		Str("Run ID", runID).
+		Str("Network", networkName).
 		Msg("Performance Test Configuration")
 
 	if vrfv2Config.UseExistingEnv {

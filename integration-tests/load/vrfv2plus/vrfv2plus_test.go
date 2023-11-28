@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -36,12 +36,17 @@ var (
 	subIDs             []*big.Int
 	eoaWalletAddress   string
 
-	labels = map[string]string{
-		"branch": "vrfv2Plus_healthcheck",
-		"commit": "vrfv2Plus_healthcheck",
-	}
+	runID       = uuid.New().String()
+	networkName = os.Getenv("SELECTED_NETWORKS")
 
 	testType = os.Getenv("TEST_TYPE")
+	labels   = map[string]string{
+		"branch":    "vrfv2_healthcheck",
+		"commit":    "vrfv2_healthcheck",
+		"network":   networkName,
+		"run_id":    runID,
+		"test_type": testType,
+	}
 )
 
 func TestVRFV2PlusPerformance(t *testing.T) {
@@ -76,6 +81,8 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		Uint16("RandomnessRequestCountPerRequest", vrfv2PlusConfig.RandomnessRequestCountPerRequest).
 		Uint16("RandomnessRequestCountPerRequestDeviation", vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation).
 		Bool("UseExistingEnv", vrfv2PlusConfig.UseExistingEnv).
+		Str("Run ID", runID).
+		Str("Network", networkName).
 		Msg("Performance Test Configuration")
 
 	if vrfv2PlusConfig.UseExistingEnv {
@@ -308,13 +315,7 @@ func FundNodesIfNeeded(cfg *PerformanceConfig, client blockchain.EVMClient, l ze
 					Str("Should have at least", fundingAtLeast.String()).
 					Str("Funding Amount in ETH", fundingToSendEth.String()).
 					Msg("Funding Node's Sending Key")
-				gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
-					To: &address,
-				})
-				if err != nil {
-					return err
-				}
-				err = client.Fund(sendingKey, fundingToSendEth, gasEstimates)
+				err := actions.FundAddress(client, sendingKey, fundingToSendEth)
 				if err != nil {
 					return err
 				}
