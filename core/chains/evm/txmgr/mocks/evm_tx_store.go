@@ -649,25 +649,25 @@ func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address commo
 	return r0, r1
 }
 
-// GetNonFatalTransactions provides a mock function with given fields: ctx
-func (_m *EvmTxStore) GetNonFatalTransactions(ctx context.Context) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(ctx)
+// GetNonFatalTransactions provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) GetNonFatalTransactions(ctx context.Context, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, chainID)
 
 	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(ctx)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(ctx)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -751,23 +751,23 @@ func (_m *EvmTxStore) HasInProgressTransaction(ctx context.Context, account comm
 	return r0, r1
 }
 
-// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID
-func (_m *EvmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64) (bool, error) {
-	ret := _m.Called(ctx, blockHeight, txID)
+// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID, chainID
+func (_m *EvmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (bool, error) {
+	ret := _m.Called(ctx, blockHeight, txID, chainID)
 
 	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) (bool, error)); ok {
-		return rf(ctx, blockHeight, txID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) (bool, error)); ok {
+		return rf(ctx, blockHeight, txID, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) bool); ok {
-		r0 = rf(ctx, blockHeight, txID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) bool); ok {
+		r0 = rf(ctx, blockHeight, txID, chainID)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64) error); ok {
-		r1 = rf(ctx, blockHeight, txID)
+	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, *big.Int) error); ok {
+		r1 = rf(ctx, blockHeight, txID, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
