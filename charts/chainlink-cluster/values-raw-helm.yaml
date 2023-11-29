@@ -110,30 +110,6 @@ runner:
     limits:
       cpu: 1
       memory: 512Mi
-killgrave:
-  nameOverride: ""
-  labels: { }
-  replicaCount: 1
-  hpa:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 100
-    targetCPUUtilizationPercentage: 80
-    targetMemoryUtilizationPercentage: false
-  resources: { }
-  mock:
-    imposters:
-      #    mock.imposters.configmap -- The name of the configmap containing all your imposters
-      configmap: example-imposters
-      #    mock.imposters.path -- The mounting path for your imposters folder
-      path: /imposters
-    schemas:
-      configmap: example-schemas
-      path: /schemas
-    killgrave:
-      tag: "0.4.1"
-      secure: false
-
   affinity: { }
   tolerations: [ ]
   nodeSelector: { }

@@ -51,12 +51,6 @@ deployments:
           blocktime: 1
         mockserver:
           port: 1080
-        mock:
-          enabled: true
-          imposters:
-            path: ""
-          tag: "0.4.1"
-          port: 1080
         db:
           stateful: false
         chainlink:

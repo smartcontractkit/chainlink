@@ -1,6 +1,0 @@
-dependencies:
-- name: killgrave
-  repository: https://charts.deliveryhero.io/
-  version: 1.0.1
-digest: sha256:a8b224810a4fd90c3a26e6eda96de8cf0ece1c58fcb314c4fe5ab9ec9e21fcbb
-generated: "2023-11-28T14:38:48.410654+01:00"
