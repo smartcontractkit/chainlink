@@ -335,6 +335,14 @@ ContractConfirmations = 4 # Default
 ContractTransmitterTransmitTimeout = '10s' # Default
 # DatabaseTimeout sets `OCR.DatabaseTimeout` for this EVM chain.
 DatabaseTimeout = '10s' # Default
+# **ADVANCED**
+# DeltaCOverride (and `DeltaCJitterOverride`) determine the config override DeltaC.
+# DeltaC is the maximum age of the latest report in the contract. If the maximum age is exceeded, a new report will be
+# created by the report generation protocol.
+DeltaCOverride = "168h" # Default
+# **ADVANCED**
+# DeltaCJitterOverride is the range for jitter to add to `DeltaCOverride`.
+DeltaCJitterOverride = "1h" # Default
 # ObservationGracePeriod sets `OCR.ObservationGracePeriod` for this EVM chain.
 ObservationGracePeriod = '1s' # Default
 

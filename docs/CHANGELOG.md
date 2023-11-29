@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a tracker component to the txmgr for tracking and gracefully handling abandoned transactions. Abandoned transactions occur when a fromAddress is removed from the keystore by a node operator. The tracker gives abandoned transactions a chance to be finalized on chain, or marks them as fatal_error if they are not finalized within a specified time to live (default 6hrs).
 - Added distributed tracing in the OpenTelemetry trace format to the node, currently focused at the LOOPP Plugin development effort. This includes a new set of `Tracing` TOML configurations. The default for collecting traces is off - you must explicitly enable traces and setup a valid OpenTelemetry collector. Refer to `.github/tracing/README.md` for more details.
 - Added a new, optional WebServer authentication option that supports LDAP as a user identity provider. This enables user login access and user roles to be managed and provisioned via a centralized remote server that supports the LDAP protocol, which can be helpful when running multiple nodes. See the documentation for more information and config setup instructions. There is a new `[WebServer].AuthenticationMethod` config option, when set to `ldap` requires the new `[WebServer.LDAP]` config section to be defined, see the reference `docs/core.toml`.
 - New prom metrics for mercury transmit queue:
@@ -19,41 +20,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `mercury_transmit_queue_push_error_count`
     Nops should consider alerting on these.
 - Mercury now implements a local cache for fetching prices for fees, which ought to reduce latency and load on the mercury server, as well as increasing performance. It is enabled by default and can be configured with the following new config variables:
-```
-[Mercury]
-
-# Mercury.Cache controls settings for the price retrieval cache querying a mercury server
-[Mercury.Cache]
-# LatestReportTTL controls how "stale" we will allow a price to be e.g. if
-# set to 1s, a new price will always be fetched if the last result was
-# from 1 second ago or older.
-# 
-# Another way of looking at it is such: the cache will _never_ return a
-# price that was queried from now-LatestReportTTL or before.
-# 
-# Setting to zero disables caching entirely.
-LatestReportTTL = "1s" # Default
-# MaxStaleAge is that maximum amount of time that a value can be stale
-# before it is deleted from the cache (a form of garbage collection).
-# 
-# This should generally be set to something much larger than
-# LatestReportTTL. Setting to zero disables garbage collection.
-MaxStaleAge = "1h" # Default
-# LatestReportDeadline controls how long to wait for a response from the
-# mercury server before retrying. Setting this to zero will wait indefinitely.
-LatestReportDeadline = "5s" # Default
-```
+    ```
+    [Mercury]
+    
+    # Mercury.Cache controls settings for the price retrieval cache querying a mercury server
+    [Mercury.Cache]
+    # LatestReportTTL controls how "stale" we will allow a price to be e.g. if
+    # set to 1s, a new price will always be fetched if the last result was
+    # from 1 second ago or older.
+    # 
+    # Another way of looking at it is such: the cache will _never_ return a
+    # price that was queried from now-LatestReportTTL or before.
+    # 
+    # Setting to zero disables caching entirely.
+    LatestReportTTL = "1s" # Default
+    # MaxStaleAge is that maximum amount of time that a value can be stale
+    # before it is deleted from the cache (a form of garbage collection).
+    # 
+    # This should generally be set to something much larger than
+    # LatestReportTTL. Setting to zero disables garbage collection.
+    MaxStaleAge = "1h" # Default
+    # LatestReportDeadline controls how long to wait for a response from the
+    # mercury server before retrying. Setting this to zero will wait indefinitely.
+    LatestReportDeadline = "5s" # Default
+    ```
 - New prom metrics for the mercury cache:
     `mercury_cache_fetch_failure_count`
     `mercury_cache_hit_count`
     `mercury_cache_wait_count`
     `mercury_cache_miss_count`
-
-
+- Added new `EVM.OCR` TOML config fields `DeltaCOverride` and `DeltaCJitterOverride` for overriding the config DeltaC.
 
 ### Changed
 
 - `L2Suggested` mode is now called `SuggestedPrice`
+- Console logs will now escape (non-whitespace) control characters
 
 ### Removed
 
@@ -70,13 +71,13 @@ LatestReportDeadline = "5s" # Default
 
 <!-- unreleasedstop -->
 
-## 2.7.1 - UNRELEASED
+## 2.7.1 - 2023-11-21
 
 ### Fixed
 
 - Fixed a bug that causes the node to shutdown if all configured RPC's are unreachable during startup.
 
-## 2.7.0 - UNRELEASED
+## 2.7.0 - 2023-11-14
 
 ### Added
 
@@ -92,7 +93,7 @@ ServerPubKey = '...'
 These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Setting `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` alongside `[[TelemetryIngress.Endpoints]]` will prevent the node from booting. Only one way of configuring telemetry endpoints is supported.
 - Added bridge_name label to `pipeline_tasks_total_finished` prometheus metric. This should make it easier to see directly what bridge was failing out from the CL NODE perspective.
 
-- LogPoller will now use finality tags to dynamically determine finality on evm chains if `UseFinalityTags=true`, rather than the fixed `FinalityDepth` specified in toml config
+- LogPoller will now use finality tags to dynamically determine finality on evm chains if `EVM.FinalityTagEnabled=true`, rather than the fixed `EVM.FinalityDepth` specified in toml config
 
 ### Changed
 
