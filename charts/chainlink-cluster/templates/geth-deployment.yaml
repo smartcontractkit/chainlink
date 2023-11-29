@@ -22,6 +22,8 @@ spec:
       - name: configmap-volume
         configMap:
           name: geth-cm
+      - name: devchain-volume
+        emptyDir: {}
       securityContext:
         {{- toYaml $.Values.geth.podSecurityContext | nindent 8 }}
       containers:
@@ -31,6 +33,8 @@ spec:
         image: "{{ default "ethereum/client-go" .Values.geth.image }}:{{ default "stable" .Values.geth.version }}"
         command: [ "sh", "/app/init.sh" ]
         volumeMounts:
+        - name: devchain-volume
+          mountPath: /app/.ethereum/devchain
         - name : configmap-volume
           mountPath: /app/init.sh
           subPath: init.sh
