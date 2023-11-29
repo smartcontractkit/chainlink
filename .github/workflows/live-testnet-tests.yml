@@ -10,7 +10,7 @@
 name: Live Testnet Tests
 on:
   schedule:
-    - cron: "0 0 * * *" # Run nightly
+    - cron: "0 0 * * 0" # Run weekly on Sunday at midnight
   push:
     tags:
       - "*"
