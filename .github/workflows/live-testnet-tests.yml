@@ -80,7 +80,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@af6a100e1e9e79759a587a9244d8e3bb688cdbd7 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@b664381f1437cb2b3cf63ddbc3fa663823d82586 # v2.2.16
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -116,7 +116,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@af6a100e1e9e79759a587a9244d8e3bb688cdbd7 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@b664381f1437cb2b3cf63ddbc3fa663823d82586 # v2.2.16
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
@@ -124,7 +124,6 @@ jobs:
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -json -test.parallel=1 -test.run ${{ matrix.test }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           binary_name: tests
-          test_type: smoke
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
@@ -133,7 +132,6 @@ jobs:
           artifacts_location: ./logs
           publish_check_name: 1 ${{ matrix.product }} Smoke Test Results
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -175,7 +173,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@af6a100e1e9e79759a587a9244d8e3bb688cdbd7 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@b664381f1437cb2b3cf63ddbc3fa663823d82586 # v2.2.16
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
@@ -191,7 +189,6 @@ jobs:
           artifacts_location: ./logs
           publish_check_name: 2 ${{ matrix.product }} Smoke Test Results
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
