@@ -1009,18 +1009,17 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 			return rows.Err()
 		}
 
-		var tableNameAndSchema = make(map[string]string)
+		var tablesToDeleteFrom []string
 		for rows.Next() {
 			var name string
 			var schema string
 			if err = rows.Scan(&name, &schema); err != nil {
 				return err
 			}
-			tableNameAndSchema[name] = schema
+			tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
 		}
 
-		for name, schema := range tableNameAndSchema {
-			tableName := schema + "." + name
+		for _, tableName := range tablesToDeleteFrom {
 			query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
 			_, err = db.Exec(query, c.String("id"))
 			if err != nil {
