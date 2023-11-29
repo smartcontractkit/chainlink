@@ -319,7 +319,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@b72cc28342426e84cb1e65d304fb358b320b63e5 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
@@ -333,7 +333,6 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           artifacts_location: ./logs
-          publish_check_name: 1 ${{ matrix.product }} Smoke Test Results
           token: ${{ secrets.GITHUB_TOKEN }}
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
@@ -373,28 +372,26 @@ jobs:
     name: Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Sepolia ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -430,13 +427,13 @@ jobs:
             test: TestOCRBasic
           - product: Automation
             test: TestAutomationBasic/registry_2_0
-    name: BSC ${{ matrix.product }} Tests
+    name: BSC Testnet ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
@@ -444,17 +441,15 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-bsc-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: BSC ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -467,13 +462,11 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: BSC ${{ matrix.product }} Tests
+          this-job-name: BSC Testnet ${{ matrix.product }} Tests
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
 
   optimism-goerli-smoke-tests:
-    # DEBUG: These work fine
-    if: false
     environment: integration
     permissions:
       checks: write
@@ -495,28 +488,26 @@ jobs:
     name: Optimism Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Optimism Goerli ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -555,28 +546,26 @@ jobs:
     name: Optimism Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Optimism Sepolia ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -594,8 +583,6 @@ jobs:
         continue-on-error: true
 
   arbitrum-goerli-smoke-tests:
-    # DEBUG: These work fine
-    if:
     environment: integration
     permissions:
       checks: write
@@ -617,28 +604,26 @@ jobs:
     name: Arbitrum Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Arbitrum Goerli ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -679,28 +664,26 @@ jobs:
     name: Arbitrum Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Arbitrum Sepolia ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -718,8 +701,6 @@ jobs:
         continue-on-error: true
 
   base-goerli-smoke-tests:
-    # DEBUG: These work fine
-    if: false
     environment: integration
     permissions:
       checks: write
@@ -739,28 +720,26 @@ jobs:
     name: Base Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Base Goerli ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -797,28 +776,26 @@ jobs:
     name: Base Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Base Sepolia ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -836,8 +813,6 @@ jobs:
         continue-on-error: true
   
   polygon-mumbai-smoke-tests:
-    # DEBUG: These work fine
-    if: false
     environment: integration
     permissions:
       checks: write
@@ -859,28 +834,26 @@ jobs:
     name: Polygon Mumbai ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-polygon-mumbai
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Polygon Mumbai ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -919,28 +892,26 @@ jobs:
     name: Avalanche Fuji ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-avalanche-fuji
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Avalanche Fuji ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -979,28 +950,26 @@ jobs:
     name: Fantom Testnet ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-fantom-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Fantom Testnet ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -1037,28 +1006,26 @@ jobs:
     name: Celo Alfajores ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-celo-alfajores
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Celo Alfajores ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -1095,28 +1062,26 @@ jobs:
     name: Scroll Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-scroll-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Scroll Sepolia ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -1153,28 +1118,26 @@ jobs:
     name: Linea Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-linea-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 -run ${{ matrix.test }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: Linea Goerli ${{ matrix.product }} Smoke Test Results
+          artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
