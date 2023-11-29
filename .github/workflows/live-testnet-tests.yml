@@ -79,7 +79,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Chainlink Image
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu20.04-16cores-64GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
