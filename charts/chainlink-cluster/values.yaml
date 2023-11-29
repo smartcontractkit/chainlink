@@ -119,17 +119,11 @@ geth:
 # mockserver is https://www.mock-server.com/where/kubernetes.html
 # used to stub External Adapters
 mockserver:
-  podSecurityContext:
-    fsGroup: 999
-  securityContext:
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: false
-    runAsNonRoot: true
-    runAsUser: 999
-    runAsGroup: 999
   enabled: true
+  releasenameOverride: mockserver
+  app:
+    runAsUser: 999
+    readOnlyRootFilesystem: false
 runner:
   podSecurityContext:
     fsGroup: 999
