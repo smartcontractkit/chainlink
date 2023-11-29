@@ -140,6 +140,7 @@ func TestLogTrigger(t *testing.T) {
 		Int("Duration", duration).
 		Int("Block Time", blockTime).
 		Int("Number of Events", numberOfEvents).
+		Int("Number of Spam Events", numberOfSEvents).
 		Str("Spec Type", specType).
 		Str("Log Level", logLevel).
 		Str("Image", os.Getenv(config.EnvVarCLImage)).
@@ -147,8 +148,8 @@ func TestLogTrigger(t *testing.T) {
 		Msg("Test Config")
 
 	testConfig := fmt.Sprintf("Number of Nodes: %d\nNumber of Upkeeps: %d\nDuration: %d\nBlock Time: %d\n"+
-		"Number of Events: %d\nSpec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\n", numberofNodes, numberOfUpkeeps, duration,
-		blockTime, numberOfEvents, specType, logLevel, os.Getenv(config.EnvVarCLImage), os.Getenv(config.EnvVarCLTag))
+		"Number of Events: %d\nNumber of Spam Events: %d\nSpec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\n", numberofNodes, numberOfUpkeeps, duration,
+		blockTime, numberOfEvents, numberOfSEvents, specType, logLevel, os.Getenv(config.EnvVarCLImage), os.Getenv(config.EnvVarCLTag))
 
 	testNetwork := networks.MustGetSelectedNetworksFromEnv()[0]
 	testType := "load"
