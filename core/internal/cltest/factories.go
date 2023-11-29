@@ -193,6 +193,7 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestE
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
 	etx.State = txmgrcommon.TxConfirmed
+	etx.MinConfirmations.SetValid(6)
 	require.NoError(t, txStore.InsertTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
