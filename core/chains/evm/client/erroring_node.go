@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -132,7 +131,7 @@ func (e *erroringNode) State() NodeState {
 	return NodeStateUnreachable
 }
 
-func (e *erroringNode) StateAndLatest() (NodeState, int64, *utils.Big) {
+func (e *erroringNode) StateAndLatest() (NodeState, int64, *big.Int) {
 	return NodeStateUnreachable, -1, nil
 }
 
