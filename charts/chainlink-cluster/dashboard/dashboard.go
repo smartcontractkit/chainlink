@@ -192,6 +192,7 @@ const (
 
 // CLClusterDashboard is a dashboard for a Chainlink cluster
 type CLClusterDashboard struct {
+	Nodes                    int
 	Name                     string
 	LokiDataSourceName       string
 	PrometheusDataSourceName string
@@ -204,8 +205,9 @@ type CLClusterDashboard struct {
 }
 
 // NewCLClusterDashboard returns a new dashboard for a Chainlink cluster, can be used as a base for more complex plugin based dashboards
-func NewCLClusterDashboard(name, ldsn, pdsn, dbf, grafanaURL, grafanaToken string, opts []dashboard.Option) (*CLClusterDashboard, error) {
+func NewCLClusterDashboard(nodes int, name, ldsn, pdsn, dbf, grafanaURL, grafanaToken string, opts []dashboard.Option) (*CLClusterDashboard, error) {
 	db := &CLClusterDashboard{
+		Nodes:                    nodes,
 		Name:                     name,
 		Folder:                   dbf,
 		LokiDataSourceName:       ldsn,
@@ -234,6 +236,21 @@ func (m *CLClusterDashboard) logsRowOption(name, q string) row.Option {
 		logs.Transparent(),
 		logs.WithLokiTarget(q),
 	)
+}
+
+func (m *CLClusterDashboard) logsRowOptionsForNodes(nodes int) []row.Option {
+	opts := make([]row.Option, 0)
+	for i := 1; i <= nodes; i++ {
+		opts = append(opts, row.WithLogs(
+			fmt.Sprintf("Node %d", i),
+			logs.DataSource(m.LokiDataSourceName),
+			logs.Span(12),
+			logs.Height("300px"),
+			logs.Transparent(),
+			logs.WithLokiTarget(fmt.Sprintf(`{namespace="${namespace}", app="app", instance="node-%d", container="node"}`, i)),
+		))
+	}
+	return opts
 }
 
 // timeseriesRowOption returns a row option for a timeseries with name, axis unit, query and legend template
@@ -372,6 +389,8 @@ func (m *CLClusterDashboard) generate() error {
 			m.logsRowOption("Node 2", `{namespace="${namespace}", app="app", instance="node-2", container="node"}`),
 			m.logsRowOption("Node 3", `{namespace="${namespace}", app="app", instance="node-3", container="node"}`),
 			m.logsRowOption("Node 4", `{namespace="${namespace}", app="app", instance="node-4", container="node"}`),
+			m.logsRowOption("Node 5", `{namespace="${namespace}", app="app", instance="node-5", container="node"}`),
+			m.logsRowOption("Node 6", `{namespace="${namespace}", app="app", instance="node-6", container="node"}`),
 		),
 		// HeadTracker
 		dashboard.Row("Head tracker",
@@ -416,13 +435,13 @@ func (m *CLClusterDashboard) generate() error {
 				"Bridge JSON Parse Values",
 				"",
 				`bridge_json_parse_values{namespace="${namespace}"}`,
-				"{{ pod }}",
+				"{{ pod }} JobID: {{ job_id }}",
 			),
 			m.timeseriesRowOption(
 				"OCR Median Values",
 				"",
 				`ocr_median_values{namespace="${namespace}"}`,
-				"{{ pod }}",
+				"{{pod}} JobID: {{ job_id }}",
 			),
 		),
 		dashboard.Row("Relay Config Poller",
@@ -827,26 +846,26 @@ func (m *CLClusterDashboard) generate() error {
 			m.timeseriesRowOption(
 				"Pipeline Task Execution Time",
 				"Sec",
-				`pipeline_task_execution_time{namespace="${namespace}"}`,
-				"{{pod}}",
+				`pipeline_task_execution_time{namespace="${namespace}"} / 1e6`,
+				"{{ pod }} JobID: {{ job_id }}",
 			),
 			m.timeseriesRowOption(
 				"Pipeline Run Errors",
 				"",
 				`pipeline_run_errors{namespace="${namespace}"}`,
-				"{{pod}}",
+				"{{ pod }} JobID: {{ job_id }}",
 			),
 			m.timeseriesRowOption(
 				"Pipeline Run Total Time to Completion",
 				"Sec",
-				`pipeline_run_total_time_to_completion{namespace="${namespace}"}`,
-				"{{pod}}",
+				`pipeline_run_total_time_to_completion{namespace="${namespace}"} / 1e6`,
+				"{{ pod }} JobID: {{ job_id }}",
 			),
 			m.timeseriesRowOption(
 				"Pipeline Tasks Total Finished",
 				"",
 				`pipeline_tasks_total_finished{namespace="${namespace}"}`,
-				"{{pod}}",
+				"{{ pod }} JobID: {{ job_id }}",
 			),
 		),
 		dashboard.Row(
@@ -865,12 +884,12 @@ func (m *CLClusterDashboard) generate() error {
 			m.timeseriesRowOption(
 				"Pipeline Task HTTP Fetch Time",
 				"Sec",
-				`pipeline_task_http_fetch_time{namespace="${namespace}"}`,
+				`pipeline_task_http_fetch_time{namespace="${namespace}"} / 1e6`,
 				"{{pod}}",
 			),
 			m.timeseriesRowOption(
 				"Pipeline Task HTTP Response Body Size",
-				"Sec",
+				"Bytes",
 				`pipeline_task_http_response_body_size{namespace="${namespace}"}`,
 				"{{pod}}",
 			),
@@ -920,6 +939,48 @@ func (m *CLClusterDashboard) generate() error {
 			),
 		),
 	}
+	logOptsFinal := make([]row.Option, 0)
+	logOptsFinal = append(
+		logOptsFinal,
+		row.Collapse(),
+		row.WithTimeSeries(
+			"Log Counters",
+			timeseries.Span(12),
+			timeseries.Height("200px"),
+			timeseries.DataSource(m.PrometheusDataSourceName),
+			timeseries.WithPrometheusTarget(
+				`log_panic_count{namespace="${namespace}"}`,
+				prometheus.Legend("{{pod}} - panic"),
+			),
+			timeseries.WithPrometheusTarget(
+				`log_fatal_count{namespace="${namespace}"}`,
+				prometheus.Legend("{{pod}} - fatal"),
+			),
+			timeseries.WithPrometheusTarget(
+				`log_critical_count{namespace="${namespace}"}`,
+				prometheus.Legend("{{pod}} - critical"),
+			),
+			timeseries.WithPrometheusTarget(
+				`log_warn_count{namespace="${namespace}"}`,
+				prometheus.Legend("{{pod}} - warn"),
+			),
+			timeseries.WithPrometheusTarget(
+				`log_error_count{namespace="${namespace}"}`,
+				prometheus.Legend("{{pod}} - error"),
+			),
+		),
+		m.logsRowOption("All errors", `
+			{namespace="${namespace}", app="app", container="node"} 
+			| json 
+			| level="error" 
+			|  line_format "{{ .instance }} {{ .level }} {{ .ts }} {{ .logger }} {{ .caller }} {{ .msg }} {{ .version }} {{ .nodeTier }} {{ .nodeName }} {{ .node }} {{ .evmChainID }} {{ .nodeOrder }} {{ .mode }} {{ .nodeState }} {{ .sentryEventID }} {{ .stacktrace }}"`),
+	)
+	logOptsFinal = append(logOptsFinal, m.logsRowOptionsForNodes(m.Nodes)...)
+	logRowOpts := dashboard.Row(
+		"Logs",
+		logOptsFinal...,
+	)
+	opts = append(opts, logRowOpts)
 	opts = append(opts, m.extendedOpts...)
 	builder, err := dashboard.New(
 		"Chainlink Cluster Dashboard",
