@@ -79,7 +79,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Chainlink Image
-    runs-on: ubuntu20.04-8cores-16GB
+    runs-on: ubuntu20.04-8cores-32GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -110,7 +110,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Tests Binary
-    runs-on: ubuntu20.04-4cores-16GB
+    runs-on: ubuntu20.04-8cores-32GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -118,7 +118,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Build Chainlink Image
+          this-job-name: Build Tests Binary
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -293,6 +293,63 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   # End Reporting Jobs
+
+  smoke-tests-example:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: SIMULATED
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+    name: 1 ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@b72cc28342426e84cb1e65d304fb358b320b63e5 # v2.2.16
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          publish_check_name: 1 ${{ matrix.product }} Smoke Test Results
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Sepolia ${{ matrix.product }} Tests
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+        continue-on-error: true
 
   sepolia-smoke-tests:
     environment: integration
