@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	sq "github.com/Masterminds/squirrel"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
@@ -20,6 +19,7 @@ import (
 	nullv4 "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -450,29 +450,23 @@ type TransactionsWithAttemptsSelector struct {
 // TransactionsWithAttempts returns all eth transactions with at least one attempt
 // limited by passed parameters. Attempts are sorted by id.
 func (o *evmTxStore) TransactionsWithAttempts(selector TransactionsWithAttemptsSelector) (txs []Tx, count int, err error) {
-	stmt := sq.Select("count(*)").From("evm.txes").
-		Where("id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts)").PlaceholderFormat(sq.Dollar)
+	query := " FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts)"
+	var args []interface{}
 	if selector.IdempotencyKey != nil {
-		stmt = stmt.Where("idempotency_key = ?", *selector.IdempotencyKey)
+		args = append(args, *selector.IdempotencyKey)
+		query += " AND idempotency_key = ?"
 	}
 
-	query, args, err := stmt.ToSql()
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to build count query: %w", err)
+	countQuery := sqlx.Rebind(sqlx.DOLLAR, "SELECT count(*)"+query)
+	if err = o.q.Get(&count, countQuery, args...); err != nil {
+		return nil, 0, fmt.Errorf("failed to exec count query: %w, sql: %s", err, countQuery)
 	}
 
-	if err = o.q.Get(&count, query, args...); err != nil {
-		return nil, 0, fmt.Errorf("failed to exec count query: %w, sql: %s", err, query)
-	}
-
-	query, args, err = stmt.RemoveColumns().Columns("*").
-		OrderBy("id desc").Limit(selector.Limit).Offset(selector.Offset).ToSql()
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to build select query: %w", err)
-	}
+	selectQuery := sqlx.Rebind(sqlx.DOLLAR, "SELECT * "+query+" ORDER BY id desc LIMIT ? OFFSET ?")
+	args = append(args, selector.Limit, selector.Offset)
 	var dbTxs []DbEthTx
-	if err = o.q.Select(&dbTxs, query, args...); err != nil {
-		return nil, 0, fmt.Errorf("failed to exec select query: %w, sql: %s", err, query)
+	if err = o.q.Select(&dbTxs, selectQuery, args...); err != nil {
+		return nil, 0, fmt.Errorf("failed to exec select query: %w, sql: %s", err, selectQuery)
 	}
 	txs = dbEthTxsToEvmEthTxs(dbTxs)
 	err = o.preloadTxAttempts(txs)

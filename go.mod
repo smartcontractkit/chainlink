@@ -6,7 +6,6 @@ require (
 	github.com/Depado/ginprom v1.7.11
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
-	github.com/Masterminds/squirrel v1.5.4
 	github.com/avast/retry-go/v4 v4.5.0
 	github.com/btcsuite/btcd v0.23.4
 	github.com/cometbft/cometbft v0.37.2
@@ -102,11 +101,6 @@ require (
 	gopkg.in/guregu/null.v2 v2.1.2
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
-)
-
-require (
-	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
-	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 )
 
 require (
