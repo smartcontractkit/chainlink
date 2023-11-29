@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -221,11 +222,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
-		var err2 error
-		client, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to instantiate eth client for chain with ID %s: %w", cfg.EVM().ChainID().String(), err2)
-		}
+		client = newEthClientFromCfg(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
 	} else {
 		client = opts.GenEthClient(chainID)
 	}
@@ -475,46 +472,27 @@ func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
 
-func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType commonconfig.ChainType, nodes []*toml.Node) (evmclient.Client, error) {
-	var primaries []evmclient.Node
-	var sendonlys []evmclient.SendOnlyNode
+func newEthClientFromCfg(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType commonconfig.ChainType, nodes []*toml.Node) evmclient.Client {
+	var empty url.URL
+	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, evmclient.RPCCLient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, evmclient.RPCCLient]
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
-			sendonly := evmclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL), *node.Name, chainID)
+			name := fmt.Sprintf("eth-sendonly-rpc-%d", i)
+			rpc := evmclient.NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), name, int32(i), chainID,
+				commonclient.Secondary)
+			sendonly := commonclient.NewSendOnlyNode[*big.Int, evmclient.RPCCLient](lggr, (url.URL)(*node.HTTPURL),
+				*node.Name, chainID, rpc)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			primary, err := newPrimary(cfg, noNewHeadsThreshold, lggr, node, int32(i), chainID)
-			if err != nil {
-				return nil, err
-			}
-			primaries = append(primaries, primary)
+			name := fmt.Sprintf("eth-primary-rpc-%d", i)
+			rpc := evmclient.NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), name, int32(i),
+				chainID, commonclient.Primary)
+			primaryNode := commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCCLient](cfg, noNewHeadsThreshold,
+				lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order,
+				rpc, "EVM")
+			primaries = append(primaries, primaryNode)
 		}
 	}
-	return evmclient.NewClientWithNodes(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
+	return evmclient.NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
 }
-
-func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, n *toml.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
-	if n.SendOnly != nil && *n.SendOnly {
-		return nil, errors.New("cannot cast send-only node to primary")
-	}
-
-	return evmclient.NewNode(cfg, noNewHeadsThreshold, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
-}
-
-// TODO-1663: replace newEthClientFromChain with the function below once client.go is deprecated.
-//func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*toml.Node) evmclient.Client {
-//	var empty url.URL
-//	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, evmclient.RPCCLient]
-//	var sendonlys []commonclient.SendOnlyNode[*big.Int, evmclient.RPCCLient]
-//	for i, node := range nodes {
-//		if node.SendOnly != nil && *node.SendOnly {
-//			rpc := evmclient.NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), fmt.Sprintf("eth-sendonly-rpc-%d", i), int32(i), chainID, commontypes.Primary)
-//			sendonly := commonclient.NewSendOnlyNode[*big.Int, evmclient.RPCCLient](lggr, (url.URL)(*node.HTTPURL), *node.Name, chainID, rpc)
-//			sendonlys = append(sendonlys, sendonly)
-//		} else {
-//			rpc := evmclient.NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), fmt.Sprintf("eth-sendonly-rpc-%d", i), int32(i), chainID, commontypes.Primary)
-//			primaries = append(primaries, commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCCLient](cfg, noNewHeadsThreshold, lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order, rpc, "EVM"))
-//		}
-//	}
-//	return evmclient.NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
-//}
