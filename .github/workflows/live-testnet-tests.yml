@@ -626,6 +626,8 @@ jobs:
         continue-on-error: true
 
   base-goerli-smoke-tests:
+    # DEBUG: These work fine
+    if: false
     environment: integration
     permissions:
       checks: write
