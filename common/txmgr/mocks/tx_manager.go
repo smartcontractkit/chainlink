@@ -37,23 +37,23 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Close(
 	return r0
 }
 
-// CountTransactionsByState provides a mock function with given fields: ctx, state, chainID
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) (uint32, error) {
-	ret := _m.Called(ctx, state, chainID)
+// CountTransactionsByState provides a mock function with given fields: ctx, state
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (uint32, error) {
+	ret := _m.Called(ctx, state)
 
 	var r0 uint32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.TxState, CHAIN_ID) (uint32, error)); ok {
-		return rf(ctx, state, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.TxState) (uint32, error)); ok {
+		return rf(ctx, state)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.TxState, CHAIN_ID) uint32); ok {
-		r0 = rf(ctx, state, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.TxState) uint32); ok {
+		r0 = rf(ctx, state)
 	} else {
 		r0 = ret.Get(0).(uint32)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, txmgrtypes.TxState, CHAIN_ID) error); ok {
-		r1 = rf(ctx, state, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, txmgrtypes.TxState) error); ok {
+		r1 = rf(ctx, state)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -85,23 +85,23 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Create
 	return r0, r1
 }
 
-// FindEarliestUnconfirmedBroadcastTime provides a mock function with given fields: ctx, chainID
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID CHAIN_ID) (null.Time, error) {
-	ret := _m.Called(ctx, chainID)
+// FindEarliestUnconfirmedBroadcastTime provides a mock function with given fields: ctx
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindEarliestUnconfirmedBroadcastTime(ctx context.Context) (null.Time, error) {
+	ret := _m.Called(ctx)
 
 	var r0 null.Time
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) (null.Time, error)); ok {
-		return rf(ctx, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context) (null.Time, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) null.Time); ok {
-		r0 = rf(ctx, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context) null.Time); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(null.Time)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID) error); ok {
-		r1 = rf(ctx, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -109,23 +109,23 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindEa
 	return r0, r1
 }
 
-// FindEarliestUnconfirmedTxAttemptBlock provides a mock function with given fields: ctx, chainID
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID CHAIN_ID) (null.Int, error) {
-	ret := _m.Called(ctx, chainID)
+// FindEarliestUnconfirmedTxAttemptBlock provides a mock function with given fields: ctx
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (null.Int, error) {
+	ret := _m.Called(ctx)
 
 	var r0 null.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) (null.Int, error)); ok {
-		return rf(ctx, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context) (null.Int, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) null.Int); ok {
-		r0 = rf(ctx, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context) null.Int); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(null.Int)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID) error); ok {
-		r1 = rf(ctx, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
