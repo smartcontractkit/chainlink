@@ -781,7 +781,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: smartcontractkit/chainlink-solana
-          ref: 23816fcf7d380a30c87b6d87e4fb0ca94419b259 # swtich back to this after the next solana release${{ needs.get_solana_sha.outputs.sha }}
+          ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build Test Image
         if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: ./.github/actions/build-test-image
@@ -794,7 +794,7 @@ jobs:
       - run: echo "this exists so we don't have to run anything else if the build is skipped"
         if: needs.changes.outputs.src == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 
-  solana-smoke-tests-matrix:
+  solana-smoke-tests:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
@@ -802,14 +802,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    strategy:
-      matrix:
-        image:
-          - name: (legacy)
-            tag-suffix: ""
-          - name: (plugins)
-            tag-suffix: -plugins
-    name: Solana Smoke Tests ${{ matrix.image.name }}
+    name: Solana Smoke Tests
     runs-on: ubuntu20.04-16cores-64GB
     needs:
       [
@@ -832,7 +825,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solana Smoke Tests ${{ matrix.image.name }}
+          this-job-name: Solana Smoke Tests
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
       - name: Checkout the repo
@@ -875,7 +868,7 @@ jobs:
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
+          cl_image_tag: ${{ github.sha }}
           artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/integration-tests/logs
           publish_check_name: Solana Smoke Test Results
           go_mod_path: ./integration-tests/go.mod
@@ -894,25 +887,3 @@ jobs:
           path: /tmp/gotest.log
           retention-days: 7
         continue-on-error: true
-
-  ### Used to check the required checks box when the matrix completes
-  solana-smoke-tests:
-    if: always()
-    runs-on: ubuntu-latest
-    name: Solana Smoke Tests
-    needs: [solana-smoke-tests-matrix]
-    steps:
-      - name: Check smoke test matrix status
-        if: needs.solana-smoke-tests-matrix.result != 'success'
-        run: exit 1
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solana Smoke Tests
-          matrix-aggregator-status: ${{ needs.solana-smoke-tests-matrix.result }}
-        continue-on-error: true
-  ### End Solana Section
