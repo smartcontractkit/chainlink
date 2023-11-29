@@ -3,7 +3,8 @@
 package client
 
 import (
-	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
+	big "math/big"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -13,15 +14,15 @@ type mockHead struct {
 }
 
 // BlockDifficulty provides a mock function with given fields:
-func (_m *mockHead) BlockDifficulty() *utils.Big {
+func (_m *mockHead) BlockDifficulty() *big.Int {
 	ret := _m.Called()
 
-	var r0 *utils.Big
-	if rf, ok := ret.Get(0).(func() *utils.Big); ok {
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*utils.Big)
+			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 

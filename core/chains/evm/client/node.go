@@ -24,7 +24,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -93,7 +92,7 @@ type Node interface {
 	// State returns NodeState
 	State() NodeState
 	// StateAndLatest returns NodeState with the latest received block number & total difficulty.
-	StateAndLatest() (state NodeState, blockNum int64, totalDifficulty *utils.Big)
+	StateAndLatest() (state NodeState, blockNum int64, totalDifficulty *big.Int)
 	// Name is a unique identifier for this node.
 	Name() string
 	ChainID() *big.Int
@@ -153,7 +152,7 @@ type node struct {
 	state   NodeState
 	// Each node is tracking the last received head number and total difficulty
 	stateLatestBlockNumber     int64
-	stateLatestTotalDifficulty *utils.Big
+	stateLatestTotalDifficulty *big.Int
 
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
@@ -177,7 +176,7 @@ type node struct {
 	//  1. see how many live nodes there are in total, so we can prevent the last alive node in a pool from being
 	//  moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
 	//  2. compare against the highest head (by number or difficulty) to ensure we don't fall behind too far.
-	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *utils.Big)
+	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *big.Int)
 }
 
 // NewNode returns a new *node as Node

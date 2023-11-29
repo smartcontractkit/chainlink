@@ -2,11 +2,10 @@ package client
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -112,7 +111,7 @@ func (n *node) State() NodeState {
 	return n.state
 }
 
-func (n *node) StateAndLatest() (NodeState, int64, *utils.Big) {
+func (n *node) StateAndLatest() (NodeState, int64, *big.Int) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
 	return n.state, n.stateLatestBlockNumber, n.stateLatestTotalDifficulty
@@ -184,7 +183,7 @@ func (n *node) transitionToInSync(fn func()) {
 
 // declareOutOfSync puts a node into OutOfSync state, disconnecting all current
 // clients and making it unavailable for use until back in-sync.
-func (n *node) declareOutOfSync(isOutOfSync func(num int64, td *utils.Big) bool) {
+func (n *node) declareOutOfSync(isOutOfSync func(num int64, td *big.Int) bool) {
 	n.transitionToOutOfSync(func() {
 		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
 		n.wg.Add(1)
