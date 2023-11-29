@@ -313,7 +313,7 @@ func TestShell_ListFindJobs(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
+	flagSetApplyFromAction(client.CreateJob, fs, "")
 
 	require.NoError(t, fs.Parse([]string{getDirectRequestSpec()}))
 
@@ -339,7 +339,7 @@ func TestShell_ShowJob(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
+	flagSetApplyFromAction(client.CreateJob, fs, "")
 
 	require.NoError(t, fs.Parse([]string{getDirectRequestSpec()}))
 
@@ -382,7 +382,7 @@ func TestShell_CreateJobV2(t *testing.T) {
 	requireJobsCount(t, app.JobORM(), 0)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
+	flagSetApplyFromAction(client.CreateJob, fs, "")
 
 	nameAndExternalJobID := uuid.New()
 	spec := fmt.Sprintf(ocrBootstrapSpec, nameAndExternalJobID, nameAndExternalJobID)
@@ -413,7 +413,7 @@ func TestShell_DeleteJob(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
+	flagSetApplyFromAction(client.CreateJob, fs, "")
 
 	require.NoError(t, fs.Parse([]string{getDirectRequestSpec()}))
 
@@ -432,12 +432,12 @@ func TestShell_DeleteJob(t *testing.T) {
 
 	// Must supply job id
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteJob, set, "")
+	flagSetApplyFromAction(client.DeleteJob, set, "")
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, "must pass the job id to be archived", client.DeleteJob(c).Error())
 
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteJob, set, "")
+	flagSetApplyFromAction(client.DeleteJob, set, "")
 
 	require.NoError(t, set.Parse([]string{output.ID}))
 

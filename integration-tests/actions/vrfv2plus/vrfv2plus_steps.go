@@ -7,9 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
 
@@ -31,6 +30,7 @@ import (
 
 var (
 	ErrNodePrimaryKey                              = "error getting node's primary ETH key"
+	ErrNodeNewTxKey                                = "error creating node's EVM transaction key"
 	ErrCreatingProvingKeyHash                      = "error creating a keyHash from the proving key"
 	ErrRegisteringProvingKey                       = "error registering a proving key on Coordinator contract"
 	ErrRegisterProvingKey                          = "error registering proving keys"
@@ -112,7 +112,7 @@ func DeployVRFV2PlusConsumers(contractDeployer contracts.ContractDeployer, coord
 func CreateVRFV2PlusJob(
 	chainlinkNode *client.ChainlinkClient,
 	coordinatorAddress string,
-	nativeTokenPrimaryKeyAddress string,
+	nativeTokenKeyAddresses []string,
 	pubKeyCompressed string,
 	chainID string,
 	minIncomingConfirmations uint16,
@@ -129,13 +129,14 @@ func CreateVRFV2PlusJob(
 	job, err := chainlinkNode.MustCreateJob(&client.VRFV2PlusJobSpec{
 		Name:                     fmt.Sprintf("vrf-v2-plus-%s", jobUUID),
 		CoordinatorAddress:       coordinatorAddress,
-		FromAddresses:            []string{nativeTokenPrimaryKeyAddress},
+		FromAddresses:            nativeTokenKeyAddresses,
 		EVMChainID:               chainID,
 		MinIncomingConfirmations: int(minIncomingConfirmations),
 		PublicKey:                pubKeyCompressed,
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 		BatchFulfillmentEnabled:  false,
+		PollPeriod:               time.Second,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2PlusJob, err)
@@ -207,6 +208,7 @@ func SetupVRFV2_5Environment(
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
 	registerProvingKeyAgainstAddress string,
+	numberOfTxKeysToCreate int,
 	numberOfConsumers int,
 	numberOfSubToCreate int,
 	l zerolog.Logger,
@@ -273,17 +275,21 @@ func SetupVRFV2_5Environment(
 	}
 
 	chainID := env.EVMClient.GetChainID()
-
+	newNativeTokenKeyAddresses, err := CreateAndFundSendingKeys(env, vrfv2PlusConfig, numberOfTxKeysToCreate, chainID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	nativeTokenPrimaryKeyAddress, err := env.ClCluster.NodeAPIs()[0].PrimaryEthAddress()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrNodePrimaryKey, err)
 	}
+	allNativeTokenKeyAddresses := append(newNativeTokenKeyAddresses, nativeTokenPrimaryKeyAddress)
 
 	l.Info().Msg("Creating VRFV2 Plus Job")
 	job, err := CreateVRFV2PlusJob(
 		env.ClCluster.NodeAPIs()[0],
 		vrfv2_5Contracts.Coordinator.Address(),
-		nativeTokenPrimaryKeyAddress,
+		allNativeTokenKeyAddresses,
 		pubKeyCompressed,
 		chainID.String(),
 		vrfv2PlusConfig.MinimumConfirmations,
@@ -295,14 +301,11 @@ func SetupVRFV2_5Environment(
 	// this part is here because VRFv2 can work with only a specific key
 	// [[EVM.KeySpecific]]
 	//	Key = '...'
-	addr, err := env.ClCluster.Nodes[0].API.PrimaryEthAddress()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrGetPrimaryKey, err)
-	}
 	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
-		node.WithVRFv2EVMEstimator(addr, vrfv2PlusConfig.CLNodeMaxGasPriceGWei),
+		node.WithLogPollInterval(1*time.Second),
+		node.WithVRFv2EVMEstimator(allNativeTokenKeyAddresses, vrfv2PlusConfig.CLNodeMaxGasPriceGWei),
 	)
-	l.Info().Msg("Restarting Node with new sending key PriceMax configuration")
+	l.Info().Msg("Restarting Node with new sending key PriceMax configuration and log poll period configuration")
 	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrRestartCLNode, err)
@@ -323,6 +326,25 @@ func SetupVRFV2_5Environment(
 
 	l.Info().Msg("VRFV2 Plus environment setup is finished")
 	return vrfv2_5Contracts, subIDs, &data, nil
+}
+
+func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig, numberOfNativeTokenAddressesToCreate int, chainID *big.Int) ([]string, error) {
+	var newNativeTokenKeyAddresses []string
+	for i := 0; i < numberOfNativeTokenAddressesToCreate; i++ {
+		newTxKey, response, err := env.ClCluster.NodeAPIs()[0].CreateTxKey("evm", chainID.String())
+		if err != nil {
+			return nil, fmt.Errorf("%s, err %w", ErrNodeNewTxKey, err)
+		}
+		if response.StatusCode != 200 {
+			return nil, fmt.Errorf("error creating transaction key - response code, err %d", response.StatusCode)
+		}
+		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.ID)
+		err = actions.FundAddress(env.EVMClient, newTxKey.Data.ID, big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return newNativeTokenKeyAddresses, nil
 }
 
 func CreateFundSubsAndAddConsumers(

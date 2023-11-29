@@ -574,6 +574,8 @@ func TestConfig_Marshal(t *testing.T) {
 					ContractConfirmations:              ptr[uint16](11),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
+					DeltaCOverride:                     models.MustNewDuration(time.Hour),
+					DeltaCJitterOverride:               models.MustNewDuration(time.Second),
 					ObservationGracePeriod:             &second,
 				},
 				OCR2: evmcfg.OCR2{
@@ -666,6 +668,13 @@ func TestConfig_Marshal(t *testing.T) {
 				{Name: ptr("foo"), TendermintURL: commoncfg.MustParseURL("http://foo.url")},
 				{Name: ptr("bar"), TendermintURL: commoncfg.MustParseURL("http://bar.web")},
 			},
+		},
+	}
+	full.Mercury = toml.Mercury{
+		Cache: toml.MercuryCache{
+			LatestReportTTL:      models.MustNewDuration(100 * time.Second),
+			MaxStaleAge:          models.MustNewDuration(101 * time.Second),
+			LatestReportDeadline: models.MustNewDuration(102 * time.Second),
 		},
 	}
 
@@ -1012,6 +1021,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
+DeltaCOverride = '1h0m0s'
+DeltaCJitterOverride = '1s'
 ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
@@ -1103,6 +1114,12 @@ ConfirmationPoll = '42s'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+`},
+		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1m40s'
+MaxStaleAge = '1m41s'
+LatestReportDeadline = '1m42s'
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},

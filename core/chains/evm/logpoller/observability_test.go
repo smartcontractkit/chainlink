@@ -9,15 +9,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestMultipleMetricsArePublished(t *testing.T) {
@@ -54,7 +56,7 @@ func TestShouldPublishDurationInCaseOfError(t *testing.T) {
 	require.Error(t, err)
 
 	require.Equal(t, 1, testutil.CollectAndCount(orm.queryDuration))
-	require.Equal(t, 1, counterFromHistogramByLabels(t, orm.queryDuration, "200", "SelectLatestLogByEventSigWithConfs"))
+	require.Equal(t, 1, counterFromHistogramByLabels(t, orm.queryDuration, "200", "SelectLatestLogByEventSigWithConfs", "read"))
 }
 
 func TestMetricsAreProperlyPopulatedWithLabels(t *testing.T) {
@@ -68,14 +70,14 @@ func TestMetricsAreProperlyPopulatedWithLabels(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.Equal(t, expectedCount, counterFromHistogramByLabels(t, orm.queryDuration, "420", "query"))
-	require.Equal(t, expectedSize, counterFromGaugeByLabels(orm.datasetSize, "420", "query"))
+	require.Equal(t, expectedCount, counterFromHistogramByLabels(t, orm.queryDuration, "420", "query", "read"))
+	require.Equal(t, expectedSize, counterFromGaugeByLabels(orm.datasetSize, "420", "query", "read"))
 
-	require.Equal(t, 0, counterFromHistogramByLabels(t, orm.queryDuration, "420", "other_query"))
-	require.Equal(t, 0, counterFromHistogramByLabels(t, orm.queryDuration, "5", "query"))
+	require.Equal(t, 0, counterFromHistogramByLabels(t, orm.queryDuration, "420", "other_query", "read"))
+	require.Equal(t, 0, counterFromHistogramByLabels(t, orm.queryDuration, "5", "query", "read"))
 
-	require.Equal(t, 0, counterFromGaugeByLabels(orm.datasetSize, "420", "other_query"))
-	require.Equal(t, 0, counterFromGaugeByLabels(orm.datasetSize, "5", "query"))
+	require.Equal(t, 0, counterFromGaugeByLabels(orm.datasetSize, "420", "other_query", "read"))
+	require.Equal(t, 0, counterFromGaugeByLabels(orm.datasetSize, "5", "query", "read"))
 }
 
 func TestNotPublishingDatasetSizeInCaseOfError(t *testing.T) {
@@ -84,20 +86,64 @@ func TestNotPublishingDatasetSizeInCaseOfError(t *testing.T) {
 	_, err := withObservedQueryAndResults(orm, "errorQuery", func() ([]string, error) { return nil, fmt.Errorf("error") })
 	require.Error(t, err)
 
-	require.Equal(t, 1, counterFromHistogramByLabels(t, orm.queryDuration, "420", "errorQuery"))
-	require.Equal(t, 0, counterFromGaugeByLabels(orm.datasetSize, "420", "errorQuery"))
+	require.Equal(t, 1, counterFromHistogramByLabels(t, orm.queryDuration, "420", "errorQuery", "read"))
+	require.Equal(t, 0, counterFromGaugeByLabels(orm.datasetSize, "420", "errorQuery", "read"))
 }
 
 func TestMetricsAreProperlyPopulatedForWrites(t *testing.T) {
 	orm := createObservedORM(t, 420)
-	require.NoError(t, withObservedExec(orm, "execQuery", func() error { return nil }))
-	require.Error(t, withObservedExec(orm, "execQuery", func() error { return fmt.Errorf("error") }))
+	require.NoError(t, withObservedExec(orm, "execQuery", create, func() error { return nil }))
+	require.Error(t, withObservedExec(orm, "execQuery", create, func() error { return fmt.Errorf("error") }))
 
-	require.Equal(t, 2, counterFromHistogramByLabels(t, orm.queryDuration, "420", "execQuery"))
+	require.Equal(t, 2, counterFromHistogramByLabels(t, orm.queryDuration, "420", "execQuery", "create"))
+}
+
+func TestCountersAreProperlyPopulatedForWrites(t *testing.T) {
+	orm := createObservedORM(t, 420)
+	logs := generateRandomLogs(420, 20)
+
+	// First insert 10 logs
+	require.NoError(t, orm.InsertLogs(logs[:10]))
+	assert.Equal(t, float64(10), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
+
+	// Insert 5 more logs with block
+	require.NoError(t, orm.InsertLogsWithBlock(logs[10:15], NewLogPollerBlock(utils.RandomBytes32(), 10, time.Now(), 5)))
+	assert.Equal(t, float64(15), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
+	assert.Equal(t, float64(1), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
+
+	// Insert 5 more logs with block
+	require.NoError(t, orm.InsertLogsWithBlock(logs[15:], NewLogPollerBlock(utils.RandomBytes32(), 15, time.Now(), 5)))
+	assert.Equal(t, float64(20), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
+	assert.Equal(t, float64(2), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
+
+	// Don't update counters in case of an error
+	require.Error(t, orm.InsertLogsWithBlock(logs, NewLogPollerBlock(utils.RandomBytes32(), 0, time.Now(), 0)))
+	assert.Equal(t, float64(20), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
+	assert.Equal(t, float64(2), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
+}
+
+func generateRandomLogs(chainId, count int) []Log {
+	logs := make([]Log, count)
+	for i := range logs {
+		logs[i] = Log{
+			EvmChainId:     utils.NewBigI(int64(chainId)),
+			LogIndex:       int64(i + 1),
+			BlockHash:      utils.RandomBytes32(),
+			BlockNumber:    int64(i + 1),
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{},
+			EventSig:       utils.RandomBytes32(),
+			Address:        utils.RandomAddress(),
+			TxHash:         utils.RandomBytes32(),
+			Data:           []byte{},
+			CreatedAt:      time.Now(),
+		}
+	}
+	return logs
 }
 
 func createObservedORM(t *testing.T, chainId int64) *ObservedORM {
-	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
 	db := pgtest.NewSqlxDB(t)
 	return NewObservedORM(
 		big.NewInt(chainId), db, lggr, pgtest.NewQConfig(true),
@@ -107,6 +153,8 @@ func createObservedORM(t *testing.T, chainId int64) *ObservedORM {
 func resetMetrics(lp ObservedORM) {
 	lp.queryDuration.Reset()
 	lp.datasetSize.Reset()
+	lp.logsInserted.Reset()
+	lp.blocksInserted.Reset()
 }
 
 func counterFromGaugeByLabels(gaugeVec *prometheus.GaugeVec, labels ...string) int {
