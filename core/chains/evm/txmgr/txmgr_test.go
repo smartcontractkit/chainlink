@@ -519,8 +519,8 @@ func TestTxm_Reset(t *testing.T) {
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
-	_, addr := cltest.RandomKey{Nonce: 5}.MustInsert(t, kst.Eth())
-	_, addr2 := cltest.RandomKey{Nonce: 3}.MustInsert(t, kst.Eth())
+	_, addr := cltest.RandomKey{}.MustInsert(t, kst.Eth())
+	_, addr2 := cltest.RandomKey{}.MustInsert(t, kst.Eth())
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	// 4 confirmed tx from addr1
 	for i := int64(0); i < 4; i++ {
@@ -534,6 +534,8 @@ func TestTxm_Reset(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil).Maybe()
+	ethClient.On("PendingSequenceAt", mock.Anything, addr).Return(128).Maybe()
+	ethClient.On("PendingSequenceAt", mock.Anything, addr2).Return(44).Maybe()
 
 	estimator := gas.NewEstimator(logger.Test(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth())
