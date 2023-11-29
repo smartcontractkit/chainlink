@@ -996,23 +996,36 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "error connecting to the database"))
 	}
-
 	defer db.Close()
 
-	tablesToDeleteFromQuery := `SELECT table_name FROM information_schema.columns WHERE "column_name"=$1;`
+	// some tables with evm_chain_id (mostly job specs) are in public schema
+	tablesToDeleteFromQuery := `SELECT table_name, table_schema FROM information_schema.columns WHERE "column_name"=$1;`
 	// Delete rows from each table based on the chain_id.
 	if strings.EqualFold("EVM", c.String("type")) {
-		var tables []string
-		if err = db.Select(&tables, tablesToDeleteFromQuery, "evm_chain_id"); err != nil {
+		rows, err := db.Query(tablesToDeleteFromQuery, "evm_chain_id")
+		if err != nil {
 			return err
+		} else if rows.Err() != nil {
+			return rows.Err()
 		}
-		for _, tableName := range tables {
+
+		var tablesToDeleteFrom []string
+		for rows.Next() {
+			var name string
+			var schema string
+			if err = rows.Scan(&name, &schema); err != nil {
+				return err
+			}
+			tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
+		}
+
+		for _, tableName := range tablesToDeleteFrom {
 			query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
 			_, err = db.Exec(query, c.String("id"))
 			if err != nil {
-				fmt.Printf("Error deleting rows from %s: %v\n", tableName, err)
+				fmt.Printf("Error deleting rows containing evm_chain_id from %s: %v\n", tableName, err)
 			} else {
-				fmt.Printf("Rows with chain_id %s deleted from %s.\n", c.String("id"), tableName)
+				fmt.Printf("Rows with evm_chain_id %s deleted from %s.\n", c.String("id"), tableName)
 			}
 		}
 	} else {
