@@ -306,7 +306,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     bytes memory response,
     bytes memory err,
     uint96 juelsPerGas,
-    uint96 costWithoutCallback,
+    uint96 costWithoutFulfilment,
     address transmitter,
     FunctionsResponse.Commitment memory commitment
   ) external override returns (FunctionsResponse.FulfillResult resultCode, uint96) {
@@ -341,7 +341,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
 
     {
       uint96 callbackCost = juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit);
-      uint96 totalCostJuels = commitment.adminFee + costWithoutCallback + callbackCost;
+      uint96 totalCostJuels = commitment.adminFee + costWithoutFulfilment + callbackCost;
 
       // Check that the subscription can still afford to fulfill the request
       if (totalCostJuels > getSubscription(commitment.subscriptionId).balance) {
@@ -379,7 +379,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       commitment.adminFee,
       juelsPerGas,
       SafeCast.toUint96(result.gasUsed),
-      costWithoutCallback
+      costWithoutFulfilment
     );
 
     emit RequestProcessed({
