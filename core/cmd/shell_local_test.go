@@ -496,12 +496,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 func TestShell_CleanupChainTables(t *testing.T) {
 	// Just check if it doesn't error, command itself shouldn't be changed unless major schema changes were made.
 	// It would be really hard to write a test that accounts for schema changes, so this should be enough to alarm us that something broke.
-	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Database.Dialect = dialects.Postgres
-
-		c.EVM = nil
-		c.Insecure.OCRDevelopmentMode = nil
-	})
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.Database.Dialect = dialects.Postgres })
 	client := cmd.Shell{
 		Config: config,
 		Logger: logger.TestLogger(t),
