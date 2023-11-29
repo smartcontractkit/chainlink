@@ -32,14 +32,8 @@ func TestOCRv2Basic(t *testing.T) {
 			ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 			cfg, err := ethBuilder.
 				WithConsensusType(ctf_test_env.ConsensusType_PoS).
-				WithCustomNetworkParticipants([]ctf_test_env.EthereumNetworkParticipant{
-					{
-						ConsensusLayer: ctf_test_env.ConsensusLayer_Prysm,
-						ExecutionLayer: ctf_test_env.ExecutionLayer_Geth,
-						Count:          1,
-					},
-				}).
-				WithoutWaitingForFinalization().
+				WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+				WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
 				WithEthereumChainConfig(chainConfig).
 				Build()
 			require.NoError(t, err, "Error building ethereum network config")
@@ -49,14 +43,8 @@ func TestOCRv2Basic(t *testing.T) {
 			ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 			cfg, err := ethBuilder.
 				WithConsensusType(ctf_test_env.ConsensusType_PoS).
-				WithCustomNetworkParticipants([]ctf_test_env.EthereumNetworkParticipant{
-					{
-						ConsensusLayer: ctf_test_env.ConsensusLayer_Prysm,
-						ExecutionLayer: ctf_test_env.ExecutionLayer_Besu,
-						Count:          1,
-					},
-				}).
-				WithoutWaitingForFinalization().
+				WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+				WithExecutionLayer(ctf_test_env.ExecutionLayer_Besu).
 				WithEthereumChainConfig(chainConfig).
 				Build()
 			require.NoError(t, err, "Error building ethereum network config")
@@ -66,14 +54,8 @@ func TestOCRv2Basic(t *testing.T) {
 			ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 			cfg, err := ethBuilder.
 				WithConsensusType(ctf_test_env.ConsensusType_PoS).
-				WithCustomNetworkParticipants([]ctf_test_env.EthereumNetworkParticipant{
-					{
-						ConsensusLayer: ctf_test_env.ConsensusLayer_Prysm,
-						ExecutionLayer: ctf_test_env.ExecutionLayer_Erigon,
-						Count:          1,
-					},
-				}).
-				WithoutWaitingForFinalization().
+				WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+				WithExecutionLayer(ctf_test_env.ExecutionLayer_Erigon).
 				WithEthereumChainConfig(chainConfig).
 				Build()
 			require.NoError(t, err, "Error building ethereum network config")
@@ -83,14 +65,8 @@ func TestOCRv2Basic(t *testing.T) {
 			ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 			cfg, err := ethBuilder.
 				WithConsensusType(ctf_test_env.ConsensusType_PoS).
-				WithCustomNetworkParticipants([]ctf_test_env.EthereumNetworkParticipant{
-					{
-						ConsensusLayer: ctf_test_env.ConsensusLayer_Prysm,
-						ExecutionLayer: ctf_test_env.ExecutionLayer_Nethermind,
-						Count:          1,
-					},
-				}).
-				WithoutWaitingForFinalization().
+				WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+				WithExecutionLayer(ctf_test_env.ExecutionLayer_Nethermind).
 				WithEthereumChainConfig(chainConfig).
 				Build()
 			require.NoError(t, err, "Error building ethereum network config")
