@@ -325,7 +325,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var peerWrapper *ocrcommon.SingletonPeerWrapper
-	if cfg.P2P().Enabled() {
+	if !cfg.OCR().Enabled() && !cfg.OCR2().Enabled() {
+		globalLogger.Debug("P2P stack not needed")
+	} else if cfg.P2P().Enabled() {
 		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
 			return nil, err
 		}
