@@ -786,6 +786,31 @@ func TestORM_UpdateTxForRebroadcast(t *testing.T) {
 	})
 }
 
+func TestORM_IsTxFinalized(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+
+	t.Run("confirmed tx not past finality_depth", func(t *testing.T) {
+		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		tx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 2, tx.ID, ethClient.ConfiguredChainID())
+		require.NoError(t, err)
+		require.False(t, finalized)
+	})
+
+	t.Run("confirmed tx past finality_depth", func(t *testing.T) {
+		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		tx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 10, tx.ID, ethClient.ConfiguredChainID())
+		require.NoError(t, err)
+		require.True(t, finalized)
+	})
+}
+
 func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	t.Parallel()
 
@@ -1310,7 +1335,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		evmTxmCfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
 		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, ccfg.EVM().Transactions(), nil, logger.Test(t), nil, nil,
-			nil, txStore, nil, nil, nil, nil)
+			nil, txStore, nil, nil, nil, nil, nil)
 		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)
 
@@ -1362,6 +1387,81 @@ func TestORM_GetTxInProgress(t *testing.T) {
 		etxResult, err := txStore.GetTxInProgress(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, etxResult.ID, etx.ID)
+	})
+}
+
+func TestORM_GetNonFatalTransactions(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	t.Run("gets 0 non finalized eth transaction", func(t *testing.T) {
+		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t), ethClient.ConfiguredChainID())
+		require.NoError(t, err)
+		require.Empty(t, txes)
+	})
+
+	t.Run("get in progress, unstarted, and unconfirmed eth transactions", func(t *testing.T) {
+		inProgressTx := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
+		unstartedTx := mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
+
+		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t), ethClient.ConfiguredChainID())
+		require.NoError(t, err)
+
+		for _, tx := range txes {
+			require.True(t, tx.ID == inProgressTx.ID || tx.ID == unstartedTx.ID)
+		}
+	})
+}
+
+func TestORM_GetTxByID(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	t.Run("no transaction", func(t *testing.T) {
+		tx, err := txStore.GetTxByID(testutils.Context(t), int64(0))
+		require.NoError(t, err)
+		require.Nil(t, tx)
+	})
+
+	t.Run("get transaction by ID", func(t *testing.T) {
+		insertedTx := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
+		tx, err := txStore.GetTxByID(testutils.Context(t), insertedTx.ID)
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+	})
+}
+
+func TestORM_GetFatalTransactions(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	t.Run("gets 0 fatal eth transactions", func(t *testing.T) {
+		txes, err := txStore.GetFatalTransactions(testutils.Context(t))
+		require.NoError(t, err)
+		require.Empty(t, txes)
+	})
+
+	t.Run("get fatal transactions", func(t *testing.T) {
+		fatalTx := mustInsertFatalErrorEthTx(t, txStore, fromAddress)
+		txes, err := txStore.GetFatalTransactions(testutils.Context(t))
+		require.NoError(t, err)
+		require.Equal(t, txes[0].ID, fatalTx.ID)
 	})
 }
 
