@@ -258,15 +258,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
 	localAdminUsersORM := localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 
-	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
-		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
-		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
-		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
-	)
-
 	// Initialize Sessions ORM based on environment configured authenticator
 	// localDB auth or remote LDAP auth
 	authMethod := cfg.WebServer().AuthenticationMethod()
@@ -289,6 +280,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	default:
 		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, sessions.LocalAuth, sessions.LDAPAuth)
 	}
+
+	var (
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
+		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
+		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
+	)
 
 	for _, chain := range legacyEVMChains.Slice() {
 		chain.HeadBroadcaster().Subscribe(promReporter)

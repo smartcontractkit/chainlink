@@ -194,7 +194,7 @@ func (pr *promReporter) reportPendingEthTxes(ctx context.Context, evmChainID *bi
 		return fmt.Errorf("failed to get txm: %w", err)
 	}
 
-	unconfirmed, err := txm.CountTransactionsByState(ctx, txmgrcommon.TxUnconfirmed, evmChainID)
+	unconfirmed, err := txm.CountTransactionsByState(ctx, txmgrcommon.TxUnconfirmed)
 	if err != nil {
 		return fmt.Errorf("failed to query for unconfirmed eth_tx count: %w", err)
 	}
@@ -208,7 +208,7 @@ func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context, evmChainID 
 		return fmt.Errorf("failed to get txm: %w", err)
 	}
 
-	broadcastAt, err := txm.FindEarliestUnconfirmedBroadcastTime(ctx, evmChainID)
+	broadcastAt, err := txm.FindEarliestUnconfirmedBroadcastTime(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to query for min broadcast time: %w", err)
 	}
@@ -227,7 +227,7 @@ func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head *ev
 		return fmt.Errorf("failed to get txm: %w", err)
 	}
 
-	earliestUnconfirmedTxBlock, err := txm.FindEarliestUnconfirmedTxAttemptBlock(ctx, head.EVMChainID.ToInt())
+	earliestUnconfirmedTxBlock, err := txm.FindEarliestUnconfirmedTxAttemptBlock(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to query for earliest unconfirmed tx block: %w", err)
 	}
