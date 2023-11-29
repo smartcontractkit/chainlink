@@ -29,28 +29,28 @@ spec:
         securityContext:
           {{- toYaml $.Values.geth.securityContext | nindent 12 }}
         image: "{{ default "ethereum/client-go" .Values.geth.image }}:{{ default "stable" .Values.geth.version }}"
-        command: [ "sh", "/root/init.sh" ]
+        command: [ "sh", "/app/init.sh" ]
         volumeMounts:
         - name : configmap-volume
-          mountPath: /root/init.sh
+          mountPath: /app/init.sh
           subPath: init.sh
         - name: configmap-volume
-          mountPath: /root/config
+          mountPath: /app/config
         - name: configmap-volume
-          mountPath: /root/.ethereum/devchain/keystore/key1
+          mountPath: /app/.ethereum/devchain/keystore/key1
           subPath: key1
         - name: configmap-volume
-          mountPath: /root/.ethereum/devchain/keystore/key2
+          mountPath: /app/.ethereum/devchain/keystore/key2
           subPath: key2
         - name: configmap-volume
-          mountPath: /root/.ethereum/devchain/keystore/key3
+          mountPath: /app/.ethereum/devchain/keystore/key3
           subPath: key3
         args:
           - '--dev'
           - '--password'
-          - '/root/config/password.txt'
+          - '/app/config/password.txt'
           - '--datadir'
-          - '/root/.ethereum/devchain'
+          - '/app/.ethereum/devchain'
           - '--unlock'
           - '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
           - '--unlock'
