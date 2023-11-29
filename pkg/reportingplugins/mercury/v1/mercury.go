@@ -22,7 +22,7 @@ import (
 
 // MaxAllowedBlocks indicates the maximum len of LatestBlocks in any given observation.
 // observations that violate this will be discarded
-const MaxAllowedBlocks = 5
+const MaxAllowedBlocks = 10
 
 // Mercury-specific reporting plugin, based off of median:
 // https://github.com/smartcontractkit/offchain-reporting/blob/master/lib/offchainreporting2/reportingplugin/median/median.go
