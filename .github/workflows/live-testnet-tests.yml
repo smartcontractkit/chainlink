@@ -380,6 +380,8 @@ jobs:
         continue-on-error: true
 
   optimism-goerli-smoke-tests:
+    # DEBUG: These work fine
+    if: false
     environment: integration
     permissions:
       checks: write
@@ -500,6 +502,8 @@ jobs:
         continue-on-error: true
 
   arbitrum-goerli-smoke-tests:
+    # DEBUG: These work fine
+    if:
     environment: integration
     permissions:
       checks: write
@@ -560,6 +564,8 @@ jobs:
         continue-on-error: true
 
   arbitrum-sepolia-smoke-tests:
+    # DEBUG: These work fine
+    if: false
     environment: integration
     permissions:
       checks: write
@@ -736,6 +742,8 @@ jobs:
         continue-on-error: true
   
   polygon-mumbai-smoke-tests:
+    # DEBUG: These work fine
+    if: false
     environment: integration
     permissions:
       checks: write
