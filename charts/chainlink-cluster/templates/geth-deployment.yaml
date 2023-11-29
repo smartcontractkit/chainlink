@@ -29,7 +29,7 @@ spec:
         securityContext:
           {{- toYaml $.Values.geth.securityContext | nindent 12 }}
         image: "{{ default "ethereum/client-go" .Values.geth.image }}:{{ default "stable" .Values.geth.version }}"
-        command: [ "sh", "./root/init.sh" ]
+        command: [ "sh", "/root/init.sh" ]
         volumeMounts:
         - name : configmap-volume
           mountPath: /root/init.sh
