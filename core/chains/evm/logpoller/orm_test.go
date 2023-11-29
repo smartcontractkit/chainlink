@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -1515,7 +1516,7 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 func Benchmark_LogsDataWordBetween(b *testing.B) {
 	chainId := big.NewInt(137)
 	_, db := heavyweight.FullTestDBV2(b, nil)
-	o := logpoller.NewORM(chainId, db, logger.TestLogger(b), pgtest.NewQConfig(false))
+	o := logpoller.NewORM(chainId, db, logger.Test(b), pgtest.NewQConfig(false))
 
 	numberOfReports := 100_000
 	numberOfMessagesPerReport := 256
