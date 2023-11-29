@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
+
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 
@@ -19,7 +20,7 @@ var (
 
 func TestOCRPerformance(t *testing.T) {
 	l := logging.GetTestLogger(t)
-	cc, msClient, cd, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l, nil)
+	cc, msClient, cd, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
 	require.NoError(t, err)
 	lt, err := SetupCluster(cc, cd, workerNodes)
 	require.NoError(t, err)
@@ -47,7 +48,7 @@ func TestOCRPerformance(t *testing.T) {
 
 func TestOCRCapacity(t *testing.T) {
 	l := logging.GetTestLogger(t)
-	cc, msClient, cd, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l, nil)
+	cc, msClient, cd, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
 	require.NoError(t, err)
 	lt, err := SetupCluster(cc, cd, workerNodes)
 	require.NoError(t, err)

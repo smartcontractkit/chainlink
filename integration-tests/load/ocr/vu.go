@@ -6,13 +6,16 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
+	"github.com/smartcontractkit/wasp"
+	"go.uber.org/ratelimit"
+
 	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/wasp"
-	"go.uber.org/ratelimit"
 )
 
 // VU is a virtual user for the OCR load test
