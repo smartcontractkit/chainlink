@@ -410,8 +410,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
 			}
-			if err := utils.EnsureClosed(b.tracker); err != nil {
-				b.logger.Panicw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
+			err = b.tracker.Close()
+			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
+				b.logger.Errorw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
 			}
 			return
 		case <-keysChanged:
