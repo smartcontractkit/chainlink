@@ -29,7 +29,7 @@ jobs:
           gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
       - name: Notify Slack
-        if: ${{ failure() && github.event.schedule != '' }}
+        if: ${{ failure() && (github.event_name == 'merge_group' || github.event.branch == 'develop')}}
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
@@ -107,7 +107,7 @@ jobs:
             ./coverage.txt
             ./postgres_logs.txt
       - name: Notify Slack
-        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && github.event.schedule != '' }}
+        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') }}
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
