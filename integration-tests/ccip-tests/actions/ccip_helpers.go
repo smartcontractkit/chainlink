@@ -395,11 +395,11 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 		ccipModule.ARM = arm
 	} else {
-		if ccipModule.ExistingDeployment {
-			return fmt.Errorf("ARM contract address is not provided in lane config")
-		}
 		// deploy a mock ARM contract
 		if ccipModule.ARMContract == nil {
+			if ccipModule.ExistingDeployment {
+				return fmt.Errorf("ARM contract address is not provided in lane config")
+			}
 			ccipModule.ARMContract, err = cd.DeployMockARMContract()
 			if err != nil {
 				return fmt.Errorf("deploying mock ARM contract shouldn't fail %+v", err)
@@ -437,27 +437,25 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	if len(ccipModule.BridgeTokens) < noOfTokens {
 		// deploy bridge token.
 		for i := len(ccipModule.BridgeTokens); i < noOfTokens; i++ {
-			var token *contracts.ERC20Token
-			var err error
-			if len(tokenDeployerFns) != noOfTokens {
-				// we deploy link token and cast it to ERC20Token
-				linkToken, err := cd.DeployLinkTokenContract()
+			// if it's an existing deployment, we don't deploy the token
+			if !ccipModule.ExistingDeployment {
+				var token *contracts.ERC20Token
+				var err error
+				if len(tokenDeployerFns) != noOfTokens {
+					// we deploy link token and cast it to ERC20Token
+					linkToken, err := cd.DeployLinkTokenContract()
+					if err != nil {
+						return fmt.Errorf("deploying bridge token contract shouldn't fail %+v", err)
+					}
+					token, err = cd.NewERC20TokenContract(common.HexToAddress(linkToken.Address()))
+				} else {
+					token, err = cd.DeployERC20TokenContract(tokenDeployerFns[i])
+				}
 				if err != nil {
 					return fmt.Errorf("deploying bridge token contract shouldn't fail %+v", err)
 				}
-				token, err = cd.NewERC20TokenContract(common.HexToAddress(linkToken.Address()))
-			} else {
-				if ccipModule.ExistingDeployment {
-					return fmt.Errorf("bridge token contract address is not provided in lane config")
-				}
-				token, err = cd.DeployERC20TokenContract(tokenDeployerFns[i])
+				ccipModule.BridgeTokens = append(ccipModule.BridgeTokens, token)
 			}
-
-			if err != nil {
-				return fmt.Errorf("deploying bridge token contract shouldn't fail %+v", err)
-			}
-
-			ccipModule.BridgeTokens = append(ccipModule.BridgeTokens, token)
 		}
 		err = ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
@@ -1030,6 +1028,11 @@ func DefaultSourceCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMCl
 	cmn, err := ccipCommon.Copy(logger, chainClient)
 	if err != nil {
 		return nil, err
+	}
+	// if transfer amounts are provided for number of tokens greater than the number of supported bridge tokens, then update the transfer amount to be
+	// equivalent to the number of tokens supported by the bridge
+	if len(transferAmount) > 0 && len(transferAmount) > len(cmn.BridgeTokens) {
+		transferAmount = transferAmount[:len(cmn.BridgeTokens)]
 	}
 	return &SourceCCIPModule{
 		Common:             cmn,

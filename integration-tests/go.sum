@@ -1355,8 +1355,8 @@ github.com/gosimple/unidecode v1.0.1 h1:hZzFTMMqSswvf0LBJZCZgThIZrpDHFXux9KeGmn6
 github.com/gosimple/unidecode v1.0.1/go.mod h1:CP0Cr1Y1kogOtx0bJblKzsVWrqYaqfNOnHzpgWw4Awc=
 github.com/grafana/dskit v0.0.0-20230201083518-528d8a7d52f2 h1:IOks+FXJ6iO/pfbaVEf4efNw+YzYBYNCkCabyrbkFTM=
 github.com/grafana/dskit v0.0.0-20230201083518-528d8a7d52f2/go.mod h1:zj+5BNZAVmQafV583uLTAOzRr963KPdEm4d6NPmtbwg=
-github.com/grafana/loki v1.6.2-0.20230403212622-90888a0cc737 h1:o45+fZAYRtTjx+9fFml9LZxsCmLX65l39eWDgvdkIr0=
-github.com/grafana/loki v1.6.2-0.20230403212622-90888a0cc737/go.mod h1:kxNnWCr4EMobhndjy7a2Qpm7jkLPnJW2ariYvY77hLE=
+github.com/grafana/loki v1.6.2-0.20231017135925-990ac685e6a6 h1:V5PspEXlSlNh22sMyGkgfSOVVLTsSmhbmsp1VPt8Fdc=
+github.com/grafana/loki v1.6.2-0.20231017135925-990ac685e6a6/go.mod h1:+aWr7OBDuZMT+p0rKmLfW5saO2m3YOGBnt++IlgLhVk=
 github.com/grafana/loki/pkg/push v0.0.0-20230127102416-571f88bc5765 h1:VXitROTlmZtLzvokNe8ZbUKpmwldM4Hy1zdNRO32jKU=
 github.com/grafana/loki/pkg/push v0.0.0-20230127102416-571f88bc5765/go.mod h1:DhJMrd2QInI/1CNtTN43BZuTmkccdizW1jZ+F6aHkhY=
 github.com/grafana/pyroscope-go v1.0.4 h1:oyQX0BOkL+iARXzHuCdIF5TQ7/sRSel1YFViMHC7Bm0=
@@ -1372,7 +1372,6 @@ github.com/graph-gophers/graphql-go v1.3.0/go.mod h1:9CQHMSxwO4MprSdzoIEobiHpoLt
 github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 h1:+ngKgrYPPJrOjhax5N+uePQ0Fh1Z7PheYoUI/0nzkPA=
 github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79/go.mod h1:FecbI9+v66THATjSRHfNgh1IVFe/9kFxbXtjV0ctIMA=
 github.com/grpc-ecosystem/go-grpc-middleware v1.0.0/go.mod h1:FiyG127CGDf3tlThmgyCl78X/SZQqEOJBCDaAfeWzPs=
-github.com/grpc-ecosystem/go-grpc-middleware v1.1.0/go.mod h1:f5nM7jw/oeRSadq3xCzHAvxcr8HZnzsqU6ILg/0NiiE=
 github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 h1:+9834+KizmvFV7pXQGSXQTsaWhq2GjuNUt0aUU0YBYw=
 github.com/grpc-ecosystem/go-grpc-middleware v1.3.0/go.mod h1:z0ButlSOZa5vEBq9m2m2hlwIgKw+rp3sdCBRoJY+30Y=
 github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0 h1:f4tggROQKKcnh4eItay6z/HbHLqghBxS8g7pyMhmDio=
@@ -2383,8 +2382,8 @@ github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231023133638-72f4e799ab0
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231023133638-72f4e799ab05/go.mod h1:o0Pn1pbaUluboaK6/yhf8xf7TiFCkyFl6WUOdwqamuU=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231024133459-1ef3a11319eb h1:HiluOfEVGOQTM6BTDImOqYdMZZ7qq7fkZ3TJdmItNr8=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231024133459-1ef3a11319eb/go.mod h1:/30flFG4L/iCYAFeA3DUzR0xuHSxAMONiWTzyzvsNwo=
-github.com/smartcontractkit/chainlink-testing-framework v1.19.2 h1:y0qwB3IUPpvWpdQXPxNdzkSF901sD09SPueHsAVHnqE=
-github.com/smartcontractkit/chainlink-testing-framework v1.19.2/go.mod h1:zScXRqmvbyTFUooyLYrOp4+V/sFPUbFJNRc72YmnuIk=
+github.com/smartcontractkit/chainlink-testing-framework v1.19.7-0.20231128215954-11362fc02bc5 h1:Vftq/fSamVFQcuU+U/3PXeRo5PM8JBGY/l9TJTQrRIA=
+github.com/smartcontractkit/chainlink-testing-framework v1.19.7-0.20231128215954-11362fc02bc5/go.mod h1:+FVgkz6phTc+piVT57AcQfr3I8xvZgZ1lOpRPOu/dLQ=
 github.com/smartcontractkit/go-plugin v0.0.0-20231003134350-e49dad63b306 h1:ko88+ZznniNJZbZPWAvHQU8SwKAdHngdDZ+pvVgB5ss=
 github.com/smartcontractkit/go-plugin v0.0.0-20231003134350-e49dad63b306/go.mod h1:w1sAEES3g3PuV/RzUrgow20W2uErMly84hhD3um1WL4=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJif132UCdjo8u43i7iPN1/MFnu49hv7lFGFftCHKU=
@@ -2401,8 +2400,8 @@ github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 h1:Dai1bn+Q5cpeGMQwRdjOdVjG8mmFFROVkSKuUgBErRQ=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:G5Sd/yzHWf26rQ+X0nG9E0buKPqRGPMJAfk2gwCzOOw=
-github.com/smartcontractkit/wasp v0.3.2-0.20231007012020-8f5eb29299d7 h1:nCD8TSoAzOAYtvJPcRozCA1EQgU5+bGvfzYjIuRhIrs=
-github.com/smartcontractkit/wasp v0.3.2-0.20231007012020-8f5eb29299d7/go.mod h1:FFxNXzgJ+LU5jvyp3hmdNlpYBiivYf3wUTN+dDdFv9g=
+github.com/smartcontractkit/wasp v0.3.6 h1:1TLWfrTzqZwNvyyoKzPZ8FLQat2lNz640eM+mMh2YxM=
+github.com/smartcontractkit/wasp v0.3.6/go.mod h1:L/cyUGfpaWxy/2twOVJLRt2mySJEIqGrFj9nyvRLpSo=
 github.com/smartcontractkit/wsrpc v0.7.2 h1:iBXzMeg7vc5YoezIQBq896y25BARw7OKbhrb6vPbtRQ=
 github.com/smartcontractkit/wsrpc v0.7.2/go.mod h1:sj7QX2NQibhkhxTfs3KOhAj/5xwgqMipTvJVSssT9i0=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=
@@ -2540,8 +2539,8 @@ github.com/valyala/fasttemplate v1.2.1/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+
 github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV9WzVtRmSR+PDvWpU/qWl4Wa5LApYYX4ZtKbio=
 github.com/vultr/govultr/v2 v2.17.2 h1:gej/rwr91Puc/tgh+j33p/BLR16UrIPnSr+AIwYWZQs=
 github.com/vultr/govultr/v2 v2.17.2/go.mod h1:ZFOKGWmgjytfyjeyAdhQlSWwTjh2ig+X49cAp50dzXI=
-github.com/weaveworks/common v0.0.0-20221201103051-7c2720a9024d h1:9Z/HiqeGN+LOnmotAMpFEQjuXZ4AGAVFG0rC1laP5Go=
-github.com/weaveworks/common v0.0.0-20221201103051-7c2720a9024d/go.mod h1:Fnq3+U51tMkPRMC6Wr7zKGUeFFYX4YjNrNK50iU0fcE=
+github.com/weaveworks/common v0.0.0-20230411130259-f7d83a041205 h1:gjb7t9LCnRu14LHubyLIgrE+EYlAaREiPn/VknV7R3s=
+github.com/weaveworks/common v0.0.0-20230411130259-f7d83a041205/go.mod h1:O9wmSPNVSuqxzUZPFlHnPQ8xnyvx0qBnKGFfGbj95uY=
 github.com/weaveworks/promrus v1.2.0 h1:jOLf6pe6/vss4qGHjXmGz4oDJQA+AOCqEL3FvvZGz7M=
 github.com/weaveworks/promrus v1.2.0/go.mod h1:SaE82+OJ91yqjrE1rsvBWVzNZKcHYFtMUyS1+Ogs/KA=
 github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 h1:EKhdznlJHPMoKr0XTrX+IlJs1LH3lyx2nfr1dOlZ79k=

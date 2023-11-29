@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -33,7 +34,8 @@ type Config struct {
 	CommitStore      string `json:"commit_store"`
 	OffRamp          string `json:"off_ramp"`
 	DestStartBlock   uint64 `json:"dest_start_block"`
-	CcipSendTx       string `json:"ccip_send_tx"`
+	SourceChainTx    string `json:"source_chain_tx"`
+	CCIPMsgID        string `json:"ccip_msg_id"`
 	DestDeployedAt   uint64 `json:"dest_deployed_at"`
 	GasLimitOverride uint64 `json:"gas_limit_override"`
 }
@@ -115,8 +117,8 @@ func (cfg Config) verifyConfig() error {
 	if cfg.DestOwner == "" {
 		allErr = multierr.Append(allErr, fmt.Errorf("must set dest_owner_key - destination user private key\n"))
 	}
-	if cfg.CcipSendTx == "" {
-		allErr = multierr.Append(allErr, fmt.Errorf("must set ccip_send_tx - txHash of ccip-send request\n"))
+	if cfg.SourceChainTx == "" {
+		allErr = multierr.Append(allErr, fmt.Errorf("must set source_chain_tx - txHash of ccip-send request\n"))
 	}
 
 	if cfg.DestStartBlock == 0 && cfg.DestDeployedAt == 0 {
@@ -172,7 +174,7 @@ func (args *execArgs) populateValues() error {
 	log.Println("--- Owner address---/n", args.destUser.From.Hex())
 
 	var txReceipt *types.Receipt
-	txReceipt, err = args.sourceChain.TransactionReceipt(context.Background(), common.HexToHash(cfg.CcipSendTx))
+	txReceipt, err = args.sourceChain.TransactionReceipt(context.Background(), common.HexToHash(cfg.SourceChainTx))
 	if err != nil {
 		return err
 	}
@@ -341,27 +343,38 @@ func (args *execArgs) seqNumFromCCIPSendRequested(logs []*types.Log) error {
 	if topic0 == (common.Hash{}) {
 		return fmt.Errorf("no CCIPSendRequested event found in ABI")
 	}
-	var sendRequestedLog *types.Log
-	for _, log := range logs {
-		if log.Topics[0] == topic0 && log.TxHash == common.HexToHash(args.cfg.CcipSendTx) {
-			args.OnRamp = log.Address
-			sendRequestedLog = log
-			break
+	var sendRequestedLogs []types.Log
+	for _, sendReqLog := range logs {
+		if sendReqLog.Topics[0] == topic0 && sendReqLog.TxHash == common.HexToHash(args.cfg.SourceChainTx) {
+			args.OnRamp = sendReqLog.Address
+			sendRequestedLogs = append(sendRequestedLogs, *sendReqLog)
 		}
 	}
-	if sendRequestedLog == nil {
-		return fmt.Errorf("no CCIPSendRequested logs found for in txReceipt for txhash %s", args.cfg.CcipSendTx)
+
+	if len(sendRequestedLogs) == 0 {
+		return fmt.Errorf("no CCIPSendRequested logs found for in txReceipt for txhash %s", args.cfg.SourceChainTx)
 	}
-	event := new(helpers.SendRequestedEvent)
 	onRampContract := bind.NewBoundContract(args.OnRamp, abi, args.sourceChain, args.sourceChain, args.sourceChain)
 
-	err = onRampContract.UnpackLog(event, "CCIPSendRequested", *sendRequestedLog)
-	if err != nil {
-		return err
+	for _, sendReqLog := range sendRequestedLogs {
+		var event helpers.SendRequestedEvent
+
+		err = onRampContract.UnpackLog(&event, "CCIPSendRequested", sendReqLog)
+		if err != nil {
+			return err
+		}
+
+		if args.cfg.CCIPMsgID != "" &&
+			"0x"+hex.EncodeToString(event.Message.MessageId[:]) != args.cfg.CCIPMsgID {
+			continue
+		}
+
+		args.seqNum = event.Message.SequenceNumber
+		args.msgID = event.Message.MessageId
+		return nil
 	}
-	args.seqNum = event.Message.SequenceNumber
-	args.msgID = event.Message.MessageId
-	return nil
+
+	return fmt.Errorf("send request not found in logs")
 }
 
 func (args *execArgs) approxDestStartBlock() error {
