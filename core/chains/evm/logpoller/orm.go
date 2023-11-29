@@ -11,7 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -62,7 +62,7 @@ type DbORM struct {
 
 // NewORM creates a DbORM scoped to chainID.
 func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *DbORM {
-	namedLogger := lggr.Named("Configs")
+	namedLogger := logger.Named(lggr, "Configs")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &DbORM{
 		chainID: chainID,

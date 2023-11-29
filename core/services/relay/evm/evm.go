@@ -24,8 +24,8 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -48,7 +48,7 @@ var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
 
 type Relayer struct {
 	db               *sqlx.DB
-	chain            evm.Chain
+	chain            legacyevm.Chain
 	lggr             logger.Logger
 	ks               CSAETHKeystore
 	mercuryPool      wsrpc.Pool
@@ -66,6 +66,7 @@ type RelayerOpts struct {
 	pg.QConfig
 	CSAETHKeystore
 	pg.EventBroadcaster
+	MercuryPool wsrpc.Pool
 }
 
 func (c RelayerOpts) Validate() error {
@@ -89,7 +90,7 @@ func (c RelayerOpts) Validate() error {
 	return err
 }
 
-func NewRelayer(lggr logger.Logger, chain evm.Chain, opts RelayerOpts) (*Relayer, error) {
+func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*Relayer, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
@@ -100,7 +101,7 @@ func NewRelayer(lggr logger.Logger, chain evm.Chain, opts RelayerOpts) (*Relayer
 		chain:            chain,
 		lggr:             lggr,
 		ks:               opts.CSAETHKeystore,
-		mercuryPool:      wsrpc.NewPool(lggr),
+		mercuryPool:      opts.MercuryPool,
 		eventBroadcaster: opts.EventBroadcaster,
 		pgCfg:            opts.QConfig,
 	}, nil
@@ -116,17 +117,16 @@ func (r *Relayer) Start(context.Context) error {
 }
 
 func (r *Relayer) Close() error {
-	return r.mercuryPool.Close()
+	return nil
 }
 
 // Ready does noop: always ready
 func (r *Relayer) Ready() error {
-	return r.mercuryPool.Ready()
+	return nil
 }
 
 func (r *Relayer) HealthReport() (report map[string]error) {
 	report = make(map[string]error)
-	services.CopyHealth(report, r.mercuryPool.HealthReport())
 	return
 }
 
@@ -244,7 +244,7 @@ type configWatcher struct {
 	contractABI      abi.ABI
 	offchainDigester ocrtypes.OffchainConfigDigester
 	configPoller     types.ConfigPoller
-	chain            evm.Chain
+	chain            legacyevm.Chain
 	runReplay        bool
 	fromBlock        uint64
 	replayCtx        context.Context
@@ -257,7 +257,7 @@ func newConfigWatcher(lggr logger.Logger,
 	contractABI abi.ABI,
 	offchainDigester ocrtypes.OffchainConfigDigester,
 	configPoller types.ConfigPoller,
-	chain evm.Chain,
+	chain legacyevm.Chain,
 	fromBlock uint64,
 	runReplay bool,
 ) *configWatcher {
@@ -321,7 +321,7 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return c.configPoller
 }
 
-func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpts, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
+func newConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
 	}

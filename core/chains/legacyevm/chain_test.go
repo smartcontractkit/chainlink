@@ -1,4 +1,4 @@
-package evm_test
+package legacyevm_test
 
 import (
 	"math/big"
@@ -8,8 +8,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -17,13 +17,13 @@ import (
 )
 
 func TestLegacyChains(t *testing.T) {
-	evmCfg := configtest.NewGeneralConfig(t, nil)
+	legacyevmCfg := configtest.NewGeneralConfig(t, nil)
 
 	c := mocks.NewChain(t)
 	c.On("ID").Return(big.NewInt(7))
-	m := map[string]evm.Chain{c.ID().String(): c}
+	m := map[string]legacyevm.Chain{c.ID().String(): c}
 
-	l := evm.NewLegacyChains(m, evmCfg.EVMConfigs())
+	l := legacyevm.NewLegacyChains(m, legacyevmCfg.EVMConfigs())
 	assert.NotNil(t, l.ChainNodeConfigs())
 	got, err := l.Get(c.ID().String())
 	assert.NoError(t, err)
@@ -33,7 +33,7 @@ func TestLegacyChains(t *testing.T) {
 
 func TestChainOpts_Validate(t *testing.T) {
 	type fields struct {
-		AppConfig        evm.AppConfig
+		AppConfig        legacyevm.AppConfig
 		EventBroadcaster pg.EventBroadcaster
 		MailMon          *utils.MailboxMonitor
 		DB               *sqlx.DB
@@ -65,7 +65,7 @@ func TestChainOpts_Validate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := evm.ChainOpts{
+			o := legacyevm.ChainOpts{
 				AppConfig:        tt.fields.AppConfig,
 				EventBroadcaster: tt.fields.EventBroadcaster,
 				MailMon:          tt.fields.MailMon,

@@ -15,9 +15,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -143,7 +143,7 @@ func generateRandomLogs(chainId, count int) []Log {
 }
 
 func createObservedORM(t *testing.T, chainId int64) *ObservedORM {
-	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
 	db := pgtest.NewSqlxDB(t)
 	return NewObservedORM(
 		big.NewInt(chainId), db, lggr, pgtest.NewQConfig(true),

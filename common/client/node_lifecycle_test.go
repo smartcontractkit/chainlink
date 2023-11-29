@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -60,7 +60,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:  rpc,
 			lggr: lggr,
@@ -94,7 +94,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("Stays alive and waits for signal", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{},
 			rpc:    rpc,
@@ -109,7 +109,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("stays alive while below pollFailureThreshold and resets counter on success", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
@@ -151,7 +151,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("with threshold poll failures, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
@@ -177,7 +177,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("with threshold poll failures, but we are the last node alive, forcibly keeps it alive", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
@@ -200,7 +200,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("when behind more than SyncThreshold, transitions to out of sync", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const syncThreshold = 10
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
@@ -231,7 +231,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("when behind more than SyncThreshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const syncThreshold = 10
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
@@ -254,7 +254,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("when behind but SyncThreshold=0, stay alive", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
 				pollInterval:  tests.TestInterval,
@@ -302,7 +302,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("when no new heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
 			config:              testNodeConfig{},
 			lggr:                lggr,
@@ -329,7 +329,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			close(ch)
 		}).Return(sub, nil).Once()
 		rpc.On("SetAliveLoopSub", sub).Once()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		node := newDialedNode(t, testNodeOpts{
 			lggr:                lggr,
 			config:              testNodeConfig{},
@@ -426,7 +426,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -531,7 +531,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -560,7 +560,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -591,7 +591,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -627,7 +627,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			noNewHeadsThreshold: tests.TestInterval,
 			rpc:                 rpc,
@@ -682,7 +682,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -698,7 +698,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -775,7 +775,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -797,7 +797,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.NewIDFromInt(10)
 		rpcChainID := types.NewIDFromInt(11)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -846,7 +846,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -868,7 +868,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		nodeChainID := types.RandomID()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,

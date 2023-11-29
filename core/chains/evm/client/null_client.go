@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // NullClient satisfies the Client but has no side effects
@@ -22,7 +22,7 @@ type NullClient struct {
 }
 
 func NewNullClient(cid *big.Int, lggr logger.Logger) *NullClient {
-	return &NullClient{cid: cid, lggr: lggr.Named("NullClient")}
+	return &NullClient{cid: cid, lggr: logger.Named(lggr, "NullClient")}
 }
 
 // NullClientChainID the ChainID that nullclient will return
@@ -72,7 +72,7 @@ type nullSubscription struct {
 }
 
 func newNullSubscription(lggr logger.Logger) *nullSubscription {
-	return &nullSubscription{lggr: lggr.Named("NullSubscription")}
+	return &nullSubscription{lggr: logger.Named(lggr, "NullSubscription")}
 }
 
 func (ns *nullSubscription) Unsubscribe() {

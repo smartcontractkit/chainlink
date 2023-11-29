@@ -52,6 +52,27 @@ func (c *Config) TOMLString() (string, error) {
 	return string(b), nil
 }
 
+// warnings aggregates warnings from valueWarnings and deprecationWarnings
+func (c *Config) warnings() (err error) {
+	deprecationErr := c.deprecationWarnings()
+	warningErr := c.valueWarnings()
+	err = multierr.Append(deprecationErr, warningErr)
+	_, list := utils.MultiErrorList(err)
+	return list
+}
+
+// valueWarnings returns an error if the Config contains values that hint at misconfiguration before defaults are applied.
+func (c *Config) valueWarnings() (err error) {
+	if c.Tracing.Enabled != nil && *c.Tracing.Enabled {
+		if c.Tracing.Mode != nil && *c.Tracing.Mode == "unencrypted" {
+			if c.Tracing.TLSCertPath != nil {
+				err = multierr.Append(err, config.ErrInvalid{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
+			}
+		}
+	}
+	return
+}
+
 // deprecationWarnings returns an error if the Config contains deprecated fields.
 // This is typically used before defaults have been applied, with input from the user.
 func (c *Config) deprecationWarnings() (err error) {

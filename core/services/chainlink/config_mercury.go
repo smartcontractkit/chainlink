@@ -1,11 +1,31 @@
 package chainlink
 
 import (
+	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 )
 
+var _ config.MercuryCache = (*mercuryCacheConfig)(nil)
+
+type mercuryCacheConfig struct {
+	c toml.MercuryCache
+}
+
+func (m *mercuryCacheConfig) LatestReportTTL() time.Duration {
+	return m.c.LatestReportTTL.Duration()
+}
+func (m *mercuryCacheConfig) MaxStaleAge() time.Duration {
+	return m.c.MaxStaleAge.Duration()
+}
+func (m *mercuryCacheConfig) LatestReportDeadline() time.Duration {
+	return m.c.LatestReportDeadline.Duration()
+}
+
 type mercuryConfig struct {
+	c toml.Mercury
 	s toml.MercurySecrets
 }
 
@@ -22,4 +42,8 @@ func (m *mercuryConfig) Credentials(credName string) *models.MercuryCredentials 
 		return c
 	}
 	return nil
+}
+
+func (m *mercuryConfig) Cache() config.MercuryCache {
+	return &mercuryCacheConfig{c: m.c.Cache}
 }

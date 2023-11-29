@@ -14,12 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -1329,7 +1329,7 @@ func TestInsertLogsWithBlock(t *testing.T) {
 	// Using pgtest.NewSqlxDB(t) will run all tests in TXs which is not desired for this type of test
 	// (inner tx rollback will rollback outer tx, blocking rest of execution)
 	_, db := heavyweight.FullTestDBV2(t, nil)
-	o := logpoller.NewORM(chainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
+	o := logpoller.NewORM(chainID, db, logger.Test(t), pgtest.NewQConfig(true))
 
 	correctLog := GenLog(chainID, 1, 1, utils.RandomAddress().String(), event[:], address)
 	invalidLog := GenLog(chainID, -10, -10, utils.RandomAddress().String(), event[:], address)
@@ -1405,7 +1405,7 @@ func TestInsertLogsInTx(t *testing.T) {
 
 	// We need full db here, because we want to test transaction rollbacks.
 	_, db := heavyweight.FullTestDBV2(t, nil)
-	o := logpoller.NewORM(chainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
+	o := logpoller.NewORM(chainID, db, logger.Test(t), pgtest.NewQConfig(true))
 
 	logs := make([]logpoller.Log, maxLogsSize, maxLogsSize+1)
 	for i := 0; i < maxLogsSize; i++ {

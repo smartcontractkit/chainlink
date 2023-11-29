@@ -11,9 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	evmchain "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 // ErrNoChains indicates that no EVM chains have been started
@@ -21,31 +20,31 @@ var ErrNoChains = errors.New("no EVM chains loaded")
 
 type EVMChainRelayerExtender interface {
 	loop.RelayerExt
-	Chain() evmchain.Chain
+	Chain() legacyevm.Chain
 }
 
 type EVMChainRelayerExtenderSlicer interface {
 	Slice() []EVMChainRelayerExtender
 	Len() int
-	AppConfig() evmchain.AppConfig
+	AppConfig() legacyevm.AppConfig
 }
 
 type ChainRelayerExtenders struct {
 	exts []EVMChainRelayerExtender
-	cfg  evmchain.AppConfig
+	cfg  legacyevm.AppConfig
 }
 
 var _ EVMChainRelayerExtenderSlicer = &ChainRelayerExtenders{}
 
-func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *evmchain.LegacyChains {
-	m := make(map[string]evmchain.Chain)
+func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *legacyevm.LegacyChains {
+	m := make(map[string]legacyevm.Chain)
 	for _, r := range exts.Slice() {
 		m[r.Chain().ID().String()] = r.Chain()
 	}
-	return evmchain.NewLegacyChains(m, exts.AppConfig().EVMConfigs())
+	return legacyevm.NewLegacyChains(m, exts.AppConfig().EVMConfigs())
 }
 
-func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt, appConfig evm.AppConfig) *ChainRelayerExtenders {
+func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt, appConfig legacyevm.AppConfig) *ChainRelayerExtenders {
 	temp := make([]EVMChainRelayerExtender, len(exts))
 	for i := range exts {
 		temp[i] = exts[i]
@@ -56,7 +55,7 @@ func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt, appConfig evm.AppConf
 	}
 }
 
-func (c *ChainRelayerExtenders) AppConfig() evmchain.AppConfig {
+func (c *ChainRelayerExtenders) AppConfig() legacyevm.AppConfig {
 	return c.cfg
 }
 
@@ -70,7 +69,7 @@ func (c *ChainRelayerExtenders) Len() int {
 
 // implements OneChain
 type ChainRelayerExt struct {
-	chain evmchain.Chain
+	chain legacyevm.Chain
 }
 
 var _ EVMChainRelayerExtender = &ChainRelayerExt{}
@@ -91,7 +90,7 @@ func (s *ChainRelayerExt) ID() string {
 	return s.chain.ID().String()
 }
 
-func (s *ChainRelayerExt) Chain() evmchain.Chain {
+func (s *ChainRelayerExt) Chain() legacyevm.Chain {
 	return s.chain
 }
 
@@ -117,7 +116,7 @@ func (s *ChainRelayerExt) Ready() (err error) {
 	return s.chain.Ready()
 }
 
-func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {
+func NewChainRelayerExtenders(ctx context.Context, opts legacyevm.ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
@@ -142,14 +141,14 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 	for i := range enabled {
 
 		cid := enabled[i].ChainID.String()
-		privOpts := evmchain.ChainRelayExtenderConfig{
+		privOpts := legacyevm.ChainRelayExtenderConfig{
 			Logger:    opts.Logger.Named(cid),
 			ChainOpts: opts.ChainOpts,
 			KeyStore:  opts.KeyStore,
 		}
 
 		privOpts.Logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
-		chain, err2 := evmchain.NewTOMLChain(ctx, enabled[i], privOpts)
+		chain, err2 := legacyevm.NewTOMLChain(ctx, enabled[i], privOpts)
 		if err2 != nil {
 			err = multierr.Combine(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
 			continue
