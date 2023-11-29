@@ -1022,6 +1022,15 @@ func (lp *logPoller) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, event
 	return lp.orm.SelectLatestBlockByEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
 }
 
+// LogsDataWordBetween retrieves a slice of Log records that match specific criteria.
+// Besides generic filters like eventSig, address and confs, it also verifies data content against wordValue
+// data[wordIndexMin] <= wordValue <= data[wordIndexMax].
+//
+// Passing the same value for wordIndexMin and wordIndexMax will check the equality of the wordValue at that index.
+// Leading to returning logs matching: data[wordIndexMin] == wordValue.
+//
+// This function is particularly useful for filtering logs by data word values and their positions within the event data.
+// It returns an empty slice if no logs match the provided criteria.
 func (lp *logPoller) LogsDataWordBetween(eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectLogsDataWordBetween(address, eventSig, wordIndexMin, wordIndexMax, wordValue, confs, qopts...)
 }

@@ -236,9 +236,9 @@ func (o *ObservedORM) SelectLogsDataWordGreaterThan(address common.Address, even
 	})
 }
 
-func (o *ObservedORM) SelectLogsDataWordBetween(address common.Address, eventSIg common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectLogsDataWordBetween(address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectLogsDataWordBetween", func() ([]Log, error) {
-		return o.ORM.SelectLogsDataWordBetween(address, eventSIg, wordIndexMin, wordIndexMax, wordValue, confs, qopts...)
+		return o.ORM.SelectLogsDataWordBetween(address, eventSig, wordIndexMin, wordIndexMax, wordValue, confs, qopts...)
 	})
 }
 
