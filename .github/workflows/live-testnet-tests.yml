@@ -65,7 +65,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Tests Binary
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu20.04-8cores-32GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -80,7 +80,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@b664381f1437cb2b3cf63ddbc3fa663823d82586 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@bafde9d4368707c7ffc14e5b3ce98ef06480a134 # v2.2.16
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -116,7 +116,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@b664381f1437cb2b3cf63ddbc3fa663823d82586 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@bafde9d4368707c7ffc14e5b3ce98ef06480a134 # v2.2.16
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
@@ -173,7 +173,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@b664381f1437cb2b3cf63ddbc3fa663823d82586 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@bafde9d4368707c7ffc14e5b3ce98ef06480a134 # v2.2.16
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
