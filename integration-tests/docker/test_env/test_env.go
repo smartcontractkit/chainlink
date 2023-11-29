@@ -251,7 +251,7 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 // collectTestLogs collects the logs from all the Chainlink nodes in the test environment and writes them to local files
 func (te *CLClusterTestEnv) collectTestLogs() error {
 	te.l.Info().Msg("Collecting test logs")
-	folder := fmt.Sprintf("./logs/%s-%s", te.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+	folder := fmt.Sprintf("./logs/%s-%s-%s", te.t.Name(), te.Network.Name, time.Now().Format("2006-01-02T15-04-05"))
 	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
 		return err
 	}
