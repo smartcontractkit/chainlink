@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // RPC includes all the necessary methods for a multi-node client to interact directly with any RPC endpoint.
@@ -51,7 +50,7 @@ type RPC[
 //go:generate mockery --quiet --name Head --structname mockHead --filename "mock_head_test.go" --inpackage --case=underscore
 type Head interface {
 	BlockNumber() int64
-	BlockDifficulty() *utils.Big
+	BlockDifficulty() *big.Int
 }
 
 // NodeClient includes all the necessary RPC methods required by a node.

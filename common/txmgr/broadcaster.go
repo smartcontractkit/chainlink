@@ -247,7 +247,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) clos
 	eb.initSync.Lock()
 	defer eb.initSync.Unlock()
 	if !eb.isStarted {
-		return errors.Wrap(utils.ErrAlreadyStopped, "Broadcaster is not started")
+		return errors.Wrap(services.ErrAlreadyStopped, "Broadcaster is not started")
 	}
 	close(eb.chStop)
 	eb.wg.Wait()

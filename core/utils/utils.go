@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"math/big"
 	mrand "math/rand"
@@ -770,16 +769,6 @@ var (
 // StartStopOnce contains a StartStopOnceState integer
 // Deprecated: use services.StateMachine
 type StartStopOnce = services.StateMachine
-
-// EnsureClosed closes the io.Closer, returning nil if it was already
-// closed or not started yet
-func EnsureClosed(c io.Closer) error {
-	err := c.Close()
-	if errors.Is(err, ErrAlreadyStopped) || errors.Is(err, ErrCannotStopUnstarted) {
-		return nil
-	}
-	return err
-}
 
 // WithJitter adds +/- 10% to a duration
 func WithJitter(d time.Duration) time.Duration {

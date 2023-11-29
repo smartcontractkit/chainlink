@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	big "math/big"
 	"math/rand"
 	"testing"
 	"time"
@@ -17,14 +18,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type multiNodeRPCClient RPC[types.ID, *utils.Big, Hashable, Hashable, any, Hashable, any, any,
+type multiNodeRPCClient RPC[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 	types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable]]
 
 type testMultiNode struct {
-	*multiNode[types.ID, *utils.Big, Hashable, Hashable, any, Hashable, any, any,
+	*multiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient]
 }
 
@@ -46,19 +46,19 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 		opts.logger = logger.Test(t)
 	}
 
-	result := NewMultiNode[types.ID, *utils.Big, Hashable, Hashable, any, Hashable, any, any,
+	result := NewMultiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient](opts.logger,
 		opts.selectionMode, opts.leaseDuration, opts.noNewHeadsThreshold, opts.nodes, opts.sendonlys,
 		opts.chainID, opts.chainType, opts.chainFamily, opts.sendOnlyErrorParser)
 	return testMultiNode{
-		result.(*multiNode[types.ID, *utils.Big, Hashable, Hashable, any, Hashable, any, any,
+		result.(*multiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 			types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient]),
 	}
 }
 
-func newMultiNodeRPCClient(t *testing.T) *mockRPC[types.ID, *utils.Big, Hashable, Hashable, any, Hashable, any, any,
+func newMultiNodeRPCClient(t *testing.T) *mockRPC[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 	types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable]] {
-	return newMockRPC[types.ID, *utils.Big, Hashable, Hashable, any, Hashable, any, any,
+	return newMockRPC[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable]](t)
 }
 
@@ -424,40 +424,40 @@ func TestMultiNode_nLiveNodes(t *testing.T) {
 	t.Parallel()
 	type nodeParams struct {
 		BlockNumber     int64
-		TotalDifficulty *utils.Big
+		TotalDifficulty *big.Int
 		State           nodeState
 	}
 	testCases := []struct {
 		Name                    string
 		ExpectedNLiveNodes      int
 		ExpectedBlockNumber     int64
-		ExpectedTotalDifficulty *utils.Big
+		ExpectedTotalDifficulty *big.Int
 		NodeParams              []nodeParams
 	}{
 		{
 			Name:                    "no nodes",
-			ExpectedTotalDifficulty: utils.NewBigI(0),
+			ExpectedTotalDifficulty: big.NewInt(0),
 		},
 		{
 			Name:                    "Best node is not healthy",
-			ExpectedTotalDifficulty: utils.NewBigI(10),
+			ExpectedTotalDifficulty: big.NewInt(10),
 			ExpectedBlockNumber:     20,
 			ExpectedNLiveNodes:      3,
 			NodeParams: []nodeParams{
 				{
 					State:           nodeStateOutOfSync,
 					BlockNumber:     1000,
-					TotalDifficulty: utils.NewBigI(2000),
+					TotalDifficulty: big.NewInt(2000),
 				},
 				{
 					State:           nodeStateAlive,
 					BlockNumber:     20,
-					TotalDifficulty: utils.NewBigI(9),
+					TotalDifficulty: big.NewInt(9),
 				},
 				{
 					State:           nodeStateAlive,
 					BlockNumber:     19,
-					TotalDifficulty: utils.NewBigI(10),
+					TotalDifficulty: big.NewInt(10),
 				},
 				{
 					State:           nodeStateAlive,

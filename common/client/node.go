@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net/url"
 	"sync"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const QueryTimeout = 10 * time.Second
@@ -53,7 +53,7 @@ type Node[
 	// State returns nodeState
 	State() nodeState
 	// StateAndLatest returns nodeState with the latest received block number & total difficulty.
-	StateAndLatest() (nodeState, int64, *utils.Big)
+	StateAndLatest() (nodeState, int64, *big.Int)
 	// Name is a unique identifier for this node.
 	Name() string
 	String() string
@@ -90,7 +90,7 @@ type node[
 	state   nodeState
 	// Each node is tracking the last received head number and total difficulty
 	stateLatestBlockNumber     int64
-	stateLatestTotalDifficulty *utils.Big
+	stateLatestTotalDifficulty *big.Int
 
 	// nodeCtx is the node lifetime's context
 	nodeCtx context.Context
@@ -103,7 +103,7 @@ type node[
 	//  1. see how many live nodes there are in total, so we can prevent the last alive node in a pool from being
 	//  moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
 	//  2. compare against the highest head (by number or difficulty) to ensure we don't fall behind too far.
-	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *utils.Big)
+	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *big.Int)
 }
 
 func NewNode[

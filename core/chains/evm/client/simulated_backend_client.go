@@ -302,7 +302,7 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 			case h := <-ch:
 				var head *evmtypes.Head
 				if h != nil {
-					head = &evmtypes.Head{Difficulty: (*utils.Big)(h.Difficulty), Timestamp: time.Unix(int64(h.Time), 0), Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: utils.NewBig(c.chainId)}
+					head = &evmtypes.Head{Difficulty: h.Difficulty, Timestamp: time.Unix(int64(h.Time), 0), Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: utils.NewBig(c.chainId)}
 					lastHead = head
 				}
 				select {
