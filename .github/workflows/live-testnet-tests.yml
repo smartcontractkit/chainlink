@@ -927,8 +927,6 @@ jobs:
 
   celo-alfajores-smoke-tests:
     environment: integration
-    # TODO: Still figuring out funding
-    if: false
     permissions:
       checks: write
       pull-requests: write
