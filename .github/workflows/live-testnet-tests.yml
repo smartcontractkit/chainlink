@@ -70,6 +70,9 @@ env:
   LINEA_GOERLI_HTTP_URLS: ${{ secrets.QA_LINEA_GOERLI_HTTP_URLS }}
 
 jobs:
+
+  # Build Test Dependencies
+
   build-chainlink:
     environment: integration
     permissions:
@@ -100,6 +103,38 @@ jobs:
           GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+  build-tests:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Tests Binary
+    runs-on: ubuntu20.04-4cores-16GB
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        with:
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          binary_name: tests
+
+  # End Build Test Dependencies
 
   # Reporting Jobs
 
