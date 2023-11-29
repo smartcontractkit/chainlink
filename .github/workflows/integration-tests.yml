@@ -28,7 +28,23 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Check Merge Group Condition
+        id: condition-check
+        run: |
+          echo "Checking event condition..."
+          SHOULD_ENFORCE="false"
+          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+              echo "We are in a merge_group event, now check if we are on the develop branch"
+              target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .merge_group.base_ref)
+              if [[ "$target_branch" == "refs/heads/develop" ]]; then
+                  echo "We are on the develop branch, we should enforce ctf version"
+                  SHOULD_ENFORCE="true"
+              fi
+          fi
+          echo "should we enforce ctf version = $SHOULD_ENFORCE"
+          echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
       - name: Enforce CTF Version
+        if: steps.condition-check.outputs.should-enforce == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         with:
           go-project-path: ./integration-tests
