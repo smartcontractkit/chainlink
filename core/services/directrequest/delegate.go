@@ -31,7 +31,7 @@ type (
 		pipelineORM    pipeline.ORM
 		chHeads        chan *evmtypes.Head
 		legacyChains   legacyevm.LegacyChainContainer
-		mailMon        *mailbox.MailboxMonitor
+		mailMon        *mailbox.Monitor
 	}
 
 	Config interface {
@@ -47,7 +47,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
 	legacyChains legacyevm.LegacyChainContainer,
-	mailMon *mailbox.MailboxMonitor,
+	mailMon *mailbox.Monitor,
 ) *Delegate {
 	return &Delegate{
 		logger:         logger.Named("DirectRequest"),
@@ -101,8 +101,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		pipelineORM:              d.pipelineORM,
 		mailMon:                  d.mailMon,
 		job:                      jb,
-		mbOracleRequests:         mailbox.NewHighCapacityMailbox[log.Broadcast](),
-		mbOracleCancelRequests:   mailbox.NewHighCapacityMailbox[log.Broadcast](),
+		mbOracleRequests:         mailbox.NewHighCapacity[log.Broadcast](),
+		mbOracleCancelRequests:   mailbox.NewHighCapacity[log.Broadcast](),
 		minIncomingConfirmations: concreteSpec.MinIncomingConfirmations.Uint32,
 		requesters:               concreteSpec.Requesters,
 		minContractPayment:       concreteSpec.MinContractPayment,
@@ -127,7 +127,7 @@ type listener struct {
 	oracle                   operator_wrapper.OperatorInterface
 	pipelineRunner           pipeline.Runner
 	pipelineORM              pipeline.ORM
-	mailMon                  *mailbox.MailboxMonitor
+	mailMon                  *mailbox.Monitor
 	job                      job.Job
 	runs                     sync.Map // map[string]services.StopChan
 	shutdownWaitGroup        sync.WaitGroup

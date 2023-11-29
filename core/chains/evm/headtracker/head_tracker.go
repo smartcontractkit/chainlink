@@ -29,7 +29,7 @@ func NewHeadTracker(
 	htConfig HeadTrackerConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
-	mailMon *mailbox.MailboxMonitor,
+	mailMon *mailbox.Monitor,
 ) httypes.HeadTracker {
 	return headtracker.NewHeadTracker[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash](
 		lggr,

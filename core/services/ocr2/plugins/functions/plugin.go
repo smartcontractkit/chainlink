@@ -44,7 +44,7 @@ type FunctionsServicesConfig struct {
 	Chain             legacyevm.Chain
 	ContractID        string
 	Logger            logger.Logger
-	MailMon           *mailbox.MailboxMonitor
+	MailMon           *mailbox.Monitor
 	URLsMonEndpoint   commontypes.MonitoringEndpoint
 	EthKeystore       keystore.Eth
 	ThresholdKeyShare []byte

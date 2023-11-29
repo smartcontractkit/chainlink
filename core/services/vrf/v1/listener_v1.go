@@ -58,7 +58,7 @@ type Listener struct {
 	Job            job.Job
 	Q              pg.Q
 	GethKs         vrfcommon.GethKeyStore
-	MailMon        *mailbox.MailboxMonitor
+	MailMon        *mailbox.Monitor
 	ReqLogs        *mailbox.Mailbox[log.Broadcast]
 	ChStop         services.StopChan
 	WaitOnStop     chan struct{}

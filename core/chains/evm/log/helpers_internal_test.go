@@ -11,7 +11,7 @@ import (
 )
 
 // NewTestBroadcaster creates a broadcaster with Pause/Resume enabled.
-func NewTestBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *mailbox.MailboxMonitor) *broadcaster {
+func NewTestBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *mailbox.Monitor) *broadcaster {
 	b := NewBroadcaster(orm, ethClient, config, lggr, highestSavedHead, mailMon)
 	b.testPause, b.testResume = make(chan struct{}), make(chan struct{})
 	return b

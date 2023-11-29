@@ -67,7 +67,7 @@ type (
 		q                pg.Q
 		blockTranslator  ocrcommon.BlockTranslator
 		cfg              ocrcommon.Config
-		mailMon          *mailbox.MailboxMonitor
+		mailMon          *mailbox.Monitor
 
 		// HeadBroadcaster
 		headBroadcaster  httypes.HeadBroadcaster
@@ -117,7 +117,7 @@ func NewOCRContractTracker(
 	cfg ocrcommon.Config,
 	q pg.QConfig,
 	headBroadcaster httypes.HeadBroadcaster,
-	mailMon *mailbox.MailboxMonitor,
+	mailMon *mailbox.Monitor,
 ) (o *OCRContractTracker) {
 	logger = logger.Named("OCRContractTracker")
 	return &OCRContractTracker{
@@ -136,7 +136,7 @@ func NewOCRContractTracker(
 		headBroadcaster:      headBroadcaster,
 		chStop:               make(services.StopChan),
 		latestRoundRequested: offchainaggregator.OffchainAggregatorRoundRequested{},
-		configsMB:            mailbox.NewMailbox[ocrtypes.ContractConfig](configMailboxSanityLimit),
+		configsMB:            mailbox.New[ocrtypes.ContractConfig](configMailboxSanityLimit),
 		chConfigs:            make(chan ocrtypes.ContractConfig),
 		latestBlockHeight:    -1,
 	}

@@ -83,7 +83,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.hb = commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 	uni.ec = evmtest.NewEthClientMock(t)
 
-	mailMon := srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name()))
+	mailMon := srvctest.Start(t, mailbox.NewMonitor(t.Name()))
 	db := pgtest.NewSqlxDB(t)
 	uni.tracker = ocr.NewOCRContractTracker(
 		contract,

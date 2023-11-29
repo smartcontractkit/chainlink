@@ -81,7 +81,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	broadcaster := log_mocks.NewBroadcaster(t)
 	broadcaster.On("AddDependents", 1)
-	mailMon := srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name()))
+	mailMon := srvctest.Start(t, mailbox.NewMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())

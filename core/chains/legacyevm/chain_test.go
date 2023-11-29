@@ -36,7 +36,7 @@ func TestChainOpts_Validate(t *testing.T) {
 	type fields struct {
 		AppConfig        legacyevm.AppConfig
 		EventBroadcaster pg.EventBroadcaster
-		MailMon          *mailbox.MailboxMonitor
+		MailMon          *mailbox.Monitor
 		DB               *sqlx.DB
 	}
 	tests := []struct {
@@ -49,7 +49,7 @@ func TestChainOpts_Validate(t *testing.T) {
 			fields: fields{
 				AppConfig:        configtest.NewTestGeneralConfig(t),
 				EventBroadcaster: pg.NewNullEventBroadcaster(),
-				MailMon:          &mailbox.MailboxMonitor{},
+				MailMon:          &mailbox.Monitor{},
 				DB:               pgtest.NewSqlxDB(t),
 			},
 		},

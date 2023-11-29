@@ -150,7 +150,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name()))
+	mailMon := srvctest.Start(t, mailbox.NewMonitor(t.Name()))
 
 	vd := vrf.NewDelegate(
 		db,
@@ -675,7 +675,7 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name()))
+	mailMon := srvctest.Start(t, mailbox.NewMonitor(t.Name()))
 
 	vd := vrf.NewDelegate(
 		db,

@@ -66,7 +66,7 @@ type TestChainOpts struct {
 	DB             *sqlx.DB
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
-	MailMon        *mailbox.MailboxMonitor
+	MailMon        *mailbox.Monitor
 	GasEstimator   gas.EvmFeeEstimator
 }
 
@@ -119,7 +119,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainR
 		}
 	}
 	if opts.MailMon == nil {
-		opts.MailMon = srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name()))
+		opts.MailMon = srvctest.Start(t, mailbox.NewMonitor(t.Name()))
 	}
 	if testopts.GasEstimator != nil {
 		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {

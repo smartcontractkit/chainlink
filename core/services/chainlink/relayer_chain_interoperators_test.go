@@ -208,7 +208,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					ChainOpts: legacyevm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
-						MailMon:          &mailbox.MailboxMonitor{},
+						MailMon:          &mailbox.Monitor{},
 						DB:               db,
 					},
 					CSAETHKeystore: keyStore,
@@ -282,7 +282,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					ChainOpts: legacyevm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
-						MailMon:          &mailbox.MailboxMonitor{},
+						MailMon:          &mailbox.Monitor{},
 						DB:               db,
 					},
 					CSAETHKeystore: keyStore,

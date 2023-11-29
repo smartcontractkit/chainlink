@@ -48,7 +48,7 @@ func NewHeadBroadcaster[
 	return &HeadBroadcaster[H, BLOCK_HASH]{
 		logger:    logger.Named(lggr, "HeadBroadcaster"),
 		callbacks: make(callbackSet[H, BLOCK_HASH]),
-		mailbox:   mailbox.NewSingleMailbox[H](),
+		mailbox:   mailbox.NewSingle[H](),
 		chClose:   make(chan struct{}),
 	}
 }

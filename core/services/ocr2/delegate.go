@@ -116,7 +116,7 @@ type Delegate struct {
 	ethKs                 keystore.Eth
 	RelayGetter
 	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
-	mailMon           *mailbox.MailboxMonitor
+	mailMon           *mailbox.Monitor
 
 	legacyChains legacyevm.LegacyChainContainer // legacy: use relayers instead
 }
@@ -226,7 +226,7 @@ func NewDelegate(
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
 	relayers RelayGetter,
-	mailMon *mailbox.MailboxMonitor,
+	mailMon *mailbox.Monitor,
 	eventBroadcaster pg.EventBroadcaster,
 ) *Delegate {
 	return &Delegate{

@@ -90,7 +90,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	})
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 	lggr := logger.Test(t)
-	mailMon := srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name()))
+	mailMon := srvctest.Start(t, mailbox.NewMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
 	orm := log.NewORM(db, lggr, config.Database(), cltest.FixtureChainID)

@@ -103,7 +103,7 @@ type (
 		registrations *registrations
 		logPool       *logPool
 
-		mailMon *mailbox.MailboxMonitor
+		mailMon *mailbox.Monitor
 		// Use the same channel for subs/unsubs so ordering is preserved
 		// (unsubscribe must happen after subscribe)
 		changeSubscriberStatus *mailbox.Mailbox[changeSubscriberStatus]
@@ -166,7 +166,7 @@ const (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *mailbox.MailboxMonitor) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *mailbox.Monitor) *broadcaster {
 	chStop := make(chan struct{})
 	lggr = logger.Named(lggr, "LogBroadcaster")
 	chainId := ethClient.ConfiguredChainID()
@@ -179,8 +179,8 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 		registrations:          newRegistrations(lggr, *chainId),
 		logPool:                newLogPool(lggr),
 		mailMon:                mailMon,
-		changeSubscriberStatus: mailbox.NewHighCapacityMailbox[changeSubscriberStatus](),
-		newHeads:               mailbox.NewSingleMailbox[*evmtypes.Head](),
+		changeSubscriberStatus: mailbox.NewHighCapacity[changeSubscriberStatus](),
+		newHeads:               mailbox.NewSingle[*evmtypes.Head](),
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		chStop:                 chStop,
 		highestSavedHead:       highestSavedHead,

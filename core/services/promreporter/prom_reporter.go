@@ -104,7 +104,7 @@ func NewPromReporter(db *sql.DB, lggr logger.Logger, opts ...interface{}) *promR
 		db:           db,
 		lggr:         lggr.Named("PromReporter"),
 		backend:      backend,
-		newHeads:     mailbox.NewSingleMailbox[*evmtypes.Head](),
+		newHeads:     mailbox.NewSingle[*evmtypes.Head](),
 		chStop:       chStop,
 		reportPeriod: period,
 	}

@@ -461,7 +461,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name())),
+			srvctest.Start(t, mailbox.NewMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -496,7 +496,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name())),
+			srvctest.Start(t, mailbox.NewMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -525,7 +525,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name())),
+			srvctest.Start(t, mailbox.NewMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -580,7 +580,7 @@ answer1      [type=median index=0];
 				legacyChains,
 				lggr,
 				config.Database(),
-				srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name())),
+				srvctest.Start(t, mailbox.NewMonitor(t.Name())),
 			)
 
 			jb.OCROracleSpec.CaptureEATelemetry = tc.jbCaptureEATelemetry
@@ -625,7 +625,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name())),
+			srvctest.Start(t, mailbox.NewMonitor(t.Name())),
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)

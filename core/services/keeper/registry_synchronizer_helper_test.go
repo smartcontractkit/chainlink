@@ -72,7 +72,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	})).Maybe().Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	mailMon := srvctest.Start(t, mailbox.NewMailboxMonitor(t.Name()))
+	mailMon := srvctest.Start(t, mailbox.NewMonitor(t.Name()))
 
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config().Database())
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{

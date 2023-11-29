@@ -149,7 +149,7 @@ type ApplicationOpts struct {
 	Config                     GeneralConfig
 	Logger                     logger.Logger
 	EventBroadcaster           pg.EventBroadcaster
-	MailMon                    *mailbox.MailboxMonitor
+	MailMon                    *mailbox.Monitor
 	SqlxDB                     *sqlx.DB
 	KeyStore                   keystore.Master
 	RelayerChainInteroperators *CoreRelayerChainInteroperators

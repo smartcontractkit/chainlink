@@ -39,7 +39,7 @@ type Delegate struct {
 	ks           keystore.Master
 	legacyChains legacyevm.LegacyChainContainer
 	lggr         logger.Logger
-	mailMon      *mailbox.MailboxMonitor
+	mailMon      *mailbox.Monitor
 }
 
 func NewDelegate(
@@ -50,7 +50,7 @@ func NewDelegate(
 	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg pg.QConfig,
-	mailMon *mailbox.MailboxMonitor) *Delegate {
+	mailMon *mailbox.Monitor) *Delegate {
 	return &Delegate{
 		q:            pg.NewQ(db, lggr, cfg),
 		ks:           ks,
@@ -250,7 +250,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				MailMon:        d.mailMon,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				ReqLogs:            mailbox.NewHighCapacityMailbox[log.Broadcast](),
+				ReqLogs:            mailbox.NewHighCapacity[log.Broadcast](),
 				ChStop:             make(chan struct{}),
 				WaitOnStop:         make(chan struct{}),
 				NewHead:            make(chan struct{}, 1),

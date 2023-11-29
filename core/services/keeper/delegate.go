@@ -22,7 +22,7 @@ type Delegate struct {
 	jrm          job.ORM
 	pr           pipeline.Runner
 	legacyChains legacyevm.LegacyChainContainer
-	mailMon      *mailbox.MailboxMonitor
+	mailMon      *mailbox.Monitor
 }
 
 // NewDelegate is the constructor of Delegate
@@ -32,7 +32,7 @@ func NewDelegate(
 	pr pipeline.Runner,
 	logger logger.Logger,
 	legacyChains legacyevm.LegacyChainContainer,
-	mailMon *mailbox.MailboxMonitor,
+	mailMon *mailbox.Monitor,
 ) *Delegate {
 	return &Delegate{
 		logger:       logger,

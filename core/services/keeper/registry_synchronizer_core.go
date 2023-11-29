@@ -30,7 +30,7 @@ type RegistrySynchronizerOptions struct {
 	ORM                      ORM
 	JRM                      job.ORM
 	LogBroadcaster           log.Broadcaster
-	MailMon                  *mailbox.MailboxMonitor
+	MailMon                  *mailbox.Monitor
 	SyncInterval             time.Duration
 	MinIncomingConfirmations uint32
 	Logger                   logger.Logger
@@ -53,7 +53,7 @@ type RegistrySynchronizer struct {
 	logger                   logger.SugaredLogger
 	wgDone                   sync.WaitGroup
 	syncUpkeepQueueSize      uint32 //Represents the max number of upkeeps that can be synced in parallel
-	mailMon                  *mailbox.MailboxMonitor
+	mailMon                  *mailbox.Monitor
 }
 
 // NewRegistrySynchronizer is the constructor of RegistrySynchronizer
@@ -65,7 +65,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		job:                      opts.Job,
 		jrm:                      opts.JRM,
 		logBroadcaster:           opts.LogBroadcaster,
-		mbLogs:                   mailbox.NewMailbox[log.Broadcast](5_000), // Arbitrary limit, better to have excess capacity
+		mbLogs:                   mailbox.New[log.Broadcast](5_000), // Arbitrary limit, better to have excess capacity
 		minIncomingConfirmations: opts.MinIncomingConfirmations,
 		orm:                      opts.ORM,
 		effectiveKeeperAddress:   opts.EffectiveKeeperAddress,

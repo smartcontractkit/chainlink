@@ -91,7 +91,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				ChainOpts: legacyevm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
-					MailMon:          &mailbox.MailboxMonitor{},
+					MailMon:          &mailbox.Monitor{},
 					DB:               db,
 				},
 			}
@@ -196,7 +196,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				ChainOpts: legacyevm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
-					MailMon:          &mailbox.MailboxMonitor{},
+					MailMon:          &mailbox.Monitor{},
 					DB:               db,
 				},
 			}

@@ -165,7 +165,7 @@ type ChainOpts struct {
 	AppConfig AppConfig
 
 	EventBroadcaster pg.EventBroadcaster
-	MailMon          *mailbox.MailboxMonitor
+	MailMon          *mailbox.Monitor
 	GasEstimator     gas.EvmFeeEstimator
 
 	*sqlx.DB

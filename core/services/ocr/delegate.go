@@ -45,7 +45,7 @@ type Delegate struct {
 	legacyChains          legacyevm.LegacyChainContainer
 	lggr                  logger.Logger
 	cfg                   Config
-	mailMon               *mailbox.MailboxMonitor
+	mailMon               *mailbox.Monitor
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -62,7 +62,7 @@ func NewDelegate(
 	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg Config,
-	mailMon *mailbox.MailboxMonitor,
+	mailMon *mailbox.Monitor,
 ) *Delegate {
 	return &Delegate{
 		db:                    db,

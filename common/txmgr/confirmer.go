@@ -176,7 +176,7 @@ func NewConfirmer[
 		dbConfig:         dbConfig,
 		chainID:          client.ConfiguredChainID(),
 		ks:               keystore,
-		mb:               mailbox.NewSingleMailbox[HEAD](),
+		mb:               mailbox.NewSingle[HEAD](),
 		isReceiptNil:     isReceiptNil,
 	}
 }
