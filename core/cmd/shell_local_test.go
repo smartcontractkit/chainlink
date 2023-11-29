@@ -506,6 +506,9 @@ func TestShell_CleanupChainTables(t *testing.T) {
 	flagSetApplyFromAction(client.CleanupChainTables, set, "")
 	require.NoError(t, set.Set("id", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("type", "EVM"))
+	// heavyweight creates test db named chainlink_test_uid, while usual naming is chainlink_test
+	// CleanupChainTables handles test db name with chainlink_test, but because of heavyweight test db naming we have to set danger flag
+	require.NoError(t, set.Set("danger", "true"))
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.CleanupChainTables(c))
 }
