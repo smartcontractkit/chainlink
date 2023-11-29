@@ -28,6 +28,7 @@ type ConnectionVars struct {
 	NetworkPrivateKey               string `toml:"network_private_key"`
 	NetworkWSURL                    string `toml:"network_ws_url"`
 	NetworkHTTPURL                  string `toml:"network_http_url"`
+	CLNodesNum                      int    `toml:"cl_nodes_num"`
 	CLNodeURLTemplate               string `toml:"cl_node_url_template"`
 	CLNodeInternalDNSRecordTemplate string `toml:"cl_node_internal_dns_record_template"`
 	CLNodeUser                      string `toml:"cl_node_user"`
@@ -66,7 +67,7 @@ func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverC
 		return nil, nil, nil, nil, nil, err
 	}
 	clClients := make([]*client.ChainlinkK8sClient, 0)
-	for i := 1; i <= 6; i++ {
+	for i := 1; i <= cfg.CLNodesNum; i++ {
 		c, err := client.NewChainlinkK8sClient(&client.ChainlinkConfig{
 			URL:        fmt.Sprintf(cfg.CLNodeURLTemplate, i),
 			Email:      cfg.CLNodeUser,
