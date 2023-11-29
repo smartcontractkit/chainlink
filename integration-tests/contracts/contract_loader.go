@@ -77,6 +77,8 @@ func NewContractLoader(bcClient blockchain.EVMClient, logger zerolog.Logger) (Co
 		return &CeloContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.ScrollClient:
 		return &ScrollContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
+	case *blockchain.FantomClient:
+		return &FantomContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -137,6 +139,11 @@ type CeloContractLoader struct {
 
 // ScrollContractLoader wraps for Scroll
 type ScrollContractLoader struct {
+	*EthereumContractLoader
+}
+
+// FantomContractLoader wraps for Scroll
+type FantomContractLoader struct {
 	*EthereumContractLoader
 }
 
