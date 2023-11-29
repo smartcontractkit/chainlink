@@ -122,7 +122,7 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
