@@ -51,7 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `mercury_cache_miss_count`
 - Added new `EVM.OCR` TOML config fields `DeltaCOverride` and `DeltaCJitterOverride` for overriding the config DeltaC.
 
-
 ### Changed
 
 - `L2Suggested` mode is now called `SuggestedPrice`
@@ -72,13 +71,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- unreleasedstop -->
 
-## 2.7.1 - UNRELEASED
+## 2.7.1 - 2023-11-21
 
 ### Fixed
 
 - Fixed a bug that causes the node to shutdown if all configured RPC's are unreachable during startup.
 
-## 2.7.0 - UNRELEASED
+## 2.7.0 - 2023-11-14
 
 ### Added
 
