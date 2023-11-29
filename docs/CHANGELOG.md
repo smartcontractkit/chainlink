@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a tracker component to the txmgr for tracking and gracefully handling abandoned transactions. Abandoned transactions occur when a fromAddress is removed from the keystore by a node operator. The tracker gives abandoned transactions a chance to be finalized on chain, or marks them as fatal_error if they are not finalized within a specified time to live (default 6hrs).
 - Added distributed tracing in the OpenTelemetry trace format to the node, currently focused at the LOOPP Plugin development effort. This includes a new set of `Tracing` TOML configurations. The default for collecting traces is off - you must explicitly enable traces and setup a valid OpenTelemetry collector. Refer to `.github/tracing/README.md` for more details.
 - Added a new, optional WebServer authentication option that supports LDAP as a user identity provider. This enables user login access and user roles to be managed and provisioned via a centralized remote server that supports the LDAP protocol, which can be helpful when running multiple nodes. See the documentation for more information and config setup instructions. There is a new `[WebServer].AuthenticationMethod` config option, when set to `ldap` requires the new `[WebServer.LDAP]` config section to be defined, see the reference `docs/core.toml`.
 - New prom metrics for mercury transmit queue:
@@ -93,7 +94,7 @@ ServerPubKey = '...'
 These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Setting `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` alongside `[[TelemetryIngress.Endpoints]]` will prevent the node from booting. Only one way of configuring telemetry endpoints is supported.
 - Added bridge_name label to `pipeline_tasks_total_finished` prometheus metric. This should make it easier to see directly what bridge was failing out from the CL NODE perspective.
 
-- LogPoller will now use finality tags to dynamically determine finality on evm chains if `UseFinalityTags=true`, rather than the fixed `FinalityDepth` specified in toml config
+- LogPoller will now use finality tags to dynamically determine finality on evm chains if `EVM.FinalityTagEnabled=true`, rather than the fixed `EVM.FinalityDepth` specified in toml config
 
 ### Changed
 
