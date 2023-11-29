@@ -34,7 +34,6 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ env.GIT_REF }}
-          fetch-depth: 0
       # When this is ran from manual workflow_dispatch, the github.sha may be
       # different than the checked out commit sha. The core build uses this
       # commit sha as build metadata, so we need to make sure it's correct.
