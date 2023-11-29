@@ -871,7 +871,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 			"err", sendError,
 			"fee", attempt.TxFee,
 			"feeLimit", etx.FeeLimit,
-			"signedRawTx", utils.AddHexPrefix(hex.EncodeToString(attempt.SignedRawTx)),
+			"signedRawTx", utils.EnsureHexPrefix(hex.EncodeToString(attempt.SignedRawTx)),
 			"blockHeight", blockHeight,
 		)
 		ec.SvcErrBuffer.Append(sendError)
