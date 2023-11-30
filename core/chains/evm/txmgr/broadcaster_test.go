@@ -161,6 +161,7 @@ func TestEthBroadcaster_LoadNextSequenceMapFailure_StartupSuccess(t *testing.T) 
 	// Instance starts without error even if loading next sequence map fails
 	err := eb.Start(testutils.Context(t))
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, eb.Close()) })
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
