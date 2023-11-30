@@ -91,7 +91,8 @@ func NewStreamsLookup(
 func (s *streams) Lookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
 	lookups := map[int]*mercury.StreamsLookup{}
 	for _, checkResult := range checkResults {
-		s.buildResult(ctx, &checkResult, lookups)
+		copyCheckResult := checkResult
+		s.buildResult(ctx, &copyCheckResult, lookups)
 	}
 
 	var wg sync.WaitGroup
