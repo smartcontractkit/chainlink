@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-### Fixed
-- Fixed a bug that caused the Telemetry Manager to report incorrect health
+...
+## 2.8.0 - UNRELEASED
 
 ### Added
 
@@ -74,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Corrected Ethereum Sepolia `LinkContractAddress` to `0x779877A7B0D9E8603169DdbD7836e478b4624789`
+- Fixed a bug that caused the Telemetry Manager to report incorrect health
 
 ...
 
