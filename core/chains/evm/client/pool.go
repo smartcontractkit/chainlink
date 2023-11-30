@@ -39,6 +39,8 @@ const (
 )
 
 // NodeSelector represents a strategy to select the next node from the pool.
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NodeSelector]
 type NodeSelector interface {
 	// Select returns a Node, or nil if none can be selected.
 	// Implementation must be thread-safe.
@@ -48,6 +50,8 @@ type NodeSelector interface {
 }
 
 // PoolConfig represents settings for the Pool
+//
+// Deprecated: to be removed
 type PoolConfig interface {
 	NodeSelectionMode() string
 	NodeNoNewHeadsThreshold() time.Duration
@@ -56,6 +60,8 @@ type PoolConfig interface {
 
 // Pool represents an abstraction over one or more primary nodes
 // It is responsible for liveness checking and balancing queries across live nodes
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.MultiNode]
 type Pool struct {
 	services.StateMachine
 	nodes               []Node
@@ -76,6 +82,9 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
+// NewPool - creates new instance of [Pool]
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewMultiNode]
 func NewPool(lggr logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
@@ -169,8 +178,8 @@ func (p *Pool) Dial(ctx context.Context) error {
 
 // nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
 // totalDifficulty will be 0 if all nodes return nil.
-func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
-	totalDifficulty = utils.NewBigI(0)
+func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *big.Int) {
+	totalDifficulty = big.NewInt(0)
 	for _, n := range p.nodes {
 		if s, num, td := n.StateAndLatest(); s == NodeStateAlive {
 			nLiveNodes++
