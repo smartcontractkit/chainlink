@@ -70,6 +70,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   uint8 private s_upkeepInterval;
   address[] private s_watchList;
   mapping(address targetAddress => MonitoredAddress targetProperties) internal s_targets;
+  mapping(uint64 dstChainSelector => address onRamp) internal s_onRampAddresses;
 
   /// @param linkTokenAddress the LINK token address
   constructor(
@@ -116,6 +117,50 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     }
     s_watchList = addresses;
     emit WatchlistUpdated();
+  }
+
+  /// @notice Adds a new address to the watchlist
+  /// @param targetAddress the address to be added to the watchlist
+  /// @param dstChainSelector carries the chainId in case the targetAddress is an onRamp, otherwise it carries a 0
+  /// @dev this function has to be compatible with the event onRampSet(address, dstChainSelector) emitted by
+  /// the CCIP router. Important detail to know is this event is also emitted when an onRamp is decomissioned,
+  /// in which case it will carry the proper dstChainSelector along with the 0x0 address
+  function addToWatchList(address targetAddress, uint64 dstChainSelector) public onlyOwner {
+    if (s_targets[targetAddress].isActive) revert DuplicateAddress(targetAddress);
+    address oldAddress = s_onRampAddresses[dstChainSelector];
+    // if targetAddress is an existing onRamp, there's a need of cleaning the previous onRamp associated to this dstChainSelector
+    // there's no need to remove any other address that's not an onRamp
+    if (dstChainSelector > 0 && abi.encodePacked(oldAddress).length > 0) {
+      removeFromWatchList(oldAddress);
+    }
+    // only add the new address if it's not 0x0
+    if (targetAddress != address(0)) {
+      s_onRampAddresses[dstChainSelector] = targetAddress;
+      s_targets[targetAddress] = MonitoredAddress({
+        isActive: true,
+        minBalance: 1,
+        topUpAmount: 9,
+        lastTopUpTimestamp: 0
+      });
+      s_watchList.push(targetAddress);
+    } else {
+      // if the address is 0x0, it means the onRamp has ben decomissioned and has to be cleaned
+      delete s_onRampAddresses[dstChainSelector];
+    }
+  }
+
+  /// @notice Delete an address from the watchlist and sets the target to inactive
+  /// @param targetAddress the address to be deleted
+  function removeFromWatchList(address targetAddress) public onlyOwner returns (bool) {
+    s_targets[targetAddress].isActive = false;
+    for (uint i; i < s_watchList.length; i++) {
+      if (s_watchList[i] == targetAddress) {
+        s_watchList[i] = s_watchList[s_watchList.length - 1];
+        s_watchList.pop();
+        return true;
+      }
+    }
+    return false;
   }
 
   /// @notice Gets a list of proxies that are underfunded, up to the s_maxPerform size
@@ -201,7 +246,9 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     }
     try target.linkAvailableForPayment() returns (int256 balance) {
       if (
-        balance < int256(minBalance) && addressToCheck.lastTopUpTimestamp + s_minWaitPeriodSeconds <= block.timestamp
+        balance < int256(minBalance) &&
+        addressToCheck.lastTopUpTimestamp + s_minWaitPeriodSeconds <= block.timestamp &&
+        addressToCheck.isActive
       ) {
         return true;
       }
