@@ -1016,6 +1016,10 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 			if err = rows.Scan(&name, &schema); err != nil {
 				return err
 			}
+			// Skip the evm.key_states table
+			if schema == "evm" && name == "key_states" {
+				continue
+			}
 			tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
 		}
 
