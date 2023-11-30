@@ -54,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `mercury_cache_wait_count`
     `mercury_cache_miss_count`
 - Added new `EVM.OCR` TOML config fields `DeltaCOverride` and `DeltaCJitterOverride` for overriding the config DeltaC.
+- Mercury v0.2 has improved consensus around current block that uses the most recent 5 blocks instead of only the latest one
+- Two new prom metrics for mercury, nops should consider adding alerting on these:
+    - `mercury_insufficient_blocks_count`
+    - `mercury_zero_blocks_count`
 
 ### Changed
 
