@@ -67,7 +67,6 @@ func (l *legacyEndpointConfig) URL() *url.URL {
 }
 
 type telemetryEndpoint struct {
-	services.StateMachine
 	ChainID string
 	Network string
 	URL     *url.URL
@@ -188,9 +187,9 @@ func (m *Manager) addEndpoint(e config.TelemetryIngressEndpoint) error {
 
 	var tClient synchronization.TelemetryService
 	if m.useBatchSend {
-		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, m.maxBatchSize, m.sendInterval, m.sendTimeout, m.uniConn)
+		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, m.maxBatchSize, m.sendInterval, m.sendTimeout, m.uniConn, e.Network(), e.ChainID())
 	} else {
-		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize)
+		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, e.Network(), e.ChainID())
 	}
 
 	te := telemetryEndpoint{

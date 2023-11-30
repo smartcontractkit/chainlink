@@ -62,11 +62,14 @@ type telemetryIngressBatchClient struct {
 	workersMutex sync.Mutex
 
 	useUniConn bool
+
+	network string
+	chainID string
 }
 
 // NewTelemetryIngressBatchClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration, useUniconn bool) TelemetryService {
+func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration, useUniconn bool, network string, chainID string) TelemetryService {
 	return &telemetryIngressBatchClient{
 		telemBufferSize:   telemBufferSize,
 		telemMaxBatchSize: telemMaxBatchSize,
@@ -77,7 +80,7 @@ func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks key
 		serverPubKeyHex:   serverPubKeyHex,
 		globalLogger:      lggr,
 		logging:           logging,
-		lggr:              lggr.Named("TelemetryIngressBatchClient"),
+		lggr:              lggr.Named(fmt.Sprintf("TelemetryIngressBatchClient.%s.%s", network, chainID)),
 		chDone:            make(chan struct{}),
 		workers:           make(map[string]*telemetryIngressBatchWorker),
 		useUniConn:        useUniconn,
@@ -91,7 +94,7 @@ func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks key
 // server does come back up, wsrpc will establish the connection without any interaction
 // on behalf of the node operator.
 func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
-	return tc.StartOnce("TelemetryIngressBatchClient", func() error {
+	return tc.StartOnce(fmt.Sprintf("TelemetryIngressBatchClient.%s.%s", tc.network, tc.chainID), func() error {
 		clientPrivKey, err := tc.getCSAPrivateKey()
 		if err != nil {
 			return err
@@ -137,7 +140,7 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 
 // Close disconnects the wsrpc client from the ingress server and waits for all workers to exit
 func (tc *telemetryIngressBatchClient) Close() error {
-	return tc.StopOnce("TelemetryIngressBatchClient", func() error {
+	return tc.StopOnce(fmt.Sprintf("TelemetryIngressBatchClient.%s.%s", tc.network, tc.chainID), func() error {
 		close(tc.chDone)
 		tc.wgDone.Wait()
 		if (tc.useUniConn && tc.connected.Load()) || !tc.useUniConn {

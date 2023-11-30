@@ -3,6 +3,7 @@ package synchronization
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"sync"
 	"sync/atomic"
@@ -48,17 +49,20 @@ type telemetryIngressClient struct {
 	chDone           services.StopChan
 	dropMessageCount atomic.Uint32
 	chTelemetry      chan TelemPayload
+
+	network string
+	chainID string
 }
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint) TelemetryService {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, network string, chainID string) TelemetryService {
 	return &telemetryIngressClient{
 		url:             url,
 		ks:              ks,
 		serverPubKeyHex: serverPubKeyHex,
 		logging:         logging,
-		lggr:            lggr.Named("TelemetryIngressClient"),
+		lggr:            lggr.Named(fmt.Sprintf("TelemetryIngressClient.%s.%s", network, chainID)),
 		chTelemetry:     make(chan TelemPayload, telemBufferSize),
 		chDone:          make(services.StopChan),
 	}
@@ -66,7 +70,7 @@ func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore
 
 // Start connects the wsrpc client to the telemetry ingress server
 func (tc *telemetryIngressClient) Start(ctx context.Context) error {
-	return tc.StartOnce("TelemetryIngressClient", func() error {
+	return tc.StartOnce(fmt.Sprintf("TelemetryIngressClient.%s.%s", tc.network, tc.chainID), func() error {
 		privkey, err := tc.getCSAPrivateKey()
 		if err != nil {
 			return err
@@ -80,7 +84,7 @@ func (tc *telemetryIngressClient) Start(ctx context.Context) error {
 
 // Close disconnects the wsrpc client from the ingress server
 func (tc *telemetryIngressClient) Close() error {
-	return tc.StopOnce("TelemetryIngressClient", func() error {
+	return tc.StopOnce(fmt.Sprintf("TelemetryIngressClient.%s.%s", tc.network, tc.chainID), func() error {
 		close(tc.chDone)
 		tc.wgDone.Wait()
 		return nil
