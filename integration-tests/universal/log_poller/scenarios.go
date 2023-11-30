@@ -83,18 +83,18 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	expectedFilters := getExpectedFilters(logEmitters, cfg)
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
+		hasFilters := false
 		for i := 1; i < len(testEnv.ClCluster.Nodes); i++ {
 			nodeName := testEnv.ClCluster.Nodes[i].ContainerName
 			l.Info().Str("Node name", nodeName).Msg("Fetching filters from log poller's DB")
 
-			hasFilters, err := nodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
+			hasFilters, err = nodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
 			if err != nil {
 				l.Warn().Err(err).Msg("Error checking if node has expected filters. Retrying...")
-				return
+				break
 			}
-
-			g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 		}
+		g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 	}, "30s", "1s").Should(gomega.Succeed())
 	l.Info().Msg("All nodes have expected filters registered")
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
@@ -191,6 +191,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	}
 
 	l.Info().Msg("Starting replay log poller test")
+	l.Info().Msg("( hasFilters bug fixed )")
 
 	var (
 		err           error
@@ -233,14 +234,13 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	require.NoError(t, err, "Error getting latest block number")
 	startBlock := int64(sb)
 
-	l.Info().Msg("STARTING EVENT EMISSION")
+	l.Info().Int64("Starting Block", startBlock).Msg("STARTING EVENT EMISSION")
 	startTime := time.Now()
 	totalLogsEmitted, err := executeGenerator(t, cfg, logEmitters)
 	endTime := time.Now()
 	require.NoError(t, err, "Error executing event generator")
 	expectedLogsEmitted := getExpectedLogCount(cfg)
 	duration := int(endTime.Sub(startTime).Seconds())
-	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
 	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
@@ -248,6 +248,8 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
 	require.NoError(t, err, "Error getting end block to wait for")
+
+	l.Info().Int64("Ending Block", endBlock).Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Lets make sure no logs are in DB yet
 	expectedFilters := getExpectedFilters(logEmitters, cfg)
@@ -274,18 +276,18 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	// Make sure that all nodes have expected filters registered before starting to emit events
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
+		hasFilters := false
 		for i := 1; i < len(testEnv.ClCluster.Nodes); i++ {
 			nodeName := testEnv.ClCluster.Nodes[i].ContainerName
 			l.Info().Str("Node name", nodeName).Msg("Fetching filters from log poller's DB")
 
-			hasFilters, err := nodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
+			hasFilters, err = nodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
 			if err != nil {
 				l.Warn().Err(err).Msg("Error checking if node has expected filters. Retrying...")
-				return
+				break
 			}
-
-			g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 		}
+		g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 	}, "30s", "1s").Should(gomega.Succeed())
 	l.Info().Msg("All nodes have expected filters registered")
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
@@ -402,18 +404,18 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 	expectedFilters := getExpectedFilters(logEmitters, cfg)
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
+		hasFilters := false
 		for i := 1; i < len(testEnv.ClCluster.Nodes); i++ {
 			nodeName := testEnv.ClCluster.Nodes[i].ContainerName
 			l.Info().Str("Node name", nodeName).Msg("Fetching filters from log poller's DB")
 
-			hasFilters, err := nodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
+			hasFilters, err = nodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
 			if err != nil {
 				l.Warn().Err(err).Msg("Error checking if node has expected filters. Retrying...")
-				return
+				break
 			}
-
-			g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 		}
+		g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 	}, "1m", "1s").Should(gomega.Succeed())
 	l.Info().Msg("All nodes have expected filters registered")
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
