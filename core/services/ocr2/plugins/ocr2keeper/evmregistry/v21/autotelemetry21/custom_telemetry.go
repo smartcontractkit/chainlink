@@ -1,4 +1,4 @@
-package ocr2keeper
+package autotelemetry21
 
 import (
 	"context"
@@ -56,11 +56,13 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 			e.sendNodeVersionMsg()
 		}
 		e.threadCtrl.Go(func(ctx context.Context) {
-			ticker := time.NewTicker(1 * time.Minute)
-			defer ticker.Stop()
+			minuteTicker := time.NewTicker(1 * time.Minute)
+			hourTicker := time.NewTicker(1 * time.Hour)
+			defer minuteTicker.Stop()
+			defer hourTicker.Stop()
 			for {
 				select {
-				case <-ticker.C:
+				case <-minuteTicker.C:
 					_, newConfigDigest, err := e.contractConfigTracker.LatestConfigDetails(ctx)
 					if err != nil {
 						e.lggr.Errorf("Error occurred while getting newestConfigDetails in configDigest loop %s", err)
@@ -69,6 +71,8 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 						e.configDigest = newConfigDigest
 						e.sendNodeVersionMsg()
 					}
+				case <-hourTicker.C:
+					e.sendNodeVersionMsg()
 				case <-ctx.Done():
 					return
 				}
@@ -78,38 +82,38 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 		chanID, blockSubscriberChan, blockSubErr := e.blockSubscriber.Subscribe()
 		if blockSubErr != nil {
 			e.lggr.Errorf("Block Subscriber Error: Subscribe(): %s", blockSubErr)
-
-		} else {
-			e.blockSubChanID = chanID
-			e.threadCtrl.Go(func(ctx context.Context) {
-				e.lggr.Infof("Started: Sending BlockNumber Messages")
-				for {
-					select {
-					case blockHistory := <-blockSubscriberChan:
-						latestBlockKey, err := blockHistory.Latest()
-						if err != nil {
-							e.lggr.Errorf("BlockSubscriber BlockHistory.Latest() failed: %s", err)
-							continue
-						}
-						e.sendBlockNumberMsg(latestBlockKey)
-					case <-ctx.Done():
-						return
-					}
-				}
-			})
+			return blockSubErr
 		}
+		e.blockSubChanID = chanID
+		e.threadCtrl.Go(func(ctx context.Context) {
+			e.lggr.Debug("Started: Sending BlockNumber Messages")
+			for {
+				select {
+				case blockHistory := <-blockSubscriberChan:
+					// Exploratory: Debounce blocks to avoid overflow in case of re-org
+					latestBlockKey, err := blockHistory.Latest()
+					if err != nil {
+						e.lggr.Errorf("BlockSubscriber BlockHistory.Latest() failed: %s", err)
+						continue
+					}
+					e.sendBlockNumberMsg(latestBlockKey)
+				case <-ctx.Done():
+					return
+				}
+			}
+		})
 		return nil
 	})
 }
 
 // Close stops go routines and closes channels
 func (e *AutomationCustomTelemetryService) Close() error {
-	// use utils
 	return e.StopOnce("AutomationCustomTelemetryService", func() error {
-		e.lggr.Infof("Stopping: custom telemetry service")
+		e.lggr.Debug("Stopping: custom telemetry service")
 		e.threadCtrl.Close()
 		err := e.blockSubscriber.Unsubscribe(e.blockSubChanID)
 		if err != nil {
+			e.lggr.Errorf("Custom telemetry service encounters error %v when stopping", err)
 			return err
 		}
 		e.lggr.Infof("Stopped: Custom telemetry service")
@@ -133,7 +137,7 @@ func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
 		e.lggr.Errorf("Error occurred while marshalling the Node Version Message %s: %v", wrappedVMsg.String(), err)
 	} else {
 		e.monitoringEndpoint.SendLog(bytes)
-		e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", vMsg.Timestamp)
+		e.lggr.Debugf("NodeVersion Message Sent to Endpoint: %d", vMsg.Timestamp)
 	}
 }
 
@@ -154,6 +158,6 @@ func (e *AutomationCustomTelemetryService) sendBlockNumberMsg(blockKey ocr2keepe
 		e.lggr.Errorf("Error occurred while marshalling the Block Num Message %s: %v", wrappedBlockNumMsg.String(), err)
 	} else {
 		e.monitoringEndpoint.SendLog(b)
-		e.lggr.Infof("BlockNumber Message Sent to Endpoint: %d", blockNumMsg.Timestamp)
+		e.lggr.Debugf("BlockNumber Message Sent to Endpoint: %d", blockNumMsg.Timestamp)
 	}
 }
