@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
@@ -76,11 +76,6 @@ func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (evmconfig.ChainScope
 	}
 	if !tree.Has("isBootstrapPeer") {
 		return jb, errors.New("isBootstrapPeer is not defined")
-	}
-	for i := range spec.P2PBootstrapPeers {
-		if _, err = multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return jb, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
-		}
 	}
 
 	if len(spec.P2PV2Bootstrappers) > 0 {
