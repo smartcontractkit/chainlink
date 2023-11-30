@@ -5,6 +5,7 @@ import {TermsOfServiceAllowList} from "../../dev/v1_X/accessControl/TermsOfServi
 import {FunctionsClientTestHelper} from "./testhelpers/FunctionsClientTestHelper.sol";
 
 import {FunctionsRoutesSetup, FunctionsOwnerAcceptTermsOfServiceSetup} from "./Setup.t.sol";
+import "forge-std/Vm.sol";
 
 /// @notice #constructor
 contract FunctionsTermsOfServiceAllowList_Constructor is FunctionsRoutesSetup {
@@ -197,11 +198,12 @@ contract FunctionsTermsOfServiceAllowList_AcceptTermsOfService is FunctionsRoute
 
     assertTrue(s_termsOfServiceAllowList.hasAccess(STRANGER_ADDRESS, new bytes(0)));
 
-    // Event emitted even though adding existing item into EnumerableSet set does nothing
-    // TODO: handle differently in contract
-    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    emit AddedAccess(STRANGER_ADDRESS);
+    // Check the addedAccess is not emitted, given the recipient was already in the list
+    vm.recordLogs();
     s_termsOfServiceAllowList.acceptTermsOfService(STRANGER_ADDRESS, STRANGER_ADDRESS, r, s, v);
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries.length, 0);
+    
     assertTrue(s_termsOfServiceAllowList.hasAccess(STRANGER_ADDRESS, new bytes(0)));
   }
 
