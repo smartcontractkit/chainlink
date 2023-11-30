@@ -289,7 +289,10 @@ func VRFV2DeployUniverse(
 		// VRF Owner
 		vrfOwner, err := vrf_owner.NewVRFOwner(vrfOwnerAddress, e.Ec)
 		helpers.PanicErr(err)
-		authorizedSendersSlice := helpers.ParseAddressSlice(nodesMap[model.VRFPrimaryNodeName].SendingKeys[0].Address)
+		var authorizedSendersSlice []common.Address
+		for _, s := range nodesMap[model.VRFPrimaryNodeName].SendingKeys {
+			authorizedSendersSlice = append(authorizedSendersSlice, common.HexToAddress(s.Address))
+		}
 		fmt.Printf("\nSetting authorised senders for VRF Owner: %v, Authorised senders %v\n", vrfOwnerAddress.String(), authorizedSendersSlice)
 		tx, err := vrfOwner.SetAuthorizedSenders(e.Owner, authorizedSendersSlice)
 		helpers.PanicErr(err)
