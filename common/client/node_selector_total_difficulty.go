@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"math/big"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -22,7 +22,7 @@ func NewTotalDifficultyNodeSelector[
 
 func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HEAD, RPC] {
 	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have td == nil
-	var highestTD *utils.Big
+	var highestTD *big.Int
 	var nodes []Node[CHAIN_ID, HEAD, RPC]
 	var aliveNodes []Node[CHAIN_ID, HEAD, RPC]
 

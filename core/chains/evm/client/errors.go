@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // fatal means this transaction can never be accepted even with a different nonce or higher gas price
@@ -419,7 +419,7 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		return commonclient.Successful, err
 	}
 	if sendError.Fatal() {
-		lggr.Criticalw("Fatal error sending transaction", "err", sendError, "etx", tx)
+		logger.Criticalw(lggr, "Fatal error sending transaction", "err", sendError, "etx", tx)
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return commonclient.Fatal, err
 	}
@@ -462,7 +462,7 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		return commonclient.Retryable, err
 	}
 	if sendError.IsInsufficientEth() {
-		lggr.Criticalw(fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
+		logger.Criticalw(lggr, fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
 		), "err", sendError)
@@ -472,7 +472,7 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		return commonclient.Retryable, errors.Wrapf(sendError, "timeout while sending transaction %s", tx.Hash().Hex())
 	}
 	if sendError.IsTxFeeExceedsCap() {
-		lggr.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
+		logger.Criticalw(lggr, fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"etx", tx,
 			"err", sendError,
 			"id", "RPCTxFeeCapExceeded",

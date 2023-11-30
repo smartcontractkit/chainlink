@@ -10,8 +10,8 @@ import (
 	"github.com/shopspring/decimal"
 	"golang.org/x/exp/constraints"
 
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 const (
