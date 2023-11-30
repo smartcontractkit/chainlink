@@ -12,7 +12,7 @@ spec:
       port: {{ $.Values.chainlink.p2p_port }}
       targetPort: {{ $.Values.chainlink.p2p_port }}
   selector:
-    app: {{ $.Release.Name }}
+    instance: {{ $cfg.name }}
   type: ClusterIP
 ---
 {{- end }}
