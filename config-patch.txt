@@ -1,0 +1,16 @@
+diff --git a/docs/CONFIG.md b/docs/CONFIG.md
+index 63c20bdf4a..fe30c7b945 100644
+--- a/docs/CONFIG.md
++++ b/docs/CONFIG.md
+@@ -5435,8 +5435,9 @@ A re-org occurs at height 47 starting at block 41, transaction is NOT marked for
+ ```toml
+ FinalityTagEnabled = false # Default
+ ```
+-FinalityTagEnabled means that the chain supports the finalized block tag when querying for a block. If FinalityTagEnabled is set to true for a chain, then FinalityDepth field is ignored.
+-Finality for a block is solely defined by the finality related tags provided by the chain's RPC API. This is a placeholder and hasn't been implemented yet.
++FinalityTagEnabled will mean that the chain supports the finalized block tag when querying for a block. If FinalityTagEnabled is set to true for a chain, then FinalityDepth field will be (once fully
++implemented) ignored: finality for a block will be solely defined by the finality tags provided by the chain's RPC API. This feature is new and still only partially implemeneted. LogPoller respects it,
++but HeadTracker still relies on FinalityDepth which must be set to something sensible even if FinalityTagEnabled = true.
+ 
+ ### FlagsContractAddress
+ :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
