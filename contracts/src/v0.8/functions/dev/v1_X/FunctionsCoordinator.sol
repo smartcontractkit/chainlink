@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 
-import {FunctionsBilling} from "./FunctionsBilling.sol";
+import {FunctionsBilling, FunctionsBillingConfig} from "./FunctionsBilling.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
@@ -42,7 +42,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
   constructor(
     address router,
-    Config memory config,
+    FunctionsBillingConfig memory config,
     address linkToNativeFeed
   ) OCR2Base() FunctionsBilling(router, config, linkToNativeFeed) {}
 

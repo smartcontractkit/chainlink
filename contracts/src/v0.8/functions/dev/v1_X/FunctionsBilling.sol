@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
-import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
+import {IFunctionsBilling, FunctionsBillingConfig} from "./interfaces/IFunctionsBilling.sol";
 
 import {Routable} from "./Routable.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
@@ -37,25 +37,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   event CommitmentDeleted(bytes32 requestId);
 
-  // ================================================================
-  // |                     Configuration state                      |
-  // ================================================================
+  FunctionsBillingConfig private s_config;
 
-  struct Config {
-    uint32 fulfillmentGasPriceOverEstimationBP; // ══╗ Percentage of gas price overestimation to account for changes in gas price between request and response. Held as basis points (one hundredth of 1 percentage point)
-    uint32 feedStalenessSeconds; //                  ║ How long before we consider the feed price to be stale and fallback to fallbackNativePerUnitLink.
-    uint32 gasOverheadBeforeCallback; //             ║ Represents the average gas execution cost before the fulfillment callback. This amount is always billed for every request.
-    uint32 gasOverheadAfterCallback; //              ║ Represents the average gas execution cost after the fulfillment callback. This amount is always billed for every request.
-    uint72 donFee; //                                ║ Additional flat fee (in Juels of LINK) that will be split between Node Operators. Max value is 2^80 - 1 == 1.2m LINK.
-    uint40 minimumEstimateGasPriceWei; //            ║ The lowest amount of wei that will be used as the tx.gasprice when estimating the cost to fulfill the request
-    uint16 maxSupportedRequestDataVersion; // ═══════╝ The highest support request data version supported by the node. All lower versions should also be supported.
-    uint224 fallbackNativePerUnitLink; // ═══════════╗ Fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
-    uint32 requestTimeoutSeconds; // ════════════════╝ How many seconds it takes before we consider a request to be timed out
-  }
-
-  Config private s_config;
-
-  event ConfigUpdated(Config config);
+  event ConfigUpdated(FunctionsBillingConfig config);
 
   error UnsupportedRequestDataVersion();
   error InsufficientBalance();
@@ -81,7 +65,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
-  constructor(address router, Config memory config, address linkToNativeFeed) Routable(router) {
+  constructor(address router, FunctionsBillingConfig memory config, address linkToNativeFeed) Routable(router) {
     s_linkToNativeFeed = AggregatorV3Interface(linkToNativeFeed);
 
     updateConfig(config);
@@ -93,13 +77,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   /// @notice Gets the Chainlink Coordinator's billing configuration
   /// @return config
-  function getConfig() external view returns (Config memory) {
+  function getConfig() external view returns (FunctionsBillingConfig memory) {
     return s_config;
   }
 
   /// @notice Sets the Chainlink Coordinator's billing configuration
-  /// @param config - See the contents of the Config struct in IFunctionsBilling.Config for more information
-  function updateConfig(Config memory config) public {
+  /// @param config - See the contents of the Config struct in FunctionsBillingConfig for more information
+  function updateConfig(FunctionsBillingConfig memory config) public {
     _onlyOwner();
 
     s_config = config;
@@ -122,7 +106,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   /// @inheritdoc IFunctionsBilling
   function getWeiPerUnitLink() public view returns (uint256) {
-    Config memory config = s_config;
+    FunctionsBillingConfig memory config = s_config;
     (, int256 weiPerUnitLink, , uint256 timestamp, ) = s_linkToNativeFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (config.feedStalenessSeconds < block.timestamp - timestamp && config.feedStalenessSeconds > 0) {
@@ -199,7 +183,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function _startBilling(
     FunctionsResponse.RequestMeta memory request
   ) internal returns (FunctionsResponse.Commitment memory commitment) {
-    Config memory config = s_config;
+    FunctionsBillingConfig memory config = s_config;
 
     // Nodes should support all past versions of the structure
     if (request.dataVersion > config.maxSupportedRequestDataVersion) {
