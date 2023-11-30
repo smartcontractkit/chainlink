@@ -55,7 +55,7 @@ deployments:
           stateful: false
         chainlink:
           web_port: 6688
-          p2p_port: 8090
+          p2p_port: 6690
           nodes:
             - name: node-1
               image: ${DEVSPACE_IMAGE}
@@ -67,6 +67,12 @@ deployments:
               image: ${DEVSPACE_IMAGE}
               version: latest
             - name: node-4
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+            - name: node-5
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+            - name: node-6
               image: ${DEVSPACE_IMAGE}
               version: latest
         prometheusMonitor: "true"
