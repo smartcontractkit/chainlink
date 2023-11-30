@@ -78,6 +78,7 @@ func TestOCRv2Basic(t *testing.T) {
 		name := k
 		network := v
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			l := logging.GetTestLogger(t)
 
 			env, err := test_env.NewCLTestEnvBuilder().
