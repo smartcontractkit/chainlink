@@ -68,6 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `mercury_insufficient_blocks_count`
     - `mercury_zero_blocks_count`
 
+### Fixed
+
+- Corrected Ethereum Sepolia `LinkContractAddress` to `0x779877A7B0D9E8603169DdbD7836e478b4624789`
+
 ...
 
 <!-- unreleasedstop -->
