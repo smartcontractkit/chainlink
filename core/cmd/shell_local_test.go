@@ -494,3 +494,23 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 		})
 	}
 }
+
+func TestShell_CleanupChainTables(t *testing.T) {
+	// Just check if it doesn't error, command itself shouldn't be changed unless major schema changes were made.
+	// It would be really hard to write a test that accounts for schema changes, so this should be enough to alarm us that something broke.
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.Database.Dialect = dialects.Postgres })
+	client := cmd.Shell{
+		Config: config,
+		Logger: logger.TestLogger(t),
+	}
+
+	set := flag.NewFlagSet("test", 0)
+	flagSetApplyFromAction(client.CleanupChainTables, set, "")
+	require.NoError(t, set.Set("id", testutils.FixtureChainID.String()))
+	require.NoError(t, set.Set("type", "EVM"))
+	// heavyweight creates test db named chainlink_test_uid, while usual naming is chainlink_test
+	// CleanupChainTables handles test db name with chainlink_test, but because of heavyweight test db naming we have to set danger flag
+	require.NoError(t, set.Set("danger", "true"))
+	c := cli.NewContext(nil, set, nil)
+	require.NoError(t, client.CleanupChainTables(c))
+}
