@@ -865,6 +865,8 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       
   scroll-sepolia-smoke-tests:
+    # TODO: Reenable after https://github.com/smartcontractkit/chainlink-testing-framework/pull/792
+    if: false
     environment: integration
     permissions:
       checks: write
