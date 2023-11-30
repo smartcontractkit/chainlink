@@ -24,7 +24,7 @@ func TestVRFBasic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
@@ -113,7 +113,7 @@ func TestVRFJobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).

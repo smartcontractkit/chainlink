@@ -95,7 +95,7 @@ func (b *CLTestEnvBuilder) WithTestEnv(te *CLClusterTestEnv) (*CLTestEnvBuilder,
 
 // WithTestLogger sets the test logger to use for the test.
 // Useful for parallel tests so the logging will be separated correctly in the results views.
-func (b *CLTestEnvBuilder) WithTestLogger(t *testing.T) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder) WithTestInstance(t *testing.T) *CLTestEnvBuilder {
 	b.t = t
 	b.l = logging.GetTestLogger(t)
 	return b
@@ -221,7 +221,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	var err error
 	if b.t != nil {
-		b.te.WithTestLogger(b.t)
+		b.te.WithTestInstance(b.t)
 	}
 
 	if b.hasLogWatch {

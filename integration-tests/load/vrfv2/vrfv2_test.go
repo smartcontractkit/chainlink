@@ -87,7 +87,7 @@ func TestVRFV2Performance(t *testing.T) {
 		vrfv2Config.KeyHash = cfg.ExistingEnvConfig.KeyHash
 
 		env, err = test_env.NewCLTestEnvBuilder().
-			WithTestLogger(t).
+			WithTestInstance(t).
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfv2Contracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2Config)
@@ -156,7 +156,7 @@ func TestVRFV2Performance(t *testing.T) {
 		vrfv2Config.ChainlinkNodeFunding = cfg.NewEnvConfig.NodeSendingKeyFunding
 		vrfv2Config.SubscriptionFundingAmountLink = cfg.NewEnvConfig.Funding.SubFundsLink
 		env, err = test_env.NewCLTestEnvBuilder().
-			WithTestLogger(t).
+			WithTestInstance(t).
 			WithGeth().
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).

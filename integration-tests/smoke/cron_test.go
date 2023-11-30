@@ -20,7 +20,7 @@ func TestCronBasic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(1).
@@ -66,7 +66,7 @@ func TestCronJobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(1).

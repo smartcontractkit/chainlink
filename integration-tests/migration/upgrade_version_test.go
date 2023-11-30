@@ -13,7 +13,7 @@ import (
 func TestVersionUpgrade(t *testing.T) {
 	t.Parallel()
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		Build()

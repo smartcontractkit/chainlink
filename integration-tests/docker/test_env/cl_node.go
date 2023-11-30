@@ -108,7 +108,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 func (n *ClNode) SetTestLogger(t *testing.T) {
 	n.l = logging.GetTestLogger(t)
 	n.t = t
-	n.PostgresDb.WithTestLogger(t)
+	n.PostgresDb.WithTestInstance(t)
 }
 
 // Restart restarts only CL node, DB container is reused

@@ -1052,7 +1052,7 @@ func setupLogPollerTestDocker(
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err = test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithPrivateEthereumNetwork(cfg).
 		WithCLNodes(clNodesCount).
 		WithCLNodeConfig(clNodeConfig).

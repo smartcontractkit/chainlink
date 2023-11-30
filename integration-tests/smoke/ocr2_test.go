@@ -81,7 +81,7 @@ func TestOCRv2Basic(t *testing.T) {
 			l := logging.GetTestLogger(t)
 
 			env, err := test_env.NewCLTestEnvBuilder().
-				WithTestLogger(t).
+				WithTestInstance(t).
 				WithPrivateEthereumNetwork(network).
 				WithMockAdapter().
 				WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
@@ -157,7 +157,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),

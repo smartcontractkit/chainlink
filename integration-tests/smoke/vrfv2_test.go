@@ -29,7 +29,7 @@ func TestVRFv2Basic(t *testing.T) {
 	require.NoError(t, err)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).
@@ -120,7 +120,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	require.NoError(t, err)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).

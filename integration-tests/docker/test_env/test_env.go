@@ -74,10 +74,10 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 	return te
 }
 
-func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
+func (te *CLClusterTestEnv) WithTestInstance(t *testing.T) *CLClusterTestEnv {
 	te.t = t
 	te.l = logging.GetTestLogger(t)
-	te.MockAdapter.WithTestLogger(t)
+	te.MockAdapter.WithTestInstance(t)
 	return te
 }
 
@@ -91,7 +91,7 @@ func (te *CLClusterTestEnv) WithPrivateChain(evmNetworks []blockchain.EVMNetwork
 		n := evmNetwork
 		pgc := test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
 		if te.t != nil {
-			pgc.GetPrimaryNode().WithTestLogger(te.t)
+			pgc.GetPrimaryNode().WithTestInstance(te.t)
 		}
 		chains = append(chains, pgc)
 		var privateChain test_env.PrivateChain
