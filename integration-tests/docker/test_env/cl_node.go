@@ -82,10 +82,13 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) (*ClNode, error) {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
-	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
+	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
+	if err != nil {
+		return nil, err
+	}
 	n := &ClNode{
 		EnvComponent: test_env.EnvComponent{
 			ContainerName:    nodeDefaultCName,
@@ -102,7 +105,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 	for _, opt := range opts {
 		opt(n)
 	}
-	return n
+	return n, nil
 }
 
 func (n *ClNode) SetTestLogger(t *testing.T) {
