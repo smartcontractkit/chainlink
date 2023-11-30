@@ -441,17 +441,24 @@ func (v *EthereumVRFv2LoadTestConsumer) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumVRFv2LoadTestConsumer) RequestRandomness(keyHash [32]byte, subID uint64, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, requestCount uint16) error {
+func (v *EthereumVRFv2LoadTestConsumer) RequestRandomness(
+	keyHash [32]byte,
+	subID uint64,
+	requestConfirmations uint16,
+	callbackGasLimit uint32,
+	numWords uint32,
+	requestCount uint16,
+) (*types.Transaction, error) {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	tx, err := v.consumer.RequestRandomWords(opts, subID, requestConfirmations, keyHash, callbackGasLimit, numWords, requestCount)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return v.client.ProcessTransaction(tx)
+	return tx, v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFv2Consumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_v2_consumer_wrapper.GetRequestStatus, error) {

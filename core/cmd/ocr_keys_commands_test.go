@@ -111,7 +111,7 @@ func TestShell_DeleteOCRKeyBundle(t *testing.T) {
 	requireOCRKeyCount(t, app, 1)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteOCRKeyBundle, set, "")
+	flagSetApplyFromAction(client.DeleteOCRKeyBundle, set, "")
 
 	require.NoError(t, set.Parse([]string{key.ID()}))
 	require.NoError(t, set.Set("yes", "true"))
@@ -140,7 +140,7 @@ func TestShell_ImportExportOCRKey(t *testing.T) {
 
 	// Export test invalid id
 	set := flag.NewFlagSet("test OCR export", 0)
-	cltest.FlagSetApplyFromAction(client.ExportOCRKey, set, "")
+	flagSetApplyFromAction(client.ExportOCRKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"0"}))
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/new_password.txt"))
@@ -153,7 +153,7 @@ func TestShell_ImportExportOCRKey(t *testing.T) {
 
 	// Export
 	set = flag.NewFlagSet("test OCR export", 0)
-	cltest.FlagSetApplyFromAction(client.ExportOCRKey, set, "")
+	flagSetApplyFromAction(client.ExportOCRKey, set, "")
 
 	require.NoError(t, set.Parse([]string{key.ID()}))
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/new_password.txt"))
@@ -168,7 +168,7 @@ func TestShell_ImportExportOCRKey(t *testing.T) {
 	requireOCRKeyCount(t, app, 0)
 
 	set = flag.NewFlagSet("test OCR import", 0)
-	cltest.FlagSetApplyFromAction(client.ImportOCRKey, set, "")
+	flagSetApplyFromAction(client.ImportOCRKey, set, "")
 
 	require.NoError(t, set.Parse([]string{keyName}))
 	require.NoError(t, set.Set("old-password", "../internal/fixtures/new_password.txt"))

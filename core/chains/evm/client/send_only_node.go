@@ -14,13 +14,15 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 //go:generate mockery --quiet --name SendOnlyNode --output ../mocks/ --case=underscore
 
 // SendOnlyNode represents one ethereum node used as a sendonly
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.SendOnlyNode]
 type SendOnlyNode interface {
 	// Start may attempt to connect to the node, but should only return error for misconfiguration - never for temporary errors.
 	Start(context.Context) error
@@ -73,10 +75,13 @@ type sendOnlyNode struct {
 }
 
 // NewSendOnlyNode returns a new sendonly node
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewSendOnlyNode]
 func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string, chainID *big.Int) SendOnlyNode {
 	s := new(sendOnlyNode)
 	s.name = name
-	s.log = lggr.Named("SendOnlyNode").Named(name).With(
+	s.log = logger.Named(logger.Named(lggr, "SendOnlyNode"), name)
+	s.log = logger.With(s.log,
 		"nodeTier", "sendonly",
 	)
 	s.uri = httpuri
@@ -206,7 +211,7 @@ func (s *sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Tran
 
 func (s *sendOnlyNode) BatchCallContext(parentCtx context.Context, b []rpc.BatchElem) (err error) {
 	defer func(start time.Time) {
-		s.logTiming(s.log.With("nBatchElems", len(b)), time.Since(start), err, "BatchCallContext")
+		s.logTiming(logger.With(s.log, "nBatchElems", len(b)), time.Since(start), err, "BatchCallContext")
 	}(time.Now())
 
 	ctx, cancel := s.makeQueryCtx(parentCtx)

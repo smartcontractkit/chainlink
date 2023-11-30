@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-feeds/median"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -138,7 +139,7 @@ func NewMedianServices(ctx context.Context,
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
-		argsNoPlugin.ReportingPluginFactory, err = NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
+		argsNoPlugin.ReportingPluginFactory, err = median.NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
 		if err != nil {
 			err = fmt.Errorf("failed to create median factory: %w", err)
 			abort()
