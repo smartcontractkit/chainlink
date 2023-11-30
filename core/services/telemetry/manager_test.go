@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -246,10 +245,9 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		})
 
 		tm.endpoints[i] = &telemetryEndpoint{
-			StateMachine: services.StateMachine{},
-			ChainID:      e.chainID,
-			Network:      e.network,
-			client:       clientMock,
+			ChainID: e.chainID,
+			Network: e.network,
+			client:  clientMock,
 		}
 
 	}

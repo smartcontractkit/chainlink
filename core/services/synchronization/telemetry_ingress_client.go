@@ -52,13 +52,13 @@ type telemetryIngressClient struct {
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint) TelemetryService {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, network string, chainID string) TelemetryService {
 	return &telemetryIngressClient{
 		url:             url,
 		ks:              ks,
 		serverPubKeyHex: serverPubKeyHex,
 		logging:         logging,
-		lggr:            lggr.Named("TelemetryIngressClient"),
+		lggr:            lggr.Named("TelemetryIngressClient").Named(network).Named(chainID),
 		chTelemetry:     make(chan TelemPayload, telemBufferSize),
 		chDone:          make(services.StopChan),
 	}
