@@ -22,12 +22,6 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	//evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
-	//"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
-	//"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
-	//"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury"
-	//"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
-	//core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/evm
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 
@@ -47,12 +41,7 @@ import (
 const (
 	ConditionTrigger uint8 = iota
 	LogTrigger
-
-	blockNumber            = "blockNumber"
 	expectedTypeAndVersion = "KeeperRegistry 2.1.0"
-	feedIdHex              = "feedIdHex"
-	feedIDs                = "feedIDs"
-	timestamp              = "timestamp"
 )
 
 var packer = encoding.NewAbiPacker()
@@ -557,5 +546,3 @@ func tenderlySimLink(cfg *config.Config, chainID int64, blockNumber uint64, inpu
 	}
 	return common.TenderlySimLink(responseJSON.Simulation.Id)
 }
-
-// TODO - link to performUpkeep tx if exists
