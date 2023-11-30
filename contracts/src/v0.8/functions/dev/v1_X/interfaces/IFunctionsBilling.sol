@@ -40,5 +40,6 @@ interface IFunctionsBilling {
   function oracleWithdraw(address recipient, uint96 amount) external;
 
   /// @notice Withdraw all LINK earned by Oracles through fulfilling requests
+  /// @dev transmitter addresses must support LINK tokens to avoid tokens from getting stuck as oracleWithdrawAll() calls will forward tokens directly to transmitters
   function oracleWithdrawAll() external;
 }
