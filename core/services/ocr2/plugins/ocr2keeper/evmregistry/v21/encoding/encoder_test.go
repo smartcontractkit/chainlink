@@ -1,7 +1,10 @@
 package encoding
 
 import (
+	"bytes"
+	"encoding/hex"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +14,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
+
+var expectedEncodedReport []byte
+
+func init() {
+	b, err := os.ReadFile("../fixtures/expected_encoded_report.txt")
+	if err != nil {
+		panic(err)
+	}
+	expectedEncodedReport, err = hex.DecodeString(string(b))
+	if err != nil {
+		panic(err)
+	}
+}
 
 func TestReportEncoder_EncodeExtract(t *testing.T) {
 	encoder := reportEncoder{
@@ -90,6 +106,25 @@ func TestReportEncoder_EncodeExtract(t *testing.T) {
 				assert.Equal(t, r.Trigger, tc.results[i].Trigger)
 			}
 		})
+	}
+}
+
+func TestReportEncoder_BackwardsCompatibility(t *testing.T) {
+	encoder := reportEncoder{
+		packer: NewAbiPacker(),
+	}
+	results := []ocr2keepers.CheckResult{
+		newResult(1, 2, core.GenUpkeepID(ocr2keepers.LogTrigger, "10"), 5, 6),
+		newResult(3, 4, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "20"), 7, 8),
+	}
+	encoded, err := encoder.Encode(results...)
+	assert.NoError(t, err)
+	if !bytes.Equal(encoded, expectedEncodedReport) {
+		assert.Fail(t,
+			"encoded report does not match expected encoded report; "+
+				"this means a breaking change has been made to the report encoding function; "+
+				"only update this test if non-backwards-compatible changes are necessary",
+		)
 	}
 }
 
