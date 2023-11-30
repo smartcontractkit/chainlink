@@ -132,7 +132,7 @@ func (b *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
 	ethBuilder := test_env.NewEthereumNetworkBuilder()
 	cfg, err := ethBuilder.
 		WithConsensusType(test_env.ConsensusType_PoW).
-		WithDefaultNetworkParticipants(test_env.ConsensusType_PoW).
+		WithExecutionLayer(test_env.ExecutionLayer_Geth).
 		WithTest(b.t).
 		Build()
 
