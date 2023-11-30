@@ -85,7 +85,7 @@ func (s *Server) start() error {
 		return fmt.Errorf("error starting prometheus server: %w", err)
 	}
 
-	s.checker = services.NewChecker()
+	s.checker = services.NewChecker("", "")
 	if err := s.checker.Start(); err != nil {
 		return fmt.Errorf("error starting health checker: %w", err)
 	}

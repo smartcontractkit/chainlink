@@ -37,6 +37,8 @@ type HealthChecker struct {
 	chStop chan struct{}
 	chDone chan struct{}
 
+	ver, sha string
+
 	servicesMu sync.RWMutex
 	services   map[string]HealthReporter
 
@@ -70,8 +72,23 @@ var (
 	)
 )
 
-func NewChecker() *HealthChecker {
+func NewChecker(ver, sha string) *HealthChecker {
+	if ver == "" || sha == "" {
+		if bi, ok := debug.ReadBuildInfo(); ok {
+			if ver == "" {
+				ver = bi.Main.Version
+			}
+			if sha == "" {
+				sha = bi.Main.Sum
+			}
+		}
+	}
+	if len(sha) > 7 {
+		sha = sha[:7]
+	}
 	return &HealthChecker{
+		ver:      ver,
+		sha:      sha,
 		services: make(map[string]HealthReporter, 10),
 		healthy:  make(map[string]error, 10),
 		ready:    make(map[string]error, 10),
@@ -82,13 +99,7 @@ func NewChecker() *HealthChecker {
 
 func (c *HealthChecker) Start() error {
 	return c.StartOnce("HealthCheck", func() error {
-		if bi, ok := debug.ReadBuildInfo(); ok {
-			hash := bi.Main.Sum
-			if len(hash) > 7 {
-				hash = hash[:7]
-			}
-			version.WithLabelValues(bi.Main.Version, hash).Inc()
-		}
+		version.WithLabelValues(c.ver, c.sha).Inc()
 
 		// update immediately
 		c.update()
