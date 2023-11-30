@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -65,11 +66,7 @@ func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []common.Add
 		return nil, errors.Errorf("expected map output of price pipeline, got %T", finalResult.Values[0])
 	}
 
-	providedTokensSet := make(map[common.Address]struct{}, len(tokens))
-	for _, token := range tokens {
-		providedTokensSet[token] = struct{}{}
-	}
-
+	providedTokensSet := mapset.NewSet[common.Address](tokens...)
 	tokenPrices := make(map[common.Address]*big.Int)
 	for tokenAddressStr, rawPrice := range prices {
 		castedPrice, err := parseutil.ParseBigIntFromAny(rawPrice)
@@ -78,7 +75,7 @@ func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []common.Add
 		}
 
 		tokenAddress := common.HexToAddress(tokenAddressStr)
-		if _, exists := providedTokensSet[tokenAddress]; exists {
+		if providedTokensSet.Contains(tokenAddress) {
 			tokenPrices[tokenAddress] = castedPrice
 		}
 	}
