@@ -3,9 +3,3 @@ name: chainlink-cluster
 description: Chainlink nodes cluster
 version: 0.1.3
 appVersion: "2.6.0"
-
-dependencies:
-  - name: mockserver
-    version: "5.14.0"
-    repository: "@mockserver"
-    condition: mockserver.enabled

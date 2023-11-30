@@ -26,8 +26,8 @@ chainlink:
   nodes:
     - name: node-1
       image: "public.ecr.aws/chainlink/chainlink:latest"
-      # override default config per node
-      # for example, use OCRv2 P2P setup, the whole config
+    # override default config per node
+    # for example, use OCRv2 P2P setup, the whole config
     #      toml: |
     #        RootDir = './clroot'
     #        [Log]
@@ -56,8 +56,8 @@ chainlink:
     #        HTTPURL = 'http://geth:8544'
     #        [WebServer.TLS]
     #        HTTPSPort = 0
-# or use overridesToml to override some part of configuration
-#      overridesToml: |
+    # or use overridesToml to override some part of configuration
+    #      overridesToml: |
     - name: node-2
     - name: node-3
     - name: node-4
