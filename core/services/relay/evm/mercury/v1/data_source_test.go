@@ -356,49 +356,31 @@ func TestMercury_Observe(t *testing.T) {
 			ht2.AssertExpectations(t)
 		})
 		t.Run("when chain is long enough", func(t *testing.T) {
-			h1 := &evmtypes.Head{
-				Number: 1,
-			}
-			h2 := &evmtypes.Head{
-				Number: 2,
-				Parent: h1,
-			}
-			h3 := &evmtypes.Head{
-				Number: 3,
-				Parent: h2,
-			}
-			h4 := &evmtypes.Head{
-				Number: 4,
-				Parent: h3,
-			}
-			h5 := &evmtypes.Head{
-				Number: 5,
-				Parent: h4,
-			}
-			h6 := &evmtypes.Head{
-				Number: 6,
-				Parent: h5,
+			heads := make([]*evmtypes.Head, nBlocksObservation+5)
+			for i := range heads {
+				heads[i] = &evmtypes.Head{Number: int64(i)}
+				if i > 0 {
+					heads[i].Parent = heads[i-1]
+				}
 			}
 
 			ht2 := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-			ht2.On("LatestChain").Return(h6)
+			ht2.On("LatestChain").Return(heads[len(heads)-1])
 			ds.chainReader = evm.NewChainReader(ht2)
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
 
-			assert.Len(t, obs.LatestBlocks, 5)
-			assert.Equal(t, 6, int(obs.LatestBlocks[0].Num))
-			assert.Equal(t, 5, int(obs.LatestBlocks[1].Num))
-			assert.Equal(t, 4, int(obs.LatestBlocks[2].Num))
-			assert.Equal(t, 3, int(obs.LatestBlocks[3].Num))
-			assert.Equal(t, 2, int(obs.LatestBlocks[4].Num))
+			assert.Len(t, obs.LatestBlocks, nBlocksObservation)
+			highestBlockNum := heads[len(heads)-1].Number
+			for i := range obs.LatestBlocks {
+				assert.Equal(t, int(highestBlockNum)-i, int(obs.LatestBlocks[i].Num))
+			}
 
 			ht2.AssertExpectations(t)
 		})
 
 		t.Run("when chain reader returns an error", func(t *testing.T) {
-
 			ds.chainReader = &mockChainReader{
 				err: io.EOF,
 				obs: nil,
