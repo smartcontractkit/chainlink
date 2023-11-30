@@ -58,6 +58,38 @@ deployments:
             - name: node-1
               image: ${DEVSPACE_IMAGE}
               version: latest
+              # override default config per node
+              # for example, use OCRv2 P2P setup, the whole config
+              #      toml: |
+              #        RootDir = './clroot'
+              #        [Log]
+              #        JSONConsole = true
+              #        Level = 'debug'
+              #        [WebServer]
+              #        AllowOrigins = '*'
+              #        SecureCookies = false
+              #        SessionTimeout = '999h0m0s'
+              #        [OCR2]
+              #        Enabled = true
+              #        [P2P]
+              #        [P2P.V2]
+              #        Enabled = false
+              #        AnnounceAddresses = []
+              #        DefaultBootstrappers = []
+              #        DeltaDial = '15s'
+              #        DeltaReconcile = '1m0s'
+              #        ListenAddresses = []
+              #        [[EVM]]
+              #        ChainID = '1337'
+              #        MinContractPayment = '0'
+              #        [[EVM.Nodes]]
+              #        Name = 'node-0'
+              #        WSURL = 'ws://geth:8546'
+              #        HTTPURL = 'http://geth:8544'
+              #        [WebServer.TLS]
+              #        HTTPSPort = 0
+              # or use overridesToml to override some part of configuration
+              #      overridesToml: |
             - name: node-2
               image: ${DEVSPACE_IMAGE}
               version: latest
@@ -192,83 +224,6 @@ deployments:
         nodeSelector:
         tolerations:
         affinity:
-#        podSecurityContext:
-#          fsGroup: 999
-#        runner:
-#          image: ${DEVSPACE_IMAGE}
-#          stateful: false
-#        geth:
-#          podSecurityContext:
-#            fsGroup: 999
-#          securityContext:
-#            capabilities:
-#              drop:
-#                - ALL
-#            readOnlyRootFilesystem: false
-#            runAsNonRoot: true
-#            runAsUser: 999
-#            runAsGroup: 999
-#          version: v1.12.0
-#          wsrpc-port: 8546
-#          httprpc-port: 8544
-#          networkid: 1337
-#          blocktime: 1
-#        mockserver:
-#          enabled: true
-#          releasenameOverride: mockserver
-#          app:
-#            runAsUser: 999
-#            readOnlyRootFilesystem: false
-#          port: 1080
-#        db:
-#          podSecurityContext:
-#            fsGroup: 999
-#          securityContext:
-#            capabilities:
-#              drop:
-#                - ALL
-#            readOnlyRootFilesystem: false
-#            runAsNonRoot: true
-#            runAsUser: 999
-#            runAsGroup: 999
-#          stateful: false
-#        chainlink:
-#          podSecurityContext:
-#            fsGroup: 14933
-#          securityContext:
-#            capabilities:
-#              drop:
-#                - ALL
-#            readOnlyRootFilesystem: false
-#            runAsNonRoot: true
-#            runAsUser: 14933
-#            runAsGroup: 14933
-#          web_port: 6688
-#          p2p_port: 6690
-#          nodes:
-#            - name: node-1
-#              image: ${DEVSPACE_IMAGE}
-#              version: latest
-#            - name: node-2
-#              image: ${DEVSPACE_IMAGE}
-#              version: latest
-#            - name: node-3
-#              image: ${DEVSPACE_IMAGE}
-#              version: latest
-#            - name: node-4
-#              image: ${DEVSPACE_IMAGE}
-#              version: latest
-#            - name: node-5
-#              image: ${DEVSPACE_IMAGE}
-#              version: latest
-#            - name: node-6
-#              image: ${DEVSPACE_IMAGE}
-#              version: latest
-#        prometheusMonitor: "true"
-#        podAnnotations: {}
-#        nodeSelector: {}
-#        tolerations: []
-#        affinity: {}
 
 profiles:
   # this replaces only "runner" pod, usable when you'd like to run some system level tests inside k8s
