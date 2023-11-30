@@ -190,7 +190,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		}
 		// check that tx for this upkeep / tx was not already performed
 		message(fmt.Sprintf("LogTrigger{blockNum: %d, blockHash: %s, txHash: %s, logIndex: %d}", blockNum, receipt.BlockHash.Hex(), txHash, logIndex))
-		trigger = mustOcr2KeepersTrigger(txHash, logIndex, blockNum, receipt.BlockHash)
+		trigger = mustAutomationTrigger(txHash, logIndex, blockNum, receipt.BlockHash)
 		workID = mustUpkeepWorkID(upkeepID, trigger)
 		message(fmt.Sprintf("workID computed: %s", hex.EncodeToString(workID[:])))
 		hasKey, err := keeperRegistry21.HasDedupKey(latestCallOpts, workID)
@@ -256,15 +256,6 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			message("upkeep reverted with StreamsLookup")
 			message(fmt.Sprintf("StreamsLookup data: {FeedParamKey: %s, Feeds: %v, TimeParamKey: %s, Time: %d, ExtraData: %s}", streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time.Uint64(), hexutil.Encode(streamsLookupErr.ExtraData)))
 
-			// check if upkeep is allowed to use mercury
-			_, _, _, allowed, err := streams.AllowedToUseMercury(latestCallOpts, upkeepID)
-			if err != nil {
-				failUnknown("failed to check if upkeep is allowed to use mercury", err)
-			}
-			if !allowed {
-				resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
-			}
-
 			streamsLookup := &mercury.StreamsLookup{
 				StreamsLookupError: &mercury.StreamsLookupError{
 					FeedParamKey: streamsLookupErr.FeedParamKey,
@@ -277,14 +268,31 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				Block:    blockNum,
 			}
 
+			if streamsLookup.IsMercuryV02() {
+				message("using mercury lookup v0.2")
+				// check if upkeep is allowed to use mercury v0.2
+				_, _, _, allowed, err := streams.AllowedToUseMercury(latestCallOpts, upkeepID)
+				if err != nil {
+					failUnknown("failed to check if upkeep is allowed to use mercury", err)
+				}
+				if !allowed {
+					resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
+				}
+			} else if streamsLookup.IsMercuryV03() {
+				// handle v0.3
+				message("using mercury lookup v0.3")
+			} else {
+				resolveIneligible("upkeep reverted with StreamsLookup but the configuration is invalid")
+			}
+
 			if k.cfg.MercuryLegacyURL == "" || k.cfg.MercuryURL == "" || k.cfg.MercuryID == "" || k.cfg.MercuryKey == "" {
 				failCheckConfig("Mercury configs not set properly, check your MERCURY_LEGACY_URL, MERCURY_URL, MERCURY_ID and MERCURY_KEY", nil)
 			}
 
 			// do mercury request
-			ocr2KeepersCheckResult := mustOcr2KeepersCheckResult(upkeepID, checkResult, trigger)
-			checkResults := []ocr2keepers.CheckResult{ocr2KeepersCheckResult}
-			values, err := streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
+			automationCheckResult := mustAutomationCheckResult(upkeepID, checkResult, trigger)
+			checkResults := []ocr2keepers.CheckResult{automationCheckResult}
+			values, err := streams.DoMercuryRequest(ctx, streamsLookup, &checkResults[0])
 
 			if checkResults[0].IneligibilityReason == uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput) {
 				resolveIneligible("upkeep used invalid revert data")
@@ -297,7 +305,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			}
 
 			// do checkCallback
-			err = streams.CheckCallback(ctx, values, streamsLookup, checkResults, 0)
+			err = streams.CheckCallback(ctx, values, streamsLookup, &checkResults[0])
 			if err != nil {
 				failUnknown("failed to execute mercury callback ", err)
 			}
@@ -333,7 +341,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 }
 
-func mustOcr2KeepersCheckResult(upkeepID *big.Int, checkResult iregistry21.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
+func mustAutomationCheckResult(upkeepID *big.Int, checkResult iregistry21.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
 	upkeepIdentifier := mustUpkeepIdentifier(upkeepID)
 	checkResult2 := ocr2keepers.CheckResult{
 		Eligible:            checkResult.UpkeepNeeded,
@@ -423,7 +431,7 @@ func mustUpkeepIdentifier(upkeepID *big.Int) ocr2keepers.UpkeepIdentifier {
 	return *upkeepIdentifier
 }
 
-func mustOcr2KeepersTrigger(txHash [32]byte, logIndex int64, blockNum uint64, blockHash [32]byte) ocr2keepers.Trigger {
+func mustAutomationTrigger(txHash [32]byte, logIndex int64, blockNum uint64, blockHash [32]byte) ocr2keepers.Trigger {
 	trigger := ocr2keepers.Trigger{
 		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 			TxHash:      txHash,
@@ -444,11 +452,11 @@ func warning(msg string) {
 }
 
 func resolveIneligible(msg string) {
-	exit(fmt.Sprintf("✅ %s: this upkeep is not currently elligible", msg), nil, 0)
+	exit(fmt.Sprintf("✅ %s: this upkeep is not currently eligible", msg), nil, 0)
 }
 
 func resolveEligible() {
-	exit("❌ this upkeep is currently elligible", nil, 0)
+	exit("❌ this upkeep is currently eligible", nil, 0)
 }
 
 func rerun(msg string, err error) {
