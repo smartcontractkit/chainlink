@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
-	"github.com/smartcontractkit/chainlink/v2/common/internal"
+	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
 )
 
 var (
@@ -361,7 +361,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 	lggr := logger.Named(n.lfcLog, "Unreachable")
 	lggr.Debugw("Trying to revive unreachable RPC node", "nodeState", n.State())
 
-	dialRetryBackoff := internal.NewRedialBackoff()
+	dialRetryBackoff := iutils.NewRedialBackoff()
 
 	for {
 		select {
@@ -417,7 +417,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 	lggr := logger.Named(n.lfcLog, "InvalidChainID")
 	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with invalid chain ID", n.String()), "nodeState", n.State())
 
-	chainIDRecheckBackoff := internal.NewRedialBackoff()
+	chainIDRecheckBackoff := iutils.NewRedialBackoff()
 
 	for {
 		select {
