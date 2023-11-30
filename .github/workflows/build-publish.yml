@@ -42,11 +42,16 @@ jobs:
           aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
-          ecr-hostname: ${{ secrets.AWS_ECR_HOSTNAME }}
-          ecr-image-name: chainlink-internal
-          sign-images: false
+          sign-images: true
+          sign-method: "keypair"
+          cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
+          cosign-password: ${{ secrets.COSIGN_PASSWORD }}
+          # Use the custom secret value if it's for a PR, otherwise pass an empty string to use action's default value.
+          ecr-hostname: ${{ github.event_name == 'pull_request' && secrets.AWS_SDLC_ECR_HOSTNAME || '' }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          verify-signature: true
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
