@@ -204,7 +204,7 @@ contract FunctionsTermsOfServiceAllowList_AcceptTermsOfService is FunctionsRoute
     s_termsOfServiceAllowList.acceptTermsOfService(STRANGER_ADDRESS, STRANGER_ADDRESS, r, s, v);
     Vm.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries.length, 0);
-    
+
     assertTrue(s_termsOfServiceAllowList.hasAccess(STRANGER_ADDRESS, new bytes(0)));
   }
 
