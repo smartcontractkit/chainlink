@@ -62,9 +62,6 @@ type telemetryIngressBatchClient struct {
 	workersMutex sync.Mutex
 
 	useUniConn bool
-
-	network string
-	chainID string
 }
 
 // NewTelemetryIngressBatchClient returns a client backed by wsrpc that

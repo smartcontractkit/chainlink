@@ -49,9 +49,6 @@ type telemetryIngressClient struct {
 	chDone           services.StopChan
 	dropMessageCount atomic.Uint32
 	chTelemetry      chan TelemPayload
-
-	network string
-	chainID string
 }
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
