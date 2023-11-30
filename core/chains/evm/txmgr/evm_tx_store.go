@@ -567,7 +567,10 @@ func (o *evmTxStore) GetFatalTransactions(ctx context.Context) (txes []*Tx, err 
 		txes = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
 		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
-		return fmt.Errorf("failed to load evm.tx_attempts: %w", err)
+		if err != nil {
+			return fmt.Errorf("failed to load evm.tx_attempts: %w", err)
+		}
+		return nil
 	}, pg.OptReadOnlyTx())
 
 	return txes, nil
@@ -1310,7 +1313,10 @@ func (o *evmTxStore) GetNonFatalTransactions(ctx context.Context, chainID *big.I
 		txes = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
 		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
-		return fmt.Errorf("failed to load evm.txes: %w", err)
+		if err != nil {
+			return fmt.Errorf("failed to load evm.txes: %w", err)
+		}
+		return nil
 	}, pg.OptReadOnlyTx())
 
 	return txes, nil
@@ -1335,7 +1341,10 @@ func (o *evmTxStore) GetTxByID(ctx context.Context, id int64) (txe *Tx, err erro
 		}
 		txe = txes[0]
 		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
-		return fmt.Errorf("failed to load evm.tx_attempts: %w", err)
+		if err != nil {
+			return fmt.Errorf("failed to load evm.tx_attempts: %w", err)
+		}
+		return nil
 	}, pg.OptReadOnlyTx())
 
 	return txe, nil
