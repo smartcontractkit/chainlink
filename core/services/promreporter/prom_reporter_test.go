@@ -6,15 +6,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
@@ -25,12 +31,38 @@ func newHead() evmtypes.Head {
 	return evmtypes.Head{Number: 42, EVMChainID: utils.NewBigI(0)}
 }
 
+func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainContainer {
+	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
+	keyStore := cltest.NewKeyStore(t, db, dbConfig).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+	lggr := logger.TestLogger(t)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, false, 2, 3, 2, 1000)
+
+	txm, err := txmgr.NewTxm(
+		db,
+		evmConfig,
+		evmConfig.GasEstimator(),
+		evmConfig.Transactions(),
+		dbConfig,
+		dbConfig.Listener(),
+		ethClient,
+		lggr,
+		lp,
+		keyStore,
+		estimator)
+	require.NoError(t, err)
+
+	cfg := configtest.NewGeneralConfig(t, nil)
+	return cltest.NewLegacyChainsWithMockChainAndTxManager(t, ethClient, cfg, txm)
+}
+
 func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with nothing in the database", func(t *testing.T) {
-		d := pgtest.NewSqlDB(t)
+		db := pgtest.NewSqlxDB(t)
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := promreporter.NewPromReporter(d, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(db.DB, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		var subscribeCalls atomic.Int32
 
@@ -74,7 +106,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 				subscribeCalls.Add(1)
 			}).
 			Return()
-		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(db.DB, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 		require.NoError(t, reporter.Start(testutils.Context(t)))
 		defer func() { assert.NoError(t, reporter.Close()) }()
 
@@ -91,11 +123,10 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 	t.Run("with unfinished pipeline task runs", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-
 		pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(db.DB, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)

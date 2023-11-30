@@ -238,11 +238,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set Database.Backup.Mode=lite or Database.Backup.Mode=full")
 	}
 
-	srvcs = append(srvcs, eventBroadcaster, mailMon)
-	srvcs = append(srvcs, relayerChainInterops.Services()...)
-	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
-	srvcs = append(srvcs, promReporter)
-
 	// pool must be started before all relayers and stopped after them
 	srvcs = append(srvcs, opts.MercuryPool)
 
@@ -253,6 +248,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if legacyEVMChains == nil {
 		return nil, fmt.Errorf("no evm chains found")
 	}
+
+	srvcs = append(srvcs, eventBroadcaster, mailMon)
+	srvcs = append(srvcs, relayerChainInterops.Services()...)
+	promReporter := promreporter.NewPromReporter(db.DB, legacyEVMChains, globalLogger)
+	srvcs = append(srvcs, promReporter)
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
