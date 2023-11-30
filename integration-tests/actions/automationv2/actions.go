@@ -38,6 +38,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
+	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 )
 
 type NodeDetails struct {
@@ -652,6 +654,19 @@ func (a *AutomationTest) AddJobsAndSetConfig(t *testing.T) {
 	err = a.SetConfigOnRegistry()
 	require.NoError(t, err, "Error setting config on registry")
 	l.Info().Str("Registry Address", a.Registry.Address()).Msg("Successfully setConfig on registry")
+}
+
+func (a *AutomationTest) SetupMercuryMock(t *testing.T, imposters []ctfTestEnv.KillgraveImposter) {
+	if a.IsOnk8s {
+		t.Error("mercury mock is not supported on k8s")
+	}
+	if a.DockerEnv == nil {
+		t.Error("docker env is not set")
+	}
+	err := a.DockerEnv.MockAdapter.AddImposter(imposters)
+	if err != nil {
+		require.NoError(t, err, "Error adding mock imposter")
+	}
 }
 
 func (a *AutomationTest) SetupAutomationDeployment(t *testing.T) {
