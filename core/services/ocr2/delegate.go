@@ -525,29 +525,33 @@ func (d *Delegate) newServicesGenericPlugin(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
+	// NOTE: we don't need to validate this config, since that happens as part of creating the job.
+	// See: validate/validate.go's `validateSpec`.
 	p := validate.OCR2GenericPluginConfig{}
 	err = json.Unmarshal(spec.PluginConfig.Bytes(), &p)
 	if err != nil {
 		return nil, err
 	}
-	cconf := p.CoreConfig
 
-	command := cconf.Command
+	command := p.Command
 	if command == "" {
-		command = defaultPathFromPluginName(cconf.PluginName)
+		command = defaultPathFromPluginName(p.PluginName)
 	}
 
-	// NOTE: we don't need to validate this config, since that happens as part of creating the job.
-	// See: validate/validate.go's `validateSpec`.
+	// Add the default pipeline to the pluginConfig
+	p.Pipelines = append(
+		p.Pipelines,
+		validate.PipelineSpec{Name: "__DEFAULT_PIPELINE__", Spec: jb.Pipeline.Source},
+	)
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{PluginName: cconf.PluginName, Err: err}
+		return nil, ErrJobSpecNoRelayer{PluginName: p.PluginName, Err: err}
 	}
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: p.CoreConfig.PluginName}
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: p.PluginName}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -556,7 +560,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		ContractID:    spec.ContractID,
 		New:           d.isNewlyCreatedJob,
 		RelayConfig:   spec.RelayConfig.Bytes(),
-		ProviderType:  cconf.ProviderType,
+		ProviderType:  p.ProviderType,
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
 		PluginConfig:  spec.PluginConfig.Bytes(),
@@ -570,7 +574,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		rid.Network,
 		rid.ChainID,
 		spec.ContractID,
-		synchronization.TelemetryType(cconf.TelemetryType),
+		synchronization.TelemetryType(p.TelemetryType),
 	)
 	oracleArgs := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
@@ -586,8 +590,8 @@ func (d *Delegate) newServicesGenericPlugin(
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
 	}
 
-	pluginLggr := lggr.Named(cconf.PluginName).Named(spec.ContractID).Named(spec.GetID())
-	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(fmt.Sprintf("%s-%s-%s", cconf.PluginName, spec.ContractID, spec.GetID()), command)
+	pluginLggr := lggr.Named(p.PluginName).Named(spec.ContractID).Named(spec.GetID())
+	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID()), command)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register loop: %w", err)
 	}
@@ -604,7 +608,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		//TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
 		d.lggr.Info("provider is not a LOOPP provider, switching to provider server")
 
-		ps, err2 := relay.NewProviderServer(provider, types.OCR2PluginType(cconf.ProviderType), d.lggr)
+		ps, err2 := relay.NewProviderServer(provider, types.OCR2PluginType(p.ProviderType), d.lggr)
 		if err2 != nil {
 			return nil, fmt.Errorf("cannot start EVM provider server: %s", err)
 		}
@@ -615,12 +619,17 @@ func (d *Delegate) newServicesGenericPlugin(
 		srvs = append(srvs, ps)
 	}
 
+	pc, err := json.Marshal(p.Config)
+	if err != nil {
+		return nil, fmt.Errorf("cannot dump plugin config to string before sending to plugin: %s", err)
+	}
+
 	pluginConfig := types.ReportingPluginServiceConfig{
-		PluginName:    cconf.PluginName,
+		PluginName:    p.PluginName,
 		Command:       command,
-		ProviderType:  cconf.ProviderType,
-		TelemetryType: cconf.TelemetryType,
-		PluginConfig:  p.PluginConfig,
+		ProviderType:  p.ProviderType,
+		TelemetryType: p.TelemetryType,
+		PluginConfig:  string(pc),
 	}
 
 	pr := generic.NewPipelineRunnerAdapter(pluginLggr, jb, d.pipelineRunner)
