@@ -70,7 +70,7 @@ func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore
 
 // Start connects the wsrpc client to the telemetry ingress server
 func (tc *telemetryIngressClient) Start(ctx context.Context) error {
-	return tc.StartOnce(fmt.Sprintf("TelemetryIngressClient.%s.%s", tc.network, tc.chainID), func() error {
+	return tc.StartOnce(tc.lggr.Name(), func() error {
 		privkey, err := tc.getCSAPrivateKey()
 		if err != nil {
 			return err
@@ -84,7 +84,7 @@ func (tc *telemetryIngressClient) Start(ctx context.Context) error {
 
 // Close disconnects the wsrpc client from the ingress server
 func (tc *telemetryIngressClient) Close() error {
-	return tc.StopOnce(fmt.Sprintf("TelemetryIngressClient.%s.%s", tc.network, tc.chainID), func() error {
+	return tc.StopOnce(tc.lggr.Name(), func() error {
 		close(tc.chDone)
 		tc.wgDone.Wait()
 		return nil
