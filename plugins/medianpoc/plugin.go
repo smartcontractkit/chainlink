@@ -30,8 +30,13 @@ type Plugin struct {
 	reportingplugins.MedianProviderServer
 }
 
+type pipelineSpec struct {
+	Name string `json:"name"`
+	Spec string `json:"spec"`
+}
+
 type jsonConfig struct {
-	Pipelines map[string]string `json:"pipelines"`
+	Pipelines []pipelineSpec `json:"pipelines"`
 }
 
 func (j jsonConfig) defaultPipeline() (string, error) {
@@ -39,9 +44,10 @@ func (j jsonConfig) defaultPipeline() (string, error) {
 }
 
 func (j jsonConfig) getPipeline(key string) (string, error) {
-	v, ok := j.Pipelines[key]
-	if ok {
-		return v, nil
+	for _, v := range j.Pipelines {
+		if v.Name == key {
+			return v.Spec, nil
+		}
 	}
 	return "", fmt.Errorf("no pipeline found for %s", key)
 }
