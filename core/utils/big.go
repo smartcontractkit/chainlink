@@ -8,8 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
-	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 const base10 = 10

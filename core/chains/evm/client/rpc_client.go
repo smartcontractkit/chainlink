@@ -866,7 +866,9 @@ func (r *rpcClient) TokenBalance(ctx context.Context, address common.Address, co
 	if err != nil {
 		return numLinkBigInt, err
 	}
-	numLinkBigInt.SetString(result, 0)
+	if _, ok := numLinkBigInt.SetString(result, 0); !ok {
+		return nil, fmt.Errorf("failed to parse int: %s", result)
+	}
 	return numLinkBigInt, nil
 }
 
