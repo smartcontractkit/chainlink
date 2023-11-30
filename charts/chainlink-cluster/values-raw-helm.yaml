@@ -120,6 +120,8 @@ geth:
 # mockserver is https://www.mock-server.com/where/kubernetes.html
 # used to stub External Adapters
 mockserver:
+#  image: "mockserver/mockserver"
+#  version: "mockserver-5.15.0"
   securityContext:
     capabilities:
       drop:
@@ -129,6 +131,10 @@ mockserver:
     runAsUser: 999
     runAsGroup: 999
   enabled: true
+  releasenameOverride: mockserver
+  app:
+    runAsUser: 999
+    readOnlyRootFilesystem: false
   port: 1080
   resources:
     requests:
@@ -169,7 +175,7 @@ runner:
 
 
 # monitoring.coreos.com/v1 PodMonitor for each node
-prometheusMonitor: false
+prometheusMonitor: true
 
 # deployment placement, standard helm stuff
 podAnnotations:

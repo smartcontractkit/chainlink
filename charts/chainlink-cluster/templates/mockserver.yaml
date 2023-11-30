@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: {{ .Release.Name }}-mockserver
-          image: {{ default "mockserver/mockserver" .Values.mockserver.image }}:{{ default "mockserver-5.15.0" .Values.mockserver.version }}
+          image: "mockserver/mockserver:mockserver-5.15.0"
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsUser: 65534 # nonroot
