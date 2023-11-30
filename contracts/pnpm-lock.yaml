@@ -17,6 +17,9 @@ dependencies:
   '@openzeppelin/contracts-upgradeable':
     specifier: 4.9.3
     version: 4.9.3
+  '@scroll-tech/contracts':
+    specifier: 0.1.0
+    version: 0.1.0
 
 devDependencies:
   '@ethereum-waffle/mock-contract':
@@ -1386,6 +1389,10 @@ packages:
     transitivePeerDependencies:
       - supports-color
     dev: true
+
+  /@scroll-tech/contracts@0.1.0:
+    resolution: {integrity: sha512-aBbDOc3WB/WveZdpJYcrfvMYMz7ZTEiW8M9XMJLba8p9FAR5KGYB/cV+8+EUsq3MKt7C1BfR+WnXoTVdvwIY6w==}
+    dev: false
 
   /@scure/base@1.1.1:
     resolution: {integrity: sha512-ZxOhsSyxYwLJj3pLZCefNitxsj093tb2vq90mp2txoYeBqbcjDjqFhyM8eUjq/uFm6zJ+mUuqxlS2FkuSY1MTA==}
@@ -5861,7 +5868,7 @@ packages:
       heap: 0.2.6
       level-sublevel: 6.6.4
       levelup: 3.1.1
-      lodash: 4.17.21
+      lodash: 4.17.20
       lru-cache: 5.1.1
       merkle-patricia-tree: 3.0.0
       patch-package: 6.2.2
@@ -7919,6 +7926,12 @@ packages:
   /minimalistic-crypto-utils@1.0.1:
     resolution: {integrity: sha512-JIYlbt6g8i5jKfJ3xz7rF0LXmv2TkDxBLUkiBeZ7bAx4GnnNMr8xFpGnOxn6GhTEHx3SjRrZEoU+j04prX1ktg==}
 
+  /minimatch@3.0.4:
+    resolution: {integrity: sha512-yJHVQEhyqPLUTgt9B83PXu6W3rx4MvvHvSUvToogpwoGDOUQ+yDrR0HRot+yOCdCO7u4hX3pWft6kWBBcqh0UA==}
+    dependencies:
+      brace-expansion: 1.1.11
+    dev: true
+
   /minimatch@3.1.2:
     resolution: {integrity: sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==}
     dependencies:
@@ -9232,7 +9245,7 @@ packages:
     resolution: {integrity: sha512-nRCcW9Sj7NuZwa2XvH9co8NPeXUBhZP7CRKJtU+cS6PW9FpCIFoI5ib0NT1ZrbNuPoRy0ylyCaUL8Gih4LSyFg==}
     engines: {node: '>=0.10.0'}
     dependencies:
-      minimatch: 3.1.2
+      minimatch: 3.0.4
     dev: true
 
   /reduce-flatten@2.0.0:
