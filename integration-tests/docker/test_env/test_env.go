@@ -283,6 +283,27 @@ func (te *CLClusterTestEnv) collectTestLogs() error {
 		})
 	}
 
+	if te.MockAdapter != nil {
+		eg.Go(func() error {
+			logFileName := filepath.Join(folder, "mock-adapter.log")
+			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
+			}
+			defer logFile.Close()
+			logReader, err := te.MockAdapter.Container.Logs(testcontext.Get(te.t))
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(logFile, logReader)
+			if err != nil {
+				return err
+			}
+			te.l.Info().Str("Container", te.MockAdapter.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
+			return nil
+		})
+	}
+
 	if err := eg.Wait(); err != nil {
 		return err
 	}
