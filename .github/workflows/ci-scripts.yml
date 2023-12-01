@@ -1,0 +1,57 @@
+name: CI Scripts
+
+on:
+  push:
+    paths:
+      - "core/scripts/**"
+      - ".github/workflows/ci-scripts.yml"
+  pull_request:
+    paths:
+      - "core/scripts/**"
+      - ".github/workflows/ci-scripts.yml"
+
+jobs:
+  golangci:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    name: ${{ matrix.scripts }}-lint
+    strategy:
+      matrix:
+        scripts: [chaincli, common, functions, gateway, ocr2vrf, vrfv1, vrfv2, vrfv2plus]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Golang Lint
+        uses: ./.github/actions/golangci-lint
+        with:
+          name: ${{ matrix.scripts }}-lint
+          go-directory: core/scripts/${{ matrix.scripts }}
+          go-version-file: core/scripts/go.mod
+          go-module-file: core/scripts/go.sum
+          gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
+
+  test:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    name: script-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1 
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: core/scripts/go.mod
+          go-module-file: core/scripts/go.sum
+      - name: Run Tests
+        shell: bash
+        run: |
+          cd core/scripts
+          go test ./...
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: test
+        continue-on-error: true
