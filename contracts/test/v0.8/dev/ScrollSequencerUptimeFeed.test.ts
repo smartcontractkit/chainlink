@@ -21,7 +21,7 @@ describe('ScrollSequencerUptimeFeed', () => {
     dummy = accounts[3]
 
     const l2CrossDomainMessengerFactory = await ethers.getContractFactory(
-      'src/v0.8/tests/MockScrollL2CrossDomainMessenger.sol:MockScrollL2CrossDomainMessenger',
+      'src/v0.8/l2ep/test/mocks/MockScrollL2CrossDomainMessenger.sol:MockScrollL2CrossDomainMessenger',
       deployer,
     )
 

@@ -30,7 +30,7 @@ describe('ScrollValidator', () => {
     // Scroll Messenger contract on L1
     const mockScrollL1CrossDomainMessengerFactory =
       await ethers.getContractFactory(
-        'src/v0.8/tests/MockScrollL1CrossDomainMessenger.sol:MockScrollL1CrossDomainMessenger',
+        'src/v0.8/l2ep/test/mocks/MockScrollL1CrossDomainMessenger.sol:MockScrollL1CrossDomainMessenger',
       )
     mockScrollL1CrossDomainMessenger =
       await mockScrollL1CrossDomainMessengerFactory.deploy()
