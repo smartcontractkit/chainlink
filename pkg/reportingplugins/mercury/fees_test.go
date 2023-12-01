@@ -9,8 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// simulate price from DP
 func scalePrice(usdPrice float64) *big.Int {
-	scaledPrice := new(big.Float).Mul(big.NewFloat(usdPrice), big.NewFloat(1e8))
+	scaledPrice := new(big.Float).Mul(big.NewFloat(usdPrice), big.NewFloat(1e18))
 	scaledPriceInt, _ := scaledPrice.Int(nil)
 	return scaledPriceInt
 }

@@ -7,8 +7,8 @@ import (
 )
 
 // PriceScalingFactor indicates the multiplier applied to token prices that we expect from data source
-// e.g. for a 1e8 multiplier, a LINK/USD value of 7.42 will be represented as 742000000
-var PRICE_SCALING_FACTOR = decimal.NewFromInt(1e8) //nolint:revive
+// e.g. for a 1e8 multiplier, a LINK/USD value of 7.42 will be derived from a data source value of 742000000
+var PRICE_SCALING_FACTOR = decimal.NewFromInt(1e18) //nolint:revive
 
 // FeeScalingFactor indicates the multiplier applied to fees.
 // e.g. for a 1e18 multiplier, a LINK fee of 7.42 will be represented as 7.42e18
