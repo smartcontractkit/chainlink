@@ -2,10 +2,9 @@
 
 pragma solidity 0.8.19;
 
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
-import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
 
 interface IAggregatorProxy {
   function aggregator() external view returns (address);
@@ -33,7 +32,10 @@ interface ILinkAvailable {
 ///  this is a "trusless" upkeep, meaning it does not trust the caller of performUpkeep;
 /// we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
 /// which has significantly different trust assumptions
-contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationCompatibleInterface {
+contract LinkAvailableBalanceMonitor is AccessControlEnumerable, AutomationCompatibleInterface {
+  bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+  bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
+
   event BalanceUpdated(address indexed addr, uint256 oldBalance, uint256 newBalance);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event UpkeepIntervalSet(uint256 oldUpkeepInterval, uint256 newUpkeepInterval);
@@ -74,18 +76,36 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
 
   /// @param linkTokenAddress the LINK token address
   constructor(
+    address admin,
     address linkTokenAddress,
     uint256 minWaitPeriodSeconds,
     uint16 maxPerform,
     uint16 maxCheck,
     uint8 upkeepInterval
-  ) ConfirmedOwner(msg.sender) {
+  ) {
     if (linkTokenAddress == address(0)) revert InvalidLinkTokenAddress(linkTokenAddress);
+    _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
+    _setRoleAdmin(EXECUTOR_ROLE, ADMIN_ROLE);
+    _setupRole(ADMIN_ROLE, admin);
     LINK_TOKEN = IERC20(linkTokenAddress);
     setMinWaitPeriodSeconds(minWaitPeriodSeconds);
     setMaxPerform(maxPerform);
     setMaxCheck(maxCheck);
     setUpkeepInterval(upkeepInterval);
+  }
+
+  /// @notice Grants an address an executor role
+  /// @param executor address to grant executor role to
+  function granExecutorRole(address executor) public onlyRole(ADMIN_ROLE) {
+    if (executor == address(0)) revert InvalidAddress(executor);
+    _setupRole(EXECUTOR_ROLE, executor);
+  }
+
+  /// @notice Revokes the executor role from an address
+  /// @param executor address to revoke executor role from
+  function revokeExecutorRole(address executor) public onlyRole(ADMIN_ROLE) {
+    if (executor == address(0)) revert InvalidAddress(executor);
+    _revokeRole(EXECUTOR_ROLE, executor);
   }
 
   /// @notice Sets the list of subscriptions to watch and their funding parameters
@@ -96,7 +116,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     address[] calldata addresses,
     uint96[] calldata minBalances,
     uint96[] calldata topUpAmounts
-  ) external onlyOwner {
+  ) external onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     if (addresses.length != minBalances.length || addresses.length != topUpAmounts.length) {
       revert InvalidWatchList();
     }
@@ -125,12 +145,12 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @dev this function has to be compatible with the event onRampSet(address, dstChainSelector) emitted by
   /// the CCIP router. Important detail to know is this event is also emitted when an onRamp is decomissioned,
   /// in which case it will carry the proper dstChainSelector along with the 0x0 address
-  function addToWatchList(address targetAddress, uint64 dstChainSelector) public onlyOwner {
+  function addToWatchList(address targetAddress, uint64 dstChainSelector) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     if (s_targets[targetAddress].isActive) revert DuplicateAddress(targetAddress);
     address oldAddress = s_onRampAddresses[dstChainSelector];
     // if targetAddress is an existing onRamp, there's a need of cleaning the previous onRamp associated to this dstChainSelector
     // there's no need to remove any other address that's not an onRamp
-    if (dstChainSelector > 0 && abi.encodePacked(oldAddress).length > 0) {
+    if (dstChainSelector > 0 && bytes(abi.encodePacked(oldAddress)).length > 0) {
       removeFromWatchList(oldAddress);
     }
     // only add the new address if it's not 0x0
@@ -151,7 +171,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
 
   /// @notice Delete an address from the watchlist and sets the target to inactive
   /// @param targetAddress the address to be deleted
-  function removeFromWatchList(address targetAddress) public onlyOwner returns (bool) {
+  function removeFromWatchList(address targetAddress) public onlyRoleOrAdminRole(EXECUTOR_ROLE) returns (bool) {
     s_targets[targetAddress].isActive = false;
     for (uint i; i < s_watchList.length; i++) {
       if (s_watchList[i] == targetAddress) {
@@ -201,7 +221,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     return targetsToFund;
   }
 
-  function topUp(address[] memory targetAddresses) public whenNotPaused {
+  function topUp(address[] memory targetAddresses) public {
     MonitoredAddress memory target;
     uint256 localBalance = LINK_TOKEN.balanceOf(address(this));
     for (uint256 idx = 0; idx < targetAddresses.length; idx++) {
@@ -259,9 +279,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @notice Gets list of subscription ids that are underfunded and returns a keeper-compatible payload.
   /// @return upkeepNeeded signals if upkeep is needed
   /// @return performData is an abi encoded list of subscription ids that need funds
-  function checkUpkeep(
-    bytes calldata
-  ) external view override whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
+  function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory performData) {
     address[] memory needsFunding = sampleUnderfundedAddresses();
     upkeepNeeded = needsFunding.length > 0;
     performData = abi.encode(needsFunding);
@@ -278,14 +296,14 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   /// @notice Withdraws the contract balance in the LINK token.
   /// @param amount the amount of the LINK to withdraw
   /// @param payee the address to pay
-  function withdraw(uint256 amount, address payable payee) external onlyOwner {
+  function withdraw(uint256 amount, address payable payee) external onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     if (payee == address(0)) revert InvalidAddress(payee);
     LINK_TOKEN.transfer(payee, amount);
     emit FundsWithdrawn(amount, payee);
   }
 
   /// @notice Sets the minimum balance for the given target address
-  function setMinBalance(address target, uint96 minBalance) external onlyOwner {
+  function setMinBalance(address target, uint96 minBalance) external onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     if (target == address(0)) revert InvalidAddress(target);
     if (minBalance == 0) revert InvalidMinBalance(minBalance);
     if (!s_targets[target].isActive) revert InvalidWatchList();
@@ -295,7 +313,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   }
 
   /// @notice Sets the minimum balance for the given target address
-  function setTopUpAmount(address target, uint96 topUpAmount) external onlyOwner {
+  function setTopUpAmount(address target, uint96 topUpAmount) external onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     if (target == address(0)) revert InvalidAddress(target);
     if (topUpAmount == 0) revert InvalidTopUpAmount(topUpAmount);
     if (!s_targets[target].isActive) revert InvalidWatchList();
@@ -305,25 +323,25 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   }
 
   /// @notice Update s_maxPerform
-  function setMaxPerform(uint16 maxPerform) public onlyOwner {
+  function setMaxPerform(uint16 maxPerform) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     s_maxPerform = maxPerform;
     emit MaxPerformSet(s_maxPerform, maxPerform);
   }
 
   /// @notice Update s_maxCheck
-  function setMaxCheck(uint16 maxCheck) public onlyOwner {
+  function setMaxCheck(uint16 maxCheck) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     s_maxCheck = maxCheck;
     emit MaxCheckSet(s_maxCheck, maxCheck);
   }
 
   /// @notice Sets the minimum wait period (in seconds) for addresses between funding
-  function setMinWaitPeriodSeconds(uint256 minWaitPeriodSeconds) public onlyOwner {
+  function setMinWaitPeriodSeconds(uint256 minWaitPeriodSeconds) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     s_minWaitPeriodSeconds = minWaitPeriodSeconds;
     emit MinWaitPeriodSet(s_minWaitPeriodSeconds, minWaitPeriodSeconds);
   }
 
   /// @notice Update s_upkeepInterval
-  function setUpkeepInterval(uint8 upkeepInterval) public onlyOwner {
+  function setUpkeepInterval(uint8 upkeepInterval) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     if (upkeepInterval > 255) revert InvalidUpkeepInterval(upkeepInterval);
     s_upkeepInterval = upkeepInterval;
     emit UpkeepIntervalSet(s_upkeepInterval, upkeepInterval);
@@ -362,13 +380,13 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
     return (target.isActive, target.minBalance, target.topUpAmount);
   }
 
-  /// @notice Pause the contract, which prevents executing performUpkeep
-  function pause() external onlyOwner {
-    _pause();
-  }
-
-  /// @notice Unpause the contract
-  function unpause() external onlyOwner {
-    _unpause();
+  /// @dev Modifier to make a function callable only by a certain role or the
+  /// admin role.
+  modifier onlyRoleOrAdminRole(bytes32 role) {
+    address sender = _msgSender();
+    if (!hasRole(ADMIN_ROLE, sender)) {
+      _checkRole(role, sender);
+    }
+    _;
   }
 }
