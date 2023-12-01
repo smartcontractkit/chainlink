@@ -194,14 +194,14 @@ func NewBroadcaster[
 
 // Start starts Broadcaster service.
 // The provided context can be used to terminate Start sequence.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Start(_ context.Context) error {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Start(ctx context.Context) error {
 	return eb.StartOnce("Broadcaster", func() (err error) {
-		return eb.startInternal()
+		return eb.startInternal(ctx)
 	})
 }
 
 // startInternal can be called multiple times, in conjunction with closeInternal. The TxMgr uses this functionality to reset broadcaster multiple times in its own lifetime.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) startInternal() error {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) startInternal(ctx context.Context) error {
 	eb.initSync.Lock()
 	defer eb.initSync.Unlock()
 	if eb.isStarted {
@@ -223,7 +223,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 	eb.wg.Add(len(eb.enabledAddresses))
 	eb.triggers = make(map[ADDR]chan struct{})
 	eb.sequenceLock.Lock()
-	eb.nextSequenceMap = eb.loadNextSequenceMap(eb.enabledAddresses)
+	eb.nextSequenceMap = eb.loadNextSequenceMap(ctx, eb.enabledAddresses)
 	eb.sequenceLock.Unlock()
 	for _, addr := range eb.enabledAddresses {
 		triggerCh := make(chan struct{}, 1)
@@ -285,10 +285,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Trig
 }
 
 // Load the next sequence map using the tx table or on-chain (if not found in tx table)
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) loadNextSequenceMap(addresses []ADDR) map[ADDR]SEQ {
-	ctx, cancel := eb.chStop.NewCtx()
-	defer cancel()
-
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) loadNextSequenceMap(ctx context.Context, addresses []ADDR) map[ADDR]SEQ {
 	nextSequenceMap := make(map[ADDR]SEQ)
 	for _, address := range addresses {
 		seq, err := eb.getSequenceForAddr(ctx, address)
