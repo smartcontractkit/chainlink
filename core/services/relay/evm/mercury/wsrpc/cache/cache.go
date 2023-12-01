@@ -63,7 +63,6 @@ type Cache interface {
 }
 
 type Config struct {
-	Logger logger.Logger
 	// LatestReportTTL controls how "stale" we will allow a price to be e.g. if
 	// set to 1s, a new price will always be fetched if the last result was
 	// from more than 1 second ago.
@@ -84,8 +83,8 @@ type Config struct {
 	LatestReportDeadline time.Duration
 }
 
-func NewCache(client Client, cfg Config) Cache {
-	return newMemCache(client, cfg)
+func NewCache(lggr logger.Logger, client Client, cfg Config) Cache {
+	return newMemCache(lggr, client, cfg)
 }
 
 type cacheVal struct {
@@ -164,9 +163,7 @@ type memCache struct {
 
 	client Client
 
-	latestPriceTTL       time.Duration
-	maxStaleAge          time.Duration
-	latestReportDeadline time.Duration
+	cfg Config
 
 	cache sync.Map
 
@@ -174,14 +171,12 @@ type memCache struct {
 	chStop services.StopChan
 }
 
-func newMemCache(client Client, cfg Config) *memCache {
+func newMemCache(lggr logger.Logger, client Client, cfg Config) *memCache {
 	return &memCache{
 		services.StateMachine{},
-		cfg.Logger.Named("MercuryMemCache"),
+		lggr.Named("MemCache"),
 		client,
-		cfg.LatestReportTTL,
-		cfg.MaxStaleAge,
-		cfg.LatestReportDeadline,
+		cfg,
 		sync.Map{},
 		sync.WaitGroup{},
 		make(chan (struct{})),
@@ -197,10 +192,11 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 	if req == nil {
 		return nil, errors.New("req must not be nil")
 	}
-	if m.latestPriceTTL <= 0 {
+	feedIDHex := mercuryutils.BytesToFeedID(req.FeedId).String()
+	if m.cfg.LatestReportTTL <= 0 {
 		return m.client.RawClient().LatestReport(ctx, req)
 	}
-	vi, _ := m.cache.LoadOrStore(req, &cacheVal{
+	vi, loaded := m.cache.LoadOrStore(feedIDHex, &cacheVal{
 		sync.RWMutex{},
 		false,
 		nil,
@@ -210,24 +206,26 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 	})
 	v := vi.(*cacheVal)
 
+	m.lggr.Tracew("LatestReport", "feedID", feedIDHex, "loaded", loaded)
+
 	// HOT PATH
 	v.RLock()
 	if time.Now().Before(v.expiresAt) {
 		// CACHE HIT
-		promCacheHitCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+		promCacheHitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 
 		defer v.RUnlock()
 		return v.val, nil
 	} else if v.fetching {
 		// CACHE WAIT
-		promCacheWaitCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+		promCacheWaitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 		// if someone else is fetching then wait for the fetch to complete
 		ch := v.fetchCh
 		v.RUnlock()
 		return v.waitForResult(ctx, ch, m.chStop)
 	}
 	// CACHE MISS
-	promCacheMissCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+	promCacheMissCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 	// fallthrough to cold path and fetch
 	v.RUnlock()
 
@@ -235,19 +233,19 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 	v.Lock()
 	if time.Now().Before(v.expiresAt) {
 		// CACHE HIT
-		promCacheHitCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+		promCacheHitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 		defer v.RUnlock()
 		return v.val, nil
 	} else if v.fetching {
 		// CACHE WAIT
-		promCacheWaitCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+		promCacheWaitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 		// if someone else is fetching then wait for the fetch to complete
 		ch := v.fetchCh
 		v.Unlock()
 		return v.waitForResult(ctx, ch, m.chStop)
 	}
 	// CACHE MISS
-	promCacheMissCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+	promCacheMissCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 	// initiate the fetch and wait for result
 	ch := v.initiateFetch()
 	v.Unlock()
@@ -269,7 +267,7 @@ const minBackoffRetryInterval = 50 * time.Millisecond
 // newBackoff creates a backoff for retrying
 func (m *memCache) newBackoff() backoff.Backoff {
 	min := minBackoffRetryInterval
-	max := m.latestPriceTTL / 2
+	max := m.cfg.LatestReportTTL / 2
 	if min > max {
 		// avoid setting a min that is greater than max
 		min = max
@@ -293,7 +291,7 @@ func (m *memCache) fetch(req *pb.LatestReportRequest, v *cacheVal) {
 	var val *pb.LatestReportResponse
 	var err error
 	defer func() {
-		v.completeFetch(val, err, t.Add(m.latestPriceTTL))
+		v.completeFetch(val, err, t.Add(m.cfg.LatestReportTTL))
 	}()
 
 	for {
@@ -301,8 +299,8 @@ func (m *memCache) fetch(req *pb.LatestReportRequest, v *cacheVal) {
 
 		ctx := memcacheCtx
 		cancel := func() {}
-		if m.latestReportDeadline > 0 {
-			ctx, cancel = context.WithTimeoutCause(memcacheCtx, m.latestReportDeadline, errors.New("latest report fetch deadline exceeded"))
+		if m.cfg.LatestReportDeadline > 0 {
+			ctx, cancel = context.WithTimeoutCause(memcacheCtx, m.cfg.LatestReportDeadline, errors.New("latest report fetch deadline exceeded"))
 		}
 
 		// NOTE: must drop down to RawClient here otherwise we enter an
@@ -330,6 +328,7 @@ func (m *memCache) fetch(req *pb.LatestReportRequest, v *cacheVal) {
 
 func (m *memCache) Start(context.Context) error {
 	return m.StartOnce(m.Name(), func() error {
+		m.lggr.Debugw("MemCache starting", "config", m.cfg)
 		m.wg.Add(1)
 		go m.runloop()
 		return nil
@@ -339,16 +338,16 @@ func (m *memCache) Start(context.Context) error {
 func (m *memCache) runloop() {
 	defer m.wg.Done()
 
-	if m.maxStaleAge == 0 {
+	if m.cfg.MaxStaleAge == 0 {
 		return
 	}
-	t := time.NewTicker(utils.WithJitter(m.maxStaleAge))
+	t := time.NewTicker(utils.WithJitter(m.cfg.MaxStaleAge))
 
 	for {
 		select {
 		case <-t.C:
 			m.cleanup()
-			t.Reset(utils.WithJitter(m.maxStaleAge))
+			t.Reset(utils.WithJitter(m.cfg.MaxStaleAge))
 		case <-m.chStop:
 			return
 		}
@@ -372,7 +371,7 @@ func (m *memCache) cleanup() {
 			// skip cleanup if fetching
 			return true
 		}
-		if time.Now().After(v.expiresAt.Add(m.maxStaleAge)) {
+		if time.Now().After(v.expiresAt.Add(m.cfg.MaxStaleAge)) {
 			// garbage collection
 			m.cache.Delete(k)
 		}

@@ -12,7 +12,7 @@ import (
 
 func Test_CacheSet(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	cs := newCacheSet(Config{Logger: lggr})
+	cs := newCacheSet(lggr, Config{})
 	ctx := testutils.Context(t)
 	require.NoError(t, cs.Start(ctx))
 	t.Cleanup(func() {

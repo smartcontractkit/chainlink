@@ -140,7 +140,7 @@ func Test_Client_LatestReport(t *testing.T) {
 
 	t.Run("with cache disabled", func(t *testing.T) {
 		req := &pb.LatestReportRequest{}
-		cacheSet := cache.NewCacheSet(cache.Config{LatestReportTTL: 0, Logger: lggr})
+		cacheSet := cache.NewCacheSet(lggr, cache.Config{LatestReportTTL: 0})
 		resp := &pb.LatestReportResponse{}
 
 		var calls int
@@ -178,7 +178,7 @@ func Test_Client_LatestReport(t *testing.T) {
 	t.Run("with caching", func(t *testing.T) {
 		req := &pb.LatestReportRequest{}
 		const neverExpireTTL = 1000 * time.Hour // some massive value that will never expire during a test
-		cacheSet := cache.NewCacheSet(cache.Config{LatestReportTTL: neverExpireTTL, Logger: lggr})
+		cacheSet := cache.NewCacheSet(lggr, cache.Config{LatestReportTTL: neverExpireTTL})
 		resp := &pb.LatestReportResponse{}
 
 		var calls int

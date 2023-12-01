@@ -12,31 +12,33 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
 const neverExpireTTL = 1000 * time.Hour // some massive value that will never expire during a test
 
 func Test_Cache(t *testing.T) {
+	lggr := logger.TestLogger(t)
 	client := &mockClient{}
-	cfg := Config{
-		Logger: logger.TestLogger(t),
-	}
+	cfg := Config{}
 	ctx := testutils.Context(t)
 
 	req1 := &pb.LatestReportRequest{FeedId: []byte{1}}
 	req2 := &pb.LatestReportRequest{FeedId: []byte{2}}
 	req3 := &pb.LatestReportRequest{FeedId: []byte{3}}
 
+	feedID1Hex := mercuryutils.BytesToFeedID(req1.FeedId).String()
+
 	t.Run("errors with nil req", func(t *testing.T) {
-		c := newMemCache(client, cfg)
+		c := newMemCache(lggr, client, cfg)
 
 		_, err := c.LatestReport(ctx, nil)
 		assert.EqualError(t, err, "req must not be nil")
 	})
 
 	t.Run("with LatestReportTTL=0 does no caching", func(t *testing.T) {
-		c := newMemCache(client, cfg)
+		c := newMemCache(lggr, client, cfg)
 
 		req := &pb.LatestReportRequest{}
 		for i := 0; i < 5; i++ {
@@ -58,7 +60,7 @@ func Test_Cache(t *testing.T) {
 	t.Run("caches repeated calls to LatestReport, keyed by request", func(t *testing.T) {
 		cfg.LatestReportTTL = neverExpireTTL
 		client.err = nil
-		c := newMemCache(client, cfg)
+		c := newMemCache(lggr, client, cfg)
 
 		t.Run("if cache is unstarted, returns error", func(t *testing.T) {
 			// starting the cache is required for state management if we
@@ -122,8 +124,8 @@ func Test_Cache(t *testing.T) {
 		})
 
 		t.Run("re-queries when a cache item has expired", func(t *testing.T) {
-			vi, exists := c.cache.Load(req1)
-			assert.True(t, exists)
+			vi, exists := c.cache.Load(feedID1Hex)
+			require.True(t, exists)
 			v := vi.(*cacheVal)
 			v.expiresAt = time.Now().Add(-1 * time.Second)
 
@@ -167,7 +169,7 @@ func Test_Cache(t *testing.T) {
 	})
 
 	t.Run("timeouts", func(t *testing.T) {
-		c := newMemCache(client, cfg)
+		c := newMemCache(lggr, client, cfg)
 		// simulate fetch already executing in background
 		v := &cacheVal{
 			fetching:  true,
@@ -176,7 +178,7 @@ func Test_Cache(t *testing.T) {
 			err:       nil,
 			expiresAt: time.Now().Add(-1 * time.Second),
 		}
-		c.cache.Store(req1, v)
+		c.cache.Store(feedID1Hex, v)
 
 		canceledCtx, cancel := context.WithCancel(testutils.Context(t))
 		cancel()
