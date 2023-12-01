@@ -1,0 +1,14 @@
+{{ if (hasKey .Values "mockserver") }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-mockserver
+spec:
+  selector:
+    app: {{ .Release.Name }}-mockserver
+  ports:
+    - name: serviceport
+      port: {{ default "1080" $.Values.mockserver.port}}
+      targetPort: serviceport
+  type: ClusterIP
+{{ end }}

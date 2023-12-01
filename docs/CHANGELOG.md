@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Fixed
+- Fixed a bug that caused the Telemetry Manager to report incorrect health
+
 ### Added
 
 - Added a tracker component to the txmgr for tracking and gracefully handling abandoned transactions. Abandoned transactions occur when a fromAddress is removed from the keystore by a node operator. The tracker gives abandoned transactions a chance to be finalized on chain, or marks them as fatal_error if they are not finalized within a specified time to live (default 6hrs).
@@ -53,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `PromReporter` no longer directly reads txm related status from the db, and instead uses the txStore API.
 - `L2Suggested` mode is now called `SuggestedPrice`
 - Console logs will now escape (non-whitespace) control characters
 
@@ -66,6 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two new prom metrics for mercury, nops should consider adding alerting on these:
     - `mercury_insufficient_blocks_count`
     - `mercury_zero_blocks_count`
+
+### Fixed
+
+- Corrected Ethereum Sepolia `LinkContractAddress` to `0x779877A7B0D9E8603169DdbD7836e478b4624789`
 
 ...
 
