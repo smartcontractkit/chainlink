@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-// solhint-disable-next-line no-unused-import
 import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
 
 // ./dev dependencies - to be moved from ./dev after audit
