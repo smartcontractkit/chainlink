@@ -541,6 +541,51 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 	assertCountAtLeast(1)
 }
 
+func Test_EthKeyStore_Enable(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+	ks := keyStore.Eth()
+
+	t.Run("already existing disabled key gets enabled", func(t *testing.T) {
+		k, _ := cltest.MustInsertRandomKeyNoChains(t, ks)
+		require.NoError(t, ks.Add(k.Address, testutils.SimulatedChainID))
+		require.NoError(t, ks.Disable(k.Address, testutils.SimulatedChainID))
+		require.NoError(t, ks.Enable(k.Address, testutils.SimulatedChainID))
+		key, err := ks.GetState(k.Address.Hex(), testutils.SimulatedChainID)
+		require.NoError(t, err)
+		require.Equal(t, key.Disabled, false)
+	})
+
+	t.Run("creates key, deletes it unsafely and then enable creates it again", func(t *testing.T) {
+		k, _ := cltest.MustInsertRandomKeyNoChains(t, ks)
+		require.NoError(t, ks.Add(k.Address, testutils.SimulatedChainID))
+		_, err := db.Exec("DELETE FROM evm.key_states WHERE address = $1", k.Address)
+		require.NoError(t, err)
+		require.NoError(t, ks.Enable(k.Address, testutils.SimulatedChainID))
+		key, err := ks.GetState(k.Address.Hex(), testutils.SimulatedChainID)
+		require.NoError(t, err)
+		require.Equal(t, key.Disabled, false)
+	})
+
+	t.Run("creates key and enables it if it exists in the keystore, but is missing from key states db table", func(t *testing.T) {
+		k, _ := cltest.MustInsertRandomKeyNoChains(t, ks)
+		require.NoError(t, ks.Enable(k.Address, testutils.SimulatedChainID))
+		key, err := ks.GetState(k.Address.Hex(), testutils.SimulatedChainID)
+		require.NoError(t, err)
+		require.Equal(t, key.Disabled, false)
+	})
+
+	t.Run("errors if key is not present in keystore", func(t *testing.T) {
+		addrNotInKs := testutils.NewAddress()
+		require.Error(t, ks.Enable(addrNotInKs, testutils.SimulatedChainID))
+		_, err := ks.GetState(addrNotInKs.Hex(), testutils.SimulatedChainID)
+		require.Error(t, err)
+	})
+}
+
 func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 	t.Parallel()
 
