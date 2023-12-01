@@ -3,9 +3,11 @@ package smoke
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
@@ -39,6 +41,9 @@ func TestOCRBasic(t *testing.T) {
 	require.NoError(t, err)
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
+
+	// DEBUG: Increase timeout for OCR jobs
+	env.EVMClient.GetNetworkConfig().Timeout = blockchain.JSONStrDuration{Duration: time.Minute * 5}
 
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID())
 	require.NoError(t, err)
