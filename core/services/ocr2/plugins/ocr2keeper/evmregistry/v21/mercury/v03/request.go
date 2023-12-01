@@ -3,7 +3,6 @@ package v03
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -62,12 +61,11 @@ func NewClient(mercuryConfig mercury.MercuryConfigProvider, httpClient mercury.H
 }
 
 func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLookup, pluginRetryKey string) (mercury.MercuryUpkeepState, mercury.MercuryUpkeepFailureReason, [][]byte, bool, time.Duration, error) {
-	resultLen := len(streamsLookup.Feeds)
-	ch := make(chan mercury.MercuryData, resultLen)
 	if len(streamsLookup.Feeds) == 0 {
 		return mercury.NoPipelineError, mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0 * time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", streamsLookup.FeedParamKey, streamsLookup.TimeParamKey, streamsLookup.Feeds)
 	}
-	resultLen = 1
+	resultLen := 1 // Only 1 multi-feed request is made for all feeds
+	ch := make(chan mercury.MercuryData, resultLen)
 	c.threadCtrl.Go(func(ctx context.Context) {
 		c.multiFeedsRequest(ctx, ch, streamsLookup)
 	})
@@ -75,29 +73,22 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	var reqErr error
 	var retryInterval time.Duration
 	results := make([][]byte, len(streamsLookup.Feeds))
-	retryable := true
-	allSuccess := true
+	retryable := false
 	state := mercury.NoPipelineError
 
-	for i := 0; i < resultLen; i++ {
-		m := <-ch
-		if m.Error != nil {
-			reqErr = errors.Join(reqErr, m.Error)
-			retryable = retryable && m.Retryable
-			allSuccess = false
-			if m.State != mercury.NoPipelineError {
-				state = m.State
-			}
-			continue
+	m := <-ch
+	if m.Error != nil {
+		reqErr = m.Error
+		retryable = m.Retryable
+		state = m.State
+		if retryable {
+			retryInterval = mercury.CalculateRetryConfigFn(pluginRetryKey, c.mercuryConfig)
 		}
+	} else {
 		results = m.Bytes
 	}
-	// only retry when not all successful AND none are not retryable
-	if retryable && !allSuccess {
-		retryInterval = mercury.CalculateRetryConfigFn(pluginRetryKey, c.mercuryConfig)
-	}
-	// only retry when not all successful AND none are not retryable
-	return state, mercury.MercuryUpkeepFailureReasonNone, results, retryable && !allSuccess, retryInterval, reqErr
+
+	return state, mercury.MercuryUpkeepFailureReasonNone, results, retryable, retryInterval, reqErr
 }
 
 func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.MercuryData, sl *mercury.StreamsLookup) {
