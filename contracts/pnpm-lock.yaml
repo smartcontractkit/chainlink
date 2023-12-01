@@ -17,9 +17,6 @@ dependencies:
   '@openzeppelin/contracts-upgradeable':
     specifier: 4.9.3
     version: 4.9.3
-  '@scroll-tech/contracts':
-    specifier: 0.1.0
-    version: 0.1.0
 
 devDependencies:
   '@ethereum-waffle/mock-contract':
@@ -58,6 +55,9 @@ devDependencies:
   '@openzeppelin/test-helpers':
     specifier: ^0.5.16
     version: 0.5.16(bn.js@4.12.0)
+  '@scroll-tech/contracts':
+    specifier: 0.1.0
+    version: 0.1.0
   '@typechain/ethers-v5':
     specifier: ^7.2.0
     version: 7.2.0(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@8.3.2)(typescript@5.2.2)
@@ -1392,7 +1392,7 @@ packages:
 
   /@scroll-tech/contracts@0.1.0:
     resolution: {integrity: sha512-aBbDOc3WB/WveZdpJYcrfvMYMz7ZTEiW8M9XMJLba8p9FAR5KGYB/cV+8+EUsq3MKt7C1BfR+WnXoTVdvwIY6w==}
-    dev: false
+    dev: true
 
   /@scure/base@1.1.1:
     resolution: {integrity: sha512-ZxOhsSyxYwLJj3pLZCefNitxsj093tb2vq90mp2txoYeBqbcjDjqFhyM8eUjq/uFm6zJ+mUuqxlS2FkuSY1MTA==}

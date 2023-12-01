@@ -43,6 +43,7 @@
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
     "@nomiclabs/hardhat-waffle": "2.0.6",
     "@openzeppelin/hardhat-upgrades": "1.28.0",
+    "@scroll-tech/contracts": "0.1.0",
     "@openzeppelin/test-helpers": "^0.5.16",
     "@typechain/ethers-v5": "^7.2.0",
     "@typechain/hardhat": "^7.0.0",
@@ -85,7 +86,6 @@
   },
   "dependencies": {
     "@eth-optimism/contracts": "0.5.37",
-    "@scroll-tech/contracts": "0.1.0",
     "@openzeppelin/contracts": "4.9.3",
     "@openzeppelin/contracts-upgradeable": "4.9.3"
   }

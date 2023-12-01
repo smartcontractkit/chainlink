@@ -3,13 +3,13 @@ pragma solidity ^0.8.16;
 
 import "./openzeppelin-solidity/v4.8.3/contracts/utils/Address.sol";
 
-/*
- * sourced from: https://github.com/scroll-tech/scroll/blob/develop/contracts/src/libraries/IScrollMessenger.sol
- */
+///
+/// sourced from: https://github.com/scroll-tech/scroll/blob/develop/contracts/src/libraries/IScrollMessenger.sol
+///
 interface IScrollMessenger {
-  /**********
-   * Events *
-   **********/
+  /// **********
+  /// * Events *
+  /// **********
 
   /// @notice Emitted when a cross domain message is sent.
   /// @param sender The address of the sender who initiates the message.
@@ -35,16 +35,16 @@ interface IScrollMessenger {
   /// @param messageHash The hash of the message.
   event FailedRelayedMessage(bytes32 indexed messageHash);
 
-  /*************************
-   * Public View Functions *
-   *************************/
+  ///  *************************
+  ///  * Public View Functions *
+  ///  *************************
 
   /// @notice Return the sender of a cross domain message.
   function xDomainMessageSender() external view returns (address);
 
-  /*****************************
-   * Public Mutating Functions *
-   *****************************/
+  /// *****************************
+  /// * Public Mutating Functions *
+  /// *****************************
 
   /// @notice Send cross chain message from L1 to L2 or L2 to L1.
   /// @param target The address of account who receive the message.
@@ -83,9 +83,9 @@ contract MockScrollCrossDomainMessenger is IScrollMessenger {
     mockMessageSender = sender;
   }
 
-  /*****************************
-   * Public Mutating Functions *
-   *****************************/
+  /// *****************************
+  /// * Public Mutating Functions *
+  /// *****************************
 
   /// @notice Send cross chain message from L1 to L2 or L2 to L1.
   /// @param _target The address of account who receive the message.

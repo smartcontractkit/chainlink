@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.19;
 
 import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
@@ -9,9 +9,9 @@ import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAcc
 
 import {IL1ScrollMessenger} from "@scroll-tech/contracts/L1/IL1ScrollMessenger.sol";
 
-/**
- * @title ScrollValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
- */
+///
+/// @title ScrollValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
+///
 contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
   uint32 private s_gasLimit;
@@ -21,17 +21,17 @@ contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L2_UPTIME_FEED_ADDR;
 
-  /**
-   * @notice emitted when gas cost to spend on L2 is updated
-   * @param gasLimit updated gas cost
-   */
+  ///
+  /// @notice emitted when gas cost to spend on L2 is updated
+  /// @param gasLimit updated gas cost
+  ///
   event GasLimitUpdated(uint32 gasLimit);
 
-  /**
-   * @param l1CrossDomainMessengerAddress address the L1CrossDomainMessenger contract address
-   * @param l2UptimeFeedAddr the address of the ScrollSequencerUptimeFeed contract address
-   * @param gasLimit the gasLimit to use for sending a message from L1 to L2
-   */
+  ///
+  /// @param l1CrossDomainMessengerAddress address the L1CrossDomainMessenger contract address
+  /// @param l2UptimeFeedAddr the address of the ScrollSequencerUptimeFeed contract address
+  /// @param gasLimit the gasLimit to use for sending a message from L1 to L2
+  ///
   constructor(address l1CrossDomainMessengerAddress, address l2UptimeFeedAddr, uint32 gasLimit) {
     // solhint-disable-next-line custom-errors
     require(l1CrossDomainMessengerAddress != address(0), "Invalid xDomain Messenger address");
@@ -42,38 +42,38 @@ contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     s_gasLimit = gasLimit;
   }
 
-  /**
-   * @notice versions:
-   *
-   * - ScrollValidator 1.0.0: initial release
-   *
-   * @inheritdoc TypeAndVersionInterface
-   */
+  ///
+  /// @notice versions:
+  ///
+  /// - ScrollValidator 1.0.0: initial release
+  ///
+  /// @inheritdoc TypeAndVersionInterface
+  ///
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ScrollValidator 1.0.0";
   }
 
-  /**
-   * @notice sets the new gas cost to spend when sending cross chain message
-   * @param gasLimit the updated gas cost
-   */
+  ///
+  /// @notice sets the new gas cost to spend when sending cross chain message
+  /// @param gasLimit the updated gas cost
+  ///
   function setGasLimit(uint32 gasLimit) external onlyOwner {
     s_gasLimit = gasLimit;
     emit GasLimitUpdated(gasLimit);
   }
 
-  /**
-   * @notice fetches the gas cost of sending a cross chain message
-   */
+  ///
+  /// @notice fetches the gas cost of sending a cross chain message
+  ///
   function getGasLimit() external view returns (uint32) {
     return s_gasLimit;
   }
 
-  /**
-   * @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
-   * @dev A message is sent using the L1CrossDomainMessenger. This method is accessed controlled.
-   * @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
-   */
+  ///
+  /// @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
+  /// @dev A message is sent using the L1CrossDomainMessenger. This method is accessed controlled.
+  /// @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
+  ///
   function validate(
     uint256 /* previousRoundId */,
     int256 /* previousAnswer */,
