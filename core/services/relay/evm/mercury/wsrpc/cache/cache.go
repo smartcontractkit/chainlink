@@ -63,7 +63,6 @@ type Cache interface {
 }
 
 type Config struct {
-	Logger logger.Logger
 	// LatestReportTTL controls how "stale" we will allow a price to be e.g. if
 	// set to 1s, a new price will always be fetched if the last result was
 	// from more than 1 second ago.
@@ -84,8 +83,8 @@ type Config struct {
 	LatestReportDeadline time.Duration
 }
 
-func NewCache(client Client, cfg Config) Cache {
-	return newMemCache(client, cfg)
+func NewCache(lggr logger.Logger, client Client, cfg Config) Cache {
+	return newMemCache(lggr, client, cfg)
 }
 
 type cacheVal struct {
@@ -172,11 +171,10 @@ type memCache struct {
 	chStop services.StopChan
 }
 
-func newMemCache(client Client, cfg Config) *memCache {
-	cfg.Logger = cfg.Logger.Named("MemCache")
+func newMemCache(lggr logger.Logger, client Client, cfg Config) *memCache {
 	return &memCache{
 		services.StateMachine{},
-		cfg.Logger,
+		lggr.Named("MemCache"),
 		client,
 		cfg,
 		sync.Map{},

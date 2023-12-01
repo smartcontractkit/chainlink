@@ -30,16 +30,15 @@ type cacheSet struct {
 	cfg Config
 }
 
-func NewCacheSet(cfg Config) CacheSet {
-	return newCacheSet(cfg)
+func NewCacheSet(lggr logger.Logger, cfg Config) CacheSet {
+	return newCacheSet(lggr, cfg)
 }
 
-func newCacheSet(cfg Config) *cacheSet {
-	cfg.Logger = cfg.Logger.Named("CacheSet")
+func newCacheSet(lggr logger.Logger, cfg Config) *cacheSet {
 	return &cacheSet{
 		sync.RWMutex{},
 		services.StateMachine{},
-		cfg.Logger,
+		lggr.Named("CacheSet"),
 		make(map[string]Cache),
 		cfg,
 	}
@@ -92,9 +91,7 @@ func (cs *cacheSet) get(ctx context.Context, client Client) (Fetcher, error) {
 	if exists {
 		return c, nil
 	}
-	cfg := cs.cfg
-	cfg.Logger = cfg.Logger.With("serverURL", sURL)
-	c = newMemCache(client, cfg)
+	c = newMemCache(cs.lggr, client, cs.cfg)
 	if err := c.Start(ctx); err != nil {
 		return nil, err
 	}
