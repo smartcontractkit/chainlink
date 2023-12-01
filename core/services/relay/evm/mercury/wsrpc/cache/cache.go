@@ -328,7 +328,7 @@ func (m *memCache) fetch(req *pb.LatestReportRequest, v *cacheVal) {
 
 func (m *memCache) Start(context.Context) error {
 	return m.StartOnce(m.Name(), func() error {
-		m.lggr.Debugw("MemCache starting", "config", m.cfg)
+		m.lggr.Debugw("MemCache starting", "config", m.cfg, "serverURL", m.client.ServerURL())
 		m.wg.Add(1)
 		go m.runloop()
 		return nil
