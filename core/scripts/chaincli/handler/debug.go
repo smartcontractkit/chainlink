@@ -280,13 +280,12 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 
 			// do mercury request
 			automationCheckResult := mustAutomationCheckResult(upkeepID, checkResult, trigger)
-			checkResults := []ocr2keepers.CheckResult{automationCheckResult}
-			values, err := streams.DoMercuryRequest(ctx, streamsLookup, &checkResults[0])
+			values, err := streams.DoMercuryRequest(ctx, streamsLookup, &automationCheckResult)
 
-			if checkResults[0].IneligibilityReason == uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput) {
+			if automationCheckResult.IneligibilityReason == uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput) {
 				resolveIneligible("upkeep used invalid revert data")
 			}
-			if checkResults[0].PipelineExecutionState == uint8(mercury.InvalidMercuryRequest) {
+			if automationCheckResult.PipelineExecutionState == uint8(mercury.InvalidMercuryRequest) {
 				resolveIneligible("the mercury request data is invalid")
 			}
 			if err != nil {
@@ -294,14 +293,14 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			}
 
 			// do checkCallback
-			err = streams.CheckCallback(ctx, values, streamsLookup, &checkResults[0])
+			err = streams.CheckCallback(ctx, values, streamsLookup, &automationCheckResult)
 			if err != nil {
 				failUnknown("failed to execute mercury callback ", err)
 			}
-			if checkResults[0].IneligibilityReason != 0 {
-				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResults[0].IneligibilityReason))
+			if automationCheckResult.IneligibilityReason != 0 {
+				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", automationCheckResult.IneligibilityReason))
 			}
-			upkeepNeeded, performData = checkResults[0].Eligible, checkResults[0].PerformData
+			upkeepNeeded, performData = automationCheckResult.Eligible, automationCheckResult.PerformData
 			// do tenderly simulations for checkCallback
 			rawCall, err := core.RegistryABI.Pack("checkCallback", upkeepID, values, streamsLookup.ExtraData)
 			if err != nil {
