@@ -11,6 +11,8 @@ import (
 )
 
 const (
+	// NOTE: This enum should be kept in sync with evmregistry/v21/mercury/upkeep_failure_reasons.go
+	// TODO (AUTO-7928) Remove this duplication
 	// upkeep failure onchain reasons
 	UpkeepFailureReasonNone                    uint8 = 0
 	UpkeepFailureReasonUpkeepCancelled         uint8 = 1
@@ -30,6 +32,8 @@ const (
 	UpkeepFailureReasonSimulationFailed        uint8 = 35
 	UpkeepFailureReasonTxHashReorged           uint8 = 36
 
+	// NOTE: This enum should be kept in sync with evmregistry/v21/mercury/upkeep_states.go
+	// TODO (AUTO-7928) Remove this duplication
 	// pipeline execution error
 	NoPipelineError        uint8 = 0
 	CheckBlockTooOld       uint8 = 1
