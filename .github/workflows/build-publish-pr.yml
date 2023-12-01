@@ -29,7 +29,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           sign-images: false
           ecr-hostname: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
-          ecr-image-name: chainlink-untrusted
+          ecr-image-name: crib-chainlink-untrusted
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
 
