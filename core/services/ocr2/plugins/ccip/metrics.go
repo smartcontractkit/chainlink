@@ -125,10 +125,14 @@ func ChainName(chainID int64) string {
 		return "base-mainnet"
 	case 84531:
 		return "ethereum-testnet-goerli-base-1"
+	case 84532:
+		return "ethereum-testnet-sepolia-base-1"
 	case 42161:
 		return "ethereum-mainnet-arbitrum-1"
 	case 421613:
 		return "ethereum-testnet-goerli-arbitrum-1"
+	case 421614:
+		return "ethereum-testnet-sepolia-arbitrum-1"
 	case 43113:
 		return "avalanche-testnet-fuji"
 	case 43114:
@@ -139,6 +143,8 @@ func ChainName(chainID int64) string {
 		return "polygon-testnet-mumbai"
 	case 11155111:
 		return "ethereum-testnet-sepolia"
+	case 11155420:
+		return "ethereum-testnet-sepolia-optimism-1"
 	default: // Unknown chain, return chainID as string
 		return strconv.FormatInt(chainID, 10)
 	}

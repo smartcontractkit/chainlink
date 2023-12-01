@@ -181,11 +181,15 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 
 	case 420: // Optimism Goerli
 		prefix = "https://goerli-optimism.etherscan.io"
+	case 11155420: // Optimism Sepolia
+		prefix = "https://optimism-sepolia.blockscout.com/"
 
 	case ArbitrumGoerliChainID: // Arbitrum Goerli
 		prefix = "https://goerli.arbiscan.io"
 	case ArbitrumOneChainID: // Arbitrum mainnet
 		prefix = "https://arbiscan.io"
+	case ArbitrumSepoliaChainID: // Arbitrum Sepolia
+		prefix = "https://sepolia.arbiscan.io/"
 
 	case 56: // BSC mainnet
 		prefix = "https://bscscan.com"
@@ -211,6 +215,16 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 	case 53935: // Defi Kingdoms mainnet
 		prefix = "https://subnets.avax.network/defi-kingdoms"
 
+	case 1111: // wemix mainnet
+		prefix = "https://explorer.wemix.com/"
+	case 1112: // wemix testnet
+		prefix = "https://explorer.test.wemix.com"
+
+	case 255: // Kroma mainnet
+		prefix = "https://kromascan.com/"
+	case 2358: // Kroma sepolia
+		prefix = "https://sepolia.kromascan.com/"
+
 	case 1666600000, 1666600001, 1666600002, 1666600003: // Harmony mainnet
 		prefix = "https://explorer.harmony.one"
 	case 1666700000, 1666700001, 1666700002, 1666700003: // Harmony testnet
@@ -220,6 +234,8 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 		prefix = "https://goerli.basescan.org"
 	case 8453:
 		prefix = "https://basescan.org"
+	case 84532:
+		return "https://base-sepolia.blockscout.com/"
 
 	default: // Unknown chain, return prefix as-is
 		prefix = ""
