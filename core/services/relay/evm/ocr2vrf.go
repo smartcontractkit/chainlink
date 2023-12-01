@@ -114,6 +114,10 @@ func (c *dkgProvider) ChainReader() commontypes.ChainReader {
 	return nil
 }
 
+func (c *dkgProvider) Codec() commontypes.Codec {
+	return nil
+}
+
 type ocr2vrfProvider struct {
 	*configWatcher
 	contractTransmitter ContractTransmitter
@@ -124,6 +128,10 @@ func (c *ocr2vrfProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 }
 
 func (c *ocr2vrfProvider) ChainReader() commontypes.ChainReader {
+	return nil
+}
+
+func (c *ocr2vrfProvider) Codec() commontypes.Codec {
 	return nil
 }
 

@@ -20,9 +20,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+type RelayOpts struct {
+	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
+	// make this private and wrap the arg fields with funcs on RelayOpts
+	commontypes.RelayArgs
+	c *RelayConfig
+}
+
 type ChainReaderConfig struct {
 	// ChainContractReaders key is contract name
 	ChainContractReaders map[string]ChainContractReader `json:"chainContractReaders"`
+}
+
+type CodecConfig struct {
+	// ChainCodecConfigs is the type's name for the codec
+	ChainCodecConfigs map[string]ChainCodedConfig `json:"chainCodecConfig"`
 }
 
 type ChainCodedConfig struct {
@@ -32,7 +44,7 @@ type ChainCodedConfig struct {
 
 type ChainContractReader struct {
 	ContractABI string `json:"contractABI"`
-	// ChainReaderDefinitions key is chainAgnostic read name.
+	// key is genericName from config
 	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions"`
 }
 
@@ -41,7 +53,7 @@ type ChainReaderDefinition struct {
 	Params            map[string]any `json:"params"`
 	ReturnValues      []string       `json:"returnValues"`
 	CacheEnabled      bool           `json:"cacheEnabled"`
-	ReadType          ReadType       `json:"readType"`
+	ReadType          `json:"readType"`
 }
 
 type ReadType int64
@@ -57,19 +69,13 @@ type RelayConfig struct {
 	EffectiveTransmitterID null.String        `json:"effectiveTransmitterID"`
 	ConfigContractAddress  *common.Address    `json:"configContractAddress"`
 	ChainReader            *ChainReaderConfig `json:"chainReader"`
+	Codec                  *CodecConfig       `json:"codec"`
 
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`
 
 	// Mercury-specific
 	FeedID *common.Hash `json:"feedID"`
-}
-
-type RelayOpts struct {
-	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
-	// make this private and wrap the arg fields with funcs on RelayOpts
-	commontypes.RelayArgs
-	c *RelayConfig
 }
 
 var ErrBadRelayConfig = errors.New("bad relay config")
