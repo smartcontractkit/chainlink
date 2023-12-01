@@ -194,10 +194,11 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 	if req == nil {
 		return nil, errors.New("req must not be nil")
 	}
+	feedIDHex := mercuryutils.BytesToFeedID(req.FeedId).String()
 	if m.cfg.LatestReportTTL <= 0 {
 		return m.client.RawClient().LatestReport(ctx, req)
 	}
-	vi, _ := m.cache.LoadOrStore(req, &cacheVal{
+	vi, loaded := m.cache.LoadOrStore(feedIDHex, &cacheVal{
 		sync.RWMutex{},
 		false,
 		nil,
@@ -207,24 +208,26 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 	})
 	v := vi.(*cacheVal)
 
+	m.lggr.Tracew("LatestReport", "feedID", feedIDHex, "loaded", loaded)
+
 	// HOT PATH
 	v.RLock()
 	if time.Now().Before(v.expiresAt) {
 		// CACHE HIT
-		promCacheHitCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+		promCacheHitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 
 		defer v.RUnlock()
 		return v.val, nil
 	} else if v.fetching {
 		// CACHE WAIT
-		promCacheWaitCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+		promCacheWaitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 		// if someone else is fetching then wait for the fetch to complete
 		ch := v.fetchCh
 		v.RUnlock()
 		return v.waitForResult(ctx, ch, m.chStop)
 	}
 	// CACHE MISS
-	promCacheMissCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+	promCacheMissCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 	// fallthrough to cold path and fetch
 	v.RUnlock()
 
@@ -232,19 +235,19 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 	v.Lock()
 	if time.Now().Before(v.expiresAt) {
 		// CACHE HIT
-		promCacheHitCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+		promCacheHitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 		defer v.RUnlock()
 		return v.val, nil
 	} else if v.fetching {
 		// CACHE WAIT
-		promCacheWaitCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+		promCacheWaitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 		// if someone else is fetching then wait for the fetch to complete
 		ch := v.fetchCh
 		v.Unlock()
 		return v.waitForResult(ctx, ch, m.chStop)
 	}
 	// CACHE MISS
-	promCacheMissCount.WithLabelValues(m.client.ServerURL(), mercuryutils.BytesToFeedID(req.FeedId).String()).Inc()
+	promCacheMissCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 	// initiate the fetch and wait for result
 	ch := v.initiateFetch()
 	v.Unlock()
