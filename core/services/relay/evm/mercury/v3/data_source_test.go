@@ -63,6 +63,14 @@ func (m *mockORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg
 	return m.report, m.err
 }
 
+type mockSaver struct {
+	r *pipeline.Run
+}
+
+func (ms *mockSaver) Save(r *pipeline.Run) {
+	ms.r = r
+}
+
 func Test_Datasource(t *testing.T) {
 	orm := &mockORM{}
 	ds := &datasource{orm: orm, lggr: logger.TestLogger(t)}
@@ -71,6 +79,9 @@ func Test_Datasource(t *testing.T) {
 
 	fetcher := &mockFetcher{}
 	ds.fetcher = fetcher
+
+	saver := &mockSaver{}
+	ds.saver = saver
 
 	goodTrrs := []pipeline.TaskRunResult{
 		{

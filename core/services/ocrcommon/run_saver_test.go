@@ -14,13 +14,11 @@ import (
 
 func TestRunSaver(t *testing.T) {
 	pipelineRunner := mocks.NewRunner(t)
-	rr := make(chan *pipeline.Run, 100)
 	rs := NewResultRunSaver(
-		rr,
 		pipelineRunner,
-		make(chan struct{}),
 		logger.TestLogger(t),
 		1000,
+		100,
 	)
 	require.NoError(t, rs.Start(testutils.Context(t)))
 	for i := 0; i < 100; i++ {
@@ -31,7 +29,7 @@ func TestRunSaver(t *testing.T) {
 				args.Get(0).(*pipeline.Run).ID = int64(d)
 			}).
 			Once()
-		rr <- &pipeline.Run{ID: int64(i)}
+		rs.Save(&pipeline.Run{ID: int64(i)})
 	}
 	require.NoError(t, rs.Close())
 }

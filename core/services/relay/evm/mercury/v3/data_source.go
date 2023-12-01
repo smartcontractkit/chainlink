@@ -40,7 +40,7 @@ type datasource struct {
 	spec           pipeline.Spec
 	feedID         mercuryutils.FeedID
 	lggr           logger.Logger
-	runResults     chan<- *pipeline.Run
+	saver          ocrcommon.Saver
 	orm            types.DataSourceORM
 	codec          reportcodec.ReportCodec
 
@@ -55,8 +55,8 @@ type datasource struct {
 
 var _ relaymercuryv3.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
-	return &datasource{pr, jb, spec, feedID, lggr, rr, orm, reportcodec.ReportCodec{}, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, s ocrcommon.Saver, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
+	return &datasource{pr, jb, spec, feedID, lggr, s, orm, reportcodec.ReportCodec{}, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv3.Observation, pipelineExecutionErr error) {
@@ -92,11 +92,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			pipelineExecutionErr = fmt.Errorf("Observe failed while executing run: %w", pipelineExecutionErr)
 			return
 		}
-		select {
-		case ds.runResults <- run:
-		default:
-			ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
-		}
+
+		ds.saver.Save(run)
 
 		var parsed parseOutput
 		parsed, pipelineExecutionErr = ds.parse(trrs)

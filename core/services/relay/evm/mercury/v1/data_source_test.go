@@ -52,6 +52,14 @@ func (m *mockFetcher) LatestTimestamp(context.Context) (int64, error) {
 	return 0, nil
 }
 
+type mockSaver struct {
+	r *pipeline.Run
+}
+
+func (ms *mockSaver) Save(r *pipeline.Run) {
+	ms.r = r
+}
+
 type mockORM struct {
 	report []byte
 	err    error
@@ -79,6 +87,9 @@ func TestMercury_Observe(t *testing.T) {
 
 	fetcher := &mockFetcher{}
 	ds.fetcher = fetcher
+
+	saver := &mockSaver{}
+	ds.saver = saver
 
 	trrs := []pipeline.TaskRunResult{
 		{
@@ -293,24 +304,16 @@ func TestMercury_Observe(t *testing.T) {
 			_, err := ds.Observe(ctx, repts, false)
 			assert.EqualError(t, err, "Observe failed while parsing run results: failed to parse Bid: can't convert foo to decimal")
 		})
-		t.Run("sends run to runResults channel", func(t *testing.T) {
+		t.Run("saves run", func(t *testing.T) {
 			for i := range trrs {
 				trrs[i].Result.Value = "123"
 				trrs[i].Result.Error = nil
 			}
-			ch := make(chan *pipeline.Run, 1)
-
-			ds.runResults = ch
 
 			_, err := ds.Observe(ctx, repts, false)
 			assert.NoError(t, err)
 
-			select {
-			case run := <-ch:
-				assert.Equal(t, int64(42), run.ID)
-			default:
-				t.Fatal("expected run on channel")
-			}
+			assert.Equal(t, int64(42), saver.r.ID)
 		})
 	})
 
