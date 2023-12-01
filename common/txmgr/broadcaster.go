@@ -222,15 +222,14 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 	eb.wg = sync.WaitGroup{}
 	eb.wg.Add(len(eb.enabledAddresses))
 	eb.triggers = make(map[ADDR]chan struct{})
+	eb.sequenceLock.Lock()
+	eb.nextSequenceMap = eb.loadNextSequenceMap(eb.enabledAddresses)
+	eb.sequenceLock.Unlock()
 	for _, addr := range eb.enabledAddresses {
 		triggerCh := make(chan struct{}, 1)
 		eb.triggers[addr] = triggerCh
 		go eb.monitorTxs(addr, triggerCh)
 	}
-
-	eb.sequenceLock.Lock()
-	defer eb.sequenceLock.Unlock()
-	eb.nextSequenceMap = eb.loadNextSequenceMap(eb.enabledAddresses)
 
 	eb.isStarted = true
 	return nil
