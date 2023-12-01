@@ -260,6 +260,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			b.te.LogWatch.Shutdown(testcontext.Get(b.t))
 
 			if b.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
+				// we can't do much if this fails, so we just log the error
+				_ = b.te.LogWatch.FlushLogsToTargets()
 				b.te.LogWatch.PrintLogTargetsLocations()
 				b.te.LogWatch.SaveLogLocationInTestSummary()
 			}
