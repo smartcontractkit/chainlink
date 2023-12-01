@@ -1,7 +1,6 @@
 name: "Build Chainlink and Publish"
 
 on:
-  pull_request:
   # Mimics old circleci behaviour
   push:
     tags:
