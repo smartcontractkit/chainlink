@@ -2,6 +2,8 @@ package mercury
 
 type MercuryUpkeepFailureReason uint8
 
+// NOTE: This enum should be kept in sync with evmregistry/v21/encoding/interface.go
+// TODO (AUTO-7928) Remove this duplication
 const (
 	// upkeep failure onchain reasons
 	MercuryUpkeepFailureReasonNone                    MercuryUpkeepFailureReason = 0
