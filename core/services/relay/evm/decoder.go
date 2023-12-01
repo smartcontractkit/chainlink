@@ -75,8 +75,9 @@ func setElements(length int, rDecode reflect.Value, iInto reflect.Value) error {
 
 func mapstructureDecode(src, dest any) error {
 	mDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook: evmDecoderHook,
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(evmDecoderHooks...),
 		Result:     dest,
+		Squash:     true,
 	})
 	if err != nil || mDecoder.Decode(src) != nil {
 		return commontypes.ErrInvalidType

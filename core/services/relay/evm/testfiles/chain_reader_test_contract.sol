@@ -44,6 +44,18 @@ contract LatestValueHolder {
         seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct));
     }
 
+    function ReturnSeen(
+        int32 field,
+        string calldata differentField,
+        uint8 oracleId,
+        uint8[32] calldata oracleIds,
+        bytes32 account,
+        bytes32[] calldata accounts,
+        int192 bigField,
+        MidLevelTestStruct calldata nestedStruct) pure public returns (TestStruct memory) {
+        return TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
+    }
+
     function GetElementAtIndex(uint256 i) public view returns (TestStruct memory) {
         // See chain_reader_interface_tests.go in chainlink-relay
         return seen[i-1];

@@ -11,18 +11,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 
-	mocklogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	mocklogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -31,6 +33,8 @@ import (
 )
 
 const commonGasLimitOnEvms = uint64(4712388)
+const chainReaderContractName = "LatestValueHolder"
+const returnSeenName = "ReturnSeen"
 
 func TestChainReader(t *testing.T) {
 	RunChainReaderInterfaceTests(t, &chainReaderInterfaceTester{})
@@ -47,13 +51,10 @@ type chainReaderInterfaceTester struct {
 }
 
 func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
-	if it.chain == nil {
-		it.setupNoClient(t)
-		it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
+	if it.chain != nil {
+		return
 	}
-}
 
-func (it *chainReaderInterfaceTester) setupNoClient(t require.TestingT) {
 	// can re-use the same chain for tests, just make new contract for each test
 	if it.chain != nil {
 		return
@@ -63,9 +64,11 @@ func (it *chainReaderInterfaceTester) setupNoClient(t require.TestingT) {
 	it.setupChainNoClient(t)
 	it.chain.On("LogPoller").Return(logger.NullLogger)
 
+	testStruct := CreateTestStruct(0, it)
+
 	it.chainConfig = types.ChainReaderConfig{
 		ChainContractReaders: map[string]types.ChainContractReader{
-			"LatestValueHolder": {
+			chainReaderContractName: {
 				ContractABI: testfiles.TestfilesMetaData.ABI,
 				ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: {
@@ -77,10 +80,26 @@ func (it *chainReaderInterfaceTester) setupNoClient(t require.TestingT) {
 					MethodReturningUint64Slice: {
 						ChainSpecificName: "GetSliceValue",
 					},
+					MethodReturningSeenStruct: {
+						ChainSpecificName: returnSeenName,
+						InputModifications: codec.ModifiersConfig{
+							&codec.HardCodeConfig{
+								OnChainValues: map[string]any{
+									"BigField": testStruct.BigField.String(),
+									"Account":  hexutil.Encode(testStruct.Account),
+								},
+							},
+						},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.HardCodeConfig{
+								OffChainValues: map[string]any{"ExtraField": anyExtraValue}},
+						},
+					},
 				},
 			},
 		},
 	}
+	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
 }
 
 func (it *chainReaderInterfaceTester) Teardown(_ *testing.T) {
@@ -113,6 +132,13 @@ func (it *chainReaderInterfaceTester) GetPrimitiveContract(ctx context.Context, 
 	}
 }
 
+func (it *chainReaderInterfaceTester) GetReturnSeenContract(ctx context.Context, t *testing.T) clcommontypes.BoundContract {
+	it.deployNewContract(ctx, t)
+	return clcommontypes.BoundContract{
+		Address: it.address,
+		Name:    returnSeenName,
+	}
+}
 func (it *chainReaderInterfaceTester) GetSliceContract(ctx context.Context, t *testing.T) clcommontypes.BoundContract {
 	// Since most tests don't use the contract, it's set up lazily to save time
 	it.deployNewContract(ctx, t)
