@@ -34,7 +34,6 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
-
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
 
 	return db

@@ -54,6 +54,7 @@ type Core struct {
 	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
+	Mercury          Mercury          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -82,6 +83,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
 	c.Keeper.setFrom(&f.Keeper)
+	c.Mercury.setFrom(&f.Mercury)
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
@@ -1358,6 +1360,32 @@ func (ins *Insecure) setFrom(f *Insecure) {
 	}
 }
 
+type MercuryCache struct {
+	LatestReportTTL      *models.Duration
+	MaxStaleAge          *models.Duration
+	LatestReportDeadline *models.Duration
+}
+
+func (mc *MercuryCache) setFrom(f *MercuryCache) {
+	if v := f.LatestReportTTL; v != nil {
+		mc.LatestReportTTL = v
+	}
+	if v := f.MaxStaleAge; v != nil {
+		mc.MaxStaleAge = v
+	}
+	if v := f.LatestReportDeadline; v != nil {
+		mc.LatestReportDeadline = v
+	}
+}
+
+type Mercury struct {
+	Cache MercuryCache `toml:",omitempty"`
+}
+
+func (m *Mercury) setFrom(f *Mercury) {
+	m.Cache.setFrom(&f.Cache)
+}
+
 type MercuryCredentials struct {
 	// LegacyURL is the legacy base URL for mercury v0.2 API
 	LegacyURL *models.SecretURL
@@ -1455,6 +1483,8 @@ type Tracing struct {
 	CollectorTarget *string
 	NodeID          *string
 	SamplingRatio   *float64
+	Mode            *string
+	TLSCertPath     *string
 	Attributes      map[string]string `toml:",omitempty"`
 }
 
@@ -1474,6 +1504,12 @@ func (t *Tracing) setFrom(f *Tracing) {
 	if v := f.SamplingRatio; v != nil {
 		t.SamplingRatio = f.SamplingRatio
 	}
+	if v := f.Mode; v != nil {
+		t.Mode = f.Mode
+	}
+	if v := f.TLSCertPath; v != nil {
+		t.TLSCertPath = f.TLSCertPath
+	}
 }
 
 func (t *Tracing) ValidateConfig() (err error) {
@@ -1487,10 +1523,39 @@ func (t *Tracing) ValidateConfig() (err error) {
 		}
 	}
 
-	if t.CollectorTarget != nil {
-		ok := isValidURI(*t.CollectorTarget)
-		if !ok {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+	if t.Mode != nil {
+		switch *t.Mode {
+		case "tls":
+			// TLSCertPath must be set
+			if t.TLSCertPath == nil {
+				err = multierr.Append(err, configutils.ErrMissing{Name: "TLSCertPath", Msg: "must be set when Tracing.Mode is tls"})
+			} else {
+				ok := isValidFilePath(*t.TLSCertPath)
+				if !ok {
+					err = multierr.Append(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
+				}
+			}
+		case "unencrypted":
+			// no-op
+		default:
+			// Mode must be either "tls" or "unencrypted"
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "Mode", Value: *t.Mode, Msg: "must be either 'tls' or 'unencrypted'"})
+		}
+	}
+
+	if t.CollectorTarget != nil && t.Mode != nil {
+		switch *t.Mode {
+		case "tls":
+			if !isValidURI(*t.CollectorTarget) {
+				err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+			}
+		case "unencrypted":
+			// Unencrypted traces can not be sent to external networks
+			if !isValidLocalURI(*t.CollectorTarget) {
+				err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid local URI"})
+			}
+		default:
+			// no-op
 		}
 	}
 
@@ -1499,15 +1564,19 @@ func (t *Tracing) ValidateConfig() (err error) {
 
 var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)
 
+// Validates uri is valid external or local URI
 func isValidURI(uri string) bool {
 	if strings.Contains(uri, "://") {
-		// Standard URI check
-		_, _ = url.ParseRequestURI(uri)
-		// TODO: BCF-2703. Handle error. All external addresses currently fail validation until we have secure transport to external networks.
-		return false
+		_, err := url.ParseRequestURI(uri)
+		return err == nil
 	}
 
-	// For URIs like "otel-collector:4317"
+	return isValidLocalURI(uri)
+}
+
+// isValidLocalURI returns true if uri is a valid local URI
+// External URIs (e.g. http://) are not valid local URIs, and will return false.
+func isValidLocalURI(uri string) bool {
 	parts := strings.Split(uri, ":")
 	if len(parts) == 2 {
 		host, port := parts[0], parts[1]
@@ -1529,4 +1598,8 @@ func isValidURI(uri string) bool {
 
 func isValidHostname(hostname string) bool {
 	return hostnameRegex.MatchString(hostname)
+}
+
+func isValidFilePath(path string) bool {
+	return len(path) > 0 && len(path) < 4096
 }

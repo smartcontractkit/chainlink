@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/smartcontractkit/chainlink/v2/dashboard/dashboard"
+	"github.com/smartcontractkit/wasp"
 )
 
 func main() {
@@ -15,6 +16,7 @@ func main() {
 	if ldsn == "" {
 		panic("DATA_SOURCE_NAME must be provided")
 	}
+	os.Setenv("DATA_SOURCE_NAME", ldsn)
 	pdsn := os.Getenv("PROMETHEUS_DATA_SOURCE_NAME")
 	if ldsn == "" {
 		panic("DATA_SOURCE_NAME must be provided")
@@ -32,11 +34,16 @@ func main() {
 		panic("GRAFANA_TOKEN must be provided")
 	}
 	// if you'll use this dashboard base in other projects, you can add your own opts here to extend it
-	db, err := dashboard.NewCLClusterDashboard(name, ldsn, pdsn, dbf, grafanaURL, grafanaToken, nil)
+	db, err := dashboard.NewCLClusterDashboard(6, name, ldsn, pdsn, dbf, grafanaURL, grafanaToken, nil)
 	if err != nil {
 		panic(err)
 	}
-	if err := db.Deploy(); err != nil {
+	// here we are extending load testing dashboard with core metrics, for example
+	wdb, err := wasp.NewDashboard(nil, db.Opts())
+	if err != nil {
+		panic(err)
+	}
+	if _, err := wdb.Deploy(); err != nil {
 		panic(err)
 	}
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -48,9 +48,10 @@ type ORM interface {
 	SelectIndexedLogsTopicGreaterThan(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectIndexedLogsTopicRange(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin, topicValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
+	SelectIndexedLogsByTxHash(address common.Address, eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordRange(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
+	SelectLogsDataWordBetween(address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 }
 
 type DbORM struct {
@@ -61,7 +62,7 @@ type DbORM struct {
 
 // NewORM creates a DbORM scoped to chainID.
 func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *DbORM {
-	namedLogger := lggr.Named("Configs")
+	namedLogger := logger.Named(lggr, "Configs")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &DbORM{
 		chainID: chainID,
@@ -535,6 +536,32 @@ func (o *DbORM) SelectLogsDataWordGreaterThan(address common.Address, eventSig c
 	return logs, nil
 }
 
+func (o *DbORM) SelectLogsDataWordBetween(address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
+		withWordIndexMin(wordIndexMin).
+		withWordIndexMax(wordIndexMax).
+		withWordValue(wordValue).
+		withConfs(confs).
+		toArgs()
+	if err != nil {
+		return nil, err
+	}
+	query := fmt.Sprintf(`
+		SELECT * FROM evm.logs 
+			WHERE evm_chain_id = :evm_chain_id
+			AND address = :address
+			AND event_sig = :event_sig
+			AND substring(data from 32*:word_index_min+1 for 32) <= :word_value
+			AND substring(data from 32*:word_index_max+1 for 32) >= :word_value
+			AND block_number <= %s
+			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+	var logs []Log
+	if err = o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
 func (o *DbORM) SelectIndexedLogsTopicGreaterThan(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
 		withTopicIndex(topicIndex).
@@ -664,9 +691,10 @@ func (o *DbORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig c
 	return logs, nil
 }
 
-func (o *DbORM) SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+func (o *DbORM) SelectIndexedLogsByTxHash(address common.Address, eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	args, err := newQueryArgs(o.chainID).
 		withTxHash(txHash).
+		withAddress(address).
 		withEventSig(eventSig).
 		toArgs()
 	if err != nil {
@@ -676,8 +704,9 @@ func (o *DbORM) SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Ha
 	err = o.q.WithOpts(qopts...).SelectNamed(&logs, `
 		SELECT * FROM evm.logs 
 			WHERE evm_chain_id = :evm_chain_id
+			AND address = :address
+			AND event_sig = :event_sig			  
 			AND tx_hash = :tx_hash
-			AND event_sig = :event_sig
 			ORDER BY (block_number, log_index)`, args)
 	if err != nil {
 		return nil, err

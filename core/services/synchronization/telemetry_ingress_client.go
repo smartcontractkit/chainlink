@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type NoopTelemetryIngressClient struct{}
@@ -46,22 +45,22 @@ type telemetryIngressClient struct {
 	lggr        logger.Logger
 
 	wgDone           sync.WaitGroup
-	chDone           chan struct{}
+	chDone           services.StopChan
 	dropMessageCount atomic.Uint32
 	chTelemetry      chan TelemPayload
 }
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint) TelemetryService {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, network string, chainID string) TelemetryService {
 	return &telemetryIngressClient{
 		url:             url,
 		ks:              ks,
 		serverPubKeyHex: serverPubKeyHex,
 		logging:         logging,
-		lggr:            lggr.Named("TelemetryIngressClient"),
+		lggr:            lggr.Named("TelemetryIngressClient").Named(network).Named(chainID),
 		chTelemetry:     make(chan TelemPayload, telemBufferSize),
-		chDone:          make(chan struct{}),
+		chDone:          make(services.StopChan),
 	}
 }
 
@@ -132,7 +131,7 @@ func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []b
 
 func (tc *telemetryIngressClient) handleTelemetry() {
 	go func() {
-		ctx, cancel := utils.StopChan(tc.chDone).NewCtx()
+		ctx, cancel := tc.chDone.NewCtx()
 		defer cancel()
 		for {
 			select {

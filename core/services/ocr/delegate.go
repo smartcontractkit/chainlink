@@ -19,8 +19,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -41,7 +41,7 @@ type Delegate struct {
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
-	legacyChains          evm.LegacyChainContainer
+	legacyChains          legacyevm.LegacyChainContainer
 	lggr                  logger.Logger
 	cfg                   Config
 	mailMon               *utils.MailboxMonitor
@@ -58,7 +58,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
-	legacyChains evm.LegacyChainContainer,
+	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg Config,
 	mailMon *utils.MailboxMonitor,
@@ -274,7 +274,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			effectiveTransmitterAddress,
 		)
 
-		runResults := make(chan *pipeline.Run, chain.Config().JobPipeline().ResultWriteQueueDepth())
+		saver := ocrcommon.NewResultRunSaver(
+			d.pipelineRunner,
+			lggr,
+			cfg.JobPipeline().MaxSuccessfulRuns(),
+			cfg.JobPipeline().ResultWriteQueueDepth(),
+		)
 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)
@@ -311,7 +316,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 				jb,
 				*jb.PipelineSpec,
 				lggr,
-				runResults,
+				saver,
 				enhancedTelemChan,
 			),
 			LocalConfig:                  lc,
@@ -334,19 +339,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		// RunResultSaver needs to be started first so its available
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
-		services = append([]job.ServiceCtx{ocrcommon.NewResultRunSaver(
-			runResults,
-			d.pipelineRunner,
-			make(chan struct{}),
-			lggr,
-			cfg.JobPipeline().MaxSuccessfulRuns(),
-		)}, services...)
+		services = append([]job.ServiceCtx{saver}, services...)
 	}
 
 	return services, nil
 }
 
-func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain evm.Chain, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
+func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain legacyevm.Chain, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
 	flagsContractAddress := chain.Config().EVM().FlagsContractAddress()
 	if flagsContractAddress != "" {
 		flags, err := NewFlags(flagsContractAddress, chain.Client())
@@ -358,7 +357,7 @@ func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain evm.Ch
 		}
 
 		ticker := utils.NewPausableTicker(ConfigOverriderPollInterval)
-		return NewConfigOverriderImpl(logger, contractAddress, flags, &ticker)
+		return NewConfigOverriderImpl(logger, chain.Config().EVM().OCR(), contractAddress, flags, &ticker)
 	}
 	return nil, nil
 }
