@@ -245,13 +245,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			if err := b.te.Cleanup(); err != nil {
 				b.l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
-			if b.te.LogWatch != nil {
-				b.l.Warn().Msg("Shutting down logwatch")
-				b.te.LogWatch.Shutdown(testcontext.Get(b.t))
-				b.te.LogWatch.PrintLogTargetsLocations()
-
-				//TODO if test is failed save url to test_summary.json and then print it in the pipeline
-			}
 		})
 	case CleanUpTypeCustom:
 		b.t.Cleanup(b.cleanUpCustomFn)
@@ -259,6 +252,18 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.l.Warn().Msg("test environment won't be cleaned up")
 	case "":
 		return b.te, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("explicit cleanup type must be set when building test environment"))
+	}
+
+	if b.te.LogWatch != nil {
+		b.t.Cleanup(func() {
+			b.l.Warn().Msg("Shutting down logwatch")
+			b.te.LogWatch.Shutdown(testcontext.Get(b.t))
+
+			if b.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
+				b.te.LogWatch.PrintLogTargetsLocations()
+				b.te.LogWatch.SaveLogLocationInTestSummary()
+			}
+		})
 	}
 
 	if b.nonDevGethNetworks != nil {
