@@ -67,7 +67,8 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commo
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore, configWatcher.chain.Config().EVM().GasEstimator().LimitDefault())
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore, gasLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +91,8 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs c
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore, configWatcher.chain.Config().EVM().GasEstimator().LimitDefault())
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore, gasLimit)
 	if err != nil {
 		return nil, err
 	}

@@ -71,7 +71,9 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, cfgWatcher, r.ethKeystore, cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit())
+
+	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, cfgWatcher, r.ethKeystore, gasLimit)
 	if err != nil {
 		return nil, err
 	}

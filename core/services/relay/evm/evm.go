@@ -461,7 +461,8 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 
 	reportCodec := evmreportcodec.ReportCodec{}
-	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth(), configWatcher.chain.Config().EVM().GasEstimator().LimitDefault())
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth(), gasLimit)
 	if err != nil {
 		return nil, err
 	}
