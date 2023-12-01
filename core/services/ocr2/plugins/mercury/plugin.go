@@ -26,13 +26,13 @@ import (
 
 type Config interface {
 	MaxSuccessfulRuns() uint64
+	ResultWriteQueueDepth() uint64
 }
 
 func NewServices(
 	jb job.Job,
 	ocr2Provider commontypes.MercuryProvider,
 	pipelineRunner pipeline.Runner,
-	runResults chan *pipeline.Run,
 	lggr logger.Logger,
 	argsNoPlugin libocr2.MercuryOracleArgs,
 	cfg Config,
@@ -55,6 +55,8 @@ func NewServices(
 	}
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
+	saver := ocrcommon.NewResultRunSaver(pipelineRunner, lggr, cfg.MaxSuccessfulRuns(), cfg.ResultWriteQueueDepth())
+
 	switch feedID.Version() {
 	case 1:
 		ds := mercuryv1.NewDataSource(
@@ -63,7 +65,7 @@ func NewServices(
 			jb,
 			*jb.PipelineSpec,
 			lggr,
-			runResults,
+			saver,
 			chEnhancedTelem,
 			ocr2Provider.ChainReader(),
 			ocr2Provider.MercuryServerFetcher(),
@@ -84,7 +86,7 @@ func NewServices(
 			*jb.PipelineSpec,
 			feedID,
 			lggr,
-			runResults,
+			saver,
 			chEnhancedTelem,
 			ocr2Provider.MercuryServerFetcher(),
 			*pluginConfig.LinkFeedID,
@@ -104,7 +106,7 @@ func NewServices(
 			*jb.PipelineSpec,
 			feedID,
 			lggr,
-			runResults,
+			saver,
 			chEnhancedTelem,
 			ocr2Provider.MercuryServerFetcher(),
 			*pluginConfig.LinkFeedID,
@@ -124,6 +126,5 @@ func NewServices(
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	saver := ocrcommon.NewResultRunSaver(runResults, pipelineRunner, make(chan struct{}), lggr, cfg.MaxSuccessfulRuns())
 	return []job.ServiceCtx{ocr2Provider, saver, job.NewServiceAdapter(oracle)}, nil
 }
