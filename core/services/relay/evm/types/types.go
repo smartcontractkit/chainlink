@@ -8,11 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"gopkg.in/guregu/null.v2"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -38,8 +37,8 @@ type CodecConfig struct {
 }
 
 type ChainCodedConfig struct {
-	TypeAbi string `json:"typeAbi"`
-	// TODO transform configs that allow hard-coding values or transforming them (max, min, median etc)
+	TypeAbi         string `json:"typeAbi"`
+	ModifierConfigs codec.ModifiersConfig
 }
 
 type ChainContractReader struct {
@@ -49,11 +48,11 @@ type ChainContractReader struct {
 }
 
 type ChainReaderDefinition struct {
-	ChainSpecificName string         `json:"chainSpecificName"` // chain specific contract method name or event type.
-	Params            map[string]any `json:"params"`
-	ReturnValues      []string       `json:"returnValues"`
-	CacheEnabled      bool           `json:"cacheEnabled"`
-	ReadType          `json:"readType"`
+	ChainSpecificName   string `json:"chainSpecificName"` // chain specific contract method name or event type.
+	CacheEnabled        bool   `json:"cacheEnabled"`
+	ReadType            `json:"readType"`
+	InputModifications  codec.ModifiersConfig `json:"input_modifications"`
+	OutputModifications codec.ModifiersConfig `json:"output_modifications"`
 }
 
 type ReadType int64

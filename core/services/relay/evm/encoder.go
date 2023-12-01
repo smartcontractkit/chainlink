@@ -2,23 +2,16 @@ package evm
 
 import (
 	"context"
-	"math/big"
 	"reflect"
 
-	"github.com/mitchellh/mapstructure"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type encoder struct {
 	Definitions map[string]*CodecEntry
 }
-
-var evmDecoderHook = mapstructure.ComposeDecodeHookFunc(codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook)
 
 var _ commontypes.Encoder = &encoder{}
 
@@ -42,13 +35,10 @@ func (e *encoder) GetMaxEncodingSize(ctx context.Context, n int, itemType string
 }
 
 func encode(item reflect.Value, info *CodecEntry) (ocrtypes.Report, error) {
-	iType := item.Type()
-	for iType.Kind() == reflect.Pointer {
-		iType = iType.Elem()
+	for item.Kind() == reflect.Pointer {
+		item = reflect.Indirect(item)
 	}
-	switch iType.Kind() {
-	case reflect.Pointer:
-		return encode(item.Elem(), info)
+	switch item.Kind() {
 	case reflect.Array, reflect.Slice:
 		return encodeArray(item, info)
 	case reflect.Struct, reflect.Map:
@@ -118,24 +108,4 @@ func pack(info *CodecEntry, values ...any) (ocrtypes.Report, error) {
 	}
 
 	return nil, commontypes.ErrInvalidType
-}
-
-func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
-	if !to.Implements(types.SizedBigIntType()) {
-		return data, nil
-	}
-
-	var err error
-	data, err = codec.BigIntHook(from, reflect.TypeOf((*big.Int)(nil)), data)
-	if err != nil {
-		return nil, err
-	}
-
-	bi, ok := data.(*big.Int)
-	if !ok {
-		return data, nil
-	}
-
-	converted := reflect.ValueOf(bi).Convert(to).Interface().(types.SizedBigInt)
-	return converted, converted.Verify()
 }
