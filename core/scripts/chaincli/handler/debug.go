@@ -187,7 +187,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			failUnknown("failed to check if upkeep was already performed: ", err)
 		}
 		if hasKey {
-			resolveIneligible("upkeep was already performed")
+			//resolveIneligible("upkeep was already performed")
 		}
 		triggerCallOpts = &bind.CallOpts{Context: ctx, BlockNumber: big.NewInt(receipt.BlockNumber.Int64())}
 		rawTriggerConfig, err := keeperRegistry21.GetUpkeepTriggerConfig(triggerCallOpts, upkeepID)
@@ -294,6 +294,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 
 			// do checkCallback
 			err = streams.CheckCallback(ctx, values, streamsLookup, &automationCheckResult)
+
 			if err != nil {
 				failUnknown("failed to execute mercury callback ", err)
 			}
@@ -324,8 +325,17 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	if err != nil {
 		failUnknown("failed to simulate perform upkeep: ", err)
 	}
+	// do tenderly simulations
+	rawCall, err := core.RegistryABI.Pack("simulatePerformUpkeep", upkeepID, performData)
+	if err != nil {
+		failUnknown("failed to pack raw simulatePerformUpkeep call", err)
+	}
+	addLink("simulatePerformUpkeep simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+
 	if simulateResult.Success {
 		resolveEligible()
+	} else {
+		resolveIneligible("simulate perform upkeep unsuccessful")
 	}
 }
 
