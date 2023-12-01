@@ -124,9 +124,9 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	require.Error(t, eb.XXXTestCloseInternal())
 
 	// Can successfully startInternal a previously closed instance
-	require.NoError(t, eb.XXXTestStartInternal())
+	require.NoError(t, eb.XXXTestStartInternal(ctx))
 	// Can't startInternal already started instance
-	require.Error(t, eb.XXXTestStartInternal())
+	require.Error(t, eb.XXXTestStartInternal(ctx))
 	// Can successfully closeInternal again
 	require.NoError(t, eb.XXXTestCloseInternal())
 }
