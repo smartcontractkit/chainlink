@@ -19,8 +19,7 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
 ///  can be considered to be owned by the `l1Owner`
 ///
 contract ScrollCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwarder {
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  IScrollMessenger private immutable SCROLL_CROSS_DOMAIN_MESSENGER;
+  IScrollMessenger private immutable i_SCROLL_CROSS_DOMAIN_MESSENGER;
 
   ///
   /// @notice creates a new Scroll xDomain Forwarder contract
@@ -30,7 +29,7 @@ contract ScrollCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwa
   constructor(IScrollMessenger crossDomainMessengerAddr, address l1OwnerAddr) CrossDomainOwnable(l1OwnerAddr) {
     // solhint-disable-next-line custom-errors
     require(address(crossDomainMessengerAddr) != address(0), "Invalid xDomain Messenger address");
-    SCROLL_CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
+    i_SCROLL_CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
   }
 
   ///
@@ -56,7 +55,7 @@ contract ScrollCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwa
   /// @notice This is always the address of the Scroll Cross Domain Messenger contract
   ///
   function crossDomainMessenger() public view returns (address) {
-    return address(SCROLL_CROSS_DOMAIN_MESSENGER);
+    return address(i_SCROLL_CROSS_DOMAIN_MESSENGER);
   }
 
   ///
