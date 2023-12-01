@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	mrand "math/rand"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -43,4 +44,17 @@ func ContextWithDeadlineFn(ctx context.Context, deadlineFn func(orig time.Time) 
 		}
 	}
 	return ctx, cancel
+}
+
+func IsZero[C comparable](val C) bool {
+	var zero C
+	return zero == val
+}
+
+// EnsureHexPrefix adds the prefix (0x) to a given hex string.
+func EnsureHexPrefix(str string) string {
+	if !strings.HasPrefix(str, "0x") {
+		str = "0x" + str
+	}
+	return str
 }
