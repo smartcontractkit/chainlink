@@ -126,6 +126,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 	tests := []struct {
 		name       string
 		lookup     *mercury.StreamsLookup
+		input      []ocr2keepers.CheckResult
 		values     [][]byte
 		statusCode int
 
@@ -152,6 +153,9 @@ func TestStreams_CheckCallback(t *testing.T) {
 				},
 				UpkeepId: upkeepId,
 				Block:    bn,
+			},
+			input: []ocr2keepers.CheckResult{
+				{},
 			},
 			values:       values,
 			statusCode:   http.StatusOK,
@@ -185,6 +189,9 @@ func TestStreams_CheckCallback(t *testing.T) {
 				UpkeepId: upkeepId,
 				Block:    bn,
 			},
+			input: []ocr2keepers.CheckResult{
+				{},
+			},
 			values:       values,
 			statusCode:   http.StatusOK,
 			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -215,6 +222,9 @@ func TestStreams_CheckCallback(t *testing.T) {
 				},
 				UpkeepId: upkeepId,
 				Block:    bn,
+			},
+			input: []ocr2keepers.CheckResult{
+				{},
 			},
 			values:       values,
 			statusCode:   http.StatusOK,
@@ -255,10 +265,10 @@ func TestStreams_CheckCallback(t *testing.T) {
 				}).Once()
 			s.client = client
 
-			state, retryable, _, err := s.checkCallback(testutils.Context(t), tt.values, tt.lookup)
-			tt.wantErr(t, err, fmt.Sprintf("Error asserion failed: %v", tt.name))
-			assert.Equal(t, tt.state, state)
-			assert.Equal(t, tt.retryable, retryable)
+			err = s.CheckCallback(testutils.Context(t), tt.values, tt.lookup, &tt.input[0])
+			tt.wantErr(t, err, fmt.Sprintf("Error assertion failed: %v", tt.name))
+			assert.Equal(t, uint8(tt.state), tt.input[0].PipelineExecutionState)
+			assert.Equal(t, tt.retryable, tt.input[0].Retryable)
 		})
 	}
 }
@@ -434,7 +444,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 				BlockNumber: big.NewInt(10),
 			}
 
-			state, reason, retryable, allowed, err := s.allowedToUseMercury(opts, upkeepId)
+			state, reason, retryable, allowed, err := s.AllowedToUseMercury(opts, upkeepId)
 			assert.Equal(t, tt.err, err)
 			assert.Equal(t, tt.allowed, allowed)
 			assert.Equal(t, tt.state, state)
