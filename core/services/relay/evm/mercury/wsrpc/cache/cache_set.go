@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"golang.org/x/exp/maps"
 
@@ -28,8 +27,7 @@ type cacheSet struct {
 	lggr   logger.Logger
 	caches map[string]Cache
 
-	latestPriceTTL time.Duration
-	maxStaleAge    time.Duration
+	cfg Config
 }
 
 func NewCacheSet(cfg Config) CacheSet {
@@ -37,18 +35,19 @@ func NewCacheSet(cfg Config) CacheSet {
 }
 
 func newCacheSet(cfg Config) *cacheSet {
+	cfg.Logger = cfg.Logger.Named("CacheSet")
 	return &cacheSet{
 		sync.RWMutex{},
 		services.StateMachine{},
-		cfg.Logger.Named("CacheSet"),
+		cfg.Logger,
 		make(map[string]Cache),
-		cfg.LatestReportTTL,
-		cfg.MaxStaleAge,
+		cfg,
 	}
 }
 
 func (cs *cacheSet) Start(context.Context) error {
 	return cs.StartOnce("CacheSet", func() error {
+		cs.lggr.Debugw("CacheSet starting", "config", cs.cfg)
 		return nil
 	})
 }
@@ -93,11 +92,8 @@ func (cs *cacheSet) get(ctx context.Context, client Client) (Fetcher, error) {
 	if exists {
 		return c, nil
 	}
-	cfg := Config{
-		Logger:          cs.lggr.With("serverURL", sURL),
-		LatestReportTTL: cs.latestPriceTTL,
-		MaxStaleAge:     cs.maxStaleAge,
-	}
+	cfg := cs.cfg
+	cfg.Logger = cfg.Logger.With("serverURL", sURL)
 	c = newMemCache(client, cfg)
 	if err := c.Start(ctx); err != nil {
 		return nil, err
