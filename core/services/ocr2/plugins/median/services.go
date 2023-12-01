@@ -25,19 +25,22 @@ import (
 
 type MedianConfig interface {
 	JobPipelineMaxSuccessfulRuns() uint64
+	JobPipelineResultWriteQueueDepth() uint64
 	plugins.RegistrarConfig
 }
 
 // concrete implementation of MedianConfig
 type medianConfig struct {
-	jobPipelineMaxSuccessfulRuns uint64
+	jobPipelineMaxSuccessfulRuns     uint64
+	jobPipelineResultWriteQueueDepth uint64
 	plugins.RegistrarConfig
 }
 
-func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, pluginProcessCfg plugins.RegistrarConfig) MedianConfig {
+func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, jobPipelineResultWriteQueueDepth uint64, pluginProcessCfg plugins.RegistrarConfig) MedianConfig {
 	return &medianConfig{
-		jobPipelineMaxSuccessfulRuns: jobPipelineMaxSuccessfulRuns,
-		RegistrarConfig:              pluginProcessCfg,
+		jobPipelineMaxSuccessfulRuns:     jobPipelineMaxSuccessfulRuns,
+		jobPipelineResultWriteQueueDepth: jobPipelineResultWriteQueueDepth,
+		RegistrarConfig:                  pluginProcessCfg,
 	}
 }
 
@@ -45,12 +48,15 @@ func (m *medianConfig) JobPipelineMaxSuccessfulRuns() uint64 {
 	return m.jobPipelineMaxSuccessfulRuns
 }
 
+func (m *medianConfig) JobPipelineResultWriteQueueDepth() uint64 {
+	return m.jobPipelineResultWriteQueueDepth
+}
+
 func NewMedianServices(ctx context.Context,
 	jb job.Job,
 	isNewlyCreatedJob bool,
 	relayer loop.Relayer,
 	pipelineRunner pipeline.Runner,
-	runResults chan *pipeline.Run,
 	lggr logger.Logger,
 	argsNoPlugin libocr.OCR2OracleArgs,
 	cfg MedianConfig,
@@ -68,6 +74,13 @@ func NewMedianServices(ctx context.Context,
 		return
 	}
 	spec := jb.OCR2OracleSpec
+
+	runSaver := ocrcommon.NewResultRunSaver(
+		pipelineRunner,
+		lggr,
+		cfg.JobPipelineMaxSuccessfulRuns(),
+		cfg.JobPipelineResultWriteQueueDepth(),
+	)
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
@@ -104,7 +117,7 @@ func NewMedianServices(ctx context.Context,
 		jb,
 		*jb.PipelineSpec,
 		lggr,
-		runResults,
+		runSaver,
 		chEnhancedTelem,
 	), ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
 		ID:           jb.ID,
@@ -140,13 +153,6 @@ func NewMedianServices(ctx context.Context,
 		abort()
 		return
 	}
-	runSaver := ocrcommon.NewResultRunSaver(
-		runResults,
-		pipelineRunner,
-		make(chan struct{}),
-		lggr,
-		cfg.JobPipelineMaxSuccessfulRuns(),
-	)
 	srvs = append(srvs, runSaver, job.NewServiceAdapter(oracle))
 	if !jb.OCR2OracleSpec.CaptureEATelemetry {
 		lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
