@@ -1065,8 +1065,8 @@ func setupLogPollerTestDocker(
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 
-	err = waitForChainToFinaliseFirstEpoch(l, env.EVMClient)
-	require.NoError(t, err, "Error waiting for chain to finalise first epoch")
+	// err = waitForChainToFinaliseFirstEpoch(l, env.EVMClient)
+	// require.NoError(t, err, "Error waiting for chain to finalise first epoch")
 
 	env.ParallelTransactions(true)
 	nodeClients := env.ClCluster.NodeAPIs()

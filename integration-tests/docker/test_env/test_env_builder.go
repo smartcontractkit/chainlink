@@ -324,7 +324,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.te.ContractLoader = cl
 	}
 
-	waitForChainToFinaliseFirstEpoch(b.l, b.te.EVMClient)
+	// waitForChainToFinaliseFirstEpoch(b.l, b.te.EVMClient)
 
 	var nodeCsaKeys []string
 

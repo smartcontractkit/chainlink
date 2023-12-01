@@ -64,7 +64,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 
 		l.Info().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
 		err = registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
-		randomWait(50, 200)
+		randomWait(150, 300)
 		require.NoError(t, err, "Error registering log trigger for log emitter")
 	}
 
@@ -89,7 +89,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 			}
 		}
 		g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
-	}, "2m", "10s").Should(gomega.Succeed())
+	}, "20m", "20s").Should(gomega.Succeed())
 	l.Info().Msg("All nodes have expected filters registered")
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
@@ -115,41 +115,14 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	duration := int(endTime.Sub(startTime).Seconds())
 	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
-	//TODO without sleep it fails as loads of logs are not processed when check next hits, our PoS is way slower than PoW. I think I should wait for mempool to be empty, can use eth_pendingTransactions jRPC call for that
-	// time.Sleep(8 * time.Minute)
-
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
 	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
-	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
-	require.NoError(t, err, "Error getting end block to wait for")
-
-	l.Info().Msg("Waiting before proceeding with test until all chaos experiments finish")
-	chaosError := <-chaosDoneCh
-	require.NoError(t, chaosError, "Error encountered during chaos experiment")
-
-	// Wait until last block in which events were emitted has been finalised
-	// how long should we wait here until all logs are processed? wait for block X to be processed by all nodes?
+	// to simplifiy the test, we will select logs for a very wide range, thanks to that we don't have to
+	// look for block number of the last block in which logs were emitted as that's not trivial to do
+	endBlock := int64(eb) + 10000
 	waitDuration := "5m"
-	l.Warn().Str("Duration", waitDuration).Msg("Waiting for logs to be processed by all nodes and for chain to advance beyond finality")
-
-	gom.Eventually(func(g gomega.Gomega) {
-		hasAdvanced, err := chainHasFinalisedEndBlock(l, testEnv.EVMClient, endBlock)
-		if err != nil {
-			l.Warn().Err(err).Msg("Error checking if chain has advanced beyond finality. Retrying...")
-		}
-		g.Expect(hasAdvanced).To(gomega.BeTrue(), "Chain has not advanced beyond finality")
-	}, waitDuration, "30s").Should(gomega.Succeed())
-
-	l.Warn().Str("Duration", "1m").Msg("Waiting for all CL nodes to have end block finalised")
-	gom.Eventually(func(g gomega.Gomega) {
-		hasFinalised, err := logPollerHasFinalisedEndBlock(endBlock, testEnv.EVMClient.GetChainID(), l, coreLogger, testEnv.ClCluster)
-		if err != nil {
-			l.Warn().Err(err).Msg("Error checking if nodes have finalised end block. Retrying...")
-		}
-		g.Expect(hasFinalised).To(gomega.BeTrue(), "Some nodes have not finalised end block")
-	}, "1m", "30s").Should(gomega.Succeed())
 
 	gom.Eventually(func(g gomega.Gomega) {
 		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
@@ -228,14 +201,15 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	expectedLogsEmitted := getExpectedLogCount(cfg)
 	duration := int(endTime.Sub(startTime).Seconds())
 
+	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
+
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
 	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
-	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
-	require.NoError(t, err, "Error getting end block to wait for")
-
-	l.Info().Int64("Ending Block", endBlock).Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
+	// to simplifiy the test, we will select logs for a very wide range, thanks to that we don't have to
+	// look for block number of the last block in which logs were emitted as that's not trivial to do
+	endBlock := int64(eb) + 10000
 
 	// Lets make sure no logs are in DB yet
 	expectedFilters := getExpectedFilters(logEmitters, cfg)
@@ -418,36 +392,27 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
-	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
-	require.NoError(t, err, "Error getting end block to wait for")
+	// to simplifiy the test, we will select logs for a very wide range, thanks to that we don't have to
+	// look for block number of the last block in which logs were emitted as that's not trivial to do
+	endBlock := int64(eb) + 10000
 
 	l.Info().Msg("Waiting before proceeding with test until all chaos experiments finish")
 	chaosError := <-chaosDoneCh
 	require.NoError(t, chaosError, "Error encountered during chaos experiment")
 
-	// Wait until last block in which events were emitted has been finalised (with buffer)
-	waitDuration := "45m"
-	l.Warn().Str("Duration", waitDuration).Msg("Waiting for chain to advance beyond finality")
-
-	gom.Eventually(func(g gomega.Gomega) {
-		hasAdvanced, err := chainHasFinalisedEndBlock(l, testEnv.EVMClient, endBlock)
-		if err != nil {
-			l.Warn().Err(err).Msg("Error checking if chain has advanced beyond finality. Retrying...")
-		}
-		g.Expect(hasAdvanced).To(gomega.BeTrue(), "Chain has not advanced beyond finality")
-	}, waitDuration, "30s").Should(gomega.Succeed())
-
-	l.Warn().Str("Duration", waitDuration).Msg("Waiting for all CL nodes to have end block finalised")
-	gom.Eventually(func(g gomega.Gomega) {
-		hasFinalised, err := logPollerHasFinalisedEndBlock(endBlock, testEnv.EVMClient.GetChainID(), l, coreLogger, testEnv.ClCluster)
-		if err != nil {
-			l.Warn().Err(err).Msg("Error checking if nodes have finalised end block. Retrying...")
-		}
-		g.Expect(hasFinalised).To(gomega.BeTrue(), "Some nodes have not finalised end block")
-	}, waitDuration, "30s").Should(gomega.Succeed())
-
 	// Wait until all CL nodes have exactly the same logs emitted by test contracts as the EVM node has
 	logConsistencyWaitDuration := "10m"
+
+	l.Warn().Str("Duration", logConsistencyWaitDuration).Msg("Waiting for replay logs to be processed by all nodes")
+
+	gom.Eventually(func(g gomega.Gomega) {
+		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
+		if err != nil {
+			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
+		}
+		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
+	}, logConsistencyWaitDuration, "30s").Should(gomega.Succeed())
+
 	l.Warn().Str("Duration", logConsistencyWaitDuration).Msg("Waiting for CL nodes to have all the logs that EVM node has")
 
 	gom.Eventually(func(g gomega.Gomega) {

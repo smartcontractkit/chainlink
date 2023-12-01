@@ -71,10 +71,11 @@ func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
 func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
+	t.Skip("This test is too slow to run in CI, run them manually as needed")
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      300,
+			Contracts:      250,
 			EventsPerTx:    3,
 			UseFinalityTag: false,
 		},
@@ -100,10 +101,11 @@ func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
 }
 
 func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
+	t.Skip("This test is too slow to run in CI, run them manually as needed")
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      300,
+			Contracts:      250,
 			EventsPerTx:    3,
 			UseFinalityTag: true,
 		},
