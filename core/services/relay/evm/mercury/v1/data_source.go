@@ -58,7 +58,7 @@ type datasource struct {
 	jb             job.Job
 	spec           pipeline.Spec
 	lggr           logger.Logger
-	runResults     chan<- *pipeline.Run
+	saver          ocrcommon.Saver
 	orm            types.DataSourceORM
 	codec          reportcodec.ReportCodec
 	feedID         [32]byte
@@ -76,8 +76,8 @@ type datasource struct {
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainReader relaymercury.ChainReader, fetcher Fetcher, initialBlockNumber *int64, feedID mercuryutils.FeedID) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainReader, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, s ocrcommon.Saver, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainReader relaymercury.ChainReader, fetcher Fetcher, initialBlockNumber *int64, feedID mercuryutils.FeedID) *datasource {
+	return &datasource{pr, jb, spec, lggr, s, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainReader, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
 }
 
 type ErrEmptyLatestReport struct {
@@ -156,11 +156,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			pipelineExecutionErr = fmt.Errorf("Observe failed while executing run: %w", pipelineExecutionErr)
 			return
 		}
-		select {
-		case ds.runResults <- run:
-		default:
-			ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
-		}
+
+		ds.saver.Save(run)
 
 		// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
 		// They are guaranteed to be sorted by index asc so should be in the correct order

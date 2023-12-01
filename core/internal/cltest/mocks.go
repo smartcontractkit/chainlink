@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+
 	"github.com/jmoiron/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -407,6 +409,18 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 
 	return NewLegacyChainsWithChain(ch, cfg)
 
+}
+
+func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig, txm txmgr.TxManager) legacyevm.LegacyChainContainer {
+	ch := new(evmmocks.Chain)
+	ch.On("Client").Return(ethClient)
+	ch.On("Logger").Return(logger.TestLogger(t))
+	scopedCfg := evmtest.NewChainScopedConfig(t, cfg)
+	ch.On("ID").Return(scopedCfg.EVM().ChainID())
+	ch.On("Config").Return(scopedCfg)
+	ch.On("TxManager").Return(txm)
+
+	return NewLegacyChainsWithChain(ch, cfg)
 }
 
 func NewLegacyChainsWithChain(ch legacyevm.Chain, cfg legacyevm.AppConfig) legacyevm.LegacyChainContainer {
