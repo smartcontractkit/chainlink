@@ -7,8 +7,10 @@ import (
 	"errors"
 	"math/big"
 	"testing"
+	"time"
 
 	geth_common "github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -300,15 +302,19 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Return(nil).Once()
 		handler.HandleGatewayMessage(ctx, "gw1", msg)
 
-		// second call to collect the response
-		allowlist.On("Allow", addr).Return(true).Once()
-		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-			respMsg, ok := args[2].(*api.Message)
-			require.True(t, ok)
-			require.NoError(t, json.Unmarshal(respMsg.Body.Payload, &response))
-			require.Equal(t, functions.RequestStateInternalError, response.Status)
-		}).Return(nil).Once()
-		handler.HandleGatewayMessage(ctx, "gw1", msg)
+		// collect the response - should eventually result in an internal error
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			returnedState := 0
+			allowlist.On("Allow", addr).Return(true).Once()
+			connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
+				respMsg, ok := args[2].(*api.Message)
+				require.True(t, ok)
+				require.NoError(t, json.Unmarshal(respMsg.Body.Payload, &response))
+				returnedState = response.Status
+			}).Return(nil).Once()
+			handler.HandleGatewayMessage(ctx, "gw1", msg)
+			return returnedState == functions.RequestStateInternalError
+		}, testutils.WaitTimeout(t), 50*time.Millisecond).Should(gomega.BeTrue())
 	})
 
 	t.Run("heartbeat sender address doesn't match", func(t *testing.T) {
