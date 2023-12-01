@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -225,7 +226,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.hasLogWatch {
-		b.te.LogWatch, err = logwatch.NewLogWatch(nil, nil)
+		b.te.LogWatch, err = logwatch.NewLogWatch(b.t, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -243,6 +244,13 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.t.Cleanup(func() {
 			if err := b.te.Cleanup(); err != nil {
 				b.l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+			if b.te.LogWatch != nil {
+				b.l.Warn().Msg("Shutting down logwatch")
+				b.te.LogWatch.Shutdown(testcontext.Get(b.t))
+				b.te.LogWatch.PrintLogTargetsLocations()
+
+				//TODO if test is failed save url to test_summary.json and then print it in the pipeline
 			}
 		})
 	case CleanUpTypeCustom:

@@ -170,6 +170,12 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 		}
 	}
 
+	if te.LogWatch != nil {
+		for _, node := range te.ClCluster.Nodes {
+			node.lw = te.LogWatch
+		}
+	}
+
 	// Start/attach node containers
 	return te.ClCluster.Start()
 }
