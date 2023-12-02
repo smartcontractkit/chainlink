@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
@@ -31,35 +30,23 @@ import (
 type CCIPE2ELoad struct {
 	t                         *testing.T
 	Lane                      *actions.CCIPLane
-	NoOfReq                   int64 // no of Request fired - required for balance assertion at the end
-	totalGEFee                *big.Int
-	BalanceStats              BalanceStats  // balance assertion details
+	NoOfReq                   int64         // approx no of Request fired
 	CurrentMsgSerialNo        *atomic.Int64 // current msg serial number in the load sequence
-	InitialSourceBlockNum     uint64
-	InitialDestBlockNum       uint64        // blocknumber before the first message is fired in the load sequence
 	CallTimeOut               time.Duration // max time to wait for various on-chain events
-	reports                   *testreporters.CCIPLaneStats
 	msg                       router.ClientEVM2AnyMessage
 	MaxDataBytes              uint32
 	SendMaxDataIntermittently bool
 	LastFinalizedTxBlock      atomic.Uint64
 	LastFinalizedTimestamp    atomic.Time
 }
-type BalanceStats struct {
-	SourceBalanceReq        map[string]*big.Int
-	SourceBalanceAssertions []testhelpers.BalanceAssertion
-	DestBalanceReq          map[string]*big.Int
-	DestBalanceAssertions   []testhelpers.BalanceAssertion
-}
 
-func NewCCIPLoad(t *testing.T, lane *actions.CCIPLane, timeout time.Duration, noOfReq int64, reporter *testreporters.CCIPLaneStats) *CCIPE2ELoad {
+func NewCCIPLoad(t *testing.T, lane *actions.CCIPLane, timeout time.Duration, noOfReq int64) *CCIPE2ELoad {
 	return &CCIPE2ELoad{
 		t:                         t,
 		Lane:                      lane,
 		CurrentMsgSerialNo:        atomic.NewInt64(1),
 		CallTimeOut:               timeout,
 		NoOfReq:                   noOfReq,
-		reports:                   reporter,
 		SendMaxDataIntermittently: false,
 	}
 }
@@ -81,22 +68,6 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string) {
 	err := sourceCCIP.Common.ChainClient.WaitForEvents()
 	require.NoError(c.t, err, "Failed to wait for events")
 
-	// save the current block numbers to use in various filter log requests
-	currentBlockOnSource, err := sourceCCIP.Common.ChainClient.LatestBlockNumber(context.Background())
-	require.NoError(c.t, err, "failed to fetch latest source block num")
-	currentBlockOnDest, err := destCCIP.Common.ChainClient.LatestBlockNumber(context.Background())
-	require.NoError(c.t, err, "failed to fetch latest dest block num")
-	c.InitialDestBlockNum = currentBlockOnDest
-	c.InitialSourceBlockNum = currentBlockOnSource
-	// collect the balance requirement to verify balances after transfer
-	sourceBalances, err := testhelpers.GetBalances(c.t, sourceCCIP.CollectBalanceRequirements())
-	require.NoError(c.t, err, "fetching source balance")
-	destBalances, err := testhelpers.GetBalances(c.t, destCCIP.CollectBalanceRequirements())
-	require.NoError(c.t, err, "fetching dest balance")
-	c.BalanceStats = BalanceStats{
-		SourceBalanceReq: sourceBalances,
-		DestBalanceReq:   destBalances,
-	}
 	extraArgsV1, err := testhelpers.GetEVMExtraArgsV1(big.NewInt(100_000), false)
 	require.NoError(c.t, err, "Failed encoding the options field")
 
@@ -127,19 +98,6 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string) {
 
 	sourceCCIP.Common.ChainClient.ParallelTransactions(false)
 	destCCIP.Common.ChainClient.ParallelTransactions(false)
-	// close all header subscriptions for dest chains
-	queuedEvents := destCCIP.Common.ChainClient.GetHeaderSubscriptions()
-	for subName := range queuedEvents {
-		destCCIP.Common.ChainClient.DeleteHeaderEventSubscription(subName)
-	}
-	// close all header subscriptions for source chains except for finalized header
-	queuedEvents = sourceCCIP.Common.ChainClient.GetHeaderSubscriptions()
-	for subName := range queuedEvents {
-		if subName == blockchain.FinalizedHeaderKey {
-			continue
-		}
-		sourceCCIP.Common.ChainClient.DeleteHeaderEventSubscription(subName)
-	}
 }
 
 func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
@@ -150,7 +108,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 
 	lggr := c.Lane.Logger.With().Int("msg Number", int(msgSerialNo)).Logger()
 	stats := testreporters.NewCCIPRequestStats(msgSerialNo)
-	defer c.reports.UpdatePhaseStatsForReq(stats)
+	defer c.Lane.Reports.UpdatePhaseStatsForReq(stats)
 	// form the message for transfer
 	msgStr := fmt.Sprintf("new message with Id %d", msgSerialNo)
 
@@ -322,17 +280,4 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 
 	res.Data = stats.StatusByPhase
 	return res
-}
-
-func (c *CCIPE2ELoad) ReportAcceptedLog() {
-	c.Lane.Logger.Info().Msg("Commit Report stats")
-	it, err := c.Lane.Dest.CommitStore.Instance.FilterReportAccepted(&bind.FilterOpts{Start: c.InitialDestBlockNum})
-	require.NoError(c.t, err, "report committed result")
-	i := 1
-	event := c.Lane.Logger.Info()
-	for it.Next() {
-		event.Interface(fmt.Sprintf("%d Report Intervals", i), it.Event.Report.Interval)
-		i++
-	}
-	event.Msgf("CommitStore-Reports Accepted")
 }

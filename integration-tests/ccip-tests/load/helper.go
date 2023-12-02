@@ -185,7 +185,7 @@ func (l *loadArgs) Start() {
 					Str("Destination Network", lane.DestNetworkName).
 					Msg("Starting load for lane")
 
-				ccipLoad := NewCCIPLoad(l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(), 100000, lane.Reports)
+				ccipLoad := NewCCIPLoad(l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(), 100000)
 				ccipLoad.BeforeAllCall(l.TestCfg.TestGroupInput.MsgType)
 				if lane.TestEnv != nil && lane.TestEnv.K8Env != nil && lane.TestEnv.K8Env.Cfg != nil {
 					namespace = lane.TestEnv.K8Env.Cfg.Namespace
@@ -270,9 +270,6 @@ func (l *loadArgs) ApplyChaos() {
 
 func (l *loadArgs) TearDown() {
 	if l.TestSetupArgs.TearDown != nil {
-		for i := range l.ccipLoad {
-			l.ccipLoad[i].ReportAcceptedLog()
-		}
 		require.NoError(l.t, l.TestSetupArgs.TearDown())
 	}
 }
