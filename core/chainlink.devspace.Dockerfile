@@ -20,7 +20,7 @@ RUN make install-chainlink
 # Final image: ubuntu with chainlink binary
 FROM golang:1.21-bullseye
 
-ARG CHAINLINK_USER=root
+ARG CHAINLINK_USER=chainlink
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 
