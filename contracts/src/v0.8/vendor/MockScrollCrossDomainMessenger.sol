@@ -3,9 +3,7 @@ pragma solidity ^0.8.16;
 
 import "./openzeppelin-solidity/v4.8.3/contracts/utils/Address.sol";
 
-///
 /// sourced from: https://github.com/scroll-tech/scroll/blob/develop/contracts/src/libraries/IScrollMessenger.sol
-///
 interface IScrollMessenger {
   /// **********
   /// * Events *
@@ -89,31 +87,15 @@ contract MockScrollCrossDomainMessenger is IScrollMessenger {
 
   /// @notice Send cross chain message from L1 to L2 or L2 to L1.
   /// @param _target The address of account who receive the message.
-  /// @param _value The amount of ether passed when call target contract.
   /// @param _message The content of the message.
-  /// @param _gasLimit Gas limit required to complete the message relay on corresponding chain.
-  function sendMessage(
-    address _target,
-    uint256 _value,
-    bytes calldata _message,
-    uint256 _gasLimit
-  ) external payable override {
+  function sendMessage(address _target, uint256, bytes calldata _message, uint256) external payable override {
     Address.functionCall(_target, _message, "sendMessage reverted");
   }
 
   /// @notice Send cross chain message from L1 to L2 or L2 to L1.
   /// @param _target The address of account who receive the message.
-  /// @param _value The amount of ether passed when call target contract.
   /// @param _message The content of the message.
-  /// @param _gasLimit Gas limit required to complete the message relay on corresponding chain.
-  /// @param _refundAddress The address of account who will receive the refunded fee.
-  function sendMessage(
-    address _target,
-    uint256 _value,
-    bytes calldata _message,
-    uint256 _gasLimit,
-    address _refundAddress
-  ) external payable override {
+  function sendMessage(address _target, uint256, bytes calldata _message, uint256, address) external payable override {
     Address.functionCall(_target, _message, "sendMessage reverted");
   }
 }
