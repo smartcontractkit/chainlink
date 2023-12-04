@@ -20,7 +20,7 @@ RUN make install-chainlink
 # Install medianpoc binary
 RUN make install-medianpoc
 
-# Install medianpoc binary
+# Install dummyplugin binary
 RUN make install-dummyplugin
 
 # Link LOOP Plugin source dirs with simple names
@@ -60,6 +60,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-medianpoc /usr/local/bin/
+COPY --from=buildgo /go/bin/chainlink-dummyplugin /usr/local/bin/
 
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
 ENV CL_MEDIAN_CMD chainlink-feeds
