@@ -65,18 +65,6 @@ on:
         description: Duration;Funding;TimeBetweenRounds
         required: false
         default: ""
-      testDuration:
-        description: Duration of the test (time string)
-        required: false
-        default: 15m
-      chainlinkNodeFunding:
-        description: How much to fund each Chainlink node (in ETH)
-        required: false
-        default: ".001"
-      timeBetweenRounds:
-        description: How long to wait before starting a new round
-        required: false
-        default: 1m
 
 jobs:
   ocr_soak_test:
