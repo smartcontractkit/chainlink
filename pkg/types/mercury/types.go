@@ -4,20 +4,18 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
-
-type PAO interface {
-	// These fields are common to all observations
-	GetTimestamp() uint32
-	GetObserver() commontypes.OracleID
-	GetBenchmarkPrice() (*big.Int, bool)
-}
 
 type ObsResult[T any] struct {
 	Val T
 	Err error
+}
+
+type OnchainConfig struct {
+	// applies to all values: price, bid and ask
+	Min *big.Int
+	Max *big.Int
 }
 
 type OnchainConfigCodec interface {
@@ -25,7 +23,7 @@ type OnchainConfigCodec interface {
 	Decode([]byte) (OnchainConfig, error)
 }
 
-type MercuryServerFetcher interface { //nolint:revive
+type ServerFetcher interface {
 	// FetchInitialMaxFinalizedBlockNumber should fetch the initial max finalized block number
 	FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error)
 	LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error)
@@ -33,7 +31,7 @@ type MercuryServerFetcher interface { //nolint:revive
 }
 
 type Transmitter interface {
-	MercuryServerFetcher
+	ServerFetcher
 	// NOTE: Mercury doesn't actually transmit on-chain, so there is no
 	// "contract" involved with the transmitter.
 	// - Transmit should be implemented and send to Mercury server

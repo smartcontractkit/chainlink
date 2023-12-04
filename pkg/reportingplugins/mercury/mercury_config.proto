@@ -1,7 +1,0 @@
-syntax="proto3";
-
-package mercury;
-option go_package = ".;mercury";
-
-// Empty for now; might add in future
-message MercuryConfigProto {}

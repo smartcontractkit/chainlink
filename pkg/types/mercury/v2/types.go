@@ -1,21 +1,12 @@
-package mercury_v3 //nolint:revive
+package v2
 
 import (
 	"math/big"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 )
-
-type PAO interface {
-	mercury.PAO
-	GetBid() (*big.Int, bool)
-	GetAsk() (*big.Int, bool)
-	GetMaxFinalizedTimestamp() (int64, bool)
-	GetLinkFee() (*big.Int, bool)
-	GetNativeFee() (*big.Int, bool)
-}
 
 type ReportFields struct {
 	ValidFromTimestamp uint32
@@ -24,8 +15,6 @@ type ReportFields struct {
 	LinkFee            *big.Int
 	ExpiresAt          uint32
 	BenchmarkPrice     *big.Int
-	Bid                *big.Int
-	Ask                *big.Int
 }
 
 // ReportCodec All functions on ReportCodec should be pure and thread-safe.
@@ -42,4 +31,13 @@ type ReportCodec interface {
 	MaxReportLength(n int) (int, error)
 
 	ObservationTimestampFromReport(ocrtypes.Report) (uint32, error)
+}
+
+type Observation struct {
+	BenchmarkPrice mercury.ObsResult[*big.Int]
+
+	MaxFinalizedTimestamp mercury.ObsResult[int64]
+
+	LinkPrice   mercury.ObsResult[*big.Int]
+	NativePrice mercury.ObsResult[*big.Int]
 }

@@ -1,4 +1,4 @@
-package mercury_v1 //nolint:revive
+package v1
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 )
 
 type Block struct {
@@ -24,12 +24,11 @@ func NewBlock(num int64, hash []byte, ts uint64) Block {
 	}
 }
 
-// b1 is less than b2 if it is:
-// smaller block number
-// smaller timestamp
-// largest hash
-// evaluated in that order
-func (b Block) less(b2 Block) bool {
+// Less returns true if b1 is less than b2 by comparing in order:
+//   - smaller block number
+//   - smaller timestamp
+//   - largest hash
+func (b Block) Less(b2 Block) bool {
 	if b.Num == b2.Num && b.Ts == b2.Ts {
 		// tie-break on hash, all else being equal
 		return b.Hash > b2.Hash
@@ -47,22 +46,6 @@ func (b Block) String() string {
 
 func (b Block) HashBytes() []byte {
 	return []byte(b.Hash)
-}
-
-type PAO interface {
-	mercury.PAO
-
-	GetBid() (*big.Int, bool)
-	GetAsk() (*big.Int, bool)
-
-	// DEPRECATED
-	// TODO: Remove this handling after deployment (https://smartcontract-it.atlassian.net/browse/MERC-2272)
-	GetCurrentBlockNum() (int64, bool)
-	GetCurrentBlockHash() ([]byte, bool)
-	GetCurrentBlockTimestamp() (uint64, bool)
-
-	GetLatestBlocks() []Block
-	GetMaxFinalizedBlockNumber() (int64, bool)
 }
 
 type ReportFields struct {
@@ -91,4 +74,20 @@ type ReportCodec interface {
 
 	// CurrentBlockNumFromReport returns the median current block number from a report
 	CurrentBlockNumFromReport(types.Report) (int64, error)
+}
+
+type Observation struct {
+	BenchmarkPrice mercury.ObsResult[*big.Int]
+	Bid            mercury.ObsResult[*big.Int]
+	Ask            mercury.ObsResult[*big.Int]
+
+	CurrentBlockNum       mercury.ObsResult[int64]
+	CurrentBlockHash      mercury.ObsResult[[]byte]
+	CurrentBlockTimestamp mercury.ObsResult[uint64]
+
+	LatestBlocks []Block
+
+	// MaxFinalizedBlockNumber comes from previous report when present and is
+	// only observed from mercury server when previous report is nil
+	MaxFinalizedBlockNumber mercury.ObsResult[int64]
 }

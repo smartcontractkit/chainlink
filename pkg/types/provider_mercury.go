@@ -1,10 +1,10 @@
 package types
 
 import (
-	"github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
-	v1 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v1"
-	v2 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v2"
-	v3 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
+	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 )
 
 // MercuryProvider provides components needed for a mercury OCR2 plugin.
@@ -16,6 +16,6 @@ type MercuryProvider interface {
 	ReportCodecV2() v2.ReportCodec
 	ReportCodecV3() v3.ReportCodec
 	OnchainConfigCodec() mercury.OnchainConfigCodec
-	MercuryServerFetcher() mercury.MercuryServerFetcher
+	MercuryServerFetcher() mercury.ServerFetcher
 	ChainReader() mercury.ChainReader
 }
