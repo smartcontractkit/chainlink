@@ -160,7 +160,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing())
 
 	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
-		Logger:               appLggr,
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
 		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),

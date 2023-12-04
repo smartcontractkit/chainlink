@@ -74,10 +74,10 @@ After that all the changes will be synced automatically
 Check `.profiles` to understand what is uploaded in profiles `runner` and `node`
 
 # Helm
-If you would like to use `helm` directly, please uncomment data in `values-raw-helm.yaml`
+If you would like to use `helm` directly, please uncomment data in `values.yaml`
 ## Install from local files
 ```
-helm install -f values-raw-helm.yaml cl-cluster .
+helm install -f values.yaml cl-cluster .
 ```
 Forward all apps (in another terminal)
 ```
@@ -99,7 +99,7 @@ kubectl config set-context --current --namespace cl-cluster
 
 Install
 ```
-helm install -f values-raw-helm.yaml cl-cluster chainlink-cluster/chainlink-cluster --version v0.1.2
+helm install -f values.yaml cl-cluster .
 ```
 
 ## Create a new release
