@@ -14,4 +14,4 @@ jobs:
           PR_FILTER: "labelled"
           PR_LABELS: "auto-update"
           MERGE_MSG: "Branch was auto-updated."
-          MERGE_CONFLICT_ACTION: "fail"
+          MERGE_CONFLICT_ACTION: "ignore"
