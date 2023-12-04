@@ -90,25 +90,25 @@ func (_m *OnRampReader) GetDynamicConfig() (ccipdata.OnRampDynamicConfig, error)
 	return r0, r1
 }
 
-// GetSendRequestsBetweenSeqNums provides a mock function with given fields: ctx, seqNumMin, seqNumMax
-func (_m *OnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64) ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
-	ret := _m.Called(ctx, seqNumMin, seqNumMax)
+// GetSendRequestsBetweenSeqNums provides a mock function with given fields: ctx, seqNumMin, seqNumMax, finalized
+func (_m *OnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64, finalized bool) ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
+	ret := _m.Called(ctx, seqNumMin, seqNumMax, finalized)
 
 	var r0 []ccipdata.Event[internal.EVM2EVMMessage]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64) ([]ccipdata.Event[internal.EVM2EVMMessage], error)); ok {
-		return rf(ctx, seqNumMin, seqNumMax)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64, bool) ([]ccipdata.Event[internal.EVM2EVMMessage], error)); ok {
+		return rf(ctx, seqNumMin, seqNumMax, finalized)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64) []ccipdata.Event[internal.EVM2EVMMessage]); ok {
-		r0 = rf(ctx, seqNumMin, seqNumMax)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64, bool) []ccipdata.Event[internal.EVM2EVMMessage]); ok {
+		r0 = rf(ctx, seqNumMin, seqNumMax, finalized)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]ccipdata.Event[internal.EVM2EVMMessage])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, uint64, uint64) error); ok {
-		r1 = rf(ctx, seqNumMin, seqNumMax)
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, uint64, bool) error); ok {
+		r1 = rf(ctx, seqNumMin, seqNumMax, finalized)
 	} else {
 		r1 = ret.Error(1)
 	}

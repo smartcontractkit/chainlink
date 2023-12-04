@@ -768,7 +768,8 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 
 	var sendRequests []ccipdata.Event[internal.EVM2EVMMessage]
 	eg.Go(func() error {
-		sendReqs, err := r.config.onRampReader.GetSendRequestsBetweenSeqNums(ctx, intervalMin, intervalMax)
+		// We don't need to double-check if logs are finalized because we already checked that in the Commit phase.
+		sendReqs, err := r.config.onRampReader.GetSendRequestsBetweenSeqNums(ctx, intervalMin, intervalMax, false)
 		if err != nil {
 			return err
 		}
