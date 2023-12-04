@@ -35,6 +35,8 @@ func TestOCRv2Basic(t *testing.T) {
 		WithEthereumChainConfig(chainConfig).
 		Build()
 
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithPrivateEthereumNetwork(network).
