@@ -204,6 +204,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       message
     );
     emit L2WithdrawalRequested(id, amount, refundAddr);
+
+    return id;
   }
 
   /**

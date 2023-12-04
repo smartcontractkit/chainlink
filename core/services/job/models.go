@@ -237,7 +237,6 @@ func (pr *PipelineRun) SetID(value string) error {
 type OCROracleSpec struct {
 	ID                                     int32                `toml:"-"`
 	ContractAddress                        ethkey.EIP55Address  `toml:"contractAddress"`
-	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
 	P2PV2Bootstrappers                     pq.StringArray       `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
 	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                *models.Sha256Hash   `toml:"keyBundleID"`

@@ -171,6 +171,7 @@ abstract contract ChainlinkClient {
     s_pendingRequests[requestId] = oracleAddress;
     emit ChainlinkRequested(requestId);
     require(s_link.transferAndCall(oracleAddress, payment, encodedRequest), "unable to transferAndCall to oracle");
+    return requestId;
   }
 
   /**
