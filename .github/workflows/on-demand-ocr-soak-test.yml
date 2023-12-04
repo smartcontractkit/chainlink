@@ -55,6 +55,16 @@ on:
         description: Container image version for the Chainlink nodes
         required: true
         default: "2.7.0"
+      ocrVersion:
+        description: Version of OCR to Use
+        type: choice
+        options:
+          - 1
+          - 2
+      testInputs:
+        description: Duration;Funding;TimeBetweenRounds
+        required: false
+        default: ""
       testDuration:
         description: Duration of the test (time string)
         required: false
@@ -84,9 +94,6 @@ jobs:
       SELECTED_NETWORKS: ${{ inputs.network }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
-      OCR_TEST_DURATION: ${{ inputs.testDuration }}
-      OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
-      OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
       TEST_LOG_LEVEL: debug
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
@@ -101,6 +108,7 @@ jobs:
         continue-on-error: true
       - name: Get Inputs
         run: |
+          # Mask the sensitive inputs
           EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
           EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
           EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
@@ -115,6 +123,24 @@ jobs:
           echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
           echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
           echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
+
+          # Read in our test inputs
+          IFS=';' read -ra parts <<< "${{ inputs.testInputs }}"
+          index=0
+          for part in "${parts[@]}"; do
+              # A little hacky, but good enough for this
+              echo "Part $index: $part"
+              if [ $index -eq 0 ]; then
+                  echo "OCR_TEST_DURATION=$part"
+              elif [ $index -eq 1 ]; then
+                  echo "OCR_CHAINLINK_NODE_FUNDING=$part"
+              elif [ $index -eq 2 ]; then
+                  echo "OCR_TIME_BETWEEN_ROUNDS=$part"
+              else
+                  echo "Additional part: $part"
+              fi
+              ((index++))
+          done
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
