@@ -161,19 +161,6 @@ OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
 
-[P2P.V1]
-Enabled = false
-AnnounceIP = ''
-AnnouncePort = 0
-BootstrapCheckInterval = '20s'
-DefaultBootstrapPeers = []
-DHTAnnouncementCounterUserPrefix = 0
-DHTLookupInterval = 10
-ListenIP = '0.0.0.0'
-ListenPort = 0
-NewStreamTimeout = '10s'
-PeerstoreWriteInterval = '5m0s'
-
 [P2P.V2]
 Enabled = true
 AnnounceAddresses = []
