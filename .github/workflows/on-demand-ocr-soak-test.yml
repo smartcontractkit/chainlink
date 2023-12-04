@@ -64,7 +64,7 @@ on:
       testInputs:
         description: Duration;Funding;TimeBetweenRounds
         required: false
-        default: ""
+        default: "10m;.001;1m"
 
 jobs:
   ocr_soak_test:
