@@ -308,8 +308,10 @@ jobs:
         include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
           - product: OCR
             test: TestOCRBasic
-          - product: Automation
-            test: TestAutomationBasic/registry_2_0
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
     name: Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -356,8 +358,10 @@ jobs:
         include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
           - product: OCR
             test: TestOCRBasic
-          - product: Automation
-            test: TestAutomationBasic/registry_2_0
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
     name: BSC Testnet ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -404,8 +408,10 @@ jobs:
         include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
           - product: OCR
             test: TestOCRBasic
-          - product: Automation
-            test: TestAutomationBasic/registry_2_0
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
     name: Optimism Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -452,8 +458,10 @@ jobs:
         include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
           - product: OCR
             test: TestOCRBasic
-          - product: Automation
-            test: TestAutomationBasic/registry_2_0
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
     name: Optimism Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -500,8 +508,10 @@ jobs:
         include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
           - product: OCR
             test: TestOCRBasic
-          - product: Automation
-            test: TestAutomationBasic/registry_2_0
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
     name: Arbitrum Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -640,8 +650,10 @@ jobs:
         include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
           - product: OCR
             test: TestOCRBasic
-          - product: Automation
-            test: TestAutomationBasic/registry_2_0
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
     name: Polygon Mumbai ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -688,8 +700,10 @@ jobs:
         include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
           - product: OCR
             test: TestOCRBasic
-          - product: Automation
-            test: TestAutomationBasic/registry_2_0
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
     name: Avalanche Fuji ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
@@ -736,8 +750,10 @@ jobs:
         include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
           - product: OCR
             test: TestOCRBasic
-          - product: Automation
-            test: TestAutomationBasic/registry_2_0
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
     name: Fantom Testnet ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
