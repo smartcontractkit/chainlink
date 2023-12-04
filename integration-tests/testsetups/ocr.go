@@ -120,7 +120,8 @@ func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
 		Inputs:                &testInputs,
 		OperatorForwarderFlow: forwarderFlow,
 		TestReporter: testreporters.OCRSoakTestReporter{
-			StartTime: time.Now(),
+			OCRVersion: testInputs.OCRVersion,
+			StartTime:  time.Now(),
 		},
 		t:                t,
 		startTime:        time.Now(),
@@ -418,7 +419,8 @@ func (o *OCRSoakTest) LoadState() error {
 
 	o.namespace = testState.Namespace
 	o.TestReporter = testreporters.OCRSoakTestReporter{
-		StartTime: testState.StartTime,
+		OCRVersion: testState.OCRVersion,
+		StartTime:  testState.StartTime,
 	}
 	o.ocrRoundStates = testState.OCRRoundStates
 	o.testIssues = testState.TestIssues
