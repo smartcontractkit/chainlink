@@ -1131,6 +1131,39 @@ ORDER BY nonce ASC
 	return etxs, pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
 }
 
+func (o *evmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (broadcastAt nullv4.Time, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		if err = qq.QueryRowContext(ctx, `SELECT min(initial_broadcast_at) FROM evm.txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, chainID.String()).Scan(&broadcastAt); err != nil {
+			return fmt.Errorf("failed to query for unconfirmed eth_tx count: %w", err)
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+	return broadcastAt, err
+}
+
+func (o *evmTxStore) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID *big.Int) (earliestUnconfirmedTxBlock nullv4.Int, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		err = qq.QueryRowContext(ctx, `
+SELECT MIN(broadcast_before_block_num) FROM evm.tx_attempts
+JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id
+WHERE evm.txes.state = 'unconfirmed'
+AND evm_chain_id = $1`, chainID.String()).Scan(&earliestUnconfirmedTxBlock)
+		if err != nil {
+			return fmt.Errorf("failed to query for earliest unconfirmed tx block: %w", err)
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+	return earliestUnconfirmedTxBlock, err
+}
+
 func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (finalized bool, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
@@ -1731,6 +1764,20 @@ func (o *evmTxStore) countTransactionsWithState(ctx context.Context, fromAddress
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
 func (o *evmTxStore) CountUnconfirmedTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (count uint32, err error) {
 	return o.countTransactionsWithState(ctx, fromAddress, txmgr.TxUnconfirmed, chainID)
+}
+
+// CountTransactionsByState returns the number of transactions with any fromAddress in the given state
+func (o *evmTxStore) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID *big.Int) (count uint32, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Get(&count, `SELECT count(*) FROM evm.txes WHERE state = $1 AND evm_chain_id = $2`,
+		state, chainID.String())
+	if err != nil {
+		return 0, fmt.Errorf("failed to CountTransactionsByState: %w", err)
+	}
+	return count, nil
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
