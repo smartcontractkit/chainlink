@@ -117,15 +117,17 @@ jobs:
           index=0
           for part in "${parts[@]}"; do
               # A little hacky, but good enough for this
-              echo "Part $index: $part"
               if [ $index -eq 0 ]; then
+                  echo "OCR_TEST_DURATION=$part"
                   echo "OCR_TEST_DURATION=$part" >> $GITHUB_ENV
               elif [ $index -eq 1 ]; then
+                  echo "OCR_CHAINLINK_NODE_FUNDING=$part"
                   echo "OCR_CHAINLINK_NODE_FUNDING=$part" >> $GITHUB_ENV
               elif [ $index -eq 2 ]; then
+                  echo "OCR_TIME_BETWEEN_ROUNDS=$part"
                   echo "OCR_TIME_BETWEEN_ROUNDS=$part" >> $GITHUB_ENV
               else
-                  echo "Additional part: $part"
+                  echo "Additional Unregistered Input: $part"
               fi
               ((index+=1))
           done
