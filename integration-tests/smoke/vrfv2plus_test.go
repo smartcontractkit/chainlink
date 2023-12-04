@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
@@ -24,6 +25,159 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
+
+func TestVRFv2Plus_MultipleEthereumClients(t *testing.T) {
+	t.Parallel()
+	chainConfig := ctf_test_env.EthereumChainConfig{
+		SecondsPerSlot: 8,
+		SlotsPerEpoch:  4,
+	}
+
+	networks := map[string]ctf_test_env.EthereumNetwork{
+		"geth": func() ctf_test_env.EthereumNetwork {
+			ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
+			cfg, err := ethBuilder.
+				WithConsensusType(ctf_test_env.ConsensusType_PoS).
+				WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+				WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
+				WithEthereumChainConfig(chainConfig).
+				Build()
+			require.NoError(t, err, "Error building ethereum network config")
+			return cfg
+		}(),
+		"besu": func() ctf_test_env.EthereumNetwork {
+			ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
+			cfg, err := ethBuilder.
+				WithConsensusType(ctf_test_env.ConsensusType_PoS).
+				WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+				WithExecutionLayer(ctf_test_env.ExecutionLayer_Besu).
+				WithEthereumChainConfig(chainConfig).
+				Build()
+			require.NoError(t, err, "Error building ethereum network config")
+			return cfg
+		}(),
+		"erigon": func() ctf_test_env.EthereumNetwork {
+			ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
+			cfg, err := ethBuilder.
+				WithConsensusType(ctf_test_env.ConsensusType_PoS).
+				WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+				WithExecutionLayer(ctf_test_env.ExecutionLayer_Erigon).
+				WithEthereumChainConfig(chainConfig).
+				Build()
+			require.NoError(t, err, "Error building ethereum network config")
+			return cfg
+		}(),
+		"nethermind": func() ctf_test_env.EthereumNetwork {
+			ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
+			cfg, err := ethBuilder.
+				WithConsensusType(ctf_test_env.ConsensusType_PoS).
+				WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+				WithExecutionLayer(ctf_test_env.ExecutionLayer_Nethermind).
+				WithEthereumChainConfig(chainConfig).
+				Build()
+			require.NoError(t, err, "Error building ethereum network config")
+			return cfg
+		}(),
+	}
+
+	for k, v := range networks {
+		name := k
+		network := v
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			l := logging.GetTestLogger(t)
+
+			var vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
+			err := envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
+			require.NoError(t, err)
+
+			env, err := test_env.NewCLTestEnvBuilder().
+				WithTestInstance(t).
+				WithPrivateEthereumNetwork(network).
+				WithCLNodes(1).
+				WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
+				WithStandardCleanup().
+				Build()
+			require.NoError(t, err, "error creating test env")
+
+			env.ParallelTransactions(true)
+
+			mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(vrfv2PlusConfig.LinkNativeFeedResponse))
+			require.NoError(t, err, "error deploying mock ETH/LINK feed")
+
+			linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+			require.NoError(t, err, "error deploying LINK contract")
+
+			// register proving key against oracle address (sending key) in order to test oracleWithdraw
+			defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
+
+			numberOfTxKeysToCreate := 2
+			vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(
+				env,
+				vrfv2PlusConfig,
+				linkToken,
+				mockETHLinkFeed,
+				defaultWalletAddress,
+				numberOfTxKeysToCreate,
+				1,
+				1,
+				l,
+			)
+			require.NoError(t, err, "error setting up VRF v2_5 env")
+
+			subID := subIDs[0]
+
+			subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(testcontext.Get(t), subID)
+			require.NoError(t, err, "error getting subscription information")
+
+			vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
+
+			t.Run("Link Billing", func(t *testing.T) {
+				testConfig := vrfv2PlusConfig
+				var isNativeBilling = false
+				subBalanceBeforeRequest := subscription.Balance
+
+				jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
+				require.NoError(t, err, "error reading job runs")
+
+				// test and assert
+				randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+					vrfv2PlusContracts.LoadTestConsumers[0],
+					vrfv2PlusContracts.Coordinator,
+					vrfv2PlusData,
+					subID,
+					isNativeBilling,
+					testConfig.RandomnessRequestCountPerRequest,
+					testConfig,
+					testConfig.RandomWordsFulfilledEventTimeout,
+					l,
+				)
+				require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+				expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
+				subscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(testcontext.Get(t), subID)
+				require.NoError(t, err, "error getting subscription information")
+				subBalanceAfterRequest := subscription.Balance
+				require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
+
+				jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
+				require.NoError(t, err, "error reading job runs")
+				require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
+
+				status, err := vrfv2PlusContracts.LoadTestConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+				require.NoError(t, err, "error getting rand request status")
+				require.True(t, status.Fulfilled)
+				l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+
+				require.Equal(t, testConfig.NumberOfWords, uint32(len(status.RandomWords)))
+				for _, w := range status.RandomWords {
+					l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
+					require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
+				}
+			})
+		})
+	}
+}
 
 func TestVRFv2Plus(t *testing.T) {
 	t.Parallel()
@@ -74,49 +228,6 @@ func TestVRFv2Plus(t *testing.T) {
 
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
-	t.Run("Link Billing", func(t *testing.T) {
-		testConfig := vrfv2PlusConfig
-		var isNativeBilling = false
-		subBalanceBeforeRequest := subscription.Balance
-
-		jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
-		require.NoError(t, err, "error reading job runs")
-
-		// test and assert
-		randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
-			vrfv2PlusContracts.LoadTestConsumers[0],
-			vrfv2PlusContracts.Coordinator,
-			vrfv2PlusData,
-			subID,
-			isNativeBilling,
-			testConfig.RandomnessRequestCountPerRequest,
-			testConfig,
-			testConfig.RandomWordsFulfilledEventTimeout,
-			l,
-		)
-		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
-
-		expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
-		subscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(testcontext.Get(t), subID)
-		require.NoError(t, err, "error getting subscription information")
-		subBalanceAfterRequest := subscription.Balance
-		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
-
-		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
-		require.NoError(t, err, "error reading job runs")
-		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
-
-		status, err := vrfv2PlusContracts.LoadTestConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
-		require.NoError(t, err, "error getting rand request status")
-		require.True(t, status.Fulfilled)
-		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
-
-		require.Equal(t, testConfig.NumberOfWords, uint32(len(status.RandomWords)))
-		for _, w := range status.RandomWords {
-			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
-			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
-		}
-	})
 	t.Run("Native Billing", func(t *testing.T) {
 		testConfig := vrfv2PlusConfig
 		var isNativeBilling = true

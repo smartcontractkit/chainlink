@@ -55,10 +55,8 @@ Destroy the cluster
 devspace purge
 ```
 
-If you need to run some system level tests inside k8s use `runner` profile:
-```
-devspace dev -p runner
-```
+## Running load tests
+Check this [doc](../../integration-tests/load/ocr/README.md)
 
 If you used `devspace dev ...` always use `devspace reset pods` to switch the pods back
 
@@ -66,8 +64,6 @@ If you used `devspace dev ...` always use `devspace reset pods` to switch the po
 If you need to debug CL node that is already deployed change `dev.app.container` and `dev.app.labelSelector` in [devspace.yaml](devspace.yaml) if they are not default and run:
 ```
 devspace dev -p node
-or
-devspace dev -p runner
 ```
 
 ## Automatic file sync
@@ -78,14 +74,14 @@ After that all the changes will be synced automatically
 Check `.profiles` to understand what is uploaded in profiles `runner` and `node`
 
 # Helm
-If you would like to use `helm` directly, please uncomment data in `values-raw-helm.yaml`
+If you would like to use `helm` directly, please uncomment data in `values.yaml`
 ## Install from local files
 ```
-helm install -f values-raw-helm.yaml cl-cluster .
+helm install -f values.yaml cl-cluster .
 ```
 Forward all apps (in another terminal)
 ```
-sudo kubefwd svc
+sudo kubefwd svc -n cl-cluster
 ```
 Then you can connect and run your tests
 
@@ -103,7 +99,7 @@ kubectl config set-context --current --namespace cl-cluster
 
 Install
 ```
-helm install -f values-raw-helm.yaml cl-cluster chainlink-cluster/chainlink-cluster --version v0.1.2
+helm install -f values.yaml cl-cluster .
 ```
 
 ## Create a new release
@@ -126,14 +122,9 @@ export GRAFANA_URL=...
 export GRAFANA_TOKEN=...
 export LOKI_DATA_SOURCE_NAME=Loki
 export PROMETHEUS_DATA_SOURCE_NAME=Thanos
-export DASHBOARD_FOLDER=CLClusterEphemeralDevspace
+export DASHBOARD_FOLDER=CRIB
 export DASHBOARD_NAME=ChainlinkCluster
 
 cd dashboard/cmd && go run dashboard_deploy.go
 ```
-Open Grafana folder `CLClusterEphemeralDevspace` and find dashboard `ChainlinkCluster`
-
-If you'd like to add more metrics or verify that all of them are added you can have the full list using IDE search or `ripgrep`:
-```
-rg -U ".*promauto.*\n.*Name: \"(.*)\"" ../.. > metrics.txt
-```
+Open Grafana folder `CRIB` and find dashboard `ChainlinkCluster`
