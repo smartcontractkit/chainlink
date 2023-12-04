@@ -1,4 +1,4 @@
-package mercury_v1
+package v1
 
 import (
 	"context"
@@ -15,8 +15,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaymercury "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
-	relaymercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v1"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -33,7 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ relaymercury.MercuryServerFetcher = &mockFetcher{}
+var _ mercury.ServerFetcher = &mockFetcher{}
 
 type mockFetcher struct {
 	num *int64
@@ -71,10 +71,10 @@ func (m *mockORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg
 
 type mockChainReader struct {
 	err error
-	obs []relaymercury.Head
+	obs []mercury.Head
 }
 
-func (m *mockChainReader) LatestHeads(context.Context, int) ([]relaymercury.Head, error) {
+func (m *mockChainReader) LatestHeads(context.Context, int) ([]mercury.Head, error) {
 	return m.obs, m.err
 }
 
@@ -391,7 +391,7 @@ func TestMercury_Observe(t *testing.T) {
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.Error(t, err)
-			assert.Equal(t, obs, relaymercuryv1.Observation{})
+			assert.Equal(t, obs, v1.Observation{})
 		})
 	})
 }
@@ -416,7 +416,7 @@ func TestMercury_SetLatestBlocks(t *testing.T) {
 		headTracker.On("LatestChain").Return(&h, nil)
 		ds.chainReader = evm.NewChainReader(headTracker)
 
-		obs := relaymercuryv1.Observation{}
+		obs := v1.Observation{}
 		err := ds.setLatestBlocks(testutils.Context(t), &obs)
 
 		assert.NoError(t, err)
@@ -434,7 +434,7 @@ func TestMercury_SetLatestBlocks(t *testing.T) {
 		headTracker.On("LatestChain").Return((*evmtypes.Head)(nil))
 
 		ds.chainReader = evm.NewChainReader(headTracker)
-		obs := relaymercuryv1.Observation{}
+		obs := v1.Observation{}
 		err := ds.setLatestBlocks(testutils.Context(t), &obs)
 
 		assert.NoError(t, err)
