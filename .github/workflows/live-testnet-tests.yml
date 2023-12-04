@@ -219,7 +219,7 @@ jobs:
           PARSED_RESULTS=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq -r --arg pattern "^${{ matrix.network }} (?<product>\\w+) Tests$" '.jobs[]
+          | jq -r --arg pattern "^${{ matrix.network }} (?<product>\\.*?) Tests$" '.jobs[]
           | select(.name | test($pattern)) as $job
           | $job.steps[]
           | select(.name == "Run Tests")
