@@ -103,7 +103,7 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 
 			onRampReader := ccipdatamocks.NewOnRampReader(t)
 			if len(tc.sendReqs) > 0 {
-				onRampReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.commitStoreSeqNum, tc.commitStoreSeqNum+OnRampMessagesScanLimit).
+				onRampReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.commitStoreSeqNum, tc.commitStoreSeqNum+OnRampMessagesScanLimit, true).
 					Return(tc.sendReqs, nil)
 			}
 
@@ -269,7 +269,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 
 			onRampReader := ccipdatamocks.NewOnRampReader(t)
 			if len(tc.sendRequests) > 0 {
-				onRampReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.expSeqNumRange.Min, tc.expSeqNumRange.Max).Return(tc.sendRequests, nil)
+				onRampReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.expSeqNumRange.Min, tc.expSeqNumRange.Max, true).Return(tc.sendRequests, nil)
 			}
 
 			gasPriceEstimator := prices.NewMockGasPriceEstimatorCommit(t)
@@ -1318,7 +1318,7 @@ func TestCommitReportingPlugin_calculateMinMaxSequenceNumbers(t *testing.T) {
 					},
 				})
 			}
-			onRampReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.expQueryMin, tc.expQueryMin+OnRampMessagesScanLimit).Return(sendReqs, nil)
+			onRampReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.expQueryMin, tc.expQueryMin+OnRampMessagesScanLimit, true).Return(sendReqs, nil)
 			p.onRampReader = onRampReader
 
 			minSeqNum, maxSeqNum, err := p.calculateMinMaxSequenceNumbers(ctx, lggr)

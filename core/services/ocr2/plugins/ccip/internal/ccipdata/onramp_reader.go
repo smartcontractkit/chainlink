@@ -41,7 +41,7 @@ type OnRampDynamicConfig struct {
 type OnRampReader interface {
 	Closer
 	// GetSendRequestsBetweenSeqNums returns all the finalized message send requests in the provided sequence numbers range (inclusive).
-	GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64) ([]Event[internal.EVM2EVMMessage], error)
+	GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, finalized bool) ([]Event[internal.EVM2EVMMessage], error)
 	// Get router configured in the onRamp
 	RouterAddress() (common.Address, error)
 	Address() (common.Address, error)
@@ -65,4 +65,11 @@ func NewOnRampReader(lggr logger.Logger, sourceSelector, destSelector uint64, on
 	default:
 		return nil, errors.Errorf("got unexpected version %v", version.String())
 	}
+}
+
+func logsConfirmations(finalized bool) logpoller.Confirmations {
+	if finalized {
+		return logpoller.Finalized
+	}
+	return logpoller.Confirmations(0)
 }

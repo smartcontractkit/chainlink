@@ -134,7 +134,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			p.config.offRampReader = mockOffRampReader
 
 			mockOnRampReader := ccipdatamocks.NewOnRampReader(t)
-			mockOnRampReader.On("GetSendRequestsBetweenSeqNums", ctx, mock.Anything, mock.Anything).
+			mockOnRampReader.On("GetSendRequestsBetweenSeqNums", ctx, mock.Anything, mock.Anything, false).
 				Return(tc.sendRequests, nil).Maybe()
 			p.config.onRampReader = mockOnRampReader
 
@@ -396,7 +396,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 		sendReqs[i] = ccipdata.Event[internal.EVM2EVMMessage]{Data: msg}
 	}
 	sourceReader.On("GetSendRequestsBetweenSeqNums",
-		ctx, observations[0].SeqNr, observations[len(observations)-1].SeqNr).Return(sendReqs, nil)
+		ctx, observations[0].SeqNr, observations[len(observations)-1].SeqNr, false).Return(sendReqs, nil)
 	p.config.onRampReader = sourceReader
 
 	execReport, err := p.buildReport(ctx, p.lggr, observations)
@@ -1010,7 +1010,7 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 			p.config.offRampReader = offRampReader
 
 			sourceReader := ccipdatamocks.NewOnRampReader(t)
-			sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.expQueryMin, tc.expQueryMax).
+			sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.expQueryMin, tc.expQueryMax, false).
 				Return(tc.onchainEvents, nil).Maybe()
 			p.config.onRampReader = sourceReader
 
