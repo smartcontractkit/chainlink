@@ -5,15 +5,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/big"
-	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/libocr/subprocesses"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -55,7 +52,7 @@ func (p *Plugin) NewReportingPluginFactory(
 
 func (p *Plugin) newFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner types.PipelineRunnerService, telemetry types.TelemetryClient, errorLog types.ErrorLog) (*dummyPluginFactory, error) {
 
-	factory := &dummyPluginFactory{}
+	factory := &dummyPluginFactory{errorLog: errorLog}
 	return factory, nil
 }
 
@@ -82,11 +79,13 @@ func (r *reportingPluginFactoryService) HealthReport() map[string]error {
 var _ ocrtypes.ReportingPluginFactory = (*dummyPluginFactory)(nil)
 
 type dummyPluginFactory struct {
+	errorLog types.ErrorLog
 }
 
 var _ ocrtypes.ReportingPlugin = (*dummyPlugin)(nil)
 
 type dummyPlugin struct {
+	errorLog            types.ErrorLog
 	f                   int
 	offchainConfig      median.OffchainConfig
 	contractTransmitter median.MedianContract
@@ -107,44 +106,6 @@ func (d dummyPlugin) Report(ctx context.Context, timestamp ocrtypes.ReportTimest
 		return false, nil, fmt.Errorf("only received %v valid attributed observations, but need at least f+1 (%v)", len(observations), d.f+1)
 	}
 
-	var resultTransmissionDetails struct {
-		configDigest    ocrtypes.ConfigDigest
-		epoch           uint32
-		round           uint8
-		latestAnswer    *big.Int
-		latestTimestamp time.Time
-		err             error
-	}
-	var resultRoundRequested struct {
-		configDigest ocrtypes.ConfigDigest
-		epoch        uint32
-		round        uint8
-		err          error
-	}
-
-	var subs subprocesses.Subprocesses
-	subs.Go(func() {
-		resultTransmissionDetails.configDigest,
-			resultTransmissionDetails.epoch,
-			resultTransmissionDetails.round,
-			resultTransmissionDetails.latestAnswer,
-			resultTransmissionDetails.latestTimestamp,
-			resultTransmissionDetails.err =
-			d.contractTransmitter.LatestTransmissionDetails(ctx)
-	})
-	subs.Go(func() {
-		resultRoundRequested.configDigest,
-			resultRoundRequested.epoch,
-			resultRoundRequested.round,
-			resultRoundRequested.err =
-			d.contractTransmitter.LatestRoundRequested(ctx, d.offchainConfig.DeltaC)
-	})
-	subs.Wait()
-
-	if err := multierr.Combine(resultTransmissionDetails.err, resultRoundRequested.err); err != nil {
-		return false, nil, fmt.Errorf("error during LatestTransmissionDetails/LatestRoundRequested: %w", err)
-	}
-
 	type timestampObservations struct {
 		timestamp uint64
 		observer  commontypes.OracleID
@@ -158,26 +119,17 @@ func (d dummyPlugin) Report(ctx context.Context, timestamp ocrtypes.ReportTimest
 		})
 	}
 
-	sort.Slice(timestamps, func(i, j int) bool {
-		return timestamps[i].timestamp > timestamps[j].timestamp
-	})
+	observers := [32]byte{}
+	var reportObservations []*big.Int
 
-	answer := timestamps[len(timestamps)/2]
-
-	if resultTransmissionDetails.latestAnswer.Uint64() < answer.timestamp {
-		observers := [32]byte{}
-		var reportObservations []*big.Int
-
-		for i, t := range timestamps {
-			observers[i] = byte(t.observer)
-			reportObservations = append(reportObservations, big.NewInt(int64(t.timestamp)))
-		}
-
-		reportBytes, err := reportTypes.Pack(timestamp, observers, reportObservations, big.NewInt(0))
-		return true, reportBytes, err
+	for i, t := range timestamps {
+		observers[i] = byte(t.observer)
+		reportObservations = append(reportObservations, big.NewInt(int64(t.timestamp)))
 	}
 
-	return false, nil, nil
+	reportBytes, err := reportTypes.Pack(timestamp, observers, reportObservations, big.NewInt(0))
+	return true, reportBytes, err
+
 }
 
 func (d dummyPlugin) ShouldAcceptFinalizedReport(ctx context.Context, timestamp ocrtypes.ReportTimestamp, report ocrtypes.Report) (bool, error) {
@@ -193,7 +145,7 @@ func (d dummyPlugin) Close() error {
 }
 
 func (d dummyPluginFactory) NewReportingPlugin(config ocrtypes.ReportingPluginConfig) (ocrtypes.ReportingPlugin, ocrtypes.ReportingPluginInfo, error) {
-	return &dummyPlugin{}, ocrtypes.ReportingPluginInfo{}, nil
+	return &dummyPlugin{errorLog: d.errorLog}, ocrtypes.ReportingPluginInfo{}, nil
 
 }
 
