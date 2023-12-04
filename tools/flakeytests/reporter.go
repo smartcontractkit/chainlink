@@ -70,6 +70,7 @@ func (l *LokiReporter) createRequest(report *Report) (pushRequest, error) {
 	vs := [][]string{}
 	now := l.now()
 	nows := fmt.Sprintf("%d", now.UnixNano())
+
 	for pkg, tests := range report.tests {
 		for t := range tests {
 			d, err := json.Marshal(flakeyTest{

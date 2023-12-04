@@ -303,6 +303,21 @@ func TestRunner_RerunWithNonZeroExitCodeDoesntStopCommand(t *testing.T) {
 }
 
 // Used for integration tests
+func TestSkippedForTests_Subtests(t *testing.T) {
+	if os.Getenv("FLAKEY_TEST_RUNNER_RUN_FIXTURE_TEST") != "1" {
+		t.Skip()
+	}
+
+	t.Run("1: should fail", func(t *testing.T) {
+		assert.False(t, true)
+	})
+
+	t.Run("2: should fail", func(t *testing.T) {
+		assert.False(t, true)
+	})
+}
+
+// Used for integration tests
 func TestSkippedForTests(t *testing.T) {
 	if os.Getenv("FLAKEY_TEST_RUNNER_RUN_FIXTURE_TEST") != "1" {
 		t.Skip()
@@ -322,7 +337,47 @@ func TestSkippedForTests_Success(t *testing.T) {
 	assert.True(t, true)
 }
 
-func TestParsesPanicCorrectly(t *testing.T) {
+func TestIntegration_DealsWithSubtests(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	output := `
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/tools/flakeytests/","Test":"TestSkippedForTests_Subtests/1:_should_fail","Elapsed":0}
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/tools/flakeytests/","Test":"TestSkippedForTests_Subtests","Elapsed":0}
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/tools/flakeytests/","Test":"TestSkippedForTests_Subtests/2:_should_fail","Elapsed":0}
+`
+
+	m := newMockReporter()
+	tc := &testCommand{
+		repo:    "github.com/smartcontractkit/chainlink/v2/tools/flakeytests",
+		command: "../bin/go_core_tests",
+		overrides: func(cmd *exec.Cmd) {
+			cmd.Env = append(cmd.Env, "FLAKEY_TESTRUNNER_RUN_FIXTURE_TEST=1")
+			cmd.Stdout = io.Discard
+			cmd.Stderr = io.Discard
+		},
+	}
+	r := &Runner{
+		numReruns:   2,
+		readers:     []io.Reader{strings.NewReader(output)},
+		testCommand: tc,
+		parse:       parseOutput,
+		reporter:    m,
+	}
+
+	err := r.Run()
+	require.NoError(t, err)
+	expectedTests := map[string]map[string]int{
+		"github.com/smartcontractkit/chainlink/v2/tools/flakeytests/": {
+			"TestSkippedForTests_Subtests/1:_should_fail": 1,
+			"TestSkippedForTests_Subtests/2:_should_fail": 1,
+		},
+	}
+	assert.Equal(t, expectedTests, m.report.tests)
+}
+
+func TestIntegration_ParsesPanics(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}

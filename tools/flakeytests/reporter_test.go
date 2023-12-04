@@ -107,3 +107,36 @@ func TestMakeRequest_Panics(t *testing.T) {
 		{ts, `{"message_type":"run_report","commit_sha":"","repository":"","event_type":"","num_package_panics":1,"num_flakes":1,"num_combined":2}`},
 	})
 }
+
+func TestDedupeEntries(t *testing.T) {
+	r := &Report{
+		tests: map[string]map[string]int{
+			"core/assets": map[string]int{
+				"TestSomethingAboutAssets/test_1": 2,
+				"TestSomethingAboutAssets":        4,
+				"TestSomeOtherTest":               1,
+				"TestSomethingAboutAssets/test_2": 2,
+				"TestFinalTest/test_1":            1,
+			},
+			"core/services/important_service": map[string]int{
+				"TestAnImportantService/a_subtest": 1,
+			},
+		},
+	}
+
+	otherReport, err := dedupeEntries(r)
+	require.NoError(t, err)
+
+	expectedMap := map[string]map[string]int{
+		"core/assets": map[string]int{
+			"TestSomethingAboutAssets/test_1": 2,
+			"TestSomeOtherTest":               1,
+			"TestSomethingAboutAssets/test_2": 2,
+			"TestFinalTest/test_1":            1,
+		},
+		"core/services/important_service": map[string]int{
+			"TestAnImportantService/a_subtest": 1,
+		},
+	}
+	assert.Equal(t, expectedMap, otherReport.tests)
+}

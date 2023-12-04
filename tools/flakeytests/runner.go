@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -144,6 +145,7 @@ func parseOutput(readers ...io.Reader) (*Report, error) {
 			return nil, err
 		}
 	}
+
 	return report, nil
 }
 
@@ -164,7 +166,7 @@ func NewReport() *Report {
 }
 
 func (r *Report) HasFlakes() bool {
-	return len(r.tests) > 0
+	return len(r.tests) > 0 || len(r.packagePanics) > 0
 }
 
 func (r *Report) SetTest(pkg, test string, val int) {
@@ -250,6 +252,51 @@ func (r *Runner) runTests(rep *Report) (*Report, error) {
 	return report, nil
 }
 
+func isSubtest(tn string) bool {
+	return strings.Contains(tn, "/")
+}
+
+func isSubtestOf(st, mt string) bool {
+	return isSubtest(st) && strings.Contains(st, mt)
+}
+
+func dedupeEntries(report *Report) (*Report, error) {
+	out := NewReport()
+	out.packagePanics = report.packagePanics
+	for pkg, tests := range report.tests {
+		// Sort the test names
+		testNames := make([]string, 0, len(tests))
+		for t := range tests {
+			testNames = append(testNames, t)
+		}
+
+		sort.Strings(testNames)
+
+		for i, tn := range testNames {
+			// Is this the last element? If it is, then add it to the deduped set.
+			// This is because a) it's a main test, in which case we add it because
+			// it has no subtests following it, or b) it's a subtest, which we always add.
+			if i == len(testNames)-1 {
+				out.SetTest(pkg, tn, report.tests[pkg][tn])
+				continue
+			}
+
+			// Next, let's compare the current item to the next one in the alphabetical order.
+			// In all cases we want to add the current item, UNLESS the current item is a main test,
+			// and the following one is a subtest of the current item.
+			nextItem := testNames[i+1]
+			if !isSubtest(tn) && isSubtestOf(nextItem, tn) {
+				continue
+			}
+
+			out.SetTest(pkg, tn, report.tests[pkg][tn])
+		}
+
+	}
+
+	return out, nil
+}
+
 func (r *Runner) Run() error {
 	parseReport, err := r.parse(r.readers...)
 	if err != nil {
@@ -265,6 +312,15 @@ func (r *Runner) Run() error {
 		log.Printf("ERROR: Suspected flakes found: %+v\n", report)
 	} else {
 		log.Print("SUCCESS: No suspected flakes detected")
+	}
+
+	// Before reporting the errors, let's dedupe some entries:
+	// In actuality, a failing subtest will produce two failing test entries,
+	// namely one for the test as a whole, and one for the subtest.
+	// This leads to inaccurate metrics since a failing subtest is double-counted.
+	report, err = dedupeEntries(report)
+	if err != nil {
+		return err
 	}
 
 	return r.reporter.Report(report)
