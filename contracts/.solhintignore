@@ -1,6 +1,11 @@
 # 344 warnings
 #./src/v0.8/automation
 
+# Ignore frozen Automation code
+./src/v0.8/automation/v1_2
+./src/v0.8/automation/v1_3
+./src/v0.8/automation/v2_0
+
 # Ignore Functions v1.0.0 code that was frozen after audit
 ./src/v0.8/functions/v1_0_0
 
