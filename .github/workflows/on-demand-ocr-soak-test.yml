@@ -95,6 +95,7 @@ jobs:
           this-job-name: ${{ inputs.network }} OCR Soak Test
         continue-on-error: true
       - name: Get Inputs
+        shell: bash
         run: |
           # Mask the sensitive inputs
           EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
