@@ -32,10 +32,10 @@ type tester interface {
 }
 
 type reporter interface {
-	Report(map[string]map[string]struct{}) error
+	Report(r *Report) error
 }
 
-type parseFn func(readers ...io.Reader) (map[string]map[string]int, error)
+type parseFn func(readers ...io.Reader) (*Report, error)
 
 func NewRunner(readers []io.Reader, reporter reporter, numReruns int) *Runner {
 	tc := &testCommand{
@@ -60,9 +60,14 @@ type testCommand struct {
 
 func (t *testCommand) test(pkg string, tests []string, w io.Writer) error {
 	replacedPkg := strings.Replace(pkg, t.repo, "", -1)
-	testFilter := strings.Join(tests, "|")
 	cmd := exec.Command(t.command, fmt.Sprintf(".%s", replacedPkg)) //#nosec
-	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-run %s", testFilter))
+	cmd.Env = os.Environ()
+
+	if len(tests) > 0 {
+		testFilter := strings.Join(tests, "|")
+		cmd.Env = append(cmd.Env, fmt.Sprintf("TEST_FLAGS=-run %s", testFilter))
+	}
+
 	cmd.Stdout = io.MultiWriter(os.Stdout, w)
 	cmd.Stderr = io.MultiWriter(os.Stderr, w)
 	t.overrides(cmd)
@@ -84,8 +89,8 @@ func newEvent(b []byte) (*TestEvent, error) {
 	return e, err
 }
 
-func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
-	tests := map[string]map[string]int{}
+func parseOutput(readers ...io.Reader) (*Report, error) {
+	report := NewReport()
 	for _, r := range readers {
 		s := bufio.NewScanner(r)
 		for s.Scan() {
@@ -105,24 +110,32 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 				return nil, err
 			}
 
-			// We're only interested in test failures, for which
-			// both Package and Test would be present.
-			if e.Package == "" || e.Test == "" {
-				continue
-			}
-
 			switch e.Action {
 			case "fail":
-				if tests[e.Package] == nil {
-					tests[e.Package] = map[string]int{}
+				// Fail logs come in two forms:
+				// - with e.Package && e.Test, in which case it indicates a test failure.
+				// - with e.Package only, which indicates that the package test has failed,
+				// or possible that there has been a panic in an out-of-process goroutine running
+				// as part of the tests.
+				//
+				// We can ignore the last case because a package failure will be accounted elsewhere, either
+				// in the form of a failing test entry, or in the form of a panic output log, covered below.
+				if e.Test == "" {
+					continue
 				}
-				tests[e.Package][e.Test]++
+
+				report.IncTest(e.Package, e.Test)
 			case "output":
 				if panicRe.MatchString(e.Output) {
-					if tests[e.Package] == nil {
-						tests[e.Package] = map[string]int{}
+					// Similar to the above, a panic can come in two forms:
+					// - attached to a test (i.e. with e.Test != ""), in which case
+					// we'll treat it like a failing test.
+					// - package-scoped, in which case we'll treat it as a package panic.
+					if e.Test != "" {
+						report.IncTest(e.Package, e.Test)
+					} else {
+						report.IncPackagePanic(e.Package)
 					}
-					tests[e.Package][e.Test]++
 				}
 			}
 		}
@@ -131,75 +144,128 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 			return nil, err
 		}
 	}
-	return tests, nil
+	return report, nil
 }
 
 type exitCoder interface {
 	ExitCode() int
 }
 
-func (r *Runner) runTests(failedTests map[string]map[string]int) (map[string]map[string]struct{}, error) {
-	suspectedFlakes := map[string]map[string]struct{}{}
+type Report struct {
+	tests         map[string]map[string]int
+	packagePanics map[string]int
+}
 
-	for pkg, tests := range failedTests {
+func NewReport() *Report {
+	return &Report{
+		tests:         map[string]map[string]int{},
+		packagePanics: map[string]int{},
+	}
+}
+
+func (r *Report) HasFlakes() bool {
+	return len(r.tests) > 0
+}
+
+func (r *Report) SetTest(pkg, test string, val int) {
+	if r.tests[pkg] == nil {
+		r.tests[pkg] = map[string]int{}
+	}
+	r.tests[pkg][test] = val
+}
+
+func (r *Report) IncTest(pkg string, test string) {
+	if r.tests[pkg] == nil {
+		r.tests[pkg] = map[string]int{}
+	}
+	r.tests[pkg][test]++
+}
+
+func (r *Report) IncPackagePanic(pkg string) {
+	r.packagePanics[pkg]++
+}
+
+func (r *Runner) runTest(pkg string, tests []string) (*Report, error) {
+	var out bytes.Buffer
+	err := r.testCommand.test(pkg, tests, &out)
+	if err != nil {
+		log.Printf("Test command errored: %s\n", err)
+		// There was an error because the command failed with a non-zero
+		// exit code. This could just mean that the test failed again, so let's
+		// keep going.
+		var exErr exitCoder
+		if errors.As(err, &exErr) && exErr.ExitCode() > 0 {
+			return r.parse(&out)
+		}
+		return nil, err
+	}
+
+	return r.parse(&out)
+}
+
+func (r *Runner) runTests(rep *Report) (*Report, error) {
+	report := NewReport()
+
+	// We need to deal with two types of flakes here:
+	// - flakes where we know the test that failed; in this case, we just rerun the failing test in question
+	// - flakes where we don't know what test failed. These are flakes where a panic occurred in an out-of-process goroutine,
+	// thus failing the package as a whole. For these, we'll rerun the whole package again.
+	for pkg, tests := range rep.tests {
 		ts := []string{}
 		for test := range tests {
 			ts = append(ts, test)
 		}
 
-		log.Printf("Executing test command with parameters: pkg=%s, tests=%+v, numReruns=%d\n", pkg, ts, r.numReruns)
+		log.Printf("[FLAKEY_TEST] Executing test command with parameters: pkg=%s, tests=%+v, numReruns=%d\n", pkg, ts, r.numReruns)
 		for i := 0; i < r.numReruns; i++ {
-			var out bytes.Buffer
-
-			err := r.testCommand.test(pkg, ts, &out)
+			pr, err := r.runTest(pkg, ts)
 			if err != nil {
-				log.Printf("Test command errored: %s\n", err)
-				// There was an error because the command failed with a non-zero
-				// exit code. This could just mean that the test failed again, so let's
-				// keep going.
-				var exErr exitCoder
-				if errors.As(err, &exErr) && exErr.ExitCode() > 0 {
-					continue
-				}
-				return suspectedFlakes, err
-			}
-
-			fr, err := r.parse(&out)
-			if err != nil {
-				return nil, err
+				return report, err
 			}
 
 			for t := range tests {
-				failures := fr[pkg][t]
+				failures := pr.tests[pkg][t]
 				if failures == 0 {
-					if suspectedFlakes[pkg] == nil {
-						suspectedFlakes[pkg] = map[string]struct{}{}
-					}
-					suspectedFlakes[pkg][t] = struct{}{}
+					report.SetTest(pkg, t, 1)
 				}
+			}
+
+		}
+	}
+
+	for pkg := range rep.packagePanics {
+		log.Printf("[PACKAGE_PANIC]: Executing test command with parameters: pkg=%s, numReruns=%d\n", pkg, r.numReruns)
+		for i := 0; i < r.numReruns; i++ {
+			pr, err := r.runTest(pkg, []string{})
+			if err != nil {
+				return report, err
+			}
+
+			if pr.packagePanics[pkg] == 0 {
+				report.IncPackagePanic(pkg)
 			}
 		}
 	}
 
-	return suspectedFlakes, nil
+	return report, nil
 }
 
 func (r *Runner) Run() error {
-	failedTests, err := r.parse(r.readers...)
+	parseReport, err := r.parse(r.readers...)
 	if err != nil {
 		return err
 	}
 
-	suspectedFlakes, err := r.runTests(failedTests)
+	report, err := r.runTests(parseReport)
 	if err != nil {
 		return err
 	}
 
-	if len(suspectedFlakes) > 0 {
-		log.Printf("ERROR: Suspected flakes found: %+v\n", suspectedFlakes)
+	if report.HasFlakes() {
+		log.Printf("ERROR: Suspected flakes found: %+v\n", report)
 	} else {
 		log.Print("SUCCESS: No suspected flakes detected")
 	}
 
-	return r.reporter.Report(suspectedFlakes)
+	return r.reporter.Report(report)
 }
