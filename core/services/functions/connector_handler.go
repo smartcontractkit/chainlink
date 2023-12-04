@@ -13,6 +13,8 @@ import (
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -55,6 +57,13 @@ const (
 var (
 	_ connector.Signer                  = &functionsConnectorHandler{}
 	_ connector.GatewayConnectorHandler = &functionsConnectorHandler{}
+)
+
+var (
+	promStorageUserUpdatesCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "storage_user_updates",
+		Help: "Number of actual updates users performed by nodes",
+	}, []string{"don_id"})
 )
 
 // internal request ID is a hash of (sender, requestID)
@@ -185,6 +194,7 @@ func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewa
 		err = h.storage.Put(ctx, &key, &record, request.Signature)
 		if err == nil {
 			response.Success = true
+			promStorageUserUpdatesCount.WithLabelValues(body.DonId).Inc()
 		} else {
 			response.ErrorMessage = fmt.Sprintf("Failed to set secret: %v", err)
 		}
