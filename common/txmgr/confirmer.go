@@ -802,15 +802,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bum
 		return bumpedAttempt, err
 	}
 
-	if errors.Is(errors.Unwrap(err), commonfee.ErrBumpFeeExceedsLimit) {
+	if errors.Is(err, commonfee.ErrBumpFeeExceedsLimit) {
 		promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
 	}
 
-	if err != nil {
-		return bumpedAttempt, fmt.Errorf("error bumping gas: %w", err)
-	}
-
-	return bumpedAttempt, nil
+	return bumpedAttempt, fmt.Errorf("error bumping gas: %w", err)
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockHeight int64) error {
