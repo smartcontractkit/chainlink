@@ -419,6 +419,13 @@ jobs:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+          LOKI_URL: ${{ secrets.LOKI_URL }}
+          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+          LOGWATCH_LOG_TARGETS: ${{ vars. LOGWATCH_LOG_TARGETS }}
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
+          TEST_LOG_COLLECT: true          
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -435,13 +442,6 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
-          LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
-          LOKI_URL: ${{ secrets.LOKI_URL }}
-          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-          LOGWATCH_LOG_TARGETS: ${{ vars. LOGWATCH_LOG_TARGETS }}
-          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
-          GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
-          TEST_LOG_COLLECT: true
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
