@@ -135,6 +135,7 @@ type ContractDeployer interface {
 	DeployOffchainAggregatorEventsMock() (OffchainAggregatorEventsMock, error)
 	DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error)
 	DeployOffchainAggregatorV2(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregatorV2, error)
+	LoadOffChainAggregatorV2(address *common.Address) (OffchainAggregatorV2, error)
 	DeployKeeperRegistryCheckUpkeepGasUsageWrapper(keeperRegistryAddr string) (KeeperRegistryCheckUpkeepGasUsageWrapper, error)
 	DeployKeeperRegistry11Mock() (KeeperRegistry11Mock, error)
 	DeployKeeperRegistrar12Mock() (KeeperRegistrar12Mock, error)
@@ -1572,6 +1573,25 @@ func (e *EthereumContractDeployer) DeployOffchainAggregatorV2(
 			offchainOptions.Decimals,
 			offchainOptions.Description,
 		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOffchainAggregatorV2{
+		client:   e.client,
+		contract: instance.(*ocr2aggregator.OCR2Aggregator),
+		address:  address,
+		l:        e.l,
+	}, err
+}
+
+// LoadOffChainAggregatorV2 loads an already deployed offchain aggregator v2 contract
+func (e *EthereumContractDeployer) LoadOffChainAggregatorV2(address *common.Address) (OffchainAggregatorV2, error) {
+	instance, err := e.client.LoadContract("OffChainAggregatorV2", *address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return ocr2aggregator.NewOCR2Aggregator(address, backend)
 	})
 	if err != nil {
 		return nil, err

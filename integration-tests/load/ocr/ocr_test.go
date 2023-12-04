@@ -3,12 +3,12 @@ package ocr
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
-
-	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
 )
 
 var (
