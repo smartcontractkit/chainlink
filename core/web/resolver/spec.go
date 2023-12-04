@@ -421,17 +421,6 @@ func (r *OCRSpecResolver) ObservationTimeout() *string {
 	return &timeout
 }
 
-// P2PBootstrapPeers resolves the spec's p2p bootstrap peers
-func (r *OCRSpecResolver) P2PBootstrapPeers() *[]string {
-	if len(r.spec.P2PBootstrapPeers) == 0 {
-		return nil
-	}
-
-	peers := []string(r.spec.P2PBootstrapPeers)
-
-	return &peers
-}
-
 // P2PV2Bootstrappers resolves the OCR1 spec's p2pv2 bootstrappers
 func (r *OCRSpecResolver) P2PV2Bootstrappers() *[]string {
 	if len(r.spec.P2PV2Bootstrappers) == 0 {
