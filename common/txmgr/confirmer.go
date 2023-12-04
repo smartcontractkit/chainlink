@@ -1021,7 +1021,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 
 	// Put it back in progress and delete all receipts (they do not apply to the new chain)
 	if err := ec.txStore.UpdateTxForRebroadcast(ec.ctx, etx, attempt); err != nil {
-		return fmt.Errorf("UpdateTxForRebroadcast failed: %w", err)
+		return fmt.Errorf("markForRebroadcast failed: %w", err)
 	}
 
 	return nil
