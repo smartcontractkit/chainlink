@@ -16,6 +16,7 @@ library ByteUtil {
    * @param offset Position to start reading from.
    * @return result The uint256 read from the byte array.
    */
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _readUint256(bytes memory data, uint256 offset) internal pure returns (uint256 result) {
     //bounds check
     if (offset + 32 > data.length) revert MalformedData();
@@ -24,7 +25,6 @@ library ByteUtil {
       //load 32 byte word accounting for 32 bit length and offset
       result := mload(add(add(data, 32), offset))
     }
-    return result;
   }
 
   /**
@@ -33,6 +33,7 @@ library ByteUtil {
    * @param offset Position to start reading from.
    * @return result The uint192 read from the byte array.
    */
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _readUint192(bytes memory data, uint256 offset) internal pure returns (uint256 result) {
     //bounds check
     if (offset + 24 > data.length) revert MalformedData();
@@ -43,7 +44,6 @@ library ByteUtil {
       //shift the result right 64 bits
       result := shr(64, result)
     }
-    return result;
   }
 
   /**
@@ -52,6 +52,7 @@ library ByteUtil {
    * @param offset Position to start reading from.
    * @return result The uint32 read from the byte array.
    */
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _readUint32(bytes memory data, uint256 offset) internal pure returns (uint256 result) {
     //bounds check
     if (offset + 4 > data.length) revert MalformedData();
@@ -62,7 +63,6 @@ library ByteUtil {
       //shift the result right 224 bits
       result := shr(224, result)
     }
-    return result;
   }
 
   /**
@@ -71,6 +71,7 @@ library ByteUtil {
    * @param offset Position to start reading from.
    * @return result The uint32 read from the byte array.
    */
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _readAddress(bytes memory data, uint256 offset) internal pure returns (address result) {
     //bounds check
     if (offset + 20 > data.length) revert MalformedData();
@@ -81,6 +82,5 @@ library ByteUtil {
       //address is the last 20 bytes of the word, so shift right
       result := shr(96, word)
     }
-    return result;
   }
 }
