@@ -341,18 +341,20 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
+			ctx, cancel := b.chStop.NewCtx()
+			defer cancel()
 			// Retry indefinitely on failure
 			backoff := cutils.NewRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.broadcaster.startInternal(); err != nil {
+					if err := b.broadcaster.startInternal(ctx); err != nil {
 						logger.Criticalw(b.logger, "Failed to start Broadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
 					return
-				case <-b.chStop:
+				case <-ctx.Done():
 					stopOnce.Do(func() { stopped = true })
 					return
 				}

@@ -115,7 +115,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [ build-chainlink, build-test-image ]
+    needs: [build-chainlink, build-test-image]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}

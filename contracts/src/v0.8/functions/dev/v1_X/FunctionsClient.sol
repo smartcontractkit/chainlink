@@ -11,7 +11,7 @@ import {FunctionsRequest} from "./libraries/FunctionsRequest.sol";
 abstract contract FunctionsClient is IFunctionsClient {
   using FunctionsRequest for FunctionsRequest.Request;
 
-  IFunctionsRouter internal immutable i_router;
+  IFunctionsRouter internal immutable i_functionsRouter;
 
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);
@@ -19,7 +19,7 @@ abstract contract FunctionsClient is IFunctionsClient {
   error OnlyRouterCanFulfill();
 
   constructor(address router) {
-    i_router = IFunctionsRouter(router);
+    i_functionsRouter = IFunctionsRouter(router);
   }
 
   /// @notice Sends a Chainlink Functions request
@@ -33,7 +33,7 @@ abstract contract FunctionsClient is IFunctionsClient {
     uint32 callbackGasLimit,
     bytes32 donId
   ) internal returns (bytes32) {
-    bytes32 requestId = i_router.sendRequest(
+    bytes32 requestId = i_functionsRouter.sendRequest(
       subscriptionId,
       data,
       FunctionsRequest.REQUEST_DATA_VERSION,
@@ -53,7 +53,7 @@ abstract contract FunctionsClient is IFunctionsClient {
 
   /// @inheritdoc IFunctionsClient
   function handleOracleFulfillment(bytes32 requestId, bytes memory response, bytes memory err) external override {
-    if (msg.sender != address(i_router)) {
+    if (msg.sender != address(i_functionsRouter)) {
       revert OnlyRouterCanFulfill();
     }
     _fulfillRequest(requestId, response, err);

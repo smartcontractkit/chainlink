@@ -250,13 +250,18 @@ func (ks *eth) Disable(address common.Address, chainID *big.Int, qopts ...pg.QOp
 func (ks *eth) disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
 	state := new(ethkey.State)
 	q := ks.q.WithOpts(qopts...)
-	sql := `UPDATE evm.key_states SET disabled = false, updated_at = NOW() WHERE address = $1 AND evm_chain_id = $2
-			RETURNING id, address, evm_chain_id, disabled, created_at, updated_at;`
+	sql := `INSERT INTO evm.key_states as key_states ("address", "evm_chain_id", "disabled", "created_at", "updated_at") VALUES ($1, $2, true, NOW(), NOW())
+			ON CONFLICT ("address", "evm_chain_id") DO UPDATE SET "disabled" = true, "updated_at" = NOW() WHERE key_states."address" = $1 AND key_states."evm_chain_id" = $2
+			RETURNING *;`
 	if err := q.Get(state, sql, address, chainID.String()); err != nil {
-		return errors.Wrap(err, "failed to enable state")
+		return errors.Wrap(err, "failed to disable state")
 	}
 
-	ks.keyStates.disable(address, chainID, state.UpdatedAt)
+	if state.CreatedAt.Equal(state.UpdatedAt) {
+		ks.keyStates.add(state)
+	} else {
+		ks.keyStates.disable(address, chainID, state.UpdatedAt)
+	}
 	ks.notify()
 	return nil
 }
