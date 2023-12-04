@@ -20,7 +20,6 @@ env:
   TEST_ARGS: -test.timeout 12m
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   MOD_CACHE_VERSION: 2
-  RUN_ID: ${{ github.run_id }}
 
 jobs:
   enforce-ctf-version:
@@ -448,6 +447,14 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          RUN_ID: ${{ github.run_id }}
+          LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+          LOKI_URL: ${{ secrets.LOKI_URL }}
+          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+          LOGWATCH_LOG_TARGETS: ${{ vars. LOGWATCH_LOG_TARGETS }}
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
+          TEST_LOG_COLLECT: true
       - name: Show Otel-Collector Logs
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
@@ -472,6 +479,25 @@ jobs:
         with:
           name: trace-data
           path: ./integration-tests/smoke/traces/trace-data.json
+      - name: Print failed test summary
+        run: |
+          directory="./integration-tests/smoke/.test_summary"
+          files=("$directory"/*)
+          if [ -d "$directory" ]; then
+            echo "Test summary folder found"
+            if [ ${#files[@]} -gt 0 ]; then
+              first_file="${files[0]}"
+              echo "Name of the first test summary file: $(basename "$first_file")"
+              cat "$first_file" | jq -r '.loki[] | "\(.test_name) => \(.value)"' >> $GITHUB_STEP_SUMMARY
+              if [ ${#files[@]} -gt 1 ]; then
+                echo "Found more than one test summary file. This is incorrect, there should be only one file"
+              fi
+            else
+                echo "Test summary directory is empty. This should not happen"
+            fi
+          else
+            echo "No test summary folder found. If no test failed or log collection wasn't explicitly requested this is correct. Exiting"
+          fi
 
 
   ### Used to check the required checks box when the matrix completes

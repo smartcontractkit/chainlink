@@ -259,7 +259,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			b.l.Warn().Msg("Shutting down logwatch")
 			b.te.LogWatch.Shutdown(testcontext.Get(b.t))
 
-			if b.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
+			if b.t.Failed() || os.Getenv("LW_TEST_MODE") == "true" {
 				// we can't do much if this fails, so we just log the error
 				_ = b.te.LogWatch.FlushLogsToTargets()
 				b.te.LogWatch.PrintLogTargetsLocations()
