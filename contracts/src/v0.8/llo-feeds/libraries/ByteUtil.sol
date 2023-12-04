@@ -24,6 +24,7 @@ library ByteUtil {
       //load 32 byte word accounting for 32 bit length and offset
       result := mload(add(add(data, 32), offset))
     }
+    return result;
   }
 
   /**
@@ -42,6 +43,7 @@ library ByteUtil {
       //shift the result right 64 bits
       result := shr(64, result)
     }
+    return result;
   }
 
   /**
@@ -60,6 +62,7 @@ library ByteUtil {
       //shift the result right 224 bits
       result := shr(224, result)
     }
+    return result;
   }
 
   /**
@@ -78,5 +81,6 @@ library ByteUtil {
       //address is the last 20 bytes of the word, so shift right
       result := shr(96, word)
     }
+    return result;
   }
 }
