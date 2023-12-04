@@ -57,7 +57,7 @@ jobs:
         tests:
           - name: Upgrade
             suite: smoke
-            nodes: 3
+            nodes: 6
             os: ubuntu20.04-8cores-32GB
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade$ ./smoke
