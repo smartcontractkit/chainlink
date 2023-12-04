@@ -130,7 +130,7 @@ jobs:
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         id: slack
         with:
-          channel-id: C04N1QXN57G # TODO: change
+          channel-id: C03KJ5S7KEK
           payload: |
             {
               "attachments": [
@@ -187,7 +187,7 @@ jobs:
           PARSED_RESULTS=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq -r --arg pattern "${{ matrix.name }} (?<product>\\w+) Tests" '.jobs[]
+          | jq -r --arg pattern "${{ matrix.name }} Test" '.jobs[]
           | select(.name | test($pattern)) as $job
           | $job.steps[]
           | select(.name == "Run Tests")
@@ -227,7 +227,7 @@ jobs:
       - name: Test Details
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         with:
-          channel-id: C04N1QXN57G # TODO: change
+          channel-id: C03KJ5S7KEK
           payload: |
             {
               "thread_ts": "${{ needs.test-notify.outputs.thread_ts }}",
