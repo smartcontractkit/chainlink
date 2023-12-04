@@ -75,10 +75,7 @@ name              = "%s"
 externalJobID       = "%s"
 evmChainID 		   = 0
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
-p2pBootstrapPeers  = [
-	"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-]
-p2pv2Bootstrappers = []
+p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 keyBundleID        = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
 isBootstrapPeer		= false

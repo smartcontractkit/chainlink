@@ -385,7 +385,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 						IsBootstrapPeer:                        false,
 						EncryptedOCRKeyBundleID:                &keyBundleID,
 						ObservationTimeout:                     models.Interval(2 * time.Minute),
-						P2PBootstrapPeers:                      pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
 						P2PV2Bootstrappers:                     pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
 						TransmitterAddress:                     &transmitterAddress,
 					},
@@ -411,7 +410,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 									isBootstrapPeer
 									keyBundleID
 									observationTimeout
-									p2pBootstrapPeers
 									p2pv2Bootstrappers
 									transmitterAddress
 								}
@@ -438,7 +436,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 							"isBootstrapPeer": false,
 							"keyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"observationTimeout": "2m0s",
-							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
 							"p2pv2Bootstrappers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}

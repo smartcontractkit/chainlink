@@ -109,20 +109,6 @@ func WithOCR2() NodeConfigOpt {
 	}
 }
 
-// Deprecated: P2Pv1 is soon to be fully deprecated
-// WithP2Pv1 enables P2Pv1 and disables P2Pv2
-func WithP2Pv1() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.P2P.V1 = toml.P2PV1{
-			Enabled:    ptr.Ptr(true),
-			ListenIP:   it_utils.MustIP("0.0.0.0"),
-			ListenPort: ptr.Ptr[uint16](6690),
-		}
-		// disabled default
-		c.P2P.V2 = toml.P2PV2{Enabled: ptr.Ptr(false)}
-	}
-}
-
 func WithP2Pv2() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V2 = toml.P2PV2{
