@@ -57,7 +57,7 @@ contract ScrollSequencerUptimeFeed is
   address private s_l1Sender;
   /// @dev s_latestRoundId == 0 means this contract is uninitialized.
   FeedState private s_feedState = FeedState({latestRoundId: 0, latestStatus: false, startedAt: 0, updatedAt: 0});
-  mapping(uint80 => Round) private s_rounds;
+  mapping(uint80 roundId => Round round) private s_rounds;
 
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   IL2ScrollMessenger private immutable s_l2CrossDomainMessenger;
