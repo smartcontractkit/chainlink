@@ -88,9 +88,7 @@ var _ ocrtypes.ReportingPlugin = (*dummyPlugin)(nil)
 
 type dummyPlugin struct {
 	f                   int
-	maxReportLength     int
 	offchainConfig      median.OffchainConfig
-	onchainConfig       median.OnchainConfig
 	contractTransmitter median.MedianContract
 }
 
