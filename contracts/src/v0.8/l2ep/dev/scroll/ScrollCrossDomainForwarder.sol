@@ -4,7 +4,6 @@ pragma solidity 0.8.19;
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
 
-// ./dev dependencies - to be moved from ./dev after audit
 import {CrossDomainForwarder} from "../CrossDomainForwarder.sol";
 import {CrossDomainOwnable} from "../CrossDomainOwnable.sol";
 
