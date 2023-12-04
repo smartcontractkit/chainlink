@@ -9,16 +9,17 @@ import {ScrollSequencerUptimeFeedInterface} from "../interfaces/ScrollSequencerU
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 import {IL2ScrollMessenger} from "@scroll-tech/contracts/L2/IL2ScrollMessenger.sol";
 
-///
 /// @title ScrollSequencerUptimeFeed - L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates, and records a new answer if the status changed
-///
 contract ScrollSequencerUptimeFeed is
   AggregatorV2V3Interface,
   ScrollSequencerUptimeFeedInterface,
   TypeAndVersionInterface,
   SimpleReadAccessController
 {
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
+  string public constant override typeAndVersion = "ScrollSequencerUptimeFeed 1.0.0";
+
   /// @dev Round info (for uptime history)
   struct Round {
     bool status;
@@ -61,11 +62,9 @@ contract ScrollSequencerUptimeFeed is
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   IL2ScrollMessenger private immutable s_l2CrossDomainMessenger;
 
-  ///
   /// @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
   /// @param l2CrossDomainMessengerAddr Address of the L2CrossDomainMessenger contract
   /// @param initialStatus The initial status of the feed
-  ///
   constructor(address l1SenderAddress, address l2CrossDomainMessengerAddr, bool initialStatus) {
     _setL1Sender(l1SenderAddress);
     s_l2CrossDomainMessenger = IL2ScrollMessenger(l2CrossDomainMessengerAddr);
@@ -82,17 +81,6 @@ contract ScrollSequencerUptimeFeed is
   ///
   function _isValidRound(uint256 roundId) private view returns (bool) {
     return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
-  }
-
-  ///
-  /// @notice versions:
-  ///
-  /// - ScrollSequencerUptimeFeed 1.0.0: initial release
-  ///
-  /// @inheritdoc TypeAndVersionInterface
-  ///
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "ScrollSequencerUptimeFeed 1.0.0";
   }
 
   /// @return L1 sender address

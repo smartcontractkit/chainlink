@@ -26,8 +26,7 @@ contract MockScrollL2CrossDomainMessenger is IL2ScrollMessenger {
     uint256 _value,
     bytes calldata _message,
     uint256 _gasLimit,
-    // solhint-disable-next-line no-unused-vars
-    address _refundAddress
+    address
   ) external payable override {
     emit SentMessage(msg.sender, _target, _value, s_nonce, _gasLimit, _message);
     s_nonce++;
