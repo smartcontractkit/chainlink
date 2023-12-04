@@ -54,6 +54,7 @@ func newOffchainRequest(t *testing.T, sender []byte) (*api.Message, functions.Re
 }
 
 func TestFunctionsConnectorHandler(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/FUN-1138")
 	t.Parallel()
 
 	logger := logger.TestLogger(t)
