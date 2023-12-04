@@ -47,6 +47,18 @@ contract ScrollCrossDomainGovernor is DelegateForwarderInterface, TypeAndVersion
     return address(i_scrollCrossDomainMessenger);
   }
 
+  /// @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
+  modifier onlyL1Owner() override {
+    // solhint-disable-next-line custom-errors
+    require(msg.sender == i_scrollCrossDomainMessenger, "Sender is not the L2 messenger");
+    // solhint-disable-next-line custom-errors
+    require(
+      IScrollMessenger(i_scrollCrossDomainMessenger).xDomainMessageSender() == l1Owner(),
+      "xDomain sender is not the L1 owner"
+    );
+    _;
+  }
+
   /// @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
   modifier onlyLocalOrCrossDomainOwner() {
     // 1. The delegatecall MUST come from either the L1 owner (via cross-chain message) or the L2 owner
