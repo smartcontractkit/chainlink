@@ -265,7 +265,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 				}).Once()
 			s.client = client
 
-			err = s.CheckCallback(testutils.Context(t), tt.values, tt.lookup, &tt.input[0])
+			err = s.CheckCallback(testutils.Context(t), tt.values, tt.lookup, tt.input, 0)
 			tt.wantErr(t, err, fmt.Sprintf("Error assertion failed: %v", tt.name))
 			assert.Equal(t, uint8(tt.state), tt.input[0].PipelineExecutionState)
 			assert.Equal(t, tt.retryable, tt.input[0].Retryable)

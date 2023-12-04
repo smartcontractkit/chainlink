@@ -280,7 +280,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 
 			// do mercury request
 			automationCheckResult := mustAutomationCheckResult(upkeepID, checkResult, trigger)
-			values, err := streams.DoMercuryRequest(ctx, streamsLookup, &automationCheckResult)
+			checkResults := []ocr2keepers.CheckResult{automationCheckResult}
+			values, err := streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
 
 			if automationCheckResult.IneligibilityReason == uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput) {
 				resolveIneligible("upkeep used invalid revert data")
@@ -293,7 +294,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			}
 
 			// do checkCallback
-			err = streams.CheckCallback(ctx, values, streamsLookup, &automationCheckResult)
+			err = streams.CheckCallback(ctx, values, streamsLookup, checkResults, 0)
 			if err != nil {
 				failUnknown("failed to execute mercury callback ", err)
 			}
