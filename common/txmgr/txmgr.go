@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	cutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
+	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -344,7 +344,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			ctx, cancel := b.chStop.NewCtx()
 			defer cancel()
 			// Retry indefinitely on failure
-			backoff := cutils.NewRedialBackoff()
+			backoff := iutils.NewRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
@@ -363,7 +363,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
-			backoff := cutils.NewRedialBackoff()
+			backoff := iutils.NewRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
