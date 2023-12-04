@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.19;
 
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import {AccessControl} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/access/AccessControl.sol";
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -32,10 +32,7 @@ interface ILinkAvailable {
 ///  this is a "trusless" upkeep, meaning it does not trust the caller of performUpkeep;
 /// we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
 /// which has significantly different trust assumptions
-contract LinkAvailableBalanceMonitor is AccessControlEnumerable, AutomationCompatibleInterface {
-  bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-  bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
-
+contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInterface {
   event BalanceUpdated(address indexed addr, uint256 oldBalance, uint256 newBalance);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event UpkeepIntervalSet(uint256 oldUpkeepInterval, uint256 newUpkeepInterval);
@@ -65,7 +62,12 @@ contract LinkAvailableBalanceMonitor is AccessControlEnumerable, AutomationCompa
     bool isActive;
   }
 
+  bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+  bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
+  uint96 private constant DEFAULT_TOP_UP_AMOUNT = 9;
+  uint96 private constant DEFAULT_MIN_BALANCE = 1;
   IERC20 private immutable LINK_TOKEN;
+
   uint256 private s_minWaitPeriodSeconds;
   uint16 private s_maxPerform;
   uint16 private s_maxCheck;
@@ -141,7 +143,7 @@ contract LinkAvailableBalanceMonitor is AccessControlEnumerable, AutomationCompa
 
   /// @notice Adds a new address to the watchlist
   /// @param targetAddress the address to be added to the watchlist
-  /// @param dstChainSelector carries the chainId in case the targetAddress is an onRamp, otherwise it carries a 0
+  /// @param dstChainSelector carries a non-zero value in case the targetAddress is an onRamp, otherwise it carries a 0
   /// @dev this function has to be compatible with the event onRampSet(address, dstChainSelector) emitted by
   /// the CCIP router. Important detail to know is this event is also emitted when an onRamp is decomissioned,
   /// in which case it will carry the proper dstChainSelector along with the 0x0 address
@@ -158,8 +160,8 @@ contract LinkAvailableBalanceMonitor is AccessControlEnumerable, AutomationCompa
       s_onRampAddresses[dstChainSelector] = targetAddress;
       s_targets[targetAddress] = MonitoredAddress({
         isActive: true,
-        minBalance: 1,
-        topUpAmount: 9,
+        minBalance: DEFAULT_MIN_BALANCE,
+        topUpAmount: DEFAULT_TOP_UP_AMOUNT,
         lastTopUpTimestamp: 0
       });
       s_watchList.push(targetAddress);
