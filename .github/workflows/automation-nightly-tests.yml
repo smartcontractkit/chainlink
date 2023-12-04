@@ -7,6 +7,9 @@ on:
       - "*"
   workflow_dispatch:
 
+env:
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+
 jobs:
   build-chainlink:
     environment: integration
@@ -74,7 +77,7 @@ jobs:
           SELECTED_NETWORKS: ${{ matrix.tests.network }}
           TEST_SUITE: ${{ matrix.tests.suite }}
           UPGRADE_VERSION: ${{ github.sha }}
-          UPGRADE_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+          UPGRADE_IMAGE: ${{ env.CHAINLINK_IMAGE }}
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
