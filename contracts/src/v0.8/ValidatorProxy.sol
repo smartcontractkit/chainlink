@@ -167,6 +167,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
     current = s_currentAggregator.target;
     hasProposal = s_currentAggregator.hasNewProposal;
     proposed = s_proposedAggregator;
+    return (current, hasProposal, proposed);
   }
 
   /** VALIDATOR CONFIGURATION FUNCTIONS **/
@@ -216,6 +217,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
     current = s_currentValidator.target;
     hasProposal = s_currentValidator.hasNewProposal;
     proposed = s_proposedValidator;
+    return (current, hasProposal, proposed);
   }
 
   /**
