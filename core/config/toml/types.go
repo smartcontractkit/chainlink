@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -1040,21 +1039,7 @@ type P2P struct {
 	PeerID                    *p2pkey.PeerID
 	TraceLogging              *bool
 
-	V1 P2PV1 `toml:",omitempty"`
 	V2 P2PV2 `toml:",omitempty"`
-}
-
-func (p *P2P) NetworkStack() ocrnetworking.NetworkingStack {
-	v1, v2 := *p.V1.Enabled, *p.V2.Enabled
-	switch {
-	case v1 && v2:
-		return ocrnetworking.NetworkingStackV1V2
-	case v2:
-		return ocrnetworking.NetworkingStackV2
-	case v1:
-		return ocrnetworking.NetworkingStackV1
-	}
-	return ocrnetworking.NetworkingStack(0)
 }
 
 func (p *P2P) setFrom(f *P2P) {
@@ -1071,66 +1056,7 @@ func (p *P2P) setFrom(f *P2P) {
 		p.TraceLogging = v
 	}
 
-	p.V1.setFrom(&f.V1)
 	p.V2.setFrom(&f.V2)
-}
-
-type P2PV1 struct {
-	Enabled                          *bool
-	AnnounceIP                       *net.IP
-	AnnouncePort                     *uint16
-	BootstrapCheckInterval           *models.Duration
-	DefaultBootstrapPeers            *[]string
-	DHTAnnouncementCounterUserPrefix *uint32
-	DHTLookupInterval                *int64
-	ListenIP                         *net.IP
-	ListenPort                       *uint16
-	NewStreamTimeout                 *models.Duration
-	PeerstoreWriteInterval           *models.Duration
-}
-
-func (p *P2PV1) ValidateConfig() (err error) {
-	//TODO or empty?
-	if p.AnnouncePort != nil && p.AnnounceIP == nil {
-		err = multierr.Append(err, configutils.ErrMissing{Name: "AnnounceIP", Msg: fmt.Sprintf("required when AnnouncePort is set: %d", *p.AnnouncePort)})
-	}
-	return
-}
-
-func (p *P2PV1) setFrom(f *P2PV1) {
-	if v := f.Enabled; v != nil {
-		p.Enabled = v
-	}
-	if v := f.AnnounceIP; v != nil {
-		p.AnnounceIP = v
-	}
-	if v := f.AnnouncePort; v != nil {
-		p.AnnouncePort = v
-	}
-	if v := f.BootstrapCheckInterval; v != nil {
-		p.BootstrapCheckInterval = v
-	}
-	if v := f.DefaultBootstrapPeers; v != nil {
-		p.DefaultBootstrapPeers = v
-	}
-	if v := f.DHTAnnouncementCounterUserPrefix; v != nil {
-		p.DHTAnnouncementCounterUserPrefix = v
-	}
-	if v := f.DHTLookupInterval; v != nil {
-		p.DHTLookupInterval = v
-	}
-	if v := f.ListenIP; v != nil {
-		p.ListenIP = v
-	}
-	if v := f.ListenPort; v != nil {
-		p.ListenPort = v
-	}
-	if v := f.NewStreamTimeout; v != nil {
-		p.NewStreamTimeout = v
-	}
-	if v := f.PeerstoreWriteInterval; v != nil {
-		p.PeerstoreWriteInterval = v
-	}
 }
 
 type P2PV2 struct {

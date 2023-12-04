@@ -2,19 +2,17 @@ package ocrcommon
 
 import (
 	"context"
+	"crypto/ed25519"
 	"fmt"
 	"io"
-	"net"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"github.com/jmoiron/sqlx"
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	ocrnetworkingtypes "github.com/smartcontractkit/libocr/networking/types"
 	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -67,20 +65,8 @@ type (
 )
 
 func ValidatePeerWrapperConfig(config config.P2P) error {
-	switch config.NetworkStack() {
-	case ocrnetworking.NetworkingStackV1:
-		// Note: If P2PListenPort isn't set, the peer wrapper will generate a random one itself.
-		return nil
-	case ocrnetworking.NetworkingStackV2:
-		if len(config.V2().ListenAddresses()) == 0 {
-			return errors.New("networking stack v2 selected but no P2P.V2.ListenAddresses specified")
-		}
-	case ocrnetworking.NetworkingStackV1V2:
-		if len(config.V2().ListenAddresses()) == 0 {
-			return errors.New("networking stack v1v2 selected but no P2P.V2.ListenAddresses specified")
-		}
-	default:
-		return errors.New("unknown networking stack")
+	if len(config.V2().ListenAddresses()) == 0 {
+		return errors.New("no P2P.V2.ListenAddresses specified")
 	}
 	return nil
 }
@@ -139,70 +125,16 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	}
 	p.PeerID = key.PeerID()
 
-	v1 := p.p2pCfg.V1()
-	p2pPort := v1.ListenPort()
-	// We need to start the peer store wrapper if v1 is required.
-	// Also fallback to listen params if announce params not specified.
-	ns := p.p2pCfg.NetworkStack()
-	// NewPeer requires that these are both set or unset, otherwise it will error out.
-	v1AnnounceIP, v1AnnouncePort := v1.AnnounceIP(), v1.AnnouncePort()
-	var peerStore p2ppeerstore.Peerstore
-	if ns == ocrnetworking.NetworkingStackV1 || ns == ocrnetworking.NetworkingStackV1V2 {
-		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, v1.PeerstoreWriteInterval(), p.PeerID, p.lggr, p.dbConfig)
-		if err != nil {
-			return ocrnetworking.PeerConfig{}, errors.Wrap(err, "could not make new pstorewrapper")
-		}
-		if err = p.pstoreWrapper.Start(); err != nil {
-			return ocrnetworking.PeerConfig{}, errors.Wrap(err, "failed to start peer store wrapper")
-		}
-
-		peerStore = p.pstoreWrapper.Peerstore
-
-		// Use a random port if the port hasn't been set explicitly.
-		if p2pPort == 0 {
-			port, perr := p.randomPort()
-			if perr != nil {
-				return ocrnetworking.PeerConfig{}, perr
-			}
-			p2pPort = port
-
-			p.lggr.Warnw(
-				fmt.Sprintf("P2PListenPort was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2PListenPort to a fixed value in your environment", p2pPort),
-				"p2pPort",
-				p2pPort,
-			)
-		}
-
-		// Support someone specifying only the announce IP but leaving out
-		// the port.
-		// We _should not_ handle the case of someone specifying only the
-		// port but leaving out the IP, because the listen IP is typically
-		// an unspecified IP (https://pkg.go.dev/net#IP.IsUnspecified) and
-		// using that for the announce IP will cause other peers to not be
-		// able to connect.
-		if v1AnnounceIP != nil && v1AnnouncePort == 0 {
-			v1AnnouncePort = p2pPort
-		}
-	}
-
-	// Discover DB is only required for v2
-	var discovererDB ocrnetworkingtypes.DiscovererDatabase
-	if ns == ocrnetworking.NetworkingStackV2 || ns == ocrnetworking.NetworkingStackV1V2 {
-		discovererDB = NewDiscovererDatabase(p.db.DB, p2ppeer.ID(p.PeerID))
-	}
+	discovererDB := NewDiscovererDatabase(p.db.DB, p2ppeer.ID(p.PeerID))
 
 	config := p.p2pCfg
+	pk, err := key.PrivKey.Raw()
+	if err != nil {
+		return ocrnetworking.PeerConfig{}, fmt.Errorf("failed to get raw private key: %w", err)
+	}
 	peerConfig := ocrnetworking.PeerConfig{
-		NetworkingStack: config.NetworkStack(),
-		PrivKey:         key.PrivKey,
-		Logger:          commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
-		// V1 config
-		V1ListenIP:                         config.V1().ListenIP(),
-		V1ListenPort:                       p2pPort,
-		V1AnnounceIP:                       v1AnnounceIP,
-		V1AnnouncePort:                     v1AnnouncePort,
-		V1Peerstore:                        peerStore,
-		V1DHTAnnouncementCounterUserPrefix: config.V1().DHTAnnouncementCounterUserPrefix(),
+		PrivKey: ed25519.PrivateKey(pk),
+		Logger:  commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
 
 		// V2 config
 		V2ListenAddresses:    config.V2().ListenAddresses(),
@@ -211,14 +143,6 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 		V2DeltaDial:          config.V2().DeltaDial().Duration(),
 		V2DiscovererDatabase: discovererDB,
 
-		V1EndpointConfig: ocrnetworking.EndpointConfigV1{
-			IncomingMessageBufferSize: config.IncomingMessageBufferSize(),
-			OutgoingMessageBufferSize: config.OutgoingMessageBufferSize(),
-			NewStreamTimeout:          config.V1().NewStreamTimeout(),
-			DHTLookupInterval:         config.V1().DHTLookupInterval(),
-			BootstrapCheckInterval:    config.V1().BootstrapCheckInterval(),
-		},
-
 		V2EndpointConfig: ocrnetworking.EndpointConfigV2{
 			IncomingMessageBufferSize: config.IncomingMessageBufferSize(),
 			OutgoingMessageBufferSize: config.OutgoingMessageBufferSize(),
@@ -226,20 +150,6 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	}
 
 	return peerConfig, nil
-}
-
-func (p *SingletonPeerWrapper) randomPort() (uint16, error) {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return 0, fmt.Errorf("unexpected ResolveTCPAddr error generating random P2PListenPort: %w", err)
-	}
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, fmt.Errorf("unexpected ListenTCP error generating random P2PListenPort: %w", err)
-	}
-	defer l.Close()
-
-	return uint16(l.Addr().(*net.TCPAddr).Port), nil
 }
 
 // Close closes the peer and peerstore
