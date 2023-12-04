@@ -99,7 +99,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
 
   // STATIC CONFIG
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "EVM2EVMOffRamp 1.2.0";
+  string public constant override typeAndVersion = "EVM2EVMOffRamp 1.3.0-dev";
   /// @dev Commit store address on the destination chain
   address internal immutable i_commitStore;
   /// @dev ChainSelector of the source chain
@@ -342,6 +342,14 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       _setExecutionState(message.sequenceNumber, Internal.MessageExecutionState.IN_PROGRESS);
       (Internal.MessageExecutionState newState, bytes memory returnData) = _trialExecute(message, offchainTokenData);
       _setExecutionState(message.sequenceNumber, newState);
+
+      // Since it's hard to estimate whether manual execution will succeed, we
+      // revert the entire transaction if it fails. This will show the user if
+      // their manual exec will fail before they submit it.
+      if (manualExecution && newState == Internal.MessageExecutionState.FAILURE) {
+        // If manual execution fails, we revert the entire transaction.
+        revert ExecutionError(returnData);
+      }
 
       // The only valid prior states are UNTOUCHED and FAILURE (checked above)
       // The only valid post states are FAILURE and SUCCESS (checked below)

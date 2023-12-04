@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -208,6 +209,10 @@ func TestOffRampReaderInit(t *testing.T) {
 			name:    "OffRampReader_V1_2_0",
 			version: ccipdata.V1_2_0,
 		},
+		{
+			name:    "OffRampReader_V1_3_0-dev",
+			version: ccipdata.V1_3_0,
+		},
 	}
 
 	for _, test := range tests {
@@ -238,6 +243,8 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 		offRampAddress = setupOffRampV1_0_0(t, user, bc)
 	case ccipdata.V1_2_0:
 		offRampAddress = setupOffRampV1_2_0(t, user, bc)
+	case ccipdata.V1_3_0:
+		offRampAddress = setupOffRampV1_3_0(t, user, bc)
 	default:
 		require.Fail(t, "Unknown version: ", version)
 	}
@@ -296,6 +303,43 @@ func setupOffRampV1_2_0(t *testing.T, user *bind.TransactOpts, bc *client.Simula
 	csAddr := deployCommitStore(t, user, bc, onRampAddr, armAddr)
 
 	// Deploy the OffRamp.
+	staticConfig := evm_2_evm_offramp_1_2_0.EVM2EVMOffRampStaticConfig{
+		CommitStore:         csAddr,
+		ChainSelector:       testutils.SimulatedChainID.Uint64(),
+		SourceChainSelector: testutils.SimulatedChainID.Uint64(),
+		OnRamp:              onRampAddr,
+		PrevOffRamp:         common.Address{},
+		ArmProxy:            armAddr,
+	}
+	sourceTokens := []common.Address{}
+	pools := []common.Address{}
+	rateLimiterConfig := evm_2_evm_offramp_1_2_0.RateLimiterConfig{
+		IsEnabled: false,
+		Capacity:  big.NewInt(0),
+		Rate:      big.NewInt(0),
+	}
+
+	offRampAddr, tx, offRamp, err := evm_2_evm_offramp_1_2_0.DeployEVM2EVMOffRamp(user, bc, staticConfig, sourceTokens, pools, rateLimiterConfig)
+	bc.Commit()
+	require.NoError(t, err)
+	assertNonRevert(t, tx, bc, user)
+
+	// Verify the deployed OffRamp.
+	tav, err := offRamp.TypeAndVersion(&bind.CallOpts{
+		Context: testutils.Context(t),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "EVM2EVMOffRamp 1.2.0", tav)
+	return offRampAddr
+}
+
+func setupOffRampV1_3_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
+
+	onRampAddr := utils.RandomAddress()
+	armAddr := deployMockArm(t, user, bc)
+	csAddr := deployCommitStore(t, user, bc, onRampAddr, armAddr)
+
+	// Deploy the OffRamp.
 	staticConfig := evm_2_evm_offramp.EVM2EVMOffRampStaticConfig{
 		CommitStore:         csAddr,
 		ChainSelector:       testutils.SimulatedChainID.Uint64(),
@@ -322,7 +366,7 @@ func setupOffRampV1_2_0(t *testing.T, user *bind.TransactOpts, bc *client.Simula
 		Context: testutils.Context(t),
 	})
 	require.NoError(t, err)
-	require.Equal(t, "EVM2EVMOffRamp 1.2.0", tav)
+	require.Equal(t, "EVM2EVMOffRamp 1.3.0-dev", tav)
 	return offRampAddr
 }
 
