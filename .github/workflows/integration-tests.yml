@@ -425,6 +425,7 @@ jobs:
           LOGWATCH_LOG_TARGETS: ${{ vars. LOGWATCH_LOG_TARGETS }}
           GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
           GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
+          RUN_ID: ${{ github.run_id }}
           TEST_LOG_COLLECT: true          
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
@@ -454,7 +455,6 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-          RUN_ID: ${{ github.run_id }}
       - name: Show Otel-Collector Logs
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
