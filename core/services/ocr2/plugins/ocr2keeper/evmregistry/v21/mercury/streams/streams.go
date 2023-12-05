@@ -159,7 +159,7 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 			checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonMercuryAccessNotAllowed)
 			return
 		}
-	} else if streamsLookupResponse.IsMercuryVersionUnkown() {
+	} else if !streamsLookupResponse.IsMercuryV03() {
 		// if mercury version cannot be determined, set failure reason
 		lookupLggr.Debugf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
 		checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput)
