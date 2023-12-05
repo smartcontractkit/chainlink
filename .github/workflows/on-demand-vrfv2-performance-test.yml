@@ -71,7 +71,8 @@ jobs:
       contents: read
     env:
       LOKI_URL: ${{ secrets.LOKI_URL }}
-      LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       SELECTED_NETWORKS: ${{ inputs.network }}
       TEST_TYPE: ${{ inputs.performanceTestType }}
       VRFV2_TEST_DURATION: ${{ inputs.testDuration }}

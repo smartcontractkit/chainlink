@@ -1109,13 +1109,7 @@ OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
 ```
-P2P supports multiple networking stack versions. You may configure `[P2P.V1]`, `[P2P.V2]`, or both to run simultaneously.
-If both are configured, then for each link with another peer, V2 networking will be preferred. If V2 does not work, the link will
-automatically fall back to V1. If V2 starts working again later, it will automatically be preferred again. This is useful
-for migrating networks without downtime. Note that the two networking stacks _must not_ be configured to bind to the same IP/port.
-
-Note: P2P.V1 is deprecated will be removed in the future.
-
+P2P has a versioned networking stack. Currenly only `[P2P.V2]` is supported.
 All nodes in the OCR network should share the same networking stack.
 
 ### IncomingMessageBufferSize
@@ -1148,108 +1142,6 @@ PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the firs
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
-
-## P2P.V1
-```toml
-[P2P.V1]
-Enabled = false # Default
-AnnounceIP = '1.2.3.4' # Example
-AnnouncePort = 1337 # Example
-BootstrapCheckInterval = '20s' # Default
-DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
-DHTAnnouncementCounterUserPrefix = 0 # Default
-DHTLookupInterval = 10 # Default
-ListenIP = '0.0.0.0' # Default
-ListenPort = 1337 # Example
-NewStreamTimeout = '10s' # Default
-PeerstoreWriteInterval = '5m' # Default
-```
-P2P.V1 is deprecated and will be removed in a future version.
-
-### Enabled
-```toml
-Enabled = false # Default
-```
-Enabled enables P2P V1.
-
-### AnnounceIP
-```toml
-AnnounceIP = '1.2.3.4' # Example
-```
-AnnounceIP should be set as the externally reachable IP address of the Chainlink node.
-
-### AnnouncePort
-```toml
-AnnouncePort = 1337 # Example
-```
-AnnouncePort should be set as the externally reachable port of the Chainlink node.
-
-### BootstrapCheckInterval
-```toml
-BootstrapCheckInterval = '20s' # Default
-```
-BootstrapCheckInterval is the interval at which nodes check connections to bootstrap nodes and reconnect if any of them is lost.
-Setting this to a small value would allow newly joined bootstrap nodes to get more connectivity
-more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively
-cheap. We set this to 1 minute during our test.
-
-### DefaultBootstrapPeers
-```toml
-DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
-```
-DefaultBootstrapPeers is the default set of bootstrap peers.
-
-### DHTAnnouncementCounterUserPrefix
-```toml
-DHTAnnouncementCounterUserPrefix = 0 # Default
-```
-DHTAnnouncementCounterUserPrefix can be used to restore the node's
-ability to announce its IP/port on the P2P network after a database
-rollback. Make sure to only increase this value, and *never* decrease it.
-Don't use this variable unless you really know what you're doing, since you
-could semi-permanently exclude your node from the P2P network by
-misconfiguring it.
-
-### DHTLookupInterval
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-DHTLookupInterval = 10 # Default
-```
-DHTLookupInterval is the interval between which we do the expensive peer
-lookup using DHT.
-
-Every DHTLookupInterval failures to open a stream to a peer, we will
-attempt to lookup its IP from DHT
-
-### ListenIP
-```toml
-ListenIP = '0.0.0.0' # Default
-```
-ListenIP is the default IP address to bind to.
-
-### ListenPort
-```toml
-ListenPort = 1337 # Example
-```
-ListenPort is the port to listen on. If left blank, the node randomly selects a different port each time it boots. It is highly recommended to set this to a static value to avoid network instability.
-
-### NewStreamTimeout
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-NewStreamTimeout = '10s' # Default
-```
-NewStreamTimeout is the maximum length of time to wait to open a
-stream before we give up.
-We shouldn't hit this in practice since libp2p will give up fast if
-it can't get a connection, but it is here anyway as a failsafe.
-Set to 0 to disable any timeout on top of what libp2p gives us by default.
-
-### PeerstoreWriteInterval
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-PeerstoreWriteInterval = '5m' # Default
-```
-PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networking stack is persisted to the database.
 
 ## P2P.V2
 ```toml

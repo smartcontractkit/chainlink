@@ -205,6 +205,7 @@ contract VRF {
     while (x_ >= FIELD_SIZE) {
       x_ = uint256(keccak256(abi.encodePacked(x_)));
     }
+    return x_;
   }
 
   // Hash b to a random point which hopefully lies on secp256k1. The y ordinate
@@ -223,6 +224,7 @@ contract VRF {
         p[1] = FIELD_SIZE - p[1];
       }
     }
+    return p;
   }
 
   // Domain-separation tag for initial hash in _hashToCurve. Corresponds to
@@ -248,6 +250,7 @@ contract VRF {
     while (!_isOnCurve(rv)) {
       rv = _newCandidateSecp256k1Point(abi.encodePacked(rv[0]));
     }
+    return rv;
   }
 
   /** *********************************************************************
@@ -294,6 +297,7 @@ contract VRF {
       uint256 num2 = mulmod(FIELD_SIZE - x2, z1, FIELD_SIZE);
       (x3, z3) = (addmod(num1, num2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
     }
+    return (x3, z3);
   }
 
   // Returns x1/z1*x2/z2=(x1x2)/(z1z2), in projective coordinates on P¹(𝔽ₙ)
@@ -304,6 +308,7 @@ contract VRF {
     uint256 z2
   ) internal pure returns (uint256 x3, uint256 z3) {
     (x3, z3) = (mulmod(x1, x2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
+    return (x3, z3);
   }
 
   /** **************************************************************************
@@ -385,6 +390,7 @@ contract VRF {
         sz = dx;
       }
     }
+    return (sx, sy, sz);
   }
 
   // p1+p2, as affine points on secp256k1.
@@ -577,5 +583,6 @@ contract VRF {
       proof.zInv
     );
     output = uint256(keccak256(abi.encode(VRF_RANDOM_OUTPUT_HASH_PREFIX, proof.gamma)));
+    return output;
   }
 }
