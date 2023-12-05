@@ -23,7 +23,6 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -33,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
@@ -44,6 +44,7 @@ const (
 	expectedTypeAndVersion = "KeeperRegistry 2.1.0"
 )
 
+var mercuryPacker = mercury.NewAbiPacker()
 var packer = encoding.NewAbiPacker()
 
 var links []string
@@ -261,7 +262,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		streams := streams.NewStreamsLookup(packer, mercuryConfig, blockSub, k.rpcClient, keeperRegistry21, lggr)
 
 		var streamsLookupErr *mercury.StreamsLookupError
-		streamsLookupErr, err = packer.DecodeStreamsLookupRequest(checkResult.PerformData)
+		streamsLookupErr, err := mercuryPacker.DecodeStreamsLookupRequest(checkResult.PerformData)
 		if err == nil {
 			message("upkeep reverted with StreamsLookup")
 			message(fmt.Sprintf("StreamsLookup data: {FeedParamKey: %s, Feeds: %v, TimeParamKey: %s, Time: %d, ExtraData: %s}", streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time.Uint64(), hexutil.Encode(streamsLookupErr.ExtraData)))

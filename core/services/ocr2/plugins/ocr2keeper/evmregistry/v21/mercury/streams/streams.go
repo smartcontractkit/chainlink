@@ -66,7 +66,6 @@ type UpkeepPrivilegeConfig struct {
 }
 
 func NewStreamsLookup(
-	packer mercury.Packer,
 	mercuryConfig mercury.MercuryConfigProvider,
 	blockSubscriber latestBlockProvider,
 	client contextCaller,
@@ -74,6 +73,8 @@ func NewStreamsLookup(
 	lggr logger.Logger) *streams {
 	httpClient := http.DefaultClient
 	threadCtrl := utils.NewThreadControl()
+	packer := mercury.NewAbiPacker()
+
 	return &streams{
 		packer:          packer,
 		mercuryConfig:   mercuryConfig,
@@ -288,6 +289,7 @@ func (s *streams) AllowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (s
 
 	var upkeepPrivilegeConfigBytes []byte
 	upkeepPrivilegeConfigBytes, err = s.packer.UnpackGetUpkeepPrivilegeConfig(resultBytes)
+
 	if err != nil {
 		return mercury.PackUnpackDecodeFailed, mercury.MercuryUpkeepFailureReasonNone, false, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
