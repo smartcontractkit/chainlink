@@ -91,8 +91,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     }
 
     // Add recipient to the allow list
-    bool newAllowedSenderAdded = s_allowedSenders.add(recipient);
-    if (newAllowedSenderAdded) {
+    if (s_allowedSenders.add(recipient)) {
       emit AddedAccess(recipient);
     }
   }
