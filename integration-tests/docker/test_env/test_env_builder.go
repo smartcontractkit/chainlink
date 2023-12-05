@@ -257,8 +257,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	if b.te.LogWatch != nil {
 		b.t.Cleanup(func() {
 			b.l.Warn().Msg("Shutting down logwatch")
-			// we can't do much if this fails, so we just log the error
-			_ = b.te.LogWatch.Shutdown(testcontext.Get(b.t))
 
 			if b.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
 				// we can't do much if this fails, so we just log the error
@@ -266,6 +264,9 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				b.te.LogWatch.PrintLogTargetsLocations()
 				b.te.LogWatch.SaveLogLocationInTestSummary()
 			}
+
+			// we can't do much if this fails, so we just log the error
+			_ = b.te.LogWatch.Shutdown(testcontext.Get(b.t))
 		})
 	}
 
