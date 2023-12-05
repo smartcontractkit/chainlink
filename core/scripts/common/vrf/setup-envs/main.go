@@ -506,10 +506,11 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 			var newKey presenters.ETHKeyResource
 
 			flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
+			flagSet.String("evm-chain-id", os.Getenv("ETH_CHAIN_ID"), "chain id")
 			if *maxGasPriceGwei > 0 {
 				helpers.PanicErr(flagSet.Set("max-gas-price-gwei", fmt.Sprintf("%d", *maxGasPriceGwei)))
 			}
-			err := flagSet.Parse([]string{"evm-chain-id", os.Getenv("ETH_CHAIN_ID")})
+			err := flagSet.Parse([]string{"-evm-chain-id", os.Getenv("ETH_CHAIN_ID")})
 			helpers.PanicErr(err)
 			err = client.CreateETHKey(cli.NewContext(app, flagSet, nil))
 			helpers.PanicErr(err)
