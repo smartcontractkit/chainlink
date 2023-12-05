@@ -25,12 +25,12 @@ func TestOCRSoak(t *testing.T) {
 
 	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
 	customNetworkTOML := fmt.Sprintf(`[[EVM.Nodes]]
-Name = 'node-0' 
+Name = 'node-2' 
 WSURL = '%s' 
 HTTPURL = '%s' 
 SendOnly = true
 [[EVM.Nodes]]
-Name = 'node-1' 
+Name = 'node-3' 
 WSURL = '%s' 
 HTTPURL = '%s' 
 SendOnly = true
