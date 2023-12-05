@@ -14,6 +14,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	null "gopkg.in/guregu/null.v4"
+
 	time "time"
 
 	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -57,6 +59,30 @@ func (_m *EvmTxStore) CheckTxQueueCapacity(ctx context.Context, fromAddress comm
 // Close provides a mock function with given fields:
 func (_m *EvmTxStore) Close() {
 	_m.Called()
+}
+
+// CountTransactionsByState provides a mock function with given fields: ctx, state, chainID
+func (_m *EvmTxStore) CountTransactionsByState(ctx context.Context, state types.TxState, chainID *big.Int) (uint32, error) {
+	ret := _m.Called(ctx, state, chainID)
+
+	var r0 uint32
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxState, *big.Int) (uint32, error)); ok {
+		return rf(ctx, state, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxState, *big.Int) uint32); ok {
+		r0 = rf(ctx, state, chainID)
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, types.TxState, *big.Int) error); ok {
+		r1 = rf(ctx, state, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // CountUnconfirmedTransactions provides a mock function with given fields: ctx, fromAddress, chainID
@@ -143,6 +169,54 @@ func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types
 	}
 
 	return r0
+}
+
+// FindEarliestUnconfirmedBroadcastTime provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (null.Time, error) {
+	ret := _m.Called(ctx, chainID)
+
+	var r0 null.Time
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (null.Time, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) null.Time); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Get(0).(null.Time)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindEarliestUnconfirmedTxAttemptBlock provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID *big.Int) (null.Int, error) {
+	ret := _m.Called(ctx, chainID)
+
+	var r0 null.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (null.Int, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) null.Int); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Get(0).(null.Int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId

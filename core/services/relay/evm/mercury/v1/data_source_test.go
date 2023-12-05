@@ -1,4 +1,4 @@
-package mercury_v1
+package v1
 
 import (
 	"context"
@@ -15,8 +15,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaymercury "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
-	relaymercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v1"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -33,7 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ relaymercury.MercuryServerFetcher = &mockFetcher{}
+var _ mercury.ServerFetcher = &mockFetcher{}
 
 type mockFetcher struct {
 	num *int64
@@ -52,6 +52,14 @@ func (m *mockFetcher) LatestTimestamp(context.Context) (int64, error) {
 	return 0, nil
 }
 
+type mockSaver struct {
+	r *pipeline.Run
+}
+
+func (ms *mockSaver) Save(r *pipeline.Run) {
+	ms.r = r
+}
+
 type mockORM struct {
 	report []byte
 	err    error
@@ -63,10 +71,10 @@ func (m *mockORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg
 
 type mockChainReader struct {
 	err error
-	obs []relaymercury.Head
+	obs []mercury.Head
 }
 
-func (m *mockChainReader) LatestHeads(context.Context, int) ([]relaymercury.Head, error) {
+func (m *mockChainReader) LatestHeads(context.Context, int) ([]mercury.Head, error) {
 	return m.obs, m.err
 }
 
@@ -79,6 +87,9 @@ func TestMercury_Observe(t *testing.T) {
 
 	fetcher := &mockFetcher{}
 	ds.fetcher = fetcher
+
+	saver := &mockSaver{}
+	ds.saver = saver
 
 	trrs := []pipeline.TaskRunResult{
 		{
@@ -293,24 +304,16 @@ func TestMercury_Observe(t *testing.T) {
 			_, err := ds.Observe(ctx, repts, false)
 			assert.EqualError(t, err, "Observe failed while parsing run results: failed to parse Bid: can't convert foo to decimal")
 		})
-		t.Run("sends run to runResults channel", func(t *testing.T) {
+		t.Run("saves run", func(t *testing.T) {
 			for i := range trrs {
 				trrs[i].Result.Value = "123"
 				trrs[i].Result.Error = nil
 			}
-			ch := make(chan *pipeline.Run, 1)
-
-			ds.runResults = ch
 
 			_, err := ds.Observe(ctx, repts, false)
 			assert.NoError(t, err)
 
-			select {
-			case run := <-ch:
-				assert.Equal(t, int64(42), run.ID)
-			default:
-				t.Fatal("expected run on channel")
-			}
+			assert.Equal(t, int64(42), saver.r.ID)
 		})
 	})
 
@@ -356,49 +359,31 @@ func TestMercury_Observe(t *testing.T) {
 			ht2.AssertExpectations(t)
 		})
 		t.Run("when chain is long enough", func(t *testing.T) {
-			h1 := &evmtypes.Head{
-				Number: 1,
-			}
-			h2 := &evmtypes.Head{
-				Number: 2,
-				Parent: h1,
-			}
-			h3 := &evmtypes.Head{
-				Number: 3,
-				Parent: h2,
-			}
-			h4 := &evmtypes.Head{
-				Number: 4,
-				Parent: h3,
-			}
-			h5 := &evmtypes.Head{
-				Number: 5,
-				Parent: h4,
-			}
-			h6 := &evmtypes.Head{
-				Number: 6,
-				Parent: h5,
+			heads := make([]*evmtypes.Head, nBlocksObservation+5)
+			for i := range heads {
+				heads[i] = &evmtypes.Head{Number: int64(i)}
+				if i > 0 {
+					heads[i].Parent = heads[i-1]
+				}
 			}
 
 			ht2 := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-			ht2.On("LatestChain").Return(h6)
+			ht2.On("LatestChain").Return(heads[len(heads)-1])
 			ds.chainReader = evm.NewChainReader(ht2)
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
 
-			assert.Len(t, obs.LatestBlocks, 5)
-			assert.Equal(t, 6, int(obs.LatestBlocks[0].Num))
-			assert.Equal(t, 5, int(obs.LatestBlocks[1].Num))
-			assert.Equal(t, 4, int(obs.LatestBlocks[2].Num))
-			assert.Equal(t, 3, int(obs.LatestBlocks[3].Num))
-			assert.Equal(t, 2, int(obs.LatestBlocks[4].Num))
+			assert.Len(t, obs.LatestBlocks, nBlocksObservation)
+			highestBlockNum := heads[len(heads)-1].Number
+			for i := range obs.LatestBlocks {
+				assert.Equal(t, int(highestBlockNum)-i, int(obs.LatestBlocks[i].Num))
+			}
 
 			ht2.AssertExpectations(t)
 		})
 
 		t.Run("when chain reader returns an error", func(t *testing.T) {
-
 			ds.chainReader = &mockChainReader{
 				err: io.EOF,
 				obs: nil,
@@ -406,7 +391,7 @@ func TestMercury_Observe(t *testing.T) {
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.Error(t, err)
-			assert.Equal(t, obs, relaymercuryv1.Observation{})
+			assert.Equal(t, obs, v1.Observation{})
 		})
 	})
 }
@@ -431,7 +416,7 @@ func TestMercury_SetLatestBlocks(t *testing.T) {
 		headTracker.On("LatestChain").Return(&h, nil)
 		ds.chainReader = evm.NewChainReader(headTracker)
 
-		obs := relaymercuryv1.Observation{}
+		obs := v1.Observation{}
 		err := ds.setLatestBlocks(testutils.Context(t), &obs)
 
 		assert.NoError(t, err)
@@ -449,7 +434,7 @@ func TestMercury_SetLatestBlocks(t *testing.T) {
 		headTracker.On("LatestChain").Return((*evmtypes.Head)(nil))
 
 		ds.chainReader = evm.NewChainReader(headTracker)
-		obs := relaymercuryv1.Observation{}
+		obs := v1.Observation{}
 		err := ds.setLatestBlocks(testutils.Context(t), &obs)
 
 		assert.NoError(t, err)

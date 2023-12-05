@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mercury/streams"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"

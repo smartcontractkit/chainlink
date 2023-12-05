@@ -1,4 +1,4 @@
-package mercury_v1
+package v1
 
 import (
 	"context"
@@ -13,8 +13,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaymercury "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
-	relaymercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v1"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	v1 "github.com/smartcontractkit/chainlink-data-streams/mercury/v1"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -41,7 +42,7 @@ var (
 	)
 )
 
-const nBlocksObservation int = relaymercuryv1.MaxAllowedBlocks
+const nBlocksObservation int = v1.MaxAllowedBlocks
 
 type Runner interface {
 	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
@@ -58,7 +59,7 @@ type datasource struct {
 	jb             job.Job
 	spec           pipeline.Spec
 	lggr           logger.Logger
-	runResults     chan<- *pipeline.Run
+	saver          ocrcommon.Saver
 	orm            types.DataSourceORM
 	codec          reportcodec.ReportCodec
 	feedID         [32]byte
@@ -66,7 +67,7 @@ type datasource struct {
 	mu sync.RWMutex
 
 	chEnhancedTelem    chan<- ocrcommon.EnhancedTelemetryMercuryData
-	chainReader        relaymercury.ChainReader
+	chainReader        mercury.ChainReader
 	fetcher            Fetcher
 	initialBlockNumber *int64
 
@@ -74,10 +75,10 @@ type datasource struct {
 	zeroBlocksCounter         prometheus.Counter
 }
 
-var _ relaymercuryv1.DataSource = &datasource{}
+var _ v1.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainReader relaymercury.ChainReader, fetcher Fetcher, initialBlockNumber *int64, feedID mercuryutils.FeedID) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainReader, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, s ocrcommon.Saver, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainReader mercury.ChainReader, fetcher Fetcher, initialBlockNumber *int64, feedID mercuryutils.FeedID) *datasource {
+	return &datasource{pr, jb, spec, lggr, s, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainReader, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
 }
 
 type ErrEmptyLatestReport struct {
@@ -90,7 +91,7 @@ func (e ErrEmptyLatestReport) Error() string {
 	return fmt.Sprintf("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed. No initialBlockNumber was set, tried to use current block number to determine maxFinalizedBlockNumber but got error: %v", e.Err)
 }
 
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, pipelineExecutionErr error) {
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs v1types.Observation, pipelineExecutionErr error) {
 	// setLatestBlocks must come chronologically before observations, along
 	// with observationTimestamp, to avoid front-running
 
@@ -156,11 +157,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			pipelineExecutionErr = fmt.Errorf("Observe failed while executing run: %w", pipelineExecutionErr)
 			return
 		}
-		select {
-		case ds.runResults <- run:
-		default:
-			ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
-		}
+
+		ds.saver.Save(run)
 
 		// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
 		// They are guaranteed to be sorted by index asc so should be in the correct order
@@ -207,9 +205,9 @@ func toBigInt(val interface{}) (*big.Int, error) {
 }
 
 type parseOutput struct {
-	benchmarkPrice relaymercury.ObsResult[*big.Int]
-	bid            relaymercury.ObsResult[*big.Int]
-	ask            relaymercury.ObsResult[*big.Int]
+	benchmarkPrice mercury.ObsResult[*big.Int]
+	bid            mercury.ObsResult[*big.Int]
+	ask            mercury.ObsResult[*big.Int]
 }
 
 // parse expects the output of observe to be three values, in the following order:
@@ -293,7 +291,7 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 	return run, trrs, err
 }
 
-func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.Observation) error {
+func (ds *datasource) setLatestBlocks(ctx context.Context, obs *v1types.Observation) error {
 	latestBlocks, err := ds.chainReader.LatestHeads(ctx, nBlocksObservation)
 	if err != nil {
 		ds.lggr.Errorw("failed to read latest blocks", "error", err)
@@ -321,7 +319,7 @@ func (ds *datasource) setLatestBlocks(ctx context.Context, obs *relaymercuryv1.O
 	for _, block := range latestBlocks {
 		obs.LatestBlocks = append(
 			obs.LatestBlocks,
-			relaymercuryv1.NewBlock(int64(block.Number), block.Hash, block.Timestamp))
+			v1types.NewBlock(int64(block.Number), block.Hash, block.Timestamp))
 	}
 
 	return nil

@@ -115,7 +115,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [ build-chainlink, build-test-image ]
+    needs: [build-chainlink, build-test-image]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
@@ -140,7 +140,7 @@ jobs:
             command: -run ^TestAutomationReorg$ ./reorg
           - name: upgrade
             suite: smoke
-            nodes: 3
+            nodes: 6
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-automation-on-demand-upgrade
             network: SIMULATED

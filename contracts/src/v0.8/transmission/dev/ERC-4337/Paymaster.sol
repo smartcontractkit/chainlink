@@ -103,6 +103,7 @@ contract Paymaster is IPaymaster, ConfirmedOwner {
         extraCost = directFundingData.topupAmount;
       }
     }
+    return extraCost;
   }
 
   /// @dev Deducts user subscription balance after execution.
@@ -116,6 +117,7 @@ contract Paymaster is IPaymaster, ConfirmedOwner {
 
   function _getCostJuels(uint256 costWei) internal view returns (uint256 costJuels) {
     costJuels = (1e18 * costWei) / uint256(_getFeedData());
+    return costJuels;
   }
 
   function _getFeedData() internal view returns (int256) {
