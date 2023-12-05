@@ -31,14 +31,17 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Build the image
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@v2.0.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           GH_TOKEN: ${{ github.token }}
         with:
           push_tag: ""
           cl_repo: smartcontractkit/chainlink
           cl_ref: develop
-          dep_relay_sha: ${{ github.event.pull_request.head.sha }}
+          dep_common_sha: ${{ github.event.pull_request.head.sha }}
+          should_checkout: true
+          QA_AWS_REGION: ""
+          QA_AWS_ROLE_TO_ASSUME: ""
   solana-build-relay:
     environment: integration
     permissions:
