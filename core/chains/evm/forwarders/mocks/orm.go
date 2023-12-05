@@ -7,7 +7,7 @@ import (
 	forwarders "github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink-common/pkg/services/pg"
 
 	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 )
