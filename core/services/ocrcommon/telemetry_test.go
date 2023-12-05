@@ -14,9 +14,9 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
-	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v1"
-	mercury_v2 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v2"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -696,7 +696,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: trrsMercuryV2,
-		V2Observation: &mercury_v2.Observation{
+		V2Observation: &mercuryv2.Observation{
 			BenchmarkPrice:        mercury.ObsResult[*big.Int]{Val: big.NewInt(111111)},
 			MaxFinalizedTimestamp: mercury.ObsResult[int64]{Val: 321},
 			LinkPrice:             mercury.ObsResult[*big.Int]{Val: big.NewInt(4321)},
@@ -749,7 +749,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 					Value: nil,
 				}},
 		},
-		V2Observation: &mercury_v2.Observation{},
+		V2Observation: &mercuryv2.Observation{},
 		RepTimestamp: types.ReportTimestamp{
 			ConfigDigest: types.ConfigDigest{2},
 			Epoch:        11,
@@ -760,7 +760,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 	trrsMercuryV2[0].Result.Value = ""
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: trrsMercuryV2,
-		V2Observation:  &mercury_v2.Observation{},
+		V2Observation:  &mercuryv2.Observation{},
 		RepTimestamp: types.ReportTimestamp{
 			ConfigDigest: types.ConfigDigest{2},
 			Epoch:        11,
