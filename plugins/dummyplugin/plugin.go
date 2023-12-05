@@ -145,7 +145,13 @@ func (d dummyPlugin) Close() error {
 }
 
 func (d dummyPluginFactory) NewReportingPlugin(config ocrtypes.ReportingPluginConfig) (ocrtypes.ReportingPlugin, ocrtypes.ReportingPluginInfo, error) {
-	return &dummyPlugin{errorLog: d.errorLog}, ocrtypes.ReportingPluginInfo{}, nil
+	return &dummyPlugin{errorLog: d.errorLog}, ocrtypes.ReportingPluginInfo{
+		Name:          "DummyPlugin",
+		UniqueReports: false,
+		Limits: ocrtypes.ReportingPluginLimits{0, 100,
+			99999999999999999,
+		},
+	}, nil
 
 }
 
