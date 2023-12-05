@@ -225,6 +225,10 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	done()
 
+	transmitsListener, done := listenForTransmits(t, backend, registry, int64(1), 1)
+	g.Eventually(transmitsListener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
+	done()
+
 	t.Run("recover logs", func(t *testing.T) {
 
 		addr, contract := addrs[0], contracts[0]
@@ -248,6 +252,43 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			time.Sleep(time.Millisecond * 10)
 		}
 	})
+}
+
+func listenForTransmits(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, startBlock int64, transmits int) (func() bool, func()) {
+	cache := &sync.Map{}
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	start := startBlock
+
+	go func() {
+		for ctx.Err() == nil {
+			bl := backend.Blockchain().CurrentBlock().Number.Uint64()
+
+			iter, err := registry.FilterTransmitted(&bind.FilterOpts{
+				Start:   uint64(start),
+				End:     &bl,
+				Context: ctx,
+			})
+
+			if ctx.Err() != nil {
+				return
+			}
+
+			require.NoError(t, err)
+
+			for iter.Next() {
+				if iter.Event != nil {
+					t.Logf("[automation-ocr3 | EvmRegistry] transmit event emitted for id %s", iter.Event.Topic().String())
+					cache.Store(iter.Event.Topic().String(), true)
+				}
+			}
+
+			require.NoError(t, iter.Close())
+
+			time.Sleep(time.Second)
+		}
+	}()
+
+	return mapListener(cache, transmits), cancel
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
