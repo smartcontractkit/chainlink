@@ -67,10 +67,6 @@ on:
         description: How long to wait before starting a new round
         required: false
         default: 1m
-      testloglevel:
-        description: Test Log Level info | debug | trace
-        required: true
-        default: info
 
 jobs:
   ocr_soak_test:
@@ -91,7 +87,7 @@ jobs:
       OCR_TEST_DURATION: ${{ inputs.testDuration }}
       OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
       OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
-      TEST_LOG_LEVEL: ${{ inputs.testloglevel }}
+      TEST_LOG_LEVEL: info
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
     steps:
