@@ -41,10 +41,10 @@ var (
 	// using this limit, we can calculate the maximum number of logs to return per upkeep:
 	// MaxPayloads / logsPerUpkeep = number of upkeeps that we can process each second
 	// 1. ideal case (a single log per upkeep)
-	// MaxPayloads / 1 = 500
+	// MaxPayloads / 1 = 250
 	// 2. worst case (all logs are for the same upkeep)
-	// MaxPayloads / MaxPayloadsPerUpkeep = 100
-	MaxPayloads = 500
+	// MaxPayloads / MaxPayloadsPerUpkeep = 50
+	MaxPayloads = 250
 
 	readJobQueueSize = 64
 	readLogsTimeout  = 10 * time.Second
