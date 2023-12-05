@@ -52,7 +52,7 @@ func (t *tokenBuckets) Accept(key string, tokens uint32) bool {
 
 	bucket, ok := t.buckets[key]
 	if !ok {
-		bucket := t.maxTokens
+		bucket = t.maxTokens
 	}
 	if bucket < tokens {
 		return false
