@@ -56,7 +56,6 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 
 	c.JobPipeline.ReaperInterval = models.MustNewDuration(0)
 
-	c.P2P.V1.Enabled = ptr(false)
 	c.P2P.V2.Enabled = ptr(false)
 
 	c.WebServer.SessionTimeout = models.MustNewDuration(2 * time.Minute)

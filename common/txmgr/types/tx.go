@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -245,7 +245,11 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetMeta() (*TxMeta[A
 		return nil, nil
 	}
 	var m TxMeta[ADDR, TX_HASH]
-	return &m, errors.Wrap(json.Unmarshal(*e.Meta, &m), "unmarshalling meta")
+	if err := json.Unmarshal(*e.Meta, &m); err != nil {
+		return nil, fmt.Errorf("unmarshalling meta: %w", err)
+	}
+
+	return &m, nil
 }
 
 // GetLogger returns a new logger with metadata fields.
@@ -320,5 +324,9 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetChecker() (Transm
 		return TransmitCheckerSpec[ADDR]{}, nil
 	}
 	var t TransmitCheckerSpec[ADDR]
-	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
+	if err := json.Unmarshal(*e.TransmitChecker, &t); err != nil {
+		return t, fmt.Errorf("unmarshalling transmit checker: %w", err)
+	}
+
+	return t, nil
 }
