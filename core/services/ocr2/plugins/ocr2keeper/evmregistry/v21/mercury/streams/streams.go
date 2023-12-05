@@ -131,6 +131,7 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 	// tried to call mercury
 	lookupLggr.Infof("at block %d upkeep %s trying to DecodeStreamsLookupRequest performData=%s", block, upkeepId, hexutil.Encode(checkResults[i].PerformData))
 	streamsLookupErr, err := s.packer.DecodeStreamsLookupRequest(checkResult.PerformData)
+
 	if err != nil {
 		lookupLggr.Debugf("at block %d upkeep %s DecodeStreamsLookupRequest failed: %v", block, upkeepId, err)
 		// user contract did not revert with StreamsLookup error
@@ -144,7 +145,7 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 		return
 	}
 
-	// mercury permission checking for v0.3 is done by mercury server
+	// mercury permission checking for v0.3 is done by mercury server, so no need to check here
 	if streamsLookupResponse.IsMercuryV02() {
 		// check permission on the registry for mercury v0.2
 		opts := s.buildCallOpts(ctx, block)
@@ -160,7 +161,7 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 			return
 		}
 	} else if !streamsLookupResponse.IsMercuryV03() {
-		// if mercury version cannot be determined, set failure reason
+		// if mercury version is not v02 or v03, set failure reason
 		lookupLggr.Debugf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
 		checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput)
 		return
