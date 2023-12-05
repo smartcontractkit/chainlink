@@ -129,7 +129,6 @@ type WeMixContractLoader struct {
 	*EthereumContractLoader
 }
 
-<<<<<<< HEAD
 // LineaContractLoader wraps for Linea
 type LineaContractLoader struct {
 	*EthereumContractLoader
@@ -151,9 +150,6 @@ type FantomContractLoader struct {
 }
 
 // BSCContractLoader wraps for BSC
-=======
-// BSCContractLoader wraps ethereum contract deployments for BSC
->>>>>>> 6cc81208ad45a89914cd5d36048ce646c1ac6272
 type BSCContractLoader struct {
 	*EthereumContractLoader
 }
