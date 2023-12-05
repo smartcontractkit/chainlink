@@ -16,11 +16,31 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      ECR_IMAGE_NAME: crib-chainlink-untrusted
     steps:
+      - name: Git Short SHA
+        shell: bash
+        env:
+          GIT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "GIT_SHORT_SHA=${GIT_PR_HEAD_SHA:0:7}" | tee -a "$GITHUB_ENV"
+
+      - name: Check if image exists
+        id: check-image
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        with:
+          repository: ${{ env.ECR_IMAGE_NAME}}
+          tag: sha-${{ env.GIT_SHORT_SHA }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
+
       - name: Checkout repository
+        if: steps.check-image.outputs.exists == 'false'
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Build and publish chainlink image
+        if: steps.check-image.outputs.exists == 'false'
         uses: ./.github/actions/build-sign-publish-chainlink
         with:
           publish: true
@@ -29,7 +49,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           sign-images: false
           ecr-hostname: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
-          ecr-image-name: crib-chainlink-untrusted
+          ecr-image-name: ${{ env.ECR_IMAGE_NAME}}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
 
