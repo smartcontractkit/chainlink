@@ -33,7 +33,7 @@ jobs:
           repository: ${{ env.ECR_IMAGE_NAME}}
           tag: sha-${{ env.GIT_SHORT_SHA }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
 
       - name: Checkout repository
         if: steps.check-image.outputs.exists == 'false'
@@ -49,7 +49,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           sign-images: false
           ecr-hostname: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
-          ecr-image-name: ${{ env.ECR_IMAGE_NAME}}
+          ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
 
