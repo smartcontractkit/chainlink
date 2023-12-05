@@ -45,7 +45,7 @@ jobs:
           echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
       - name: Enforce CTF Version
         if: steps.condition-check.outputs.should-enforce == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           go-project-path: ./integration-tests
           module-name: github.com/smartcontractkit/chainlink-testing-framework
@@ -87,7 +87,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup Go
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
@@ -249,7 +249,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
@@ -414,7 +414,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         env:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
@@ -438,7 +438,7 @@ jobs:
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
@@ -537,7 +537,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_download_vendor_packages_command: |
             cd ./integration-tests
@@ -585,7 +585,7 @@ jobs:
         run: |
           echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ github.sha }}'"
       - name: Run Migration Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -697,7 +697,7 @@ jobs:
     steps:
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           repository: chainlink-solana-tests
           tag: ${{ needs.get_solana_sha.outputs.sha }}
@@ -835,7 +835,7 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Run Setup
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           go_mod_path: ./integration-tests/go.mod
           cache_restore_only: true
@@ -864,7 +864,7 @@ jobs:
           docker rm "$CONTAINER_ID"
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
