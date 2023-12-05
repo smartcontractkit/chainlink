@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,8 +17,25 @@ import (
 
 func TestOCRSoak(t *testing.T) {
 	l := logging.GetTestLogger(t)
+
+	rpc_url_1 := os.Getenv("RPC_URL_1")
+	ws_url_1 := os.Getenv("WS_URL_1")
+	rpc_url_2 := os.Getenv("RPC_URL_2")
+	ws_url_2 := os.Getenv("WS_URL_2")
+
 	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
-	customNetworkTOML := ``
+	customNetworkTOML := fmt.Sprintf(`[[EVM.Nodes]]
+Name = 'node-2' 
+WSURL = '%s' 
+HTTPURL = '%s' 
+SendOnly = true
+[[EVM.Nodes]]
+Name = 'node-3' 
+WSURL = '%s' 
+HTTPURL = '%s' 
+SendOnly = true
+
+	`, ws_url_1, rpc_url_1, ws_url_2, rpc_url_2)
 	// Uncomment below for debugging TOML issues on the node
 	network := networks.MustGetSelectedNetworksFromEnv()[0]
 	fmt.Println("Using Chainlink TOML\n---------------------")
