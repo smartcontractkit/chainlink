@@ -1,10 +1,11 @@
 ChainID = '2221'
 FinalityDepth = 1
 LogPollInterval = '6s'
-NoNewHeadsThreshold = '40s'
+NoNewHeadsThreshold = '1m'
 MinIncomingConfirmations = 1
 
 [GasEstimator]
+Mode = 'L2Suggested'
 EIP1559DynamicFees = false
 PriceMin = '1 wei'
 BumpMin = '100 wei'
@@ -14,9 +15,6 @@ BlockHistorySize = 24
 
 [Transactions]
 ResendAfterThreshold = '30s'
-
-[HeadTracker]
-HistoryDepth = 400
 
 [NodePool]
 SyncThreshold = 10
