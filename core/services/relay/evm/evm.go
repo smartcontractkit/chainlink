@@ -374,7 +374,7 @@ func newConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.Re
 type configTransmitterOpts struct {
 	configWatcher *configWatcher
 	// override the gas limit default provided in the config watcher
-	pluginGasLimit uint32
+	pluginGasLimit *uint32
 }
 
 func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, opts configTransmitterOpts) (*contractTransmitter, error) {
@@ -421,8 +421,8 @@ func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, tra
 	if ocr2Limit != nil {
 		gasLimit = *ocr2Limit
 	}
-	if opts.pluginGasLimit != 0 {
-		gasLimit = opts.pluginGasLimit
+	if opts.pluginGasLimit != nil {
+		gasLimit = *opts.pluginGasLimit
 	}
 
 	transmitter, err := ocrcommon.NewTransmitter(
