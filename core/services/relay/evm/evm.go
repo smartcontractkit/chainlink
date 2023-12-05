@@ -371,7 +371,13 @@ func newConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.Re
 	return newConfigWatcher(lggr, aggregatorAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, opts.New), nil
 }
 
-func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, gasLimit uint32) (*contractTransmitter, error) {
+type configTransmitterOpts struct {
+	configWatcher *configWatcher
+	// override the gas limit default provided in the config watcher
+	pluginGasLimit uint32
+}
+
+func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, opts configTransmitterOpts) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -387,6 +393,8 @@ func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, tra
 	if sendingKeysLength == 0 {
 		return nil, pkgerrors.New("no sending keys provided")
 	}
+
+	configWatcher := opts.configWatcher
 
 	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
 	// Ensure that this forwarder is not set to a local sending key, and ensure our sending keys are enabled.
@@ -408,9 +416,13 @@ func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, tra
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
 	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
 	if ocr2Limit != nil {
 		gasLimit = *ocr2Limit
+	}
+	if opts.pluginGasLimit != 0 {
+		gasLimit = opts.pluginGasLimit
 	}
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -461,8 +473,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 
 	reportCodec := evmreportcodec.ReportCodec{}
-	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
-	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth(), gasLimit)
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configTransmitterOpts{configWatcher: configWatcher})
 	if err != nil {
 		return nil, err
 	}
