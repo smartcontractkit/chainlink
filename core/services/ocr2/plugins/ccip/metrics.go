@@ -116,13 +116,13 @@ func ChainName(chainID int64) string {
 	case 1112:
 		return "wemix-testnet"
 	case 255:
-		return "kroma-mainnet"
+		return "ethereum-mainnet-kroma-1"
 	case 2358:
-		return "kroma-testnet-sepolia"
+		return "ethereum-testnet-sepolia-kroma-1"
 	case 4002:
 		return "fantom-testnet"
 	case 8453:
-		return "base-mainnet"
+		return "ethereum-mainnet-base-1"
 	case 84531:
 		return "ethereum-testnet-goerli-base-1"
 	case 84532:
