@@ -423,7 +423,7 @@ jobs:
           LOKI_URL: ${{ secrets.LOKI_URL }}
           LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
           LOGWATCH_LOG_TARGETS: ${{ vars. LOGWATCH_LOG_TARGETS }}
-          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_URL: ${{ vars.GRAFANA_URL }}
           GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
           RUN_ID: ${{ github.run_id }}
           TEST_LOG_COLLECT: true          
