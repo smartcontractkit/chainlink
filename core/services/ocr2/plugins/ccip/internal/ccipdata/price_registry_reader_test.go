@@ -214,10 +214,6 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	for _, p := range tokenPrices {
 		assert.Equal(t, p.Value, latest[p.Token])
 	}
-
-	// We expect 2 fee token events (added/removed). Exact event sigs may differ.
-	assert.Len(t, pr.FeeTokenEvents(), 2)
-
 }
 
 func TestPriceRegistryReader(t *testing.T) {

@@ -183,6 +183,32 @@ func (_m *OffRampReader) GasPriceEstimator() prices.GasPriceEstimatorExec {
 	return r0
 }
 
+// GetDestinationTokenPools provides a mock function with given fields: ctx
+func (_m *OffRampReader) GetDestinationTokenPools(ctx context.Context) (map[common.Address]common.Address, error) {
+	ret := _m.Called(ctx)
+
+	var r0 map[common.Address]common.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (map[common.Address]common.Address, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) map[common.Address]common.Address); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[common.Address]common.Address)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetDestinationTokens provides a mock function with given fields: ctx
 func (_m *OffRampReader) GetDestinationTokens(ctx context.Context) ([]common.Address, error) {
 	ret := _m.Called(ctx)
@@ -202,32 +228,6 @@ func (_m *OffRampReader) GetDestinationTokens(ctx context.Context) ([]common.Add
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
 		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetDestinationTokensFromSourceTokens provides a mock function with given fields: ctx, tokenAddresses
-func (_m *OffRampReader) GetDestinationTokensFromSourceTokens(ctx context.Context, tokenAddresses []common.Address) ([]common.Address, error) {
-	ret := _m.Called(ctx, tokenAddresses)
-
-	var r0 []common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) ([]common.Address, error)); ok {
-		return rf(ctx, tokenAddresses)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) []common.Address); ok {
-		r0 = rf(ctx, tokenAddresses)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]common.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, []common.Address) error); ok {
-		r1 = rf(ctx, tokenAddresses)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -285,32 +285,6 @@ func (_m *OffRampReader) GetExecutionStateChangesBetweenSeqNums(ctx context.Cont
 	return r0, r1
 }
 
-// GetPoolByDestToken provides a mock function with given fields: ctx, address
-func (_m *OffRampReader) GetPoolByDestToken(ctx context.Context, address common.Address) (common.Address, error) {
-	ret := _m.Called(ctx, address)
-
-	var r0 common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address) (common.Address, error)); ok {
-		return rf(ctx, address)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address) common.Address); ok {
-		r0 = rf(ctx, address)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address) error); ok {
-		r1 = rf(ctx, address)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetSenderNonce provides a mock function with given fields: ctx, sender
 func (_m *OffRampReader) GetSenderNonce(ctx context.Context, sender common.Address) (uint64, error) {
 	ret := _m.Called(ctx, sender)
@@ -335,6 +309,32 @@ func (_m *OffRampReader) GetSenderNonce(ctx context.Context, sender common.Addre
 	return r0, r1
 }
 
+// GetSourceToDestTokensMapping provides a mock function with given fields: ctx
+func (_m *OffRampReader) GetSourceToDestTokensMapping(ctx context.Context) (map[common.Address]common.Address, error) {
+	ret := _m.Called(ctx)
+
+	var r0 map[common.Address]common.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (map[common.Address]common.Address, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) map[common.Address]common.Address); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[common.Address]common.Address)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetStaticConfig provides a mock function with given fields: ctx
 func (_m *OffRampReader) GetStaticConfig(ctx context.Context) (ccipdata.OffRampStaticConfig, error) {
 	ret := _m.Called(ctx)
@@ -348,32 +348,6 @@ func (_m *OffRampReader) GetStaticConfig(ctx context.Context) (ccipdata.OffRampS
 		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(ccipdata.OffRampStaticConfig)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetSupportedTokens provides a mock function with given fields: ctx
-func (_m *OffRampReader) GetSupportedTokens(ctx context.Context) ([]common.Address, error) {
-	ret := _m.Called(ctx)
-
-	var r0 []common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]common.Address, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) []common.Address); ok {
-		r0 = rf(ctx)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]common.Address)
-		}
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -454,22 +428,6 @@ func (_m *OffRampReader) RegisterFilters(qopts ...pg.QOpt) error {
 		r0 = rf(qopts...)
 	} else {
 		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// TokenEvents provides a mock function with given fields:
-func (_m *OffRampReader) TokenEvents() []common.Hash {
-	ret := _m.Called()
-
-	var r0 []common.Hash
-	if rf, ok := ret.Get(0).(func() []common.Hash); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]common.Hash)
-		}
 	}
 
 	return r0

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -27,7 +28,9 @@ func TestExecutionReportEncodingV100(t *testing.T) {
 		ProofFlagBits:     big.NewInt(133),
 	}
 
-	offRamp, err := ccipdata.NewOffRampV1_0_0(logger.TestLogger(t), utils.RandomAddress(), nil, lpmocks.NewLogPoller(t), nil)
+	lp := lpmocks.NewLogPoller(t)
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	offRamp, err := ccipdata.NewOffRampV1_0_0(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
 	require.NoError(t, err)
 
 	encodeExecutionReport, err := offRamp.EncodeExecutionReport(report)
@@ -42,7 +45,6 @@ func TestOffRampFiltersV100(t *testing.T) {
 	assertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
 		c, err := ccipdata.NewOffRampV1_0_0(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
 		require.NoError(t, err)
-		require.NoError(t, c.RegisterFilters())
 		return c
 	}, 3)
 }

@@ -17,6 +17,8 @@ import (
 
 //go:generate mockery --quiet --name EvmBatchCaller --output ./rpclibmocks --outpkg rpclibmocks --filename evm_mock.go --case=underscore
 type EvmBatchCaller interface {
+	// BatchCall executes all the provided EvmCall and returns the results in the same order
+	// of the calls.
 	BatchCall(ctx context.Context, blockNumber uint64, calls []EvmCall) ([]DataAndErr, error)
 }
 

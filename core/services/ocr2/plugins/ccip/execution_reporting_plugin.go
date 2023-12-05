@@ -25,8 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/contractutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
@@ -67,18 +67,15 @@ type ExecutionPluginStaticConfig struct {
 type ExecutionReportingPlugin struct {
 	config ExecutionPluginStaticConfig
 
-	F                     int
-	lggr                  logger.Logger
-	inflightReports       *inflightExecReportsContainer
-	snoozedRoots          cache.SnoozedRoots
-	destPriceRegistry     ccipdata.PriceRegistryReader
-	destWrappedNative     common.Address
-	onchainConfig         ccipdata.ExecOnchainConfig
-	offchainConfig        ccipdata.ExecOffchainConfig
-	cachedSourceFeeTokens cache.AutoSync[[]common.Address]
-	cachedDestTokens      cache.AutoSync[cache.CachedTokens]
-	cachedTokenPools      cache.AutoSync[map[common.Address]common.Address]
-	gasPriceEstimator     prices.GasPriceEstimatorExec
+	F                 int
+	lggr              logger.Logger
+	inflightReports   *inflightExecReportsContainer
+	snoozedRoots      cache.SnoozedRoots
+	destPriceRegistry ccipdata.PriceRegistryReader
+	destWrappedNative common.Address
+	onchainConfig     ccipdata.ExecOnchainConfig
+	offchainConfig    ccipdata.ExecOffchainConfig
+	gasPriceEstimator prices.GasPriceEstimatorExec
 }
 
 type ExecutionReportingPluginFactory struct {
@@ -139,25 +136,18 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 	}
 
 	offchainConfig := rf.config.offRampReader.OffchainConfig()
-	cachedSourceFeeTokens := cache.NewCachedFeeTokens(rf.config.sourceLP, rf.config.sourcePriceRegistry)
-	cachedDestTokens := cache.NewCachedSupportedTokens(rf.config.destLP, rf.config.offRampReader, rf.destPriceRegReader)
-
-	cachedTokenPools := cache.NewTokenPools(rf.config.lggr, rf.config.destLP, rf.config.offRampReader, 5)
 
 	return &ExecutionReportingPlugin{
-			config:                rf.config,
-			F:                     config.F,
-			lggr:                  rf.config.lggr.Named("ExecutionReportingPlugin"),
-			snoozedRoots:          cache.NewSnoozedRoots(rf.config.offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds, offchainConfig.RootSnoozeTime.Duration()),
-			inflightReports:       newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
-			destPriceRegistry:     rf.destPriceRegReader,
-			destWrappedNative:     destWrappedNative,
-			onchainConfig:         rf.config.offRampReader.OnchainConfig(),
-			offchainConfig:        offchainConfig,
-			cachedDestTokens:      cachedDestTokens,
-			cachedSourceFeeTokens: cachedSourceFeeTokens,
-			cachedTokenPools:      cachedTokenPools,
-			gasPriceEstimator:     rf.config.offRampReader.GasPriceEstimator(),
+			config:            rf.config,
+			F:                 config.F,
+			lggr:              rf.config.lggr.Named("ExecutionReportingPlugin"),
+			snoozedRoots:      cache.NewSnoozedRoots(rf.config.offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds, offchainConfig.RootSnoozeTime.Duration()),
+			inflightReports:   newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
+			destPriceRegistry: rf.destPriceRegReader,
+			destWrappedNative: destWrappedNative,
+			onchainConfig:     rf.config.offRampReader.OnchainConfig(),
+			offchainConfig:    offchainConfig,
+			gasPriceEstimator: rf.config.offRampReader.GasPriceEstimator(),
 		}, types.ReportingPluginInfo{
 			Name: "CCIPExecution",
 			// Setting this to false saves on calldata since OffRamp doesn't require agreement between NOPs
@@ -240,23 +230,36 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 		getAllowedTokenAmount := cache.LazyFetch(func() (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
 			return r.config.offRampReader.CurrentRateLimiterState(ctx)
 		})
-		sourceToDestTokens, supportedDestTokens, err := r.sourceDestinationTokens(ctx)
-		if err != nil {
-			return nil, err
-		}
+
 		getSourceTokensPrices := cache.LazyFetch(func() (map[common.Address]*big.Int, error) {
-			sourceFeeTokens, err1 := r.cachedSourceFeeTokens.Get(ctx)
-			if err1 != nil {
-				return nil, err1
+			sourceFeeTokens, err := r.config.sourcePriceRegistry.GetFeeTokens(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("get source fee tokens: %w", err)
 			}
-			return getTokensPrices(ctx, sourceFeeTokens, r.config.sourcePriceRegistry, []common.Address{r.config.sourceWrappedNativeToken})
+			return getTokensPrices(
+				ctx,
+				r.config.sourcePriceRegistry,
+				append([]common.Address{r.config.sourceWrappedNativeToken}, sourceFeeTokens...),
+			)
 		})
+
+		getSourceToDestTokens := cache.LazyFetch(func() (map[common.Address]common.Address, error) {
+			return r.config.offRampReader.GetSourceToDestTokensMapping(ctx)
+		})
+
 		getDestTokensPrices := cache.LazyFetch(func() (map[common.Address]*big.Int, error) {
-			dstTokens, err1 := r.cachedDestTokens.Get(ctx)
-			if err1 != nil {
-				return nil, err1
+			destFeeTokens, destBridgedTokens, err := ccipcommon.GetDestinationTokens(ctx, r.config.offRampReader, r.destPriceRegistry)
+			if err != nil {
+				return nil, fmt.Errorf("get destination tokens: %w", err)
 			}
-			return getTokensPrices(ctx, dstTokens.FeeTokens, r.destPriceRegistry, append(supportedDestTokens, r.destWrappedNative))
+
+			destTokens := ccipcommon.FlattenUniqueSlice(
+				destFeeTokens,
+				destBridgedTokens,
+				[]common.Address{r.destWrappedNative},
+			)
+
+			return getTokensPrices(ctx, r.destPriceRegistry, destTokens)
 		})
 		getDestGasPrice := cache.LazyFetch(func() (prices.GasPrice, error) {
 			return r.gasPriceEstimator.GetGasPrice(ctx)
@@ -270,6 +273,10 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 		}
 
 		getDestPoolRateLimits := cache.LazyFetch(func() (map[common.Address]*big.Int, error) {
+			sourceToDestTokens, err := getSourceToDestTokens()
+			if err != nil {
+				return nil, err
+			}
 			return r.destPoolRateLimits(ctx, unexpiredReportsWithSendReqs, sourceToDestTokens)
 		})
 
@@ -329,6 +336,11 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 				return nil, fmt.Errorf("get dest pool rate limits: %w", err)
 			}
 
+			sourceToDestTokens, err := getSourceToDestTokens()
+			if err != nil {
+				return nil, fmt.Errorf("get source to dest tokens: %w", err)
+			}
+
 			buildBatchDuration := time.Now()
 			batch := r.buildBatch(
 				ctx,
@@ -354,7 +366,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 // destPoolRateLimits returns a map that consists of the rate limits of each destination token of the provided reports.
 // If a token is missing from the returned map it either means that token was not found or token pool is disabled for this token.
 func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commitReports []commitReportWithSendRequests, sourceToDestToken map[common.Address]common.Address) (map[common.Address]*big.Int, error) {
-	tokenPools, err := r.cachedTokenPools.Get(ctx)
+	tokenPools, err := r.config.offRampReader.GetDestinationTokenPools(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get cached token pools: %w", err)
 	}
@@ -414,20 +426,6 @@ func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commi
 	}
 
 	return res, nil
-}
-
-func (r *ExecutionReportingPlugin) sourceDestinationTokens(ctx context.Context) (map[common.Address]common.Address, []common.Address, error) {
-	destTokens, err := r.cachedDestTokens.Get(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	sourceToDestTokens := destTokens.SupportedTokens
-	supportedDestTokens := make([]common.Address, 0, len(sourceToDestTokens))
-	for _, destToken := range sourceToDestTokens {
-		supportedDestTokens = append(supportedDestTokens, destToken)
-	}
-	return sourceToDestTokens, supportedDestTokens, nil
 }
 
 // Calculates a map that indicated whether a sequence number has already been executed
@@ -997,7 +995,7 @@ func (r *ExecutionReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Conte
 		lggr.Errorw("Unable to decode report", "err", err)
 		return false, err
 	}
-	lggr = lggr.With("messageIDs", contractutil.GetMessageIDsAsHexString(execReport.Messages))
+	lggr = lggr.With("messageIDs", ccipcommon.GetMessageIDsAsHexString(execReport.Messages))
 
 	// If the first message is executed already, this execution report is stale, and we do not accept it.
 	stale, err := r.isStaleReport(ctx, execReport.Messages)
@@ -1023,7 +1021,7 @@ func (r *ExecutionReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Cont
 		lggr.Errorw("Unable to decode report", "err", err)
 		return false, nil
 	}
-	lggr = lggr.With("messageIDs", contractutil.GetMessageIDsAsHexString(execReport.Messages))
+	lggr = lggr.With("messageIDs", ccipcommon.GetMessageIDsAsHexString(execReport.Messages))
 
 	// If report is not stale we transmit.
 	// When the executeTransmitter enqueues the tx for tx manager,
@@ -1100,25 +1098,23 @@ func inflightAggregates(
 }
 
 // getTokensPrices returns token prices of the given price registry,
-// results include feeTokens and passed-in tokens
 // price values are USD per 1e18 of smallest token denomination, in base units 1e18 (e.g. 5$ = 5e18 USD per 1e18 units).
 // this function is used for price registry of both source and destination chains.
-func getTokensPrices(ctx context.Context, feeTokens []common.Address, priceRegistry ccipdata.PriceRegistryReader, tokens []common.Address) (map[common.Address]*big.Int, error) {
+func getTokensPrices(ctx context.Context, priceRegistry ccipdata.PriceRegistryReader, tokens []common.Address) (map[common.Address]*big.Int, error) {
 	priceRegistryAddress := priceRegistry.Address()
 	prices := make(map[common.Address]*big.Int)
 
-	wantedTokens := append(feeTokens, tokens...)
-	fetchedPrices, err := priceRegistry.GetTokenPrices(ctx, wantedTokens)
+	fetchedPrices, err := priceRegistry.GetTokenPrices(ctx, tokens)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get token prices of %v", wantedTokens)
+		return nil, errors.Wrapf(err, "could not get token prices of %v", tokens)
 	}
 
 	// price registry should always return a price per token ordered by input tokens
-	if len(fetchedPrices) != len(wantedTokens) {
-		return nil, fmt.Errorf("token prices length exp=%d actual=%d", len(wantedTokens), len(fetchedPrices))
+	if len(fetchedPrices) != len(tokens) {
+		return nil, fmt.Errorf("token prices length exp=%d actual=%d", len(tokens), len(fetchedPrices))
 	}
 
-	for i, token := range wantedTokens {
+	for i, token := range tokens {
 		// price of a token can never be zero
 		if fetchedPrices[i].Value.BitLen() == 0 {
 			return nil, fmt.Errorf("price of token %s is zero (price registry=%s)", token, priceRegistryAddress)

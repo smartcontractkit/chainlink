@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -38,13 +39,11 @@ func TestOffRampFilters(t *testing.T) {
 	assertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
 		c, err := ccipdata.NewOffRampV1_0_0(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
 		require.NoError(t, err)
-		require.NoError(t, c.RegisterFilters())
 		return c
 	}, 3)
 	assertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
 		c, err := ccipdata.NewOffRampV1_2_0(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
 		require.NoError(t, err)
-		require.NoError(t, c.RegisterFilters())
 		return c
 	}, 3)
 }
@@ -232,7 +231,7 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 		bc,
 		log,
 		100*time.Millisecond, false, 2, 3, 2, 1000)
-
+	assert.NoError(t, orm.InsertBlock(common.Hash{}, 1, time.Now(), 1))
 	// Setup offRamp.
 	var offRampAddress common.Address
 	switch version {
@@ -418,19 +417,19 @@ func testOffRampReader(t *testing.T, th offRampReaderTH) {
 	require.NoError(t, err)
 	require.Equal(t, []common.Address{}, addresses)
 
-	tokens, err := th.reader.GetSupportedTokens(ctx)
-	require.NoError(t, err)
-	require.Equal(t, []common.Address{}, tokens)
-
 	events, err := th.reader.GetExecutionStateChangesBetweenSeqNums(ctx, 0, 10, 0)
 	require.NoError(t, err)
 	require.Equal(t, []ccipdata.Event[ccipdata.ExecutionStateChanged]{}, events)
 
-	destTokens, err := th.reader.GetDestinationTokensFromSourceTokens(ctx, tokens)
-	require.NoError(t, err)
-	require.Empty(t, destTokens)
-
 	rateLimits, err := th.reader.GetTokenPoolsRateLimits(ctx, []common.Address{})
 	require.NoError(t, err)
 	require.Empty(t, rateLimits)
+
+	sourceToDestTokens, err := th.reader.GetSourceToDestTokensMapping(ctx)
+	require.NoError(t, err)
+	require.Empty(t, sourceToDestTokens)
+
+	destPools, err := th.reader.GetDestinationTokenPools(ctx)
+	require.NoError(t, err)
+	require.Empty(t, destPools)
 }

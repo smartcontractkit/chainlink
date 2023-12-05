@@ -50,3 +50,9 @@ func (o *ObservedPriceRegistryReader) GetTokenPrices(ctx context.Context, wanted
 		return o.PriceRegistryReader.GetTokenPrices(ctx, wantedTokens)
 	})
 }
+
+func (o *ObservedPriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddresses []common.Address) ([]uint8, error) {
+	return withObservedInteractionAndResults(o.metric, "GetTokensDecimals", func() ([]uint8, error) {
+		return o.PriceRegistryReader.GetTokensDecimals(ctx, tokenAddresses)
+	})
+}

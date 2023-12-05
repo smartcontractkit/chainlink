@@ -51,24 +51,6 @@ func (o *ObservedOffRampReader) GetDestinationTokens(ctx context.Context) ([]com
 	})
 }
 
-func (o *ObservedOffRampReader) GetPoolByDestToken(ctx context.Context, address common.Address) (common.Address, error) {
-	return withObservedInteraction(o.metric, "GetPoolByDestToken", func() (common.Address, error) {
-		return o.OffRampReader.GetPoolByDestToken(ctx, address)
-	})
-}
-
-func (o *ObservedOffRampReader) GetDestinationTokensFromSourceTokens(ctx context.Context, tokenAddresses []common.Address) ([]common.Address, error) {
-	return withObservedInteractionAndResults(o.metric, "GetDestinationTokensFromSourceTokens", func() ([]common.Address, error) {
-		return o.OffRampReader.GetDestinationTokensFromSourceTokens(ctx, tokenAddresses)
-	})
-}
-
-func (o *ObservedOffRampReader) GetSupportedTokens(ctx context.Context) ([]common.Address, error) {
-	return withObservedInteractionAndResults(o.metric, "GetSupportedTokens", func() ([]common.Address, error) {
-		return o.OffRampReader.GetSupportedTokens(ctx)
-	})
-}
-
 func (o *ObservedOffRampReader) GetSenderNonce(ctx context.Context, sender common.Address) (uint64, error) {
 	return withObservedInteraction(o.metric, "GetSenderNonce", func() (uint64, error) {
 		return o.OffRampReader.GetSenderNonce(ctx, sender)
@@ -90,5 +72,17 @@ func (o *ObservedOffRampReader) GetExecutionState(ctx context.Context, sequenceN
 func (o *ObservedOffRampReader) GetStaticConfig(ctx context.Context) (ccipdata.OffRampStaticConfig, error) {
 	return withObservedInteraction(o.metric, "GetStaticConfig", func() (ccipdata.OffRampStaticConfig, error) {
 		return o.OffRampReader.GetStaticConfig(ctx)
+	})
+}
+
+func (o *ObservedOffRampReader) GetSourceToDestTokensMapping(ctx context.Context) (map[common.Address]common.Address, error) {
+	return withObservedInteraction(o.metric, "GetSourceToDestTokensMapping", func() (map[common.Address]common.Address, error) {
+		return o.OffRampReader.GetSourceToDestTokensMapping(ctx)
+	})
+}
+
+func (o *ObservedOffRampReader) GetDestinationTokenPools(ctx context.Context) (map[common.Address]common.Address, error) {
+	return withObservedInteraction(o.metric, "GetDestinationTokenPools", func() (map[common.Address]common.Address, error) {
+		return o.OffRampReader.GetDestinationTokenPools(ctx)
 	})
 }

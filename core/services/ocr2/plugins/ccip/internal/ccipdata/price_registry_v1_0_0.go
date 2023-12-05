@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -41,10 +43,9 @@ type PriceRegistryV1_0_0 struct {
 	gasUpdated      common.Hash
 	feeTokenAdded   common.Hash
 	feeTokenRemoved common.Hash
-}
 
-func (p *PriceRegistryV1_0_0) FeeTokenEvents() []common.Hash {
-	return []common.Hash{p.feeTokenAdded, p.feeTokenRemoved}
+	feeTokensCache     cache.AutoSync[[]common.Address]
+	tokenDecimalsCache sync.Map
 }
 
 func (p *PriceRegistryV1_0_0) GetTokenPrices(ctx context.Context, wantedTokens []common.Address) ([]TokenPriceUpdate, error) {
@@ -70,7 +71,14 @@ func (p *PriceRegistryV1_0_0) Address() common.Address {
 }
 
 func (p *PriceRegistryV1_0_0) GetFeeTokens(ctx context.Context) ([]common.Address, error) {
-	return p.priceRegistry.GetFeeTokens(&bind.CallOpts{Context: ctx})
+	feeTokens, err := p.feeTokensCache.Get(ctx, func(ctx context.Context) ([]common.Address, error) {
+		return p.priceRegistry.GetFeeTokens(&bind.CallOpts{Context: ctx})
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("get fee tokens: %w", err)
+	}
+	return feeTokens, nil
 }
 
 func (p *PriceRegistryV1_0_0) Close(opts ...pg.QOpt) error {
@@ -142,13 +150,27 @@ func (p *PriceRegistryV1_0_0) GetGasPriceUpdatesCreatedAfter(ctx context.Context
 }
 
 func (p *PriceRegistryV1_0_0) GetTokensDecimals(ctx context.Context, tokenAddresses []common.Address) ([]uint8, error) {
-	if len(tokenAddresses) == 0 {
-		return nil, nil
+	found := make(map[common.Address]bool)
+	tokenDecimals := make([]uint8, len(tokenAddresses))
+	for i, tokenAddress := range tokenAddresses {
+		if v, ok := p.tokenDecimalsCache.Load(tokenAddress); ok {
+			if decimals, isUint8 := v.(uint8); isUint8 {
+				tokenDecimals[i] = decimals
+				found[tokenAddress] = true
+			} else {
+				p.lggr.Errorf("token decimals cache contains invalid type %T", v)
+			}
+		}
+	}
+	if len(found) == len(tokenAddresses) {
+		return tokenDecimals, nil
 	}
 
 	evmCalls := make([]rpclib.EvmCall, 0, len(tokenAddresses))
 	for _, tokenAddress := range tokenAddresses {
-		evmCalls = append(evmCalls, rpclib.NewEvmCall(abiERC20, "decimals", tokenAddress))
+		if !found[tokenAddress] {
+			evmCalls = append(evmCalls, rpclib.NewEvmCall(abiERC20, "decimals", tokenAddress))
+		}
 	}
 
 	latestBlock, err := p.lp.LatestBlock(pg.WithParentCtx(ctx))
@@ -168,7 +190,15 @@ func (p *PriceRegistryV1_0_0) GetTokensDecimals(ctx context.Context, tokenAddres
 		return nil, fmt.Errorf("parse outputs: %w", err)
 	}
 
-	return decimals, nil
+	j := 0
+	for i, tokenAddress := range tokenAddresses {
+		if !found[tokenAddress] {
+			tokenDecimals[i] = decimals[j]
+			p.tokenDecimalsCache.Store(tokenAddress, tokenDecimals[i])
+			j++
+		}
+	}
+	return tokenDecimals, nil
 }
 
 func NewPriceRegistryV1_0_0(lggr logger.Logger, priceRegistryAddr common.Address, lp logpoller.LogPoller, ec client.Client) (*PriceRegistryV1_0_0, error) {
@@ -216,6 +246,11 @@ func NewPriceRegistryV1_0_0(lggr logger.Logger, priceRegistryAddr common.Address
 		feeTokenRemoved: feeTokenRemoved,
 		feeTokenAdded:   feeTokenAdded,
 		filters:         filters,
+		feeTokensCache: cache.NewLogpollerEventsBased[[]common.Address](
+			lp,
+			[]common.Hash{feeTokenAdded, feeTokenRemoved},
+			priceRegistryAddr,
+		),
 	}, nil
 }
 

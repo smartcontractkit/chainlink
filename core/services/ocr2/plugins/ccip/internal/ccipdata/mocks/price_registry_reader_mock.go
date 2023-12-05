@@ -56,22 +56,6 @@ func (_m *PriceRegistryReader) Close(qopts ...pg.QOpt) error {
 	return r0
 }
 
-// FeeTokenEvents provides a mock function with given fields:
-func (_m *PriceRegistryReader) FeeTokenEvents() []common.Hash {
-	ret := _m.Called()
-
-	var r0 []common.Hash
-	if rf, ok := ret.Get(0).(func() []common.Hash); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]common.Hash)
-		}
-	}
-
-	return r0
-}
-
 // GetFeeTokens provides a mock function with given fields: ctx
 func (_m *PriceRegistryReader) GetFeeTokens(ctx context.Context) ([]common.Address, error) {
 	ret := _m.Called(ctx)
