@@ -49,7 +49,6 @@ import (
 const (
 	saveFileLocation    = "/persistence/ocr-soak-test-state.toml"
 	interruptedExitCode = 3
-	ocr2MockPath        = "ocr2"
 )
 
 // OCRSoakTest defines a typical OCR soak test
@@ -310,7 +309,7 @@ func (o *OCRSoakTest) Run() {
 		err := actions.CreateOCRJobs(o.ocrV1Instances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, o.chainClient.GetChainID().String())
 		require.NoError(o.t, err, "Error creating OCR jobs")
 	} else if o.Inputs.OCRVersion == "2" {
-		err := actions.CreateOCRv2Jobs(o.ocrV2Instances, o.bootstrapNode, o.workerNodes, o.mockServer, ocr2MockPath, startingValue, o.chainClient.GetChainID().Uint64(), o.OperatorForwarderFlow)
+		err := actions.CreateOCRv2Jobs(o.ocrV2Instances, o.bootstrapNode, o.workerNodes, o.mockServer, startingValue, o.chainClient.GetChainID().Uint64(), o.OperatorForwarderFlow)
 		require.NoError(o.t, err, "Error creating OCR jobs")
 	}
 
@@ -700,16 +699,14 @@ func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 		o.ocrRoundStates[len(o.ocrRoundStates)-1].EndTime = time.Now()
 	}
 
+	var err error
 	if o.Inputs.OCRVersion == "1" {
-		err := actions.SetAllAdapterResponsesToTheSameValue(newValue, o.ocrV1Instances, o.workerNodes, o.mockServer)
-		if err != nil {
-			return err
-		}
+		err = actions.SetAllAdapterResponsesToTheSameValue(newValue, o.ocrV1Instances, o.workerNodes, o.mockServer)
 	} else if o.Inputs.OCRVersion == "2" {
-		err := o.mockServer.SetValuePath(ocr2MockPath, newValue)
-		if err != nil {
-			return err
-		}
+		err = actions.SetOCR2AllAdapterResponsesToTheSameValue(newValue, o.ocrV2Instances, o.workerNodes, o.mockServer)
+	}
+	if err != nil {
+		return err
 	}
 
 	expectedState := &testreporters.OCRRoundState{
