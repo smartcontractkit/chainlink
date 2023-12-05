@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
@@ -30,10 +30,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
@@ -52,7 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
-	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -64,7 +66,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	address := common.HexToAddress(hexutil.Encode(b))
 
 	spec := &job.OCR2OracleSpec{
-		PluginType: relaytypes.OCR2Keeper,
+		PluginType: types.OCR2Keeper,
 		ContractID: address.String(), // valid contract addr
 	}
 
@@ -76,7 +78,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	assert.Equal(t, logpoller.FilterName("KeeperRegistry Events", address), names[1])
 
 	spec = &job.OCR2OracleSpec{
-		PluginType: relaytypes.OCR2Keeper,
+		PluginType: types.OCR2Keeper,
 		ContractID: "0x5431", // invalid contract addr
 	}
 	_, err = ocr2keeper.FilterNamesFromSpec21(spec)
@@ -720,7 +722,7 @@ func deployKeeper21Registry(
 	return registryMaster
 }
 
-func getUpkeepIdFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func getUpkeepIdFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *gethtypes.Transaction, backend *backends.SimulatedBackend) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -884,10 +886,11 @@ func (c *feedLookupUpkeepController) EnableMercury(
 	registry *iregistry21.IKeeperRegistryMaster,
 	registryOwner *bind.TransactOpts,
 ) error {
-	adminBytes, _ := json.Marshal(evm21.UpkeepPrivilegeConfig{
+	adminBytes, _ := json.Marshal(streams.UpkeepPrivilegeConfig{
 		MercuryEnabled: true,
 	})
 
+	ctx := testutils.Context(t)
 	for _, id := range c.upkeepIds {
 		if _, err := registry.SetUpkeepPrivilegeConfig(registryOwner, id, adminBytes); err != nil {
 			require.NoError(t, err)
@@ -898,7 +901,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 		callOpts := &bind.CallOpts{
 			Pending: true,
 			From:    registryOwner.From,
-			Context: context.Background(),
+			Context: ctx,
 		}
 
 		bts, err := registry.GetUpkeepPrivilegeConfig(callOpts, id)
@@ -908,7 +911,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 			return err
 		}
 
-		var checkBytes evm21.UpkeepPrivilegeConfig
+		var checkBytes streams.UpkeepPrivilegeConfig
 		if err := json.Unmarshal(bts, &checkBytes); err != nil {
 			require.NoError(t, err)
 
@@ -987,7 +990,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 		backend.Commit()
 
 		// verify event was emitted
-		block, _ := backend.BlockByHash(context.Background(), backend.Commit())
+		block, _ := backend.BlockByHash(ctx, backend.Commit())
 		t.Logf("block number after emit event: %d", block.NumberU64())
 
 		iter, _ := c.protocol.FilterLimitOrderExecuted(

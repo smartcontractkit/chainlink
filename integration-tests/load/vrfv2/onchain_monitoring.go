@@ -1,14 +1,14 @@
 package loadvrfv2
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/wasp"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 /* Monitors on-chain stats of LoadConsumer and pushes them to Loki every second */
@@ -20,29 +20,37 @@ const (
 	ErrLokiPush   = "failed to push monitoring metrics to Loki"
 )
 
-func MonitorLoadStats(t *testing.T, vrfv2Contracts *vrfv2_actions.VRFV2Contracts, labels map[string]string) {
+func MonitorLoadStats(lc *wasp.LokiClient, consumer contracts.VRFv2LoadTestConsumer, labels map[string]string) {
 	go func() {
-		updatedLabels := make(map[string]string)
-		for k, v := range labels {
-			updatedLabels[k] = v
-		}
-		updatedLabels["type"] = LokiTypeLabel
-		updatedLabels["go_test_name"] = t.Name()
-		updatedLabels["gen_name"] = "performance"
-		lc, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
-		if err != nil {
-			log.Error().Err(err).Msg(ErrLokiClient)
-			return
-		}
 		for {
 			time.Sleep(1 * time.Second)
-			metrics, err := vrfv2Contracts.LoadTestConsumer.GetLoadTestMetrics(utils.TestContext(t))
-			if err != nil {
-				log.Error().Err(err).Msg(ErrMetrics)
-			}
-			if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
-				log.Error().Err(err).Msg(ErrLokiPush)
-			}
+			metrics := GetLoadTestMetrics(consumer)
+			SendMetricsToLoki(metrics, lc, labels)
 		}
 	}()
+}
+
+func UpdateLabels(labels map[string]string, t *testing.T) map[string]string {
+	updatedLabels := make(map[string]string)
+	for k, v := range labels {
+		updatedLabels[k] = v
+	}
+	updatedLabels["type"] = LokiTypeLabel
+	updatedLabels["go_test_name"] = t.Name()
+	updatedLabels["gen_name"] = "performance"
+	return updatedLabels
+}
+
+func SendMetricsToLoki(metrics *contracts.VRFLoadTestMetrics, lc *wasp.LokiClient, updatedLabels map[string]string) {
+	if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
+		log.Error().Err(err).Msg(ErrLokiPush)
+	}
+}
+
+func GetLoadTestMetrics(consumer contracts.VRFv2LoadTestConsumer) *contracts.VRFLoadTestMetrics {
+	metrics, err := consumer.GetLoadTestMetrics(context.Background())
+	if err != nil {
+		log.Error().Err(err).Msg(ErrMetrics)
+	}
+	return metrics
 }

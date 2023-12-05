@@ -18,13 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -41,7 +41,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 
 	defaultAutomationSettings = map[string]interface{}{
 		"replicas": 6,
-		"toml":     client.AddNetworksConfig(baseTOML, networks.MustGetSelectedNetworksFromEnv()[0]),
+		"toml":     networks.AddNetworksConfig(baseTOML, networks.MustGetSelectedNetworksFromEnv()[0]),
 		"db": map[string]interface{}{
 			"stateful": true,
 			"capacity": "1Gi",
@@ -132,7 +132,7 @@ func TestAutomationChaos(t *testing.T) {
 					chainlink.New(0, defaultAutomationSettings),
 					chaos.NewFailPods,
 					&chaos.Props{
-						LabelsSelector: &map[string]*string{ChaosGroupMinority: utils.Ptr("1")},
+						LabelsSelector: &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
 						DurationStr:    "1m",
 					},
 				},
@@ -141,7 +141,7 @@ func TestAutomationChaos(t *testing.T) {
 					chainlink.New(0, defaultAutomationSettings),
 					chaos.NewFailPods,
 					&chaos.Props{
-						LabelsSelector: &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
+						LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
 						DurationStr:    "1m",
 					},
 				},
@@ -150,9 +150,9 @@ func TestAutomationChaos(t *testing.T) {
 					chainlink.New(0, defaultAutomationSettings),
 					chaos.NewFailPods,
 					&chaos.Props{
-						LabelsSelector: &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
+						LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
 						DurationStr:    "1m",
-						ContainerNames: &[]*string{utils.Ptr("chainlink-db")},
+						ContainerNames: &[]*string{ptr.Ptr("chainlink-db")},
 					},
 				},
 				NetworkChaosFailMajorityNetwork: {
@@ -160,8 +160,8 @@ func TestAutomationChaos(t *testing.T) {
 					chainlink.New(0, defaultAutomationSettings),
 					chaos.NewNetworkPartition,
 					&chaos.Props{
-						FromLabels:  &map[string]*string{ChaosGroupMajority: utils.Ptr("1")},
-						ToLabels:    &map[string]*string{ChaosGroupMinority: utils.Ptr("1")},
+						FromLabels:  &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
+						ToLabels:    &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
 						DurationStr: "1m",
 					},
 				},
@@ -170,8 +170,8 @@ func TestAutomationChaos(t *testing.T) {
 					chainlink.New(0, defaultAutomationSettings),
 					chaos.NewNetworkPartition,
 					&chaos.Props{
-						FromLabels:  &map[string]*string{"app": utils.Ptr("geth")},
-						ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: utils.Ptr("1")},
+						FromLabels:  &map[string]*string{"app": ptr.Ptr("geth")},
+						ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: ptr.Ptr("1")},
 						DurationStr: "1m",
 					},
 				},
@@ -269,7 +269,7 @@ func TestAutomationChaos(t *testing.T) {
 					gom.Eventually(func(g gomega.Gomega) {
 						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 						for i := 0; i < len(upkeepIDs); i++ {
-							counter, err := consumers[i].Counter(it_utils.TestContext(t))
+							counter, err := consumers[i].Counter(testcontext.Get(t))
 							require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 							expect := 5
 							l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
@@ -284,7 +284,7 @@ func TestAutomationChaos(t *testing.T) {
 					gom.Eventually(func(g gomega.Gomega) {
 						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 						for i := 0; i < len(upkeepIDs); i++ {
-							counter, err := consumers[i].Counter(it_utils.TestContext(t))
+							counter, err := consumers[i].Counter(testcontext.Get(t))
 							require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 							expect := 10
 							l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")

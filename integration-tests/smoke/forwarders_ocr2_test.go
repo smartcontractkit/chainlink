@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestForwarderOCR2Basic(t *testing.T) {
@@ -92,7 +92,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	err = actions.StartNewOCR2Round(1, ocrInstances, env.EVMClient, time.Minute*10, l)
 	require.NoError(t, err)
 
-	answer, err := ocrInstances[0].GetLatestAnswer(utils.TestContext(t))
+	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 	require.NoError(t, err, "Getting latest answer from OCRv2 contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCRw contract to be 5 but got %d", answer.Int64())
 
@@ -103,7 +103,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		err = actions.StartNewOCR2Round(int64(i), ocrInstances, env.EVMClient, time.Minute*10, l)
 		require.NoError(t, err)
 
-		answer, err = ocrInstances[0].GetLatestAnswer(utils.TestContext(t))
+		answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 		require.NoError(t, err, "Error getting latest OCRv2 answer")
 		require.Equal(t, int64(ocrRoundVal), answer.Int64(), fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()))
 	}

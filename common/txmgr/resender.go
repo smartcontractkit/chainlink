@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/chains/label"
+	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -40,11 +41,13 @@ type Resender[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	txStore             txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	client              txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	tracker             *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID             CHAIN_ID
 	interval            time.Duration
@@ -63,31 +66,34 @@ func NewResender[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
 	lggr logger.Logger,
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	client txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	ks txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	pollInterval time.Duration,
 	config txmgrtypes.ResenderChainConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
-) *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+) *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	if txConfig.ResendAfterThreshold() == 0 {
 		panic("Resender requires a non-zero threshold")
 	}
 	// todo: add context to txStore https://smartcontract-it.atlassian.net/browse/BCI-1585
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
+	return &Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		txStore,
 		client,
+		tracker,
 		ks,
 		client.ConfiguredChainID(),
 		pollInterval,
 		config,
 		txConfig,
-		lggr.Named("Resender"),
+		logger.Named(lggr, "Resender"),
 		make(map[string]time.Time),
 		ctx,
 		cancel,
@@ -96,18 +102,18 @@ func NewResender[
 }
 
 // Start is a comment which satisfies the linter
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Start() {
+func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start() {
 	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.txConfig.ResendAfterThreshold())
 	go er.runLoop()
 }
 
 // Stop is a comment which satisfies the linter
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Stop() {
+func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Stop() {
 	er.cancel()
 	<-er.chDone
 }
 
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop() {
+func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	defer close(er.chDone)
 
 	if err := er.resendUnconfirmed(); err != nil {
@@ -128,16 +134,20 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop() {
 	}
 }
 
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfirmed() error {
-	enabledAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
+func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnconfirmed() error {
+	resendAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
 	if err != nil {
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
 	}
+
+	resendAddresses = append(resendAddresses, er.tracker.GetAbandonedAddresses()...)
+
 	ageThreshold := er.txConfig.ResendAfterThreshold()
 	maxInFlightTransactions := er.txConfig.MaxInFlight()
 	olderThan := time.Now().Add(-ageThreshold)
 	var allAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	for _, k := range enabledAddresses {
+
+	for _, k := range resendAddresses {
 		var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 		attempts, err = er.txStore.FindTxAttemptsRequiringResend(er.ctx, olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
@@ -188,7 +198,7 @@ func logResendResult(lggr logger.Logger, codes []client.SendTxReturnCode) {
 	lggr.Debugw("Completed", "n", len(codes), "nNew", nNew, "nFatal", nFatal)
 }
 
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) logStuckAttempts(attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fromAddress ADDR) {
+func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) logStuckAttempts(attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fromAddress ADDR) {
 	if time.Since(er.lastAlertTimestamps[fromAddress.String()]) >= unconfirmedTxAlertLogFrequency {
 		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
 		if exists {

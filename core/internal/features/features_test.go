@@ -37,13 +37,12 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -429,7 +428,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 			pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), testutils.WaitTimeout(t)/2, time.Second)
 			pipelineRun := pipelineRuns[0]
-			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+			assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
 
 			nameAndExternalJobID = uuid.New()
@@ -454,7 +453,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 			pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), testutils.WaitTimeout(t), time.Second)
 			pipelineRun = pipelineRuns[0]
-			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+			assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			v, err := operatorContracts.singleWord.CurrentPriceInt(nil)
 			require.NoError(t, err)
 			assert.Equal(t, big.NewInt(61464), v)
@@ -535,7 +534,7 @@ observationSource   = """
 
 		// The run should have succeeded but with the receipt detailing the reverted transaction
 		pipelineRun := pipelineRuns[0]
-		cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+		assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 
 		outputs := pipelineRun.Outputs.Val.([]interface{})
 		require.Len(t, outputs, 1)
@@ -581,7 +580,7 @@ observationSource   = """
 
 		// The run should have failed as a revert
 		pipelineRun := pipelineRuns[0]
-		cltest.AssertPipelineTaskRunsErrored(t, pipelineRun.PipelineTaskRuns)
+		assertPipelineTaskRunsErrored(t, pipelineRun.PipelineTaskRuns)
 	})
 
 	t.Run("with FailOnRevert disabled, run succeeds with output being reverted receipt", func(t *testing.T) {
@@ -619,7 +618,7 @@ observationSource   = """
 
 		// The run should have succeeded but with the receipt detailing the reverted transaction
 		pipelineRun := pipelineRuns[0]
-		cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+		assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 
 		outputs := pipelineRun.Outputs.Val.([]interface{})
 		require.Len(t, outputs, 1)
@@ -675,8 +674,8 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	return owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress
 }
 
-func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int,
-	b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack, overrides func(c *chainlink.Config, s *chainlink.Secrets),
+func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
+	b *backends.SimulatedBackend, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
 	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -686,32 +685,10 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int,
 		c.OCR2.Enabled = ptr(true)
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		switch ns {
-		case ocrnetworking.NetworkingStackV1:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(false)
-			// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
-			// we'll flood it with messages and slow things down. 5s is about how long it takes the
-			// bootstrap node to come up.
-			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
 
-		case ocrnetworking.NetworkingStackV2:
-			c.P2P.V1.Enabled = ptr(false)
-			c.P2P.V2.Enabled = ptr(true)
-			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
-
-		case ocrnetworking.NetworkingStackV1V2:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(true)
-			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
-			// Note v1 and v2 ports must be distinct,
-			// v1v2 mode will listen on both.
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
-			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
-		}
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
+		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
 
 		// GracePeriod < ObservationTimeout
 		c.EVM[0].OCR.ObservationGracePeriod = models.MustNewDuration(100 * time.Millisecond)
@@ -743,21 +720,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int,
 	return app, p2pKey.PeerID().Raw(), transmitter, key
 }
 
-func setupForwarderEnabledNode(
-	t *testing.T,
-	owner *bind.TransactOpts,
-	portV1,
-	portV2 int,
-	b *backends.SimulatedBackend,
-	ns ocrnetworking.NetworkingStack,
-	overrides func(c *chainlink.Config, s *chainlink.Secrets),
-) (
-	*cltest.TestApplication,
-	string,
-	common.Address,
-	common.Address,
-	ocrkey.KeyV2,
-) {
+func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 int, b *backends.SimulatedBackend, overrides func(c *chainlink.Config, s *chainlink.Secrets)) (*cltest.TestApplication, string, common.Address, common.Address, ocrkey.KeyV2) {
 	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
@@ -766,32 +729,9 @@ func setupForwarderEnabledNode(
 		c.OCR2.Enabled = ptr(true)
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		switch ns {
-		case ocrnetworking.NetworkingStackV1:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(false)
-			// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
-			// we'll flood it with messages and slow things down. 5s is about how long it takes the
-			// bootstrap node to come up.
-			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
-
-		case ocrnetworking.NetworkingStackV2:
-			c.P2P.V1.Enabled = ptr(false)
-			c.P2P.V2.Enabled = ptr(true)
-			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
-
-		case ocrnetworking.NetworkingStackV1V2:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(true)
-			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
-			// Note v1 and v2 ports must be distinct,
-			// v1v2 mode will listen on both.
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
-			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
-		}
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
+		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
 
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
 
@@ -842,16 +782,12 @@ func TestIntegration_OCR(t *testing.T) {
 	testutils.SkipShort(t, "long test")
 	t.Parallel()
 	tests := []struct {
-		id        int
-		portStart int // Test need to run in parallel, all need distinct port ranges.
-		name      string
-		eip1559   bool
-		ns        ocrnetworking.NetworkingStack
+		id      int
+		name    string
+		eip1559 bool
 	}{
-		{1, 20000, "legacy mode", false, ocrnetworking.NetworkingStackV1},
-		{2, 20010, "eip1559 mode", true, ocrnetworking.NetworkingStackV1},
-		{3, 20020, "legacy mode V1V2", false, ocrnetworking.NetworkingStackV1V2},
-		{4, 20030, "legacy mode V2", false, ocrnetworking.NetworkingStackV2},
+		{1, "legacy mode", false},
+		{2, "eip1559 mode", true},
 	}
 
 	numOracles := 4
@@ -859,31 +795,27 @@ func TestIntegration_OCR(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			bootstrapNodePortV1 := freeport.GetOne(t)
 			bootstrapNodePortV2 := freeport.GetOne(t)
 			g := gomega.NewWithT(t)
 			owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
 			// Note it's plausible these ports could be occupied on a CI machine.
 			// May need a port randomize + retry approach if we observe collisions.
-			appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, b, test.ns, nil)
+			appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV2, b, nil)
 			var (
 				oracles      []confighelper.OracleIdentityExtra
 				transmitters []common.Address
 				keys         []ocrkey.KeyV2
 				apps         []*cltest.TestApplication
 			)
-			ports := freeport.GetN(t, 2*numOracles)
+			ports := freeport.GetN(t, numOracles)
 			for i := 0; i < numOracles; i++ {
-				portV1 := ports[2*i]
-				portV2 := ports[2*i+1]
-				app, peerID, transmitter, key := setupNode(t, owner, portV1, portV2, b, test.ns, func(c *chainlink.Config, s *chainlink.Secrets) {
+				app, peerID, transmitter, key := setupNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
 					c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
 					c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(test.eip1559)
-					if test.ns != ocrnetworking.NetworkingStackV1 {
-						c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
-							{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePortV2)}},
-						}
+
+					c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
+						{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePortV2)}},
 					}
 				})
 
@@ -1007,9 +939,6 @@ name               = "web oracle spec"
 contractAddress    = "%s"
 evmChainID		   = "%s"
 isBootstrapPeer    = false
-p2pBootstrapPeers  = [
-    "/ip4/127.0.0.1/tcp/%d/p2p/%s"
-]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
 observationTimeout = "100ms"
@@ -1031,7 +960,7 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, testutils.SimulatedChainID.String(), bootstrapNodePortV1, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+`, ocrContractAddress, testutils.SimulatedChainID.String(), keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 				require.NoError(t, err)
 				jb.Name = null.NewString("testocr", true)
 				err = apps[i].AddJobV2(testutils.Context(t), &jb)
@@ -1084,14 +1013,13 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 	t.Parallel()
 	numOracles := 4
 	t.Run("ocr_forwarder_flow", func(t *testing.T) {
-		bootstrapNodePortV1 := freeport.GetOne(t)
 		bootstrapNodePortV2 := freeport.GetOne(t)
 		g := gomega.NewWithT(t)
 		owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
 		// Note it's plausible these ports could be occupied on a CI machine.
 		// May need a port randomize + retry approach if we observe collisions.
-		appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, b, ocrnetworking.NetworkingStackV2, nil)
+		appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV2, b, nil)
 
 		var (
 			oracles             []confighelper.OracleIdentityExtra
@@ -1100,11 +1028,9 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 			keys                []ocrkey.KeyV2
 			apps                []*cltest.TestApplication
 		)
-		ports := freeport.GetN(t, 2*numOracles)
+		ports := freeport.GetN(t, numOracles)
 		for i := 0; i < numOracles; i++ {
-			portV1 := ports[2*i]
-			portV2 := ports[2*i+1]
-			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, portV1, portV2, b, ocrnetworking.NetworkingStackV2, func(c *chainlink.Config, s *chainlink.Secrets) {
+			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Feature.LogPoller = ptr(true)
 				c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
@@ -1241,9 +1167,6 @@ contractAddress    = "%s"
 evmChainID         = "%s"
 forwardingAllowed  = true
 isBootstrapPeer    = false
-p2pBootstrapPeers  = [
-    "/ip4/127.0.0.1/tcp/%d/p2p/%s"
-]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
 observationTimeout = "100ms"
@@ -1265,7 +1188,7 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, testutils.SimulatedChainID.String(), bootstrapNodePortV1, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+`, ocrContractAddress, testutils.SimulatedChainID.String(), keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 			require.NoError(t, err)
 			jb.Name = null.NewString("testocr", true)
 			err = apps[i].AddJobV2(testutils.Context(t), &jb)
@@ -1454,3 +1377,17 @@ func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwo
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func assertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
+	t.Helper()
+	for i, run := range runs {
+		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
+	}
+}
+
+func assertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
+	t.Helper()
+	for i, run := range runs {
+		require.False(t, run.Error.IsZero(), fmt.Sprintf("expected pipeline.Task run to have failed, but it succeeded (idx: %v, dotID: %v, output: '%v')", i, run.GetDotID(), run.Output))
+	}
+}

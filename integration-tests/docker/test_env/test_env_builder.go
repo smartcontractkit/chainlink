@@ -17,9 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 type CleanUpType string
@@ -39,6 +40,7 @@ type CLTestEnvBuilder struct {
 	secretsConfig          string
 	nonDevGethNetworks     []blockchain.EVMNetwork
 	clNodesCount           int
+	clNodesOpts            []func(*ClNode)
 	customNodeCsaKeys      []string
 	defaultNodeCsaKeys     []string
 	l                      zerolog.Logger
@@ -106,6 +108,11 @@ func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
 
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	b.clNodesCount = clNodesCount
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithCLNodeOptions(opt ...ClNodeOption) *CLTestEnvBuilder {
+	b.clNodesOpts = append(b.clNodesOpts, opt...)
 	return b
 }
 
@@ -266,7 +273,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, fmt.Errorf("cannot create nodes with custom config without nonDevNetworks")
 		}
 
-		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
+		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -324,7 +331,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		} else {
 			cfg = node.NewConfig(node.NewBaseConfig(),
 				node.WithOCR1(),
-				node.WithP2Pv1(),
+				node.WithP2Pv2(),
 			)
 		}
 
@@ -350,7 +357,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 		}
 
-		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig)
+		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
 		}

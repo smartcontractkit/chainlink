@@ -27,7 +27,7 @@ import (
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -39,13 +39,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-
-	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -1013,12 +1010,12 @@ func setupLogPollerTestDocker(
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
 	syncInterval := models.MustMakeDuration(5 * time.Minute)
-	clNodeConfig.Feature.LogPoller = it_utils.Ptr[bool](true)
-	clNodeConfig.OCR2.Enabled = it_utils.Ptr[bool](true)
-	clNodeConfig.Keeper.TurnLookBack = it_utils.Ptr[int64](int64(0))
+	clNodeConfig.Feature.LogPoller = ptr.Ptr[bool](true)
+	clNodeConfig.OCR2.Enabled = ptr.Ptr[bool](true)
+	clNodeConfig.Keeper.TurnLookBack = ptr.Ptr[int64](int64(0))
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
-	clNodeConfig.Keeper.Registry.PerformGasOverhead = it_utils.Ptr[uint32](uint32(150000))
-	clNodeConfig.P2P.V2.Enabled = it_utils.Ptr[bool](true)
+	clNodeConfig.Keeper.Registry.PerformGasOverhead = ptr.Ptr[uint32](uint32(150000))
+	clNodeConfig.P2P.V2.Enabled = ptr.Ptr[bool](true)
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 
@@ -1030,8 +1027,8 @@ func setupLogPollerTestDocker(
 
 	var logPolllerSettingsFn = func(chain *evmcfg.Chain) *evmcfg.Chain {
 		chain.LogPollInterval = models.MustNewDuration(lpPollingInterval)
-		chain.FinalityDepth = it_utils.Ptr[uint32](uint32(finalityDepth))
-		chain.FinalityTagEnabled = it_utils.Ptr[bool](finalityTagEnabled)
+		chain.FinalityDepth = ptr.Ptr[uint32](uint32(finalityDepth))
+		chain.FinalityTagEnabled = ptr.Ptr[bool](finalityTagEnabled)
 		return chain
 	}
 

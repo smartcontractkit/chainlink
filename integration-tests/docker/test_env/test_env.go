@@ -22,11 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -151,15 +151,17 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 	return te.MockAdapter.StartContainer()
 }
 
-func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string) error {
+func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
+		opts = append(opts, WithSecrets(secretsConfig))
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode := NewClNode([]string{te.Network.Name}, os.Getenv("CHAINLINK_IMAGE"), os.Getenv("CHAINLINK_VERSION"), nodeConfig,
-				WithSecrets(secretsConfig),
-			)
+			ocrNode, err := NewClNode([]string{te.Network.Name}, os.Getenv("CHAINLINK_IMAGE"), os.Getenv("CHAINLINK_VERSION"), nodeConfig, opts...)
+			if err != nil {
+				return err
+			}
 			te.ClCluster.Nodes = append(te.ClCluster.Nodes, ocrNode)
 		}
 	}
@@ -266,7 +268,7 @@ func (te *CLClusterTestEnv) collectTestLogs() error {
 				return err
 			}
 			defer logFile.Close()
-			logReader, err := node.Container.Logs(utils.TestContext(te.t))
+			logReader, err := node.Container.Logs(testcontext.Get(te.t))
 			if err != nil {
 				return err
 			}

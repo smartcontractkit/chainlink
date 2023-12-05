@@ -105,7 +105,7 @@ func TestShellVRF_CRUD(t *testing.T) {
 
 	// Now do a hard delete and ensure its completely removes the key
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteVRFKey, set, "")
+	flagSetApplyFromAction(client.DeleteVRFKey, set, "")
 
 	require.NoError(t, set.Parse([]string{k2.Compressed}))
 	require.NoError(t, set.Set("hard", "true"))
@@ -141,7 +141,7 @@ func TestVRF_ImportExport(t *testing.T) {
 	// Export it, encrypted with cltest.Password instead
 	keyName := "vrfkey1"
 	set := flag.NewFlagSet("test VRF export", 0)
-	cltest.FlagSetApplyFromAction(client.ExportVRFKey, set, "")
+	flagSetApplyFromAction(client.ExportVRFKey, set, "")
 
 	require.NoError(t, set.Parse([]string{k1.Compressed})) // Arguments
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/correct_password.txt"))
@@ -157,7 +157,7 @@ func TestVRF_ImportExport(t *testing.T) {
 
 	// Should error if we try to import a duplicate key
 	importSet := flag.NewFlagSet("test VRF import", 0)
-	cltest.FlagSetApplyFromAction(client.ImportVRFKey, importSet, "")
+	flagSetApplyFromAction(client.ImportVRFKey, importSet, "")
 
 	require.NoError(t, importSet.Parse([]string{keyName}))
 	require.NoError(t, importSet.Set("old-password", "../internal/fixtures/correct_password.txt"))
@@ -167,7 +167,7 @@ func TestVRF_ImportExport(t *testing.T) {
 
 	// Lets delete the key and import it
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteVRFKey, set, "")
+	flagSetApplyFromAction(client.DeleteVRFKey, set, "")
 
 	require.NoError(t, set.Parse([]string{k1.Compressed}))
 	require.NoError(t, set.Set("hard", "true"))

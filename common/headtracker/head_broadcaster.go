@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -31,7 +32,7 @@ type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct
 	callbacks      callbackSet[H, BLOCK_HASH]
 	mailbox        *utils.Mailbox[H]
 	mutex          sync.Mutex
-	chClose        utils.StopChan
+	chClose        services.StopChan
 	wgDone         sync.WaitGroup
 	latest         H
 	lastCallbackID int
@@ -45,7 +46,7 @@ func NewHeadBroadcaster[
 	lggr logger.Logger,
 ) *HeadBroadcaster[H, BLOCK_HASH] {
 	return &HeadBroadcaster[H, BLOCK_HASH]{
-		logger:    lggr.Named("HeadBroadcaster"),
+		logger:    logger.Named(lggr, "HeadBroadcaster"),
 		callbacks: make(callbackSet[H, BLOCK_HASH]),
 		mailbox:   utils.NewSingleMailbox[H](),
 		chClose:   make(chan struct{}),

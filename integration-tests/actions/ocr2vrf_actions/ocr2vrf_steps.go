@@ -10,10 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, vrfBeacon contracts.VRFBeacon) {
@@ -273,14 +273,14 @@ func RequestRandomnessFulfillmentAndWaitForFulfilment(
 }
 
 func getRequestId(t *testing.T, consumer contracts.VRFBeaconConsumer, receipt *types.Receipt, confirmationDelay *big.Int) *big.Int {
-	periodBlocks, err := consumer.IBeaconPeriodBlocks(utils.TestContext(t))
+	periodBlocks, err := consumer.IBeaconPeriodBlocks(testcontext.Get(t))
 	require.NoError(t, err, "Error getting Beacon Period block count")
 
 	blockNumber := receipt.BlockNumber
 	periodOffset := new(big.Int).Mod(blockNumber, periodBlocks)
 	nextBeaconOutputHeight := new(big.Int).Sub(new(big.Int).Add(blockNumber, periodBlocks), periodOffset)
 
-	requestID, err := consumer.GetRequestIdsBy(utils.TestContext(t), nextBeaconOutputHeight, confirmationDelay)
+	requestID, err := consumer.GetRequestIdsBy(testcontext.Get(t), nextBeaconOutputHeight, confirmationDelay)
 	require.NoError(t, err, "Error getting requestID from consumer contract")
 
 	return requestID

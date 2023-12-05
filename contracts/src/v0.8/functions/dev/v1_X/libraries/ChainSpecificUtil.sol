@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {ArbGasInfo} from "../../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import {OVM_GasPriceOracle} from "../../../../vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
+import {GasPriceOracle} from "../../../../vendor/@eth-optimism/contracts-bedrock/v0.16.2/src/L2/GasPriceOracle.sol";
 
 /// @dev A library that abstracts out opcodes that behave differently across chains.
 /// @dev The methods below return values that are pertinent to the given chain.
@@ -24,10 +24,10 @@ library ChainSpecificUtil {
   /// @dev L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  /// @dev OVM_GASPRICEORACLE_ADDR is the address of the OVM_GasPriceOracle precompile on Optimism.
+  /// @dev OVM_GASPRICEORACLE_ADDR is the address of the GasPriceOracle precompile on Optimism.
   /// @dev reference: https://community.optimism.io/docs/developers/build/transaction-fees/#estimating-the-l1-data-fee
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
-  OVM_GasPriceOracle private constant OVM_GASPRICEORACLE = OVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
+  GasPriceOracle private constant OVM_GASPRICEORACLE = GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
 
   uint256 private constant OP_MAINNET_CHAIN_ID = 10;
   uint256 private constant OP_GOERLI_CHAIN_ID = 420;
@@ -44,7 +44,7 @@ library ChainSpecificUtil {
   /// @notice for the current transaction.
   /// @notice When on a known Arbitrum chain, it uses ArbGas.getCurrentTxL1GasFees to get the fees.
   /// @notice On Arbitrum, the provided calldata is not used to calculate the fees.
-  /// @notice On Optimism, the provided calldata is passed to the OVM_GasPriceOracle predeploy
+  /// @notice On Optimism, the provided calldata is passed to the GasPriceOracle predeploy
   /// @notice and getL1Fee is called to get the fees.
   function _getCurrentTxL1GasFees(bytes memory txCallData) internal view returns (uint256 l1FeeWei) {
     uint256 chainid = block.chainid;

@@ -20,14 +20,14 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 //go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
@@ -53,12 +53,13 @@ type LogPoller interface {
 	IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogsByTxHash(eventSig common.Hash, address common.Address, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
+	LogsDataWordBetween(eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 }
 
 type Confirmations int
@@ -130,11 +131,13 @@ type logPoller struct {
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
 func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration,
 	useFinalityTag bool, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepFinalizedBlocksDepth int64) *logPoller {
-
+	ctx, cancel := context.WithCancel(context.Background())
 	return &logPoller{
+		ctx:                      ctx,
+		cancel:                   cancel,
 		ec:                       ec,
 		orm:                      orm,
-		lggr:                     lggr.Named("LogPoller"),
+		lggr:                     logger.Named(lggr, "LogPoller"),
 		replayStart:              make(chan int64),
 		replayComplete:           make(chan error),
 		pollPeriod:               pollPeriod,
@@ -371,18 +374,15 @@ func (lp *logPoller) recvReplayComplete() {
 func (lp *logPoller) ReplayAsync(fromBlock int64) {
 	lp.wg.Add(1)
 	go func() {
-		if err := lp.Replay(context.Background(), fromBlock); err != nil {
+		if err := lp.Replay(lp.ctx, fromBlock); err != nil {
 			lp.lggr.Error(err)
 		}
 		lp.wg.Done()
 	}()
 }
 
-func (lp *logPoller) Start(parentCtx context.Context) error {
+func (lp *logPoller) Start(context.Context) error {
 	return lp.StartOnce("LogPoller", func() error {
-		ctx, cancel := context.WithCancel(parentCtx)
-		lp.ctx = ctx
-		lp.cancel = cancel
 		lp.wg.Add(1)
 		go lp.run()
 		return nil
@@ -662,7 +662,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 				}
 			}
 			if batchSize == 1 {
-				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
+				logger.Criticalw(lp.lggr, "Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
 				return err
 			}
 			batchSize /= 2
@@ -917,7 +917,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 			return nil, err
 		}
 	}
-	lp.lggr.Criticalw("Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
+	logger.Criticalw(lp.lggr, "Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
 	rerr := errors.New("Reorg greater than finality depth")
 	lp.SvcErrBuffer.Append(rerr)
 	return nil, rerr
@@ -970,8 +970,8 @@ func (lp *logPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address commo
 	return lp.orm.SelectIndexedLogsCreatedAfter(address, eventSig, topicIndex, topicValues, after, confs, qopts...)
 }
 
-func (lp *logPoller) IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectIndexedLogsByTxHash(eventSig, txHash, qopts...)
+func (lp *logPoller) IndexedLogsByTxHash(eventSig common.Hash, address common.Address, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectIndexedLogsByTxHash(address, eventSig, txHash, qopts...)
 }
 
 // LogsDataWordGreaterThan note index is 0 based.
@@ -1020,6 +1020,19 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 
 func (lp *logPoller) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations, qopts ...pg.QOpt) (int64, error) {
 	return lp.orm.SelectLatestBlockByEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
+}
+
+// LogsDataWordBetween retrieves a slice of Log records that match specific criteria.
+// Besides generic filters like eventSig, address and confs, it also verifies data content against wordValue
+// data[wordIndexMin] <= wordValue <= data[wordIndexMax].
+//
+// Passing the same value for wordIndexMin and wordIndexMax will check the equality of the wordValue at that index.
+// Leading to returning logs matching: data[wordIndexMin] == wordValue.
+//
+// This function is particularly useful for filtering logs by data word values and their positions within the event data.
+// It returns an empty slice if no logs match the provided criteria.
+func (lp *logPoller) LogsDataWordBetween(eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectLogsDataWordBetween(address, eventSig, wordIndexMin, wordIndexMax, wordValue, confs, qopts...)
 }
 
 // GetBlocksRange tries to get the specified block numbers from the log pollers

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -39,7 +39,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
+func genTestEVMRelayers(t *testing.T, opts legacyevm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
 	f := chainlink.RelayerFactory{
 		Logger:       opts.Logger,
 		LoopRegistry: plugins.NewLoopRegistry(opts.Logger, opts.AppConfig.Tracing()),
@@ -83,10 +83,10 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 
 			lggr := logger.TestLogger(t)
 
-			opts := evm.ChainRelayExtenderConfig{
+			opts := legacyevm.ChainRelayExtenderConfig{
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
-				ChainOpts: evm.ChainOpts{
+				ChainOpts: legacyevm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
@@ -124,7 +124,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
+			flagSetApplyFromAction(client.RunNode, set, "")
 
 			require.NoError(t, set.Set("password", test.pwdfile))
 
@@ -188,10 +188,10 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
 			lggr := logger.TestLogger(t)
-			opts := evm.ChainRelayExtenderConfig{
+			opts := legacyevm.ChainRelayExtenderConfig{
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
-				ChainOpts: evm.ChainOpts{
+				ChainOpts: legacyevm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
@@ -221,7 +221,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
+			flagSetApplyFromAction(client.RunNode, set, "")
 
 			require.NoError(t, set.Set("api", test.apiFile))
 
@@ -318,7 +318,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	beginningNonce := uint64(7)
 	endingNonce := uint64(10)
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(c.RebroadcastTransactions, set, "")
+	flagSetApplyFromAction(c.RebroadcastTransactions, set, "")
 
 	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(beginningNonce, 10)))
@@ -397,7 +397,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(c.RebroadcastTransactions, set, "")
+			flagSetApplyFromAction(c.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
@@ -477,7 +477,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+			flagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
@@ -491,4 +491,24 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 		})
 	}
+}
+
+func TestShell_CleanupChainTables(t *testing.T) {
+	// Just check if it doesn't error, command itself shouldn't be changed unless major schema changes were made.
+	// It would be really hard to write a test that accounts for schema changes, so this should be enough to alarm us that something broke.
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.Database.Dialect = dialects.Postgres })
+	client := cmd.Shell{
+		Config: config,
+		Logger: logger.TestLogger(t),
+	}
+
+	set := flag.NewFlagSet("test", 0)
+	flagSetApplyFromAction(client.CleanupChainTables, set, "")
+	require.NoError(t, set.Set("id", testutils.FixtureChainID.String()))
+	require.NoError(t, set.Set("type", "EVM"))
+	// heavyweight creates test db named chainlink_test_uid, while usual naming is chainlink_test
+	// CleanupChainTables handles test db name with chainlink_test, but because of heavyweight test db naming we have to set danger flag
+	require.NoError(t, set.Set("danger", "true"))
+	c := cli.NewContext(nil, set, nil)
+	require.NoError(t, client.CleanupChainTables(c))
 }

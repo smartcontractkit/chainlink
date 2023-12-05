@@ -1,7 +1,6 @@
 package medianpoc
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -12,7 +11,8 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -80,7 +80,7 @@ func TestNewPlugin(t *testing.T) {
 	juelsPerFeeCoinSpec := "jpfc-spec"
 	config := types.ReportingPluginServiceConfig{
 		PluginConfig: fmt.Sprintf(
-			`{"pipelines": {"__DEFAULT_PIPELINE__": "%s", "juelsPerFeeCoinPipeline": "%s"}}`,
+			`{"pipelines": [{"name": "__DEFAULT_PIPELINE__", "spec": "%s"},{"name": "juelsPerFeeCoinPipeline", "spec": "%s"}]}`,
 			defaultSpec,
 			juelsPerFeeCoinSpec,
 		),
@@ -89,7 +89,7 @@ func TestNewPlugin(t *testing.T) {
 	prov := provider{}
 
 	f, err := p.newFactory(
-		context.Background(),
+		tests.Context(t),
 		config,
 		prov,
 		pr,

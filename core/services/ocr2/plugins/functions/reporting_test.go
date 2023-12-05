@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	functions_srv "github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -22,14 +22,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 )
 
-func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (types.ReportingPlugin, *functions_mocks.ORM, encoding.ReportCodec) {
+func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (types.ReportingPlugin, *functions_mocks.ORM, encoding.ReportCodec, *functions_mocks.OffchainTransmitter) {
 	lggr := logger.TestLogger(t)
-	ocrLogger := relaylogger.NewOCRWrapper(lggr, true, func(msg string) {})
+	ocrLogger := commonlogger.NewOCRWrapper(lggr, true, func(msg string) {})
 	orm := functions_mocks.NewORM(t)
+	offchainTransmitter := functions_mocks.NewOffchainTransmitter(t)
 	factory := functions.FunctionsReportingPluginFactory{
-		Logger:          ocrLogger,
-		PluginORM:       orm,
-		ContractVersion: 1,
+		Logger:              ocrLogger,
+		PluginORM:           orm,
+		ContractVersion:     1,
+		OffchainTransmitter: offchainTransmitter,
 	}
 
 	pluginConfig := config.ReportingPluginConfigWrapper{
@@ -48,7 +50,7 @@ func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (typ
 	require.NoError(t, err)
 	codec, err := encoding.NewReportCodec(1)
 	require.NoError(t, err)
-	return plugin, orm, codec
+	return plugin, orm, codec, offchainTransmitter
 }
 
 func newRequestID() functions_srv.RequestID {
@@ -130,7 +132,7 @@ func newObservation(t *testing.T, observerId uint8, requests ...*encoding.Proces
 func TestFunctionsReporting_Query(t *testing.T) {
 	t.Parallel()
 	const batchSize = 10
-	plugin, orm, _ := preparePlugin(t, batchSize, 0)
+	plugin, orm, _, _ := preparePlugin(t, batchSize, 0)
 	reqs := []functions_srv.Request{newRequest(), newRequest()}
 	orm.On("FindOldestEntriesByState", functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
 
@@ -148,7 +150,7 @@ func TestFunctionsReporting_Query(t *testing.T) {
 func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 	t.Parallel()
 	const batchSize = 10
-	plugin, orm, _ := preparePlugin(t, batchSize, 1000000)
+	plugin, orm, _, _ := preparePlugin(t, batchSize, 1000000)
 	reqs := []functions_srv.Request{newRequest(), newRequest()}
 	reqs[0].CoordinatorContractAddress = &common.Address{1}
 	reqs[1].CoordinatorContractAddress = &common.Address{2}
@@ -167,7 +169,7 @@ func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 
 func TestFunctionsReporting_Observation(t *testing.T) {
 	t.Parallel()
-	plugin, orm, _ := preparePlugin(t, 10, 0)
+	plugin, orm, _, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("abc"))
 	req2 := newRequest()
@@ -202,7 +204,7 @@ func TestFunctionsReporting_Observation(t *testing.T) {
 
 func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	t.Parallel()
-	plugin, orm, _ := preparePlugin(t, 10, 0)
+	plugin, orm, _, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("abc"))
 	invalidId := []byte("invalid")
@@ -229,7 +231,7 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 
 func TestFunctionsReporting_Report(t *testing.T) {
 	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 1000000)
+	plugin, _, codec, _ := preparePlugin(t, 10, 1000000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 	procReq1 := newProcessedRequest(reqId1, compResult, []byte{})
@@ -266,7 +268,7 @@ func TestFunctionsReporting_Report(t *testing.T) {
 
 func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 300000)
+	plugin, _, codec, _ := preparePlugin(t, 10, 300000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 	gasLimit1, gasLimit2 := uint32(100_000), uint32(200_000)
@@ -307,7 +309,7 @@ func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 
 func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 300000)
+	plugin, _, codec, _ := preparePlugin(t, 10, 300000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult, meta := []byte("aaa"), []byte("meta")
 	coordinatorContractA, coordinatorContractB := common.Address{1}, common.Address{2}
@@ -337,7 +339,7 @@ func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 
 func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 200000)
+	plugin, _, codec, _ := preparePlugin(t, 10, 200000)
 	reqId1, reqId2 := newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 	gasLimit1, gasLimit2 := uint32(100_000), uint32(200_000)
@@ -368,7 +370,7 @@ func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 
 func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 0)
+	plugin, _, codec, _ := preparePlugin(t, 10, 0)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 
@@ -397,7 +399,7 @@ func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 
 func TestFunctionsReporting_Report_IncorrectObservation(t *testing.T) {
 	t.Parallel()
-	plugin, _, _ := preparePlugin(t, 10, 0)
+	plugin, _, _, _ := preparePlugin(t, 10, 0)
 	reqId1 := newRequestID()
 	compResult := []byte("aaa")
 
@@ -416,7 +418,14 @@ func getReportBytes(t *testing.T, codec encoding.ReportCodec, reqs ...functions_
 	var report []*encoding.ProcessedRequest
 	for _, req := range reqs {
 		req := req
-		report = append(report, &encoding.ProcessedRequest{RequestID: req.RequestID[:], Result: req.Result})
+		report = append(report, &encoding.ProcessedRequest{
+			RequestID:           req.RequestID[:],
+			Result:              req.Result,
+			Error:               req.Error,
+			CallbackGasLimit:    *req.CallbackGasLimit,
+			CoordinatorContract: req.CoordinatorContractAddress[:],
+			OnchainMetadata:     req.OnchainMetadata,
+		})
 	}
 	reportBytes, err := codec.EncodeReport(report)
 	require.NoError(t, err)
@@ -425,7 +434,7 @@ func getReportBytes(t *testing.T, codec encoding.ReportCodec, reqs ...functions_
 
 func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	t.Parallel()
-	plugin, orm, codec := preparePlugin(t, 10, 0)
+	plugin, orm, codec, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("xxx")) // nonexistent
 	req2 := newRequestWithResult([]byte("abc"))
@@ -462,9 +471,24 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	require.True(t, should)
 }
 
+func TestFunctionsReporting_ShouldAcceptFinalizedReport_OffchainTransmission(t *testing.T) {
+	t.Parallel()
+	plugin, orm, codec, offchainTransmitter := preparePlugin(t, 10, 0)
+	req1 := newRequestWithResult([]byte("abc"))
+	req1.OnchainMetadata = []byte(functions_srv.OffchainRequestMarker)
+
+	orm.On("FindById", req1.RequestID, mock.Anything).Return(&req1, nil)
+	orm.On("SetFinalized", req1.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	offchainTransmitter.On("TransmitReport", mock.Anything, mock.Anything).Return(nil)
+
+	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1))
+	require.NoError(t, err)
+	require.False(t, should)
+}
+
 func TestFunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Parallel()
-	plugin, orm, codec := preparePlugin(t, 10, 0)
+	plugin, orm, codec, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("xxx")) // nonexistent
 	req2 := newRequestWithResult([]byte("abc"))

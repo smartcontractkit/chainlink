@@ -9,13 +9,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
@@ -24,18 +25,18 @@ import (
 
 // DKGProvider provides all components needed for a DKG plugin.
 type DKGProvider interface {
-	relaytypes.Plugin
+	commontypes.Plugin
 }
 
 // OCR2VRFProvider provides all components needed for a OCR2VRF plugin.
 type OCR2VRFProvider interface {
-	relaytypes.Plugin
+	commontypes.Plugin
 }
 
 // OCR2VRFRelayer contains the relayer and instantiating functions for OCR2VRF providers.
 type OCR2VRFRelayer interface {
-	NewDKGProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (DKGProvider, error)
-	NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (OCR2VRFProvider, error)
+	NewDKGProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (DKGProvider, error)
+	NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2VRFProvider, error)
 }
 
 var (
@@ -47,12 +48,12 @@ var (
 // Relayer with added DKG and OCR2VRF provider functions.
 type ocr2vrfRelayer struct {
 	db          *sqlx.DB
-	chain       evm.Chain
+	chain       legacyevm.Chain
 	lggr        logger.Logger
 	ethKeystore keystore.Eth
 }
 
-func NewOCR2VRFRelayer(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2VRFRelayer {
+func NewOCR2VRFRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2VRFRelayer {
 	return &ocr2vrfRelayer{
 		db:          db,
 		chain:       chain,
@@ -61,7 +62,7 @@ func NewOCR2VRFRelayer(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, ethKeys
 	}
 }
 
-func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (DKGProvider, error) {
+func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (DKGProvider, error) {
 	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
@@ -84,7 +85,7 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relayt
 	}, nil
 }
 
-func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (OCR2VRFProvider, error) {
+func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2VRFProvider, error) {
 	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
@@ -118,7 +119,7 @@ func (c *ocr2vrfProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return c.contractTransmitter
 }
 
-func newOCR2VRFConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relaytypes.RelayArgs) (*configWatcher, error) {
+func newOCR2VRFConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {

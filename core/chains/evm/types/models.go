@@ -18,7 +18,7 @@ import (
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -39,8 +39,8 @@ type Head struct {
 	ReceiptsRoot     common.Hash
 	TransactionsRoot common.Hash
 	StateRoot        common.Hash
-	Difficulty       *utils.Big
-	TotalDifficulty  *utils.Big
+	Difficulty       *big.Int
+	TotalDifficulty  *big.Int
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
@@ -80,7 +80,7 @@ func (h *Head) GetTimestamp() time.Time {
 	return h.Timestamp
 }
 
-func (h *Head) BlockDifficulty() *utils.Big {
+func (h *Head) BlockDifficulty() *big.Int {
 	return h.Difficulty
 }
 
@@ -283,8 +283,8 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.ReceiptsRoot = jsonHead.ReceiptsRoot
 	h.TransactionsRoot = jsonHead.TransactionsRoot
 	h.StateRoot = jsonHead.StateRoot
-	h.Difficulty = utils.NewBig(jsonHead.Difficulty.ToInt())
-	h.TotalDifficulty = utils.NewBig(jsonHead.TotalDifficulty.ToInt())
+	h.Difficulty = jsonHead.Difficulty.ToInt()
+	h.TotalDifficulty = jsonHead.TotalDifficulty.ToInt()
 	return nil
 }
 

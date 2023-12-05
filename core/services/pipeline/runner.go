@@ -14,10 +14,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -57,7 +57,7 @@ type runner struct {
 	btORM                  bridges.ORM
 	config                 Config
 	bridgeConfig           BridgeConfig
-	legacyEVMChains        evm.LegacyChainContainer
+	legacyEVMChains        legacyevm.LegacyChainContainer
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
 	runReaperWorker        utils.SleeperTask
@@ -68,7 +68,7 @@ type runner struct {
 	// test helper
 	runFinished func(*Run)
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wgDone sync.WaitGroup
 }
 
@@ -102,7 +102,7 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains evm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains legacyevm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:                    orm,
 		btORM:                  btORM,

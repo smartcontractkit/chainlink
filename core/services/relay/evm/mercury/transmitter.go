@@ -17,11 +17,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/jmoiron/sqlx"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -88,7 +89,7 @@ var (
 )
 
 type Transmitter interface {
-	relaymercury.Transmitter
+	mercury.Transmitter
 	services.Service
 }
 
@@ -114,7 +115,7 @@ type mercuryTransmitter struct {
 	jobID       int32
 	fromAccount string
 
-	stopCh utils.StopChan
+	stopCh services.StopChan
 	queue  *TransmitQueue
 	wg     sync.WaitGroup
 
@@ -160,7 +161,7 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		feedID,
 		jobID,
 		fmt.Sprintf("%x", fromAccount),
-		make(chan (struct{})),
+		make(services.StopChan),
 		nil,
 		sync.WaitGroup{},
 		make(chan *pb.TransmitRequest, maxDeleteQueueSize),

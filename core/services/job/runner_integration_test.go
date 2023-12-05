@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -58,11 +59,8 @@ func TestRunner(t *testing.T) {
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.P2P.V1.Enabled = ptr(true)
-		c.P2P.V1.DefaultBootstrapPeers = &[]string{
-			"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-			"/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-		}
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
 		kbid := models.MustSha256HashFromHex(kb.ID())
@@ -78,7 +76,10 @@ func TestRunner(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
+	ctx := testutils.Context(t)
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	require.NoError(t, pipelineORM.Start(ctx))
+	t.Cleanup(func() { assert.NoError(t, pipelineORM.Close()) })
 	btORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
@@ -86,10 +87,11 @@ func TestRunner(t *testing.T) {
 
 	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
 	jobORM := NewTestORM(t, db, pipelineORM, btORM, keyStore, config.Database())
+	t.Cleanup(func() { assert.NoError(t, jobORM.Close()) })
 
 	_, placeHolderAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-	require.NoError(t, runner.Start(testutils.Context(t)))
+	require.NoError(t, runner.Start(ctx))
 	t.Cleanup(func() { assert.NoError(t, runner.Close()) })
 
 	t.Run("gets the election result winner", func(t *testing.T) {
@@ -450,6 +452,7 @@ answer1      [type=median index=0];
 		assert.NoError(t, err)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
+		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -484,6 +487,7 @@ answer1      [type=median index=0];
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
+		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -512,6 +516,7 @@ answer1      [type=median index=0];
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
+		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -542,7 +547,8 @@ answer1      [type=median index=0];
 		for _, tc := range testCases {
 
 			config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.P2P.V1.Enabled = ptr(true)
+				c.P2P.V2.Enabled = ptr(true)
+				c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 				c.OCR.CaptureEATelemetry = ptr(tc.specCaptureEATelemetry)
 			})
 
@@ -566,6 +572,7 @@ answer1      [type=median index=0];
 			lggr := logger.TestLogger(t)
 			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 			require.NoError(t, pw.Start(testutils.Context(t)))
+			t.Cleanup(func() { assert.NoError(t, pw.Close()) })
 			sd := ocr.NewDelegate(
 				db,
 				jobORM,
@@ -610,7 +617,7 @@ answer1      [type=median index=0];
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
-
+		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,

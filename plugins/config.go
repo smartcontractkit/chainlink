@@ -3,7 +3,7 @@ package plugins
 import (
 	"os/exec"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 )
 
 // RegistrarConfig generates contains static configuration inher

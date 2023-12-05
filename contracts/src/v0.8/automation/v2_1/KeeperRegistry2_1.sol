@@ -248,7 +248,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) public onlyOwner {
-    if (signers.length > maxNumOracles) revert TooManyOracles();
+    if (signers.length > MAX_NUM_ORACLES) revert TooManyOracles();
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
     if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
 

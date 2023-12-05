@@ -23,11 +23,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 )
 
@@ -81,10 +82,13 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) (*ClNode, error) {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
-	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
+	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
+	if err != nil {
+		return nil, err
+	}
 	n := &ClNode{
 		EnvComponent: test_env.EnvComponent{
 			ContainerName:    nodeDefaultCName,
@@ -101,7 +105,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 	for _, opt := range opts {
 		opt(n)
 	}
-	return n
+	return n, nil
 }
 
 func (n *ClNode) SetTestLogger(t *testing.T) {
@@ -112,7 +116,7 @@ func (n *ClNode) SetTestLogger(t *testing.T) {
 
 // Restart restarts only CL node, DB container is reused
 func (n *ClNode) Restart(cfg *chainlink.Config) error {
-	if err := n.Container.Terminate(utils.TestContext(n.t)); err != nil {
+	if err := n.Container.Terminate(testcontext.Get(n.t)); err != nil {
 		return err
 	}
 	n.NodeConfig = cfg
@@ -138,7 +142,7 @@ func (n *ClNode) PrimaryETHAddress() (string, error) {
 
 func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, chainId int64,
 	feedId [32]byte) (*client.Job, error) {
-	spec := utils.BuildBootstrapSpec(verifierAddr, chainId, feedId)
+	spec := it_utils.BuildBootstrapSpec(verifierAddr, chainId, feedId)
 	return n.API.MustCreateJob(spec)
 }
 
@@ -166,7 +170,7 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 		}
 	}
 
-	bridges := utils.BuildBridges(eaUrls)
+	bridges := it_utils.BuildBridges(eaUrls)
 	for index := range bridges {
 		err = n.API.MustCreateBridge(&bridges[index])
 		if err != nil {
@@ -181,7 +185,7 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 		allowedFaults = 2
 	}
 
-	spec := utils.BuildOCRSpec(
+	spec := it_utils.BuildOCRSpec(
 		verifierAddr, chainId, fromBlock, feedId, bridges,
 		csaPubKey, mercuryServerUrl, mercuryServerPubKey, nodeOCRKeyId[0],
 		bootstrapUrl, allowedFaults)
@@ -190,7 +194,7 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 }
 
 func (n *ClNode) GetContainerName() string {
-	name, err := n.Container.Name(utils.TestContext(n.t))
+	name, err := n.Container.Name(testcontext.Get(n.t))
 	if err != nil {
 		return ""
 	}
@@ -282,15 +286,15 @@ func (n *ClNode) StartContainer() error {
 		return fmt.Errorf("%s err: %w", ErrStartCLNodeContainer, err)
 	}
 	if n.lw != nil {
-		if err := n.lw.ConnectContainer(utils.TestContext(n.t), container, "cl-node", true); err != nil {
+		if err := n.lw.ConnectContainer(testcontext.Get(n.t), container, "cl-node", true); err != nil {
 			return err
 		}
 	}
-	clEndpoint, err := test_env.GetEndpoint(utils.TestContext(n.t), container, "http")
+	clEndpoint, err := test_env.GetEndpoint(testcontext.Get(n.t), container, "http")
 	if err != nil {
 		return err
 	}
-	ip, err := container.ContainerIP(utils.TestContext(n.t))
+	ip, err := container.ContainerIP(testcontext.Get(n.t))
 	if err != nil {
 		return err
 	}
