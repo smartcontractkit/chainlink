@@ -26,15 +26,13 @@ const TARGET_PERFORM_GAS_LIMIT = 2_000_000
 const TARGET_CHECK_GAS_LIMIT = 3_500_000
 //                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////
-
-const OWNABLE_ERR = 'Only callable by owner'
 const INVALID_WATCHLIST_ERR = `InvalidWatchList()`
+const PAUSED_ERR = 'Pausable: paused'
 
 const zeroLINK = ethers.utils.parseEther('0')
 const oneLINK = ethers.utils.parseEther('1')
 const twoLINK = ethers.utils.parseEther('2')
 const fourLINK = ethers.utils.parseEther('4')
-const fiveLINK = ethers.utils.parseEther('5')
 const tenLINK = ethers.utils.parseEther('10')
 const oneHundredLINK = ethers.utils.parseEther('100')
 
@@ -264,6 +262,24 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
   })
 
+  describe('pause() / unpause()', () => {
+    it('Should allow owner to pause / unpause', async () => {
+      const pauseTx = await labm.connect(owner).pause()
+      await pauseTx.wait()
+      const unpauseTx = await labm.connect(owner).unpause()
+      await unpauseTx.wait()
+    })
+
+    it('Should not allow strangers to pause / unpause', async () => {
+      const pauseTxStranger = labm.connect(stranger).pause()
+      await expect(pauseTxStranger).to.be.reverted
+      const pauseTxOwner = await labm.connect(owner).pause()
+      await pauseTxOwner.wait()
+      const unpauseTxStranger = labm.connect(stranger).unpause()
+      await expect(unpauseTxStranger).to.be.reverted
+    })
+  })
+
   describe('setWatchList() / addToWatchList() / removeFromWatchlist() / getWatchList()', () => {
     const watchAddress1 = randAddr()
     const watchAddress2 = randAddr()
@@ -407,6 +423,13 @@ describe('LinkAvailableBalanceMonitor', () => {
       expect(addresses).to.deep.equalInAnyOrder([])
     })
 
+    it('Should revert when paused', async () => {
+      const tx = await labm.connect(owner).pause()
+      await tx.wait()
+      const ethCall = labm.checkUpkeep('0x')
+      await expect(ethCall).to.be.revertedWith(PAUSED_ERR)
+    })
+
     context('with a large set of proxies', async () => {
       // in this test, we cheat a little bit and point each proxy to the same aggregator,
       // which helps cut down on test time
@@ -499,6 +522,13 @@ describe('LinkAvailableBalanceMonitor', () => {
         )
     })
 
+    it('Should revert when paused', async () => {
+      await labm.connect(owner).pause()
+      const performTx = labm.connect(keeperRegistry).performUpkeep(validPayload)
+      await expect(performTx).to.be.revertedWith(PAUSED_ERR)
+      console.log(performTx)
+    })
+
     it('Should fund the appropriate addresses', async () => {
       await aggregator1.mock.linkAvailableForPayment.returns(zeroLINK)
       await aggregator2.mock.linkAvailableForPayment.returns(zeroLINK)
@@ -587,6 +617,18 @@ describe('LinkAvailableBalanceMonitor', () => {
         for (let idx = 0; idx < users.length; idx++) {
           const user = users[idx]
           await labm.connect(user).topUp([])
+        }
+      })
+    })
+
+    context('when paused', () => {
+      it('Should be callable by no one', async () => {
+        await labm.connect(owner).pause()
+        const users = [owner, keeperRegistry, stranger]
+        for (let idx = 0; idx < users.length; idx++) {
+          const user = users[idx]
+          const tx = labm.connect(user).topUp([])
+          await expect(tx).to.be.revertedWith(PAUSED_ERR)
         }
       })
     })

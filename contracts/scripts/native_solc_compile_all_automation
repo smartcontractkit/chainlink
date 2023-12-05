@@ -77,3 +77,11 @@ compileContract tests/VerifiableLoadStreamsLookupUpkeep.sol
 compileContract tests/VerifiableLoadLogTriggerUpkeep.sol
 compileContract tests/AutomationConsumerBenchmark.sol
 compileContract tests/StreamsLookupUpkeep.sol
+
+SOLC_VERSION="0.8.19"
+
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+compileContract automation/upkeeps/LinkAvailableBalanceMonitor.sol

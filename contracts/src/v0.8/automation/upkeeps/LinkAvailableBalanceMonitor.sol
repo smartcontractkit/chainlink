@@ -2,9 +2,10 @@
 
 pragma solidity 0.8.19;
 
-import {AccessControl} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/access/AccessControl.sol";
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
+import {AccessControl} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/access/AccessControl.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
 
 interface IAggregatorProxy {
   function aggregator() external view returns (address);
@@ -32,7 +33,7 @@ interface ILinkAvailable {
 ///  this is a "trusless" upkeep, meaning it does not trust the caller of performUpkeep;
 /// we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
 /// which has significantly different trust assumptions
-contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInterface {
+contract LinkAvailableBalanceMonitor is Pausable, AccessControl, AutomationCompatibleInterface {
   event BalanceUpdated(address indexed addr, uint256 oldBalance, uint256 newBalance);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event UpkeepIntervalSet(uint256 oldUpkeepInterval, uint256 newUpkeepInterval);
@@ -64,8 +65,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
 
   bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
   bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
-  uint96 private constant DEFAULT_TOP_UP_AMOUNT = 9;
-  uint96 private constant DEFAULT_MIN_BALANCE = 1;
+  uint96 private constant DEFAULT_TOP_UP_AMOUNT = 9000000000000000000;
+  uint96 private constant DEFAULT_MIN_BALANCE = 1000000000000000000;
   IERC20 private immutable LINK_TOKEN;
 
   uint256 private s_minWaitPeriodSeconds;
@@ -88,26 +89,12 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     if (linkTokenAddress == address(0)) revert InvalidLinkTokenAddress(linkTokenAddress);
     _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
     _setRoleAdmin(EXECUTOR_ROLE, ADMIN_ROLE);
-    _setupRole(ADMIN_ROLE, admin);
+    _grantRole(ADMIN_ROLE, admin);
     LINK_TOKEN = IERC20(linkTokenAddress);
     setMinWaitPeriodSeconds(minWaitPeriodSeconds);
     setMaxPerform(maxPerform);
     setMaxCheck(maxCheck);
     setUpkeepInterval(upkeepInterval);
-  }
-
-  /// @notice Grants an address an executor role
-  /// @param executor address to grant executor role to
-  function granExecutorRole(address executor) public onlyRole(ADMIN_ROLE) {
-    if (executor == address(0)) revert InvalidAddress(executor);
-    _setupRole(EXECUTOR_ROLE, executor);
-  }
-
-  /// @notice Revokes the executor role from an address
-  /// @param executor address to revoke executor role from
-  function revokeExecutorRole(address executor) public onlyRole(ADMIN_ROLE) {
-    if (executor == address(0)) revert InvalidAddress(executor);
-    _revokeRole(EXECUTOR_ROLE, executor);
   }
 
   /// @notice Sets the list of subscriptions to watch and their funding parameters
@@ -223,7 +210,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     return targetsToFund;
   }
 
-  function topUp(address[] memory targetAddresses) public {
+  function topUp(address[] memory targetAddresses) public whenNotPaused {
     MonitoredAddress memory target;
     uint256 localBalance = LINK_TOKEN.balanceOf(address(this));
     for (uint256 idx = 0; idx < targetAddresses.length; idx++) {
@@ -281,7 +268,9 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @notice Gets list of subscription ids that are underfunded and returns a keeper-compatible payload.
   /// @return upkeepNeeded signals if upkeep is needed
   /// @return performData is an abi encoded list of subscription ids that need funds
-  function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory performData) {
+  function checkUpkeep(
+    bytes calldata
+  ) external view override whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
     address[] memory needsFunding = sampleUnderfundedAddresses();
     upkeepNeeded = needsFunding.length > 0;
     performData = abi.encode(needsFunding);
@@ -390,5 +379,15 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
       _checkRole(role, sender);
     }
     _;
+  }
+
+  /// @notice Pause the contract, which prevents executing performUpkeep
+  function pause() external onlyRole(ADMIN_ROLE) {
+    _pause();
+  }
+
+  /// @notice Unpause the contract
+  function unpause() external onlyRole(ADMIN_ROLE) {
+    _unpause();
   }
 }
