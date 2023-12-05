@@ -24,6 +24,7 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -105,12 +106,15 @@ func ConfigureOCRv2AggregatorContracts(
 }
 
 // BuildMedianOCR2Config builds a default OCRv2 config for the given chainlink nodes for a standard median aggregation job
-func BuildMedianOCR2Config(workerNodes []*client.ChainlinkK8sClient) (*contracts.OCRv2Config, error) {
+func BuildMedianOCR2Config(
+	workerNodes []*client.ChainlinkK8sClient,
+	ocrOffchainOptions contracts.OffchainOptions,
+) (*contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentities(workerNodes)
 	if err != nil {
 		return nil, err
 	}
-	signerKeys, transmitterAccounts, f_, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+	signerKeys, transmitterAccounts, f_, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		30*time.Second,   // deltaProgress time.Duration,
 		30*time.Second,   // deltaResend time.Duration,
 		10*time.Second,   // deltaRound time.Duration,
@@ -150,6 +154,8 @@ func BuildMedianOCR2Config(workerNodes []*client.ChainlinkK8sClient) (*contracts
 		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(account)))
 	}
 
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(ocrOffchainOptions.MinimumAnswer, ocrOffchainOptions.MaximumAnswer)
+
 	return &contracts.OCRv2Config{
 		Signers:               signerAddresses,
 		Transmitters:          transmitterAddresses,
@@ -157,7 +163,7 @@ func BuildMedianOCR2Config(workerNodes []*client.ChainlinkK8sClient) (*contracts
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        []byte(fmt.Sprintf("0x%s", offchainConfig)),
-	}, nil
+	}, err
 }
 
 // GetOracleIdentities retrieves all chainlink nodes' OCR2 config identities with defaul key index

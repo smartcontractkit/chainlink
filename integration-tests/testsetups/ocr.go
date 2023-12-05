@@ -151,7 +151,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 	var conf string
 	if o.Inputs.OCRVersion == "1" {
 		conf = config.BaseOCR1Config
-	} else {
+	} else if o.Inputs.OCRVersion == "2" {
 		conf = config.BaseOCR2Config
 	}
 	cd := chainlink.New(0, map[string]any{
@@ -277,7 +277,7 @@ func (o *OCRSoakTest) Setup() {
 			ocrOffchainOptions,
 		)
 		require.NoError(o.t, err, "Error deploying OCRv2 contracts")
-		contractConfig, err := actions.BuildMedianOCR2Config(o.workerNodes)
+		contractConfig, err := actions.BuildMedianOCR2Config(o.workerNodes, ocrOffchainOptions)
 		require.NoError(o.t, err, "Error building median config")
 		err = actions.ConfigureOCRv2AggregatorContracts(o.chainClient, contractConfig, o.ocrV2Instances)
 		require.NoError(o.t, err, "Error configuring OCRv2 aggregator contracts")
