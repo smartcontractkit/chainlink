@@ -24,6 +24,7 @@ echo "Test exit code: ${exit_code}"
 # 3 is the code for an interrupted test, we only want to restart the test when the test is interrupted and in a state 
 # that it can recover from. Otherwise we mark the test as "passed" as far as K8s is concerned so it doesn't restart it.
 if [ $exit_code -eq 3 ]; then
+echo "Test was interrupted, exiting with 1 exit code to trigger K8s to restart"
   exit 1  # Exiting with non-zero status to trigger pod restart
 fi
 
@@ -38,3 +39,6 @@ fi
 if [ -n "${UPLOAD_MEM_PROFILE}" ]; then
     upload_to_slack memprofile.out "MEM Profile for ${TEST_NAME}"
 fi
+
+echo "Exiting with 0 exit code as test is either completed, or failed and cannot be restarted"
+exit 0
