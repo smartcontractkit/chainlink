@@ -23,7 +23,7 @@ import (
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 func init() {
@@ -197,7 +197,7 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 		return nil, ethereum.NotFound
 	}
 	return &evmtypes.Head{
-		EVMChainID: utils.NewBigI(c.chainId.Int64()),
+		EVMChainID: ubig.NewI(c.chainId.Int64()),
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
 		ParentHash: header.ParentHash,
@@ -214,7 +214,7 @@ func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) 
 		return nil, ethereum.NotFound
 	}
 	return &evmtypes.Head{
-		EVMChainID: utils.NewBigI(c.chainId.Int64()),
+		EVMChainID: ubig.NewI(c.chainId.Int64()),
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
 		ParentHash: header.ParentHash,
@@ -302,7 +302,7 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 			case h := <-ch:
 				var head *evmtypes.Head
 				if h != nil {
-					head = &evmtypes.Head{Difficulty: h.Difficulty, Timestamp: time.Unix(int64(h.Time), 0), Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: utils.NewBig(c.chainId)}
+					head = &evmtypes.Head{Difficulty: h.Difficulty, Timestamp: time.Unix(int64(h.Time), 0), Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: ubig.New(c.chainId)}
 					lastHead = head
 				}
 				select {

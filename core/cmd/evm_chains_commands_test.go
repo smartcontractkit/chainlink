@@ -8,15 +8,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	client2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func newRandChainID() *utils.Big {
-	return utils.NewBig(testutils.NewRandomEVMChainID())
+func newRandChainID() *big.Big {
+	return big.New(testutils.NewRandomEVMChainID())
 }
 
 func TestShell_IndexEVMChains(t *testing.T) {

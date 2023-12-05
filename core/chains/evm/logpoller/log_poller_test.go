@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -62,7 +63,7 @@ func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (commo
 			blockTimestamp := startDate.Add(time.Duration(j*1000) * time.Hour)
 
 			logs = append(logs, logpoller.Log{
-				EvmChainId:     utils.NewBig(chainID),
+				EvmChainId:     ubig.New(chainID),
 				LogIndex:       1,
 				BlockHash:      common.HexToHash(fmt.Sprintf("0x%d", i+(1000*j))),
 				BlockNumber:    blockNumber,
@@ -1341,7 +1342,7 @@ func TestNotifyAfterInsert(t *testing.T) {
 	require.NoError(t, err)
 
 	log := logpoller.Log{
-		EvmChainId:     utils.NewBig(chainID),
+		EvmChainId:     ubig.New(chainID),
 		LogIndex:       10,
 		BlockHash:      testutils.Random32Byte(),
 		BlockNumber:    100,

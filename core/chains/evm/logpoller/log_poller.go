@@ -26,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -608,7 +609,7 @@ func convertLogs(logs []types.Log, blocks []LogPollerBlock, lggr logger.Logger, 
 			blockTimestamp = blocks[i].BlockTimestamp
 		}
 		lgs = append(lgs, Log{
-			EvmChainId: utils.NewBig(chainID),
+			EvmChainId: ubig.New(chainID),
 			LogIndex:   int64(l.Index),
 			BlockHash:  l.BlockHash,
 			// We assume block numbers fit in int64

@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmtoml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 func TestResolver_Chains(t *testing.T) {
 	var (
-		chainID = *utils.NewBigI(1)
+		chainID = *big.NewI(1)
 		query   = `
 			query GetChains {
 				chains {
@@ -100,7 +100,7 @@ ResendAfterThreshold = '1h0m0s'
 
 func TestResolver_Chain(t *testing.T) {
 	var (
-		chainID = *utils.NewBigI(1)
+		chainID = *big.NewI(1)
 		query   = `
 			query GetChain {
 				chain(id: "1") {

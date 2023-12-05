@@ -10,11 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
@@ -64,7 +64,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.WebServer.ListenIP = &testIP
 	c.WebServer.TLS.ListenIP = &testIP
 
-	chainID := utils.NewBigI(evmclient.NullClientChainID)
+	chainID := big.NewI(evmclient.NullClientChainID)
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
 		Chain:   evmcfg.Defaults(chainID),
@@ -95,7 +95,7 @@ func NewGeneralConfigSimulated(t testing.TB, overrideFn func(*chainlink.Config, 
 // simulated is a config override func that appends the simulated EVM chain (testutils.SimulatedChainID),
 // or replaces the null chain (client.NullClientChainID) if that is the only entry.
 func simulated(c *chainlink.Config, s *chainlink.Secrets) {
-	chainID := utils.NewBig(testutils.SimulatedChainID)
+	chainID := big.New(testutils.SimulatedChainID)
 	enabled := true
 	cfg := evmcfg.EVMConfig{
 		ChainID: chainID,
@@ -103,7 +103,7 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 		Enabled: &enabled,
 		Nodes:   evmcfg.EVMNodes{&validTestNode},
 	}
-	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(utils.NewBigI(client.NullClientChainID)) == 0 {
+	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(big.NewI(client.NullClientChainID)) == 0 {
 		c.EVM[0] = &cfg // replace null, if only entry
 	} else {
 		c.EVM = append(c.EVM, &cfg)

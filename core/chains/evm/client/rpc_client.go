@@ -24,7 +24,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 // RPCCLient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
@@ -491,7 +491,7 @@ func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *e
 		err = ethereum.NotFound
 		return
 	}
-	head.EVMChainID = utils.NewBig(r.chainID)
+	head.EVMChainID = ubig.New(r.chainID)
 	return
 }
 
@@ -504,7 +504,7 @@ func (r *rpcClient) BlockByHash(ctx context.Context, hash common.Hash) (head *ev
 		err = ethereum.NotFound
 		return
 	}
-	head.EVMChainID = utils.NewBig(r.chainID)
+	head.EVMChainID = ubig.New(r.chainID)
 	return
 }
 

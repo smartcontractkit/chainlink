@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -25,7 +25,7 @@ import (
 func Test_EVMChainsController_Show(t *testing.T) {
 	t.Parallel()
 
-	validId := utils.NewBig(testutils.NewRandomEVMChainID())
+	validId := ubig.New(testutils.NewRandomEVMChainID())
 
 	testCases := []struct {
 		name           string
@@ -111,9 +111,9 @@ func Test_EVMChainsController_Index(t *testing.T) {
 	})
 
 	configuredChains := evmcfg.EVMConfigs{
-		{ChainID: utils.NewBig(chainIDs[0]), Chain: evmcfg.Defaults(nil)},
+		{ChainID: ubig.New(chainIDs[0]), Chain: evmcfg.Defaults(nil)},
 		{
-			ChainID: utils.NewBig(chainIDs[1]),
+			ChainID: ubig.New(chainIDs[1]),
 			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
 				RPCBlockQueryDelay: ptr[uint16](13),
 				GasEstimator: evmcfg.GasEstimator{
@@ -126,7 +126,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 			}),
 		},
 		{
-			ChainID: utils.NewBig(chainIDs[2]),
+			ChainID: ubig.New(chainIDs[2]),
 			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
 				RPCBlockQueryDelay: ptr[uint16](5),
 				GasEstimator: evmcfg.GasEstimator{

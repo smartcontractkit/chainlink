@@ -16,6 +16,7 @@ import (
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -417,7 +418,7 @@ func TestMigrate(t *testing.T) {
 
 func TestSetMigrationENVVars(t *testing.T) {
 	t.Run("ValidEVMConfig", func(t *testing.T) {
-		chainID := utils.NewBig(big.NewInt(1337))
+		chainID := ubig.New(big.NewInt(1337))
 		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			evmEnabled := true
 			c.EVM = evmcfg.EVMConfigs{&evmcfg.EVMConfig{
@@ -535,7 +536,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 		var blocks []logpoller.LogPollerBlock
 		for i := 0; i < maxLogsSize; i++ {
 			blocks = append(blocks, logpoller.LogPollerBlock{
-				EvmChainId:           utils.NewBigI(int64(j + 1)),
+				EvmChainId:           ubig.NewI(int64(j + 1)),
 				BlockHash:            testutils.Random32Byte(),
 				BlockNumber:          int64(i + 1000),
 				FinalizedBlockNumber: 0,

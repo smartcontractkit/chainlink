@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -673,7 +674,7 @@ func Test_EthKeyStore_Delete(t *testing.T) {
 
 	_, addr1 := cltest.MustInsertRandomKey(t, ks)
 	_, addr2 := cltest.MustInsertRandomKey(t, ks)
-	cltest.MustInsertRandomKey(t, ks, *utils.NewBig(testutils.SimulatedChainID))
+	cltest.MustInsertRandomKey(t, ks, *ubig.New(testutils.SimulatedChainID))
 	require.NoError(t, ks.Add(addr1, testutils.SimulatedChainID))
 	require.NoError(t, ks.Enable(addr1, testutils.SimulatedChainID))
 

@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
@@ -405,7 +406,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
-			c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
+			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		})
 		scopedConfig := evmtest.NewChainScopedConfig(t, config)
 		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
@@ -414,7 +415,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		require.NoError(t, app.Start(testutils.Context(t)))
 
 		forwarderORM := forwarders.NewORM(db, logger.TestLogger(t), config.Database())
-		chainID := utils.Big(*backend.ConfiguredChainID())
+		chainID := ubig.Big(*backend.ConfiguredChainID())
 		_, err = forwarderORM.CreateForwarder(fwdrAddress, chainID)
 		require.NoError(t, err)
 

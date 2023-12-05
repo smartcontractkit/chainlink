@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -95,7 +96,7 @@ var (
 		},
 		EVM: []*evmcfg.EVMConfig{
 			{
-				ChainID: utils.NewBigI(1),
+				ChainID: big.NewI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth:      ptr[uint32](26),
 					FinalityTagEnabled: ptr[bool](false),
@@ -112,7 +113,7 @@ var (
 					},
 				}},
 			{
-				ChainID: utils.NewBigI(42),
+				ChainID: big.NewI(42),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						PriceDefault: assets.NewWeiI(math.MaxInt64),
@@ -125,7 +126,7 @@ var (
 					},
 				}},
 			{
-				ChainID: utils.NewBigI(137),
+				ChainID: big.NewI(137),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						Mode: ptr("FixedPrice"),
@@ -463,7 +464,7 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
-			ChainID: utils.NewBigI(1),
+			ChainID: big.NewI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
 				AutoCreateKey: ptr(false),
@@ -1466,7 +1467,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
-	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
+	c.EVM = evmcfg.EVMConfigs{{ChainID: big.NewI(99999133712345)}}
 	c.Cosmos = coscfg.TOMLConfigs{{ChainID: ptr("unknown cosmos chain")}}
 	c.Solana = solana.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = stkcfg.TOMLConfigs{{ChainID: ptr("unknown starknet chain")}}

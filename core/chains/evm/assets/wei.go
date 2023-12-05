@@ -11,7 +11,7 @@ import (
 	"golang.org/x/exp/constraints"
 
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 const (
@@ -61,7 +61,7 @@ func suffixExp(suf string) int32 {
 // Wei extends utils.Big to implement encoding.TextMarshaler and
 // encoding.TextUnmarshaler with support for unit suffixes, as well as
 // additional functions
-type Wei utils.Big
+type Wei ubig.Big
 
 func MaxWei(w, x *Wei) *Wei {
 	return NewWei(bigmath.Max(w.ToInt(), x.ToInt()))
@@ -271,10 +271,10 @@ func (w *Wei) AddPercentage(percentage uint16) *Wei {
 
 // Scan reads the database value and returns an instance.
 func (w *Wei) Scan(value interface{}) error {
-	return (*utils.Big)(w).Scan(value)
+	return (*ubig.Big)(w).Scan(value)
 }
 
 // Value returns this instance serialized for database storage.
 func (w Wei) Value() (driver.Value, error) {
-	return (utils.Big)(w).Value()
+	return (ubig.Big)(w).Value()
 }

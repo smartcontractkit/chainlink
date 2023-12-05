@@ -12,10 +12,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -50,7 +51,7 @@ func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
 	if interval <= 0 || interval > queryTimeout {
 		interval = queryTimeout
 	}
-	return utils.WithJitter(interval)
+	return cutils.WithJitter(interval)
 }
 
 func (n *node) setLatestReceived(blockNumber int64, totalDifficulty *big.Int) {

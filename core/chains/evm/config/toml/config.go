@@ -19,10 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -161,7 +161,7 @@ func (cs EVMConfigs) NodeStatus(name string) (commontypes.NodeStatus, error) {
 	return commontypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
-func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
+func legacyNode(n *Node, chainID *big.Big) (v2 types.Node) {
 	v2.Name = *n.Name
 	v2.EVMChainID = *chainID
 	if n.HTTPURL != nil {
@@ -215,7 +215,7 @@ func (cs EVMConfigs) Nodes(chainID relay.ChainID) (ns []types.Node, err error) {
 			continue
 		}
 
-		ns = append(ns, legacyNode(n, utils.NewBigI(evmID)))
+		ns = append(ns, legacyNode(n, big.NewI(evmID)))
 	}
 	return
 }
@@ -268,7 +268,7 @@ func (ns *EVMNodes) SetFrom(fs *EVMNodes) {
 }
 
 type EVMConfig struct {
-	ChainID *utils.Big
+	ChainID *big.Big
 	Enabled *bool
 	Chain
 	Nodes EVMNodes
