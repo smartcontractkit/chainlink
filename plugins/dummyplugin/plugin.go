@@ -149,7 +149,7 @@ func (d dummyPluginFactory) NewReportingPlugin(config ocrtypes.ReportingPluginCo
 		Name:          "DummyPlugin",
 		UniqueReports: false,
 		Limits: ocrtypes.ReportingPluginLimits{0, 100,
-			99999999999999999,
+			26843545,
 		},
 	}, nil
 
