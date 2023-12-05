@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -274,6 +275,18 @@ func CreateOCRv2Jobs(
 		return err
 	}
 
+	// Create the juels bridge for each node only once
+	juelsBridge := &client.BridgeTypeAttributes{
+		Name: "juels",
+		URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockJuelsPath),
+	}
+	for _, chainlinkNode := range workerChainlinkNodes {
+		err = chainlinkNode.MustCreateBridge(juelsBridge)
+		if err != nil {
+			return fmt.Errorf("failed creating bridge %s on CL node : %w", juelsBridge.Name, err)
+		}
+	}
+
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &client.OCR2TaskJobSpec{
 			Name:    fmt.Sprintf("ocr2-bootstrap-%s", ocrInstance.Address()),
@@ -312,21 +325,14 @@ func CreateOCRv2Jobs(
 				Name: nodeContractPairID,
 				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
-			juelsBridge := &client.BridgeTypeAttributes{
-				Name: "juels",
-				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockJuelsPath),
-			}
+
 			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {
 				return fmt.Errorf("failed creating bridge %s on CL node: %w", bta.Name, err)
 			}
-			err = chainlinkNode.MustCreateBridge(juelsBridge)
-			if err != nil {
-				return fmt.Errorf("failed creating bridge %s on CL node : %w", juelsBridge.Name, err)
-			}
 
 			ocrSpec := &client.OCR2TaskJobSpec{
-				Name:              "ocr2",
+				Name:              fmt.Sprintf("ocr2-%s", uuid.NewString()),
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
