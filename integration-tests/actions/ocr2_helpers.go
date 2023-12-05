@@ -281,7 +281,7 @@ func CreateOCRv2Jobs(
 
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &client.OCR2TaskJobSpec{
-			Name:    "ocr2 bootstrap node",
+			Name:    fmt.Sprintf("ocr2-bootstrap-%s", ocrInstance.Address()),
 			JobType: "bootstrap",
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
