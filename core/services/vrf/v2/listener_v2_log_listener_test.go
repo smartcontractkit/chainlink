@@ -145,6 +145,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	require.Nil(t, err)
 	require.Len(t, lp.Filter(nil, nil, nil).Addresses, 2)
 	require.Len(t, lp.Filter(nil, nil, nil).Topics, 1)
+	require.Len(t, lp.Filter(nil, nil, nil).Topics[0], 3)
 
 	th := &vrfLogPollerListenerTH{
 		Lggr:              lggr,
