@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -84,6 +85,44 @@ func TestTxm_SignTx(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
 		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.String())
+	})
+	t.Run("can properly encoded and decode raw transaction for LegacyTx", func(t *testing.T) {
+		chainID := big.NewInt(1)
+		kst := ksmocks.NewEth(t)
+		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+
+		_, rawBytes, err := cks.SignTx(addr, tx)
+		require.NoError(t, err)
+		require.NotNil(t, rawBytes)
+		require.Equal(t, "0xe42a82015681f294b921f7763960b296b9cbad586ff066a18d749724818e83010203808080", hexutil.Encode(rawBytes))
+
+		var decodedTx *gethtypes.Transaction
+		decodedTx, err = txmgr.GetGethSignedTx(rawBytes)
+		require.NoError(t, err)
+		require.Equal(t, tx.Hash(), decodedTx.Hash())
+	})
+	t.Run("can properly encoded and decode raw transaction for DynamicFeeTx", func(t *testing.T) {
+		chainID := big.NewInt(1)
+		kst := ksmocks.NewEth(t)
+		typedTx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{
+			Nonce:    42,
+			To:       &to,
+			Value:    big.NewInt(142),
+			Gas:      242,
+			Data:     []byte{1, 2, 3},
+		})
+		kst.On("SignTx", to, typedTx, chainID).Return(typedTx, nil).Once()
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+		_, rawBytes, err := cks.SignTx(addr, typedTx)
+		require.NoError(t, err)
+		require.NotNil(t, rawBytes)
+		require.Equal(t, "0x02e5802a808081f294b921f7763960b296b9cbad586ff066a18d749724818e83010203c0808080", hexutil.Encode(rawBytes))
+
+		var decodedTx *gethtypes.Transaction
+		decodedTx, err = txmgr.GetGethSignedTx(rawBytes)
+		require.NoError(t, err)
+		require.Equal(t, typedTx.Hash(), decodedTx.Hash())
 	})
 }
 
