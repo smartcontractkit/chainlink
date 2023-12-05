@@ -2,13 +2,13 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -256,15 +256,15 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verify(callerCtx context.Context) (err error
 	var chainID CHAIN_ID
 	if chainID, err = n.rpc.ChainID(callerCtx); err != nil {
 		promFailed()
-		return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
+		return fmt.Errorf("failed to verify chain ID for node %s: %w", n.name, err)
 	} else if chainID.String() != n.chainID.String() {
 		promFailed()
-		return errors.Wrapf(
-			errInvalidChainID,
-			"rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+		return fmt.Errorf(
+			"rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s: %w",
 			chainID.String(),
 			n.chainID.String(),
 			n.name,
+			errInvalidChainID,
 		)
 	}
 

@@ -2,10 +2,11 @@ package headtracker
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync/atomic"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -202,7 +203,7 @@ func (hl *HeadListener[HTH, S, ID, BLOCK_HASH]) subscribeToHead(ctx context.Cont
 	hl.headSubscription, err = hl.client.SubscribeNewHead(ctx, hl.chHeaders)
 	if err != nil {
 		close(hl.chHeaders)
-		return errors.Wrap(err, "Client#SubscribeNewHead")
+		return fmt.Errorf("Client#SubscribeNewHead: %w", err)
 	}
 
 	hl.connected.Store(true)

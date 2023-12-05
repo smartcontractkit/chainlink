@@ -2,11 +2,11 @@ package headtracker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -123,7 +123,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 			ht.log.Errorw("Error getting initial head", "err", err)
 		} else if initialHead.IsValid() {
 			if err := ht.handleNewHead(ctx, initialHead); err != nil {
-				return errors.Wrap(err, "error handling initial head")
+				return fmt.Errorf("error handling initial head: %w", err)
 			}
 		} else {
 			ht.log.Debug("Got nil initial head")
@@ -179,7 +179,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) LatestChain() HTH {
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) getInitialHead(ctx context.Context) (HTH, error) {
 	head, err := ht.client.HeadByNumber(ctx, nil)
 	if err != nil {
-		return ht.getNilHead(), errors.Wrap(err, "failed to fetch initial head")
+		return ht.getNilHead(), fmt.Errorf("failed to fetch initial head: %w", err)
 	}
 	loggerFields := []interface{}{"head", head}
 	if head.IsValid() {
@@ -204,7 +204,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
-		return errors.Wrapf(err, "failed to save head: %#v", head)
+		return fmt.Errorf("failed to save head: %#v: %w", head, err)
 	}
 
 	if !prevHead.IsValid() || head.BlockNumber() > prevHead.BlockNumber() {
@@ -212,7 +212,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 
 		headWithChain := ht.headSaver.Chain(head.BlockHash())
 		if !headWithChain.IsValid() {
-			return errors.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
+			return fmt.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
 		}
 		ht.backfillMB.Deliver(headWithChain)
 		ht.broadcastMB.Deliver(headWithChain)
@@ -339,7 +339,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 			ht.log.Debugw("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
 			break
 		} else if err != nil {
-			return errors.Wrap(err, "fetchAndSaveHead failed")
+			return fmt.Errorf("fetchAndSaveHead failed: %w", err)
 		}
 	}
 	return
