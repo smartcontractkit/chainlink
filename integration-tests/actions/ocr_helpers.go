@@ -236,7 +236,7 @@ func CreateOCRJobs(
 			}
 			err = node.MustCreateBridge(bta)
 			if err != nil {
-				return fmt.Errorf("creating bridge job have failed: %w", err)
+				return fmt.Errorf("creating bridge on CL node failed: %w", err)
 			}
 
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode.ChainlinkClient}
