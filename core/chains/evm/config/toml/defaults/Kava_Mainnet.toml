@@ -1,5 +1,4 @@
 ChainID = '2222'
-ChainType = 'kava'
 FinalityDepth = 1
 LogPollInterval = '6s'
 NoNewHeadsThreshold = '40s'
