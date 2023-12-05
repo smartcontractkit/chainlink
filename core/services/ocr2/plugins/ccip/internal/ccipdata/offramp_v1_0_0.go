@@ -405,6 +405,11 @@ func (o *OffRampV1_0_0) Close(qopts ...pg.QOpt) error {
 }
 
 func (o *OffRampV1_0_0) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confs int) ([]Event[ExecutionStateChanged], error) {
+	latestBlock, err := o.lp.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("get lp latest block: %w", err)
+	}
+
 	logs, err := o.lp.IndexedLogsTopicRange(
 		o.eventSig,
 		o.addr,
@@ -426,7 +431,11 @@ func (o *OffRampV1_0_0) GetExecutionStateChangesBetweenSeqNums(ctx context.Conte
 			if err != nil {
 				return nil, err
 			}
-			return &ExecutionStateChanged{SequenceNumber: sc.SequenceNumber}, nil
+
+			return &ExecutionStateChanged{
+				SequenceNumber: sc.SequenceNumber,
+				Finalized:      sc.Raw.BlockNumber >= uint64(latestBlock.FinalizedBlockNumber),
+			}, nil
 		},
 	)
 }

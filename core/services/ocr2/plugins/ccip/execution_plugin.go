@@ -125,7 +125,6 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.Lega
 			sourceLP:                 sourceChain.LogPoller(),
 			destLP:                   destChain.LogPoller(),
 			onRampReader:             onRampReader,
-			destReader:               ccipdata.NewLogPollerReader(destChain.LogPoller(), execLggr, destChain.Client()),
 			commitStoreReader:        commitStoreReader,
 			offRampReader:            offRampReader,
 			sourcePriceRegistry:      sourcePriceRegistry,
