@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -19,13 +20,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
 )
@@ -79,7 +80,7 @@ type CommitReportingPlugin struct {
 	commitStoreReader       ccipdata.CommitStoreReader
 	destPriceRegistryReader ccipdata.PriceRegistryReader
 	offchainConfig          ccipdata.CommitOffchainConfig
-	tokenDecimalsCache      cache.AutoSync[map[common.Address]uint8]
+	offRampReader           ccipdata.OffRampReader
 	F                       int
 	// Offchain
 	priceGetter pricegetter.PriceGetter
@@ -162,7 +163,7 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 			lggr:                    rf.config.lggr.Named("CommitReportingPlugin"),
 			inflightReports:         newInflightCommitReportsContainer(rf.config.commitStore.OffchainConfig().InflightCacheExpiry),
 			destPriceRegistryReader: rf.destPriceRegReader,
-			tokenDecimalsCache:      cache.NewTokenToDecimals(rf.config.lggr, rf.config.destLP, rf.config.offRamp, rf.destPriceRegReader),
+			offRampReader:           rf.config.offRamp,
 			gasPriceEstimator:       rf.config.commitStore.GasPriceEstimator(),
 			offchainConfig:          pluginOffChainConfig,
 		},
@@ -205,12 +206,13 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 		return nil, err
 	}
 
-	tokenDecimals, err := r.tokenDecimalsCache.Get(ctx)
+	feeTokens, bridgeableTokens, err := ccipcommon.GetDestinationTokens(ctx, r.offRampReader, r.destPriceRegistryReader)
 	if err != nil {
-		return nil, fmt.Errorf("get token decimals: %w", err)
+		return nil, fmt.Errorf("get destination tokens: %w", err)
 	}
+	destTokens := ccipcommon.FlattenUniqueSlice(feeTokens, bridgeableTokens)
 
-	sourceGasPriceUSD, tokenPricesUSD, err := r.generatePriceUpdates(ctx, lggr, tokenDecimals)
+	sourceGasPriceUSD, tokenPricesUSD, err := r.generatePriceUpdates(ctx, lggr, destTokens)
 	if err != nil {
 		return nil, err
 	}
@@ -296,16 +298,11 @@ func (r *CommitReportingPlugin) nextMinSeqNum(ctx context.Context, lggr logger.L
 func (r *CommitReportingPlugin) generatePriceUpdates(
 	ctx context.Context,
 	lggr logger.Logger,
-	tokenDecimals map[common.Address]uint8,
+	destTokens []common.Address,
 ) (sourceGasPriceUSD prices.GasPrice, tokenPricesUSD map[common.Address]*big.Int, err error) {
-	tokensWithDecimal := make([]common.Address, 0, len(tokenDecimals))
-	for token := range tokenDecimals {
-		tokensWithDecimal = append(tokensWithDecimal, token)
-	}
-
 	// Include wrapped native in our token query as way to identify the source native USD price.
 	// notice USD is in 1e18 scale, i.e. $1 = 1e18
-	queryTokens := append([]common.Address{r.sourceNative}, tokensWithDecimal...)
+	queryTokens := ccipcommon.FlattenUniqueSlice([]common.Address{r.sourceNative}, destTokens)
 	sort.Slice(queryTokens, func(i, j int) bool { return queryTokens[i].String() < queryTokens[j].String() }) // make the query deterministic
 
 	rawTokenPricesUSD, err := r.priceGetter.TokenPricesUSD(ctx, queryTokens)
@@ -326,15 +323,14 @@ func (r *CommitReportingPlugin) generatePriceUpdates(
 		return nil, nil, fmt.Errorf("missing source native (%s) price", r.sourceNative)
 	}
 
+	destTokensDecimals, err := r.destPriceRegistryReader.GetTokensDecimals(ctx, destTokens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get tokens decimals: %w", err)
+	}
+
 	tokenPricesUSD = make(map[common.Address]*big.Int, len(rawTokenPricesUSD))
-	for token := range rawTokenPricesUSD {
-		decimals, exists := tokenDecimals[token]
-		if !exists {
-			// do not include any address which isn't a supported token on dest chain, including sourceNative
-			lggr.Infow("Skipping token not supported on dest chain", "token", token)
-			continue
-		}
-		tokenPricesUSD[token] = calculateUsdPer1e18TokenAmount(rawTokenPricesUSD[token], decimals)
+	for i, token := range destTokens {
+		tokenPricesUSD[token] = calculateUsdPer1e18TokenAmount(rawTokenPricesUSD[token], destTokensDecimals[i])
 	}
 
 	sourceGasPrice, err := r.gasPriceEstimator.GetGasPrice(ctx)
@@ -449,14 +445,14 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 	lggr := r.lggr.Named("CommitReport")
 	parsableObservations := getParsableObservations[CommitObservation](lggr, observations)
 
-	// tokens in the tokenDecimalsCache represent supported tokens on the dest chain
-	supportedTokensMap, err := r.tokenDecimalsCache.Get(ctx)
+	feeTokens, bridgeableTokens, err := ccipcommon.GetDestinationTokens(ctx, r.offRampReader, r.destPriceRegistryReader)
 	if err != nil {
-		return false, nil, err
+		return false, nil, fmt.Errorf("get destination tokens: %w", err)
 	}
+	destTokens := ccipcommon.FlattenUniqueSlice(feeTokens, bridgeableTokens)
 
 	// Filters out parsable but faulty observations
-	validObservations, err := validateObservations(ctx, lggr, supportedTokensMap, r.F, parsableObservations)
+	validObservations, err := validateObservations(ctx, lggr, destTokens, r.F, parsableObservations)
 	if err != nil {
 		return false, nil, err
 	}
@@ -513,16 +509,17 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 // validateObservations validates the given observations.
 // An observation is rejected if any of its gas price or token price is nil. With current CommitObservation implementation, prices
 // are checked to ensure no nil values before adding to Observation, hence an observation that contains nil values comes from a faulty node.
-func validateObservations(ctx context.Context, lggr logger.Logger, supportedTokensMap map[common.Address]uint8, f int, observations []CommitObservation) (validObs []CommitObservation, err error) {
+func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []common.Address, f int, observations []CommitObservation) (validObs []CommitObservation, err error) {
 	for _, obs := range observations {
 		// If gas price is reported as nil, the observation is faulty, skip the observation.
 		if obs.SourceGasPriceUSD == nil {
 			lggr.Warnw("Skipping observation due to nil SourceGasPriceUSD")
 			continue
 		}
+
 		// If observed number of token prices does not match number of supported tokens on dest chain, skip the observation.
-		if len(supportedTokensMap) != len(obs.TokenPricesUSD) {
-			lggr.Warnw("Skipping observation due to token count mismatch", "expecting", len(supportedTokensMap), "got", len(obs.TokenPricesUSD))
+		if len(destTokens) != len(obs.TokenPricesUSD) {
+			lggr.Warnw("Skipping observation due to token count mismatch", "expecting", len(destTokens), "got", len(obs.TokenPricesUSD))
 			continue
 		}
 		// If any of the observed token prices is reported as nil, or not supported on dest chain, the observation is faulty, skip the observation.
@@ -533,7 +530,7 @@ func validateObservations(ctx context.Context, lggr logger.Logger, supportedToke
 				lggr.Warnw("Nil value in observed TokenPricesUSD", "token", token.Hex())
 				skipObservation = true
 			}
-			if _, exists := supportedTokensMap[token]; !exists {
+			if !slices.Contains(destTokens, token) {
 				lggr.Warnw("Unsupported token in observed TokenPricesUSD", "token", token.Hex())
 				skipObservation = true
 			}

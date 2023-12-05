@@ -90,7 +90,7 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 			outputs = tc.outputChangeFn(outputs)
 			batchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).
 				Return(outputs, nil)
-			actualDstTokens, err := o.GetDestinationTokensFromSourceTokens(ctx, srcTks)
+			actualDstTokens, err := o.getDestinationTokensFromSourceTokens(ctx, srcTks)
 
 			if tc.expErr {
 				assert.Error(t, err)

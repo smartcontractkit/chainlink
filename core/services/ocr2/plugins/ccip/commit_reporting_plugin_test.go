@@ -18,11 +18,10 @@ import (
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -30,8 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
@@ -107,11 +106,6 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 					Return(tc.sendReqs, nil)
 			}
 
-			tokenDecimalsCache := cache.NewMockAutoSync[map[common.Address]uint8](t)
-			if len(tc.tokenDecimals) > 0 {
-				tokenDecimalsCache.On("Get", ctx).Return(tc.tokenDecimals, nil)
-			}
-
 			priceGet := pricegetter.NewMockPriceGetter(t)
 			if len(tc.tokenPrices) > 0 {
 				addrs := []common.Address{sourceNativeTokenAddr}
@@ -129,12 +123,27 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 				gasPriceEstimator.On("DenoteInUSD", p, tc.tokenPrices[sourceNativeTokenAddr]).Return(pUSD, nil)
 			}
 
+			destTokens := make([]common.Address, 0)
+			destDecimals := make([]uint8, 0)
+			for tk, d := range tc.tokenDecimals {
+				destTokens = append(destTokens, tk)
+				destDecimals = append(destDecimals, d)
+			}
+
+			offRampReader := ccipdatamocks.NewOffRampReader(t)
+			offRampReader.On("GetDestinationTokens", ctx).Return(destTokens, nil).Maybe()
+
+			destPriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
+			destPriceRegReader.On("GetFeeTokens", ctx).Return(nil, nil).Maybe()
+			destPriceRegReader.On("GetTokensDecimals", ctx, destTokens).Return(destDecimals, nil).Maybe()
+
 			p := &CommitReportingPlugin{}
 			p.lggr = logger.TestLogger(t)
 			p.inflightReports = newInflightCommitReportsContainer(time.Hour)
 			p.commitStoreReader = commitStoreReader
 			p.onRampReader = onRampReader
-			p.tokenDecimalsCache = tokenDecimalsCache
+			p.offRampReader = offRampReader
+			p.destPriceRegistryReader = destPriceRegReader
 			p.priceGetter = priceGet
 			p.sourceNative = sourceNativeTokenAddr
 			p.gasPriceEstimator = gasPriceEstimator
@@ -161,13 +170,16 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 	gasPriceHeartBeat := models.MustMakeDuration(time.Hour)
 
 	t.Run("not enough observations", func(t *testing.T) {
-		tokenDecimalsCache := cache.NewMockAutoSync[map[common.Address]uint8](t)
-		tokenDecimalsCache.On("Get", ctx).Return(make(map[common.Address]uint8), nil)
-
 		p := &CommitReportingPlugin{}
 		p.lggr = logger.TestLogger(t)
-		p.tokenDecimalsCache = tokenDecimalsCache
 		p.F = 1
+
+		offRampReader := ccipdatamocks.NewOffRampReader(t)
+		destPriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
+		p.offRampReader = offRampReader
+		p.destPriceRegistryReader = destPriceRegReader
+		offRampReader.On("GetDestinationTokens", ctx).Return(nil, nil).Maybe()
+		destPriceRegReader.On("GetFeeTokens", ctx).Return(nil, nil).Maybe()
 
 		o := CommitObservation{Interval: ccipdata.CommitStoreInterval{Min: 1, Max: 1}, SourceGasPriceUSD: big.NewInt(0)}
 		obs, err := o.Marshal()
@@ -278,8 +290,18 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 				gasPriceEstimator.On("Deviates", mock.Anything, mock.Anything, mock.Anything).Return(false, nil)
 			}
 
-			tokenDecimalsCache := cache.NewMockAutoSync[map[common.Address]uint8](t)
-			tokenDecimalsCache.On("Get", ctx).Return(tc.tokenDecimals, nil)
+			destTokens := make([]common.Address, 0)
+			destDecimals := make([]uint8, 0)
+			for tk, d := range tc.tokenDecimals {
+				destTokens = append(destTokens, tk)
+				destDecimals = append(destDecimals, d)
+			}
+
+			offRampReader := ccipdatamocks.NewOffRampReader(t)
+			offRampReader.On("GetDestinationTokens", ctx).Return(destTokens, nil).Maybe()
+
+			destPriceRegistryReader.On("GetFeeTokens", ctx).Return(nil, nil).Maybe()
+			destPriceRegistryReader.On("GetTokensDecimals", ctx, destTokens).Return(destDecimals, nil).Maybe()
 
 			lp := mocks2.NewLogPoller(t)
 			commitStoreReader, err := ccipdata.NewCommitStoreV1_2_0(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
@@ -291,7 +313,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			p.destPriceRegistryReader = destPriceRegistryReader
 			p.onRampReader = onRampReader
 			p.sourceChainSelector = sourceChainSelector
-			p.tokenDecimalsCache = tokenDecimalsCache
+			p.offRampReader = offRampReader
 			p.gasPriceEstimator = gasPriceEstimator
 			p.offchainConfig.GasPriceHeartBeat = gasPriceHeartBeat.Duration()
 			p.commitStoreReader = commitStoreReader
@@ -508,6 +530,7 @@ func TestCommitReportingPlugin_validateObservations(t *testing.T) {
 	tokenDecimals := make(map[common.Address]uint8)
 	tokenDecimals[token1] = 18
 	tokenDecimals[token2] = 18
+	destTokens := []common.Address{token1, token2}
 
 	ob1 := CommitObservation{
 		Interval: ccipdata.CommitStoreInterval{Min: 0, Max: 0},
@@ -640,7 +663,7 @@ func TestCommitReportingPlugin_validateObservations(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			obs, err := validateObservations(ctx, logger.TestLogger(t), tokenDecimals, tc.f, tc.commitObservations)
+			obs, err := validateObservations(ctx, logger.TestLogger(t), destTokens, tc.f, tc.commitObservations)
 
 			if tc.expError {
 				assert.Error(t, err)
@@ -1092,7 +1115,7 @@ func TestCommitReportingPlugin_generatePriceUpdates(t *testing.T) {
 			for tk := range tc.tokenDecimals {
 				tokens = append(tokens, tk)
 			}
-			tokens = append(tokens, tc.sourceNativeToken)
+			tokens = ccipcommon.FlattenUniqueSlice(tokens, []common.Address{tc.sourceNativeToken})
 			sort.Slice(tokens, func(i, j int) bool { return tokens[i].String() < tokens[j].String() })
 
 			if len(tokens) > 0 {
@@ -1108,13 +1131,23 @@ func TestCommitReportingPlugin_generatePriceUpdates(t *testing.T) {
 			}
 
 			p := &CommitReportingPlugin{
-				sourceNative: tc.sourceNativeToken,
-				priceGetter:  priceGetter,
-				//offchainConfig:    ccipdata.CommitOffchainConfig{MaxGasPrice: tc.maxGasPrice},
+				sourceNative:      tc.sourceNativeToken,
+				priceGetter:       priceGetter,
 				gasPriceEstimator: gasPriceEstimator,
 			}
 
-			sourceGasPriceUSD, tokenPricesUSD, err := p.generatePriceUpdates(context.Background(), logger.TestLogger(t), tc.tokenDecimals)
+			destTokens := make([]common.Address, 0, len(tc.tokenDecimals))
+			destDecimals := make([]uint8, 0, len(tc.tokenDecimals))
+			for tk, d := range tc.tokenDecimals {
+				destTokens = append(destTokens, tk)
+				destDecimals = append(destDecimals, d)
+			}
+
+			destPriceReg := ccipdatamocks.NewPriceRegistryReader(t)
+			destPriceReg.On("GetTokensDecimals", mock.Anything, destTokens).Return(destDecimals, nil).Maybe()
+			p.destPriceRegistryReader = destPriceReg
+
+			sourceGasPriceUSD, tokenPricesUSD, err := p.generatePriceUpdates(context.Background(), logger.TestLogger(t), destTokens)
 			if tc.expErr {
 				assert.Error(t, err)
 				return

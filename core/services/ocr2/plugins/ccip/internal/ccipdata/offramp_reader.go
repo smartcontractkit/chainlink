@@ -121,15 +121,8 @@ type OffRampReader interface {
 	// GetExecutionStateChangesBetweenSeqNums returns all the execution state change events for the provided message sequence numbers (inclusive).
 	GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confs int) ([]Event[ExecutionStateChanged], error)
 	GetDestinationTokens(ctx context.Context) ([]common.Address, error)
-	GetPoolByDestToken(ctx context.Context, address common.Address) (common.Address, error)
-	// GetDestinationTokensFromSourceTokens will return an 1:1 mapping of the provided source tokens to dest tokens.
-	// Note that if you provide the same token twice you will get an error, each token should be provided once.
-	GetDestinationTokensFromSourceTokens(ctx context.Context, tokenAddresses []common.Address) ([]common.Address, error)
 	GetTokenPoolsRateLimits(ctx context.Context, poolAddresses []common.Address) ([]TokenBucketRateLimit, error)
-	GetSupportedTokens(ctx context.Context) ([]common.Address, error)
 	Address() common.Address
-	// TODO Needed for caching, maybe caching should move behind the readers?
-	TokenEvents() []common.Hash
 	// Notifies the reader that the config has changed onchain
 	ChangeConfig(onchainConfig []byte, offchainConfig []byte) (common.Address, common.Address, error)
 	OffchainConfig() ExecOffchainConfig
@@ -139,6 +132,8 @@ type OffRampReader interface {
 	CurrentRateLimiterState(ctx context.Context) (evm_2_evm_offramp.RateLimiterTokenBucket, error)
 	GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error)
 	GetStaticConfig(ctx context.Context) (OffRampStaticConfig, error)
+	GetSourceToDestTokensMapping(ctx context.Context) (map[common.Address]common.Address, error)
+	GetDestinationTokenPools(ctx context.Context) (map[common.Address]common.Address, error)
 }
 
 // MessageExecutionState defines the execution states of CCIP messages.

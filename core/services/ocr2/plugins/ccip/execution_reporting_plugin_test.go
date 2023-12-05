@@ -131,6 +131,9 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			mockOffRampReader.On("GetSenderNonce", mock.Anything, mock.Anything).Return(offRamp.GetSenderNonce(nil, utils.RandomAddress())).Maybe()
 			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, []common.Address{}).
 				Return([]ccipdata.TokenBucketRateLimit{}, nil).Maybe()
+			mockOffRampReader.On("GetDestinationTokens", ctx).Return(nil, nil).Maybe()
+			mockOffRampReader.On("GetSourceToDestTokensMapping", ctx).Return(nil, nil).Maybe()
+			mockOffRampReader.On("GetDestinationTokenPools", ctx).Return(nil, nil).Maybe()
 			p.config.offRampReader = mockOffRampReader
 
 			mockOnRampReader := ccipdatamocks.NewOnRampReader(t)
@@ -138,31 +141,18 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 				Return(tc.sendRequests, nil).Maybe()
 			p.config.onRampReader = mockOnRampReader
 
-			cachedDestTokens := cache.NewMockAutoSync[cache.CachedTokens](t)
-			cachedDestTokens.On("Get", ctx).Return(cache.CachedTokens{
-				SupportedTokens: map[common.Address]common.Address{},
-				FeeTokens:       []common.Address{},
-			}, nil).Maybe()
-			p.cachedDestTokens = cachedDestTokens
-
 			destPriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
 			destPriceRegReader.On("GetTokenPrices", ctx, mock.Anything).Return(
 				[]ccipdata.TokenPriceUpdate{{TokenPrice: ccipdata.TokenPrice{Token: common.HexToAddress("0x1"), Value: big.NewInt(123)}, TimestampUnixSec: big.NewInt(time.Now().Unix())}}, nil).Maybe()
 			destPriceRegReader.On("Address").Return(utils.RandomAddress()).Maybe()
+			destPriceRegReader.On("GetFeeTokens", ctx).Return([]common.Address{}, nil).Maybe()
 			sourcePriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
 			sourcePriceRegReader.On("Address").Return(utils.RandomAddress()).Maybe()
+			sourcePriceRegReader.On("GetFeeTokens", ctx).Return([]common.Address{}, nil).Maybe()
 			sourcePriceRegReader.On("GetTokenPrices", ctx, mock.Anything).Return(
 				[]ccipdata.TokenPriceUpdate{{TokenPrice: ccipdata.TokenPrice{Token: common.HexToAddress("0x1"), Value: big.NewInt(123)}, TimestampUnixSec: big.NewInt(time.Now().Unix())}}, nil).Maybe()
 			p.destPriceRegistry = destPriceRegReader
 			p.config.sourcePriceRegistry = sourcePriceRegReader
-
-			cachedTokenPools := cache.NewMockAutoSync[map[common.Address]common.Address](t)
-			cachedTokenPools.On("Get", ctx).Return(tc.tokenPoolsMapping, nil).Maybe()
-			p.cachedTokenPools = cachedTokenPools
-
-			sourceFeeTokens := cache.NewMockAutoSync[[]common.Address](t)
-			sourceFeeTokens.On("Get", ctx).Return([]common.Address{}, nil).Maybe()
-			p.cachedSourceFeeTokens = sourceFeeTokens
 
 			p.snoozedRoots = cache.NewSnoozedRoots(time.Minute, time.Minute)
 
@@ -372,6 +362,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 	p.config.commitStoreReader = commitStore
 
 	lp := lpMocks.NewLogPoller(t)
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
 	offRampReader, err := ccipdata.NewOffRampV1_0_0(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
 	assert.NoError(t, err)
 	p.config.offRampReader = offRampReader
@@ -888,13 +879,11 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 			p := &ExecutionReportingPlugin{}
 			p.lggr = lggr
 
-			tokenPoolsCache := cache.NewMockAutoSync[map[common.Address]common.Address](t)
-			tokenPoolsCache.On("Get", ctx).Return(poolsMapping, tc.destPoolsCacheErr).Maybe()
-			p.cachedTokenPools = tokenPoolsCache
-
 			offRampAddr := utils.RandomAddress()
 			mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
 			mockOffRampReader.On("Address").Return(offRampAddr, nil).Maybe()
+			mockOffRampReader.On("GetDestinationTokenPools", ctx).
+				Return(poolsMapping, tc.destPoolsCacheErr).Maybe()
 			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, tc.destPools).
 				Return(tc.poolRateLimits, nil).
 				Maybe()
@@ -1351,7 +1340,7 @@ func Test_getTokensPrices(t *testing.T) {
 			priceReg.On("GetTokenPrices", mock.Anything, mock.Anything).Return(tc.retPrices, nil)
 			priceReg.On("Address").Return(utils.RandomAddress(), nil)
 
-			prices, err := getTokensPrices(context.Background(), tc.feeTokens, priceReg, tc.tokens)
+			tokenPrices, err := getTokensPrices(context.Background(), priceReg, append(tc.feeTokens, tc.tokens...))
 			if tc.expErr {
 				assert.Error(t, err)
 				return
@@ -1359,7 +1348,7 @@ func Test_getTokensPrices(t *testing.T) {
 
 			assert.NoError(t, err)
 			for tk, price := range tc.expPrices {
-				assert.Equal(t, price, prices[tk])
+				assert.Equal(t, price, tokenPrices[tk])
 			}
 		})
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
@@ -49,17 +48,14 @@ func TestMetricsSendFromContractDirectly(t *testing.T) {
 	chainId := int64(420)
 
 	mockedOfframp := ccipdatamocks.NewOffRampReader(t)
-	mockedOfframp.On("GetSupportedTokens", ctx).Return([]common.Address{}, nil)
 	mockedOfframp.On("GetDestinationTokens", ctx).Return(nil, fmt.Errorf("execution error"))
 
 	observedOfframp := NewObservedOffRampReader(mockedOfframp, chainId, "plugin")
 
 	for i := 0; i < expectedCounter; i++ {
-		_, _ = observedOfframp.GetSupportedTokens(ctx)
 		_, _ = observedOfframp.GetDestinationTokens(ctx)
 	}
 
-	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetSupportedTokens", "true"))
 	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetDestinationTokens", "false"))
 	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetPoolByDestToken", "false"))
 	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetPoolByDestToken", "true"))
