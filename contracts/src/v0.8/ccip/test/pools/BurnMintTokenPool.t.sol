@@ -20,6 +20,13 @@ contract BurnMintTokenPoolSetup is BurnMintSetup {
 }
 
 contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
+  function testSetupSuccess() public {
+    assertEq(address(s_burnMintERC677), address(s_pool.getToken()));
+    assertEq(address(s_mockARM), s_pool.getArmProxy());
+    assertEq(false, s_pool.getAllowListEnabled());
+    assertEq("BurnMintTokenPool 1.2.0", s_pool.typeAndVersion());
+  }
+
   function testPoolBurnSuccess() public {
     uint256 burnAmount = 20_000e18;
 

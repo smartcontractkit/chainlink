@@ -91,7 +91,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     i_tokenMessenger = tokenMessenger;
     i_messageTransmitter = transmitter;
     i_localDomainIdentifier = transmitter.localDomain();
-    i_token.safeApprove(address(i_tokenMessenger), type(uint256).max);
+    i_token.safeIncreaseAllowance(address(i_tokenMessenger), type(uint256).max);
     emit ConfigSet(address(tokenMessenger));
   }
 
