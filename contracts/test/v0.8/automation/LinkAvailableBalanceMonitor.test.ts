@@ -221,6 +221,42 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
   })
 
+  describe('setMaxPerform()', () => {
+    it('configures the MaxPerform', async () => {
+      await labm.connect(owner).setMaxPerform(BigNumber.from(100))
+      const report = await labm.getMaxPerform()
+      assert.equal(report.toString(), '100')
+    })
+
+    it('is only callable by the owner', async () => {
+      await expect(labm.connect(stranger).setMaxPerform(100)).to.be.reverted
+    })
+  })
+
+  describe('setMaxCheck()', () => {
+    it('configures the MaxCheck', async () => {
+      await labm.connect(owner).setMaxCheck(BigNumber.from(100))
+      const report = await labm.getMaxCheck()
+      assert.equal(report.toString(), '100')
+    })
+
+    it('is only callable by the owner', async () => {
+      await expect(labm.connect(stranger).setMaxCheck(100)).to.be.reverted
+    })
+  })
+
+  describe('setUpkeepInterval()', () => {
+    it('configures the UpkeepInterval', async () => {
+      await labm.connect(owner).setUpkeepInterval(BigNumber.from(100))
+      const report = await labm.getUpkeepInterval()
+      assert.equal(report.toString(), '100')
+    })
+
+    it('is only callable by the owner', async () => {
+      await expect(labm.connect(stranger).setUpkeepInterval(100)).to.be.reverted
+    })
+  })
+
   describe('withdraw()', () => {
     beforeEach(async () => {
       const tx = await lt.connect(owner).transfer(labm.address, oneLINK)
@@ -352,6 +388,120 @@ describe('LinkAvailableBalanceMonitor', () => {
           [oneLINK, oneLINK],
         )
       await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+    })
+
+    it('Should allow owner to add multiple addresses with dstChainSelector 0 to the watchlist', async () => {
+      let tx = await labm.connect(owner).addToWatchList(watchAddress1, 0)
+      await tx.wait
+      let watchList = await labm.getWatchList()
+      assert.deepEqual(watchList[0], watchAddress1)
+
+      tx = await labm.connect(owner).addToWatchList(watchAddress2, 0)
+      await tx.wait
+      watchList = await labm.getWatchList()
+      assert.deepEqual(watchList[0], watchAddress1)
+      assert.deepEqual(watchList[1], watchAddress2)
+
+      tx = await labm.connect(owner).addToWatchList(watchAddress3, 0)
+      await tx.wait
+      watchList = await labm.getWatchList()
+      assert.deepEqual(watchList[0], watchAddress1)
+      assert.deepEqual(watchList[1], watchAddress2)
+      assert.deepEqual(watchList[2], watchAddress3)
+    })
+
+    it('Should allow owner to add only one address with an unique non-zero dstChainSelector 0 to the watchlist', async () => {
+      let tx = await labm.connect(owner).addToWatchList(watchAddress1, 1)
+      await tx.wait
+      let watchList = await labm.getWatchList()
+      assert.deepEqual(watchList[0], watchAddress1)
+
+      // 1 is active
+      let report = await labm.getAccountInfo(watchAddress1)
+      assert.isTrue(report.isActive)
+
+      tx = await labm.connect(owner).addToWatchList(watchAddress2, 1)
+      await tx.wait
+      watchList = await labm.getWatchList()
+      assert.deepEqual(watchList[0], watchAddress2)
+
+      // 2 is active, 1 should be false
+      report = await labm.getAccountInfo(watchAddress2)
+      assert.isTrue(report.isActive)
+      report = await labm.getAccountInfo(watchAddress1)
+      assert.isFalse(report.isActive)
+
+      tx = await labm.connect(owner).addToWatchList(watchAddress3, 1)
+      await tx.wait
+      watchList = await labm.getWatchList()
+      assert.deepEqual(watchList[0], watchAddress3)
+
+      // 3 is active, 1 and 2 should be false
+      report = await labm.getAccountInfo(watchAddress3)
+      assert.isTrue(report.isActive)
+      report = await labm.getAccountInfo(watchAddress2)
+      assert.isFalse(report.isActive)
+      report = await labm.getAccountInfo(watchAddress1)
+      assert.isFalse(report.isActive)
+    })
+
+    it('Should not add address 0 to the watchlist', async () => {
+      await labm.connect(owner).addToWatchList(ethers.constants.AddressZero, 1)
+      expect(await labm.getWatchList()).to.not.contain(
+        ethers.constants.AddressZero,
+      )
+    })
+
+    it('Should not allow stangers to add addresses to the watchlist', async () => {
+      await expect(labm.connect(stranger).addToWatchList(watchAddress1, 1)).to
+        .be.reverted
+    })
+
+    it('Should allow owner to remove addresses from the watchlist', async () => {
+      let tx = await labm.connect(owner).addToWatchList(watchAddress1, 1)
+      await tx.wait
+      let watchList = await labm.getWatchList()
+      assert.deepEqual(watchList[0], watchAddress1)
+      let report = await labm.getAccountInfo(watchAddress1)
+      assert.isTrue(report.isActive)
+
+      // remove address
+      tx = await labm.connect(owner).removeFromWatchList(watchAddress1)
+
+      // address should be false
+      report = await labm.getAccountInfo(watchAddress1)
+      assert.isFalse(report.isActive)
+
+      watchList = await labm.getWatchList()
+      assert.deepEqual(watchList, [])
+    })
+
+    it('Should allow only one address per dstChainSelector', async () => {
+      // add address1
+      await labm.connect(owner).addToWatchList(watchAddress1, 1)
+      expect(await labm.getWatchList()).to.contain(watchAddress1)
+
+      // add address2
+      await labm.connect(owner).addToWatchList(watchAddress2, 1)
+
+      // only address2 has to be in the watchlist
+      const watchlist = await labm.getWatchList()
+      expect(watchlist).to.not.contain(watchAddress1)
+      expect(watchlist).to.contain(watchAddress2)
+    })
+
+    it('Should delete the onRamp address on a zero-address with same dstChainSelector', async () => {
+      // add address1
+      await labm.connect(owner).addToWatchList(watchAddress1, 1)
+      expect(await labm.getWatchList()).to.contain(watchAddress1)
+
+      // simulates an onRampSet(zeroAddress, same dstChainSelector)
+      await labm.connect(owner).addToWatchList(ethers.constants.AddressZero, 1)
+
+      // address1 should be cleaned
+      const watchlist = await labm.getWatchList()
+      expect(watchlist).to.not.contain(watchAddress1)
+      assert.deepEqual(watchlist, [])
     })
   })
 

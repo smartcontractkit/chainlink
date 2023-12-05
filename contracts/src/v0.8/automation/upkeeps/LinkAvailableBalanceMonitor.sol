@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
 import {AccessControl} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/access/AccessControl.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
 
@@ -33,7 +34,7 @@ interface ILinkAvailable {
 ///  this is a "trusless" upkeep, meaning it does not trust the caller of performUpkeep;
 /// we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
 /// which has significantly different trust assumptions
-contract LinkAvailableBalanceMonitor is Pausable, AccessControl, AutomationCompatibleInterface {
+contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AccessControl, AutomationCompatibleInterface {
   event BalanceUpdated(address indexed addr, uint256 oldBalance, uint256 newBalance);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event UpkeepIntervalSet(uint256 oldUpkeepInterval, uint256 newUpkeepInterval);
@@ -85,7 +86,7 @@ contract LinkAvailableBalanceMonitor is Pausable, AccessControl, AutomationCompa
     uint16 maxPerform,
     uint16 maxCheck,
     uint8 upkeepInterval
-  ) {
+  ) ConfirmedOwner(msg.sender) {
     if (linkTokenAddress == address(0)) revert InvalidLinkTokenAddress(linkTokenAddress);
     _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
     _setRoleAdmin(EXECUTOR_ROLE, ADMIN_ROLE);
@@ -162,7 +163,7 @@ contract LinkAvailableBalanceMonitor is Pausable, AccessControl, AutomationCompa
   /// @param targetAddress the address to be deleted
   function removeFromWatchList(address targetAddress) public onlyRoleOrAdminRole(EXECUTOR_ROLE) returns (bool) {
     s_targets[targetAddress].isActive = false;
-    for (uint i; i < s_watchList.length; i++) {
+    for (uint256 i; i < s_watchList.length; i++) {
       if (s_watchList[i] == targetAddress) {
         s_watchList[i] = s_watchList[s_watchList.length - 1];
         s_watchList.pop();
@@ -294,7 +295,7 @@ contract LinkAvailableBalanceMonitor is Pausable, AccessControl, AutomationCompa
   }
 
   /// @notice Sets the minimum balance for the given target address
-  function setMinBalance(address target, uint96 minBalance) external onlyRoleOrAdminRole(EXECUTOR_ROLE) {
+  function setMinBalance(address target, uint96 minBalance) external onlyRole(ADMIN_ROLE) {
     if (target == address(0)) revert InvalidAddress(target);
     if (minBalance == 0) revert InvalidMinBalance(minBalance);
     if (!s_targets[target].isActive) revert InvalidWatchList();
@@ -304,7 +305,7 @@ contract LinkAvailableBalanceMonitor is Pausable, AccessControl, AutomationCompa
   }
 
   /// @notice Sets the minimum balance for the given target address
-  function setTopUpAmount(address target, uint96 topUpAmount) external onlyRoleOrAdminRole(EXECUTOR_ROLE) {
+  function setTopUpAmount(address target, uint96 topUpAmount) external onlyRole(ADMIN_ROLE) {
     if (target == address(0)) revert InvalidAddress(target);
     if (topUpAmount == 0) revert InvalidTopUpAmount(topUpAmount);
     if (!s_targets[target].isActive) revert InvalidWatchList();
@@ -314,25 +315,25 @@ contract LinkAvailableBalanceMonitor is Pausable, AccessControl, AutomationCompa
   }
 
   /// @notice Update s_maxPerform
-  function setMaxPerform(uint16 maxPerform) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
+  function setMaxPerform(uint16 maxPerform) public onlyRole(ADMIN_ROLE) {
     s_maxPerform = maxPerform;
     emit MaxPerformSet(s_maxPerform, maxPerform);
   }
 
   /// @notice Update s_maxCheck
-  function setMaxCheck(uint16 maxCheck) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
+  function setMaxCheck(uint16 maxCheck) public onlyRole(ADMIN_ROLE) {
     s_maxCheck = maxCheck;
     emit MaxCheckSet(s_maxCheck, maxCheck);
   }
 
   /// @notice Sets the minimum wait period (in seconds) for addresses between funding
-  function setMinWaitPeriodSeconds(uint256 minWaitPeriodSeconds) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
+  function setMinWaitPeriodSeconds(uint256 minWaitPeriodSeconds) public onlyRole(ADMIN_ROLE) {
     s_minWaitPeriodSeconds = minWaitPeriodSeconds;
     emit MinWaitPeriodSet(s_minWaitPeriodSeconds, minWaitPeriodSeconds);
   }
 
   /// @notice Update s_upkeepInterval
-  function setUpkeepInterval(uint8 upkeepInterval) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
+  function setUpkeepInterval(uint8 upkeepInterval) public onlyRole(ADMIN_ROLE) {
     if (upkeepInterval > 255) revert InvalidUpkeepInterval(upkeepInterval);
     s_upkeepInterval = upkeepInterval;
     emit UpkeepIntervalSet(s_upkeepInterval, upkeepInterval);
