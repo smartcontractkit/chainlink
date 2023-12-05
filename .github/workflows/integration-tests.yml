@@ -488,8 +488,8 @@ jobs:
             if [ ${#files[@]} -gt 0 ]; then
               first_file="${files[0]}"
               echo "Name of the first test summary file: $(basename "$first_file")"
-              echo "### Links to Grafana logs of failed tests"
-              cat "$first_file" | jq -r '.loki[] | "\(.test_name) => [link](\(.value))"' >> $GITHUB_STEP_SUMMARY
+              echo "### Failed Test Execution Logs Dashboard (over VPN):" >> $GITHUB_STEP_SUMMARY
+              cat "$first_file" | jq -r '.loki[] | "* [\(.test_name)](\(.value))"' >> $GITHUB_STEP_SUMMARY
               if [ ${#files[@]} -gt 1 ]; then
                 echo "Found more than one test summary file. This is incorrect, there should be only one file"
               fi
@@ -499,7 +499,6 @@ jobs:
           else
             echo "No test summary folder found. If no test failed or log collection wasn't explicitly requested this is correct. Exiting"
           fi
-
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
