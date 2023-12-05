@@ -21,9 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	relaymercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v1"
-	relaymercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v2"
-	relaymercuryv3 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v3"
+	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
+	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 )
 
 type eaTelemetry struct {
@@ -41,9 +41,9 @@ type EnhancedTelemetryData struct {
 }
 
 type EnhancedTelemetryMercuryData struct {
-	V1Observation              *relaymercuryv1.Observation
-	V2Observation              *relaymercuryv2.Observation
-	V3Observation              *relaymercuryv3.Observation
+	V1Observation              *v1types.Observation
+	V2Observation              *v2types.Observation
+	V3Observation              *v3types.Observation
 	TaskRunResults             pipeline.TaskRunResults
 	RepTimestamp               ocrtypes.ReportTimestamp
 	FeedVersion                mercuryutils.FeedVersion

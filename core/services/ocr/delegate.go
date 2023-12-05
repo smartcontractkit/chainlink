@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
@@ -147,16 +146,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running p2p peer")
 	}
 
-	var v1BootstrapPeers []string
-	if concreteSpec.P2PBootstrapPeers != nil {
-		v1BootstrapPeers = concreteSpec.P2PBootstrapPeers
-	} else {
-		v1BootstrapPeers, err = chain.Config().P2P().V1().DefaultBootstrapPeers()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	v2Bootstrappers, err := ocrcommon.ParseBootstrapPeers(concreteSpec.P2PV2Bootstrappers)
 	if err != nil {
 		return nil, err
@@ -182,7 +171,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		var bootstrapper *ocr.BootstrapNode
 		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer1,
-			V1Bootstrappers:       v1BootstrapPeers,
 			V2Bootstrappers:       v2Bootstrappers,
 			ContractConfigTracker: tracker,
 			Database:              ocrDB,
@@ -195,20 +183,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		bootstrapperCtx := job.NewServiceAdapter(bootstrapper)
 		services = append(services, bootstrapperCtx)
 	} else {
-		// In V1 or V1V2 mode, p2pv1BootstrapPeers must be defined either in
-		//   node config or in job spec
-		if peerWrapper.P2PConfig().NetworkStack() != ocrnetworking.NetworkingStackV2 {
-			if len(v1BootstrapPeers) < 1 {
-				return nil, errors.New("Need at least one v1 bootstrap peer defined")
-			}
-		}
-
-		// In V1V2 or V2 mode, p2pv2Bootstrappers must be defined either in
-		//   node config or in job spec
-		if peerWrapper.P2PConfig().NetworkStack() != ocrnetworking.NetworkingStackV1 {
-			if len(v2Bootstrappers) < 1 {
-				return nil, errors.New("Need at least one v2 bootstrap peer defined")
-			}
+		// p2pv2Bootstrappers must be defined either in node config or in job spec
+		if len(v2Bootstrappers) < 1 {
+			return nil, errors.New("Need at least one v2 bootstrap peer defined")
 		}
 
 		ocrkey, err := d.keyStore.OCR().Get(concreteSpec.EncryptedOCRKeyBundleID.String())
@@ -326,7 +303,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			PrivateKeys:                  ocrkey,
 			BinaryNetworkEndpointFactory: peerWrapper.Peer1,
 			Logger:                       ocrLogger,
-			V1Bootstrappers:              v1BootstrapPeers,
 			V2Bootstrappers:              v2Bootstrappers,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), concreteSpec.ContractAddress.String(), synchronization.OCR),
 			ConfigOverrider:              configOverrider,
