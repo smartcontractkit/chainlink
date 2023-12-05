@@ -531,5 +531,56 @@ func TestTracing_ValidateMode(t *testing.T) {
 	}
 }
 
+func TestTransmission_ValidateTLSCertPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		tlsCertPath *string
+		wantErr     bool
+		errMsg      string
+	}{
+		{
+			name:        "valid file path",
+			tlsCertPath: ptr("/etc/ssl/certs/cert.pem"),
+			wantErr:     false,
+		},
+		{
+			name:        "relative file path",
+			tlsCertPath: ptr("certs/cert.pem"),
+			wantErr:     false,
+		},
+		{
+			name:        "excessively long file path",
+			tlsCertPath: ptr(strings.Repeat("z", 4097)),
+			wantErr:     true,
+			errMsg:      "TLSCertPath: invalid value (" + strings.Repeat("z", 4097) + "): must be a valid file path",
+		},
+		{
+			name:        "empty file path",
+			tlsCertPath: ptr(""),
+			wantErr:     true,
+			errMsg:      "TLSCertPath: invalid value (): must be a valid file path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			transmission := &Transmission{
+				TLS: TransmissionTLS{
+					CertPath: tt.tlsCertPath,
+				},
+			}
+
+			err := transmission.ValidateConfig()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 // ptr is a utility function for converting a value to a pointer to the value.
 func ptr[T any](t T) *T { return &t }

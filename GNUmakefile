@@ -82,7 +82,7 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: generate
-generate: abigen codecgen mockery ## Execute all go:generate commands.
+generate: mockery ## Execute all go:generate commands.
 	go generate -x ./...
 
 .PHONY: testscripts

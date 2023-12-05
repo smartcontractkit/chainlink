@@ -238,6 +238,11 @@ func TestConfig_Marshal(t *testing.T) {
 					"env":  "dev",
 				},
 			},
+			Transmission: toml.Transmission{
+				TLS: toml.TransmissionTLS{
+					CertPath: ptr("/path/to/cert.pem"),
+				},
+			},
 		},
 	}
 
@@ -695,6 +700,9 @@ TLSCertPath = '/path/to/cert.pem'
 [Tracing.Attributes]
 env = 'dev'
 test = 'load'
+
+[Transmission.TLS]
+CertPath = '/path/to/cert.pem'
 `},
 		{"AuditLogger", Config{Core: toml.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true

@@ -54,6 +54,7 @@ type Core struct {
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
 	Mercury          Mercury          `toml:",omitempty"`
+	Transmission     Transmission     `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -89,6 +90,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
+	c.Transmission.setFrom(&f.Transmission)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -1310,6 +1312,37 @@ type Mercury struct {
 
 func (m *Mercury) setFrom(f *Mercury) {
 	m.Cache.setFrom(&f.Cache)
+}
+
+type Transmission struct {
+	TLS TransmissionTLS `toml:",omitempty"`
+}
+
+type TransmissionTLS struct {
+	CertPath *string
+}
+
+func (t *Transmission) setFrom(f *Transmission) {
+	t.TLS.setFrom(&f.TLS)
+}
+
+func (t *TransmissionTLS) setFrom(f *TransmissionTLS) {
+	if v := f.CertPath; v != nil {
+		t.CertPath = v
+	}
+}
+
+func (t *Transmission) ValidateConfig() (err error) {
+	return t.TLS.ValidateConfig()
+}
+
+func (t *TransmissionTLS) ValidateConfig() (err error) {
+	if *t.CertPath != "" {
+		if !isValidFilePath(*t.CertPath) {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "CertPath", Value: *t.CertPath, Msg: "must be a valid file path"})
+		}
+	}
+	return
 }
 
 type MercuryCredentials struct {

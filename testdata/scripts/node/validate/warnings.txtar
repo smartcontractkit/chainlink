@@ -263,6 +263,10 @@ LatestReportTTL = '1s'
 MaxStaleAge = '1h0m0s'
 LatestReportDeadline = '5s'
 
+[Transmission]
+[Transmission.TLS]
+CertPath = ''
+
 # Configuration warning:
 Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'
 Valid configuration.

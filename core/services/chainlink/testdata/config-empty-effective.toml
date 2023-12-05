@@ -227,3 +227,7 @@ TLSCertPath = ''
 LatestReportTTL = '1s'
 MaxStaleAge = '1h0m0s'
 LatestReportDeadline = '5s'
+
+[Transmission]
+[Transmission.TLS]
+CertPath = ''

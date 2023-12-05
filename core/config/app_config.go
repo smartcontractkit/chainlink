@@ -54,6 +54,7 @@ type AppConfig interface {
 	Threshold() Threshold
 	WebServer() WebServer
 	Tracing() Tracing
+	Transmission() Transmission
 }
 
 type DatabaseBackupMode string

@@ -731,6 +731,22 @@ func (_m *GeneralConfig) Tracing() config.Tracing {
 	return r0
 }
 
+// Transmission provides a mock function with given fields:
+func (_m *GeneralConfig) Transmission() config.Transmission {
+	ret := _m.Called()
+
+	var r0 config.Transmission
+	if rf, ok := ret.Get(0).(func() config.Transmission); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Transmission)
+		}
+	}
+
+	return r0
+}
+
 // Validate provides a mock function with given fields:
 func (_m *GeneralConfig) Validate() error {
 	ret := _m.Called()

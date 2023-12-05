@@ -508,4 +508,8 @@ func (g *generalConfig) Tracing() coreconfig.Tracing {
 	return &tracingConfig{s: g.c.Tracing}
 }
 
+func (g *generalConfig) Transmission() coreconfig.Transmission {
+	return &transmissionConfig{s: g.c.Transmission}
+}
+
 var zeroSha256Hash = models.Sha256Hash{}
