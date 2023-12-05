@@ -84,13 +84,13 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	require.NoError(t, err)
 	ec.Commit()
 
-	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
-	// Set it to some insanely high value to not interfere with any tests.
 	esc := client.NewSimulatedBackendClient(t, ec, chainID)
 	// Mark genesis block as finalized to avoid any nulls in the tests
 	head := esc.Backend().Blockchain().CurrentHeader()
 	esc.Backend().Blockchain().SetFinalized(head)
 
+	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
+	// Set it to some insanely high value to not interfere with any tests.
 	lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, useFinalityTag, finalityDepth, backfillBatchSize, rpcBatchSize, keepFinalizedBlocksDepth)
 
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
@@ -188,7 +188,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 		th.Client.Commit()
 	}
 
-	// Emit some logs in blocks finalityDepth+1 to finalityDepth+4.
+	// Emit some logs from block 5 to 9 (Inclusive)
 	numBlocks := 5
 	for i := 0; i < numBlocks; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -208,7 +208,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	// block 3 once the backup poller runs, since it always starts 100 blocks behind.)
 	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
 
-	// We should immediately have at least logs 4-7
+	// Should return logs from block 5 to 7 (inclusive)
 	logs, err := th.LogPoller.Logs(4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress,
 		pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
