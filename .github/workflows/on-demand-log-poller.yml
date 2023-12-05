@@ -76,7 +76,7 @@ jobs:
         with:
           ref: ${{ env.REF_NAME }}          
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version-file: "integration-tests/go.mod"
           cache: true
