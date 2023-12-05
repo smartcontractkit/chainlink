@@ -62,6 +62,8 @@ func NewOnRampReader(lggr logger.Logger, sourceSelector, destSelector uint64, on
 		return NewOnRampV1_1_0(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source)
 	case V1_2_0:
 		return NewOnRampV1_2_0(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source)
+	case V1_3_0:
+		return NewOnRampV1_3_0(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source)
 	default:
 		return nil, errors.Errorf("got unexpected version %v", version.String())
 	}

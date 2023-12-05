@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -54,6 +55,10 @@ func TestOnRampReaderInit(t *testing.T) {
 			name:    "OnRampReader_V1_2_0",
 			version: ccipdata.V1_2_0,
 		},
+		{
+			name:    "OnRampReader_V1_3_0",
+			version: ccipdata.V1_3_0,
+		},
 	}
 
 	for _, test := range tests {
@@ -83,6 +88,8 @@ func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
 		onRampAddress = setupOnRampV1_1_0(t, user, bc)
 	case ccipdata.V1_2_0:
 		onRampAddress = setupOnRampV1_2_0(t, user, bc)
+	case ccipdata.V1_3_0:
+		onRampAddress = setupOnRampV1_3_0(t, user, bc)
 	default:
 		require.Fail(t, "Unknown version: ", version)
 	}
@@ -98,7 +105,6 @@ func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
 }
 
 func setupOnRampV1_0_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
-
 	linkTokenAddress := common.HexToAddress("0x000011")
 	staticConfig := evm_2_evm_onramp_1_0_0.EVM2EVMOnRampStaticConfig{
 		LinkToken:         linkTokenAddress,
@@ -166,7 +172,6 @@ func setupOnRampV1_0_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 }
 
 func setupOnRampV1_1_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
-
 	linkTokenAddress := common.HexToAddress("0x000011")
 	staticConfig := evm_2_evm_onramp_1_1_0.EVM2EVMOnRampStaticConfig{
 		LinkToken:         linkTokenAddress,
@@ -234,7 +239,77 @@ func setupOnRampV1_1_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 }
 
 func setupOnRampV1_2_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
+	linkTokenAddress := common.HexToAddress("0x000011")
+	staticConfig := evm_2_evm_onramp_1_2_0.EVM2EVMOnRampStaticConfig{
+		LinkToken:         linkTokenAddress,
+		ChainSelector:     testutils.SimulatedChainID.Uint64(),
+		DestChainSelector: testutils.SimulatedChainID.Uint64(),
+		DefaultTxGasLimit: 30000,
+		MaxNopFeesJuels:   big.NewInt(1000000),
+		PrevOnRamp:        common.Address{},
+		ArmProxy:          utils.RandomAddress(),
+	}
+	dynamicConfig := evm_2_evm_onramp_1_2_0.EVM2EVMOnRampDynamicConfig{
+		Router:                            common.HexToAddress("0x0000000000000000000000000000000000000120"),
+		MaxNumberOfTokensPerMsg:           0,
+		DestGasOverhead:                   0,
+		DestGasPerPayloadByte:             0,
+		DestDataAvailabilityOverheadGas:   0,
+		DestGasPerDataAvailabilityByte:    0,
+		DestDataAvailabilityMultiplierBps: 0,
+		PriceRegistry:                     utils.RandomAddress(),
+		MaxDataBytes:                      0,
+		MaxPerMsgGasLimit:                 0,
+	}
+	rateLimiterConfig := evm_2_evm_onramp_1_2_0.RateLimiterConfig{
+		IsEnabled: false,
+		Capacity:  big.NewInt(5),
+		Rate:      big.NewInt(5),
+	}
+	feeTokenConfigs := []evm_2_evm_onramp_1_2_0.EVM2EVMOnRampFeeTokenConfigArgs{
+		{
+			Token:                      linkTokenAddress,
+			NetworkFeeUSDCents:         0,
+			GasMultiplierWeiPerEth:     0,
+			PremiumMultiplierWeiPerEth: 0,
+			Enabled:                    false,
+		},
+	}
+	tokenTransferConfigArgs := []evm_2_evm_onramp_1_2_0.EVM2EVMOnRampTokenTransferFeeConfigArgs{
+		{
+			Token:             linkTokenAddress,
+			MinFeeUSDCents:    0,
+			MaxFeeUSDCents:    0,
+			DeciBps:           0,
+			DestGasOverhead:   0,
+			DestBytesOverhead: 0,
+		},
+	}
+	nopsAndWeights := []evm_2_evm_onramp_1_2_0.EVM2EVMOnRampNopAndWeight{
+		{
+			Nop:    utils.RandomAddress(),
+			Weight: 1,
+		},
+	}
+	tokenAndPool := []evm_2_evm_onramp_1_2_0.InternalPoolUpdate{}
+	onRampAddress, transaction, _, err := evm_2_evm_onramp_1_2_0.DeployEVM2EVMOnRamp(
+		user,
+		bc,
+		staticConfig,
+		dynamicConfig,
+		tokenAndPool,
+		rateLimiterConfig,
+		feeTokenConfigs,
+		tokenTransferConfigArgs,
+		nopsAndWeights,
+	)
+	bc.Commit()
+	require.NoError(t, err)
+	assertNonRevert(t, transaction, bc, user)
+	return onRampAddress
+}
 
+func setupOnRampV1_3_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
 	linkTokenAddress := common.HexToAddress("0x000011")
 	staticConfig := evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
 		LinkToken:         linkTokenAddress,
@@ -246,7 +321,7 @@ func setupOnRampV1_2_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 		ArmProxy:          utils.RandomAddress(),
 	}
 	dynamicConfig := evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
-		Router:                            common.HexToAddress("0x000120"),
+		Router:                            common.HexToAddress("0x0000000000000000000000000000000000000130"),
 		MaxNumberOfTokensPerMsg:           0,
 		DestGasOverhead:                   0,
 		DestGasPerPayloadByte:             0,
@@ -287,7 +362,7 @@ func setupOnRampV1_2_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 			Weight: 1,
 		},
 	}
-	tokenAndPool := []evm_2_evm_onramp.InternalPoolUpdate{}
+	var tokenAndPool []evm_2_evm_onramp.InternalPoolUpdate
 	onRampAddress, transaction, _, err := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
 		user,
 		bc,
@@ -313,6 +388,8 @@ func testVersionSpecificOnRampReader(t *testing.T, th onRampReaderTH, version st
 		testOnRampReader(t, th, common.HexToAddress("0x0000000000000000000000000000000000000110"))
 	case ccipdata.V1_2_0:
 		testOnRampReader(t, th, common.HexToAddress("0x0000000000000000000000000000000000000120"))
+	case ccipdata.V1_3_0:
+		testOnRampReader(t, th, common.HexToAddress("0x0000000000000000000000000000000000000130"))
 	default:
 		require.Fail(t, "Unknown version: ", version)
 	}
