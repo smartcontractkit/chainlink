@@ -424,6 +424,7 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		return commonclient.Fatal, err
 	}
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
+		lggr.Debugw("Transaction already confirmed for this nonce: %d", tx.Nonce(), "err", sendError)
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark it as TransactionAlreadyKnown.
 		return commonclient.TransactionAlreadyKnown, err
@@ -446,10 +447,12 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		return commonclient.Successful, err
 	}
 	if sendError.IsTerminallyUnderpriced() {
+		lggr.Errorw("Transaction terminally underpriced", "txHash", tx.Hash, "err", sendError)
 		return commonclient.Underpriced, err
 	}
 	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
 		if isL2 {
+			lggr.Errorw("Transaction fee out of range", "err", sendError)
 			return commonclient.FeeOutOfValidRange, err
 		}
 		return commonclient.Unsupported, errors.Wrap(sendError, "this error type only handled for L2s")
@@ -469,7 +472,9 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		return commonclient.InsufficientFunds, err
 	}
 	if sendError.IsTimeout() {
-		return commonclient.Retryable, errors.Wrapf(sendError, "timeout while sending transaction %s", tx.Hash().Hex())
+		errorMsg := fmt.Sprintf("timeout while sending transaction %s", tx.Hash().Hex())
+		lggr.Errorw(errorMsg, "err", sendError)
+		return commonclient.Retryable, fmt.Errorf("%s: %w", errorMsg, sendError)
 	}
 	if sendError.IsTxFeeExceedsCap() {
 		logger.Criticalw(lggr, fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
@@ -479,6 +484,7 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		)
 		return commonclient.ExceedsMaxFee, err
 	}
+	lggr.Errorw("Unknown error encountered when sending transaction", "err", err)
 	return commonclient.Unknown, err
 }
 

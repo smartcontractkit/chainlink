@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
@@ -298,7 +297,7 @@ func setupNodeOCR2(
 		n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 		require.NoError(t, err)
 
-		tx := types.NewTransaction(
+		tx := cltest.NewLegacyTransaction(
 			n, k.Address,
 			assets.Ether(1).ToInt(),
 			21000,
@@ -662,7 +661,7 @@ linkEthFeedAddress     	= "%s"
 		// Fund the payee with some ETH.
 		n, err2 := uni.backend.NonceAt(testutils.Context(t), uni.owner.From, nil)
 		require.NoError(t, err2)
-		tx := types.NewTransaction(
+		tx := cltest.NewLegacyTransaction(
 			n, payeeTransactor.From,
 			assets.Ether(1).ToInt(),
 			21000,

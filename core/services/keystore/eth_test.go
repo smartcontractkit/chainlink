@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -336,7 +335,7 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 	k, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	chainID := big.NewInt(evmclient.NullClientChainID)
-	tx := types.NewTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
+	tx := cltest.NewLegacyTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
 
 	randomAddress := testutils.NewAddress()
 	_, err := ethKeyStore.SignTx(randomAddress, tx, chainID)

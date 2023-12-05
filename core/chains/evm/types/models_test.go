@@ -1,7 +1,6 @@
 package types_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -95,25 +93,24 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	tx := gethTypes.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := cltest.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	chainID := big.NewInt(3)
 
 	signedTx, err := ethKeyStore.SignTx(fromAddress, tx, chainID)
 	require.NoError(t, err)
-	signedTx.Size() // Needed to write the size for equality checking
-	rlp := new(bytes.Buffer)
-	require.NoError(t, signedTx.EncodeRLP(rlp))
+	encodedTx, err := signedTx.MarshalBinary()
+	require.NoError(t, err)
 
-	attempt := txmgr.TxAttempt{SignedRawTx: rlp.Bytes()}
+	attempt := txmgr.TxAttempt{SignedRawTx: encodedTx}
 
 	gotSignedTx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
 	require.NoError(t, err)
-	decodedEncoded := new(bytes.Buffer)
-	require.NoError(t, gotSignedTx.EncodeRLP(decodedEncoded))
+	decodedTx, err2 := gotSignedTx.MarshalBinary()
+	require.NoError(t, err2)
 
 	require.Equal(t, signedTx.Hash(), gotSignedTx.Hash())
-	require.Equal(t, attempt.SignedRawTx, decodedEncoded.Bytes())
+	require.Equal(t, attempt.SignedRawTx, decodedTx)
 }
 
 func TestHead_ChainLength(t *testing.T) {

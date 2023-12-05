@@ -1,8 +1,8 @@
 package txmgr
 
 import (
-	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -119,9 +119,17 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce evmtypes.Nonce, feeLimit u
 		return attempt, errors.New("NewEmptyTranscation: legacy fee cannot be nil")
 	}
 
-	tx := types.NewTransaction(uint64(nonce), fromAddress, value, uint64(feeLimit), fee.Legacy.ToInt(), payload)
+	tx := newLegacyTransaction(
+		uint64(nonce),
+		fromAddress,
+		value,
+		uint32(feeLimit),
+		fee.Legacy,
+		payload,
+	)
 
-	hash, signedTxBytes, err := c.SignTx(fromAddress, tx)
+	transaction := types.NewTx(&tx)
+	hash, signedTxBytes, err := c.SignTx(fromAddress, transaction)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign empty transaction", fromAddress.String())
 	}
@@ -295,14 +303,15 @@ func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 func (c *evmTxAttemptBuilder) SignTx(address common.Address, tx *types.Transaction) (common.Hash, []byte, error) {
 	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
 	if err != nil {
-		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
+		return common.Hash{}, nil, fmt.Errorf("failed to sign tx: %w", err)
 	}
-	rlp := new(bytes.Buffer)
-	if err := signedTx.EncodeRLP(rlp); err != nil {
-		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
+	var txBytes []byte
+	txBytes, err = signedTx.MarshalBinary()
+	if err != nil {
+		return common.Hash{}, nil, fmt.Errorf("failed to marshal signed tx binary: %w", err)
 	}
 	txHash := signedTx.Hash()
-	return txHash, rlp.Bytes(), nil
+	return txHash, txBytes, nil
 }
 
 func newEvmPriorAttempts(attempts []TxAttempt) (prior []gas.EvmPriorAttempt) {

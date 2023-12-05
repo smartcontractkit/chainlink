@@ -77,7 +77,9 @@ func (c *evmTxmClient) BatchSendTransactions(
 			// convert to tx for logging purposes - exits early if error occurs
 			tx, signedErr := GetGethSignedTx(attempts[i].SignedRawTx)
 			if signedErr != nil {
-				processingErr[i] = fmt.Errorf("failed to process tx (index %d): %w", i, signedErr)
+				signedErrMsg := fmt.Sprintf("failed to process tx (index %d)", i)
+				lggr.Errorw(signedErrMsg, "err", signedErr)
+				processingErr[i] = fmt.Errorf("%s: %w", signedErrMsg, signedErr)
 				return
 			}
 			codes[i], txErrs[i] = client.ClassifySendError(reqs[i].Error, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())

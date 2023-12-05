@@ -1,12 +1,10 @@
 package txmgr
 
 import (
-	"bytes"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -65,9 +63,8 @@ const (
 
 // GetGethSignedTx decodes the SignedRawTx into a types.Transaction struct
 func GetGethSignedTx(signedRawTx []byte) (*types.Transaction, error) {
-	s := rlp.NewStream(bytes.NewReader(signedRawTx), 0)
 	signedTx := new(types.Transaction)
-	if err := signedTx.DecodeRLP(s); err != nil {
+	if err := signedTx.UnmarshalBinary(signedRawTx); err != nil {
 		return nil, err
 	}
 	return signedTx, nil

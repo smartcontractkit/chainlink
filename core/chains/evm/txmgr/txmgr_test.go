@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -651,14 +650,14 @@ func mustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, txStore txmgr.Test
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
 	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
+	tx := cltest.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	encodedTx, err := tx.MarshalBinary()
+	require.NoError(t, err)
+	attempt.SignedRawTx = encodedTx
 
 	attempt.State = txAttemptState
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
@@ -679,13 +678,13 @@ func mustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, txSt
 		Data:      []byte{2, 3, 4},
 	}
 	tx := types.NewTx(&dtx)
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
+	encodedTx, err := tx.MarshalBinary()
+	require.NoError(t, err)
+	attempt.SignedRawTx = encodedTx
 
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
@@ -702,14 +701,14 @@ func mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStore 
 	require.NoError(t, txStore.InsertTx(&etx))
 	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
+	tx := cltest.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	encodedTx, err := tx.MarshalBinary()
+	require.NoError(t, err)
+	attempt.SignedRawTx = encodedTx
 
 	attempt.State = txmgrtypes.TxAttemptInsufficientFunds
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
@@ -740,13 +739,13 @@ func mustInsertInProgressEthTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxS
 	etx.State = txmgrcommon.TxInProgress
 	require.NoError(t, txStore.InsertTx(&etx))
 	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
+	tx := cltest.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	encodedTx, err := tx.MarshalBinary()
+	require.NoError(t, err)
+	attempt.SignedRawTx = encodedTx
 	attempt.State = txmgrtypes.TxAttemptInProgress
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }

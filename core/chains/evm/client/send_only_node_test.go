@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -95,7 +96,7 @@ func createSignedTx(t *testing.T, chainID *big.Int, nonce uint64, data []byte) *
 	require.NoError(t, err)
 	sender, err := bind.NewKeyedTransactorWithChainID(key, chainID)
 	require.NoError(t, err)
-	tx := types.NewTransaction(
+	tx := cltest.NewLegacyTransaction(
 		nonce, sender.From,
 		assets.Ether(100).ToInt(),
 		21000, big.NewInt(1000000000), data,
