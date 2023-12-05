@@ -52,7 +52,6 @@ type ExecutionPluginStaticConfig struct {
 	lggr                     logger.Logger
 	sourceLP, destLP         logpoller.LogPoller
 	onRampReader             ccipdata.OnRampReader
-	destReader               ccipdata.Reader
 	offRampReader            ccipdata.OffRampReader
 	commitStoreReader        ccipdata.CommitStoreReader
 	sourcePriceRegistry      ccipdata.PriceRegistryReader
@@ -65,17 +64,25 @@ type ExecutionPluginStaticConfig struct {
 }
 
 type ExecutionReportingPlugin struct {
-	config ExecutionPluginStaticConfig
-
-	F                 int
-	lggr              logger.Logger
-	inflightReports   *inflightExecReportsContainer
-	snoozedRoots      cache.SnoozedRoots
+	// Misc
+	F                  int
+	lggr               logger.Logger
+	offchainConfig     ccipdata.ExecOffchainConfig
+	tokenDataProviders map[common.Address]tokendata.Reader
+	// Source
+	gasPriceEstimator        prices.GasPriceEstimatorExec
+	sourcePriceRegistry      ccipdata.PriceRegistryReader
+	sourceWrappedNativeToken common.Address
+	onRampReader             ccipdata.OnRampReader
+	// Dest
+	commitStoreReader ccipdata.CommitStoreReader
 	destPriceRegistry ccipdata.PriceRegistryReader
 	destWrappedNative common.Address
 	onchainConfig     ccipdata.ExecOnchainConfig
-	offchainConfig    ccipdata.ExecOffchainConfig
-	gasPriceEstimator prices.GasPriceEstimatorExec
+	offRampReader     ccipdata.OffRampReader
+	// State
+	inflightReports *inflightExecReportsContainer
+	snoozedRoots    cache.SnoozedRoots
 }
 
 type ExecutionReportingPluginFactory struct {
@@ -138,16 +145,21 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 	offchainConfig := rf.config.offRampReader.OffchainConfig()
 
 	return &ExecutionReportingPlugin{
-			config:            rf.config,
-			F:                 config.F,
-			lggr:              rf.config.lggr.Named("ExecutionReportingPlugin"),
-			snoozedRoots:      cache.NewSnoozedRoots(rf.config.offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds, offchainConfig.RootSnoozeTime.Duration()),
-			inflightReports:   newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
-			destPriceRegistry: rf.destPriceRegReader,
-			destWrappedNative: destWrappedNative,
-			onchainConfig:     rf.config.offRampReader.OnchainConfig(),
-			offchainConfig:    offchainConfig,
-			gasPriceEstimator: rf.config.offRampReader.GasPriceEstimator(),
+			F:                        config.F,
+			lggr:                     rf.config.lggr.Named("ExecutionReportingPlugin"),
+			offchainConfig:           offchainConfig,
+			tokenDataProviders:       rf.config.tokenDataProviders,
+			gasPriceEstimator:        rf.config.offRampReader.GasPriceEstimator(),
+			sourcePriceRegistry:      rf.config.sourcePriceRegistry,
+			sourceWrappedNativeToken: rf.config.sourceWrappedNativeToken,
+			onRampReader:             rf.config.onRampReader,
+			commitStoreReader:        rf.config.commitStoreReader,
+			destPriceRegistry:        rf.destPriceRegReader,
+			destWrappedNative:        destWrappedNative,
+			onchainConfig:            rf.config.offRampReader.OnchainConfig(),
+			offRampReader:            rf.config.offRampReader,
+			inflightReports:          newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
+			snoozedRoots:             cache.NewSnoozedRoots(rf.config.offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds, offchainConfig.RootSnoozeTime.Duration()),
 		}, types.ReportingPluginInfo{
 			Name: "CCIPExecution",
 			// Setting this to false saves on calldata since OffRamp doesn't require agreement between NOPs
@@ -166,7 +178,7 @@ func (r *ExecutionReportingPlugin) Query(context.Context, types.ReportTimestamp)
 
 func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp types.ReportTimestamp, query types.Query) (types.Observation, error) {
 	lggr := r.lggr.Named("ExecutionObservation")
-	down, err := r.config.commitStoreReader.IsDown(ctx)
+	down, err := r.commitStoreReader.IsDown(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "isDown check errored")
 	}
@@ -206,7 +218,7 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context, lggr logger.Logger, timestamp types.ReportTimestamp, inflight []InflightInternalExecutionReport) ([]ObservedMessage, error) {
 	unexpiredReports, err := r.getUnexpiredCommitReports(
 		ctx,
-		r.config.commitStoreReader,
+		r.commitStoreReader,
 		r.onchainConfig.PermissionLessExecutionThresholdSeconds,
 		lggr,
 	)
@@ -228,27 +240,27 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 		// always be the lower bound of what would be available on chain
 		// since we already account for inflight txs.
 		getAllowedTokenAmount := cache.LazyFetch(func() (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
-			return r.config.offRampReader.CurrentRateLimiterState(ctx)
+			return r.offRampReader.CurrentRateLimiterState(ctx)
 		})
 
 		getSourceTokensPrices := cache.LazyFetch(func() (map[common.Address]*big.Int, error) {
-			sourceFeeTokens, err := r.config.sourcePriceRegistry.GetFeeTokens(ctx)
+			sourceFeeTokens, err := r.sourcePriceRegistry.GetFeeTokens(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("get source fee tokens: %w", err)
 			}
 			return getTokensPrices(
 				ctx,
-				r.config.sourcePriceRegistry,
-				append([]common.Address{r.config.sourceWrappedNativeToken}, sourceFeeTokens...),
+				r.sourcePriceRegistry,
+				append([]common.Address{r.sourceWrappedNativeToken}, sourceFeeTokens...),
 			)
 		})
 
 		getSourceToDestTokens := cache.LazyFetch(func() (map[common.Address]common.Address, error) {
-			return r.config.offRampReader.GetSourceToDestTokensMapping(ctx)
+			return r.offRampReader.GetSourceToDestTokensMapping(ctx)
 		})
 
 		getDestTokensPrices := cache.LazyFetch(func() (map[common.Address]*big.Int, error) {
-			destFeeTokens, destBridgedTokens, err := ccipcommon.GetDestinationTokens(ctx, r.config.offRampReader, r.destPriceRegistry)
+			destFeeTokens, destBridgedTokens, err := ccipcommon.GetDestinationTokens(ctx, r.offRampReader, r.destPriceRegistry)
 			if err != nil {
 				return nil, fmt.Errorf("get destination tokens: %w", err)
 			}
@@ -307,7 +319,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 				continue
 			}
 
-			blessed, err := r.config.commitStoreReader.IsBlessed(ctx, merkleRoot)
+			blessed, err := r.commitStoreReader.IsBlessed(ctx, merkleRoot)
 			if err != nil {
 				return nil, err
 			}
@@ -366,7 +378,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 // destPoolRateLimits returns a map that consists of the rate limits of each destination token of the provided reports.
 // If a token is missing from the returned map it either means that token was not found or token pool is disabled for this token.
 func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commitReports []commitReportWithSendRequests, sourceToDestToken map[common.Address]common.Address) (map[common.Address]*big.Int, error) {
-	tokenPools, err := r.config.offRampReader.GetDestinationTokenPools(ctx)
+	tokenPools, err := r.offRampReader.GetDestinationTokenPools(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get cached token pools: %w", err)
 	}
@@ -406,7 +418,7 @@ func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commi
 		}
 	}
 
-	rateLimits, err := r.config.offRampReader.GetTokenPoolsRateLimits(ctx, dstPools)
+	rateLimits, err := r.offRampReader.GetTokenPoolsRateLimits(ctx, dstPools)
 	if err != nil {
 		return nil, fmt.Errorf("fetch pool rate limits: %w", err)
 	}
@@ -428,11 +440,11 @@ func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commi
 	return res, nil
 }
 
-// Calculates a map that indicated whether a sequence number has already been executed
-// before. It doesn't matter if the executed succeeded, since we don't retry previous
+// Calculates a map that indicates whether a sequence number has already been executed.
+// It doesn't matter if the execution succeeded, since we don't retry previous
 // attempts even if they failed. Value in the map indicates whether the log is finalized or not.
-func (r *ExecutionReportingPlugin) getExecutedSeqNrsInRange(ctx context.Context, min, max uint64, latestBlock int64) (map[uint64]bool, error) {
-	stateChanges, err := r.config.offRampReader.GetExecutionStateChangesBetweenSeqNums(
+func (r *ExecutionReportingPlugin) getExecutedSeqNrsInRange(ctx context.Context, min, max uint64) (map[uint64]bool, error) {
+	stateChanges, err := r.offRampReader.GetExecutionStateChangesBetweenSeqNums(
 		ctx,
 		min,
 		max,
@@ -443,8 +455,7 @@ func (r *ExecutionReportingPlugin) getExecutedSeqNrsInRange(ctx context.Context,
 	}
 	executedMp := make(map[uint64]bool, len(stateChanges))
 	for _, stateChange := range stateChanges {
-		finalized := (latestBlock - stateChange.BlockNumber) >= int64(r.offchainConfig.DestFinalityDepth)
-		executedMp[stateChange.Data.SequenceNumber] = finalized
+		executedMp[stateChange.Data.SequenceNumber] = stateChange.Data.Finalized
 	}
 	return executedMp, nil
 }
@@ -492,7 +503,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 			} else {
 				// Nothing inflight take from chain.
 				// Chain holds existing nonce.
-				nonce, err := r.config.offRampReader.GetSenderNonce(ctx, msg.Sender)
+				nonce, err := r.offRampReader.GetSenderNonce(ctx, msg.Sender)
 				if err != nil {
 					lggr.Errorw("unable to get sender nonce", "err", err, "seqNr", msg.SequenceNumber)
 					continue
@@ -523,7 +534,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 			continue
 		}
 
-		tokenData, err2 := getTokenData(ctx, msgLggr, msg, r.config.tokenDataProviders, skipTokenWithData)
+		tokenData, err2 := getTokenData(ctx, msgLggr, msg, r.tokenDataProviders, skipTokenWithData)
 		if err2 != nil {
 			// When fetching token data, 3rd party API could hang or rate limit or fail due to any reason.
 			// If this happens, we skip all remaining msgs that require token data in this batch.
@@ -767,7 +778,7 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 	var sendRequests []ccipdata.Event[internal.EVM2EVMMessage]
 	eg.Go(func() error {
 		// We don't need to double-check if logs are finalized because we already checked that in the Commit phase.
-		sendReqs, err := r.config.onRampReader.GetSendRequestsBetweenSeqNums(ctx, intervalMin, intervalMax, false)
+		sendReqs, err := r.onRampReader.GetSendRequestsBetweenSeqNums(ctx, intervalMin, intervalMax, false)
 		if err != nil {
 			return err
 		}
@@ -777,13 +788,8 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 
 	var executedSeqNums map[uint64]bool
 	eg.Go(func() error {
-		latestBlock, err := r.config.destReader.LatestBlock(ctx)
-		if err != nil {
-			return err
-		}
-
-		// get executable sequence numbers
-		executedMp, err := r.getExecutedSeqNrsInRange(ctx, intervalMin, intervalMax, latestBlock.BlockNumber)
+		// get executed sequence numbers
+		executedMp, err := r.getExecutedSeqNrsInRange(ctx, intervalMin, intervalMax)
 		if err != nil {
 			return err
 		}
@@ -843,16 +849,16 @@ func aggregateTokenValue(destTokenPricesUSD map[common.Address]*big.Int, sourceT
 // Assumes non-empty report. Messages to execute can span more than one report, but are assumed to be in order of increasing
 // sequence number.
 func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.Logger, observedMessages []ObservedMessage) ([]byte, error) {
-	if err := validateSeqNumbers(ctx, r.config.commitStoreReader, observedMessages); err != nil {
+	if err := validateSeqNumbers(ctx, r.commitStoreReader, observedMessages); err != nil {
 		return nil, err
 	}
-	commitReport, err := getCommitReportForSeqNum(ctx, r.config.commitStoreReader, observedMessages[0].SeqNr)
+	commitReport, err := getCommitReportForSeqNum(ctx, r.commitStoreReader, observedMessages[0].SeqNr)
 	if err != nil {
 		return nil, err
 	}
 	lggr.Infow("Building execution report", "observations", observedMessages, "merkleRoot", hexutil.Encode(commitReport.MerkleRoot[:]), "report", commitReport)
 
-	sendReqsInRoot, leaves, tree, err := getProofData(ctx, r.config.onRampReader, commitReport.Interval)
+	sendReqsInRoot, leaves, tree, err := getProofData(ctx, r.onRampReader, commitReport.Interval)
 	if err != nil {
 		return nil, err
 	}
@@ -865,7 +871,7 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 			return false
 		}
 
-		encoded, err2 := r.config.offRampReader.EncodeExecutionReport(report)
+		encoded, err2 := r.offRampReader.EncodeExecutionReport(report)
 		if err2 != nil {
 			// false makes Search keep looking to the right, always including any "erroring" ObservedMessage and allowing us to detect in the bottom
 			return false
@@ -881,7 +887,7 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 		return nil, err
 	}
 
-	encodedReport, err := r.config.offRampReader.EncodeExecutionReport(execReport)
+	encodedReport, err := r.offRampReader.EncodeExecutionReport(execReport)
 	if err != nil {
 		return nil, err
 	}
@@ -893,7 +899,7 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 		)
 	}
 	// Double check this verifies before sending.
-	valid, err := r.config.commitStoreReader.VerifyExecutionReport(ctx, execReport)
+	valid, err := r.commitStoreReader.VerifyExecutionReport(ctx, execReport)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to verify")
 	}
@@ -990,7 +996,7 @@ func calculateObservedMessagesConsensus(observations []ExecutionObservation, f i
 
 func (r *ExecutionReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, timestamp types.ReportTimestamp, report types.Report) (bool, error) {
 	lggr := r.lggr.Named("ShouldAcceptFinalizedReport")
-	execReport, err := r.config.offRampReader.DecodeExecutionReport(report)
+	execReport, err := r.offRampReader.DecodeExecutionReport(report)
 	if err != nil {
 		lggr.Errorw("Unable to decode report", "err", err)
 		return false, err
@@ -1016,7 +1022,7 @@ func (r *ExecutionReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Conte
 
 func (r *ExecutionReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, timestamp types.ReportTimestamp, report types.Report) (bool, error) {
 	lggr := r.lggr.Named("ShouldTransmitAcceptedReport")
-	execReport, err := r.config.offRampReader.DecodeExecutionReport(report)
+	execReport, err := r.offRampReader.DecodeExecutionReport(report)
 	if err != nil {
 		lggr.Errorw("Unable to decode report", "err", err)
 		return false, nil
@@ -1047,7 +1053,7 @@ func (r *ExecutionReportingPlugin) isStaleReport(ctx context.Context, messages [
 	// If the first message is executed already, this execution report is stale.
 	// Note the default execution state, including for arbitrary seq number not yet committed
 	// is ExecutionStateUntouched.
-	msgState, err := r.config.offRampReader.GetExecutionState(ctx, messages[0].SequenceNumber)
+	msgState, err := r.offRampReader.GetExecutionState(ctx, messages[0].SequenceNumber)
 	if err != nil {
 		return true, err
 	}

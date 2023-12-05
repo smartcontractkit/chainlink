@@ -16,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-var _ Reader = &LogPollerReader{}
-
 // LogPollerReader implements the Reader interface by using a logPoller instance to fetch the events.
 type LogPollerReader struct {
 	lp     logpoller.LogPoller

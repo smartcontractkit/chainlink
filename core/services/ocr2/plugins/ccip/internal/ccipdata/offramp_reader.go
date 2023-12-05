@@ -85,6 +85,7 @@ func (c ExecOnchainConfig) Validate() error {
 
 type ExecutionStateChanged struct {
 	SequenceNumber uint64
+	Finalized      bool
 }
 
 type ExecReport struct {
