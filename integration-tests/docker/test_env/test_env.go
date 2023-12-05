@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -30,9 +30,9 @@ var (
 )
 
 type CLClusterTestEnv struct {
-	Cfg      *TestEnvConfig
-	Network  *tc.DockerNetwork
-	LogWatch *logwatch.LogWatch
+	Cfg       *TestEnvConfig
+	Network   *tc.DockerNetwork
+	LogStream *logstream.LogStream
 
 	/* components */
 	ClCluster             *ClCluster
@@ -169,9 +169,9 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 		}
 	}
 
-	if te.LogWatch != nil {
+	if te.LogStream != nil {
 		for _, node := range te.ClCluster.Nodes {
-			node.lw = te.LogWatch
+			node.ls = te.LogStream
 		}
 	}
 

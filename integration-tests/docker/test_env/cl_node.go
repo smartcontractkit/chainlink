@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -48,7 +48,7 @@ type ClNode struct {
 	UserPassword          string                  `json:"userPassword"`
 	t                     *testing.T
 	l                     zerolog.Logger
-	lw                    *logwatch.LogWatch
+	ls                    *logstream.LogStream
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -77,9 +77,9 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
+func WithLogStream(ls *logstream.LogStream) ClNodeOption {
 	return func(c *ClNode) {
-		c.lw = lw
+		c.ls = ls
 	}
 }
 
@@ -411,16 +411,16 @@ func (n *ClNode) getContainerRequest(secrets string) (
 		LifecycleHooks: []tc.ContainerLifecycleHooks{
 			{PostStarts: []tc.ContainerHook{
 				func(ctx context.Context, c tc.Container) error {
-					if n.lw != nil {
-						return n.lw.ConnectContainer(ctx, c, "cl-node")
+					if n.ls != nil {
+						return n.ls.ConnectContainer(ctx, c, "cl-node")
 					}
 					return nil
 				},
 			},
 				PostStops: []tc.ContainerHook{
 					func(ctx context.Context, c tc.Container) error {
-						if n.lw != nil {
-							return n.lw.DisconnectContainer(c)
+						if n.ls != nil {
+							return n.ls.DisconnectContainer(c)
 						}
 						return nil
 					},

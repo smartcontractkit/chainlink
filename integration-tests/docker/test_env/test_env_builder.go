@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -33,8 +33,7 @@ const (
 )
 
 type CLTestEnvBuilder struct {
-	hasLogWatch bool
-	// hasGeth                bool
+	hasLogStream           bool
 	hasKillgrave           bool
 	hasForwarders          bool
 	clNodeConfig           *chainlink.Config
@@ -102,8 +101,8 @@ func (b *CLTestEnvBuilder) WithTestLogger(t *testing.T) *CLTestEnvBuilder {
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
-	b.hasLogWatch = true
+func (b *CLTestEnvBuilder) WithLogStream() *CLTestEnvBuilder {
+	b.hasLogStream = true
 	return b
 }
 
@@ -225,8 +224,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.te.WithTestLogger(b.t)
 	}
 
-	if b.hasLogWatch {
-		b.te.LogWatch, err = logwatch.NewLogWatch(b.t, nil)
+	if b.hasLogStream {
+		b.te.LogStream, err = logstream.NewLogStream(b.t, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -254,19 +253,19 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		return b.te, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("explicit cleanup type must be set when building test environment"))
 	}
 
-	if b.te.LogWatch != nil {
+	if b.te.LogStream != nil {
 		b.t.Cleanup(func() {
-			b.l.Warn().Msg("Shutting down logwatch")
+			b.l.Warn().Msg("Shutting down LogStream")
 
 			if b.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
 				// we can't do much if this fails, so we just log the error
-				_ = b.te.LogWatch.FlushLogsToTargets()
-				b.te.LogWatch.PrintLogTargetsLocations()
-				b.te.LogWatch.SaveLogLocationInTestSummary()
+				_ = b.te.LogStream.FlushLogsToTargets()
+				b.te.LogStream.PrintLogTargetsLocations()
+				b.te.LogStream.SaveLogLocationInTestSummary()
 			}
 
 			// we can't do much if this fails, so we just log the error
-			_ = b.te.LogWatch.Shutdown(testcontext.Get(b.t))
+			_ = b.te.LogStream.Shutdown(testcontext.Get(b.t))
 		})
 	}
 
