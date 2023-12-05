@@ -409,8 +409,7 @@ github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08/go.mod h1:x
 github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 h1:Uc+IZ7gYqAf/rSGFplbWBSHaGolEQlNLgMgSE3ccnIQ=
 github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813/go.mod h1:P+oSoE9yhSRvsmYyZsshflcR6ePWYLql6UU1amW13IM=
 github.com/getsentry/sentry-go v0.12.0/go.mod h1:NSap0JBYWzHND8oMbyi0+XZhUalc1TBdRL1M71JZW2c=
-github.com/getsentry/sentry-go v0.19.0 h1:BcCH3CN5tXt5aML+gwmbFwVptLLQA+eT866fCO9wVOM=
-github.com/getsentry/sentry-go v0.19.0/go.mod h1:y3+lGEFEFexZtpbG1GUE2WD/f9zGyKYwpEqryTOC/nE=
+github.com/getsentry/sentry-go v0.25.0 h1:q6Eo+hS+yoJlTO3uu/azhQadsD8V+jQn2D8VvX1eOyI=
 github.com/getsentry/sentry-go v0.25.0/go.mod h1:lc76E2QywIyW8WuBnwl8Lc4bkmQH4+w1gwTf25trprY=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/gin-contrib/cors v1.4.0 h1:oJ6gwtUl3lqV0WEIwM/LxPF1QZ5qe2lGWdY2+bz7y0g=
@@ -1216,10 +1215,6 @@ github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 h1:T3lFWumv
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
 github.com/smartcontractkit/chainlink-automation v1.0.1 h1:vVjBFq2Zsz21kPy1Pb0wpjF9zrbJX+zjXphDeeR4XZk=
 github.com/smartcontractkit/chainlink-automation v1.0.1/go.mod h1:INSchkV3ntyDdlZKGWA030MPDpp6pbeuiRkRKYFCm2k=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20231127213516-5b67a57f9248 h1:HJCPvJ+ZjU9TSX4YD5rxBJqGAvqhDfzoJgI3WmfeWeI=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20231127213516-5b67a57f9248/go.mod h1:Hrru9i7n+WEYyW2aIt3/YGPhxLX+HEGWnhk3yVXeDF8=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20231205161812-80bf293e4312 h1:MjSkansugfTHex7gMrUzS00P6MgvK4yFgXV4tFrVBW8=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20231205161812-80bf293e4312/go.mod h1:opVkADe/wkzM84TO+n2csoW+5HXpZCRYpoqFe9/cqRc=
 github.com/smartcontractkit/chainlink-common v0.1.7-0.20231205172706-57168b80dde4 h1:ZfnLe1cVJIVLmYF++zzKi8Wz3zJ+lw/FjKEl2dIsgCQ=
 github.com/smartcontractkit/chainlink-common v0.1.7-0.20231205172706-57168b80dde4/go.mod h1:opVkADe/wkzM84TO+n2csoW+5HXpZCRYpoqFe9/cqRc=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231117191236-12eab01a4542 h1:oewYJtdRkJKUHCNDCj5C2LQe6Oq6qy975g931nfG0cc=
