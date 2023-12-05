@@ -27,6 +27,10 @@ const (
 	// flushCadence is the amount of time between flushes to the DB.
 	flushCadence         = 30 * time.Second
 	concurrentBatchCalls = 10
+	// workIDRateLimit is the number of times we allow a workID to be checked per workIDRatePeriod.
+	workIDRateLimit = 3
+	// workIDRatePeriod is the amount of time we allow a workID to be checked workIDRateLimit times.
+	workIDRatePeriod = time.Minute
 )
 
 type ORM interface {
@@ -77,6 +81,8 @@ type upkeepStateStore struct {
 	pendingRecords []persistedStateRecord
 	sem            chan struct{}
 	batchSize      int
+
+	buckets *tokenBuckets
 }
 
 // NewUpkeepStateStore creates a new state store
@@ -92,6 +98,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		pendingRecords: []persistedStateRecord{},
 		sem:            make(chan struct{}, concurrentBatchCalls),
 		batchSize:      batchSize,
+		buckets:        newTokenBuckets(workIDRateLimit, workIDRatePeriod),
 	}
 }
 
@@ -105,6 +112,8 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 		}
 
 		u.lggr.Debug("Starting upkeep state store")
+
+		u.threadCtrl.Go(u.buckets.Start)
 
 		u.threadCtrl.Go(func(ctx context.Context) {
 			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
@@ -180,13 +189,21 @@ func (u *upkeepStateStore) SelectByWorkIDs(ctx context.Context, workIDs ...strin
 		// all ids were found in the cache
 		return states, nil
 	}
-	if err := u.fetchPerformed(ctx, missing...); err != nil {
+	// some ids were missing from the cache, fetch them from the scanner and DB
+	// and update the cache. we only fetch ids that are eligible for fetching
+	// (i.e. we haven't checked them too many times in the last period)
+	toCheck := make([]string, 0, len(missing))
+	for _, id := range missing {
+		if u.buckets.Accept(id, 1) {
+			toCheck = append(toCheck, id)
+		}
+	}
+	if err := u.fetchPerformed(ctx, toCheck...); err != nil {
 		return nil, err
 	}
-	if err := u.fetchFromDB(ctx, missing...); err != nil {
+	if err := u.fetchFromDB(ctx, toCheck...); err != nil {
 		return nil, err
 	}
-
 	// at this point all values should be in the cache. if values are missing
 	// their state is indicated as unknown
 	states, _ = u.selectFromCache(workIDs...)
