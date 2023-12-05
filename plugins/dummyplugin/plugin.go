@@ -127,7 +127,7 @@ func (d dummyPlugin) Report(ctx context.Context, timestamp ocrtypes.ReportTimest
 		reportObservations = append(reportObservations, big.NewInt(int64(t.timestamp)))
 	}
 
-	reportBytes, err := reportTypes.Pack(timestamp, observers, reportObservations, big.NewInt(0))
+	reportBytes, err := reportTypes.Pack(uint32(time.Now().Unix()), observers, reportObservations, big.NewInt(0))
 	return true, reportBytes, err
 
 }
