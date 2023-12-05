@@ -65,7 +65,7 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
     assertEq(s_sourceTokens, s_onRamp.getSupportedTokens(DEST_CHAIN_ID));
 
     // Initial values
-    assertEq("EVM2EVMOnRamp 1.2.0", s_onRamp.typeAndVersion());
+    assertEq("EVM2EVMOnRamp 1.3.0-dev", s_onRamp.typeAndVersion());
     assertEq(OWNER, s_onRamp.owner());
     assertEq(1, s_onRamp.getExpectedNextSequenceNumber());
   }
@@ -1525,6 +1525,32 @@ contract EVM2EVMOnRamp_withdrawNonLinkFees is EVM2EVMOnRampSetup {
     s_onRamp.withdrawNonLinkFees(address(s_token), address(this));
   }
 
+  function testFuzz_FuzzWithdrawalOnlyLeftoverLinkSuccess(uint96 nopFeeJuels, uint64 extraJuels) public {
+    nopFeeJuels = uint96(bound(nopFeeJuels, 1, MAX_NOP_FEES_JUELS));
+
+    // Set Nop fee juels
+    changePrank(address(s_sourceRouter));
+    s_onRamp.forwardFromRouter(DEST_CHAIN_ID, _generateEmptyMessage(), nopFeeJuels, OWNER);
+    changePrank(OWNER);
+
+    vm.expectRevert(EVM2EVMOnRamp.LinkBalanceNotSettled.selector);
+    s_onRamp.withdrawNonLinkFees(address(s_token), address(this));
+
+    address linkToken = s_sourceTokens[0];
+    // It doesnt matter how the link tokens get to the onRamp
+    // In this case we simply deal them to the ramp to show
+    // anyone can settle the balance
+    deal(linkToken, address(s_onRamp), nopFeeJuels + uint96(extraJuels));
+
+    // Now that we've sent nopFeesJuels + extraJuels, we should be able to withdraw extraJuels
+    address linkRecipient = address(0x123456789);
+    assertEq(0, IERC20(linkToken).balanceOf(linkRecipient));
+
+    s_onRamp.withdrawNonLinkFees(linkToken, linkRecipient);
+
+    assertEq(extraJuels, IERC20(linkToken).balanceOf(linkRecipient));
+  }
+
   // Reverts
 
   function testLinkBalanceNotSettledReverts() public {
@@ -1549,11 +1575,6 @@ contract EVM2EVMOnRamp_withdrawNonLinkFees is EVM2EVMOnRampSetup {
   function testWithdrawToZeroAddressReverts() public {
     vm.expectRevert(EVM2EVMOnRamp.InvalidWithdrawParams.selector);
     s_onRamp.withdrawNonLinkFees(address(s_token), address(0));
-  }
-
-  function testInvalidTokenReverts() public {
-    vm.expectRevert(EVM2EVMOnRamp.InvalidWithdrawParams.selector);
-    s_onRamp.withdrawNonLinkFees(s_sourceTokens[0], address(this));
   }
 }
 

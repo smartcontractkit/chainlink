@@ -141,7 +141,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   // STATIC CONFIG
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "EVM2EVMOnRamp 1.2.0";
+  string public constant override typeAndVersion = "EVM2EVMOnRamp 1.3.0-dev";
   /// @dev metadataHash is a lane-specific prefix for a message hash preimage which ensures global uniqueness
   /// Ensures that 2 identical messages sent to 2 different lanes will have a distinct hash.
   /// Must match the metadataHash used in computing leaf hashes offchain for the root committed in
@@ -826,17 +826,24 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     s_nopFeesJuels = fundsLeft;
   }
 
-  /// @notice Allows the owner to withdraw any ERC20 token that is not the fee token
+  /// @notice Allows the owner to withdraw any ERC20 token from the contract.
+  /// The NOP link balance is not withdrawable.
   /// @param feeToken The token to withdraw
   /// @param to The address to send the tokens to
   function withdrawNonLinkFees(address feeToken, address to) external onlyOwnerOrAdmin {
-    if (feeToken == i_linkToken || to == address(0)) revert InvalidWithdrawParams();
+    if (to == address(0)) revert InvalidWithdrawParams();
 
-    // We require the link balance to be settled before allowing withdrawal
-    // of non-link fees.
-    if (_linkLeftAfterNopFees() < 0) revert LinkBalanceNotSettled();
+    // We require the link balance to be settled before allowing withdrawal of non-link fees.
+    int256 linkAfterNopFees = _linkLeftAfterNopFees();
+    if (linkAfterNopFees < 0) revert LinkBalanceNotSettled();
 
-    IERC20(feeToken).safeTransfer(to, IERC20(feeToken).balanceOf(address(this)));
+    if (feeToken == i_linkToken) {
+      // Withdraw only the left over link balance
+      IERC20(feeToken).safeTransfer(to, uint256(linkAfterNopFees));
+    } else {
+      // Withdrawal all non-link tokens in the contract
+      IERC20(feeToken).safeTransfer(to, IERC20(feeToken).balanceOf(address(this)));
+    }
   }
 
   // ================================================================
