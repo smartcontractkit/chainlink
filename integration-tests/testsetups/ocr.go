@@ -277,6 +277,10 @@ func (o *OCRSoakTest) Setup() {
 			ocrOffchainOptions,
 		)
 		require.NoError(o.t, err, "Error deploying OCRv2 contracts")
+		contractConfig, err := actions.BuildMedianOCR2Config(o.workerNodes)
+		require.NoError(o.t, err, "Error building median config")
+		err = actions.ConfigureOCRv2AggregatorContracts(o.chainClient, contractConfig, o.ocrV2Instances)
+		require.NoError(o.t, err, "Error configuring OCRv2 aggregator contracts")
 	}
 
 	err = o.chainClient.WaitForEvents()
