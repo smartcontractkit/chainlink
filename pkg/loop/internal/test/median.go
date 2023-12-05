@@ -68,6 +68,18 @@ func ReportingPluginFactory(t *testing.T, factory types.ReportingPluginFactory) 
 type StaticPluginMedian struct{}
 
 func (s StaticPluginMedian) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoinDataSource median.DataSource, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
+	cr := provider.ChainReader()
+	var gotLatestValue map[string]int
+
+	err := cr.GetLatestValue(ctx, boundContract, medianContractGenericMethod, getLatestValueParams, &gotLatestValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call GetLatestValue() on median provider: %w", err)
+	}
+
+	if !assert.ObjectsAreEqual(gotLatestValue, latestValue) {
+		return nil, fmt.Errorf("GetLatestValue: expected %v but got %v", gotLatestValue, latestValue)
+	}
+
 	ocd := provider.OffchainConfigDigester()
 	gotDigestPrefix, err := ocd.ConfigDigestPrefix()
 	if err != nil {
@@ -302,6 +314,10 @@ func (s StaticMedianProvider) MedianContract() median.MedianContract { return st
 
 func (s StaticMedianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
 	return staticOnchainConfigCodec{}
+}
+
+func (s StaticMedianProvider) ChainReader() types.ChainReader {
+	return staticChainReader{}
 }
 
 type staticReportCodec struct{}

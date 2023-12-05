@@ -4,6 +4,8 @@ import (
 	"context"
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 type StaticPluginProvider struct{}
@@ -28,4 +30,8 @@ func (s StaticPluginProvider) ContractConfigTracker() libocr.ContractConfigTrack
 
 func (s StaticPluginProvider) ContractTransmitter() libocr.ContractTransmitter {
 	return staticContractTransmitter{}
+}
+
+func (s StaticPluginProvider) ChainReader() types.ChainReader {
+	return staticChainReader{}
 }

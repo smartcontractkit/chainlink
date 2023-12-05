@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -349,7 +351,7 @@ func (r *relayerServer) NewPluginProvider(ctx context.Context, request *pb.NewPl
 func (r *relayerServer) newMedianProvider(ctx context.Context, relayArgs types.RelayArgs, pluginArgs types.PluginArgs) (uint32, error) {
 	i, ok := r.impl.(MedianProvider)
 	if !ok {
-		return 0, errors.New("median not supported")
+		return 0, status.Error(codes.Unimplemented, "median not supported")
 	}
 
 	provider, err := i.NewMedianProvider(ctx, relayArgs, pluginArgs)
@@ -370,6 +372,7 @@ func (r *relayerServer) newMedianProvider(ctx context.Context, relayArgs types.R
 		pb.RegisterContractTransmitterServer(s, &contractTransmitterServer{impl: provider.ContractTransmitter()})
 		pb.RegisterReportCodecServer(s, &reportCodecServer{impl: provider.ReportCodec()})
 		pb.RegisterMedianContractServer(s, &medianContractServer{impl: provider.MedianContract()})
+		pb.RegisterChainReaderServer(s, &chainReaderServer{impl: provider.ChainReader()})
 		pb.RegisterOnchainConfigCodecServer(s, &onchainConfigCodecServer{impl: provider.OnchainConfigCodec()})
 	}, providerRes)
 	if err != nil {

@@ -17,5 +17,5 @@ type MercuryProvider interface {
 	ReportCodecV3() v3.ReportCodec
 	OnchainConfigCodec() mercury.OnchainConfigCodec
 	MercuryServerFetcher() mercury.ServerFetcher
-	ChainReader() mercury.ChainReader
+	MercuryChainReader() mercury.ChainReader
 }

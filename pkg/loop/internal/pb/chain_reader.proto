@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
+
+package loop;
+
+import "google/protobuf/empty.proto";
+
+service ChainReader {
+  rpc GetLatestValue (GetLatestValueRequest) returns (GetLatestValueReply) {}
+}
+
+message VersionedBytes {
+  uint32 version = 1;
+  bytes data = 2;
+}
+
+// GetLatestValueRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.ChainReader.GetLatestValue].
+message GetLatestValueRequest {
+  BoundContract bc = 1;
+  string method = 2;
+  VersionedBytes params = 3;
+}
+
+// GetLatestValueReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.ChainReader.GetLatestValue].
+message GetLatestValueReply {
+  VersionedBytes retVal = 1;
+}
+
+// BoundContract represents a [github.com/smartcontractkit/chainlink-common/pkg/types.BoundContract].
+message BoundContract {
+  string address = 1;
+  string name = 2;
+  bool pending = 3;
+}

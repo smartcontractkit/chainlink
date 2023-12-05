@@ -3,11 +3,14 @@ package test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 type staticConfigProvider struct{}
@@ -84,4 +87,48 @@ func (s staticContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Contex
 
 func (s staticContractTransmitter) FromAccount() (libocr.Account, error) {
 	return account, nil
+}
+
+type staticChainReader struct{}
+
+func (c staticChainReader) GetMaxEncodingSize(ctx context.Context, n int, itemType string) (int, error) {
+	return 0, errors.New("not used for these test")
+}
+
+func (c staticChainReader) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
+	return 0, errors.New("not used for these test")
+}
+
+func (c staticChainReader) Encode(ctx context.Context, item any, itemType string) ([]byte, error) {
+	return nil, errors.New("not used for these test")
+}
+
+func (c staticChainReader) Decode(ctx context.Context, raw []byte, into any, itemType string) error {
+	return errors.New("not used for these test")
+}
+
+func (c staticChainReader) GetLatestValue(ctx context.Context, bc types.BoundContract, method string, params, returnVal any) error {
+	if !assert.ObjectsAreEqual(bc, boundContract) {
+		return fmt.Errorf("expected report context %v but got %v", boundContract, bc)
+	}
+	if method != medianContractGenericMethod {
+		return fmt.Errorf("expected generic contract method %v but got %v", medianContractGenericMethod, method)
+	}
+	gotParams, ok := params.(*map[string]any)
+	if !ok {
+		return fmt.Errorf("Invalid parameter type received in GetLatestValue. Expected %T but received %T", gotParams, params)
+	}
+	if (*gotParams)["param1"] != getLatestValueParams["param1"] || (*gotParams)["param2"] != getLatestValueParams["param2"] {
+		return fmt.Errorf("Wrong params value received in GetLatestValue. Expected %v but received %v", getLatestValueParams, *gotParams)
+	}
+
+	ret, ok := returnVal.(*map[string]any)
+	if !ok {
+		return fmt.Errorf("Wrong type passed for retVal param to GetLatestValue impl (expected %T instead of %T", ret, returnVal)
+	}
+
+	(*ret)["ret1"] = latestValue["ret1"]
+	(*ret)["ret2"] = latestValue["ret2"]
+
+	return nil
 }

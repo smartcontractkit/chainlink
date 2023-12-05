@@ -66,7 +66,7 @@ var (
 	juelsPerFeeCoin = big.NewInt(1234)
 	onchainConfig   = median.OnchainConfig{Min: big.NewInt(-12), Max: big.NewInt(1234567890987654321)}
 	latestAnswer    = big.NewInt(-66)
-	latestTimestamp = time.Unix(1234567890, 987654321)
+	latestTimestamp = time.Unix(1234567890, 987654321).UTC()
 	medianValue     = big.NewInt(-1042)
 	nodes           = []types.NodeStatus{{
 		ChainID: "foo",
@@ -147,5 +147,13 @@ URL = 'https://test.url'
 			Index: 0,
 		},
 	})
-	payload = []byte("oops")
+	payload                     = []byte("oops")
+	medianContractGenericMethod = "LatestTransmissionDetails"
+	getLatestValueParams        = map[string]string{"param1": "value1", "param2": "value2"}
+	boundContract               = types.BoundContract{
+		Name:    "my median contract",
+		Address: "0xBbf078A8849D74653e36E6DBBdC7e1a35E657C26",
+		Pending: false,
+	}
+	latestValue = map[string]int{"ret1": 1, "ret2": 2}
 )
