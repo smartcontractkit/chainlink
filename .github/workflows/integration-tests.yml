@@ -425,7 +425,8 @@ jobs:
           #   pyroscope_env: ci-smoke-vrf2-evm-simulated                           
           - name: vrfv2plus
             nodes: 1
-            run: -run '^(?!TestVRFv2Plus/Link Billing).*$'
+          # ugly, but go test doesn't support negative lookahead  
+            run: -run '^(TestVRFv2Plus)([^L]|L[^i]|Li[^n]|Lin[^k]|Link[^ ]|Link [^B]|Link B[^i]|Link Bi[^l]|Link Bil[^l]|Link Bill[^i]|Link Billi[^n]|Link Billin[^g])*$'
             file: vrfv2plus
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
