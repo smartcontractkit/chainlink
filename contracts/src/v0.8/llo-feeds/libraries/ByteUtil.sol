@@ -16,6 +16,7 @@ library ByteUtil {
    * @param offset Position to start reading from.
    * @return result The uint256 read from the byte array.
    */
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _readUint256(bytes memory data, uint256 offset) internal pure returns (uint256 result) {
     //bounds check
     if (offset + 32 > data.length) revert MalformedData();
@@ -32,6 +33,7 @@ library ByteUtil {
    * @param offset Position to start reading from.
    * @return result The uint192 read from the byte array.
    */
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _readUint192(bytes memory data, uint256 offset) internal pure returns (uint256 result) {
     //bounds check
     if (offset + 24 > data.length) revert MalformedData();
@@ -50,6 +52,7 @@ library ByteUtil {
    * @param offset Position to start reading from.
    * @return result The uint32 read from the byte array.
    */
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _readUint32(bytes memory data, uint256 offset) internal pure returns (uint256 result) {
     //bounds check
     if (offset + 4 > data.length) revert MalformedData();
@@ -68,6 +71,7 @@ library ByteUtil {
    * @param offset Position to start reading from.
    * @return result The uint32 read from the byte array.
    */
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _readAddress(bytes memory data, uint256 offset) internal pure returns (address result) {
     //bounds check
     if (offset + 20 > data.length) revert MalformedData();
