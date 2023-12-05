@@ -422,7 +422,7 @@ jobs:
           LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
           LOKI_URL: ${{ secrets.LOKI_URL }}
           LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-          LOGWATCH_LOG_TARGETS: ${{ vars. LOGWATCH_LOG_TARGETS }}
+          LOGSTREAM_LOG_TARGETS: ${{ vars. LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
           GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
           RUN_ID: ${{ github.run_id }}
