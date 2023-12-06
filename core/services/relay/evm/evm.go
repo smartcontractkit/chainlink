@@ -54,6 +54,7 @@ type Relayer struct {
 	mercuryPool      wsrpc.Pool
 	eventBroadcaster pg.EventBroadcaster
 	pgCfg            pg.QConfig
+	chainReader      commontypes.ChainReader
 }
 
 type CSAETHKeystore interface {
@@ -189,8 +190,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	}
 	transmitter := mercury.NewTransmitter(lggr, cw.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
 
-	chainReader := NewChainReader(r.chain.HeadTracker())
-	return NewMercuryProvider(cw, transmitter, reportCodecV1, reportCodecV2, reportCodecV3, chainReader, lggr), nil
+	return NewMercuryProvider(cw, r.chainReader, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
 }
 
 func (r *Relayer) NewFunctionsProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
@@ -502,6 +502,10 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	if expectedChainID != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
+	if !common.IsHexAddress(relayOpts.ContractID) {
+		return nil, fmt.Errorf("invalid contractID %s, expected hex address", relayOpts.ContractID)
+	}
+	contractID := common.HexToAddress(relayOpts.ContractID)
 
 	configWatcher, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
@@ -518,12 +522,26 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	if err != nil {
 		return nil, err
 	}
-	return &medianProvider{
+
+	medianProvider := medianProvider{
 		configWatcher:       configWatcher,
 		reportCodec:         reportCodec,
 		contractTransmitter: contractTransmitter,
 		medianContract:      medianContract,
-	}, nil
+	}
+
+	// allow fallback until chain reader is default and median contract is removed, but still log just in case
+	var chainReaderService commontypes.ChainReader
+	if relayConfig.ChainReader != nil {
+		if chainReaderService, err = NewChainReaderService(lggr, r.chain.LogPoller(), contractID, *relayConfig.ChainReader); err != nil {
+			return nil, err
+		}
+	} else {
+		lggr.Info("ChainReader missing from RelayConfig; falling back to internal MedianContract")
+	}
+	medianProvider.chainReader = chainReaderService
+
+	return &medianProvider, nil
 }
 
 var _ commontypes.MedianProvider = (*medianProvider)(nil)
@@ -533,8 +551,8 @@ type medianProvider struct {
 	contractTransmitter ContractTransmitter
 	reportCodec         median.ReportCodec
 	medianContract      *medianContract
-
-	ms services.MultiStart
+	chainReader         commontypes.ChainReader
+	ms                  services.MultiStart
 }
 
 func (p *medianProvider) Name() string {
@@ -581,4 +599,8 @@ func (p *medianProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigeste
 
 func (p *medianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return p.configWatcher.ContractConfigTracker()
+}
+
+func (p *medianProvider) ChainReader() commontypes.ChainReader {
+	return p.chainReader
 }
