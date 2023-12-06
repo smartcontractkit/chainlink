@@ -14,13 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var (
-	// maxLogsPerUpkeepInBlock is the maximum number of logs allowed per upkeep in a block.
-	maxLogsPerUpkeepInBlock = 32
-	// maxLogsPerBlock is the maximum number of blocks in the buffer.
-	maxLogsPerBlock = 1024
-)
-
 // fetchedLog holds the log and the ID of the upkeep
 type fetchedLog struct {
 	upkeepID *big.Int

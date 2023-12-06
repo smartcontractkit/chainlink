@@ -317,6 +317,7 @@ type OCR2OracleSpec struct {
 	// TODO BCF-2442 implement ChainID as top level parameter rathe than buried in RelayConfig.
 	ChainID                           string               `toml:"chainID"`
 	RelayConfig                       JSONConfig           `toml:"relayConfig"`
+	LogProviderConfig                 JSONConfig           `toml:"logProviderConfig"`
 	P2PV2Bootstrappers                pq.StringArray       `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String          `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String          `toml:"monitoringEndpoint"`

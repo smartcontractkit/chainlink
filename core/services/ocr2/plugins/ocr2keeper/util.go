@@ -127,7 +127,7 @@ func EVMDependencies21(
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	services, err := evmregistry21.New(rAddr, chain, mc, keyring, lggr, db, dbCfg)
+	services, err := evmregistry21.New(rAddr, spec, chain, mc, keyring, lggr, db, dbCfg)
 	if err != nil {
 		return nil, nil, err
 	}

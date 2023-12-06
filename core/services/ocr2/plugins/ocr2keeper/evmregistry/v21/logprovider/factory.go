@@ -13,10 +13,9 @@ import (
 
 // New creates a new log event provider and recoverer.
 // using default values for the options.
-func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth uint32) (LogEventProvider, LogRecoverer) {
+func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, opts LogTriggersOptions) (LogEventProvider, LogRecoverer) {
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker()
-	opts := NewOptions(int64(finalityDepth))
 	provider := NewLogProvider(lggr, poller, packer, filterStore, opts)
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
 
@@ -37,21 +36,32 @@ type LogTriggersOptions struct {
 	BlockLimitBurst int
 	// Finality depth is the number of blocks to wait before considering a block final.
 	FinalityDepth int64
+	// AllowedLogsPerUpkeep is the maximum number of logs allowed per upkeep every single call.
+	AllowedLogsPerUpkeep int
+	// MaxPayloads is the maximum number of payloads to return per call.
+	MaxPayloads int
+	// MaxLogsPerBlock is the maximum number of blocks in the buffer.
+	MaxLogsPerBlock int
+	// MaxLogsPerUpkeepInBlock is the maximum number of logs allowed per upkeep in a block.
+	MaxLogsPerUpkeepInBlock int
+	// MaxProposals is the maximum number of proposals that can be returned by GetRecoveryProposals
+	MaxProposals int
 }
 
 func NewOptions(finalityDepth int64) LogTriggersOptions {
 	opts := new(LogTriggersOptions)
-	opts.Defaults(finalityDepth)
+	opts.FinalityDepth = finalityDepth
+	opts.assignDefaults()
 	return *opts
 }
 
-// Defaults sets the default values for the options.
+// assignDefaults sets the default values for the options.
 // NOTE: o.LookbackBlocks should be set only from within tests
-func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
+func (o *LogTriggersOptions) assignDefaults() {
 	if o.LookbackBlocks == 0 {
 		lookbackBlocks := int64(200)
-		if lookbackBlocks < finalityDepth {
-			lookbackBlocks = finalityDepth
+		if lookbackBlocks < o.FinalityDepth { // TODO the order of assigning lookbackBlocks vs FinalityDepth is fickle
+			lookbackBlocks = o.FinalityDepth
 		}
 		o.LookbackBlocks = lookbackBlocks
 	}
@@ -64,7 +74,19 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	if o.BlockRateLimit == 0 {
 		o.BlockRateLimit = rate.Every(o.ReadInterval)
 	}
-	if o.FinalityDepth == 0 {
-		o.FinalityDepth = finalityDepth
+	if o.AllowedLogsPerUpkeep == 0 {
+		o.AllowedLogsPerUpkeep = 5
+	}
+	if o.MaxPayloads == 0 {
+		o.MaxPayloads = 100
+	}
+	if o.MaxLogsPerBlock == 0 {
+		o.MaxLogsPerBlock = 1024
+	}
+	if o.MaxLogsPerUpkeepInBlock == 0 {
+		o.MaxLogsPerUpkeepInBlock = 32
+	}
+	if o.MaxProposals == 0 {
+		o.MaxProposals = 20
 	}
 }

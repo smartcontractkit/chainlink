@@ -1,10 +1,12 @@
 package evm
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -15,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
@@ -36,7 +39,7 @@ type AutomationServices interface {
 	Keyring() ocr3types.OnchainKeyring[plugin.AutomationReportInfo]
 }
 
-func New(addr common.Address, client legacyevm.Chain, mc *models.MercuryCredentials, keyring ocrtypes.OnchainKeyring, lggr logger.Logger, db *sqlx.DB, dbCfg pg.QConfig) (AutomationServices, error) {
+func New(addr common.Address, spec job.Job, client legacyevm.Chain, mc *models.MercuryCredentials, keyring ocrtypes.OnchainKeyring, lggr logger.Logger, db *sqlx.DB, dbCfg pg.QConfig) (AutomationServices, error) {
 	registryContract, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
@@ -61,7 +64,12 @@ func New(addr common.Address, client legacyevm.Chain, mc *models.MercuryCredenti
 	scanner := upkeepstate.NewPerformedEventsScanner(lggr, client.LogPoller(), addr, finalityDepth)
 	services.upkeepState = upkeepstate.NewUpkeepStateStore(orm, lggr, scanner)
 
-	logProvider, logRecoverer := logprovider.New(lggr, client.LogPoller(), client.Client(), services.upkeepState, finalityDepth)
+	var opts = logprovider.NewOptions(int64(finalityDepth))
+	err = json.Unmarshal(spec.OCR2OracleSpec.LogProviderConfig.Bytes(), &opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse log provider config")
+	}
+	logProvider, logRecoverer := logprovider.New(lggr, client.LogPoller(), client.Client(), services.upkeepState, opts)
 	services.logProvider = logProvider
 	services.logRecoverer = logRecoverer
 	services.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, lggr)

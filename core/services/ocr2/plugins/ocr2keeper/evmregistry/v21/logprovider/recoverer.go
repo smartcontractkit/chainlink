@@ -38,8 +38,6 @@ var (
 	RecoveryCacheTTL = 10 * time.Minute
 	// GCInterval is the interval at which the recovery cache is cleaned up
 	GCInterval = RecoveryCacheTTL - time.Second
-	// MaxProposals is the maximum number of proposals that can be returned by GetRecoveryProposals
-	MaxProposals = 20
 	// recoveryBatchSize is the number of filters to recover in a single batch
 	recoveryBatchSize = 10
 	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
@@ -87,7 +85,7 @@ type logRecoverer struct {
 	client            client.Client
 	blockTimeResolver *blockTimeResolver
 
-	finalityDepth int64
+	opts LogTriggersOptions
 }
 
 var _ LogRecoverer = &logRecoverer{}
@@ -111,7 +109,7 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 		client:            client,
 		blockTimeResolver: newBlockTimeResolver(poller),
 
-		finalityDepth: opts.FinalityDepth,
+		opts: opts,
 	}
 
 	rec.lookbackBlocks.Store(opts.LookbackBlocks)
@@ -302,13 +300,13 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 
 	var results, pending []ocr2keepers.UpkeepPayload
 	for _, payload := range r.pending {
-		if allLogsCounter >= MaxProposals {
+		if allLogsCounter >= r.opts.MaxProposals {
 			// we have enough proposals, pushed the rest are pushed back to pending
 			pending = append(pending, payload)
 			continue
 		}
 		uid := payload.UpkeepID.String()
-		if logsCount[uid] >= AllowedLogsPerUpkeep {
+		if logsCount[uid] >= r.opts.AllowedLogsPerUpkeep {
 			// we have enough proposals for this upkeep, the rest are pushed back to pending
 			pending = append(pending, payload)
 			continue
@@ -502,7 +500,7 @@ func (r *logRecoverer) getRecoveryWindow(latest int64) (int64, int64) {
 	// Exploratory: Instead of subtracting finality depth to account for finalized performs
 	// keep two pointers of lastRePollBlock for soft and hard finalization, i.e. manage
 	// unfinalized perform logs better
-	end := latest - lookbackBlocks - r.finalityDepth
+	end := latest - lookbackBlocks - r.opts.FinalityDepth
 	if start > end {
 		// In this case, allow starting from more than a day behind
 		start = end
