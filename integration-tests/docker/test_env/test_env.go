@@ -151,15 +151,17 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 	return te.MockAdapter.StartContainer()
 }
 
-func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string) error {
+func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
+		opts = append(opts, WithSecrets(secretsConfig))
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode := NewClNode([]string{te.Network.Name}, os.Getenv("CHAINLINK_IMAGE"), os.Getenv("CHAINLINK_VERSION"), nodeConfig,
-				WithSecrets(secretsConfig),
-			)
+			ocrNode, err := NewClNode([]string{te.Network.Name}, os.Getenv("CHAINLINK_IMAGE"), os.Getenv("CHAINLINK_VERSION"), nodeConfig, opts...)
+			if err != nil {
+				return err
+			}
 			te.ClCluster.Nodes = append(te.ClCluster.Nodes, ocrNode)
 		}
 	}
