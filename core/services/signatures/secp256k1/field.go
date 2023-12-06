@@ -141,7 +141,7 @@ func i() *big.Int { return new(big.Int) }
 
 // sqrtPower is s.t. n^sqrtPower≡sqrt(n) mod q, if n has a root at all. See
 // https://math.stackexchange.com/a/1816280, for instance
-var sqrtPower = i().Add(i().Rsh(q, 2), big.NewInt(1)) // (q +1)/4
+var sqrtPower = i().Rsh(i().Add(q, big.NewInt(1)), 2) // (q +1)/4
 
 // maybeSqrtInField returns a square root of v, if it has any, else nil
 func maybeSqrtInField(v *fieldElt) *fieldElt {
