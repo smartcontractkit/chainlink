@@ -106,11 +106,11 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		kst := ksmocks.NewEth(t)
 		typedTx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{
-			Nonce:    42,
-			To:       &to,
-			Value:    big.NewInt(142),
-			Gas:      242,
-			Data:     []byte{1, 2, 3},
+			Nonce: 42,
+			To:    &to,
+			Value: big.NewInt(142),
+			Gas:   242,
+			Data:  []byte{1, 2, 3},
 		})
 		kst.On("SignTx", to, typedTx, chainID).Return(typedTx, nil).Once()
 		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
