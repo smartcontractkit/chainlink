@@ -33,8 +33,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	link "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-	link "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"

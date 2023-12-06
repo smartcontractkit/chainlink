@@ -15,11 +15,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/vrf_consumer_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/vrf_load_test_with_metrics"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/vrf_v2_consumer_wrapper"
 )
 
 // EthereumVRFCoordinatorV2 represents VRFV2 coordinator contract

@@ -5,13 +5,13 @@ import (
 	"log"
 	"math/big"
 
-	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	registry20 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	registry11 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	registry11 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry12 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 

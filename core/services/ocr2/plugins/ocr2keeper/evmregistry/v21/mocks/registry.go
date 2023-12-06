@@ -7,9 +7,9 @@ import (
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
 
-	generated "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	generated "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated"
 
-	i_keeper_registry_master_wrapper_2_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	i_keeper_registry_master_wrapper_2_1 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 
 	mock "github.com/stretchr/testify/mock"
 

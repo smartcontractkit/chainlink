@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/upkeep_counter_wrapper"
 )
 
 // UpkeepCounterEvents print out emitted events and write to csv file

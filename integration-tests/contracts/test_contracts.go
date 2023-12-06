@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
-	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
+	le "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/log_emitter"
 )
 
 type LogEmitterContract struct {

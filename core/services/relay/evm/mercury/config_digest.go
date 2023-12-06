@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/exposed_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/llo-feeds/generated/exposed_verifier"
 )
 
 func makeConfigDigestArgs() abi.Arguments {

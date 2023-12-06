@@ -24,8 +24,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/mock_v3_aggregator_contract"
 )
 
 type Environment struct {

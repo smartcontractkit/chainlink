@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"

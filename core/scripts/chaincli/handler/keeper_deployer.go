@@ -23,11 +23,11 @@ import (
 
 	offchain20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	registry11 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry12 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/keeper_registry_wrapper1_2"
+	registry20 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	registry11 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 // canceller describes the behavior to cancel upkeeps

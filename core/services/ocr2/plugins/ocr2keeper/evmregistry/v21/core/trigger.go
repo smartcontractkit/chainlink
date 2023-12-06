@@ -9,7 +9,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/automation_utils_2_1"
 )
 
 type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger

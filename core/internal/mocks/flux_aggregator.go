@@ -10,9 +10,9 @@ import (
 
 	event "github.com/ethereum/go-ethereum/event"
 
-	flux_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	flux_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated/flux_aggregator_wrapper"
 
-	generated "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	generated "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/generated"
 
 	mock "github.com/stretchr/testify/mock"
 

@@ -17,9 +17,9 @@ import (
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	dkgContract "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	dkgContract "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 )
 
 func getDKGLatestConfigDetails(e helpers.Environment, dkgAddress string) dkgContract.LatestConfigDetails {

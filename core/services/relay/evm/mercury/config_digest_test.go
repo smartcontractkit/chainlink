@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/exposed_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gethwrappers/llo-feeds/generated/exposed_verifier"
 )
 
 // Adapted from: https://github.com/smartcontractkit/offchain-reporting/blob/991ebe1462fd56826a1ddfb34287d542acb2baee/lib/offchainreporting2/chains/evmutil/config_digest_test.go
