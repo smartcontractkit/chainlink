@@ -1149,7 +1149,7 @@ func observeUntilTxConfirmed[
 
 			// Since a tx can have many attempts, we take the number of blocks to confirm as the block number
 			// of the receipt minus the block number of the first ever broadcast for this transaction.
-			broadcastBefore := iutils.MinKey(attempt.Tx.TxAttempts, func(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int64 {
+			broadcastBefore := iutils.MinFunc(attempt.Tx.TxAttempts, func(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int64 {
 				if attempt.BroadcastBeforeBlockNum != nil {
 					return *attempt.BroadcastBeforeBlockNum
 				}
