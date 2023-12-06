@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -144,14 +145,7 @@ func validateMethods(abi abi.ABI, chainReaderDefinition types.ChainReaderDefinit
 
 func areChainReaderArgumentsValid(contractArgs []abi.Argument, chainReaderArgs []string) bool {
 	for _, contractArg := range contractArgs {
-		found := false
-		for _, chArgName := range chainReaderArgs {
-			if chArgName == contractArg.Name {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(chainReaderArgs, contractArg.Name) {
 			return false
 		}
 	}
