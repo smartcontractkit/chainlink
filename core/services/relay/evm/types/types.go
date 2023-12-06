@@ -20,11 +20,38 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+type ChainReaderConfig struct {
+	// ChainContractReaders key is contract name
+	ChainContractReaders map[string]ChainContractReader `json:"chainContractReaders"`
+}
+
+type ChainContractReader struct {
+	ContractABI string `json:"contractABI"`
+	// ChainReaderDefinitions key is chainAgnostic read name.
+	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions"`
+}
+
+type ChainReaderDefinition struct {
+	ChainSpecificName string         `json:"chainSpecificName"` // chain specific contract method name or event type.
+	Params            map[string]any `json:"params"`
+	ReturnValues      []string       `json:"returnValues"`
+	CacheEnabled      bool           `json:"cacheEnabled"`
+	ReadType          ReadType       `json:"readType"`
+}
+
+type ReadType int64
+
+const (
+	Method ReadType = 0
+	Event  ReadType = 1
+)
+
 type RelayConfig struct {
-	ChainID                *utils.Big      `json:"chainID"`
-	FromBlock              uint64          `json:"fromBlock"`
-	EffectiveTransmitterID null.String     `json:"effectiveTransmitterID"`
-	ConfigContractAddress  *common.Address `json:"configContractAddress"`
+	ChainID                *utils.Big         `json:"chainID"`
+	FromBlock              uint64             `json:"fromBlock"`
+	EffectiveTransmitterID null.String        `json:"effectiveTransmitterID"`
+	ConfigContractAddress  *common.Address    `json:"configContractAddress"`
+	ChainReader            *ChainReaderConfig `json:"chainReader"`
 
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`

@@ -318,7 +318,8 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     for (uint256 i = 0; i < receivers.length; ++i) {
       uint256 sendAmount = amounts[i];
       valueRemaining = valueRemaining - sendAmount;
-      receivers[i].transfer(sendAmount);
+      (bool success, ) = receivers[i].call{value: sendAmount}("");
+      require(success, "Address: unable to send value, recipient may have reverted");
     }
     require(valueRemaining == 0, "Too much ETH sent");
   }
