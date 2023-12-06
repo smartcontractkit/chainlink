@@ -67,7 +67,7 @@ type datasource struct {
 	mu sync.RWMutex
 
 	chEnhancedTelem    chan<- ocrcommon.EnhancedTelemetryMercuryData
-	chainReader        mercury.ChainReader
+	mercuryChainReader mercury.ChainReader
 	fetcher            Fetcher
 	initialBlockNumber *int64
 
@@ -77,8 +77,8 @@ type datasource struct {
 
 var _ v1.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, s ocrcommon.Saver, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainReader mercury.ChainReader, fetcher Fetcher, initialBlockNumber *int64, feedID mercuryutils.FeedID) *datasource {
-	return &datasource{pr, jb, spec, lggr, s, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainReader, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, s ocrcommon.Saver, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, mercuryChainReader mercury.ChainReader, fetcher Fetcher, initialBlockNumber *int64, feedID mercuryutils.FeedID) *datasource {
+	return &datasource{pr, jb, spec, lggr, s, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, mercuryChainReader, fetcher, initialBlockNumber, insufficientBlocksCount.WithLabelValues(feedID.String()), zeroBlocksCount.WithLabelValues(feedID.String())}
 }
 
 type ErrEmptyLatestReport struct {
@@ -292,7 +292,8 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 }
 
 func (ds *datasource) setLatestBlocks(ctx context.Context, obs *v1types.Observation) error {
-	latestBlocks, err := ds.chainReader.LatestHeads(ctx, nBlocksObservation)
+	latestBlocks, err := ds.mercuryChainReader.LatestHeads(ctx, nBlocksObservation)
+
 	if err != nil {
 		ds.lggr.Errorw("failed to read latest blocks", "error", err)
 		return err

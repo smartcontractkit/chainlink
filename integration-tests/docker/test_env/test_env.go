@@ -206,6 +206,15 @@ func (te *CLClusterTestEnv) Cleanup() error {
 
 	te.logWhetherAllContainersAreRunning()
 
+	// Getting the absolute path
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	wd = filepath.Join(wd, "logs")
+	te.l.Info().Str("Working dir", wd).Msg("Would write test logs here")
+
 	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
 	// Collect logs if the test fails, or if we just want them
 	if te.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
@@ -285,7 +294,14 @@ func (te *CLClusterTestEnv) collectTestLogs() error {
 		return err
 	}
 
-	te.l.Info().Str("Logs Location", folder).Msg("Wrote test logs")
+	// Getting the absolute path
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	absolutePath := filepath.Join(wd, folder)
+
+	te.l.Info().Str("Logs absolute Location", absolutePath).Msg("Wrote test logs")
 	return nil
 }
 
