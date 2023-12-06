@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -258,14 +257,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			b.l.Warn().Msg("Shutting down LogStream")
 
 			if b.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
-				// we can't do much if this fails, so we just log the error
-				_ = b.te.LogStream.FlushLogsToTargets()
+				// we can't do much if this fails, so we just log the error in logstream
+				_ = b.te.LogStream.FlushAndShutdown()
 				b.te.LogStream.PrintLogTargetsLocations()
 				b.te.LogStream.SaveLogLocationInTestSummary()
 			}
 
-			// we can't do much if this fails, so we just log the error
-			_ = b.te.LogStream.Shutdown(testcontext.Get(b.t))
 		})
 	}
 
