@@ -303,17 +303,21 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 	if err = w.waitForReady(ctx); err != nil {
 		return nil, errors.Wrap(err, "LatestReport failed")
 	}
+	var cached bool
 	if w.cache == nil {
 		resp, err = w.rawClient.LatestReport(ctx, req)
 	} else {
+		cached = true
 		resp, err = w.cache.LatestReport(ctx, req)
 	}
 	if err != nil {
-		lggr.Errorw("LatestReport failed", "err", err, "resp", resp)
+		lggr.Errorw("LatestReport failed", "err", err, "resp", resp, "cached", cached)
 	} else if resp.Error != "" {
-		lggr.Errorw("LatestReport failed; mercury server returned error", "err", resp.Error, "resp", resp)
+		lggr.Errorw("LatestReport failed; mercury server returned error", "err", resp.Error, "resp", resp, "cached", cached)
+	} else if !cached {
+		lggr.Debugw("LatestReport succeeded", "resp", resp, "cached", cached)
 	} else {
-		lggr.Debugw("LatestReport succeeded", "resp", resp)
+		lggr.Tracew("LatestReport succeeded", "resp", resp, "cached", cached)
 	}
 	return
 }
