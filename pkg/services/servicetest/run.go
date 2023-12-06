@@ -25,16 +25,17 @@ type TestingT interface {
 }
 
 // Run fails tb if the service fails to start or close.
-func Run(tb TestingT, s Runnable) {
+func Run[R Runnable](tb TestingT, r R) R {
 	tb.Helper()
-	require.NoError(tb, s.Start(tests.Context(tb)), "service failed to start")
-	tb.Cleanup(func() { assert.NoError(tb, s.Close(), "error closing service") })
+	require.NoError(tb, r.Start(tests.Context(tb)), "service failed to start")
+	tb.Cleanup(func() { assert.NoError(tb, r.Close(), "error closing service") })
+	return r
 }
 
 // RunHealthy fails tb if the service fails to start, close, is never ready, or is ever unhealthy (based on periodic checks).
 //   - after starting, readiness will always be checked at least once, before closing
 //   - if ever ready, then health will be checked at least once, before closing
-func RunHealthy(tb TestingT, s services.Service) {
+func RunHealthy[S services.Service](tb TestingT, s S) S {
 	tb.Helper()
 	Run(tb, s)
 
@@ -47,7 +48,9 @@ func RunHealthy(tb TestingT, s services.Service) {
 		defer close(done)
 		hp := func() (err error) {
 			for k, v := range s.HealthReport() {
-				err = errors.Join(err, fmt.Errorf("%s: %w", k, v))
+				if v != nil {
+					err = errors.Join(err, fmt.Errorf("%s: %w", k, v))
+				}
 			}
 			return
 		}
@@ -71,4 +74,5 @@ func RunHealthy(tb TestingT, s services.Service) {
 			}
 		}
 	}()
+	return s
 }
