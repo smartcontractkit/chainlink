@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
+import {ScrollSequencerUptimeFeedInterface} from "../interfaces/ScrollSequencerUptimeFeedInterface.sol";
 import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {ScrollSequencerUptimeFeedInterface} from "../interfaces/ScrollSequencerUptimeFeedInterface.sol";
+
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
+
 import {IL2ScrollMessenger} from "@scroll-tech/contracts/L2/IL2ScrollMessenger.sol";
 
 /// @title ScrollSequencerUptimeFeed - L2 sequencer uptime status aggregator
@@ -163,38 +165,35 @@ contract ScrollSequencerUptimeFeed is
 
   /// @inheritdoc AggregatorInterface
   function latestAnswer() external view override checkAccess returns (int256) {
-    FeedState memory feedState = s_feedState;
-    return _getStatusAnswer(feedState.latestStatus);
+    return _getStatusAnswer(s_feedState.latestStatus);
   }
 
   /// @inheritdoc AggregatorInterface
   function latestTimestamp() external view override checkAccess returns (uint256) {
-    FeedState memory feedState = s_feedState;
-    return feedState.startedAt;
+    return s_feedState.startedAt;
   }
 
   /// @inheritdoc AggregatorInterface
   function latestRound() external view override checkAccess returns (uint256) {
-    FeedState memory feedState = s_feedState;
-    return feedState.latestRoundId;
+    return s_feedState.latestRoundId;
   }
 
   /// @inheritdoc AggregatorInterface
   function getAnswer(uint256 roundId) external view override checkAccess returns (int256) {
-    if (_isValidRound(roundId)) {
-      return _getStatusAnswer(s_rounds[uint80(roundId)].status);
+    if (!_isValidRound(roundId)) {
+      revert NoDataPresent();
     }
 
-    revert NoDataPresent();
+    return _getStatusAnswer(s_rounds[uint80(roundId)].status);
   }
 
   /// @inheritdoc AggregatorInterface
   function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
-    if (_isValidRound(roundId)) {
-      return s_rounds[uint80(roundId)].startedAt;
+    if (!_isValidRound(roundId)) {
+      revert NoDataPresent();
     }
 
-    revert NoDataPresent();
+    return s_rounds[uint80(roundId)].startedAt;
   }
 
   /// @inheritdoc AggregatorV3Interface
@@ -212,13 +211,8 @@ contract ScrollSequencerUptimeFeed is
     }
 
     Round memory round = s_rounds[_roundId];
-    answer = _getStatusAnswer(round.status);
-    startedAt = uint256(round.startedAt);
-    roundId = _roundId;
-    updatedAt = uint256(round.updatedAt);
-    answeredInRound = roundId;
 
-    return (roundId, answer, startedAt, updatedAt, answeredInRound);
+    return (_roundId, _getStatusAnswer(round.status), uint256(round.startedAt), uint256(round.updatedAt), _roundId);
   }
 
   /// @inheritdoc AggregatorV3Interface
@@ -231,12 +225,12 @@ contract ScrollSequencerUptimeFeed is
   {
     FeedState memory feedState = s_feedState;
 
-    roundId = feedState.latestRoundId;
-    answer = _getStatusAnswer(feedState.latestStatus);
-    startedAt = feedState.startedAt;
-    updatedAt = feedState.updatedAt;
-    answeredInRound = roundId;
-
-    return (roundId, answer, startedAt, updatedAt, answeredInRound);
+    return (
+      feedState.latestRoundId,
+      _getStatusAnswer(feedState.latestStatus),
+      feedState.startedAt,
+      feedState.updatedAt,
+      feedState.latestRoundId
+    );
   }
 }

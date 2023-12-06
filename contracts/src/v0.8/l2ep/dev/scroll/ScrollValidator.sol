@@ -11,15 +11,15 @@ import {IL1ScrollMessenger} from "@scroll-tech/contracts/L1/IL1ScrollMessenger.s
 
 /// @title ScrollValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
 contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "ScrollValidator 1.0.0";
-  int256 private constant ANSWER_SEQ_OFFLINE = 1;
-  uint32 private s_gasLimit;
-
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L1_CROSS_DOMAIN_MESSENGER_ADDRESS;
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L2_UPTIME_FEED_ADDR;
+
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
+  string public constant override typeAndVersion = "ScrollValidator 1.0.0";
+  int256 private constant ANSWER_SEQ_OFFLINE = 1;
+  uint32 private s_gasLimit;
 
   /// @notice emitted when gas cost to spend on L2 is updated
   /// @param gasLimit updated gas cost
@@ -59,19 +59,18 @@ contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     uint256 /* currentRoundId */,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
-    // Encode the ScrollSequencerUptimeFeed call
-    bytes4 selector = ScrollSequencerUptimeFeedInterface.updateStatus.selector;
-    bool status = currentAnswer == ANSWER_SEQ_OFFLINE;
-    uint64 timestamp = uint64(block.timestamp);
-    // Encode `status` and `timestamp`
-    bytes memory message = abi.encodeWithSelector(selector, status, timestamp);
     // Make the xDomain call
     IL1ScrollMessenger(L1_CROSS_DOMAIN_MESSENGER_ADDRESS).sendMessage(
-      L2_UPTIME_FEED_ADDR, // Target (the address of the account that receives the message)
-      0, // The amount of ether passed when calling the target contract.
-      message, // The content of the message. This is the arbitrary calldata to be executed.
-      s_gasLimit // Gas limit required to complete the message relay on the corresponding chain.
+      L2_UPTIME_FEED_ADDR,
+      0,
+      abi.encodeWithSelector(
+        ScrollSequencerUptimeFeedInterface.updateStatus.selector,
+        currentAnswer == ANSWER_SEQ_OFFLINE,
+        uint64(block.timestamp)
+      ),
+      s_gasLimit
     );
+
     // return success
     return true;
   }
