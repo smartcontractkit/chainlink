@@ -1,13 +1,13 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	big "math/big"
 	"sync/atomic"
 	"testing"
 
 	"github.com/cometbft/cometbft/libs/rand"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
