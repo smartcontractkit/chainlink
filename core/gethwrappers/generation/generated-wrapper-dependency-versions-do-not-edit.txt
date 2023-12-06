@@ -46,8 +46,8 @@ mock_ethlink_aggregator_wrapper: ../../contracts/solc/v0.6/MockETHLINKAggregator
 mock_gas_aggregator_wrapper: ../../contracts/solc/v0.6/MockGASAggregator/MockGASAggregator.abi ../../contracts/solc/v0.6/MockGASAggregator/MockGASAggregator.bin bacbb1ea4dc6beac0db8a13ca5c75e2fd61b903d70feea9b3b1c8b10fe8df4f3
 multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer/MultiWordConsumer.abi ../../contracts/solc/v0.7/MultiWordConsumer/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5c8d6562e94166d4790f1ee6e4321d359d9f7262e6c5452a712b1f1c896f45cf
-operator_factory: ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin 0fdfacf8879537b854875608dfca41c6221c342174417112acaa67dfcadafddc
-operator_wrapper: ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin d7abd0e67f30a3a4c9c04c896124391306fa364fcf579fa6df04dbf912b48568
+operator_factory: ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin 357203fabe3df436eb015e2d5094374c6967a9fc922ac8edc265b27aac4d67cf
+operator_wrapper: ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin c5e1db81070d940a82ef100b0bce38e055593cbeebbc73abf9d45c30d6020cd2
 oracle_wrapper: ../../contracts/solc/v0.6/Oracle/Oracle.abi ../../contracts/solc/v0.6/Oracle/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
 perform_data_checker_wrapper: ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.abi ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.bin 48d8309c2117c29a24e1155917ab0b780956b2cd6a8a39ef06ae66a7f6d94f73
 simple_log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/SimpleLogUpkeepCounter/SimpleLogUpkeepCounter.abi ../../contracts/solc/v0.8.6/SimpleLogUpkeepCounter/SimpleLogUpkeepCounter.bin 0a7a0cc4da7dc2a3d0a0c36c746b1adc044af5cad1838367356a0604f3255a01

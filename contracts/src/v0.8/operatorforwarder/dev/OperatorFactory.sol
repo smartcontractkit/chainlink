@@ -34,7 +34,7 @@ contract OperatorFactory {
   }
 
   // @notice creates a new Operator contract with the msg.sender as owner and a
-  // new Operator Forwarder with the Operator as the owner
+  // new Operator Forwarder with the OperatorFactory as the owner
   function deployNewOperatorAndForwarder() external returns (address, address) {
     Operator operator = new Operator(linkToken, msg.sender);
     s_created[address(operator)] = true;
