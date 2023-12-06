@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -34,7 +35,7 @@ type UpkeepRegistration struct {
 	LastRunBlockHeight  int64
 	RegistryID          int64
 	Registry            Registry
-	UpkeepID            *utils.Big
+	UpkeepID            *big.Big
 	LastKeeperIndex     null.Int64
 	PositioningConstant int32
 }
@@ -60,16 +61,16 @@ func (upkeep UpkeepRegistration) PrettyID() string {
 	return NewUpkeepIdentifier(upkeep.UpkeepID).String()
 }
 
-func NewUpkeepIdentifier(i *utils.Big) *UpkeepIdentifier {
+func NewUpkeepIdentifier(i *big.Big) *UpkeepIdentifier {
 	val := UpkeepIdentifier(*i)
 	return &val
 }
 
-type UpkeepIdentifier utils.Big
+type UpkeepIdentifier big.Big
 
 // String produces a hex encoded value, zero padded, prefixed with UpkeepPrefix
 func (ui UpkeepIdentifier) String() string {
-	val := utils.Big(ui)
+	val := big.Big(ui)
 	result, err := utils.Uint256ToBytes(val.ToInt())
 	if err != nil {
 		panic(errors.Wrap(err, "invariant, invalid upkeepID"))

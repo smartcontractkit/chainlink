@@ -3,8 +3,8 @@ package s4_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -26,7 +26,7 @@ func TestAddressRange_NewFullAddressRange(t *testing.T) {
 func TestAddressRange_NewSingleAddressRange(t *testing.T) {
 	t.Parallel()
 
-	addr := utils.NewBigI(0x123)
+	addr := big.NewI(0x123)
 	sar, err := s4.NewSingleAddressRange(addr)
 	assert.NoError(t, err)
 	assert.Equal(t, addr, sar.MinAddress)
@@ -94,10 +94,10 @@ func TestAddressRange_Contains(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, r.Contains(r.MinAddress))
 	assert.True(t, r.Contains(r.MaxAddress))
-	assert.False(t, r.Contains(r.MaxAddress.Add(utils.NewBigI(1))))
+	assert.False(t, r.Contains(r.MaxAddress.Add(big.NewI(1))))
 
 	r.Advance()
 	assert.True(t, r.Contains(r.MinAddress))
 	assert.True(t, r.Contains(r.MaxAddress))
-	assert.False(t, r.Contains(r.MinAddress.Sub(utils.NewBigI(1))))
+	assert.False(t, r.Contains(r.MinAddress.Sub(big.NewI(1))))
 }

@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -855,7 +856,7 @@ func randomizeTestDBSequences(db *sqlx.DB) error {
 		}
 
 		var randNum *big.Int
-		randNum, err = crand.Int(crand.Reader, utils.NewBigI(10000).ToInt())
+		randNum, err = crand.Int(crand.Reader, ubig.NewI(10000).ToInt())
 		if err != nil {
 			return fmt.Errorf("%s: failed to generate random number", failedToRandomizeTestDBSequencesError{})
 		}

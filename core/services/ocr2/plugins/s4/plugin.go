@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -123,7 +123,7 @@ func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, quer
 			c.logger.Error("ORM GetSnapshot error", commontypes.LogFields{"err": err})
 		} else {
 			type rkey struct {
-				address *utils.Big
+				address *big.Big
 				slotID  uint
 			}
 

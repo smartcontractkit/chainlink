@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var migrationDir = "migrations"
@@ -434,7 +433,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 	})
 
 	t.Run("EVMConfigMissing", func(t *testing.T) {
-		chainID := utils.NewBig(big.NewInt(1337))
+		chainID := ubig.New(big.NewInt(1337))
 		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.EVM = nil })
 
 		require.NoError(t, migrate.SetMigrationENVVars(testConfig))

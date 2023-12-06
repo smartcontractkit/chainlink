@@ -11,6 +11,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
@@ -186,7 +187,7 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 		DestinationAddress: destinationAddress,
 		FromAddress:        fromAddress,
 		Amount:             amount,
-		EVMChainID:         (*utils.Big)(evmChainID),
+		EVMChainID:         (*ubig.Big)(evmChainID),
 		AllowHigherAmounts: c.IsSet("force"),
 	}
 

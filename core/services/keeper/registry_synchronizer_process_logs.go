@@ -7,11 +7,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry1_3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func (rs *RegistrySynchronizer) processLogs() {
@@ -109,7 +109,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) e
 		return errors.Wrap(err, "Unable to fetch cancelled upkeep ID from log")
 	}
 
-	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []utils.Big{*utils.NewBig(cancelledID)})
+	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []big.Big{*big.New(cancelledID)})
 	if err != nil {
 		return errors.Wrap(err, "unable to batch delete upkeeps")
 	}
@@ -130,7 +130,7 @@ func (rs *RegistrySynchronizer) handleUpkeepRegistered(broadcast log.Broadcast) 
 		return errors.Wrap(err, "Unable to fetch upkeep ID from registration log")
 	}
 
-	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(upkeepID))
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, big.New(upkeepID))
 	if err != nil {
 		return errors.Wrapf(err, "failed to sync upkeep, log: %v", broadcast.String())
 	}
@@ -144,7 +144,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) e
 	if err != nil {
 		return errors.Wrap(err, "Unable to fetch upkeep ID from performed log")
 	}
-	rowsAffected, err := rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, utils.NewBig(log.UpkeepID), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.FromKeeper))
+	rowsAffected, err := rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, big.New(log.UpkeepID), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.FromKeeper))
 	if err != nil {
 		return errors.Wrap(err, "failed to set last run to 0")
 	}
@@ -171,7 +171,7 @@ func (rs *RegistrySynchronizer) handleUpkeepGasLimitSet(broadcast log.Broadcast)
 		return errors.Wrap(err, "Unable to fetch upkeep ID from gas limit set log")
 	}
 
-	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(upkeepID))
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, big.New(upkeepID))
 	if err != nil {
 		return errors.Wrapf(err, "failed to sync upkeep, log: %v", broadcast.String())
 	}
@@ -191,7 +191,7 @@ func (rs *RegistrySynchronizer) handleUpkeepReceived(broadcast log.Broadcast) er
 		return errors.Wrap(err, "Unable to fetch upkeep ID from received log")
 	}
 
-	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(upkeepID))
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, big.New(upkeepID))
 	if err != nil {
 		return errors.Wrapf(err, "failed to sync upkeep, log: %v", broadcast.String())
 	}
@@ -206,7 +206,7 @@ func (rs *RegistrySynchronizer) handleUpkeepMigrated(broadcast log.Broadcast) er
 		return errors.Wrap(err, "Unable to fetch migrated upkeep ID from log")
 	}
 
-	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []utils.Big{*utils.NewBig(migratedID)})
+	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []big.Big{*big.New(migratedID)})
 	if err != nil {
 		return errors.Wrap(err, "unable to batch delete upkeeps")
 	}
@@ -222,7 +222,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPaused(broadcast log.Broadcast) erro
 		return errors.Wrap(err, "Unable to fetch upkeep ID from upkeep paused log")
 	}
 
-	_, err = rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []utils.Big{*utils.NewBig(pausedUpkeepId)})
+	_, err = rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []big.Big{*big.New(pausedUpkeepId)})
 	if err != nil {
 		return errors.Wrap(err, "unable to batch delete upkeeps")
 	}
@@ -243,7 +243,7 @@ func (rs *RegistrySynchronizer) handleUpkeepUnpaused(broadcast log.Broadcast) er
 		return errors.Wrap(err, "Unable to fetch upkeep ID from upkeep unpaused log")
 	}
 
-	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(unpausedUpkeepId))
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, big.New(unpausedUpkeepId))
 	if err != nil {
 		return errors.Wrapf(err, "failed to sync upkeep, log: %s", broadcast.String())
 	}
@@ -264,7 +264,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCheckDataUpdated(broadcast log.Broad
 		return errors.Wrap(err, "Unable to parse update log from upkeep check data updated log")
 	}
 
-	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(updateLog.UpkeepID))
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, big.New(updateLog.UpkeepID))
 	if err != nil {
 		return errors.Wrapf(err, "unable to update check data for upkeep %s", updateLog.UpkeepID.String())
 	}

@@ -15,10 +15,10 @@ import (
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	registry1_3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -662,7 +662,7 @@ func Test_RegistrySynchronizer1_3_UpkeepPausedLog_UpkeepUnpausedLog(t *testing.T
 
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
 	var upkeep keeper.UpkeepRegistration
-	err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE upkeep_id = $1`, utils.NewBig(upkeepId))
+	err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE upkeep_id = $1`, ubig.New(upkeepId))
 	require.NoError(t, err)
 
 	require.Equal(t, upkeepId.String(), upkeep.UpkeepID.String())
@@ -723,7 +723,7 @@ func Test_RegistrySynchronizer1_3_UpkeepCheckDataUpdatedLog(t *testing.T) {
 
 	g.Eventually(func() []byte {
 		var upkeep keeper.UpkeepRegistration
-		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE upkeep_id = $1`, utils.NewBig(upkeepId))
+		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE upkeep_id = $1`, ubig.New(upkeepId))
 		require.NoError(t, err)
 		return upkeep.CheckData
 	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(newCheckData))

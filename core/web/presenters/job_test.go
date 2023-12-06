@@ -14,12 +14,12 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -29,7 +29,7 @@ func TestJob(t *testing.T) {
 	contractAddress, err := ethkey.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")
 	require.NoError(t, err)
 	cronSchedule := "0 0 0 1 1 *"
-	evmChainID := utils.NewBigI(42)
+	evmChainID := big.NewI(42)
 	fromAddress, err := ethkey.NewEIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e")
 	require.NoError(t, err)
 
@@ -484,7 +484,7 @@ func TestJob(t *testing.T) {
 					BlockhashStoreAddress:          contractAddress,
 					PollPeriod:                     25 * time.Second,
 					RunTimeout:                     10 * time.Second,
-					EVMChainID:                     utils.NewBigI(4),
+					EVMChainID:                     big.NewI(4),
 					FromAddresses:                  []ethkey.EIP55Address{fromAddress},
 					TrustedBlockhashStoreAddress:   &trustedBlockhashStoreAddress,
 					TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
@@ -564,7 +564,7 @@ func TestJob(t *testing.T) {
 					BatchBlockhashStoreAddress: batchBHSAddress,
 					PollPeriod:                 25 * time.Second,
 					RunTimeout:                 10 * time.Second,
-					EVMChainID:                 utils.NewBigI(4),
+					EVMChainID:                 big.NewI(4),
 					FromAddresses:              []ethkey.EIP55Address{fromAddress},
 					GetBlockhashesBatchSize:    5,
 					StoreBlockhashesBatchSize:  10,

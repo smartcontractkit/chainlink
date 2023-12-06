@@ -3,13 +3,13 @@ package s4
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Row represents a data row persisted by ORM.
 type Row struct {
-	Address    *utils.Big
+	Address    *big.Big
 	SlotId     uint
 	Payload    []byte
 	Version    uint64
@@ -20,7 +20,7 @@ type Row struct {
 
 // SnapshotRow(s) are returned by GetSnapshot function.
 type SnapshotRow struct {
-	Address    *utils.Big
+	Address    *big.Big
 	SlotId     uint
 	Version    uint64
 	Expiration int64
@@ -35,7 +35,7 @@ type ORM interface {
 	// Get reads a row for the given address and slotId combination.
 	// If such row does not exist, ErrNotFound is returned.
 	// There is no filter on Expiration.
-	Get(address *utils.Big, slotId uint, qopts ...pg.QOpt) (*Row, error)
+	Get(address *big.Big, slotId uint, qopts ...pg.QOpt) (*Row, error)
 
 	// Update inserts or updates the row identified by (Address, SlotId) pair.
 	// When updating, the new row must have greater or equal version,
@@ -59,7 +59,7 @@ type ORM interface {
 
 func (r Row) Clone() *Row {
 	clone := Row{
-		Address:    utils.NewBig(r.Address.ToInt()),
+		Address:    big.New(r.Address.ToInt()),
 		SlotId:     r.SlotId,
 		Payload:    make([]byte, len(r.Payload)),
 		Version:    r.Version,

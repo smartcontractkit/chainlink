@@ -28,9 +28,9 @@ import (
 // When adding a new field:
 //   - consider including a unit suffix with the field name
 //   - TOML is limited to int64/float64, so fields requiring greater range/precision must use non-standard types
-//     implementing encoding.TextMarshaler/TextUnmarshaler, like utils.Big and decimal.Decimal
+//     implementing encoding.TextMarshaler/TextUnmarshaler, like big.Big and decimal.Decimal
 //   - std lib types that don't implement encoding.TextMarshaler/TextUnmarshaler (time.Duration, url.URL, big.Int) won't
-//     work as expected, and require wrapper types. See models.Duration, models.URL, utils.Big.
+//     work as expected, and require wrapper types. See models.Duration, models.URL, big.Big.
 type Config struct {
 	toml.Core
 

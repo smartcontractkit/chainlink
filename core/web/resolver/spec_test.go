@@ -13,13 +13,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Specs are only embedded on the job and are not fetchable by it's own id, so
@@ -95,7 +95,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 					DirectRequestSpec: &job.DirectRequestSpec{
 						ContractAddress:          contractAddress,
 						CreatedAt:                f.Timestamp(),
-						EVMChainID:               utils.NewBigI(42),
+						EVMChainID:               ubig.NewI(42),
 						MinIncomingConfirmations: clnull.NewUint32(1, true),
 						MinContractPayment:       commonassets.NewLinkFromJuels(1000),
 						Requesters:               models.AddressCollection{requesterAddress},
@@ -160,7 +160,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 					FluxMonitorSpec: &job.FluxMonitorSpec{
 						ContractAddress:   contractAddress,
 						CreatedAt:         f.Timestamp(),
-						EVMChainID:        utils.NewBigI(42),
+						EVMChainID:        ubig.NewI(42),
 						DrumbeatEnabled:   false,
 						IdleTimerDisabled: false,
 						IdleTimerPeriod:   time.Duration(1 * time.Hour),
@@ -227,7 +227,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 					FluxMonitorSpec: &job.FluxMonitorSpec{
 						ContractAddress:     contractAddress,
 						CreatedAt:           f.Timestamp(),
-						EVMChainID:          utils.NewBigI(42),
+						EVMChainID:          ubig.NewI(42),
 						DrumbeatEnabled:     true,
 						DrumbeatRandomDelay: time.Duration(1 * time.Second),
 						DrumbeatSchedule:    "CRON_TZ=UTC 0 0 1 1 *",
@@ -310,7 +310,7 @@ func TestResolver_KeeperSpec(t *testing.T) {
 					KeeperSpec: &job.KeeperSpec{
 						ContractAddress: contractAddress,
 						CreatedAt:       f.Timestamp(),
-						EVMChainID:      utils.NewBigI(42),
+						EVMChainID:      ubig.NewI(42),
 						FromAddress:     ethkey.EIP55AddressFromAddress(fromAddress),
 					},
 				}, nil)
@@ -381,7 +381,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 						ObservationGracePeriod:                 models.NewInterval(4 * time.Second),
 						ContractTransmitterTransmitTimeout:     models.NewInterval(555 * time.Millisecond),
 						CreatedAt:                              f.Timestamp(),
-						EVMChainID:                             utils.NewBigI(42),
+						EVMChainID:                             ubig.NewI(42),
 						IsBootstrapPeer:                        false,
 						EncryptedOCRKeyBundleID:                &keyBundleID,
 						ObservationTimeout:                     models.Interval(2 * time.Minute),
@@ -584,7 +584,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 						MinIncomingConfirmations:      1,
 						CoordinatorAddress:            coordinatorAddress,
 						CreatedAt:                     f.Timestamp(),
-						EVMChainID:                    utils.NewBigI(42),
+						EVMChainID:                    ubig.NewI(42),
 						FromAddresses:                 []ethkey.EIP55Address{fromAddress1, fromAddress2},
 						PollPeriod:                    1 * time.Minute,
 						PublicKey:                     pubKey,
@@ -745,7 +745,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 						CoordinatorV2Address:           &coordinatorV2Address,
 						CoordinatorV2PlusAddress:       &coordinatorV2PlusAddress,
 						CreatedAt:                      f.Timestamp(),
-						EVMChainID:                     utils.NewBigI(42),
+						EVMChainID:                     ubig.NewI(42),
 						FromAddresses:                  []ethkey.EIP55Address{fromAddress1, fromAddress2},
 						PollPeriod:                     1 * time.Minute,
 						RunTimeout:                     37 * time.Second,
@@ -849,7 +849,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 						CoordinatorV2Address:       &coordinatorV2Address,
 						CoordinatorV2PlusAddress:   &coordinatorV2PlusAddress,
 						CreatedAt:                  f.Timestamp(),
-						EVMChainID:                 utils.NewBigI(42),
+						EVMChainID:                 ubig.NewI(42),
 						FromAddresses:              []ethkey.EIP55Address{fromAddress},
 						PollPeriod:                 1 * time.Minute,
 						RunTimeout:                 37 * time.Second,

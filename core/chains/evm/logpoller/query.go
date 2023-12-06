@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 type bytesProducer interface {
@@ -34,7 +34,7 @@ type queryArgs struct {
 func newQueryArgs(chainId *big.Int) *queryArgs {
 	return &queryArgs{
 		args: map[string]interface{}{
-			"evm_chain_id": utils.NewBig(chainId),
+			"evm_chain_id": ubig.New(chainId),
 		},
 		err: []error{},
 	}

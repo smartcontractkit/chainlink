@@ -18,6 +18,7 @@ import (
 	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -147,7 +148,7 @@ func TestGetChainID(t *testing.T) {
 	}
 
 	j.Type = job.Type(pipeline.OffchainReportingJobType)
-	j.OCROracleSpec.EVMChainID = (*utils.Big)(big.NewInt(1234567890))
+	j.OCROracleSpec.EVMChainID = (*ubig.Big)(big.NewInt(1234567890))
 	assert.Equal(t, "1234567890", e.getChainID())
 
 	j.Type = job.Type(pipeline.OffchainReporting2JobType)
@@ -206,7 +207,7 @@ func TestSendEATelemetry(t *testing.T) {
 		OCROracleSpec: &job.OCROracleSpec{
 			ContractAddress:    ethkey.EIP55AddressFromAddress(feedAddress),
 			CaptureEATelemetry: true,
-			EVMChainID:         (*utils.Big)(big.NewInt(9)),
+			EVMChainID:         (*ubig.Big)(big.NewInt(9)),
 		},
 	}
 

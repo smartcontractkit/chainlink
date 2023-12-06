@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestVRFv2Plus(t *testing.T) {
@@ -389,7 +388,7 @@ func TestVRFv2Plus(t *testing.T) {
 		activeSubscriptionIdsBeforeSubCancellation, err := vrfv2PlusContracts.Coordinator.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
 		require.NoError(t, err)
 
-		require.True(t, it_utils.BigIntSliceContains(activeSubscriptionIdsBeforeSubCancellation, subIDForCancelling))
+		require.True(t, it_big.BigIntSliceContains(activeSubscriptionIdsBeforeSubCancellation, subIDForCancelling))
 
 		pendingRequestsExist, err := vrfv2PlusContracts.Coordinator.PendingRequestsExist(testcontext.Get(t), subIDForCancelling)
 		require.NoError(t, err)
@@ -514,7 +513,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 		require.False(
 			t,
-			it_utils.BigIntSliceContains(activeSubscriptionIdsAfterSubCancellation, subIDForCancelling),
+			it_big.BigIntSliceContains(activeSubscriptionIdsAfterSubCancellation, subIDForCancelling),
 			"Active subscription ids should not contain sub id after sub cancellation",
 		)
 	})

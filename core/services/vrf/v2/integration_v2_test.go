@@ -40,6 +40,7 @@ import (
 	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -2057,7 +2058,7 @@ func TestStartingCountsV1(t *testing.T) {
 	md2, err := json.Marshal(&m2)
 	md2SQL := sqlutil.JSON(md2)
 	require.NoError(t, err)
-	chainID := utils.NewBig(testutils.SimulatedChainID)
+	chainID := ubig.New(testutils.SimulatedChainID)
 	confirmedTxes := []txmgr.Tx{
 		{
 			Sequence:           &n1,

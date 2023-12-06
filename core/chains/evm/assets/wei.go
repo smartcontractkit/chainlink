@@ -58,7 +58,7 @@ func suffixExp(suf string) int32 {
 	}
 }
 
-// Wei extends utils.Big to implement encoding.TextMarshaler and
+// Wei extends ubig.Big to implement encoding.TextMarshaler and
 // encoding.TextUnmarshaler with support for unit suffixes, as well as
 // additional functions
 type Wei ubig.Big

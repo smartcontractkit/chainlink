@@ -18,7 +18,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 // CronParser is the global parser for crontabs.
@@ -365,7 +365,7 @@ type SendEtherRequest struct {
 	DestinationAddress common.Address `json:"address"`
 	FromAddress        common.Address `json:"from"`
 	Amount             assets.Eth     `json:"amount"`
-	EVMChainID         *utils.Big     `json:"evmChainID"`
+	EVMChainID         *big.Big       `json:"evmChainID"`
 	AllowHigherAmounts bool           `json:"allowHigherAmounts"`
 	SkipWaitTxAttempt  bool           `json:"skipWaitTxAttempt"`
 	WaitAttemptTimeout *time.Duration `json:"waitAttemptTimeout"`

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// ChainID   *utils.Big `json:"chainID"`
+// ChainID   *big.Big `json:"chainID"`
 // FromBlock uint64     `json:"fromBlock"`
 
 // // Contract-specific

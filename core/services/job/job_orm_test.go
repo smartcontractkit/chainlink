@@ -42,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const mercuryOracleTOML = `name = 'LINK / ETH | 0x0000000000000000000000000000000000000000000000000000000000000001 | verifier_proxy 0x0000000000000000000000000000000000000001'
@@ -1155,7 +1154,7 @@ func Test_FindJob(t *testing.T) {
 
 		assert.Equal(t, job.ID, jbID)
 
-		_, err2 = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
+		_, err2 = orm.FindJobIDByAddress("not-existing", big.NewI(0))
 		require.Error(t, err2)
 		require.ErrorIs(t, err2, sql.ErrNoRows)
 	})
@@ -1223,7 +1222,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)
-	jb.DirectRequestSpec.EVMChainID = utils.NewBigI(0)
+	jb.DirectRequestSpec.EVMChainID = big.NewI(0)
 
 	err = orm.CreateJob(&jb)
 	require.NoError(t, err)

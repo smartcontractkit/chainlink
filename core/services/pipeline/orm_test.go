@@ -13,6 +13,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -531,7 +532,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 			FromAddress:     cltest.NewEIP55Address(),
 			CreatedAt:       timestamp,
 			UpdatedAt:       timestamp,
-			EVMChainID:      (*utils.Big)(&cltest.FixtureChainID),
+			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
 		},
 		ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 		PipelineSpec: &pipeline.Spec{
@@ -630,7 +631,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 			ContractAddress: cltest.NewEIP55Address(),
 			CreatedAt:       timestamp,
 			UpdatedAt:       timestamp,
-			EVMChainID:      (*utils.Big)(&cltest.FixtureChainID),
+			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
 		},
 		ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 		PipelineSpec: &pipeline.Spec{

@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -56,7 +55,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 		FromAddress:        key.Address,
 		Amount:             amount,
 		SkipWaitTxAttempt:  true,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -97,7 +96,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 		FromAddress:        key.Address,
 		Amount:             amount,
 		SkipWaitTxAttempt:  true,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -143,7 +142,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 		FromAddress:        key.Address,
 		Amount:             amount,
 		SkipWaitTxAttempt:  true,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -173,7 +172,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
 		Amount:             amount,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -208,7 +207,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
 		AllowHigherAmounts: false,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -246,7 +245,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
 		AllowHigherAmounts: false,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -309,7 +308,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 		FromAddress:        key.Address,
 		Amount:             amount,
 		WaitAttemptTimeout: &timeout,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)

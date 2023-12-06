@@ -264,7 +264,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		registry, jb := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 		// change chain ID to non-configured chain
-		jb.KeeperSpec.EVMChainID = (*utils.Big)(big.NewInt(999))
+		jb.KeeperSpec.EVMChainID = (*ubig.Big)(big.NewInt(999))
 		cltest.MustInsertUpkeepForRegistry(t, db, ch.Config().Database(), registry)
 		lggr := logger.TestLogger(t)
 		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, ch.Config().Keeper(), jb.KeeperSpec.FromAddress.Address())

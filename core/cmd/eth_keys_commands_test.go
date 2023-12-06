@@ -14,6 +14,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -39,7 +40,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 		isDisabled     = true
 		createdAt      = time.Now()
 		updatedAt      = time.Now().Add(time.Second)
-		maxGasPriceWei = utils.NewBigI(12345)
+		maxGasPriceWei = ubig.NewI(12345)
 		bundleID       = cltest.DefaultOCRKeyBundleID
 		buffer         = bytes.NewBufferString("")
 		r              = cmd.RendererTable{Writer: buffer}
