@@ -10,8 +10,8 @@ import (
 
 func EthereumNetworkConfigFromEnvOrDefault(l zerolog.Logger) (network ctf_test_env.EthereumNetwork, err error) {
 	chainConfig := ctf_test_env.EthereumChainConfig{
-		SecondsPerSlot: 4,
-		SlotsPerEpoch:  2,
+		SecondsPerSlot: 8,
+		SlotsPerEpoch:  4,
 	}
 
 	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
