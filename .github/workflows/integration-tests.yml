@@ -393,72 +393,10 @@ jobs:
             file: vrfv2            
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf2-evm-simulated
-          - name: vrfv2-geth
-            nodes: 1
-            run: -run TestVRFv2Basic
-            file: vrfv2            
-            os: ubuntu20.04-8cores-32GB
-            client: geth
-            pyroscope_env: ci-smoke-vrf2-evm-simulated           
-          - name: vrfv2-erigon
-            nodes: 1
-            run: -run TestVRFv2Basic
-            file: vrfv2            
-            os: ubuntu20.04-8cores-32GB
-            client: erigon
-            pyroscope_env: ci-smoke-vrf2-evm-simulated                  
-          # these two fail due to VM error on gas simulation, uncomment when https://smartcontract-it.atlassian.net/browse/VRF-786 is done
-          # fails due to VM error on simulation            
-          # - name: vrfv2-nethermind
-          #   nodes: 1
-          #   run: -run TestVRFv2Basic
-          #   file: vrfv2            
-          #   os: ubuntu20.04-8cores-32GB
-          #   client: nethermind
-          #   pyroscope_env: ci-smoke-vrf2-evm-simulated           
-          # - name: vrfv2-besu
-          #   nodes: 1
-          #   run: -run TestVRFv2Basic
-          #   file: vrfv2            
-          #   os: ubuntu20.04-8cores-32GB
-          #   client: besu
-          #   pyroscope_env: ci-smoke-vrf2-evm-simulated                           
           - name: vrfv2plus
             nodes: 1
-          # ugly, but go test doesn't support negative lookahead  
-            run: -run '^(TestVRFv2Plus)([^L]|L[^i]|Li[^n]|Lin[^k]|Link[^ ]|Link [^B]|Link B[^i]|Link Bi[^l]|Link Bil[^l]|Link Bill[^i]|Link Billi[^n]|Link Billin[^g])*$'
-            file: vrfv2plus
             os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
-          - name: vrfv2plus-geth
-            nodes: 1
-            run: -run 'TestVRFv2Plus/Link Billing'
-            file: vrfv2plus
-            client: geth
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-vrf2plus-evm-simulated        
-          - name: vrfv2plus-erigon
-            nodes: 1
-            run: -run 'TestVRFv2Plus/Link Billing'
-            file: vrfv2plus
-            client: erigon
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-vrf2plus-evm-simulated                     
-          # these two fail due to VM error on gas simulation, uncomment when https://smartcontract-it.atlassian.net/browse/VRF-786 is done
-          # - name: vrfv2plus-nethermind
-          #   nodes: 1
-          #   run: -run 'TestVRFv2Plus/Link Billing'
-          #   file: vrfv2plus
-          #   client: nethermind
-          #   os: ubuntu20.04-8cores-32GB
-          #   pyroscope_env: ci-smoke-vrf2plus-evm-simulated                 
-          # - name: vrfv2plus-besu
-          #   nodes: 1
-          #   run: -run 'TestVRFv2Plus/Link Billing'
-          #   file: vrfv2plus
-          #   client: besu
-          #   os: ubuntu20.04-8cores-32GB
-            # pyroscope_env: ci-smoke-vrf2plus-evm-simulated                          
+            pyroscope_env: ci-smoke-vrf2plus-evm-simulated                       
           - name: forwarder_ocr
             nodes: 1
             os: ubuntu20.04-8cores-32GB
