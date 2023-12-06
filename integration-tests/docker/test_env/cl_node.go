@@ -286,11 +286,7 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return fmt.Errorf("%s err: %w", ErrStartCLNodeContainer, err)
 	}
-	// if n.lw != nil {
-	// 	if err := n.lw.ConnectContainer(testcontext.Get(n.t), container, "cl-node"); err != nil {
-	// 		return err
-	// 	}
-	// }
+
 	clEndpoint, err := test_env.GetEndpoint(testcontext.Get(n.t), container, "http")
 	if err != nil {
 		return err
