@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/sdk/freeport"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	p2ppeer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"

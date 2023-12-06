@@ -26,7 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	p2ppeer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"

@@ -1,7 +1,7 @@
 package p2pkey
 
 import (
-	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
@@ -43,7 +43,7 @@ func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParam
 		scryptParams,
 		adulteratedPassword,
 		func(id string, key KeyV2, cryptoJSON keystore.CryptoJSON) (EncryptedP2PKeyExport, error) {
-			rawPubKey, err := key.GetPublic().Bytes()
+			rawPubKey, err := key.GetPublic().Raw()
 			if err != nil {
 				return EncryptedP2PKeyExport{}, errors.Wrapf(err, "could not get raw public key")
 			}

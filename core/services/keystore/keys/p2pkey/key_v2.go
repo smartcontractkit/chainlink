@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"math/big"
 
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	cryptop2p "github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type Raw []byte

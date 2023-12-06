@@ -3,6 +3,7 @@ package keystore_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -147,12 +147,19 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 	t.Run("clears p2p_peers on delete", func(t *testing.T) {
 		key, err := ks.Create()
 		require.NoError(t, err)
-		p2pPeer1 := ocrcommon.P2PPeer{
+		type P2PPeer struct {
+			ID        string
+			Addr      string
+			PeerID    string
+			CreatedAt time.Time
+			UpdatedAt time.Time
+		}
+		p2pPeer1 := P2PPeer{
 			ID:     cltest.NewPeerID().String(),
 			Addr:   testutils.NewAddress().Hex(),
 			PeerID: cltest.DefaultPeerID, // different p2p key
 		}
-		p2pPeer2 := ocrcommon.P2PPeer{
+		p2pPeer2 := P2PPeer{
 			ID:     cltest.NewPeerID().String(),
 			Addr:   testutils.NewAddress().Hex(),
 			PeerID: key.PeerID().Raw(),

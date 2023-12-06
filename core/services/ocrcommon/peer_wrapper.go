@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	p2ppeer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 

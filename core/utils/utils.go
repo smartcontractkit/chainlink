@@ -18,14 +18,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
+	cryptop2p "github.com/libp2p/go-libp2p/core/crypto"
 	"golang.org/x/exp/constraints"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/jpillora/backoff"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/crypto/bcrypt"
