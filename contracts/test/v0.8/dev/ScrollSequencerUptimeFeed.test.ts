@@ -304,7 +304,7 @@ describe('ScrollSequencerUptimeFeed', () => {
       // Assert no update
       expect(await scrollUptimeFeed.latestAnswer()).to.equal(0)
       expect(noUpdateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        38594,
+        38694,
         gasUsedDeviation,
       )
 
@@ -317,7 +317,7 @@ describe('ScrollSequencerUptimeFeed', () => {
       // Assert update
       expect(await scrollUptimeFeed.latestAnswer()).to.equal(1)
       expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        60170,
+        58995,
         gasUsedDeviation,
       )
     })
