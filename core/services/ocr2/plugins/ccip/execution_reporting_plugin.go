@@ -57,7 +57,6 @@ type ExecutionPluginStaticConfig struct {
 	sourcePriceRegistry      ccipdata.PriceRegistryReader
 	sourceWrappedNativeToken common.Address
 	destClient               evmclient.Client
-	sourceClient             evmclient.Client
 	destChainEVMID           *big.Int
 	destGasEstimator         gas.EvmFeeEstimator
 	tokenDataProviders       map[common.Address]tokendata.Reader
