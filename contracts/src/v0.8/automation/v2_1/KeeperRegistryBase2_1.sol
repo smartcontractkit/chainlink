@@ -557,6 +557,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 gasOverhead,
     bool isExecution
   ) internal view returns (uint96, uint96) {
+    // since tx.gasprice is from txm, should we remove these logic??
     uint256 gasWei = cfg.fastGas * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) { // can we remove this?
@@ -580,6 +581,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / linkNative;
     uint256 premium = (((gasWei * gasLimit) + l1CostWei) * 1e9 * hotVars.paymentPremiumPPB) /
       linkNative +
+      // gas-wise, how does this compare to transmitting this value every time?
       uint256(hotVars.flatFeeMicroLink) *
       1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX

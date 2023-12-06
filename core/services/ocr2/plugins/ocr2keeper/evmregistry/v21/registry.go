@@ -22,6 +22,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
@@ -116,6 +117,7 @@ func NewEvmRegistry(
 		bs:               blockSub,
 		finalityDepth:    finalityDepth,
 		streams:          streams.NewStreamsLookup(packer, mercuryConfig, blockSub, client.Client(), registry, lggr),
+		gasEstimator:     client.GasEstimator(),
 	}
 }
 
@@ -190,6 +192,7 @@ type EvmRegistry struct {
 	logEventProvider logprovider.LogEventProvider
 	finalityDepth    uint32
 	streams          streams.Lookup
+	gasEstimator     gas.EvmFeeEstimator
 }
 
 func (r *EvmRegistry) Name() string {
