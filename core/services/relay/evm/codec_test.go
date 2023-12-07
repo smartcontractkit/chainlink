@@ -51,8 +51,6 @@ type codecInterfaceTester struct{}
 
 func (it *codecInterfaceTester) Setup(_ *testing.T) {}
 
-func (it *codecInterfaceTester) Teardown(_ *testing.T) {}
-
 func (it *codecInterfaceTester) GetAccountBytes(i int) []byte {
 	account := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2}
 	account[i%32] += byte(i)
