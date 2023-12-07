@@ -241,36 +241,42 @@ func (lp *logPoller) RegisterFilter(filter Filter, qopts ...pg.QOpt) error {
 	if existingFilter, ok := lp.filters[filter.Name]; ok {
 		if existingFilter.Contains(&filter) {
 			// Nothing new in this Filter
+			lp.lggr.Debugw("Filter already present, no-op", "name", filter.Name, "filter", filter)
 			return nil
 		}
-		lp.lggr.Warnw("Updating existing filter with more events or addresses", "filter", filter)
+		lp.lggr.Warnw("Updating existing filter with more events or addresses", "name", filter.Name, "filter", filter)
 	} else {
-		lp.lggr.Debugw("Creating new filter", "filter", filter)
+		lp.lggr.Debugw("Creating new filter", "name", filter.Name, "filter", filter)
 	}
 
 	if err := lp.orm.InsertFilter(filter, qopts...); err != nil {
-		return errors.Wrap(err, "RegisterFilter failed to save filter to db")
+		lp.lggr.Errorw("Error registering filter", "name", filter.Name, "err", err)
+		return err
 	}
 	lp.filters[filter.Name] = filter
 	lp.filterDirty = true
 	return nil
 }
 
+// UnregisterFilter will remove the filter with the given name.
+// If the name does not exist, it will log an error but not return an error.
 func (lp *logPoller) UnregisterFilter(name string, qopts ...pg.QOpt) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
 
 	_, ok := lp.filters[name]
 	if !ok {
-		lp.lggr.Errorf("Filter %s not found", name)
+		lp.lggr.Errorw("Filter not found", "name", name)
 		return nil
 	}
 
 	if err := lp.orm.DeleteFilter(name, qopts...); err != nil {
-		return errors.Wrapf(err, "Failed to delete filter %s", name)
+		lp.lggr.Errorw("Error registering filter", "name", name)
+		return err
 	}
 	delete(lp.filters, name)
 	lp.filterDirty = true
+	lp.lggr.Debugw("Unregistered filter", "name", name)
 	return nil
 }
 
