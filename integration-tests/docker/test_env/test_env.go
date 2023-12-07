@@ -54,11 +54,9 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 	if err != nil {
 		return nil, err
 	}
-	n := []string{network.Name}
 	return &CLClusterTestEnv{
-		MockAdapter: test_env.NewKillgrave(n, ""),
-		Network:     network,
-		l:           log.Logger,
+		Network: network,
+		l:       log.Logger,
 	}, nil
 }
 
@@ -66,15 +64,19 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 // Sets up private ethereum chain and MockAdapter containers with the provided cfg.
 func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
 	te.Cfg = cfg
-	n := []string{te.Network.Name}
-	te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
+	if cfg.MockAdapter.ContainerName != "" {
+		n := []string{te.Network.Name}
+		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
+	}
 	return te
 }
 
 func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
 	te.t = t
 	te.l = logging.GetTestLogger(t)
-	te.MockAdapter.WithTestLogger(t)
+	if te.MockAdapter != nil {
+		te.MockAdapter.WithTestLogger(t)
+	}
 	return te
 }
 
@@ -238,6 +240,10 @@ func (te *CLClusterTestEnv) Cleanup() error {
 
 func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 	for _, node := range te.ClCluster.Nodes {
+		if node.Container == nil {
+			continue
+		}
+
 		isCLRunning := node.Container.IsRunning()
 		isDBRunning := node.PostgresDb.Container.IsRunning()
 
