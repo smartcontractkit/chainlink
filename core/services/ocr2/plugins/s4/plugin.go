@@ -4,6 +4,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
@@ -11,6 +14,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+)
+
+var (
+	promStoragePluginUpdatesCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "storage_plugin_updates",
+		Help: "Number of actual updates plugin performed by nodes",
+	}, []string{"don_id"})
 )
 
 type plugin struct {
@@ -268,6 +278,7 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, ts types.Repor
 			c.logger.Error("Failed to Update a row in ShouldAcceptFinalizedReport()", commontypes.LogFields{"err": err})
 			continue
 		}
+		promStoragePluginUpdatesCount.WithLabelValues(c.config.DONID).Inc()
 	}
 
 	c.logger.Debug("S4StorageReporting ShouldAcceptFinalizedReport", commontypes.LogFields{
