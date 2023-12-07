@@ -18,7 +18,7 @@ var (
 	}
 )
 
-func TestOCRPerformance(t *testing.T) {
+func TestOCRLoad(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	cc, msClient, cd, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestOCRPerformance(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestOCRCapacity(t *testing.T) {
+func TestOCRVolume(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	cc, msClient, cd, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
 	require.NoError(t, err)

@@ -25,6 +25,16 @@ chainlink:
   nodes:
     - name: node-1
       image: "public.ecr.aws/chainlink/chainlink:latest"
+      # default resources are 300m/1Gi
+      # first node need more resources to build faster inside container
+      # at least 2Gi of memory is required otherwise build will fail (OOM)
+      resources:
+        requests:
+          cpu: 2000m
+          memory: 2048Mi
+        limits:
+          cpu: 2000m
+          memory: 2048Mi
     # override default config per node
     # for example, use OCRv2 P2P setup, the whole config
     #      toml: |
