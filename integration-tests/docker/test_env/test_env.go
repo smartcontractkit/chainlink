@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"os"
 	"runtime/debug"
-	"strings"
 	"testing"
 	"time"
 
@@ -245,77 +244,6 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 	}
 }
 
-<<<<<<< HEAD
-=======
-// collectTestLogs collects the logs from all the Chainlink nodes in the test environment and writes them to local files
-func (te *CLClusterTestEnv) collectTestLogs() error {
-	te.l.Info().Msg("Collecting test logs")
-	sanitizedNetworkName := strings.ReplaceAll(te.EVMClient.GetNetworkName(), " ", "-")
-	folder := fmt.Sprintf("./logs/%s-%s-%s", te.t.Name(), sanitizedNetworkName, time.Now().Format("2006-01-02T15-04-05"))
-	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
-		return err
-	}
-
-	eg := &errgroup.Group{}
-	for _, n := range te.ClCluster.Nodes {
-		node := n
-		eg.Go(func() error {
-			logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
-			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				return err
-			}
-			defer logFile.Close()
-			logReader, err := node.Container.Logs(testcontext.Get(te.t))
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(logFile, logReader)
-			if err != nil {
-				return err
-			}
-			te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
-			return nil
-		})
-	}
-
-	if te.MockAdapter != nil {
-		eg.Go(func() error {
-			logFileName := filepath.Join(folder, "mock-adapter.log")
-			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				return err
-			}
-			defer logFile.Close()
-			logReader, err := te.MockAdapter.Container.Logs(testcontext.Get(te.t))
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(logFile, logReader)
-			if err != nil {
-				return err
-			}
-			te.l.Info().Str("Container", te.MockAdapter.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
-			return nil
-		})
-	}
-
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-
-	// Getting the absolute path
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	absolutePath := filepath.Join(wd, folder)
-
-	te.l.Info().Str("Logs absolute Location", absolutePath).Msg("Wrote test logs")
-	return nil
-}
-
->>>>>>> develop
 func (te *CLClusterTestEnv) returnFunds() error {
 	te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 	for _, chainlinkNode := range te.ClCluster.Nodes {
