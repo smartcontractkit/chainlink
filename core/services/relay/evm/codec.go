@@ -17,12 +17,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+// decodeAccountHook allows strings to be converted to [32]byte allowing config to represent them as 0x...
+// BigIntHook allows *big.Int to be represented as any integer type or a string and to go back to them.
+// Useful for config, or if when a model may use a go type that isn't a *big.Int when Pack expects one.
+// Eg: int32 in a go struct from a plugin could require a *big.Int in Pack for int24, if it fits, we shouldn't care.
+// SliceToArrayVerifySizeHook verifies that slices have the correct size when converting to an array
+// sizeVerifyBigIntHook allows our custom types that verify the number fits in the on-chain type to be converted as-if
+// it was a *big.Int
 var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountHook, codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook}
 
 func NewCodec(conf types.CodecConfig) (commontypes.CodecTypeProvider, error) {
 	parsed := &parsedTypes{
-		encoderDefs: map[string]*CodecEntry{},
-		decoderDefs: map[string]*CodecEntry{},
+		encoderDefs: map[string]*codecEntry{},
+		decoderDefs: map[string]*codecEntry{},
 	}
 
 	for k, v := range conf.ChainCodecConfigs {
@@ -36,7 +43,7 @@ func NewCodec(conf types.CodecConfig) (commontypes.CodecTypeProvider, error) {
 			return nil, err
 		}
 
-		item := &CodecEntry{Args: args, mod: mod}
+		item := &codecEntry{Args: args, mod: mod}
 		if err := item.Init(); err != nil {
 			return nil, err
 		}
@@ -55,7 +62,7 @@ type evmCodec struct {
 }
 
 func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
-	var itemTypes map[string]*CodecEntry
+	var itemTypes map[string]*codecEntry
 	if forEncoding {
 		itemTypes = c.encoderDefs
 	} else {
