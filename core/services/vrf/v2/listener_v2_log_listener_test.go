@@ -190,8 +190,8 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	}
 
 	// Emit some logs from block 5 to 9 (Inclusive)
-	numBlocks := 5
-	for i := 0; i < numBlocks; i++ {
+	n := 5
+	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -248,8 +248,8 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	th.Client.Commit()
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	numBlocks := 5
-	for i := 0; i < numBlocks; i++ {
+	n := 5
+	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -302,9 +302,9 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	th.Client.Commit()
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	numBlocks := 5
+	n := 5
 	th.Client.Commit()
-	for i := 0; i < numBlocks; i++ {
+	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -347,8 +347,8 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 
 	// Emit some logs in blocks with VRF reqs interspersed
 	// No fulfillment for any VRF requests
-	numBlocks := 5
-	for i := 0; i < numBlocks; i++ {
+	n := 5
+	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -409,8 +409,8 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 
 	// Emit some logs in blocks with VRF reqs interspersed
 	// One VRF request in each iteration is fulfilled to imitate mixed workload
-	numBlocks := 5
-	for i := 0; i < numBlocks; i++ {
+	n := 5
+	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -500,8 +500,8 @@ func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 	th.Client.Commit()
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	numBlocks := 5
-	for i := 0; i < numBlocks; i++ {
+	n := 5
+	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -555,8 +555,8 @@ func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	th.Client.Commit()
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	numBlocks := 5
-	for i := 0; i < numBlocks; i++ {
+	n := 5
+	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -606,8 +606,8 @@ func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	th.Client.Commit()
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	numBlocks := 5
-	for i := 0; i < numBlocks; i++ {
+	n := 5
+	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -646,8 +646,8 @@ func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	}
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	numBlocks := 5
-	for i := 0; i < numBlocks; i++ {
+	n := 5
+	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -703,8 +703,8 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	}
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	numBlocks := 5
-	for i := 0; i < numBlocks; i++ {
+	n := 5
+	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
