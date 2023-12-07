@@ -253,7 +253,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 		t.Logf("Mined %d blocks, waiting for logs to be recovered", dummyBlocks)
 
-		listener, done := listenPerformed(t, backend, registry, ids, int64(beforeDummyBlocks))
+		listener, done := listenPerformedN(t, backend, registry, ids, int64(beforeDummyBlocks), len(ids))
 		g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 		done()
 	})
@@ -397,7 +397,7 @@ func mapListener(m *sync.Map, n int) func() bool {
 	}
 }
 
-func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (func() bool, func()) {
+func listenPerformedN(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64, count int) (func() bool, func()) {
 	cache := &sync.Map{}
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	start := startBlock
@@ -436,7 +436,11 @@ func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry 
 		}
 	}()
 
-	return mapListener(cache, 0), cancel
+	return mapListener(cache, count), cancel
+}
+
+func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (func() bool, func()) {
+	return listenPerformedN(t, backend, registry, ids, startBlock, 0)
 }
 
 func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts) ([]Node, *SimulatedMercuryServer) {
