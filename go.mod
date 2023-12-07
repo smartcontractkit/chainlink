@@ -104,7 +104,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
-require gopkg.in/guregu/null.v2 v2.1.2 // indirect
+require gopkg.in/guregu/null.v2 v2.1.2
 
 require (
 	cloud.google.com/go/compute v1.23.3 // indirect
