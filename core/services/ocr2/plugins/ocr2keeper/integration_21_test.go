@@ -241,12 +241,21 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 				time.Sleep(time.Millisecond * 250) // otherwise we get "invalid transaction nonce" errors
 			}
 		})
-		// Mine enough blocks to ensre these logs don't fall into log provider range
+
+		beforeDummyBlocks := backend.Blockchain().CurrentBlock().Number.Uint64()
+		
+		// Mine enough blocks to ensure these logs don't fall into log provider range
 		dummyBlocks := 500
 		for i := 0; i < dummyBlocks; i++ {
 			backend.Commit()
 			time.Sleep(time.Millisecond * 10)
 		}
+
+		t.Logf("Mined %d blocks, waiting for logs to be recovered", dummyBlocks)
+
+		listener, done := listenPerformed(t, backend, registry, ids, int64(beforeDummyBlocks))
+		g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
+		done()
 	})
 }
 
