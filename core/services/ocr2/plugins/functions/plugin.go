@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -40,7 +40,7 @@ type FunctionsServicesConfig struct {
 	BridgeORM         bridges.ORM
 	QConfig           pg.QConfig
 	DB                *sqlx.DB
-	Chain             evm.Chain
+	Chain             legacyevm.Chain
 	ContractID        string
 	Logger            logger.Logger
 	MailMon           *utils.MailboxMonitor
@@ -147,7 +147,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 			return nil, errors.Wrap(err, "failed to create a OnchainSubscriptions")
 		}
 		connectorLogger := conf.Logger.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
-		connector, err2 := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, rateLimiter, subscriptions, pluginConfig.MinimumSubscriptionBalance, connectorLogger)
+		connector, err2 := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, rateLimiter, subscriptions, functionsListener, offchainTransmitter, pluginConfig.MinimumSubscriptionBalance, connectorLogger)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
 		}
@@ -174,7 +174,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	return allServices, nil
 }
 
-func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, allowlist gwFunctions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions gwFunctions.OnchainSubscriptions, minimumBalance assets.Link, lggr logger.Logger) (connector.GatewayConnector, error) {
+func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, allowlist gwFunctions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions gwFunctions.OnchainSubscriptions, listener functions.FunctionsListener, offchainTransmitter functions.OffchainTransmitter, minimumBalance assets.Link, lggr logger.Logger) (connector.GatewayConnector, error) {
 	enabledKeys, err := ethKeystore.EnabledKeysForChain(chainID)
 	if err != nil {
 		return nil, err
@@ -187,7 +187,7 @@ func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, c
 	signerKey := enabledKeys[idx].ToEcdsaPrivKey()
 	nodeAddress := enabledKeys[idx].ID()
 
-	handler, err := functions.NewFunctionsConnectorHandler(nodeAddress, signerKey, s4Storage, allowlist, rateLimiter, subscriptions, minimumBalance, lggr)
+	handler, err := functions.NewFunctionsConnectorHandler(nodeAddress, signerKey, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, minimumBalance, lggr)
 	if err != nil {
 		return nil, err
 	}

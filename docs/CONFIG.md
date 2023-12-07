@@ -1109,13 +1109,7 @@ OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
 ```
-P2P supports multiple networking stack versions. You may configure `[P2P.V1]`, `[P2P.V2]`, or both to run simultaneously.
-If both are configured, then for each link with another peer, V2 networking will be preferred. If V2 does not work, the link will
-automatically fall back to V1. If V2 starts working again later, it will automatically be preferred again. This is useful
-for migrating networks without downtime. Note that the two networking stacks _must not_ be configured to bind to the same IP/port.
-
-Note: P2P.V1 is deprecated will be removed in the future.
-
+P2P has a versioned networking stack. Currenly only `[P2P.V2]` is supported.
 All nodes in the OCR network should share the same networking stack.
 
 ### IncomingMessageBufferSize
@@ -1148,108 +1142,6 @@ PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the firs
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
-
-## P2P.V1
-```toml
-[P2P.V1]
-Enabled = false # Default
-AnnounceIP = '1.2.3.4' # Example
-AnnouncePort = 1337 # Example
-BootstrapCheckInterval = '20s' # Default
-DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
-DHTAnnouncementCounterUserPrefix = 0 # Default
-DHTLookupInterval = 10 # Default
-ListenIP = '0.0.0.0' # Default
-ListenPort = 1337 # Example
-NewStreamTimeout = '10s' # Default
-PeerstoreWriteInterval = '5m' # Default
-```
-P2P.V1 is deprecated and will be removed in a future version.
-
-### Enabled
-```toml
-Enabled = false # Default
-```
-Enabled enables P2P V1.
-
-### AnnounceIP
-```toml
-AnnounceIP = '1.2.3.4' # Example
-```
-AnnounceIP should be set as the externally reachable IP address of the Chainlink node.
-
-### AnnouncePort
-```toml
-AnnouncePort = 1337 # Example
-```
-AnnouncePort should be set as the externally reachable port of the Chainlink node.
-
-### BootstrapCheckInterval
-```toml
-BootstrapCheckInterval = '20s' # Default
-```
-BootstrapCheckInterval is the interval at which nodes check connections to bootstrap nodes and reconnect if any of them is lost.
-Setting this to a small value would allow newly joined bootstrap nodes to get more connectivity
-more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively
-cheap. We set this to 1 minute during our test.
-
-### DefaultBootstrapPeers
-```toml
-DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
-```
-DefaultBootstrapPeers is the default set of bootstrap peers.
-
-### DHTAnnouncementCounterUserPrefix
-```toml
-DHTAnnouncementCounterUserPrefix = 0 # Default
-```
-DHTAnnouncementCounterUserPrefix can be used to restore the node's
-ability to announce its IP/port on the P2P network after a database
-rollback. Make sure to only increase this value, and *never* decrease it.
-Don't use this variable unless you really know what you're doing, since you
-could semi-permanently exclude your node from the P2P network by
-misconfiguring it.
-
-### DHTLookupInterval
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-DHTLookupInterval = 10 # Default
-```
-DHTLookupInterval is the interval between which we do the expensive peer
-lookup using DHT.
-
-Every DHTLookupInterval failures to open a stream to a peer, we will
-attempt to lookup its IP from DHT
-
-### ListenIP
-```toml
-ListenIP = '0.0.0.0' # Default
-```
-ListenIP is the default IP address to bind to.
-
-### ListenPort
-```toml
-ListenPort = 1337 # Example
-```
-ListenPort is the port to listen on. If left blank, the node randomly selects a different port each time it boots. It is highly recommended to set this to a static value to avoid network instability.
-
-### NewStreamTimeout
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-NewStreamTimeout = '10s' # Default
-```
-NewStreamTimeout is the maximum length of time to wait to open a
-stream before we give up.
-We shouldn't hit this in practice since libp2p will give up fast if
-it can't get a connection, but it is here anyway as a failsafe.
-Set to 0 to disable any timeout on top of what libp2p gives us by default.
-
-### PeerstoreWriteInterval
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-PeerstoreWriteInterval = '5m' # Default
-```
-PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networking stack is persisted to the database.
 
 ## P2P.V2
 ```toml
@@ -1652,6 +1544,51 @@ env = 'test' # Example
 ```
 env is an example user specified key-value pair
 
+## Mercury
+```toml
+[Mercury]
+```
+
+
+## Mercury.Cache
+```toml
+[Mercury.Cache]
+LatestReportTTL = "1s" # Default
+MaxStaleAge = "1h" # Default
+LatestReportDeadline = "5s" # Default
+```
+Mercury.Cache controls settings for the price retrieval cache querying a mercury server
+
+### LatestReportTTL
+```toml
+LatestReportTTL = "1s" # Default
+```
+LatestReportTTL controls how "stale" we will allow a price to be e.g. if
+set to 1s, a new price will always be fetched if the last result was
+from 1 second ago or older.
+
+Another way of looking at it is such: the cache will _never_ return a
+price that was queried from now-LatestReportTTL or before.
+
+Setting to zero disables caching entirely.
+
+### MaxStaleAge
+```toml
+MaxStaleAge = "1h" # Default
+```
+MaxStaleAge is that maximum amount of time that a value can be stale
+before it is deleted from the cache (a form of garbage collection).
+
+This should generally be set to something much larger than
+LatestReportTTL. Setting to zero disables garbage collection.
+
+### LatestReportDeadline
+```toml
+LatestReportDeadline = "5s" # Default
+```
+LatestReportDeadline controls how long to wait for a response from the
+mercury server before retrying. Setting this to zero will wait indefinitely.
+
 ## EVM
 EVM defaults depend on ChainID:
 
@@ -1726,6 +1663,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -1805,6 +1744,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -1884,6 +1825,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -1963,6 +1906,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2043,6 +1988,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2122,6 +2069,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2201,6 +2150,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2281,6 +2232,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2360,6 +2313,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
 
 [OCR2]
@@ -2438,6 +2393,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2516,6 +2473,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2595,6 +2554,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
 
 [OCR2]
@@ -2675,6 +2636,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2754,6 +2717,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
 
 [OCR2]
@@ -2833,6 +2798,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2912,6 +2879,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2991,6 +2960,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3070,6 +3041,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3149,6 +3122,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3229,6 +3204,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3308,6 +3285,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3386,6 +3365,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3465,6 +3446,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3544,6 +3527,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3623,6 +3608,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3701,6 +3688,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3780,6 +3769,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3859,6 +3850,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3937,6 +3930,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4016,6 +4011,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4096,6 +4093,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4175,6 +4174,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4254,6 +4255,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4333,6 +4336,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4412,6 +4417,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4490,6 +4497,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4568,6 +4577,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4647,6 +4658,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4726,6 +4739,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4806,6 +4821,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4886,6 +4903,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4965,6 +4984,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -5043,6 +5064,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -5121,6 +5144,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -5138,7 +5163,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
 FinalityTagEnabled = false
-LinkContractAddress = '0xb227f007804c16546Bd054dfED2E7A1fD5437678'
+LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -5200,6 +5225,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -5279,6 +5306,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -5358,6 +5387,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -6032,6 +6063,8 @@ Set to '0s' to disable
 ContractConfirmations = 4 # Default
 ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
+DeltaCOverride = "168h" # Default
+DeltaCJitterOverride = "1h" # Default
 ObservationGracePeriod = '1s' # Default
 ```
 
@@ -6053,6 +6086,22 @@ ContractTransmitterTransmitTimeout sets `OCR.ContractTransmitterTransmitTimeout`
 DatabaseTimeout = '10s' # Default
 ```
 DatabaseTimeout sets `OCR.DatabaseTimeout` for this EVM chain.
+
+### DeltaCOverride
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+DeltaCOverride = "168h" # Default
+```
+DeltaCOverride (and `DeltaCJitterOverride`) determine the config override DeltaC.
+DeltaC is the maximum age of the latest report in the contract. If the maximum age is exceeded, a new report will be
+created by the report generation protocol.
+
+### DeltaCJitterOverride
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+DeltaCJitterOverride = "1h" # Default
+```
+DeltaCJitterOverride is the range for jitter to add to `DeltaCOverride`.
 
 ### ObservationGracePeriod
 ```toml

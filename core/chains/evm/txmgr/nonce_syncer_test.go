@@ -3,6 +3,7 @@ package txmgr_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -10,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +30,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 
 		_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-		ns := txmgr.NewNonceSyncer(txStore, logger.TestLogger(t), ethClient)
+		ns := txmgr.NewNonceSyncer(txStore, logger.Test(t), ethClient)
 
 		ethClient.On("PendingNonceAt", mock.Anything, from).Return(uint64(0), errors.New("something exploded"))
 		_, err := ns.Sync(testutils.Context(t), from, types.Nonce(0))
@@ -50,7 +50,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 
 		_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-		ns := txmgr.NewNonceSyncer(txStore, logger.TestLogger(t), ethClient)
+		ns := txmgr.NewNonceSyncer(txStore, logger.Test(t), ethClient)
 
 		ethClient.On("PendingNonceAt", mock.Anything, from).Return(uint64(0), nil)
 
@@ -72,7 +72,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 
 		_, fromAddress := cltest.RandomKey{Nonce: 32}.MustInsert(t, ks)
 
-		ns := txmgr.NewNonceSyncer(txStore, logger.TestLogger(t), ethClient)
+		ns := txmgr.NewNonceSyncer(txStore, logger.Test(t), ethClient)
 
 		// Used to mock the chain nonce
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(5), nil)
@@ -97,7 +97,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		key1LocalNonce := types.Nonce(0)
 		key2LocalNonce := types.Nonce(32)
 
-		ns := txmgr.NewNonceSyncer(txStore, logger.TestLogger(t), ethClient)
+		ns := txmgr.NewNonceSyncer(txStore, logger.Test(t), ethClient)
 
 		// Used to mock the chain nonce
 		ethClient.On("PendingNonceAt", mock.Anything, key1).Return(uint64(5), nil).Once()

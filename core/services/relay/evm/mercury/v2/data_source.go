@@ -1,4 +1,4 @@
-package mercury_v2
+package v2
 
 import (
 	"context"
@@ -10,8 +10,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaymercury "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
-	relaymercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v2"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
+	v2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -39,7 +40,7 @@ type datasource struct {
 	spec           pipeline.Spec
 	feedID         mercuryutils.FeedID
 	lggr           logger.Logger
-	runResults     chan<- *pipeline.Run
+	saver          ocrcommon.Saver
 	orm            types.DataSourceORM
 	codec          reportcodec.ReportCodec
 
@@ -52,13 +53,13 @@ type datasource struct {
 	chEnhancedTelem chan<- ocrcommon.EnhancedTelemetryMercuryData
 }
 
-var _ relaymercuryv2.DataSource = &datasource{}
+var _ v2.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
-	return &datasource{pr, jb, spec, feedID, lggr, rr, orm, reportcodec.ReportCodec{}, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, s ocrcommon.Saver, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
+	return &datasource{pr, jb, spec, feedID, lggr, s, orm, reportcodec.ReportCodec{}, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv2.Observation, pipelineExecutionErr error) {
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs v2types.Observation, pipelineExecutionErr error) {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -91,11 +92,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			pipelineExecutionErr = fmt.Errorf("Observe failed while executing run: %w", pipelineExecutionErr)
 			return
 		}
-		select {
-		case ds.runResults <- run:
-		default:
-			ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
-		}
+
+		ds.saver.Save(run)
 
 		var parsed parseOutput
 		parsed, pipelineExecutionErr = ds.parse(trrs)
@@ -119,8 +117,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			obs.LinkPrice.Val, obs.LinkPrice.Err = ds.fetcher.LatestPrice(ctx, ds.linkFeedID)
 			if obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
 				mercurytypes.PriceFeedMissingCount.WithLabelValues(ds.linkFeedID.String()).Inc()
-				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, using sentinel value of %s", relaymercuryv2.MissingPrice), "linkFeedID", ds.linkFeedID)
-				obs.LinkPrice.Val = relaymercuryv2.MissingPrice
+				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, using sentinel value of %s", v2.MissingPrice), "linkFeedID", ds.linkFeedID)
+				obs.LinkPrice.Val = v2.MissingPrice
 			} else if obs.LinkPrice.Err != nil {
 				mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.linkFeedID.String()).Inc()
 				ds.lggr.Errorw("Mercury server returned error querying LINK price feed", "err", obs.LinkPrice.Err, "linkFeedID", ds.linkFeedID)
@@ -137,8 +135,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			obs.NativePrice.Val, obs.NativePrice.Err = ds.fetcher.LatestPrice(ctx, ds.nativeFeedID)
 			if obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
 				mercurytypes.PriceFeedMissingCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
-				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, using sentinel value of %s", relaymercuryv2.MissingPrice), "nativeFeedID", ds.nativeFeedID)
-				obs.NativePrice.Val = relaymercuryv2.MissingPrice
+				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, using sentinel value of %s", v2.MissingPrice), "nativeFeedID", ds.nativeFeedID)
+				obs.NativePrice.Val = v2.MissingPrice
 			} else if obs.NativePrice.Err != nil {
 				mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
 				ds.lggr.Errorw("Mercury server returned error querying native price feed", "err", obs.NativePrice.Err, "nativeFeedID", ds.nativeFeedID)
@@ -187,7 +185,7 @@ func toBigInt(val interface{}) (*big.Int, error) {
 }
 
 type parseOutput struct {
-	benchmarkPrice relaymercury.ObsResult[*big.Int]
+	benchmarkPrice mercury.ObsResult[*big.Int]
 }
 
 func (ds *datasource) parse(trrs pipeline.TaskRunResults) (o parseOutput, merr error) {

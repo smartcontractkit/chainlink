@@ -3,28 +3,20 @@ package types
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"gopkg.in/guregu/null.v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-type RelayOpts struct {
-	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
-	// make this private and wrap the arg fields with funcs on RelayOpts
-	commontypes.RelayArgs
-	c *RelayConfig
-}
 
 type ChainReaderConfig struct {
 	// ChainContractReaders key is contract name
@@ -79,6 +71,13 @@ type RelayConfig struct {
 
 var ErrBadRelayConfig = errors.New("bad relay config")
 
+type RelayOpts struct {
+	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
+	// make this private and wrap the arg fields with funcs on RelayOpts
+	types.RelayArgs
+	c *RelayConfig
+}
+
 func NewRelayOpts(args types.RelayArgs) *RelayOpts {
 	return &RelayOpts{
 		RelayArgs: args,
@@ -108,9 +107,9 @@ type ConfigPoller interface {
 	Replay(ctx context.Context, fromBlock int64) error
 }
 
-// TODO(FUN-668): Migrate this fully into commontypes.FunctionsProvider
+// TODO(FUN-668): Migrate this fully into types.FunctionsProvider
 type FunctionsProvider interface {
-	commontypes.FunctionsProvider
+	types.FunctionsProvider
 	LogPollerWrapper() LogPollerWrapper
 }
 

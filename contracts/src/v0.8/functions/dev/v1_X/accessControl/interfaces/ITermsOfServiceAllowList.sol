@@ -38,3 +38,11 @@ interface ITermsOfServiceAllowList {
   /// @param sender - Address of the sender to unblock
   function unblockSender(address sender) external;
 }
+
+// ================================================================
+// |                     Configuration state                      |
+// ================================================================
+struct TermsOfServiceAllowListConfig {
+  bool enabled; // ═════════════╗ When enabled, access will be checked against s_allowedSenders. When disabled, all access will be allowed.
+  address signerPublicKey; // ══╝ The key pair that needs to sign the acceptance data
+}

@@ -2,18 +2,19 @@ package headtracker
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync/atomic"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -59,7 +60,7 @@ func NewHeadListener[
 	return &HeadListener[HTH, S, ID, BLOCK_HASH]{
 		config: config,
 		client: client,
-		logger: lggr.Named("HeadListener"),
+		logger: logger.Named(lggr, "HeadListener"),
 		chStop: chStop,
 	}
 }
@@ -202,7 +203,7 @@ func (hl *HeadListener[HTH, S, ID, BLOCK_HASH]) subscribeToHead(ctx context.Cont
 	hl.headSubscription, err = hl.client.SubscribeNewHead(ctx, hl.chHeaders)
 	if err != nil {
 		close(hl.chHeaders)
-		return errors.Wrap(err, "Client#SubscribeNewHead")
+		return fmt.Errorf("Client#SubscribeNewHead: %w", err)
 	}
 
 	hl.connected.Store(true)

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -31,7 +31,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	logCfg := pgtest.NewQConfig(true)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
@@ -65,7 +65,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 		addr3TxesRawHex = append(addr3TxesRawHex, hexutil.Encode(etx.TxAttempts[0].SignedRawTx))
 	}
 
-	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
+	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
 	var resentHex = make(map[string]struct{})
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
@@ -102,7 +102,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	logCfg := pgtest.NewQConfig(true)
-	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, o := logger.TestObserved(t, zapcore.DebugLevel)
 	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	// Set this to the smallest non-zero value possible for the attempt to be eligible for resend
@@ -121,7 +121,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
-	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
+	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
 	t.Run("alerts only once for unconfirmed transaction attempt within the unconfirmedTxAlertDelay duration", func(t *testing.T) {
 		_ = cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(1), fromAddress, originalBroadcastAt)
@@ -152,12 +152,12 @@ func Test_EthResender_Start(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
+		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, originalBroadcastAt)

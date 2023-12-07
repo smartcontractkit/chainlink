@@ -15,16 +15,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 // MaxStartTime is the maximum amount of time we are allowed to spend
@@ -142,7 +143,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 		wg:        new(sync.WaitGroup),
 		ctx:       ctx,
 		ctxCancel: cancel,
-		logger:    logger.Sugared(lggr.Named("BlockHistoryEstimator")),
+		logger:    logger.Sugared(logger.Named(lggr, "BlockHistoryEstimator")),
 	}
 
 	return b
@@ -197,7 +198,7 @@ func (b *BlockHistoryEstimator) getBlocks() []evmtypes.Block {
 // The provided context can be used to terminate Start sequence.
 func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
-		b.logger.Trace("Starting")
+		logger.Trace(b.logger, "Starting")
 
 		if b.bhConfig.CheckInclusionBlocks() > 0 {
 			b.logger.Infof("Inclusion checking enabled, bumping will be prevented on transactions that have been priced above the %d percentile for %d blocks", b.bhConfig.CheckInclusionPercentile(), b.bhConfig.CheckInclusionBlocks())
@@ -227,7 +228,7 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 		b.wg.Add(1)
 		go b.runLoop()
 
-		b.logger.Trace("Started")
+		logger.Trace(b.logger, "Started")
 		return nil
 	})
 }
@@ -290,7 +291,7 @@ func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPric
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, commonfee.ErrConnectivity) {
-				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
+				logger.Criticalw(b.logger, BumpingHaltedLabel, "err", err)
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "legacy").Inc()
 			}
@@ -466,7 +467,7 @@ func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee Dy
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, commonfee.ErrConnectivity) {
-				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
+				logger.Criticalw(b.logger, BumpingHaltedLabel, "err", err)
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "eip1559").Inc()
 			}
@@ -507,7 +508,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	percentile := int(b.bhConfig.TransactionPercentile())
 
-	lggr := b.logger.With("head", head)
+	lggr := logger.With(b.logger, "head", head)
 
 	blockHistory := b.getBlocks()
 	if len(blockHistory) == 0 {
@@ -629,9 +630,9 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 		reqs = append(reqs, req)
 	}
 
-	lggr := b.logger.With("head", head)
+	lggr := logger.With(b.logger, "head", head)
 
-	lggr.Tracew(fmt.Sprintf("Fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
+	logger.Tracew(lggr, fmt.Sprintf("Fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
 	if err := b.batchFetch(ctx, reqs); err != nil {
 		return err
 	}
@@ -712,7 +713,7 @@ func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.Batch
 			j = len(reqs)
 		}
 
-		b.logger.Tracew(fmt.Sprintf("Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
+		logger.Tracew(b.logger, fmt.Sprintf("Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
 
 		err := b.ethClient.BatchCallContext(ctx, reqs[i:j])
 		if errors.Is(err, context.DeadlineExceeded) {

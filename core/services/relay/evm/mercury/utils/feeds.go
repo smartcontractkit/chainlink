@@ -88,6 +88,10 @@ const (
 
 type FeedID [32]byte
 
+func BytesToFeedID(b []byte) FeedID {
+	return (FeedID)(utils.BytesToHash(b))
+}
+
 func (f FeedID) Hex() string { return (utils.Hash)(f).Hex() }
 
 func (f FeedID) String() string { return (utils.Hash)(f).String() }
