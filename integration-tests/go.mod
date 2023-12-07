@@ -25,12 +25,12 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.1
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231205033838-dfac15e672d4
-	github.com/smartcontractkit/chainlink-testing-framework v1.20.2-0.20231206193702-6a0f4141cc71
+	github.com/smartcontractkit/chainlink-testing-framework v1.20.2-0.20231207123920-4a206b695aa3
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20231130143053-c5102a9c0fb7
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
-	github.com/smartcontractkit/wasp v0.3.7-0.20231206164520-64c16b6266d5
+	github.com/smartcontractkit/wasp v0.3.7
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.23.0
@@ -41,6 +41,9 @@ require (
 	golang.org/x/sync v0.5.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
+
+// avoids ambigious imports of indirect dependencies
+exclude github.com/hashicorp/consul v1.2.1
 
 // Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 replace (
