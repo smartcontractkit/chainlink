@@ -485,10 +485,10 @@ github.com/go-stack/stack v1.8.1/go.mod h1:dcoOX6HbPZSZptuspn9bctJ+N/CnF5gGygcUP
 github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0/go.mod h1:fyg7847qk6SyHyPtNmDHnmrv/HOrqktSC+C9fM+CJOE=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 h1:tfuBGBXKqDEevZMzYi5KSi8KkcZtzBcTgAUUtapy0OI=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572/go.mod h1:9Pwr4B2jHnOSGXyyzV8ROjYa2ojvAY6HCGYYfMoC3Ls=
-github.com/go-webauthn/webauthn v0.9.1 h1:KuZjvUX9JTuFjB2n7kZhM6n76BClLUFbFM8SLKnrXpo=
-github.com/go-webauthn/webauthn v0.9.1/go.mod h1:m315kRGbUljOytw8b9FGWG9QzErjI5v02pNFCF3lwpI=
-github.com/go-webauthn/x v0.1.4 h1:sGmIFhcY70l6k7JIDfnjVBiAAFEssga5lXIUXe0GtAs=
-github.com/go-webauthn/x v0.1.4/go.mod h1:75Ug0oK6KYpANh5hDOanfDI+dvPWHk788naJVG/37H8=
+github.com/go-webauthn/webauthn v0.9.4 h1:YxvHSqgUyc5AK2pZbqkWWR55qKeDPhP8zLDr6lpIc2g=
+github.com/go-webauthn/webauthn v0.9.4/go.mod h1:LqupCtzSef38FcxzaklmOn7AykGKhAhr9xlRbdbgnTw=
+github.com/go-webauthn/x v0.1.5 h1:V2TCzDU2TGLd0kSZOXdrqDVV5JB9ILnKxA9S53CSBw0=
+github.com/go-webauthn/x v0.1.5/go.mod h1:qbzWwcFcv4rTwtCLOZd+icnr6B7oSsAGZJqlt8cukqY=
 github.com/gobwas/httphead v0.0.0-20180130184737-2c6c146eadee/go.mod h1:L0fX3K22YWvt/FAX9NnzrNzcI4wNYi9Yku4O0LKYflo=
 github.com/gobwas/pool v0.2.0/go.mod h1:q8bcK0KcYlCgd9e7WYLm9LpyS+YeLd8JVDW6WezmKEw=
 github.com/gobwas/ws v1.0.2/go.mod h1:szmBTxLgaFppYjEmNtny/v3w89xOydFnnZMcgRRu/EM=
@@ -510,8 +510,8 @@ github.com/golang-jwt/jwt v3.2.2+incompatible h1:IfV12K8xAKAnZqdXVzCZ+TOjboZ2keL
 github.com/golang-jwt/jwt v3.2.2+incompatible/go.mod h1:8pz2t5EyA70fFQQSrl6XZXzqecmYZeUEB8OUGHkxJ+I=
 github.com/golang-jwt/jwt/v4 v4.5.0 h1:7cYmW1XlMY7h7ii7UhUyChSgS5wUJEnm9uZVTGqOWzg=
 github.com/golang-jwt/jwt/v4 v4.5.0/go.mod h1:m21LjoU+eqJr34lmDMbreY2eSTRJ1cv77w39/MY0Ch0=
-github.com/golang-jwt/jwt/v5 v5.1.0 h1:UGKbA/IPjtS6zLcdB7i5TyACMgSbOTiR8qzXgw8HWQU=
-github.com/golang-jwt/jwt/v5 v5.1.0/go.mod h1:pqrtFR0X4osieyHYxtmOUWsAWrfe1Q5UVIyoH402zdk=
+github.com/golang-jwt/jwt/v5 v5.2.0 h1:d/ix8ftRUorsN+5eMIlF4T6J8CAt9rch3My2winC1Jw=
+github.com/golang-jwt/jwt/v5 v5.2.0/go.mod h1:pqrtFR0X4osieyHYxtmOUWsAWrfe1Q5UVIyoH402zdk=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/glog v1.1.2 h1:DVjP2PbBOzHyzA+dn3WhHIq4NdVu3Q+pvivFICf/7fo=
 github.com/golang/glog v1.1.2/go.mod h1:zR+okUeTbrL6EL3xHUDxZuEtGv04p5shwip1+mL/rLQ=
