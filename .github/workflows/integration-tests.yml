@@ -495,6 +495,7 @@ jobs:
           name: trace-data
           path: ./integration-tests/smoke/traces/trace-data.json
       - name: Print failed test summary
+        if: always()
         run: |
           directory="./integration-tests/smoke/.test_summary"
           files=("$directory"/*)
