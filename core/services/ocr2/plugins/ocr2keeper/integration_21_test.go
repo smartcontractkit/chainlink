@@ -243,7 +243,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		})
 
 		beforeDummyBlocks := backend.Blockchain().CurrentBlock().Number.Uint64()
-		
+
 		// Mine enough blocks to ensure these logs don't fall into log provider range
 		dummyBlocks := 500
 		for i := 0; i < dummyBlocks; i++ {
