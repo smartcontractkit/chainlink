@@ -413,7 +413,7 @@ func ExtractRPCError(baseErr error) (*JsonError, error) {
 	return &jErr, nil
 }
 
-func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fromAddress common.Address, isL2 bool) (commonclient.SendTxReturnCode) {
+func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
 	sendError := NewSendError(err)
 	if sendError == nil {
 		return commonclient.Successful
