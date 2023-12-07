@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
@@ -21,7 +22,7 @@ func TestOCRBasic(t *testing.T) {
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(.01)).
+		WithFunding(big.NewFloat(.5)).
 		WithStandardCleanup().
 		WithLogStream().
 		Build()
