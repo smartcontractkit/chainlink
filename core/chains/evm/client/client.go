@@ -219,7 +219,8 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 
 func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := client.SendTransaction(ctx, tx)
-	return ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
+	returnCode := ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
+	return returnCode, err
 }
 
 // SendTransaction also uses the sendonly HTTP RPC URLs if set

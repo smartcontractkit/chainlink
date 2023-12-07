@@ -82,7 +82,9 @@ func (c *evmTxmClient) BatchSendTransactions(
 				processingErr[i] = fmt.Errorf("%s: %w", signedErrMsg, signedErr)
 				return
 			}
-			codes[i], txErrs[i] = client.ClassifySendError(reqs[i].Error, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
+			sendErr := reqs[i].Error
+			codes[i] = client.ClassifySendError(sendErr, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
+			txErrs[i] = sendErr
 		}(index)
 	}
 	wg.Wait()

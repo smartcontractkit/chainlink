@@ -413,21 +413,21 @@ func ExtractRPCError(baseErr error) (*JsonError, error) {
 	return &jErr, nil
 }
 
-func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fromAddress common.Address, isL2 bool) (commonclient.SendTxReturnCode, error) {
+func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fromAddress common.Address, isL2 bool) (commonclient.SendTxReturnCode) {
 	sendError := NewSendError(err)
 	if sendError == nil {
-		return commonclient.Successful, err
+		return commonclient.Successful
 	}
 	if sendError.Fatal() {
 		logger.Criticalw(lggr, "Fatal error sending transaction", "err", sendError, "etx", tx)
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
-		return commonclient.Fatal, err
+		return commonclient.Fatal
 	}
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
 		lggr.Debugw("Transaction already confirmed for this nonce: %d", tx.Nonce(), "err", sendError)
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark it as TransactionAlreadyKnown.
-		return commonclient.TransactionAlreadyKnown, err
+		return commonclient.TransactionAlreadyKnown
 	}
 	if sendError.IsReplacementUnderpriced() {
 		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %x. "+
@@ -436,45 +436,45 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 			tx.Hash(), err), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap)
 
 		// Assume success and hand off to the next cycle.
-		return commonclient.Successful, err
+		return commonclient.Successful
 	}
 	if sendError.IsTransactionAlreadyInMempool() {
 		lggr.Debugw("Transaction already in mempool", "txHash", tx.Hash, "nodeErr", sendError.Error())
-		return commonclient.Successful, err
+		return commonclient.Successful
 	}
 	if sendError.IsTemporarilyUnderpriced() {
 		lggr.Infow("Transaction temporarily underpriced", "err", sendError.Error())
-		return commonclient.Successful, err
+		return commonclient.Successful
 	}
 	if sendError.IsTerminallyUnderpriced() {
 		lggr.Errorw("Transaction terminally underpriced", "txHash", tx.Hash, "err", sendError)
-		return commonclient.Underpriced, err
+		return commonclient.Underpriced
 	}
 	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
 		if isL2 {
 			lggr.Errorw("Transaction fee out of range", "err", sendError)
-			return commonclient.FeeOutOfValidRange, err
+			return commonclient.FeeOutOfValidRange
 		}
-		return commonclient.Unsupported, errors.Wrap(sendError, "this error type only handled for L2s")
+		lggr.Errorw("this error type only handled for L2s", "err", sendError)
+		return commonclient.Unsupported
 	}
 	if sendError.IsNonceTooHighError() {
 		// This error occurs when the tx nonce is greater than current_nonce + tx_count_in_mempool,
 		// instead of keeping the tx in mempool. This can happen if previous transactions haven't
 		// reached the client yet. The correct thing to do is to mark it as retryable.
 		lggr.Warnw("Transaction has a nonce gap.", "err", err)
-		return commonclient.Retryable, err
+		return commonclient.Retryable
 	}
 	if sendError.IsInsufficientEth() {
 		logger.Criticalw(lggr, fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
 		), "err", sendError)
-		return commonclient.InsufficientFunds, err
+		return commonclient.InsufficientFunds
 	}
 	if sendError.IsTimeout() {
-		errorMsg := fmt.Sprintf("timeout while sending transaction %s", tx.Hash().Hex())
-		lggr.Errorw(errorMsg, "err", sendError)
-		return commonclient.Retryable, fmt.Errorf("%s: %w", errorMsg, sendError)
+		lggr.Errorw("timeout while sending transaction %s", tx.Hash().Hex(), "err", sendError)
+		return commonclient.Retryable
 	}
 	if sendError.IsTxFeeExceedsCap() {
 		logger.Criticalw(lggr, fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
@@ -482,10 +482,10 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 			"err", sendError,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		return commonclient.ExceedsMaxFee, err
+		return commonclient.ExceedsMaxFee
 	}
 	lggr.Errorw("Unknown error encountered when sending transaction", "err", err)
-	return commonclient.Unknown, err
+	return commonclient.Unknown
 }
 
 // ClassifySendOnlyError handles SendOnly nodes error codes. In that case, we don't assume there is another transaction that will be correctly
