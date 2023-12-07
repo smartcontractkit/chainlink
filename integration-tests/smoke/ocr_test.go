@@ -24,6 +24,7 @@ func TestOCRBasic(t *testing.T) {
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.5)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err)
 
