@@ -16,14 +16,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
-	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Head represents a BlockNumber, BlockHash.
@@ -501,7 +500,7 @@ func (f *FunctionSelector) SetBytes(b []byte) { copy(f[:], b[:FunctionSelectorLe
 var hexRegexp = regexp.MustCompile("^[0-9a-fA-F]*$")
 
 func unmarshalFromString(s string, f *FunctionSelector) error {
-	if cutils.HasHexPrefix(s) {
+	if utils.HasHexPrefix(s) {
 		if !hexRegexp.Match([]byte(s)[2:]) {
 			return fmt.Errorf("function selector %s must be 0x-hex encoded", s)
 		}
