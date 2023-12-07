@@ -3,7 +3,7 @@ module github.com/smartcontractkit/chainlink/v2
 go 1.21.3
 
 require (
-	github.com/Depado/ginprom v1.7.11
+	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/avast/retry-go/v4 v4.5.1

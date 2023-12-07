@@ -99,8 +99,8 @@ github.com/CosmWasm/wasmvm v1.2.4/go.mod h1:vW/E3h8j9xBQs9bCoijDuawKo9kCtxOaS8N8
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/DataDog/zstd v1.5.2 h1:vUG4lAyuPCXO0TLbXvPv7EB7cNK1QV/luu55UHLrrn8=
 github.com/DataDog/zstd v1.5.2/go.mod h1:g4AWEaM3yOg3HYfnJ3YIawPnVdXJh9QME85blwSAmyw=
-github.com/Depado/ginprom v1.7.11 h1:qOhxW/NJZkNkkG4TQrzAZklX8SUTjTfLA73zIUNIpww=
-github.com/Depado/ginprom v1.7.11/go.mod h1:49mxL3NTQwDrhpDbY4V1mAIB3us9B+b2hP1+ph+Sla8=
+github.com/Depado/ginprom v1.8.0 h1:zaaibRLNI1dMiiuj1MKzatm8qrcHzikMlCc1anqOdyo=
+github.com/Depado/ginprom v1.8.0/go.mod h1:XBaKzeNBqPF4vxJpNLincSQZeMDnZp1tIbU0FU0UKgg=
 github.com/GeertJohan/go.incremental v1.0.0/go.mod h1:6fAjUhbVuX1KcMD3c8TEgVUqmo4seqhv0i0kdATSkM0=
 github.com/GeertJohan/go.rice v1.0.0/go.mod h1:eH6gbSOAUv07dQuZVnBmoDP8mgsM1rtixis4Tib9if0=
 github.com/Joker/hpp v1.0.0/go.mod h1:8x5n+M1Hp5hC0g8okX3sR3vFQwynaX/UgSOM9MeBKzY=
