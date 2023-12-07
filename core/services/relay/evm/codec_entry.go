@@ -6,19 +6,22 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-type CodecEntry struct {
+type codecEntry struct {
 	Args           abi.Arguments
 	encodingPrefix []byte
 	checkedType    reflect.Type
 	nativeType     reflect.Type
+	mod            codec.Modifier
 }
 
-func (entry *CodecEntry) Init() error {
+func (entry *codecEntry) Init() error {
 	if entry.checkedType != nil {
 		return nil
 	}
@@ -55,7 +58,7 @@ func (entry *CodecEntry) Init() error {
 	return nil
 }
 
-func (entry *CodecEntry) GetMaxSize(n int) (int, error) {
+func (entry *codecEntry) GetMaxSize(n int) (int, error) {
 	if entry == nil {
 		return 0, commontypes.ErrInvalidType
 	}

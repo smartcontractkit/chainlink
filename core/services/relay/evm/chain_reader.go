@@ -29,7 +29,7 @@ type ChainReaderService interface {
 type chainReader struct {
 	lggr   logger.Logger
 	lp     logpoller.LogPoller
-	codec  *evmCodec
+	codec  commontypes.CodecTypeProvider
 	client evmclient.Client
 }
 
@@ -37,20 +37,22 @@ type chainReader struct {
 func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, chain evm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
 
 	parsed := &parsedTypes{
-		encoderDefs: map[string]*CodecEntry{},
-		decoderDefs: map[string]*CodecEntry{},
+		encoderDefs: map[string]*codecEntry{},
+		decoderDefs: map[string]*codecEntry{},
 	}
 
 	if err := addTypes(config.ChainContractReaders, parsed); err != nil {
 		return nil, err
 	}
 
+	c, err := parsed.toCodec()
+
 	return &chainReader{
 		lggr:   lggr.Named("ChainReader"),
 		lp:     lp,
-		codec:  codecFromTypes(parsed),
+		codec:  c,
 		client: chain.Client(),
-	}, nil
+	}, err
 }
 
 func (cr *chainReader) Name() string { return cr.lggr.Name() }
@@ -60,14 +62,10 @@ func (cr *chainReader) initialize() error {
 	return nil
 }
 
-func (cr *chainReader) CreateType(itemType string, forEncoding bool) (any, error) {
-	return cr.codec.CreateType(itemType, forEncoding)
-}
-
 var _ commontypes.TypeProvider = &chainReader{}
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, bc commontypes.BoundContract, method string, params any, returnVal any) error {
-	data, err := cr.codec.Encode(ctx, params, method)
+	data, err := cr.codec.Encode(ctx, params, wrapItemType(method, true))
 	if err != nil {
 		return err
 	}
@@ -85,7 +83,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, bc commontypes.BoundC
 		return err
 	}
 
-	return cr.codec.Decode(ctx, output, returnVal, method)
+	return cr.codec.Decode(ctx, output, returnVal, wrapItemType(method, false))
 }
 
 func (cr *chainReader) Start(ctx context.Context) error {
@@ -101,17 +99,17 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
+func (cr *chainReader) CreateType(itemType string, forEncoding bool) (any, error) {
+	return cr.codec.CreateType(wrapItemType(itemType, forEncoding), forEncoding)
+}
+
 func addEventTypes(name string, contractABI abi.ABI, chainReaderDefinition types.ChainReaderDefinition, parsed *parsedTypes) error {
 	event, methodExists := contractABI.Events[chainReaderDefinition.ChainSpecificName]
 	if !methodExists {
 		return fmt.Errorf("method: %s doesn't exist", chainReaderDefinition.ChainSpecificName)
 	}
 
-	if err := addOverrides(chainReaderDefinition, event.Inputs); err != nil {
-		return err
-	}
-
-	return addDecoderDef(name, event.Inputs, parsed)
+	return addDecoderDef(name, event.Inputs, parsed, chainReaderDefinition)
 }
 
 func addMethods(name string, abi abi.ABI, chainReaderDefinition types.ChainReaderDefinition, parsed *parsedTypes) error {
@@ -120,41 +118,39 @@ func addMethods(name string, abi abi.ABI, chainReaderDefinition types.ChainReade
 		return fmt.Errorf("method: %q doesn't exist", chainReaderDefinition.ChainSpecificName)
 	}
 
-	if err := addOverrides(chainReaderDefinition, method.Inputs); err != nil {
+	if err := addEncoderDef(name, method, parsed, chainReaderDefinition); err != nil {
 		return err
 	}
 
+	return addDecoderDef(name, method.Outputs, parsed, chainReaderDefinition)
+}
+
+func addEncoderDef(name string, method abi.Method, parsed *parsedTypes, chainReaderDefinition types.ChainReaderDefinition) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-	input := &CodecEntry{Args: method.Inputs, encodingPrefix: method.ID}
+	input := &codecEntry{Args: method.Inputs, encodingPrefix: method.ID}
+
 	if err := input.Init(); err != nil {
 		return err
 	}
 
-	parsed.encoderDefs[name] = input
-	return addDecoderDef(name, method.Outputs, parsed)
-}
-
-func addDecoderDef(name string, outputs abi.Arguments, parsed *parsedTypes) error {
-	output := &CodecEntry{Args: outputs}
-	parsed.decoderDefs[name] = output
-	return output.Init()
-}
-
-func addOverrides(chainReaderDefinition types.ChainReaderDefinition, inputs abi.Arguments) error {
-	// TODO add transforms to add params artificially
-paramsLoop:
-	for argName, param := range chainReaderDefinition.Params {
-		// TODO add type check too
-		_ = param
-		for _, input := range inputs {
-			if argName == input.Name {
-				continue paramsLoop
-			}
-		}
-		return fmt.Errorf("cannot find parameter %v in %v", argName, chainReaderDefinition.ChainSpecificName)
+	inputMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
+	if err != nil {
+		return err
 	}
-
+	input.mod = inputMod
+	parsed.encoderDefs[wrapItemType(name, true)] = input
 	return nil
+}
+
+func addDecoderDef(name string, outputs abi.Arguments, parsed *parsedTypes, def types.ChainReaderDefinition) error {
+	output := &codecEntry{Args: outputs}
+	mod, err := def.OutputModifications.ToModifier(evmDecoderHooks...)
+	if err != nil {
+		return err
+	}
+	output.mod = mod
+	parsed.decoderDefs[wrapItemType(name, false)] = output
+	return output.Init()
 }
 
 func addTypes(chainContractReaders map[string]types.ChainContractReader, parsed *parsedTypes) error {
@@ -180,4 +176,11 @@ func addTypes(chainContractReaders map[string]types.ChainContractReader, parsed 
 	}
 
 	return nil
+}
+
+func wrapItemType(itemType string, isParams bool) string {
+	if isParams {
+		return fmt.Sprintf("params.%s", itemType)
+	}
+	return fmt.Sprintf("return.%s", itemType)
 }

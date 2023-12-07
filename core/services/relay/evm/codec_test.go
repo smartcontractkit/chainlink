@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
@@ -18,13 +21,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-func TestCodec(t *testing.T) {
-	RunCodecInterfaceTests(t, &codecInterfaceTester{})
-	anyN := 10
-	t.Run("GetMaxEncodingSize delegates to GetMaxSize", func(t *testing.T) {
-		codec := getCodec(t)
+const anyExtraValue = 3
 
-		actual, err := codec.GetMaxEncodingSize(testutils.Context(t), anyN, sizeItemType)
+func TestCodec(t *testing.T) {
+	tester := &codecInterfaceTester{}
+	RunCodecInterfaceTests(t, tester)
+	anyN := 10
+	c := tester.GetCodec(t)
+	t.Run("GetMaxEncodingSize delegates to GetMaxSize", func(t *testing.T) {
+		actual, err := c.GetMaxEncodingSize(testutils.Context(t), anyN, sizeItemType)
 		assert.NoError(t, err)
 
 		expected, err := evm.GetMaxSize(anyN, parseDefs(t)[sizeItemType])
@@ -33,9 +38,7 @@ func TestCodec(t *testing.T) {
 	})
 
 	t.Run("GetMaxDecodingSize delegates to GetMaxSize", func(t *testing.T) {
-		codec := getCodec(t)
-
-		actual, err := codec.GetMaxDecodingSize(testutils.Context(t), anyN, sizeItemType)
+		actual, err := c.GetMaxDecodingSize(testutils.Context(t), anyN, sizeItemType)
 		assert.NoError(t, err)
 
 		expected, err := evm.GetMaxSize(anyN, parseDefs(t)[sizeItemType])
@@ -47,8 +50,6 @@ func TestCodec(t *testing.T) {
 type codecInterfaceTester struct{}
 
 func (it *codecInterfaceTester) Setup(_ *testing.T) {}
-
-func (it *codecInterfaceTester) Teardown(_ *testing.T) {}
 
 func (it *codecInterfaceTester) GetAccountBytes(i int) []byte {
 	account := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2}
@@ -66,7 +67,29 @@ func (it *codecInterfaceTester) EncodeFields(t *testing.T, request *EncodeReques
 }
 
 func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
-	return getCodec(t)
+	codecConfig := types.CodecConfig{ChainCodecConfigs: map[string]types.ChainCodedConfig{}}
+	testStruct := CreateTestStruct(0, it)
+	for k, v := range codecDefs {
+		defBytes, err := json.Marshal(v)
+		require.NoError(t, err)
+		entry := codecConfig.ChainCodecConfigs[k]
+		entry.TypeAbi = string(defBytes)
+		if k == TestItemWithConfigExtra {
+			entry.ModifierConfigs = codec.ModifiersConfig{
+				&codec.HardCodeConfig{
+					OnChainValues: map[string]any{
+						"BigField": testStruct.BigField.String(),
+						"Account":  hexutil.Encode(testStruct.Account),
+					},
+					OffChainValues: map[string]any{"ExtraField": anyExtraValue}},
+			}
+		}
+		codecConfig.ChainCodecConfigs[k] = entry
+	}
+
+	c, err := evm.NewCodec(codecConfig)
+	require.NoError(t, err)
+	return c
 }
 
 func (it *codecInterfaceTester) IncludeArrayEncodingSizeEnforcement() bool {
@@ -160,24 +183,7 @@ var codecDefs = map[string][]abi.ArgumentMarshaling{
 		{Name: "Stuff", Type: "int256[]"},
 		{Name: "OtherStuff", Type: "int256"},
 	},
-}
-
-func getCodec(t require.TestingT) commontypes.Codec {
-	codecConfig := types.CodecConfig{
-		ChainCodecConfigs: map[string]types.ChainCodedConfig{},
-	}
-
-	for k, v := range codecDefs {
-		defBytes, err := json.Marshal(v)
-		require.NoError(t, err)
-		entry := codecConfig.ChainCodecConfigs[k]
-		entry.TypeAbi = string(defBytes)
-		codecConfig.ChainCodecConfigs[k] = entry
-	}
-
-	codec, err := evm.NewCodec(codecConfig)
-	require.NoError(t, err)
-	return codec
+	TestItemWithConfigExtra: ts,
 }
 
 func parseDefs(t *testing.T) map[string]abi.Arguments {

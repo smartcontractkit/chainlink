@@ -2,23 +2,16 @@ package evm
 
 import (
 	"context"
-	"math/big"
 	"reflect"
 
-	"github.com/mitchellh/mapstructure"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type encoder struct {
-	Definitions map[string]*CodecEntry
+	Definitions map[string]*codecEntry
 }
-
-var evmDecoderHook = mapstructure.ComposeDecodeHookFunc(codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook)
 
 var _ commontypes.Encoder = &encoder{}
 
@@ -41,14 +34,11 @@ func (e *encoder) GetMaxEncodingSize(ctx context.Context, n int, itemType string
 	return e.Definitions[itemType].GetMaxSize(n)
 }
 
-func encode(item reflect.Value, info *CodecEntry) (ocrtypes.Report, error) {
-	iType := item.Type()
-	for iType.Kind() == reflect.Pointer {
-		iType = iType.Elem()
+func encode(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
+	for item.Kind() == reflect.Pointer {
+		item = reflect.Indirect(item)
 	}
-	switch iType.Kind() {
-	case reflect.Pointer:
-		return encode(item.Elem(), info)
+	switch item.Kind() {
 	case reflect.Array, reflect.Slice:
 		return encodeArray(item, info)
 	case reflect.Struct, reflect.Map:
@@ -58,7 +48,7 @@ func encode(item reflect.Value, info *CodecEntry) (ocrtypes.Report, error) {
 	}
 }
 
-func encodeArray(item reflect.Value, info *CodecEntry) (ocrtypes.Report, error) {
+func encodeArray(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
 	length := item.Len()
 	var native reflect.Value
 	switch info.checkedType.Kind() {
@@ -86,7 +76,7 @@ func encodeArray(item reflect.Value, info *CodecEntry) (ocrtypes.Report, error) 
 	return pack(info, native.Interface())
 }
 
-func encodeItem(item reflect.Value, info *CodecEntry) (ocrtypes.Report, error) {
+func encodeItem(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
 	if item.Type() == reflect.PointerTo(info.checkedType) {
 		item = reflect.NewAt(info.nativeType, item.UnsafePointer())
 	} else if item.Type() != reflect.PointerTo(info.nativeType) {
@@ -110,7 +100,7 @@ func encodeItem(item reflect.Value, info *CodecEntry) (ocrtypes.Report, error) {
 	return pack(info, values...)
 }
 
-func pack(info *CodecEntry, values ...any) (ocrtypes.Report, error) {
+func pack(info *codecEntry, values ...any) (ocrtypes.Report, error) {
 	if bytes, err := info.Args.Pack(values...); err == nil {
 		withPrefix := make([]byte, 0, len(info.encodingPrefix)+len(bytes))
 		withPrefix = append(withPrefix, info.encodingPrefix...)
@@ -118,24 +108,4 @@ func pack(info *CodecEntry, values ...any) (ocrtypes.Report, error) {
 	}
 
 	return nil, commontypes.ErrInvalidType
-}
-
-func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
-	if !to.Implements(types.SizedBigIntType()) {
-		return data, nil
-	}
-
-	var err error
-	data, err = codec.BigIntHook(from, reflect.TypeOf((*big.Int)(nil)), data)
-	if err != nil {
-		return nil, err
-	}
-
-	bi, ok := data.(*big.Int)
-	if !ok {
-		return data, nil
-	}
-
-	converted := reflect.ValueOf(bi).Convert(to).Interface().(types.SizedBigInt)
-	return converted, converted.Verify()
 }
