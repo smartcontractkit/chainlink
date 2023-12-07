@@ -20,7 +20,6 @@ type CCIPTestConfig struct {
 	ExistingDeployment         *bool              `toml:",omitempty"`
 	ExistingEnv                string             `toml:",omitempty"`
 	ReuseContracts             *bool              `toml:",omitempty"`
-	SequentialLaneAddition     *bool              `toml:",omitempty"`
 	NodeFunding                float64            `toml:",omitempty"`
 	RequestPerUnitTime         []int64            `toml:",omitempty"`
 	TimeUnit                   *models.Duration   `toml:",omitempty"`
@@ -71,9 +70,7 @@ func (c *CCIPTestConfig) ApplyOverrides(fromCfg *CCIPTestConfig) error {
 	if fromCfg.ReuseContracts != nil {
 		c.ReuseContracts = fromCfg.ReuseContracts
 	}
-	if fromCfg.SequentialLaneAddition != nil {
-		c.SequentialLaneAddition = fromCfg.SequentialLaneAddition
-	}
+
 	if fromCfg.NodeFunding != 0 {
 		c.NodeFunding = fromCfg.NodeFunding
 	}

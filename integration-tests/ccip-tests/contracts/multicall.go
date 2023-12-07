@@ -47,6 +47,20 @@ type CCIPMsgData struct {
 	Fee           *big.Int
 }
 
+func TransferTokenCallData(to common.Address, amount *big.Int) ([]byte, error) {
+	erc20ABI, err := abi.JSON(strings.NewReader(erc20.ERC20ABI))
+	if err != nil {
+		return nil, err
+	}
+	transferToken := erc20ABI.Methods["transfer"]
+	inputs, err := transferToken.Inputs.Pack(to, amount)
+	if err != nil {
+		return nil, err
+	}
+	inputs = append(transferToken.ID[:], inputs...)
+	return inputs, nil
+}
+
 // ApproveTokenCallData returns the call data for approving a token with approve function of erc20 contract
 func ApproveTokenCallData(to common.Address, amount *big.Int) ([]byte, error) {
 	erc20ABI, err := abi.JSON(strings.NewReader(erc20.ERC20ABI))
@@ -90,7 +104,7 @@ func WaitForSuccessfulTxMined(evmClient blockchain.EVMClient, tx *types.Transact
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		return fmt.Errorf("tx failed %s", tx.Hash().Hex())
 	}
-	log.Info().Str("tx", tx.Hash().Hex()).Msg("tx mined successfully")
+	log.Info().Str("tx", tx.Hash().Hex()).Str("Network", evmClient.GetNetworkName()).Msg("tx mined successfully")
 	return nil
 }
 
@@ -122,6 +136,9 @@ func MultiCallCCIP(
 		allValue := big.NewInt(0)
 		// create call data for each msg
 		for _, msg := range msgData {
+			if msg.Msg.FeeToken != (common.Address{}) {
+				return nil, fmt.Errorf("fee token should be %s for native as fee", common.HexToAddress("0x0").Hex())
+			}
 			// approve bridge token
 			for _, tokenAndAmount := range msg.Msg.TokenAmounts {
 				inputs, err := ApproveTokenCallData(msg.RouterAddr, tokenAndAmount.Amount)
@@ -139,21 +156,28 @@ func MultiCallCCIP(
 			callData = append(callData, data)
 			allValue.Add(allValue, msg.Fee)
 		}
+
 		opts, err := evmClient.TransactionOpts(evmClient.GetDefaultWallet())
 		if err != nil {
 			return nil, err
 		}
 		// the value of transactionOpts is the sum of the value of all msg, which is the total fee of all ccip-sends
 		opts.Value = allValue
+
 		// call aggregate3Value to group all msg call data and send them in a single transaction
 		tx, err := boundContract.Transact(opts, "aggregate3Value", callData)
 		if err != nil {
 			return nil, err
 		}
+		err = evmClient.MarkTxAsSentOnL2(tx)
+		if err != nil {
+			return nil, err
+		}
 		err = WaitForSuccessfulTxMined(evmClient, tx)
 		if err != nil {
-			return nil, errors.Wrapf(err, "multicall failed for ccip-send; router %s", contractAddress.Hex())
+			return nil, errors.Wrapf(err, "multicall failed for ccip-send; multicall %s", contractAddress.Hex())
 		}
+		return tx, nil
 	}
 	// if with feetoken, use aggregate3 to send msg without value
 	var callData []Call
@@ -212,4 +236,46 @@ func MultiCallCCIP(
 		return tx, errors.Wrapf(err, "multicall failed for ccip-send; router %s", contractAddress.Hex())
 	}
 	return tx, nil
+}
+
+func TransferTokens(
+	evmClient blockchain.EVMClient,
+	contractAddress common.Address,
+	tokens []*ERC20Token,
+) error {
+	multiCallABI, err := abi.JSON(strings.NewReader(MultiCallABI))
+	if err != nil {
+		return err
+	}
+	var callData []Call
+	boundContract := bind.NewBoundContract(contractAddress, multiCallABI, evmClient.Backend(), evmClient.Backend(), evmClient.Backend())
+	for _, token := range tokens {
+		var inputs []byte
+		balance, err := token.BalanceOf(nil, contractAddress.Hex())
+		if err != nil {
+			return err
+		}
+		inputs, err = TransferTokenCallData(common.HexToAddress(evmClient.GetDefaultWallet().Address()), balance)
+		if err != nil {
+			return err
+		}
+		data := Call{Target: token.ContractAddress, AllowFailure: false, CallData: inputs}
+		callData = append(callData, data)
+	}
+
+	opts, err := evmClient.TransactionOpts(evmClient.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+
+	// call aggregate3 to group all msg call data and send them in a single transaction
+	tx, err := boundContract.Transact(opts, "aggregate3", callData)
+	if err != nil {
+		return err
+	}
+	err = WaitForSuccessfulTxMined(evmClient, tx)
+	if err != nil {
+		return errors.Wrapf(err, "token transfer failed for token; router %s", contractAddress.Hex())
+	}
+	return nil
 }

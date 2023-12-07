@@ -179,7 +179,6 @@ ExistingDeployment = false          # true if the tests are run on existing envi
 # the newly deployed contracts to send and verify ccip requests.
 
 ReuseContracts = true               # Whether to reuse the contracts deployed in the previous run. Default value is true unless specified
-SequentialLaneAddition = false      # if true, the test will add lanes sequentially, otherwise it will add lanes in parallel
 NodeFunding = 1.0                   # Amount of native currency to fund the chainlink node with for each network. Default value is 1 for smoke and 20 for load unless specified
 NoOfRoutersPerPair = 1              # denotes the number of routers to be deployed per network. mostly required for scalability tests.
 NoOfTokensPerChain = 2              # number of bridge tokens to be deployed per network; if MsgType = 'WithToken'
@@ -220,7 +219,6 @@ ExistingDeployment = false # same as above
 # ExistingEnv = <env>_<testnet/mainnet>_<cciprelease> i.e prod-testnet-2.7.1-ccip1.2.1-beta
 
 ReuseContracts = true            # same as above
-SequentialLaneAddition = false # same as above
 NodeFunding = 20.0 # same as above
 NoOfRoutersPerPair = 1  # same as above
 NoOfTokensPerChain = 2 # same as above
@@ -255,7 +253,6 @@ TestDuration = '10m'                # load test duration, not used for smoke tes
 LocalCluster = false
 ExistingDeployment = false
 ReuseContracts = true
-SequentialLaneAddition = false
 NodeFunding = 20.0
 NoOfRoutersPerPair = 1
 NoOfTokensPerChain = 2

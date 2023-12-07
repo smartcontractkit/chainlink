@@ -1704,7 +1704,7 @@ func (lane *CCIPLane) Multicall(noOfRequests int, msgType string, multiSendAddr 
 				}
 			}
 		}
-		stat := testreporters.NewCCIPRequestStats(int64(lane.NumberOfReq + i))
+		stat := testreporters.NewCCIPRequestStats(int64(lane.NumberOfReq+i), lane.SourceNetworkName, lane.DestNetworkName)
 		txstats = append(txstats, testreporters.TransactionStats{
 			Fee:                fee.String(),
 			NoOfTokensSent:     len(msg.TokenAmounts),
@@ -1756,7 +1756,7 @@ func (lane *CCIPLane) Multicall(noOfRequests int, msgType string, multiSendAddr 
 func (lane *CCIPLane) SendRequests(noOfRequests int, msgType string, gasLimit *big.Int) error {
 	for i := 1; i <= noOfRequests; i++ {
 		msg := fmt.Sprintf("msg %d", i)
-		stat := testreporters.NewCCIPRequestStats(int64(lane.NumberOfReq + i))
+		stat := testreporters.NewCCIPRequestStats(int64(lane.NumberOfReq+i), lane.SourceNetworkName, lane.DestNetworkName)
 		txHash, txConfirmationDur, fee, err := lane.Source.SendRequest(
 			lane.Dest.ReceiverDapp.EthAddress,
 			msgType, msg, gasLimit,

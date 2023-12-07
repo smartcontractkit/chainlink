@@ -28,19 +28,15 @@ func TestLoadCCIPStableRPS(t *testing.T) {
 		log.Info().Msg("Tearing down the environment")
 		require.NoError(t, testArgs.TestSetupArgs.TearDown())
 	})
-	testArgs.TriggerLoad()
+	testArgs.TriggerLoadByLane()
 	testArgs.Wait()
 }
 
-func TestLoadCCIPSequentialLaneAdd(t *testing.T) {
+func TestLoadCCIPStableRPSTriggerBySource(t *testing.T) {
 	t.Parallel()
-	t.Skipf("test needs maintenance")
 	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr, context.Background())
-	testArgs.TestCfg.TestGroupInput.SequentialLaneAddition = ptr.Ptr(true)
-	if len(testArgs.TestCfg.NetworkPairs) <= 1 {
-		t.Skip("Skipping the test as there are not enough network pairs to run the test")
-	}
+	testArgs.TestCfg.TestGroupInput.MulticallInOneTx = ptr.Ptr(true)
 	testArgs.Setup()
 	// if the test runs on remote runner
 	if len(testArgs.TestSetupArgs.Lanes) == 0 {
@@ -50,8 +46,7 @@ func TestLoadCCIPSequentialLaneAdd(t *testing.T) {
 		log.Info().Msg("Tearing down the environment")
 		require.NoError(t, testArgs.TestSetupArgs.TearDown())
 	})
-	testArgs.TriggerLoad()
-	testArgs.AddMoreLanesToRun()
+	testArgs.TriggerLoadBySource()
 	testArgs.Wait()
 }
 
@@ -95,7 +90,7 @@ func TestLoadCCIPStableRequestTriggeringWithNetworkChaos(t *testing.T) {
 	})
 
 	// now trigger the load
-	testArgs.TriggerLoad()
+	testArgs.TriggerLoadByLane()
 	testArgs.Wait()
 }
 
@@ -148,7 +143,7 @@ func TestLoadCCIPStableWithMajorityNodeFailure(t *testing.T) {
 	require.NotNil(t, testEnv)
 	require.NotNil(t, testEnv.K8Env)
 
-	testArgs.TriggerLoad()
+	testArgs.TriggerLoadByLane()
 	testArgs.ApplyChaos()
 	testArgs.Wait()
 }
@@ -202,7 +197,7 @@ func TestLoadCCIPStableWithMinorityNodeFailure(t *testing.T) {
 	require.NotNil(t, testEnv)
 	require.NotNil(t, testEnv.K8Env)
 
-	testArgs.TriggerLoad()
+	testArgs.TriggerLoadByLane()
 	testArgs.ApplyChaos()
 	testArgs.Wait()
 }
@@ -266,7 +261,7 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 				require.NoError(t, testArgs.TestSetupArgs.TearDown())
 			})
 			testArgs.SanityCheck()
-			testArgs.TriggerLoad()
+			testArgs.TriggerLoadByLane()
 			testArgs.ApplyChaos()
 			testArgs.Wait()
 		})

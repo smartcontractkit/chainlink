@@ -11,6 +11,7 @@ Data = """
       "router": "0xF694E193200268f9a4868e4Aa017A0118C9a8177",
       "price_registry": "0x19e157E5fb1DAec1aE4BaB113fdf077F980704AA",
       "wrapped_native": "0xd00ae08403B9bbb9124bB305C09058E32C39A48c",
+      "multicall": "0x88b9782c2b271cf3d016867454e493144098E8AA",
       "src_contracts": {
         "BSC Testnet": {
           "on_ramp": "0xF25ECF1Aad9B2E43EDc2960cF66f325783245535",
@@ -73,6 +74,7 @@ Data = """
       "router": "0xE1053aE1857476f36A3C62580FF9b016E8EE8F6f",
       "price_registry": "0xCCDf022c9d31DC26Ebab4FB92432724a5b79809a",
       "wrapped_native": "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+      "multicall": "0x4E63F845A1F42C318bC151cc2c9C7B2144b5dB86",
       "src_contracts": {
         "Avalanche Fuji": {
           "on_ramp": "0xa2515683E99F50ADbE177519A46bb20FfdBaA5de",
@@ -122,6 +124,7 @@ Data = """
       "router": "0x80AF2F44ed0469018922c9F483dc5A909862fdc2",
       "price_registry": "0x6d875a24c43974935b4F3D79AA6CD242BDfcD70F",
       "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "multicall": "0xa1b97250844B089160a2Cd8dabEaCc4843993f24",
       "src_contracts": {
         "Avalanche Fuji": {
           "on_ramp": "0x2665A5aa729DBD384c804d0640f235D997698363",
@@ -175,6 +178,7 @@ Data = """
       "router": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
       "price_registry": "0xa1ed3A3aA29166C9c8448654A8cA6b7916BC8379",
       "wrapped_native": "0x4200000000000000000000000000000000000001",
+      "multicall": "0x260AF9b83e0d2Bb6C9015fC9f0BfF8858A0CCE68",
       "src_contracts": {
         "WeMix Testnet": {
           "on_ramp": "0x6ea155Fc77566D9dcE01B8aa5D7968665dc4f0C5",
@@ -197,6 +201,7 @@ Data = """
       "router": "0xcc5a0B910D9E9504A7561934bed294c51285a78D",
       "price_registry": "0x9fdF51832A473D874057a2fcE768F0bc1c0F6F75",
       "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "multicall": "0xA98DFA0e11e5B63C6fcbaEA5Fff49CfDf5765950",
       "src_contracts": {
         "Avalanche Fuji": {
           "on_ramp": "0xE7234D8d807D61821A6bB90735Aa238E229cF167",
@@ -246,6 +251,7 @@ Data = """
       "router": "0x1035CabC275068e0F4b745A29CEDf38E13aF41b1",
       "price_registry": "0x6322B0AD5467C12fc11393D479b0452C7a55aD81",
       "wrapped_native": "0x9c3C9283D3e44854697Cd22D3Faa240Cfb032889",
+      "multicall": "0xE8C13Eee68212cAD0eCD4E02ca1D34776296Fd27",
       "src_contracts": {
         "Avalanche Fuji": {
           "on_ramp": "0x5e0AD6D742983Ca464Fef0c28fD2D788a320B1c3",
@@ -295,6 +301,7 @@ Data = """
       "router": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
       "price_registry": "0x9EF7D57a4ea30b9e37794E55b0C75F2A70275dCc",
       "wrapped_native": "0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534",
+      "multicall": "0x21CA8aC8df982eC644E7623463adAD52F993C5Aa",
       "src_contracts": {
         "Avalanche Fuji": {
           "on_ramp": "0x0477cA0a35eE05D3f9f424d88bC0977ceCf339D4",
@@ -366,6 +373,7 @@ Data = """
       "router": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
       "price_registry": "0x89D17571DB7C9540eeB36760E3c749C8fb984569",
       "wrapped_native": "0x765277EebeCA2e31912C9946eAe1021199B39C61",
+      "multicall": "0x8A06DB818EED9e37c712Fc00b30975b5941Df1a0",
       "src_contracts": {
         "Kroma Sepolia": {
           "on_ramp": "0x428C4dc89b6Bf908B82d77C9CBceA786ea8cc7D0",
@@ -404,7 +412,7 @@ TimeUnit = '5m'
 NoOfTokensPerChain = 1
 NoOfTokensInMsg = 1
 AmountPerToken = 1
-ExistingEnv = 'prod-testnet-2.7.1-ccip1.2.1-beta'
+ExistingEnv = 'prod-testnet-2.7.1-ccip1.2.2-beta'
 
 [CCIP.Groups.smoke]
 MsgType = 'WithoutToken'

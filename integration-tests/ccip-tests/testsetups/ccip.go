@@ -247,11 +247,10 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTes
 }
 
 type BiDirectionalLaneConfig struct {
-	NetworkA     blockchain.EVMNetwork
-	NetworkB     blockchain.EVMNetwork
-	ForwardLane  *actions.CCIPLane
-	ReverseLane  *actions.CCIPLane
-	LaneDeployed bool
+	NetworkA    blockchain.EVMNetwork
+	NetworkB    blockchain.EVMNetwork
+	ForwardLane *actions.CCIPLane
+	ReverseLane *actions.CCIPLane
 }
 
 type CCIPTestSetUpOutputs struct {
@@ -393,10 +392,9 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 		networkA.Name, networkB.Name), ccipLaneA2B.Logger)
 
 	bidirectionalLane := &BiDirectionalLaneConfig{
-		NetworkA:     networkA,
-		NetworkB:     networkB,
-		ForwardLane:  ccipLaneA2B,
-		LaneDeployed: true,
+		NetworkA:    networkA,
+		NetworkB:    networkB,
+		ForwardLane: ccipLaneA2B,
 	}
 
 	var ccipLaneB2A *actions.CCIPLane
@@ -813,13 +811,7 @@ func CCIPDefaultTestSetUp(
 		n.NetworkA.URLs = inputs.NetworkPairs[i].ChainClientA.GetNetworkConfig().URLs
 		n.NetworkB.HTTPURLs = inputs.NetworkPairs[i].ChainClientB.GetNetworkConfig().HTTPURLs
 		n.NetworkB.URLs = inputs.NetworkPairs[i].ChainClientB.GetNetworkConfig().URLs
-
-		// if sequential lane addition is true, continue after adding the first bidirectional lane
-		// and add rest of the lanes later, after the previously added lane(s) starts getting requests
-		// this is mainly used for testing the new lane addition functionality while other lanes are running
-		if i > 0 && pointer.GetBool(inputs.TestGroupInput.SequentialLaneAddition) {
-			continue
-		}
+		
 		laneAddGrp.Go(func() error {
 			return setUpArgs.AddLanesForNetworkPair(
 				lggr, n.NetworkA, n.NetworkB,

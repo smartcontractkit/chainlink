@@ -60,6 +60,8 @@ type PhaseStat struct {
 type RequestStat struct {
 	ReqNo         int64
 	SeqNum        uint64
+	SourceNetwork string
+	DestNetwork   string
 	StatusByPhase map[Phase]PhaseStat `json:"status_by_phase,omitempty"`
 }
 
@@ -106,10 +108,12 @@ func (stat *RequestStat) UpdateState(lggr zerolog.Logger, seqNum uint64, step Ph
 	}
 }
 
-func NewCCIPRequestStats(reqNo int64) *RequestStat {
+func NewCCIPRequestStats(reqNo int64, source, dest string) *RequestStat {
 	return &RequestStat{
 		ReqNo:         reqNo,
 		StatusByPhase: make(map[Phase]PhaseStat),
+		SourceNetwork: source,
+		DestNetwork:   dest,
 	}
 }
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"sync"
 	"testing"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/wasp"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -23,10 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 )
 
-type laneLoadCfg struct {
-	lane *actions.CCIPLane
-}
-
 type ChaosConfig struct {
 	ChaosName        string
 	ChaosFunc        chaos.ManifestFunc
@@ -35,18 +29,15 @@ type ChaosConfig struct {
 }
 
 type loadArgs struct {
-	t             *testing.T
-	lggr          zerolog.Logger
-	ctx           context.Context
-	ccipLoad      []*CCIPE2ELoad
-	schedules     []*wasp.Segment
-	loadRunner    []*wasp.Generator
-	LaneLoadCfg   chan laneLoadCfg
-	RunnerWg      *errgroup.Group // to wait on individual load generators run
-	LoadStarterWg *sync.WaitGroup // waits for all the runners to start
-	TestCfg       *testsetups.CCIPTestConfig
-	TestSetupArgs *testsetups.CCIPTestSetUpOutputs
-	ChaosExps     []ChaosConfig
+	t                *testing.T
+	lggr             zerolog.Logger
+	ctx              context.Context
+	schedules        []*wasp.Segment
+	RunnerWg         *errgroup.Group // to wait on individual load generators run
+	TestCfg          *testsetups.CCIPTestConfig
+	TestSetupArgs    *testsetups.CCIPTestSetUpOutputs
+	ChaosExps        []ChaosConfig
+	LoadgenTearDowns []func()
 }
 
 func (l *loadArgs) Setup() {
@@ -63,6 +54,7 @@ func (l *loadArgs) setSchedule() {
 	var segments []*wasp.Segment
 	var segmentDuration time.Duration
 	require.Greater(l.t, len(l.TestCfg.TestGroupInput.RequestPerUnitTime), 0, "RequestPerUnitTime must be set")
+
 	if len(l.TestCfg.TestGroupInput.RequestPerUnitTime) > 1 {
 		for i, req := range l.TestCfg.TestGroupInput.RequestPerUnitTime {
 			duration := l.TestCfg.TestGroupInput.StepDuration[i].Duration()
@@ -90,78 +82,60 @@ func (l *loadArgs) SanityCheck() {
 	}
 }
 
-func (l *loadArgs) TriggerLoad(schedule ...*wasp.Segment) {
-	l.Start()
-	if len(schedule) == 0 {
-		l.setSchedule()
-	} else {
-		l.schedules = schedule
+func (l *loadArgs) TriggerLoadByLane() {
+	l.setSchedule()
+	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
+	namespace := l.TestCfg.TestGroupInput.ExistingEnv
+
+	// start load for a lane
+	startLoad := func(lane *actions.CCIPLane) {
+		lane.Logger.Info().
+			Str("Source Network", lane.SourceNetworkName).
+			Str("Destination Network", lane.DestNetworkName).
+			Msg("Starting load for lane")
+
+		ccipLoad := NewCCIPLoad(l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(), 100000)
+		ccipLoad.BeforeAllCall(l.TestCfg.TestGroupInput.MsgType)
+		if lane.TestEnv != nil && lane.TestEnv.K8Env != nil && lane.TestEnv.K8Env.Cfg != nil {
+			namespace = lane.TestEnv.K8Env.Cfg.Namespace
+		}
+
+		loadRunner, err := wasp.NewGenerator(&wasp.Config{
+			T:                     l.TestCfg.Test,
+			GenName:               fmt.Sprintf("lane %s-> %s", lane.SourceNetworkName, lane.DestNetworkName),
+			Schedule:              l.schedules,
+			LoadType:              wasp.RPS,
+			RateLimitUnitDuration: l.TestCfg.TestGroupInput.TimeUnit.Duration(),
+			CallResultBufLen:      10, // we keep the last 10 call results for each generator, as the detailed report is generated at the end of the test
+			CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
+			Gun:                   ccipLoad,
+			Logger:                ccipLoad.Lane.Logger,
+			SharedData:            l.TestCfg.TestGroupInput.MsgType,
+			LokiConfig:            wasp.NewEnvLokiConfig(),
+			Labels: map[string]string{
+				"test_group":   "load",
+				"cluster":      "sdlc",
+				"namespace":    namespace,
+				"test_id":      "ccip",
+				"source_chain": lane.SourceNetworkName,
+				"dest_chain":   lane.DestNetworkName,
+			},
+		})
+		require.NoError(l.TestCfg.Test, err, "initiating loadgen for lane %s --> %s",
+			lane.SourceNetworkName, lane.DestNetworkName)
+		loadRunner.Run(false)
+		l.AddToRunnerGroup(loadRunner)
 	}
 	for _, lane := range l.TestSetupArgs.Lanes {
-		if lane.LaneDeployed {
-			l.LaneLoadCfg <- laneLoadCfg{
-				lane: lane.ForwardLane,
-			}
-			if lane.ReverseLane != nil {
-				l.LaneLoadCfg <- laneLoadCfg{
-					lane: lane.ReverseLane,
-				}
-			}
-		}
-	}
-	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
-}
-
-func (l *loadArgs) AddMoreLanesToRun() {
-	require.Len(l.t, l.TestSetupArgs.Lanes, 1, "lane for first network pair should be deployed already")
-	if len(l.TestSetupArgs.Lanes) == len(l.TestCfg.NetworkPairs) {
-		l.lggr.Info().Msg("All lanes are already deployed, no need to add more lanes")
-		return
-	}
-	transferAmounts := []*big.Int{big.NewInt(1)}
-	// set the ticker duration based on number of network pairs and the total test duration
-	noOfPair := int64(len(l.TestCfg.NetworkPairs))
-	step := l.TestCfg.TestGroupInput.TestDuration.Duration().Nanoseconds() / noOfPair
-	ticker := time.NewTicker(time.Duration(step))
-	l.setSchedule()
-	// Lane for the first network pair is already deployed
-	netIndex := 1
-	for {
-		select {
-		case <-ticker.C:
-			n := l.TestCfg.NetworkPairs[netIndex]
-			l.lggr.Info().
-				Str("Network 1", n.NetworkA.Name).
-				Str("Network 2", n.NetworkB.Name).
-				Msg("Adding lanes for network pair")
-			err := l.TestSetupArgs.AddLanesForNetworkPair(
-				l.lggr, n.NetworkA, n.NetworkB,
-				n.ChainClientA, n.ChainClientB,
-				transferAmounts, 5, true,
-				true)
-			assert.NoError(l.t, err)
-			l.LaneLoadCfg <- laneLoadCfg{
-				lane: l.TestSetupArgs.Lanes[netIndex].ForwardLane,
-			}
-			if l.TestSetupArgs.Lanes[netIndex].ReverseLane != nil {
-				l.LaneLoadCfg <- laneLoadCfg{
-					lane: l.TestSetupArgs.Lanes[netIndex].ReverseLane,
-				}
-			}
-			netIndex++
-			if netIndex >= len(l.TestCfg.NetworkPairs) {
-				ticker.Stop()
-				return
-			}
+		startLoad(lane.ForwardLane)
+		if pointer.GetBool(l.TestSetupArgs.Cfg.TestGroupInput.BiDirectionalLane) {
+			startLoad(lane.ReverseLane)
 		}
 	}
 }
 
-// Start polls the LaneLoadCfg channel for new lanes and starts the load runner.
-// LaneLoadCfg channel should receive a lane whenever the deployment is complete.
-func (l *loadArgs) Start() {
-	l.LoadStarterWg.Add(1)
-	waitForLoadRun := func(gen *wasp.Generator, ccipLoad *CCIPE2ELoad) error {
+func (l *loadArgs) AddToRunnerGroup(gen *wasp.Generator) {
+	l.RunnerWg.Go(func() error {
 		_, failed := gen.Wait()
 		if failed {
 			return fmt.Errorf("load run is failed")
@@ -170,72 +144,15 @@ func (l *loadArgs) Start() {
 			return fmt.Errorf("error in load sequence call %v", gen.Errors())
 		}
 		return nil
-	}
-	go func() {
-		defer l.LoadStarterWg.Done()
-		loadCount := 0
-		namespace := l.TestCfg.TestGroupInput.ExistingEnv
-		for {
-			select {
-			case cfg := <-l.LaneLoadCfg:
-				loadCount++
-				lane := cfg.lane
-				l.lggr.Info().
-					Str("Source Network", lane.SourceNetworkName).
-					Str("Destination Network", lane.DestNetworkName).
-					Msg("Starting load for lane")
-
-				ccipLoad := NewCCIPLoad(l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(), 100000)
-				ccipLoad.BeforeAllCall(l.TestCfg.TestGroupInput.MsgType)
-				if lane.TestEnv != nil && lane.TestEnv.K8Env != nil && lane.TestEnv.K8Env.Cfg != nil {
-					namespace = lane.TestEnv.K8Env.Cfg.Namespace
-				}
-
-				loadRunner, err := wasp.NewGenerator(&wasp.Config{
-					T:                     l.TestCfg.Test,
-					GenName:               fmt.Sprintf("lane %s-> %s", lane.SourceNetworkName, lane.DestNetworkName),
-					Schedule:              l.schedules,
-					LoadType:              wasp.RPS,
-					RateLimitUnitDuration: l.TestCfg.TestGroupInput.TimeUnit.Duration(),
-					CallResultBufLen:      10, // we keep the last 10 call results for each generator, as the detailed report is generated at the end of the test
-					CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
-					Gun:                   ccipLoad,
-					Logger:                ccipLoad.Lane.Logger,
-					SharedData:            l.TestCfg.TestGroupInput.MsgType,
-					LokiConfig:            wasp.NewEnvLokiConfig(),
-					Labels: map[string]string{
-						"test_group":   "load",
-						"cluster":      "sdlc",
-						"namespace":    namespace,
-						"test_id":      "ccip",
-						"source_chain": lane.SourceNetworkName,
-						"dest_chain":   lane.DestNetworkName,
-					},
-				})
-				require.NoError(l.TestCfg.Test, err, "initiating loadgen for lane %s --> %s",
-					lane.SourceNetworkName, lane.DestNetworkName)
-				loadRunner.Run(false)
-				l.ccipLoad = append(l.ccipLoad, ccipLoad)
-				l.loadRunner = append(l.loadRunner, loadRunner)
-				l.RunnerWg.Go(func() error {
-					return waitForLoadRun(loadRunner, ccipLoad)
-				})
-				if loadCount == len(l.TestCfg.NetworkPairs)*2 {
-					l.lggr.Info().Msg("load is running for all lanes now")
-					return
-				}
-			}
-		}
-	}()
+	})
 }
 
 func (l *loadArgs) Wait() {
-	// wait for load runner to start on all lanes
-	l.LoadStarterWg.Wait()
 	l.lggr.Info().Msg("Waiting for load to finish on all lanes")
 	// wait for load runner to finish
 	err := l.RunnerWg.Wait()
 	require.NoError(l.t, err, "load run is failed")
+	l.lggr.Info().Msg("Load finished on all lanes")
 }
 
 func (l *loadArgs) ApplyChaos() {
@@ -269,21 +186,74 @@ func (l *loadArgs) ApplyChaos() {
 }
 
 func (l *loadArgs) TearDown() {
+	for _, tearDn := range l.LoadgenTearDowns {
+		tearDn()
+	}
 	if l.TestSetupArgs.TearDown != nil {
 		require.NoError(l.t, l.TestSetupArgs.TearDown())
+	}
+}
+
+func (l *loadArgs) TriggerLoadBySource() {
+	require.NotNil(l.t, l.TestCfg.TestGroupInput.TestDuration, "test duration input is nil")
+	require.GreaterOrEqual(l.t, 1, len(l.TestCfg.TestGroupInput.RequestPerUnitTime), "time unit input must be specified")
+	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
+	namespace := l.TestCfg.TestGroupInput.ExistingEnv
+
+	var laneBySource = make(map[string][]*actions.CCIPLane)
+	for _, lane := range l.TestSetupArgs.Lanes {
+		laneBySource[lane.ForwardLane.SourceNetworkName] = append(laneBySource[lane.ForwardLane.SourceNetworkName], lane.ForwardLane)
+		if lane.ReverseLane != nil {
+			laneBySource[lane.ReverseLane.SourceNetworkName] = append(laneBySource[lane.ReverseLane.SourceNetworkName], lane.ReverseLane)
+		}
+	}
+	for source, lanes := range laneBySource {
+		l.lggr.Info().
+			Str("Source Network", source).
+			Msg("Starting load for source")
+		if lanes[0].TestEnv != nil && lanes[0].TestEnv.K8Env != nil && lanes[0].TestEnv.K8Env.Cfg != nil {
+			namespace = lanes[0].TestEnv.K8Env.Cfg.Namespace
+		}
+		allLabels := map[string]string{
+			"test_group":   "load",
+			"cluster":      "sdlc",
+			"namespace":    namespace,
+			"test_id":      "ccip",
+			"source_chain": source,
+		}
+		multiCallGen, err := NewMultiCallLoadGenerator(l.TestCfg, lanes, l.TestCfg.TestGroupInput.RequestPerUnitTime[0], allLabels)
+		require.NoError(l.t, err)
+
+		loadRunner, err := wasp.NewGenerator(&wasp.Config{
+			T:                     l.TestCfg.Test,
+			GenName:               fmt.Sprintf("Source %s", source),
+			Schedule:              wasp.Plain(1, l.TestCfg.TestGroupInput.TestDuration.Duration()), // hardcoded request per unit time to 1 as we are using multiCallGen
+			LoadType:              wasp.RPS,
+			RateLimitUnitDuration: l.TestCfg.TestGroupInput.TimeUnit.Duration(),
+			CallResultBufLen:      10, // we keep the last 10 call results for each generator, as the detailed report is generated at the end of the test
+			CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
+			Gun:                   multiCallGen,
+			Logger:                multiCallGen.logger,
+			LokiConfig:            wasp.NewEnvLokiConfig(),
+			Labels:                allLabels,
+		})
+		require.NoError(l.TestCfg.Test, err, "initiating loadgen for source %s", source)
+		loadRunner.Run(false)
+		l.AddToRunnerGroup(loadRunner)
+		l.LoadgenTearDowns = append(l.LoadgenTearDowns, func() {
+			require.NoError(l.t, multiCallGen.Stop())
+		})
 	}
 }
 
 func NewLoadArgs(t *testing.T, lggr zerolog.Logger, parent context.Context, chaosExps ...ChaosConfig) *loadArgs {
 	wg, ctx := errgroup.WithContext(parent)
 	return &loadArgs{
-		t:             t,
-		lggr:          lggr,
-		RunnerWg:      wg,
-		ctx:           ctx,
-		TestCfg:       testsetups.NewCCIPTestConfig(t, lggr, testconfig.Load),
-		LaneLoadCfg:   make(chan laneLoadCfg),
-		LoadStarterWg: &sync.WaitGroup{},
-		ChaosExps:     chaosExps,
+		t:         t,
+		lggr:      lggr,
+		RunnerWg:  wg,
+		ctx:       ctx,
+		TestCfg:   testsetups.NewCCIPTestConfig(t, lggr, testconfig.Load),
+		ChaosExps: chaosExps,
 	}
 }
