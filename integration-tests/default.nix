@@ -9,6 +9,6 @@ in
 {
   # exports a package.<package-name> to be consumed by the flake.nix
   packages = {
-    integration-tests_test-run-smoke = test-run-smoke.package;
+    integration-tests_run-smoke = test-run-smoke.package;
   };
 }

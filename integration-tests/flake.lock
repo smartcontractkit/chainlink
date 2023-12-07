@@ -295,12 +295,12 @@
       "flake": false,
       "locked": {
         "lastModified": 1,
-        "narHash": "sha256-7vxtoPQQarUWy3nPJdjzInUDcPrH/TgE83pgFFx9eP8=",
-        "path": "/nix/store/7bi8q2llb9pvgfzc41xlw43j4zvwiirn-source/integration-tests",
+        "narHash": "sha256-5opfeYSAUWRs9vmSNlRQuD9XxnRjIH6+1ee0U815S+s=",
+        "path": "/nix/store/p8srg1wh944kx3h1pp1qyzsrg8y9rl03-source/integration-tests",
         "type": "path"
       },
       "original": {
-        "path": "/nix/store/7bi8q2llb9pvgfzc41xlw43j4zvwiirn-source/integration-tests",
+        "path": "/nix/store/p8srg1wh944kx3h1pp1qyzsrg8y9rl03-source/integration-tests",
         "type": "path"
       }
     },
