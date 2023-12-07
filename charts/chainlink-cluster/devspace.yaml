@@ -231,7 +231,7 @@ profiles:
     patches:
       - op: replace
         path: dev.app.workingDir
-        value: /home/root/chainlink/integration-tests
+        value: /home/chainlink/integration-tests
       - op: replace
         path: dev.app.container
         value: runner
@@ -256,21 +256,20 @@ profiles:
 # This is a list of `dev` containers that are based on the containers created by your deployments
 dev:
   app:
-    workingDir: /home/root/chainlink
+    workingDir: /home/chainlink
     container: node
     labelSelector:
       instance: node-1
     # Sync files between the local filesystem and the development container
     sync:
-      - path: ../../core/services/chainlink:/home/root/chainlink/core/services/chainlink
+      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
         printLogs: true
         disableDownload: true
-      - path: ../..:/home/root/chainlink
+      - path: ../..:/home/chainlink
         printLogs: true
         disableDownload: true
         uploadExcludePaths:
           - integration-tests/
-          - .git/
           - .github/
           - belt/
           - charts/
@@ -280,16 +279,16 @@ dev:
           - integration-scripts/
           - testdata/
           - evm-test-helpers/
-          - tools/
     # Open a terminal and use the following command
     terminal:
       command: bash
     ssh:
       enabled: true
     proxyCommands:
-      - command: devspace
-      - command: kubectl
-      - command: helm
+#       TODO: access issues
+#      - command: devspace
+#      - command: kubectl
+#      - command: helm
       - gitCredentials: true
     ports:
       - port: "2345"
