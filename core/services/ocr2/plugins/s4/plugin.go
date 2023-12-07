@@ -22,9 +22,9 @@ var (
 		Help: "Number of actual updates plugin performed by nodes",
 	}, []string{"don_id"})
 
-	promStorageTotalSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "storage_total_size",
-		Help: "Current size of data stored in S4",
+	promStorageTotalByteSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "storage_total_byte_size",
+		Help: "Current byte size of data stored in S4",
 	}, []string{"don_id"})
 )
 
@@ -74,6 +74,7 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 		return nil, errors.Wrap(err, "failed to GetVersions in Query()")
 	}
 
+	var storageTotalByteSize int
 	rows := make([]*SnapshotRow, len(snapshot))
 	for i, v := range snapshot {
 		rows[i] = &SnapshotRow{
@@ -81,6 +82,8 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 			Slotid:  uint32(v.SlotId),
 			Version: v.Version,
 		}
+
+		storageTotalByteSize += len(v.Payload)
 	}
 
 	queryBytes, err := MarshalQuery(rows, c.addressRange)
@@ -90,7 +93,7 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 
 	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(rows)))
 	promReportingPluginsQueryByteSize.WithLabelValues(c.config.ProductName).Set(float64(len(queryBytes)))
-	promStorageTotalSize.WithLabelValues(c.config.DONID).Set(float64(len(snapshot)))
+	promStorageTotalByteSize.WithLabelValues(c.config.DONID).Set(float64(storageTotalByteSize))
 
 	c.addressRange.Advance()
 

@@ -25,6 +25,7 @@ type SnapshotRow struct {
 	Version    uint64
 	Expiration int64
 	Confirmed  bool
+	Payload    []byte
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
