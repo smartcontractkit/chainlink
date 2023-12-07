@@ -58,6 +58,16 @@ deployments:
             - name: node-1
               image: ${DEVSPACE_IMAGE}
               version: latest
+              # default resources are 300m/1Gi
+              # first node need more resources to build faster inside container
+              # at least 2Gi of memory is required otherwise build will fail (OOM)
+              resources:
+                requests:
+                  cpu: 2000m
+                  memory: 2048Mi
+                limits:
+                  cpu: 2000m
+                  memory: 2048Mi
               # override default config per node
               # for example, use OCRv2 P2P setup, the whole config
               #      toml: |
@@ -105,13 +115,6 @@ deployments:
             - name: node-6
               image: ${DEVSPACE_IMAGE}
               version: latest
-          resources:
-            requests:
-              cpu: 350m
-              memory: 1024Mi
-            limits:
-              cpu: 350m
-              memory: 1024Mi
 
         # each CL node have a dedicated PostgreSQL 11.15
         # use StatefulSet by setting:
@@ -231,7 +234,7 @@ profiles:
     patches:
       - op: replace
         path: dev.app.workingDir
-        value: /home/root/chainlink/integration-tests
+        value: /home/chainlink/integration-tests
       - op: replace
         path: dev.app.container
         value: runner
@@ -256,21 +259,20 @@ profiles:
 # This is a list of `dev` containers that are based on the containers created by your deployments
 dev:
   app:
-    workingDir: /home/root/chainlink
+    workingDir: /home/chainlink
     container: node
     labelSelector:
       instance: node-1
     # Sync files between the local filesystem and the development container
     sync:
-      - path: ../../core/services/chainlink:/home/root/chainlink/core/services/chainlink
+      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
         printLogs: true
         disableDownload: true
-      - path: ../..:/home/root/chainlink
+      - path: ../..:/home/chainlink
         printLogs: true
         disableDownload: true
         uploadExcludePaths:
           - integration-tests/
-          - .git/
           - .github/
           - belt/
           - charts/
@@ -280,16 +282,16 @@ dev:
           - integration-scripts/
           - testdata/
           - evm-test-helpers/
-          - tools/
     # Open a terminal and use the following command
     terminal:
       command: bash
     ssh:
       enabled: true
     proxyCommands:
-      - command: devspace
-      - command: kubectl
-      - command: helm
+#       TODO: access issues
+#      - command: devspace
+#      - command: kubectl
+#      - command: helm
       - gitCredentials: true
     ports:
       - port: "2345"
