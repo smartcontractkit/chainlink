@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"testing"
 	"time"
 
@@ -206,6 +207,15 @@ func (te *CLClusterTestEnv) Cleanup() error {
 
 	te.logWhetherAllContainersAreRunning()
 
+	// Getting the absolute path
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	wd = filepath.Join(wd, "logs")
+	te.l.Info().Str("Working dir", wd).Msg("Would write test logs here")
+
 	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
 	// Collect logs if the test fails, or if we just want them
 	if te.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
@@ -253,7 +263,8 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 // collectTestLogs collects the logs from all the Chainlink nodes in the test environment and writes them to local files
 func (te *CLClusterTestEnv) collectTestLogs() error {
 	te.l.Info().Msg("Collecting test logs")
-	folder := fmt.Sprintf("./logs/%s-%s", te.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+	sanitizedNetworkName := strings.ReplaceAll(te.EVMClient.GetNetworkName(), " ", "-")
+	folder := fmt.Sprintf("./logs/%s-%s-%s", te.t.Name(), sanitizedNetworkName, time.Now().Format("2006-01-02T15-04-05"))
 	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
 		return err
 	}
@@ -281,11 +292,39 @@ func (te *CLClusterTestEnv) collectTestLogs() error {
 		})
 	}
 
+	if te.MockAdapter != nil {
+		eg.Go(func() error {
+			logFileName := filepath.Join(folder, "mock-adapter.log")
+			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
+			}
+			defer logFile.Close()
+			logReader, err := te.MockAdapter.Container.Logs(testcontext.Get(te.t))
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(logFile, logReader)
+			if err != nil {
+				return err
+			}
+			te.l.Info().Str("Container", te.MockAdapter.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
+			return nil
+		})
+	}
+
 	if err := eg.Wait(); err != nil {
 		return err
 	}
 
-	te.l.Info().Str("Logs Location", folder).Msg("Wrote test logs")
+	// Getting the absolute path
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	absolutePath := filepath.Join(wd, folder)
+
+	te.l.Info().Str("Logs absolute Location", absolutePath).Msg("Wrote test logs")
 	return nil
 }
 
