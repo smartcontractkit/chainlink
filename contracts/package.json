@@ -13,7 +13,7 @@
     "size": "hardhat size-contracts",
     "clean": "hardhat clean",
     "compile:native": "./scripts/native_solc_compile_all",
-    "compile": "hardhat compile",
+    "compile": "hardhat compile --no-typechain",
     "coverage": "hardhat coverage",
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "pnpm publish --tag beta",
