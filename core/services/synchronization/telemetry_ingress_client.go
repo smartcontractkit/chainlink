@@ -52,27 +52,27 @@ type telemetryIngressClient struct {
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint) TelemetryService {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, network string, chainID string) TelemetryService {
 	return &telemetryIngressClient{
 		url:             url,
 		ks:              ks,
 		serverPubKeyHex: serverPubKeyHex,
 		logging:         logging,
-		lggr:            lggr.Named("TelemetryIngressClient"),
+		lggr:            lggr.Named("TelemetryIngressClient").Named(network).Named(chainID),
 		chTelemetry:     make(chan TelemPayload, telemBufferSize),
 		chDone:          make(services.StopChan),
 	}
 }
 
 // Start connects the wsrpc client to the telemetry ingress server
-func (tc *telemetryIngressClient) Start(ctx context.Context) error {
+func (tc *telemetryIngressClient) Start(context.Context) error {
 	return tc.StartOnce("TelemetryIngressClient", func() error {
 		privkey, err := tc.getCSAPrivateKey()
 		if err != nil {
 			return err
 		}
 
-		tc.connect(ctx, privkey)
+		tc.connect(privkey)
 
 		return nil
 	})
@@ -95,14 +95,15 @@ func (tc *telemetryIngressClient) HealthReport() map[string]error {
 	return map[string]error{tc.Name(): tc.Healthy()}
 }
 
-func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []byte) {
+func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
 	tc.wgDone.Add(1)
 
 	go func() {
 		defer tc.wgDone.Done()
+		ctx, cancel := tc.chDone.NewCtx()
+		defer cancel()
 
 		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
-
 		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey), wsrpc.WithLogger(tc.lggr))
 		if err != nil {
 			if ctx.Err() != nil {
@@ -111,6 +112,7 @@ func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []b
 				tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
 				tc.SvcErrBuffer.Append(err)
 			}
+			return
 		}
 		defer conn.Close()
 
@@ -130,7 +132,9 @@ func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []b
 }
 
 func (tc *telemetryIngressClient) handleTelemetry() {
+	tc.wgDone.Add(1)
 	go func() {
+		defer tc.wgDone.Done()
 		ctx, cancel := tc.chDone.NewCtx()
 		defer cancel()
 		for {

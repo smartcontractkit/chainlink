@@ -18,6 +18,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	nullv4 "gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -69,6 +69,7 @@ type TestEvmTxStore interface {
 	FindTxAttemptsByTxIDs(ids []int64) ([]TxAttempt, error)
 	InsertTxAttempt(attempt *TxAttempt) error
 	LoadTxesAttempts(etxs []*Tx, qopts ...pg.QOpt) error
+	GetFatalTransactions(ctx context.Context) (txes []*Tx, err error)
 }
 
 type evmTxStore struct {
@@ -333,7 +334,7 @@ func NewTxStore(
 	lggr logger.Logger,
 	cfg pg.QConfig,
 ) *evmTxStore {
-	namedLogger := lggr.Named("TxmStore")
+	namedLogger := logger.Named(lggr, "TxmStore")
 	ctx, cancel := context.WithCancel(context.Background())
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
 	return &evmTxStore{
@@ -550,6 +551,29 @@ func (o *evmTxStore) InsertReceipt(receipt *evmtypes.Receipt) (int64, error) {
 	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
 
 	return r.ID, pkgerrors.Wrap(err, "InsertReceipt failed")
+}
+
+func (o *evmTxStore) GetFatalTransactions(ctx context.Context) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		stmt := `SELECT * FROM evm.txes WHERE state = 'fatal_error'`
+		var dbEtxs []DbEthTx
+		if err = tx.Select(&dbEtxs, stmt); err != nil {
+			return fmt.Errorf("failed to load evm.txes: %w", err)
+		}
+		txes = make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
+		if err != nil {
+			return fmt.Errorf("failed to load evm.tx_attempts: %w", err)
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+
+	return txes, nil
 }
 
 // FindTxWithAttempts finds the Tx with its attempts and receipts preloaded
@@ -1107,6 +1131,58 @@ ORDER BY nonce ASC
 	return etxs, pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
 }
 
+func (o *evmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (broadcastAt nullv4.Time, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		if err = qq.QueryRowContext(ctx, `SELECT min(initial_broadcast_at) FROM evm.txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, chainID.String()).Scan(&broadcastAt); err != nil {
+			return fmt.Errorf("failed to query for unconfirmed eth_tx count: %w", err)
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+	return broadcastAt, err
+}
+
+func (o *evmTxStore) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID *big.Int) (earliestUnconfirmedTxBlock nullv4.Int, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		err = qq.QueryRowContext(ctx, `
+SELECT MIN(broadcast_before_block_num) FROM evm.tx_attempts
+JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id
+WHERE evm.txes.state = 'unconfirmed'
+AND evm_chain_id = $1`, chainID.String()).Scan(&earliestUnconfirmedTxBlock)
+		if err != nil {
+			return fmt.Errorf("failed to query for earliest unconfirmed tx block: %w", err)
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+	return earliestUnconfirmedTxBlock, err
+}
+
+func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (finalized bool, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+
+	var count int32
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.GetContext(ctx, &count, `
+    SELECT COUNT(evm.receipts.receipt) FROM evm.txes
+    INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
+    INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
+    WHERE evm.receipts.block_number <= ($1 - evm.txes.min_confirmations)
+    AND evm.txes.id = $2 AND evm.txes.evm_chain_id = $3`, blockHeight, txID, chainID.String())
+	if err != nil {
+		return false, fmt.Errorf("failed to retrieve transaction reciepts: %w", err)
+	}
+	return count > 0, nil
+}
+
 func saveAttemptWithNewState(ctx context.Context, q pg.Queryer, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
 	var dbAttempt DbEthTxAttempt
 	dbAttempt.FromTxAttempt(&attempt)
@@ -1221,6 +1297,57 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 		return pkgerrors.Wrapf(sql.ErrNoRows, "SaveInProgressAttempt tried to update evm.tx_attempts but no rows matched id %d", attempt.ID)
 	}
 	return nil
+}
+
+func (o *evmTxStore) GetNonFatalTransactions(ctx context.Context, chainID *big.Int) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		stmt := `SELECT * FROM evm.txes WHERE state <> 'fatal_error' AND evm_chain_id = $1`
+		var dbEtxs []DbEthTx
+		if err = tx.Select(&dbEtxs, stmt, chainID.String()); err != nil {
+			return fmt.Errorf("failed to load evm.txes: %w", err)
+		}
+		txes = make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
+		if err != nil {
+			return fmt.Errorf("failed to load evm.txes: %w", err)
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+
+	return txes, nil
+}
+
+func (o *evmTxStore) GetTxByID(ctx context.Context, id int64) (txe *Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		stmt := `SELECT * FROM evm.txes WHERE id = $1`
+		var dbEtxs []DbEthTx
+		if err = tx.Select(&dbEtxs, stmt, id); err != nil {
+			return fmt.Errorf("failed to load evm.txes: %w", err)
+		}
+		txes := make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+		if len(txes) != 1 {
+			return fmt.Errorf("failed to get tx with id %v", id)
+		}
+		txe = txes[0]
+		err = o.LoadTxesAttempts(txes, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
+		if err != nil {
+			return fmt.Errorf("failed to load evm.tx_attempts: %w", err)
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+
+	return txe, nil
 }
 
 // FindTxsRequiringGasBump returns transactions that have all
@@ -1371,7 +1498,7 @@ GROUP BY e.id
 				txHashesHex[i] = common.BytesToAddress(r.TxHashes[i])
 			}
 
-			o.logger.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+			logger.Criticalw(o.logger, fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
 				"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
 				"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
 				"an external wallet has been used to send a transaction from account %s with nonce %v."+
@@ -1637,6 +1764,20 @@ func (o *evmTxStore) countTransactionsWithState(ctx context.Context, fromAddress
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
 func (o *evmTxStore) CountUnconfirmedTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (count uint32, err error) {
 	return o.countTransactionsWithState(ctx, fromAddress, txmgr.TxUnconfirmed, chainID)
+}
+
+// CountTransactionsByState returns the number of transactions with any fromAddress in the given state
+func (o *evmTxStore) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID *big.Int) (count uint32, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Get(&count, `SELECT count(*) FROM evm.txes WHERE state = $1 AND evm_chain_id = $2`,
+		state, chainID.String())
+	if err != nil {
+		return 0, fmt.Errorf("failed to CountTransactionsByState: %w", err)
+	}
+	return count, nil
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions

@@ -22,6 +22,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
+	"github.com/lib/pq"
 
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
@@ -834,7 +835,9 @@ func (m *failedToRandomizeTestDBSequencesError) Error() string {
 // randomizeTestDBSequences randomizes sequenced table columns sequence
 // This is necessary as to avoid false positives in some test cases.
 func randomizeTestDBSequences(db *sqlx.DB) error {
-	seqRows, err := db.Query(`SELECT sequence_schema, sequence_name FROM information_schema.sequences WHERE sequence_schema = $1`, "public")
+	// not ideal to hard code this, but also not safe to do it programmatically :(
+	schemas := pq.Array([]string{"public", "evm"})
+	seqRows, err := db.Query(`SELECT sequence_schema, sequence_name, minimum_value FROM information_schema.sequences WHERE sequence_schema IN ($1)`, schemas)
 	if err != nil {
 		return fmt.Errorf("%s: error fetching sequences: %s", failedToRandomizeTestDBSequencesError{}, err)
 	}
@@ -842,7 +845,8 @@ func randomizeTestDBSequences(db *sqlx.DB) error {
 	defer seqRows.Close()
 	for seqRows.Next() {
 		var sequenceSchema, sequenceName string
-		if err = seqRows.Scan(&sequenceSchema, &sequenceName); err != nil {
+		var minimumSequenceValue int64
+		if err = seqRows.Scan(&sequenceSchema, &sequenceName, &minimumSequenceValue); err != nil {
 			return fmt.Errorf("%s: failed scanning sequence rows: %s", failedToRandomizeTestDBSequencesError{}, err)
 		}
 
@@ -855,6 +859,7 @@ func randomizeTestDBSequences(db *sqlx.DB) error {
 		if err != nil {
 			return fmt.Errorf("%s: failed to generate random number", failedToRandomizeTestDBSequencesError{})
 		}
+		randNum.Add(randNum, big.NewInt(minimumSequenceValue))
 
 		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)); err != nil {
 			return fmt.Errorf("%s: failed to alter and restart %s sequence: %w", failedToRandomizeTestDBSequencesError{}, sequenceName, err)
@@ -996,23 +1001,36 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "error connecting to the database"))
 	}
-
 	defer db.Close()
 
-	tablesToDeleteFromQuery := `SELECT table_name FROM information_schema.columns WHERE "column_name"=$1;`
+	// some tables with evm_chain_id (mostly job specs) are in public schema
+	tablesToDeleteFromQuery := `SELECT table_name, table_schema FROM information_schema.columns WHERE "column_name"=$1;`
 	// Delete rows from each table based on the chain_id.
 	if strings.EqualFold("EVM", c.String("type")) {
-		var tables []string
-		if err = db.Select(&tables, tablesToDeleteFromQuery, "evm_chain_id"); err != nil {
+		rows, err := db.Query(tablesToDeleteFromQuery, "evm_chain_id")
+		if err != nil {
 			return err
+		} else if rows.Err() != nil {
+			return rows.Err()
 		}
-		for _, tableName := range tables {
+
+		var tablesToDeleteFrom []string
+		for rows.Next() {
+			var name string
+			var schema string
+			if err = rows.Scan(&name, &schema); err != nil {
+				return err
+			}
+			tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
+		}
+
+		for _, tableName := range tablesToDeleteFrom {
 			query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
 			_, err = db.Exec(query, c.String("id"))
 			if err != nil {
-				fmt.Printf("Error deleting rows from %s: %v\n", tableName, err)
+				fmt.Printf("Error deleting rows containing evm_chain_id from %s: %v\n", tableName, err)
 			} else {
-				fmt.Printf("Rows with chain_id %s deleted from %s.\n", c.String("id"), tableName)
+				fmt.Printf("Rows with evm_chain_id %s deleted from %s.\n", c.String("id"), tableName)
 			}
 		}
 	} else {

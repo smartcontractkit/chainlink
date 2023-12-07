@@ -19,7 +19,7 @@ import (
 
 var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountHook, codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook}
 
-func NewCodec(conf types.CodecConfig) (commontypes.CodecTypeProvider, error) {
+func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 	parsed := &parsedTypes{
 		encoderDefs: map[string]*CodecEntry{},
 		decoderDefs: map[string]*CodecEntry{},

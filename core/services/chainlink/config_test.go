@@ -410,19 +410,6 @@ func TestConfig_Marshal(t *testing.T) {
 		OutgoingMessageBufferSize: ptr[int64](17),
 		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 		TraceLogging:              ptr(true),
-		V1: toml.P2PV1{
-			Enabled:                          ptr(true),
-			AnnounceIP:                       mustIP("1.2.3.4"),
-			AnnouncePort:                     ptr[uint16](1234),
-			BootstrapCheckInterval:           models.MustNewDuration(time.Minute),
-			DefaultBootstrapPeers:            &[]string{"foo", "bar", "should", "these", "be", "typed"},
-			DHTAnnouncementCounterUserPrefix: ptr[uint32](4321),
-			DHTLookupInterval:                ptr[int64](9),
-			ListenIP:                         mustIP("4.3.2.1"),
-			ListenPort:                       ptr[uint16](9),
-			NewStreamTimeout:                 models.MustNewDuration(time.Second),
-			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
-		},
 		V2: toml.P2PV2{
 			Enabled:           ptr(false),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
@@ -574,6 +561,8 @@ func TestConfig_Marshal(t *testing.T) {
 					ContractConfirmations:              ptr[uint16](11),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
+					DeltaCOverride:                     models.MustNewDuration(time.Hour),
+					DeltaCJitterOverride:               models.MustNewDuration(time.Second),
 					ObservationGracePeriod:             &second,
 				},
 				OCR2: evmcfg.OCR2{
@@ -666,6 +655,13 @@ func TestConfig_Marshal(t *testing.T) {
 				{Name: ptr("foo"), TendermintURL: commoncfg.MustParseURL("http://foo.url")},
 				{Name: ptr("bar"), TendermintURL: commoncfg.MustParseURL("http://bar.web")},
 			},
+		},
+	}
+	full.Mercury = toml.Mercury{
+		Cache: toml.MercuryCache{
+			LatestReportTTL:      models.MustNewDuration(100 * time.Second),
+			MaxStaleAge:          models.MustNewDuration(101 * time.Second),
+			LatestReportDeadline: models.MustNewDuration(102 * time.Second),
 		},
 	}
 
@@ -863,19 +859,6 @@ OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
 
-[P2P.V1]
-Enabled = true
-AnnounceIP = '1.2.3.4'
-AnnouncePort = 1234
-BootstrapCheckInterval = '1m0s'
-DefaultBootstrapPeers = ['foo', 'bar', 'should', 'these', 'be', 'typed']
-DHTAnnouncementCounterUserPrefix = 4321
-DHTLookupInterval = 9
-ListenIP = '4.3.2.1'
-ListenPort = 9
-NewStreamTimeout = '1s'
-PeerstoreWriteInterval = '1m0s'
-
 [P2P.V2]
 Enabled = false
 AnnounceAddresses = ['a', 'b', 'c']
@@ -1012,6 +995,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
+DeltaCOverride = '1h0m0s'
+DeltaCJitterOverride = '1s'
 ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
@@ -1103,6 +1088,12 @@ ConfirmationPoll = '42s'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+`},
+		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1m40s'
+MaxStaleAge = '1m41s'
+LatestReportDeadline = '1m42s'
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},
@@ -1303,19 +1294,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		effective = "# Effective Configuration, with defaults applied:\n"
 		warning   = "# Configuration warning:\n"
 
-		deprecated = `2 errors:
-	- P2P.V1: is deprecated and will be removed in a future version
-	- P2P.V1: 10 errors:
-		- AnnounceIP: is deprecated and will be removed in a future version
-		- AnnouncePort: is deprecated and will be removed in a future version
-		- BootstrapCheckInterval: is deprecated and will be removed in a future version
-		- DefaultBootstrapPeers: is deprecated and will be removed in a future version
-		- DHTAnnouncementCounterUserPrefix: is deprecated and will be removed in a future version
-		- DHTLookupInterval: is deprecated and will be removed in a future version
-		- ListenIP: is deprecated and will be removed in a future version
-		- ListenPort: is deprecated and will be removed in a future version
-		- NewStreamTimeout: is deprecated and will be removed in a future version
-		- PeerstoreWriteInterval: is deprecated and will be removed in a future version`
+		deprecated = `` // none
 	)
 	tests := []struct {
 		name         string
@@ -1541,7 +1520,7 @@ func TestConfig_SetFrom(t *testing.T) {
 	}
 }
 
-func TestConfig_Warnings(t *testing.T) {
+func TestConfig_warnings(t *testing.T) {
 	tests := []struct {
 		name           string
 		config         Config
@@ -1564,42 +1543,6 @@ func TestConfig_Warnings(t *testing.T) {
 				},
 			},
 			expectedErrors: []string{"Tracing.TLSCertPath: invalid value (/path/to/cert.pem): must be empty when Tracing.Mode is 'unencrypted'"},
-		},
-		{
-			name: "Deprecation warning - P2P.V1 fields set",
-			config: Config{
-				Core: toml.Core{
-					P2P: toml.P2P{
-						V1: toml.P2PV1{
-							Enabled: ptr(true),
-						},
-					},
-				},
-			},
-			expectedErrors: []string{
-				"P2P.V1: is deprecated and will be removed in a future version",
-			},
-		},
-		{
-			name: "Value warning and deprecation warning",
-			config: Config{
-				Core: toml.Core{
-					P2P: toml.P2P{
-						V1: toml.P2PV1{
-							Enabled: ptr(true),
-						},
-					},
-					Tracing: toml.Tracing{
-						Enabled:     ptr(true),
-						Mode:        ptr("unencrypted"),
-						TLSCertPath: ptr("/path/to/cert.pem"),
-					},
-				},
-			},
-			expectedErrors: []string{
-				"Tracing.TLSCertPath: invalid value (/path/to/cert.pem): must be empty when Tracing.Mode is 'unencrypted'",
-				"P2P.V1: is deprecated and will be removed in a future version",
-			},
 		},
 	}
 

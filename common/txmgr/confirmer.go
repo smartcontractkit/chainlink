@@ -3,25 +3,26 @@ package txmgr
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -160,7 +161,7 @@ func NewConfirmer[
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	lggr = lggr.Named("Confirmer")
+	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		txStore:          txStore,
 		lggr:             lggr,
@@ -200,7 +201,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sta
 	var err error
 	ec.enabledAddresses, err = ec.ks.EnabledAddressesForChain(ec.chainID)
 	if err != nil {
-		return errors.Wrap(err, "Confirmer: failed to load EnabledAddressesForChain")
+		return fmt.Errorf("Confirmer: failed to load EnabledAddressesForChain: %w", err)
 	}
 
 	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
@@ -222,7 +223,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) clo
 	ec.initSync.Lock()
 	defer ec.initSync.Unlock()
 	if !ec.isStarted {
-		return errors.Wrap(utils.ErrAlreadyStopped, "Confirmer is not started")
+		return fmt.Errorf("Confirmer is not started: %w", utils.ErrAlreadyStopped)
 	}
 	ec.ctxCancel()
 	ec.wg.Wait()
@@ -280,28 +281,28 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "confirmer")
 
 	if err := ec.txStore.SetBroadcastBeforeBlockNum(ctx, head.BlockNumber(), ec.chainID); err != nil {
-		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
+		return fmt.Errorf("SetBroadcastBeforeBlockNum failed: %w", err)
 	}
 	if err := ec.CheckConfirmedMissingReceipt(ctx); err != nil {
-		return errors.Wrap(err, "CheckConfirmedMissingReceipt failed")
+		return fmt.Errorf("CheckConfirmedMissingReceipt failed: %w", err)
 	}
 
 	if err := ec.CheckForReceipts(ctx, head.BlockNumber()); err != nil {
-		return errors.Wrap(err, "CheckForReceipts failed")
+		return fmt.Errorf("CheckForReceipts failed: %w", err)
 	}
 
 	ec.lggr.Debugw("Finished CheckForReceipts", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
 	if err := ec.RebroadcastWhereNecessary(ctx, head.BlockNumber()); err != nil {
-		return errors.Wrap(err, "RebroadcastWhereNecessary failed")
+		return fmt.Errorf("RebroadcastWhereNecessary failed: %w", err)
 	}
 
 	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
 	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
-		return errors.Wrap(err, "EnsureConfirmedTransactionsInLongestChain failed")
+		return fmt.Errorf("EnsureConfirmedTransactionsInLongestChain failed: %w", err)
 	}
 
 	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
@@ -309,7 +310,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	if ec.resumeCallback != nil {
 		mark = time.Now()
 		if err := ec.ResumePendingTaskRuns(ctx, head); err != nil {
-			return errors.Wrap(err, "ResumePendingTaskRuns failed")
+			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
 		}
 
 		ec.lggr.Debugw("Finished ResumePendingTaskRuns", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
@@ -381,7 +382,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CheckForReceipts(ctx context.Context, blockNum int64) error {
 	attempts, err := ec.txStore.FindTxAttemptsRequiringReceiptFetch(ctx, ec.chainID)
 	if err != nil {
-		return errors.Wrap(err, "FindTxAttemptsRequiringReceiptFetch failed")
+		return fmt.Errorf("FindTxAttemptsRequiringReceiptFetch failed: %w", err)
 	}
 	if len(attempts) == 0 {
 		return nil
@@ -397,7 +398,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 	for from, attempts := range attemptsByAddress {
 		minedSequence, err := ec.getMinedSequenceForAddress(ctx, from)
 		if err != nil {
-			return errors.Wrapf(err, "unable to fetch pending sequence for address: %v", from)
+			return fmt.Errorf("unable to fetch pending sequence for address: %v: %w", from, err)
 		}
 
 		// separateLikelyConfirmedAttempts is used as an optimisation: there is
@@ -414,7 +415,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 			start := time.Now()
 			err = ec.fetchAndSaveReceipts(ctx, likelyConfirmed, blockNum)
 			if err != nil {
-				return errors.Wrapf(err, "unable to fetch and save receipts for likely confirmed txs, for address: %v", from)
+				return fmt.Errorf("unable to fetch and save receipts for likely confirmed txs, for address: %v: %w", from, err)
 			}
 			ec.lggr.Debugw(fmt.Sprintf("Fetching and saving %v likely confirmed receipts done", likelyConfirmedCount),
 				"time", time.Since(start))
@@ -422,11 +423,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 	}
 
 	if err := ec.txStore.MarkAllConfirmedMissingReceipt(ctx, ec.chainID); err != nil {
-		return errors.Wrap(err, "unable to mark txes as 'confirmed_missing_receipt'")
+		return fmt.Errorf("unable to mark txes as 'confirmed_missing_receipt': %w", err)
 	}
 
 	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(ctx, blockNum, ec.chainConfig.FinalityDepth(), ec.chainID); err != nil {
-		return errors.Wrap(err, "unable to confirm buried unconfirmed txes")
+		return fmt.Errorf("unable to confirm buried unconfirmed txes': %w", err)
 	}
 	return nil
 }
@@ -487,10 +488,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fet
 
 		receipts, err := ec.batchFetchReceipts(ctx, batch, blockNum)
 		if err != nil {
-			return errors.Wrap(err, "batchFetchReceipts failed")
+			return fmt.Errorf("batchFetchReceipts failed: %w", err)
 		}
 		if err := ec.txStore.SaveFetchedReceipts(ctx, receipts, ec.chainID); err != nil {
-			return errors.Wrap(err, "saveFetchedReceipts failed")
+			return fmt.Errorf("saveFetchedReceipts failed: %w", err)
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
 
@@ -513,11 +514,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 	if ec.txConfig.ForwardersEnabled() {
 		err = ec.txStore.PreloadTxes(ctx, attempts)
 		if err != nil {
-			return nil, errors.Wrap(err, "Confirmer#batchFetchReceipts error loading txs for attempts")
+			return nil, fmt.Errorf("Confirmer#batchFetchReceipts error loading txs for attempts: %w", err)
 		}
 	}
 
-	lggr := ec.lggr.Named("BatchFetchReceipts").With("blockNum", blockNum)
+	lggr := logger.Named(ec.lggr, "BatchFetchReceipts")
+	lggr = logger.With(lggr, "blockNum", blockNum)
 
 	txReceipts, txErrs, err := ec.client.BatchGetReceipts(ctx, attempts)
 	if err != nil {
@@ -529,8 +531,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 		receipt := txReceipts[i]
 		err := txErrs[i]
 
-		l := logger.Sugared(attempt.Tx.GetLogger(lggr).With(
-			"txHash", attempt.Hash.String(), "txAttemptID", attempt.ID,
+		l := logger.Sugared(logger.With(attempt.Tx.GetLogger(lggr), "txHash", attempt.Hash.String(), "txAttemptID", attempt.ID,
 			"txID", attempt.TxID, "err", err, "sequence", attempt.Tx.Sequence,
 		))
 
@@ -551,7 +552,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 			continue
 		}
 
-		l = logger.Sugared(l.With("blockHash", receipt.GetBlockHash().String(), "status", receipt.GetStatus(), "transactionIndex", receipt.GetTransactionIndex()))
+		l = logger.Sugared(logger.With(l, "blockHash", receipt.GetBlockHash().String(), "status", receipt.GetStatus(), "transactionIndex", receipt.GetTransactionIndex()))
 
 		if receipt.IsUnmined() {
 			l.Debug("Got receipt for transaction but it's still in the mempool and not included in a block yet")
@@ -628,7 +629,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reb
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) rebroadcastWhereNecessary(ctx context.Context, address ADDR, blockHeight int64) error {
 	if err := ec.handleAnyInProgressAttempts(ctx, address, blockHeight); err != nil {
-		return errors.Wrap(err, "handleAnyInProgressAttempts failed")
+		return fmt.Errorf("handleAnyInProgressAttempts failed: %w", err)
 	}
 
 	threshold := int64(ec.feeConfig.BumpThreshold())
@@ -636,24 +637,24 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) reb
 	maxInFlightTransactions := ec.txConfig.MaxInFlight()
 	etxs, err := ec.FindTxsRequiringRebroadcast(ctx, ec.lggr, address, blockHeight, threshold, bumpDepth, maxInFlightTransactions, ec.chainID)
 	if err != nil {
-		return errors.Wrap(err, "FindTxsRequiringRebroadcast failed")
+		return fmt.Errorf("FindTxsRequiringRebroadcast failed: %w", err)
 	}
 	for _, etx := range etxs {
 		lggr := etx.GetLogger(ec.lggr)
 
 		attempt, err := ec.attemptForRebroadcast(ctx, lggr, *etx)
 		if err != nil {
-			return errors.Wrap(err, "attemptForRebroadcast failed")
+			return fmt.Errorf("attemptForRebroadcast failed: %w", err)
 		}
 
 		lggr.Debugw("Rebroadcasting transaction", "nPreviousAttempts", len(etx.TxAttempts), "fee", attempt.TxFee)
 
 		if err := ec.txStore.SaveInProgressAttempt(ctx, &attempt); err != nil {
-			return errors.Wrap(err, "saveInProgressAttempt failed")
+			return fmt.Errorf("saveInProgressAttempt failed: %w", err)
 		}
 
 		if err := ec.handleInProgressAttempt(ctx, lggr, *etx, attempt, blockHeight); err != nil {
-			return errors.Wrap(err, "handleInProgressAttempt failed")
+			return fmt.Errorf("handleInProgressAttempt failed: %w", err)
 		}
 	}
 	return nil
@@ -669,14 +670,14 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
-		return errors.Wrap(err, "GetInProgressTxAttempts failed")
+		return fmt.Errorf("GetInProgressTxAttempts failed: %w", err)
 	}
 	for _, a := range attempts {
 		err := ec.handleInProgressAttempt(ctx, a.Tx.GetLogger(ec.lggr), a.Tx, a, blockHeight)
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			return errors.Wrap(err, "handleInProgressAttempt failed")
+			return fmt.Errorf("handleInProgressAttempt failed: %w", err)
 		}
 	}
 	return nil
@@ -768,7 +769,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) att
 		}
 		return attempt, err
 	}
-	return attempt, errors.Errorf("invariant violation: Tx %v was unconfirmed but didn't have any attempts. "+
+	return attempt, fmt.Errorf("invariant violation: Tx %v was unconfirmed but didn't have any attempts. "+
 		"Falling back to default gas price instead."+
 		"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 }
@@ -801,17 +802,17 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bum
 		return bumpedAttempt, err
 	}
 
-	if errors.Is(errors.Cause(err), commonfee.ErrBumpFeeExceedsLimit) {
+	if errors.Is(err, commonfee.ErrBumpFeeExceedsLimit) {
 		promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
 	}
 
-	return bumpedAttempt, errors.Wrap(err, "error bumping gas")
+	return bumpedAttempt, fmt.Errorf("error bumping gas: %w", err)
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockHeight int64) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 
-		return errors.Errorf("invariant violation: expected tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
+		return fmt.Errorf("invariant violation: expected tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
 	}
 
 	now := time.Now()
@@ -826,7 +827,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		// "Lazily" load attempts here since the overwhelmingly common case is
 		// that we don't need them unless we enter this path
 		if err := ec.txStore.LoadTxAttempts(ctx, &etx); err != nil {
-			return errors.Wrap(err, "failed to load TxAttempts while bumping on terminally underpriced error")
+			return fmt.Errorf("failed to load TxAttempts while bumping on terminally underpriced error: %w", err)
 		}
 		if len(etx.TxAttempts) == 0 {
 			err := errors.New("expected to find at least 1 attempt")
@@ -840,10 +841,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		}
 		replacementAttempt, err := ec.bumpGas(ctx, etx, etx.TxAttempts)
 		if err != nil {
-			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
+			return fmt.Errorf("could not bump gas for terminally underpriced transaction: %w", err)
 		}
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-		lggr.With(
+		logger.With(lggr,
 			"sendError", sendError,
 			"maxGasPriceConfig", ec.feeConfig.MaxFeePrice(),
 			"previousAttempt", attempt,
@@ -851,7 +852,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		).Errorf("gas price was rejected by the node for being too low. Node returned: '%s'", sendError.Error())
 
 		if err := ec.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &replacementAttempt); err != nil {
-			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
+			return fmt.Errorf("saveReplacementInProgressAttempt failed: %w", err)
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
 	case client.ExceedsMaxFee:
@@ -864,7 +865,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		// Should NEVER be fatal this is an invariant violation. The
 		// Broadcaster can never create a TxAttempt that will
 		// fatally error.
-		lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
+		logger.Criticalw(lggr, "Invariant violation: fatal error while re-attempting transaction",
 			"err", sendError,
 			"fee", attempt.TxFee,
 			"feeLimit", etx.FeeLimit,
@@ -895,7 +896,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		// node operator. The node may have it in the mempool so we must keep the
 		// attempt (leave it in_progress). Safest thing to do is bail out and wait
 		// for the next head.
-		return errors.Wrapf(sendError, "unexpected error sending tx %v with hash %s", etx.ID, attempt.Hash.String())
+		return fmt.Errorf("unexpected error sending tx %v with hash %s: %w", etx.ID, attempt.Hash.String(), sendError)
 	}
 }
 
@@ -923,13 +924,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	}
 	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(ctx, head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
 	if err != nil {
-		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
+		return fmt.Errorf("findTransactionsConfirmedInBlockRange failed: %w", err)
 	}
 
 	for _, etx := range etxs {
 		if !hasReceiptInLongestChain(*etx, head) {
 			if err := ec.markForRebroadcast(*etx, head); err != nil {
-				return errors.Wrapf(err, "markForRebroadcast failed for etx %v", etx.ID)
+				return fmt.Errorf("markForRebroadcast failed for etx %v: %w", etx.ID, err)
 			}
 		}
 	}
@@ -982,7 +983,7 @@ func hasReceiptInLongestChain[
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markForRebroadcast(etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {
 	if len(etx.TxAttempts) == 0 {
-		return errors.Errorf("invariant violation: expected tx %v to have at least one attempt", etx.ID)
+		return fmt.Errorf("invariant violation: expected tx %v to have at least one attempt", etx.ID)
 	}
 
 	// Rebroadcast the one with the highest gas price
@@ -1015,8 +1016,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 	ec.lggr.Infow(fmt.Sprintf("Re-org detected. Rebroadcasting transaction %s which may have been re-org'd out of the main chain", attempt.Hash.String()), logValues...)
 
 	// Put it back in progress and delete all receipts (they do not apply to the new chain)
-	err := ec.txStore.UpdateTxForRebroadcast(ec.ctx, etx, attempt)
-	return errors.Wrap(err, "markForRebroadcast failed")
+	if err := ec.txStore.UpdateTxForRebroadcast(ec.ctx, etx, attempt); err != nil {
+		return fmt.Errorf("markForRebroadcast failed: %w", err)
+	}
+
+	return nil
 }
 
 // ForceRebroadcast sends a transaction for every sequence in the given sequence range at the given gas price.
@@ -1036,7 +1040,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 
 		etx, err := ec.txStore.FindTxWithSequence(ctx, address, seq)
 		if err != nil {
-			return errors.Wrap(err, "ForceRebroadcast failed")
+			return fmt.Errorf("ForceRebroadcast failed: %w", err)
 		}
 		if etx == nil {
 			ec.lggr.Debugf("ForceRebroadcast: no tx found with sequence %s, will rebroadcast empty transaction", seq)
@@ -1075,7 +1079,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sen
 	}
 	txhash, err := ec.client.SendEmptyTransaction(ctx, ec.TxAttemptBuilder.NewEmptyTxAttempt, seq, gasLimit, fee, fromAddress)
 	if err != nil {
-		return "", errors.Wrap(err, "(Confirmer).sendEmptyTransaction failed")
+		return "", fmt.Errorf("(Confirmer).sendEmptyTransaction failed: %w", err)
 	}
 	return txhash, nil
 }
@@ -1098,7 +1102,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 		var taskErr error
 		var output interface{}
 		if data.FailOnRevert && data.Receipt.GetStatus() == 0 {
-			taskErr = errors.Errorf("transaction %s reverted on-chain", data.Receipt.GetTxHash())
+			taskErr = fmt.Errorf("transaction %s reverted on-chain", data.Receipt.GetTxHash())
 		} else {
 			output = data.Receipt
 		}

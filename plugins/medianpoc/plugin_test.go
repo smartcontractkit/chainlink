@@ -88,7 +88,7 @@ func TestNewPlugin(t *testing.T) {
 	juelsPerFeeCoinSpec := "jpfc-spec"
 	config := types.ReportingPluginServiceConfig{
 		PluginConfig: fmt.Sprintf(
-			`{"pipelines": {"__DEFAULT_PIPELINE__": "%s", "juelsPerFeeCoinPipeline": "%s"}}`,
+			`{"pipelines": [{"name": "__DEFAULT_PIPELINE__", "spec": "%s"},{"name": "juelsPerFeeCoinPipeline", "spec": "%s"}]}`,
 			defaultSpec,
 			juelsPerFeeCoinSpec,
 		),

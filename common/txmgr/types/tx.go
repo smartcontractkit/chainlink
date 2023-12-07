@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -10,13 +11,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
@@ -245,12 +245,16 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetMeta() (*TxMeta[A
 		return nil, nil
 	}
 	var m TxMeta[ADDR, TX_HASH]
-	return &m, errors.Wrap(json.Unmarshal(*e.Meta, &m), "unmarshalling meta")
+	if err := json.Unmarshal(*e.Meta, &m); err != nil {
+		return nil, fmt.Errorf("unmarshalling meta: %w", err)
+	}
+
+	return &m, nil
 }
 
 // GetLogger returns a new logger with metadata fields.
 func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger.Logger) logger.Logger {
-	lgr = lgr.With(
+	lgr = logger.With(lgr,
 		"txID", e.ID,
 		"sequence", e.Sequence,
 		"checker", e.TransmitChecker,
@@ -264,15 +268,15 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger
 	}
 
 	if meta != nil {
-		lgr = lgr.With("jobID", meta.JobID)
+		lgr = logger.With(lgr, "jobID", meta.JobID)
 
 		if meta.RequestTxHash != nil {
-			lgr = lgr.With("requestTxHash", *meta.RequestTxHash)
+			lgr = logger.With(lgr, "requestTxHash", *meta.RequestTxHash)
 		}
 
 		if meta.RequestID != nil {
 			id := *meta.RequestID
-			lgr = lgr.With("requestID", new(big.Int).SetBytes(id.Bytes()).String())
+			lgr = logger.With(lgr, "requestID", new(big.Int).SetBytes(id.Bytes()).String())
 		}
 
 		if len(meta.RequestIDs) != 0 {
@@ -280,33 +284,33 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger
 			for _, id := range meta.RequestIDs {
 				ids = append(ids, new(big.Int).SetBytes(id.Bytes()).String())
 			}
-			lgr = lgr.With("requestIDs", strings.Join(ids, ","))
+			lgr = logger.With(lgr, "requestIDs", strings.Join(ids, ","))
 		}
 
 		if meta.UpkeepID != nil {
-			lgr = lgr.With("upkeepID", *meta.UpkeepID)
+			lgr = logger.With(lgr, "upkeepID", *meta.UpkeepID)
 		}
 
 		if meta.SubID != nil {
-			lgr = lgr.With("subID", *meta.SubID)
+			lgr = logger.With(lgr, "subID", *meta.SubID)
 		}
 
 		if meta.MaxLink != nil {
-			lgr = lgr.With("maxLink", *meta.MaxLink)
+			lgr = logger.With(lgr, "maxLink", *meta.MaxLink)
 		}
 
 		if meta.FwdrDestAddress != nil {
-			lgr = lgr.With("FwdrDestAddress", *meta.FwdrDestAddress)
+			lgr = logger.With(lgr, "FwdrDestAddress", *meta.FwdrDestAddress)
 		}
 
 		if len(meta.MessageIDs) > 0 {
 			for _, mid := range meta.MessageIDs {
-				lgr = lgr.With("messageID", mid)
+				lgr = logger.With(lgr, "messageID", mid)
 			}
 		}
 
 		if len(meta.SeqNumbers) > 0 {
-			lgr = lgr.With("SeqNumbers", meta.SeqNumbers)
+			lgr = logger.With(lgr, "SeqNumbers", meta.SeqNumbers)
 		}
 	}
 
@@ -320,5 +324,9 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetChecker() (Transm
 		return TransmitCheckerSpec[ADDR]{}, nil
 	}
 	var t TransmitCheckerSpec[ADDR]
-	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
+	if err := json.Unmarshal(*e.TransmitChecker, &t); err != nil {
+		return t, fmt.Errorf("unmarshalling transmit checker: %w", err)
+	}
+
+	return t, nil
 }

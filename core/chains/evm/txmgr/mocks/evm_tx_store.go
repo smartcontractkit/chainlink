@@ -14,6 +14,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	null "gopkg.in/guregu/null.v4"
+
 	time "time"
 
 	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -57,6 +59,30 @@ func (_m *EvmTxStore) CheckTxQueueCapacity(ctx context.Context, fromAddress comm
 // Close provides a mock function with given fields:
 func (_m *EvmTxStore) Close() {
 	_m.Called()
+}
+
+// CountTransactionsByState provides a mock function with given fields: ctx, state, chainID
+func (_m *EvmTxStore) CountTransactionsByState(ctx context.Context, state types.TxState, chainID *big.Int) (uint32, error) {
+	ret := _m.Called(ctx, state, chainID)
+
+	var r0 uint32
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxState, *big.Int) (uint32, error)); ok {
+		return rf(ctx, state, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxState, *big.Int) uint32); ok {
+		r0 = rf(ctx, state, chainID)
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, types.TxState, *big.Int) error); ok {
+		r1 = rf(ctx, state, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // CountUnconfirmedTransactions provides a mock function with given fields: ctx, fromAddress, chainID
@@ -143,6 +169,54 @@ func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types
 	}
 
 	return r0
+}
+
+// FindEarliestUnconfirmedBroadcastTime provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (null.Time, error) {
+	ret := _m.Called(ctx, chainID)
+
+	var r0 null.Time
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (null.Time, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) null.Time); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Get(0).(null.Time)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindEarliestUnconfirmedTxAttemptBlock provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID *big.Int) (null.Int, error) {
+	ret := _m.Called(ctx, chainID)
+
+	var r0 null.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (null.Int, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) null.Int); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Get(0).(null.Int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId
@@ -649,6 +723,58 @@ func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address commo
 	return r0, r1
 }
 
+// GetNonFatalTransactions provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) GetNonFatalTransactions(ctx context.Context, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, chainID)
+
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetTxByID provides a mock function with given fields: ctx, id
+func (_m *EvmTxStore) GetTxByID(ctx context.Context, id int64) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, id)
+
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetTxInProgress provides a mock function with given fields: ctx, fromAddress
 func (_m *EvmTxStore) GetTxInProgress(ctx context.Context, fromAddress common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, fromAddress)
@@ -692,6 +818,30 @@ func (_m *EvmTxStore) HasInProgressTransaction(ctx context.Context, account comm
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
 		r1 = rf(ctx, account, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID, chainID
+func (_m *EvmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (bool, error) {
+	ret := _m.Called(ctx, blockHeight, txID, chainID)
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) (bool, error)); ok {
+		return rf(ctx, blockHeight, txID, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) bool); ok {
+		r0 = rf(ctx, blockHeight, txID, chainID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, *big.Int) error); ok {
+		r1 = rf(ctx, blockHeight, txID, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}

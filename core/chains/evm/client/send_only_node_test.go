@@ -16,13 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestNewSendOnlyNode(t *testing.T) {
@@ -32,7 +32,7 @@ func TestNewSendOnlyNode(t *testing.T) {
 	password := "pass"
 	url := testutils.MustParseURL(t, fmt.Sprintf(urlFormat, password))
 	redacted := fmt.Sprintf(urlFormat, "xxxxx")
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	name := "TestNewSendOnlyNode"
 	chainID := testutils.NewRandomEVMChainID()
 
@@ -52,7 +52,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		chainID := testutils.NewRandomEVMChainID()
 		r := chainIDResp{chainID.Int64(), nil}
 		url := r.newHTTPServer(t)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		s := evmclient.NewSendOnlyNode(lggr, *url, t.Name(), chainID)
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(testutils.Context(t))
@@ -62,7 +62,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 
 	t.Run("Start with ChainID=0", func(t *testing.T) {
 		t.Parallel()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		chainID := testutils.FixtureChainID
 		r := chainIDResp{chainID.Int64(), nil}
 		url := r.newHTTPServer(t)
@@ -77,7 +77,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 
 	t.Run("becomes unusable (and remains undialed) if initial dial fails", func(t *testing.T) {
 		t.Parallel()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		invalidURL := url.URL{Scheme: "some rubbish", Host: "not a valid host"}
 		s := evmclient.NewSendOnlyNode(lggr, invalidURL, t.Name(), testutils.FixtureChainID)
 
@@ -109,7 +109,7 @@ func TestSendTransaction(t *testing.T) {
 	t.Parallel()
 
 	chainID := testutils.FixtureChainID
-	lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+	lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 	url := testutils.MustParseURL(t, "http://place.holder")
 	s := evmclient.NewSendOnlyNode(lggr,
 		*url,
@@ -135,7 +135,7 @@ func TestSendTransaction(t *testing.T) {
 func TestBatchCallContext(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	chainID := testutils.FixtureChainID
 	url := testutils.MustParseURL(t, "http://place.holder")
 	s := evmclient.NewSendOnlyNode(

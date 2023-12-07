@@ -12,8 +12,8 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -29,12 +29,12 @@ type ChainReaderService interface {
 type chainReader struct {
 	lggr   logger.Logger
 	lp     logpoller.LogPoller
-	codec  commontypes.CodecTypeProvider
+	codec  commontypes.RemoteCodec
 	client evmclient.Client
 }
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
-func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, chain evm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
+func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
 
 	parsed := &parsedTypes{
 		encoderDefs: map[string]*CodecEntry{},

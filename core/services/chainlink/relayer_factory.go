@@ -17,13 +17,14 @@ import (
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -31,10 +32,11 @@ type RelayerFactory struct {
 	logger.Logger
 	*plugins.LoopRegistry
 	loop.GRPCOpts
+	MercuryPool wsrpc.Pool
 }
 
 type EVMFactoryConfig struct {
-	evm.ChainOpts
+	legacyevm.ChainOpts
 	evmrelay.CSAETHKeystore
 }
 
@@ -44,7 +46,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 	relayers := make(map[relay.ID]evmrelay.LoopRelayAdapter)
 
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
-	ccOpts := evm.ChainRelayExtenderConfig{
+	ccOpts := legacyevm.ChainRelayExtenderConfig{
 		Logger:    r.Logger.Named("EVM"),
 		KeyStore:  config.CSAETHKeystore.Eth(),
 		ChainOpts: config.ChainOpts,
@@ -67,8 +69,9 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 			QConfig:          ccOpts.AppConfig.Database(),
 			CSAETHKeystore:   config.CSAETHKeystore,
 			EventBroadcaster: ccOpts.EventBroadcaster,
+			MercuryPool:      r.MercuryPool,
 		}
-		relayer, err2 := evmrelay.NewRelayer(ccOpts.Logger.Named(relayID.ChainID), chain, relayerOpts)
+		relayer, err2 := evmrelay.NewRelayer(r.Logger.Named("EVM").Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
 			err = errors.Join(err, err2)
 			continue

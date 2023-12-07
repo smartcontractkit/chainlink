@@ -22,7 +22,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -40,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
@@ -60,7 +61,7 @@ func NewTestEthBroadcaster(
 	t.Helper()
 	ctx := testutils.Context(t)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ge := config.EVM().GasEstimator()
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config.EVM().GasEstimator(), ge.BlockHistory(), lggr), ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, keyStore, estimator)
@@ -94,7 +95,7 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 		ethKeyStore,
 		txBuilder,
 		nil,
-		logger.TestLogger(t),
+		logger.Test(t),
 		&testCheckerFactory{},
 		false,
 	)
@@ -123,9 +124,9 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	require.Error(t, eb.XXXTestCloseInternal())
 
 	// Can successfully startInternal a previously closed instance
-	require.NoError(t, eb.XXXTestStartInternal())
+	require.NoError(t, eb.XXXTestStartInternal(ctx))
 	// Can't startInternal already started instance
-	require.Error(t, eb.XXXTestStartInternal())
+	require.Error(t, eb.XXXTestStartInternal(ctx))
 	// Can successfully closeInternal again
 	require.NoError(t, eb.XXXTestCloseInternal())
 }
@@ -152,7 +153,7 @@ func TestEthBroadcaster_LoadNextSequenceMapFailure_StartupSuccess(t *testing.T) 
 		ethKeyStore,
 		txBuilder,
 		nil,
-		logger.TestLogger(t),
+		logger.Test(t),
 		&testCheckerFactory{},
 		false,
 	)
@@ -160,6 +161,7 @@ func TestEthBroadcaster_LoadNextSequenceMapFailure_StartupSuccess(t *testing.T) 
 	// Instance starts without error even if loading next sequence map fails
 	err := eb.Start(testutils.Context(t))
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, eb.Close()) })
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
@@ -625,7 +627,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		ethKeyStore,
 		txBuilder,
 		nil,
-		logger.TestLogger(t),
+		logger.Test(t),
 		&testCheckerFactory{},
 		false,
 	)
@@ -1132,7 +1134,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 				// same as the parent test, but callback is set by ctor
 				t.Run("callback set by ctor", func(t *testing.T) {
-					lggr := logger.TestLogger(t)
+					lggr := logger.Test(t)
 					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), nil)
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
 					localNextNonce = getLocalNextNonce(t, eb, fromAddress)
@@ -1744,7 +1746,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(true)
 	})

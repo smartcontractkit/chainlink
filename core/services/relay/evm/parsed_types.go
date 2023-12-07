@@ -13,7 +13,7 @@ type parsedTypes struct {
 	decoderDefs map[string]*CodecEntry
 }
 
-func (parsed *parsedTypes) toCodec() (commontypes.CodecTypeProvider, error) {
+func (parsed *parsedTypes) toCodec() (commontypes.RemoteCodec, error) {
 	modByType := map[string]codec.Modifier{}
 	if err := addEntries(parsed.encoderDefs, modByType); err != nil {
 		return nil, err
