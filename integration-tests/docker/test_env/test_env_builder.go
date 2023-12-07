@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -225,7 +225,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.hasLogWatch {
-		b.te.LogWatch, err = logwatch.NewLogWatch(nil, nil)
+		b.te.LogWatch, err = logstream.NewLogStream(b.te.t, nil)
 		if err != nil {
 			return nil, err
 		}

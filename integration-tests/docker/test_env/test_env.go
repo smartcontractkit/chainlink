@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -36,7 +36,7 @@ var (
 type CLClusterTestEnv struct {
 	Cfg      *TestEnvConfig
 	Network  *tc.DockerNetwork
-	LogWatch *logwatch.LogWatch
+	LogWatch *logstream.LogStream
 
 	/* components */
 	ClCluster             *ClCluster

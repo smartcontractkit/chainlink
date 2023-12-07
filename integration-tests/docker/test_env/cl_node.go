@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -47,7 +47,7 @@ type ClNode struct {
 	UserPassword          string                  `json:"userPassword"`
 	t                     *testing.T
 	l                     zerolog.Logger
-	lw                    *logwatch.LogWatch
+	lw                    *logstream.LogStream
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -76,7 +76,7 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
+func WithLogWatch(lw *logstream.LogStream) ClNodeOption {
 	return func(c *ClNode) {
 		c.lw = lw
 	}
@@ -286,7 +286,7 @@ func (n *ClNode) StartContainer() error {
 		return fmt.Errorf("%s err: %w", ErrStartCLNodeContainer, err)
 	}
 	if n.lw != nil {
-		if err := n.lw.ConnectContainer(testcontext.Get(n.t), container, "cl-node", true); err != nil {
+		if err := n.lw.ConnectContainer(testcontext.Get(n.t), container, "cl-node"); err != nil {
 			return err
 		}
 	}

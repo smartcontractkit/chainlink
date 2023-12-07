@@ -82,3 +82,6 @@ go.work*
 
 # This sometimes shows up for some reason
 tools/flakeytests/coverage.txt
+
+.run.id
+test_summary/
