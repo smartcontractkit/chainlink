@@ -184,7 +184,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 						l.Error().Err(err).Msg("Error cleaning up test environment")
 					}
 				}).
-			WithLogWatcher().
+			WithLogStream().
 			Build()
 
 		require.NoError(t, err, "error creating test env")
