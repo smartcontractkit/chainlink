@@ -1,8 +1,6 @@
 # Chainlink cluster
 Example CL nodes cluster for system level tests
 
-Please use `Eng Shared Vault -> CRIB Access` in `1password` to get access to the cluster first
-
 Install `kubefwd` (no nixpkg for it yet, planned)
 ```
 brew install txn2/tap/kubefwd
@@ -42,11 +40,12 @@ Fix something in the code locally, it'd automatically sync, rebuild it inside co
 make chainlink
 make chainlink-local-start
 ```
-If you need to update the whole cluster run `deploy` again with a new set of images
+
+Reset the pod to original image
 ```
 devspace reset pods
-devspace deploy
 ```
+
 Destroy the cluster
 ```
 devspace purge

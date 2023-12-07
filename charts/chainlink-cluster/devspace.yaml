@@ -58,6 +58,16 @@ deployments:
             - name: node-1
               image: ${DEVSPACE_IMAGE}
               version: latest
+              # default resources are 300m/1Gi
+              # first node need more resources to build faster inside container
+              # at least 2Gi of memory is required otherwise build will fail (OOM)
+              resources:
+                requests:
+                  cpu: 2000m
+                  memory: 2048Mi
+                limits:
+                  cpu: 2000m
+                  memory: 2048Mi
               # override default config per node
               # for example, use OCRv2 P2P setup, the whole config
               #      toml: |
@@ -105,13 +115,6 @@ deployments:
             - name: node-6
               image: ${DEVSPACE_IMAGE}
               version: latest
-          resources:
-            requests:
-              cpu: 350m
-              memory: 1024Mi
-            limits:
-              cpu: 350m
-              memory: 1024Mi
 
         # each CL node have a dedicated PostgreSQL 11.15
         # use StatefulSet by setting:

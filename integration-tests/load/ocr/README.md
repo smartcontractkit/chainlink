@@ -3,15 +3,15 @@
 ## Setup
 These tests can connect to any cluster create with [chainlink-cluster](../../../charts/chainlink-cluster/README.md)
 
-Create your cluster
+Create your cluster, if you already have one just use `kubefwd`
 ```
-kubectl create ns my-cluster
-devspace use namespace my-cluster
+kubectl create ns cl-cluster
+devspace use namespace cl-cluster
 devspace deploy
-sudo kubefwd svc -n my-cluster
+sudo kubefwd svc -n cl-cluster
 ```
 
-Change environment connection configuration [here](connection.toml)
+Change environment connection configuration [here](../../../charts/chainlink-cluster/connect.toml)
 
 If you haven't changed anything in [devspace.yaml](../../../charts/chainlink-cluster/devspace.yaml) then default connection configuration will work
 

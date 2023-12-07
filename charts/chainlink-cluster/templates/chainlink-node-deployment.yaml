@@ -71,14 +71,14 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 5
             failureThreshold: 20
-          {{ if (hasKey $.Values.chainlink "resources") }}
+          {{ if (hasKey $cfg "resources") }}
           resources:
             requests:
-              memory: {{ default "1024Mi" $.Values.chainlink.resources.requests.memory }}
-              cpu: {{ default "500m" $.Values.chainlink.resources.requests.cpu }}
+              memory: {{ default "1024Mi" $cfg.resources.requests.memory }}
+              cpu: {{ default "300m" $cfg.resources.requests.cpu }}
             limits:
-              memory: {{ default "1024Mi" $.Values.chainlink.resources.limits.memory }}
-              cpu: {{ default "500m" $.Values.chainlink.resources.limits.cpu }}
+              memory: {{ default "1024Mi" $cfg.resources.limits.memory }}
+              cpu: {{ default "300m" $cfg.resources.limits.cpu }}
           {{ else }}
           {{ end }}
 {{- with $.Values.nodeSelector }}
