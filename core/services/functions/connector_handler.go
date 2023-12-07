@@ -64,6 +64,16 @@ var (
 		Name: "storage_user_updates",
 		Help: "Number of actual updates users performed by nodes",
 	}, []string{"don_id"})
+
+	promStorageTotalSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "storage_total_size",
+		Help: "Current size of data stored in S4",
+	}, []string{"don_id"})
+
+	promStorageOccupiedSlotsCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "storage_occupied_slots",
+		Help: "Number of occupied slots",
+	}, []string{"don_id"})
 )
 
 // internal request ID is a hash of (sender, requestID)
@@ -195,6 +205,8 @@ func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewa
 		if err == nil {
 			response.Success = true
 			promStorageUserUpdatesCount.WithLabelValues(body.DonId).Inc()
+			promStorageTotalSize.WithLabelValues(body.DonId).Add(float64(len(record.Payload)))
+			promStorageOccupiedSlotsCount.WithLabelValues(body.DonId).Inc()
 		} else {
 			response.ErrorMessage = fmt.Sprintf("Failed to set secret: %v", err)
 		}
