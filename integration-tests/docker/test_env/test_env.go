@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"testing"
 	"time"
 
@@ -262,7 +263,8 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 // collectTestLogs collects the logs from all the Chainlink nodes in the test environment and writes them to local files
 func (te *CLClusterTestEnv) collectTestLogs() error {
 	te.l.Info().Msg("Collecting test logs")
-	folder := fmt.Sprintf("./logs/%s-%s", te.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+	sanitizedNetworkName := strings.ReplaceAll(te.EVMClient.GetNetworkName(), " ", "-")
+	folder := fmt.Sprintf("./logs/%s-%s-%s", te.t.Name(), sanitizedNetworkName, time.Now().Format("2006-01-02T15-04-05"))
 	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
 		return err
 	}
@@ -286,6 +288,27 @@ func (te *CLClusterTestEnv) collectTestLogs() error {
 				return err
 			}
 			te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
+			return nil
+		})
+	}
+
+	if te.MockAdapter != nil {
+		eg.Go(func() error {
+			logFileName := filepath.Join(folder, "mock-adapter.log")
+			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
+			}
+			defer logFile.Close()
+			logReader, err := te.MockAdapter.Container.Logs(testcontext.Get(te.t))
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(logFile, logReader)
+			if err != nil {
+				return err
+			}
+			te.l.Info().Str("Container", te.MockAdapter.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
 			return nil
 		})
 	}
