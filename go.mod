@@ -81,7 +81,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.17.0
-	github.com/ugorji/go/codec v1.2.11
+	github.com/ugorji/go/codec v1.2.12
 	github.com/ulule/limiter/v3 v3.11.2
 	github.com/umbracle/ethgo v0.1.3
 	github.com/unrolled/secure v1.13.0
