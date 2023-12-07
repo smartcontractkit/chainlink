@@ -4,11 +4,11 @@
 
 let
   # imports ./ethereum.print-chain/default.nix inheriting pkgs and chainlink-dev args
-  ethereum_test-run-smoke = pkgs.callPackage ./smoke { inherit pkgs; };
+  test-run-smoke = pkgs.callPackage ./smoke { inherit pkgs; };
 in
 {
   # exports a package.<package-name> to be consumed by the flake.nix
   packages = {
-    chainlink-dev_ethereum_test-run-smoke = ethereum_test-run-smoke.package;
+    integration-tests_test-run-smoke = test-run-smoke.package;
   };
 }

@@ -74,7 +74,7 @@
                     inputs.chainlink.packages.${system}.chainlink
 
                     # add all local plugins of this project
-                    self.packages.${system}.chainlink-dev_ethereum_test-run-smoke
+                    self.packages.${system}.integration-tests_test-run-smoke
                   ]++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
                          # Additional darwin specific inputs can be set here
                          pkgs.libiconv
@@ -82,9 +82,9 @@
                        ];
               };
 
-            apps.chainlink-dev_ethereum_test-run-smoke = {
+            apps.integration-tests_test-run-smoke = {
               type = "app";
-              program = "${self.packages.${system}.chainlink-dev_ethereum_run-smoke}/bin/chainlink-dev.ethereum.test-run-smoke";
+              program = "${self.packages.${system}.integration-tests_run-smoke}/bin/integration-tests.test-run-smoke";
             };
           })
       );
