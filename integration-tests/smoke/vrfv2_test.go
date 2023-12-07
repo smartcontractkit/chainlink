@@ -69,8 +69,6 @@ func TestVRFv2Basic(t *testing.T) {
 
 	vrfv2_actions.LogSubDetails(l, subscription, subID, vrfv2Contracts.Coordinator)
 
-	require.True(t, false, "test if logs are there")
-
 	t.Run("Request Randomness", func(t *testing.T) {
 		testConfig := vrfv2Config
 		subBalanceBeforeRequest := subscription.Balance
