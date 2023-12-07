@@ -21,6 +21,11 @@ var (
 		Name: "storage_plugin_updates",
 		Help: "Number of actual updates plugin performed by nodes",
 	}, []string{"don_id"})
+
+	promStorageTotalSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "storage_total_size",
+		Help: "Current size of data stored in S4",
+	}, []string{"don_id"})
 )
 
 type plugin struct {
@@ -85,6 +90,7 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 
 	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(rows)))
 	promReportingPluginsQueryByteSize.WithLabelValues(c.config.ProductName).Set(float64(len(queryBytes)))
+	promStorageTotalSize.WithLabelValues(c.config.DONID).Set(float64(len(snapshot)))
 
 	c.addressRange.Advance()
 
