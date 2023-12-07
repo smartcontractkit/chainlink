@@ -8,9 +8,11 @@ import (
 	"math"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
@@ -24,8 +26,10 @@ import (
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	mocklogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/testfiles"
@@ -48,18 +52,24 @@ type chainReaderInterfaceTester struct {
 	sim         *backends.SimulatedBackend
 	pk          *ecdsa.PrivateKey
 	evmTest     *testfiles.Testfiles
+	cr          evm.ChainReaderService
 }
 
-func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
+func (it *chainReaderInterfaceTester) Setup(ctx context.Context, t *testing.T) {
+	t.Cleanup(func() {
+		it.address = ""
+		require.NoError(t, it.cr.Close())
+		it.cr = nil
+	})
+
 	// can re-use the same chain for tests, just make new contract for each test
 	if it.chain != nil {
+		it.deployNewContract(ctx, t)
 		return
 	}
 
-	t.Cleanup(func() { it.address = "" })
 	it.chain = &mocks.Chain{}
 	it.setupChainNoClient(t)
-	it.chain.On("LogPoller").Return(logger.NullLogger)
 
 	testStruct := CreateTestStruct(0, it)
 
@@ -76,6 +86,10 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 					},
 					MethodReturningUint64Slice: {
 						ChainSpecificName: "GetSliceValue",
+					},
+					EventName: {
+						ChainSpecificName: "Triggered",
+						ReadType:          types.Event,
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: returnSeenName,
@@ -97,6 +111,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 		},
 	}
 	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
+	it.deployNewContract(ctx, t)
 }
 
 func (it *chainReaderInterfaceTester) Name() string {
@@ -110,15 +125,25 @@ func (it *chainReaderInterfaceTester) GetAccountBytes(i int) []byte {
 	return account
 }
 
-func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes.ChainReader {
-	cr, err := evm.NewChainReaderService(logger.NullLogger, mocklogpoller.NewLogPoller(t), it.chain, it.chainConfig)
+func (it *chainReaderInterfaceTester) GetChainReader(ctx context.Context, t *testing.T) clcommontypes.ChainReader {
+	if it.cr != nil {
+		return it.cr
+	}
+
+	addr := common.HexToAddress(it.address)
+	lggr := logger.NullLogger
+	db := pgtest.NewSqlxDB(t)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), it.chain.Client(), lggr, time.Millisecond, false, 0, 1, 1, 10000)
+	require.NoError(t, lp.Start(ctx))
+	it.chain.On("LogPoller").Return(lp)
+	cr, err := evm.NewChainReaderService(lggr, lp, addr, it.chain, it.chainConfig)
 	require.NoError(t, err)
+	require.NoError(t, cr.Start(ctx))
+	it.cr = cr
 	return cr
 }
 
-func (it *chainReaderInterfaceTester) GetPrimitiveContract(ctx context.Context, t *testing.T) clcommontypes.BoundContract {
-	// Since most tests don't use the contract, it's set up lazily to save time
-	it.deployNewContract(ctx, t)
+func (it *chainReaderInterfaceTester) GetPrimitiveContract(_ context.Context, t *testing.T) clcommontypes.BoundContract {
 	return clcommontypes.BoundContract{
 		Address: it.address,
 		Name:    MethodReturningUint64,
@@ -142,10 +167,29 @@ func (it *chainReaderInterfaceTester) GetSliceContract(ctx context.Context, t *t
 }
 
 func (it *chainReaderInterfaceTester) SetLatestValue(ctx context.Context, t *testing.T, testStruct *TestStruct) clcommontypes.BoundContract {
+	it.sendTxWithTestStruct(ctx, t, testStruct, (*testfiles.TestfilesTransactor).AddTestStruct)
+	return clcommontypes.BoundContract{
+		Address: it.address,
+		Name:    MethodTakingLatestParamsReturningTestStruct,
+	}
+}
+
+func (it *chainReaderInterfaceTester) TriggerEvent(ctx context.Context, t *testing.T, testStruct *TestStruct) clcommontypes.BoundContract {
+	it.sendTxWithTestStruct(ctx, t, testStruct, (*testfiles.TestfilesTransactor).TriggerEvent)
+	return clcommontypes.BoundContract{
+		Address: it.address,
+		Name:    EventName,
+	}
+}
+
+type testStructFn = func(*testfiles.TestfilesTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, [32]byte, [][32]byte, *big.Int, testfiles.MidLevelTestStruct) (*evmtypes.Transaction, error)
+
+func (it *chainReaderInterfaceTester) sendTxWithTestStruct(ctx context.Context, t *testing.T, testStruct *TestStruct, fn testStructFn) {
 	// Since most tests don't use the contract, it's set up lazily to save time
 	it.deployNewContract(ctx, t)
 
-	tx, err := it.evmTest.AddTestStruct(
+	tx, err := fn(
+		&it.evmTest.TestfilesTransactor,
 		it.auth,
 		testStruct.Field,
 		testStruct.DifferentField,
@@ -160,10 +204,6 @@ func (it *chainReaderInterfaceTester) SetLatestValue(ctx context.Context, t *tes
 	it.sim.Commit()
 	it.incNonce()
 	it.awaitTx(ctx, t, tx)
-	return clcommontypes.BoundContract{
-		Address: it.address,
-		Name:    MethodTakingLatestParamsReturningTestStruct,
-	}
 }
 
 func convertOracleIDs(oracleIDs [32]commontypes.OracleID) [32]byte {

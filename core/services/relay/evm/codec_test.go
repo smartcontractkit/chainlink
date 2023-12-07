@@ -1,6 +1,7 @@
 package evm_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -49,7 +50,7 @@ func TestCodec(t *testing.T) {
 
 type codecInterfaceTester struct{}
 
-func (it *codecInterfaceTester) Setup(_ *testing.T) {}
+func (it *codecInterfaceTester) Setup(_ context.Context, _ *testing.T) {}
 
 func (it *codecInterfaceTester) GetAccountBytes(i int) []byte {
 	account := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2}
