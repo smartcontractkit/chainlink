@@ -11,12 +11,13 @@ import (
 
 	"gopkg.in/guregu/null.v2"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 type ChainReaderConfig struct {

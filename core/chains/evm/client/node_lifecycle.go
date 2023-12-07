@@ -15,8 +15,8 @@ import (
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 var (
