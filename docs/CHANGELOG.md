@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ...
 
 <!-- unreleasedstop -->
+## 2.7.2 - 2023-12-7
+
+### Fixed
+
+- Fixed a bug that caused nodes without OCR or OCR2 enabled to fail config validation if `P2P.V2` was not explicitly disabled. With this fix, NOPs will not have to make changes to their config. 
 
 ## 2.7.1 - 2023-11-21
 
