@@ -1,6 +1,7 @@
 package test_env
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -172,6 +173,12 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 	if te.LogStream != nil {
 		for _, node := range te.ClCluster.Nodes {
 			node.ls = te.LogStream
+		}
+		if te.MockAdapter != nil {
+			err := te.LogStream.ConnectContainer(context.Background(), te.MockAdapter.Container, "mock-adapter")
+			if err != nil {
+				return err
+			}
 		}
 	}
 
