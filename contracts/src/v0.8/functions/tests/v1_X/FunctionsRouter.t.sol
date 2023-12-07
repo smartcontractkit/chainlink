@@ -21,7 +21,7 @@ import "forge-std/Vm.sol";
 /// @notice #constructor
 contract FunctionsRouter_Constructor is FunctionsRouterSetup {
   function test_Constructor_Success() public {
-    assertEq(s_functionsRouter.typeAndVersion(), "Functions Router v1.0.0");
+    assertEq(s_functionsRouter.typeAndVersion(), "Functions Router v2.0.0");
     assertEq(s_functionsRouter.owner(), OWNER_ADDRESS);
   }
 }

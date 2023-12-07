@@ -144,7 +144,7 @@ jobs:
       - name: Build Chainlink Image
         if: needs.changes.outputs.src == 'true'
         uses: ./.github/actions/build-chainlink-image
-        with: 
+        with:
           tag_suffix: ${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
           git_commit_sha: ${{ github.sha }}
@@ -210,17 +210,33 @@ jobs:
           MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu20.04-8cores-32GB 1)
           MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB 1)
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
-          echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+
+          # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
+          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+            echo "We are in a merge_group event, run both automation and keepers tests"
+            echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+          else
+            echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
+            target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
+            if [[ "$target_branch" == "develop" ]]; then
+              echo "only run automation tests"
+              echo "MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
+            else
+              echo "run both automation and keepers tests"
+              echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+            fi
+          fi
 
   eth-smoke-tests-matrix-automation:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || (github.event_name == 'workflow_dispatch' && !inputs.simulatedNetwork)) }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes, compare-tests, build-lint-integration-tests]
+    needs:
+      [build-chainlink, changes, compare-tests, build-lint-integration-tests]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -281,7 +297,7 @@ jobs:
         continue-on-error: true
 
   eth-smoke-tests-matrix:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || (github.event_name == 'workflow_dispatch' && !inputs.simulatedNetwork)) }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
     environment: integration
     permissions:
       checks: write
@@ -472,7 +488,7 @@ jobs:
       - name: Show Otel-Collector Logs
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
-            docker logs otel-collector
+          docker logs otel-collector
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
@@ -513,7 +529,7 @@ jobs:
       - name: Show Otel-Collector Logs
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
-            docker logs otel-collector
+          docker logs otel-collector
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -527,14 +543,13 @@ jobs:
       - name: Permissions on traces
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
-            ls -l ./integration-tests/smoke/traces
+          ls -l ./integration-tests/smoke/traces
       - name: Upload Trace Data
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         uses: actions/upload-artifact@v3
         with:
           name: trace-data
           path: ./integration-tests/smoke/traces/trace-data.json
-
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
