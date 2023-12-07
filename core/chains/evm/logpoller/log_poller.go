@@ -250,7 +250,7 @@ func (lp *logPoller) RegisterFilter(filter Filter, qopts ...pg.QOpt) error {
 	}
 
 	if err := lp.orm.InsertFilter(filter, qopts...); err != nil {
-		lp.lggr.Errorw("Error registering filter", "name", filter.Name, "err", err)
+		lp.lggr.Errorw("Error inserting filter", "name", filter.Name, "err", err)
 		return err
 	}
 	lp.filters[filter.Name] = filter
@@ -271,7 +271,7 @@ func (lp *logPoller) UnregisterFilter(name string, qopts ...pg.QOpt) error {
 	}
 
 	if err := lp.orm.DeleteFilter(name, qopts...); err != nil {
-		lp.lggr.Errorw("Error registering filter", "name", name)
+		lp.lggr.Errorw("Error deleting filter", "name", name, "err", err)
 		return err
 	}
 	delete(lp.filters, name)
