@@ -14,8 +14,6 @@ type InflightCache interface {
 
 var _ InflightCache = (*inflightCache)(nil)
 
-const cachePruneInterval = 1000
-
 type inflightCache struct {
 	// cache stores the logs whose fulfillments are currently in flight or already fulfilled.
 	cache map[logKey]struct{}
@@ -24,6 +22,9 @@ type inflightCache struct {
 	// lookback may or may not be redelivered.
 	lookback int
 
+	// cachePruneInterval determines how often the cache is pruned
+	cachePruneInterval int
+
 	// lastPruneHeight is the blockheight at which logs were last pruned.
 	lastPruneHeight uint64
 
@@ -31,11 +32,12 @@ type inflightCache struct {
 	mu sync.RWMutex
 }
 
-func NewInflightCache(lookback int) InflightCache {
+func NewInflightCache(lookback, cachePruneInterval int) InflightCache {
 	return &inflightCache{
-		cache:    make(map[logKey]struct{}),
-		lookback: lookback,
-		mu:       sync.RWMutex{},
+		cache:              make(map[logKey]struct{}),
+		lookback:           lookback,
+		cachePruneInterval: cachePruneInterval,
+		mu:                 sync.RWMutex{},
 	}
 }
 
@@ -71,7 +73,7 @@ func (c *inflightCache) Contains(lg types.Log) bool {
 
 func (c *inflightCache) prune(logBlock uint64) {
 	// Only prune every pruneInterval blocks
-	if int(logBlock)-int(c.lastPruneHeight) < cachePruneInterval {
+	if int(logBlock)-int(c.lastPruneHeight) < c.cachePruneInterval {
 		return
 	}
 

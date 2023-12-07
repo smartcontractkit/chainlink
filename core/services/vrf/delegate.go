@@ -178,7 +178,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 					func() {},
 					// the lookback in the deduper must be >= the lookback specified for the log poller
 					// otherwise we will end up re-delivering logs that were already delivered.
-					vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
+					vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth()), int(2*chain.Config().EVM().FinalityDepth())),
 					vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
 				),
 			}, nil
@@ -232,7 +232,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				func() {},
 				// the lookback in the deduper must be >= the lookback specified for the log poller
 				// otherwise we will end up re-delivering logs that were already delivered.
-				vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
+				vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth()), int(2*chain.Config().EVM().FinalityDepth())),
 				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
 			),
 			}, nil
