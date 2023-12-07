@@ -16,13 +16,8 @@ nix develop
 ## New cluster
 We are using [devspace](https://www.devspace.sh/docs/getting-started/installation?x0=3)
 
-Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments
+Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments for more details
 
-Set your registry for the image, example for `ECR`:
-```
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${aws_account}.dkr.ecr.us-west-2.amazonaws.com
-export DEVSPACE_IMAGE="${aws_account}.dkr.ecr.us-west-2.amazonaws.com/chainlink-devspace"
-```
 Enter the shell and deploy
 ```
 # set your unique namespace if it's a new cluster
@@ -45,11 +40,12 @@ Fix something in the code locally, it'd automatically sync, rebuild it inside co
 make chainlink
 make chainlink-local-start
 ```
-If you need to update the whole cluster run `deploy` again with a new set of images
+
+Reset the pod to original image
 ```
 devspace reset pods
-devspace deploy
 ```
+
 Destroy the cluster
 ```
 devspace purge

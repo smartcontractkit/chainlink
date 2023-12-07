@@ -1,9 +1,9 @@
 package fee
 
 import (
+	"errors"
+	"fmt"
 	"math/big"
-
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
@@ -47,15 +47,15 @@ func CalculateBumpedFee(
 	bumpedFeePrice = maxFee(lggr, currentfeePrice, bumpedFeePrice, maxFeePrice, "fee price", toChainUnit)
 
 	if bumpedFeePrice.Cmp(maxFeePrice) > 0 {
-		return maxFeePrice, errors.Wrapf(ErrBumpFeeExceedsLimit, "bumped fee price of %s would exceed configured max fee price of %s (original price was %s). %s",
-			toChainUnit(bumpedFeePrice), toChainUnit(maxFeePrice), toChainUnit(originalfeePrice), label.NodeConnectivityProblemWarning)
+		return maxFeePrice, fmt.Errorf("bumped fee price of %s would exceed configured max fee price of %s (original price was %s). %s: %w",
+			toChainUnit(bumpedFeePrice), toChainUnit(maxFeePrice), toChainUnit(originalfeePrice), label.NodeConnectivityProblemWarning, ErrBumpFeeExceedsLimit)
 	} else if bumpedFeePrice.Cmp(originalfeePrice) == 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// FeeEstimator.BumpPercent and FeeEstimator.BumpMin in the config validation,
 		// but it's here anyway for a "belts and braces" approach
-		return bumpedFeePrice, errors.Wrapf(ErrBump, "bumped fee price of %s is equal to original fee price of %s."+
+		return bumpedFeePrice, fmt.Errorf("bumped fee price of %s is equal to original fee price of %s."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
-			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", toChainUnit(bumpedFeePrice), toChainUnit(bumpedFeePrice))
+			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin: %w", toChainUnit(bumpedFeePrice), toChainUnit(bumpedFeePrice), ErrBump)
 	}
 	return bumpedFeePrice, nil
 }
