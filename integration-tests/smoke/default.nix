@@ -1,7 +1,7 @@
 { pkgs }:
 
 let
-  scriptName = "ethereum-smoke-tests";
+  scriptName = "test-run-smoke";
   go = pkgs.go_1_21;
   scriptBuildInputs = with pkgs; [ go go-ethereum ]; # add geth to handle missing underlying dependencies
   testDir = toString ./.;
