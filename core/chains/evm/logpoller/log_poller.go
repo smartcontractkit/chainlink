@@ -216,6 +216,7 @@ func (filter *Filter) Contains(other *Filter) bool {
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
 // The filter may be unregistered later by Filter.Name
+// Warnings/debug information is keyed by filter name.
 func (lp *logPoller) RegisterFilter(filter Filter, qopts ...pg.QOpt) error {
 	if len(filter.Addresses) == 0 {
 		return errors.Errorf("at least one address must be specified")
@@ -241,17 +242,14 @@ func (lp *logPoller) RegisterFilter(filter Filter, qopts ...pg.QOpt) error {
 	if existingFilter, ok := lp.filters[filter.Name]; ok {
 		if existingFilter.Contains(&filter) {
 			// Nothing new in this Filter
-			lp.lggr.Debugw("Filter already present, no-op", "name", filter.Name, "filter", filter)
+			lp.lggr.Warnw("Filter already present, no-op", "name", filter.Name, "filter", filter)
 			return nil
 		}
 		lp.lggr.Warnw("Updating existing filter with more events or addresses", "name", filter.Name, "filter", filter)
-	} else {
-		lp.lggr.Debugw("Creating new filter", "name", filter.Name, "filter", filter)
 	}
 
 	if err := lp.orm.InsertFilter(filter, qopts...); err != nil {
-		lp.lggr.Errorw("Error inserting filter", "name", filter.Name, "err", err)
-		return err
+		return errors.Wrapf(err, "error inserting filter %v", filter)
 	}
 	lp.filters[filter.Name] = filter
 	lp.filterDirty = true
@@ -260,23 +258,22 @@ func (lp *logPoller) RegisterFilter(filter Filter, qopts ...pg.QOpt) error {
 
 // UnregisterFilter will remove the filter with the given name.
 // If the name does not exist, it will log an error but not return an error.
+// Warnings/debug information is keyed by filter name.
 func (lp *logPoller) UnregisterFilter(name string, qopts ...pg.QOpt) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
 
 	_, ok := lp.filters[name]
 	if !ok {
-		lp.lggr.Errorw("Filter not found", "name", name)
+		lp.lggr.Warnw("Filter not found", "name", name)
 		return nil
 	}
 
 	if err := lp.orm.DeleteFilter(name, qopts...); err != nil {
-		lp.lggr.Errorw("Error deleting filter", "name", name, "err", err)
-		return err
+		return errors.Wrapf(err, "error deleting filter %s", name)
 	}
 	delete(lp.filters, name)
 	lp.filterDirty = true
-	lp.lggr.Debugw("Unregistered filter", "name", name)
 	return nil
 }
 
