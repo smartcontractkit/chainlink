@@ -8,9 +8,10 @@ concurrency:
 on:
   push:
     branches:
-      - master
       - develop
+      - ccip-develop
       - "release/*"
+      - "ccip-release/*"
   merge_group:
   pull_request:
   schedule:
