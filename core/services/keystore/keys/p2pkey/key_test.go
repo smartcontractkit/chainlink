@@ -1,13 +1,13 @@
 package p2pkey
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	cryptop2p "github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,7 +15,7 @@ import (
 )
 
 func TestP2PKeys_KeyStruct(t *testing.T) {
-	pk, _, err := cryptop2p.GenerateEd25519Key(rand.Reader)
+	_, pk, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
 	k := Key{PrivKey: pk}
@@ -37,12 +37,10 @@ func TestP2PKeys_KeyStruct(t *testing.T) {
 }
 
 func TestP2PKeys_PublicKeyBytes(t *testing.T) {
-	_, pk, err := cryptop2p.GenerateEd25519Key(rand.Reader)
-	require.NoError(t, err)
-	r, err := pk.Raw()
+	pk, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	pkb := PublicKeyBytes(r)
+	pkb := PublicKeyBytes(pk)
 	assert.Equal(t, hex.EncodeToString(pkb), pkb.String())
 
 	b, err := pkb.MarshalJSON()
@@ -55,7 +53,7 @@ func TestP2PKeys_PublicKeyBytes(t *testing.T) {
 	err = pkb.UnmarshalJSON([]byte(""))
 	assert.Error(t, err)
 
-	err = pkb.Scan(r)
+	err = pkb.Scan([]byte(pk))
 	assert.NoError(t, err)
 
 	err = pkb.Scan("invalid-type")
@@ -67,16 +65,15 @@ func TestP2PKeys_PublicKeyBytes(t *testing.T) {
 }
 
 func TestP2PKeys_EncryptedP2PKey(t *testing.T) {
-	privk, _, err := cryptop2p.GenerateEd25519Key(rand.Reader)
+	_, privk, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
 	k := Key{PrivKey: privk}
 
-	pubkr, err := k.GetPublic().Raw()
-	require.NoError(t, err)
+	pubkr := k.PrivKey.Public().(ed25519.PublicKey)
 
 	var marshalledPrivK []byte
-	marshalledPrivK, err = cryptop2p.MarshalPrivateKey(k)
+	marshalledPrivK, err = MarshalPrivateKey(k.PrivKey)
 	require.NoError(t, err)
 	cryptoJSON, err := keystore.EncryptDataV3(marshalledPrivK, []byte(adulteratedPassword("password")), utils.FastScryptParams.N, utils.FastScryptParams.P)
 	require.NoError(t, err)
@@ -86,7 +83,7 @@ func TestP2PKeys_EncryptedP2PKey(t *testing.T) {
 	p2pk := EncryptedP2PKey{
 		ID:               1,
 		PeerID:           k.PeerID(),
-		PubKey:           pubkr,
+		PubKey:           []byte(pubkr),
 		EncryptedPrivKey: encryptedPrivKey,
 	}
 

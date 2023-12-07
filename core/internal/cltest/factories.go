@@ -16,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-	p2ppeer "github.com/libp2p/go-libp2p/core/peer"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
@@ -55,8 +55,8 @@ func NewEIP55Address() ethkey.EIP55Address {
 	return e
 }
 
-func NewPeerID() p2ppeer.ID {
-	id, err := p2ppeer.Decode("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
+func NewPeerID() (id ragep2ptypes.PeerID) {
+	err := id.UnmarshalText([]byte("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw"))
 	if err != nil {
 		panic(err)
 	}

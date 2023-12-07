@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/sdk/freeport"
-	p2ppeer "github.com/libp2p/go-libp2p/core/peer"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -26,8 +26,8 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 
-	peerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
-	require.NoError(t, err)
+	var peerID ragep2ptypes.PeerID
+	require.NoError(t, peerID.UnmarshalText([]byte(configtest.DefaultPeerID)))
 
 	t.Run("with no p2p keys returns error", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {

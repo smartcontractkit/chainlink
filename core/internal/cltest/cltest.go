@@ -26,7 +26,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
-	p2ppeer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -141,11 +140,10 @@ func init() {
 		fmt.Printf("[gin] %-6s %-25s --> %s (%d handlers)\n", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
-	defaultP2PPeerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
+	err := DefaultP2PPeerID.UnmarshalString(configtest.DefaultPeerID)
 	if err != nil {
 		panic(err)
 	}
-	DefaultP2PPeerID = p2pkey.PeerID(defaultP2PPeerID)
 }
 
 func NewRandomPositiveInt64() int64 {

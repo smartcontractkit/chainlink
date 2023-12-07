@@ -1,16 +1,17 @@
 package ocrcommon_test
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
 	"testing"
 
-	cryptop2p "github.com/libp2p/go-libp2p/core/crypto"
-	p2ppeer "github.com/libp2p/go-libp2p/core/peer"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
@@ -20,8 +21,8 @@ func Test_DiscovererDatabase(t *testing.T) {
 	localPeerID1 := mustRandomP2PPeerID(t)
 	localPeerID2 := mustRandomP2PPeerID(t)
 
-	dd1 := ocrcommon.NewDiscovererDatabase(db, localPeerID1)
-	dd2 := ocrcommon.NewDiscovererDatabase(db, localPeerID2)
+	dd1 := ocrcommon.NewDiscovererDatabase(db, localPeerID1.Raw())
+	dd2 := ocrcommon.NewDiscovererDatabase(db, localPeerID2.Raw())
 
 	ctx := testutils.Context(t)
 
@@ -73,7 +74,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 	})
 
 	t.Run("persists data across restarts", func(t *testing.T) {
-		dd3 := ocrcommon.NewDiscovererDatabase(db, localPeerID1)
+		dd3 := ocrcommon.NewDiscovererDatabase(db, localPeerID1.Raw())
 
 		announcements, err := dd3.ReadAnnouncements(ctx, []string{"remote1"})
 		require.NoError(t, err)
@@ -83,10 +84,10 @@ func Test_DiscovererDatabase(t *testing.T) {
 	})
 }
 
-func mustRandomP2PPeerID(t *testing.T) p2ppeer.ID {
-	p2pPrivkey, _, err := cryptop2p.GenerateEd25519Key(rand.Reader)
+func mustRandomP2PPeerID(t *testing.T) p2pkey.PeerID {
+	_, p2pPrivkey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	id, err := p2ppeer.IDFromPrivateKey(p2pPrivkey)
+	id, err := ragep2ptypes.PeerIDFromPrivateKey(p2pPrivkey)
 	require.NoError(t, err)
-	return id
+	return p2pkey.PeerID(id)
 }

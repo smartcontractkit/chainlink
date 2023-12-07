@@ -5,7 +5,6 @@ import (
 	"database/sql"
 
 	"github.com/lib/pq"
-	p2ppeer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -19,10 +18,10 @@ type DiscovererDatabase struct {
 	peerID string
 }
 
-func NewDiscovererDatabase(db *sql.DB, peerID p2ppeer.ID) *DiscovererDatabase {
+func NewDiscovererDatabase(db *sql.DB, peerID string) *DiscovererDatabase {
 	return &DiscovererDatabase{
 		db,
-		peerID.Pretty(),
+		peerID,
 	}
 }
 
