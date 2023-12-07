@@ -1,18 +1,17 @@
 package medianpoc
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -72,6 +71,10 @@ func (p provider) OnchainConfigCodec() median.OnchainConfigCodec {
 	return mockOnchainConfigCodec{}
 }
 
+func (p provider) ChainReader() types.ChainReader {
+	return nil
+}
+
 func TestNewPlugin(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	p := NewPlugin(lggr)
@@ -80,7 +83,7 @@ func TestNewPlugin(t *testing.T) {
 	juelsPerFeeCoinSpec := "jpfc-spec"
 	config := types.ReportingPluginServiceConfig{
 		PluginConfig: fmt.Sprintf(
-			`{"pipelines": {"__DEFAULT_PIPELINE__": "%s", "juelsPerFeeCoinPipeline": "%s"}}`,
+			`{"pipelines": [{"name": "__DEFAULT_PIPELINE__", "spec": "%s"},{"name": "juelsPerFeeCoinPipeline", "spec": "%s"}]}`,
 			defaultSpec,
 			juelsPerFeeCoinSpec,
 		),
@@ -89,7 +92,7 @@ func TestNewPlugin(t *testing.T) {
 	prov := provider{}
 
 	f, err := p.newFactory(
-		context.Background(),
+		tests.Context(t),
 		config,
 		prov,
 		pr,

@@ -13,14 +13,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var nilBigInt *big.Int
@@ -43,7 +43,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
 
 		k0bal := big.NewInt(42)
@@ -71,7 +71,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
 		k0bal := big.NewInt(42)
 
@@ -91,7 +91,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
 		ctxCancelledAwaiter := cltest.NewAwaiter()
 
@@ -121,7 +121,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
@@ -149,7 +149,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
 		k1bal := big.NewInt(0)
@@ -201,7 +201,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	ethClient := newEthClientMock(t)
 
-	bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+	bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
 		Once().
 		Return(big.NewInt(1), nil)

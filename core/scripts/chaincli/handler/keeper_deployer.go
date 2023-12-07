@@ -13,14 +13,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocr3confighelper "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/umbracle/ethgo/abi"
+
+	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 
-	offchain20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
+	offchain20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"

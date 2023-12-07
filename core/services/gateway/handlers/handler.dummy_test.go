@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -41,15 +42,17 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	require.NoError(t, err)
 	connMgr.SetHandler(handler)
 
+	ctx := testutils.Context(t)
+
 	// User request
 	msg := api.Message{Body: api.MessageBody{MessageId: "1234"}}
 	callbackCh := make(chan handlers.UserCallbackPayload, 1)
-	require.NoError(t, handler.HandleUserMessage(context.Background(), &msg, callbackCh))
+	require.NoError(t, handler.HandleUserMessage(ctx, &msg, callbackCh))
 	require.Equal(t, 2, connMgr.sendCounter)
 
 	// Responses from both nodes
-	require.NoError(t, handler.HandleNodeMessage(context.Background(), &msg, "addr_1"))
-	require.NoError(t, handler.HandleNodeMessage(context.Background(), &msg, "addr_2"))
+	require.NoError(t, handler.HandleNodeMessage(ctx, &msg, "addr_1"))
+	require.NoError(t, handler.HandleNodeMessage(ctx, &msg, "addr_2"))
 	response := <-callbackCh
 	require.Equal(t, "1234", response.Msg.Body.MessageId)
 }

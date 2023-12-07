@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestL1GasPriceOracle(t *testing.T) {
@@ -25,13 +25,13 @@ func TestL1GasPriceOracle(t *testing.T) {
 	t.Run("Unsupported ChainType returns nil", func(t *testing.T) {
 		ethClient := mocks.NewETHClient(t)
 
-		assert.Panicsf(t, func() { NewL1GasPriceOracle(logger.TestLogger(t), ethClient, config.ChainCelo) }, "Received unspported chaintype %s", config.ChainCelo)
+		assert.Panicsf(t, func() { NewL1GasPriceOracle(logger.Test(t), ethClient, config.ChainCelo) }, "Received unspported chaintype %s", config.ChainCelo)
 	})
 
 	t.Run("Calling L1GasPrice on unstarted L1Oracle returns error", func(t *testing.T) {
 		ethClient := mocks.NewETHClient(t)
 
-		oracle := NewL1GasPriceOracle(logger.TestLogger(t), ethClient, config.ChainOptimismBedrock)
+		oracle := NewL1GasPriceOracle(logger.Test(t), ethClient, config.ChainOptimismBedrock)
 
 		_, err := oracle.GasPrice(testutils.Context(t))
 		assert.EqualError(t, err, "L1GasPriceOracle is not started; cannot estimate gas")
@@ -49,7 +49,7 @@ func TestL1GasPriceOracle(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		oracle := NewL1GasPriceOracle(logger.TestLogger(t), ethClient, config.ChainArbitrum)
+		oracle := NewL1GasPriceOracle(logger.Test(t), ethClient, config.ChainArbitrum)
 		require.NoError(t, oracle.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, oracle.Close()) })
 
@@ -71,7 +71,7 @@ func TestL1GasPriceOracle(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		oracle := NewL1GasPriceOracle(logger.TestLogger(t), ethClient, config.ChainKroma)
+		oracle := NewL1GasPriceOracle(logger.Test(t), ethClient, config.ChainKroma)
 		require.NoError(t, oracle.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, oracle.Close()) })
 
@@ -93,7 +93,7 @@ func TestL1GasPriceOracle(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		oracle := NewL1GasPriceOracle(logger.TestLogger(t), ethClient, config.ChainOptimismBedrock)
+		oracle := NewL1GasPriceOracle(logger.Test(t), ethClient, config.ChainOptimismBedrock)
 		require.NoError(t, oracle.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, oracle.Close()) })
 

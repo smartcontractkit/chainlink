@@ -1,6 +1,7 @@
 package txmgr_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,38 +9,43 @@ import (
 	"testing"
 	"time"
 
-	gethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func makeTestEvmTxm(
 	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, estimator gas.EvmFeeEstimator, ccfg txmgr.ChainConfig, fcfg txmgr.FeeConfig, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth) (txmgr.TxManager, error) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, false, 2, 3, 2, 1000)
 
 	// logic for building components (from evm/evm_txm.go) -------
@@ -77,7 +83,7 @@ func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 
 	keyStore := cltest.NewKeyStore(t, db, dbConfig).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keyStore)
 	require.NoError(t, err)
 
@@ -103,7 +109,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth())
 	require.NoError(t, err)
 
@@ -145,7 +151,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		assert.Equal(t, subject, etx.Subject.UUID)
 	})
 
-	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, fromAddress)
+	mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, fromAddress)
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
 		evmConfig.MaxQueued = uint64(1)
@@ -246,8 +252,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		// max uint256 is 1.1579209e+77
 		testDefaultGlobalSubID := crypto.Keccak256Hash([]byte("sub id")).String()
 		jobID := int32(25)
-		requestID := gethcommon.HexToHash("abcd")
-		requestTxHash := gethcommon.HexToHash("dcba")
+		requestID := common.HexToHash("abcd")
+		requestTxHash := common.HexToHash("dcba")
 		meta := &txmgr.TxMeta{
 			JobID:         &jobID,
 			RequestID:     &requestID,
@@ -292,7 +298,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		evmConfig.MaxQueued = uint64(1)
 
 		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
+		form := forwarders.NewORM(db, logger.Test(t), cfg.Database())
 		fwdrAddr := testutils.NewAddress()
 		fwdr, err := form.CreateForwarder(fwdrAddr, utils.Big(cltest.FixtureChainID))
 		require.NoError(t, err)
@@ -385,7 +391,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), etKeyStore)
 	require.NoError(t, err)
 
@@ -393,7 +399,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 
 		evmConfig.MaxQueued = uint64(1)
-		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, otherKey.Address)
+		mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, otherKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(int64(0), nil)
@@ -417,7 +423,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 		evmConfig.MaxQueued = uint64(1)
 
-		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, thisKey.Address)
+		mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(int64(0), nil)
@@ -471,12 +477,12 @@ func TestTxm_Lifecycle(t *testing.T) {
 	evmConfig.ReaperThreshold = 1 * time.Hour
 	evmConfig.ReaperInterval = 1 * time.Hour
 
-	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]gethcommon.Address{}, nil)
+	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]common.Address{}, nil)
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
-	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst)
 	require.NoError(t, err)
 
@@ -495,9 +501,9 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	keyState := cltest.MustGenerateRandomKeyState(t)
 
-	addr := []gethcommon.Address{keyState.Address.Address()}
+	addr := []common.Address{keyState.Address.Address()}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
-	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), gethcommon.Address{}).Return(uint64(0), nil).Maybe()
+	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), common.Address{}).Return(uint64(0), nil).Maybe()
 	keyChangeCh <- struct{}{}
 
 	require.NoError(t, txm.Close())
@@ -513,8 +519,8 @@ func TestTxm_Reset(t *testing.T) {
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
-	_, addr := cltest.RandomKey{Nonce: 5}.MustInsert(t, kst.Eth())
-	_, addr2 := cltest.RandomKey{Nonce: 3}.MustInsert(t, kst.Eth())
+	_, addr := cltest.RandomKey{}.MustInsert(t, kst.Eth())
+	_, addr2 := cltest.RandomKey{}.MustInsert(t, kst.Eth())
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	// 4 confirmed tx from addr1
 	for i := int64(0); i < 4; i++ {
@@ -528,8 +534,10 @@ func TestTxm_Reset(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil).Maybe()
+	ethClient.On("PendingNonceAt", mock.Anything, addr).Return(uint64(128), nil).Maybe()
+	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(44), nil).Maybe()
 
-	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
+	estimator := gas.NewEstimator(logger.Test(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth())
 	require.NoError(t, err)
 
@@ -567,4 +575,245 @@ func TestTxm_Reset(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 	})
+}
+
+func newTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.EvmTxStore {
+	return txmgr.NewTxStore(db, logger.Test(t), cfg)
+}
+
+func newEthReceipt(blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.Receipt {
+	transactionIndex := uint(cltest.NewRandomPositiveInt64())
+
+	receipt := evmtypes.Receipt{
+		BlockNumber:      big.NewInt(blockNumber),
+		BlockHash:        blockHash,
+		TxHash:           txHash,
+		TransactionIndex: transactionIndex,
+		Status:           status,
+	}
+
+	r := txmgr.Receipt{
+		BlockNumber:      blockNumber,
+		BlockHash:        blockHash,
+		TxHash:           txHash,
+		TransactionIndex: transactionIndex,
+		Receipt:          receipt,
+	}
+	return r
+}
+
+func mustInsertEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.Receipt {
+	r := newEthReceipt(blockNumber, blockHash, txHash, 0x1)
+	id, err := txStore.InsertReceipt(&r.Receipt)
+	require.NoError(t, err)
+	r.ID = id
+	return r
+}
+
+func mustInsertRevertedEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.Receipt {
+	r := newEthReceipt(blockNumber, blockHash, txHash, 0x0)
+	id, err := txStore.InsertReceipt(&r.Receipt)
+	require.NoError(t, err)
+	r.ID = id
+	return r
+}
+
+// Inserts into evm.receipts but does not update evm.txes or evm.tx_attempts
+func mustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.Tx) {
+	etx = cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
+	mustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.TxAttempts[0].Hash)
+	return etx
+}
+
+func mustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.Tx) {
+	etx = cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
+	receipt := evmtypes.Receipt{
+		TxHash:           etx.TxAttempts[0].Hash,
+		BlockHash:        utils.NewHash(),
+		BlockNumber:      big.NewInt(nonce),
+		TransactionIndex: uint(1),
+	}
+	err := txStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&receipt}, &chainID)
+	require.NoError(t, err)
+	return etx
+}
+
+func mustInsertFatalErrorEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address) txmgr.Tx {
+	etx := cltest.NewEthTx(fromAddress)
+	etx.Error = null.StringFrom("something exploded")
+	etx.State = txmgrcommon.TxFatalError
+
+	require.NoError(t, txStore.InsertTx(&etx))
+	return etx
+}
+
+func mustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, txAttemptState txmgrtypes.TxAttemptState, opts ...interface{}) txmgr.Tx {
+	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
+	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+
+	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+
+	attempt.State = txAttemptState
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+func mustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
+	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
+	attempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
+
+	addr := testutils.NewAddress()
+	dtx := types.DynamicFeeTx{
+		ChainID:   big.NewInt(0),
+		Nonce:     uint64(nonce),
+		GasTipCap: big.NewInt(1),
+		GasFeeCap: big.NewInt(1),
+		Gas:       242,
+		To:        &addr,
+		Value:     big.NewInt(342),
+		Data:      []byte{2, 3, 4},
+	}
+	tx := types.NewTx(&dtx)
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+
+	attempt.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+func mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address) txmgr.Tx {
+	timeNow := time.Now()
+	etx := cltest.NewEthTx(fromAddress)
+
+	etx.BroadcastAt = &timeNow
+	etx.InitialBroadcastAt = &timeNow
+	n := evmtypes.Nonce(nonce)
+	etx.Sequence = &n
+	etx.State = txmgrcommon.TxUnconfirmed
+	require.NoError(t, txStore.InsertTx(&etx))
+	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+
+	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+
+	attempt.State = txmgrtypes.TxAttemptInsufficientFunds
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+func mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+	t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64,
+	broadcastAt time.Time, fromAddress common.Address) txmgr.Tx {
+	etx := cltest.NewEthTx(fromAddress)
+
+	etx.BroadcastAt = &broadcastAt
+	etx.InitialBroadcastAt = &broadcastAt
+	n := evmtypes.Nonce(nonce)
+	etx.Sequence = &n
+	etx.State = txmgrcommon.TxConfirmedMissingReceipt
+	require.NoError(t, txStore.InsertTx(&etx))
+	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
+	attempt.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	etx.TxAttempts = append(etx.TxAttempts, attempt)
+	return etx
+}
+
+func mustInsertInProgressEthTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce evmtypes.Nonce, fromAddress common.Address) txmgr.Tx {
+	etx := cltest.NewEthTx(fromAddress)
+
+	etx.Sequence = &nonce
+	etx.State = txmgrcommon.TxInProgress
+	require.NoError(t, txStore.InsertTx(&etx))
+	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+	attempt.State = txmgrtypes.TxAttemptInProgress
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+func mustCreateUnstartedGeneratedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, chainID *big.Int, opts ...func(*txmgr.TxRequest)) (tx txmgr.Tx) {
+	txRequest := txmgr.TxRequest{
+		FromAddress: fromAddress,
+	}
+
+	// Apply the default options
+	withDefaults()(&txRequest)
+	// Apply the optional parameters
+	for _, opt := range opts {
+		opt(&txRequest)
+	}
+	return mustCreateUnstartedTxFromEvmTxRequest(t, txStore, txRequest, chainID)
+}
+
+func withDefaults() func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.ToAddress = testutils.NewAddress()
+		tx.EncodedPayload = []byte{1, 2, 3}
+		tx.Value = big.Int(assets.NewEthValue(142))
+		tx.FeeLimit = uint32(1000000000)
+		tx.Strategy = txmgrcommon.NewSendEveryStrategy()
+		// Set default values for other fields if needed
+	}
+}
+
+func mustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint32, value big.Int, chainID *big.Int, opts ...interface{}) (tx txmgr.Tx) {
+	txRequest := txmgr.TxRequest{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: encodedPayload,
+		Value:          value,
+		FeeLimit:       gasLimit,
+		Strategy:       txmgrcommon.NewSendEveryStrategy(),
+	}
+
+	return mustCreateUnstartedTxFromEvmTxRequest(t, txStore, txRequest, chainID)
+}
+
+func mustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStore, txRequest txmgr.TxRequest, chainID *big.Int) (tx txmgr.Tx) {
+	tx, err := txStore.CreateTransaction(testutils.Context(t), txRequest, chainID)
+	require.NoError(t, err)
+	return tx
+}
+
+func txRequestWithStrategy(strategy txmgrtypes.TxStrategy) func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.Strategy = strategy
+	}
+}
+
+func txRequestWithChecker(checker txmgr.TransmitCheckerSpec) func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.Checker = checker
+	}
+}
+func txRequestWithValue(value big.Int) func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.Value = value
+	}
+}
+
+func txRequestWithIdempotencyKey(idempotencyKey string) func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.IdempotencyKey = &idempotencyKey
+	}
 }

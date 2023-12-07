@@ -17,7 +17,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -165,7 +165,7 @@ func (q Q) Context() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(q.ParentCtx, q.QueryTimeout)
 }
 
-func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
+func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOption) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 	return SqlxTransaction(ctx, q.Queryer, q.originalLogger(), fc, txOpts...)

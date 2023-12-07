@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -212,7 +212,6 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				OCROracleSpec: &job.OCROracleSpec{
 					ContractAddress:                        contractAddress,
-					P2PBootstrapPeers:                      pq.StringArray{"/dns4/chain.link/tcp/1234/p2p/xxx"},
 					P2PV2Bootstrappers:                     pq.StringArray{"xxx:5001"},
 					IsBootstrapPeer:                        true,
 					EncryptedOCRKeyBundleID:                &ocrKeyID,
@@ -259,7 +258,6 @@ func TestJob(t *testing.T) {
 						},
 						"offChainReportingOracleSpec": {
 							"contractAddress": "%s",
-							"p2pBootstrapPeers": ["/dns4/chain.link/tcp/1234/p2p/xxx"],
 							"p2pv2Bootstrappers": ["xxx:5001"],
 							"isBootstrapPeer": true,
 							"keyBundleID": "%s",

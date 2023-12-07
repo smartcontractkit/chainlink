@@ -57,10 +57,6 @@ chainlink-test: operator-ui ## Build a test build of chainlink binary.
 chainlink-local-start:
 	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
 
-.PHONY: install-median
-install-median: ## Build & install the chainlink-median binary.
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
-
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
@@ -79,7 +75,7 @@ docker-plugins:
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
-	./operator_ui/install.sh
+	go generate ./core/web
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
@@ -116,7 +112,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.35.4
+	go install github.com/vektra/mockery/v2@v2.38.0
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen

@@ -9,30 +9,34 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/reportingplugins"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 func NewPlugin(lggr logger.Logger) *Plugin {
 	return &Plugin{
 		Plugin:               loop.Plugin{Logger: lggr},
 		MedianProviderServer: reportingplugins.MedianProviderServer{},
-		stop:                 make(utils.StopChan),
+		stop:                 make(services.StopChan),
 	}
 }
 
 type Plugin struct {
 	loop.Plugin
-	stop utils.StopChan
+	stop services.StopChan
 	reportingplugins.MedianProviderServer
 }
 
+type pipelineSpec struct {
+	Name string `json:"name"`
+	Spec string `json:"spec"`
+}
+
 type jsonConfig struct {
-	Pipelines map[string]string `json:"pipelines"`
+	Pipelines []pipelineSpec `json:"pipelines"`
 }
 
 func (j jsonConfig) defaultPipeline() (string, error) {
@@ -40,9 +44,10 @@ func (j jsonConfig) defaultPipeline() (string, error) {
 }
 
 func (j jsonConfig) getPipeline(key string) (string, error) {
-	v, ok := j.Pipelines[key]
-	if ok {
-		return v, nil
+	for _, v := range j.Pipelines {
+		if v.Name == key {
+			return v.Spec, nil
+		}
 	}
 	return "", fmt.Errorf("no pipeline found for %s", key)
 }

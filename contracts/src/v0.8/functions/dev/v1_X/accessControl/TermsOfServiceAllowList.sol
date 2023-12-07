@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
+import {ITermsOfServiceAllowList, TermsOfServiceAllowListConfig} from "./interfaces/ITermsOfServiceAllowList.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
 
@@ -17,7 +17,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
 
   /// @inheritdoc ITypeAndVersion
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
+  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.1.0";
 
   EnumerableSet.AddressSet private s_allowedSenders;
   mapping(address => bool) private s_blockedSenders;
@@ -30,23 +30,15 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   error InvalidUsage();
   error RecipientIsBlocked();
 
-  // ================================================================
-  // |                     Configuration state                      |
-  // ================================================================
-  struct Config {
-    bool enabled; // ═════════════╗ When enabled, access will be checked against s_allowedSenders. When disabled, all access will be allowed.
-    address signerPublicKey; // ══╝ The key pair that needs to sign the acceptance data
-  }
+  TermsOfServiceAllowListConfig private s_config;
 
-  Config private s_config;
-
-  event ConfigUpdated(Config config);
+  event ConfigUpdated(TermsOfServiceAllowListConfig config);
 
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(Config memory config) ConfirmedOwner(msg.sender) {
+  constructor(TermsOfServiceAllowListConfig memory config) ConfirmedOwner(msg.sender) {
     updateConfig(config);
   }
 
@@ -56,13 +48,13 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
 
   /// @notice Gets the contracts's configuration
   /// @return config
-  function getConfig() external view returns (Config memory) {
+  function getConfig() external view returns (TermsOfServiceAllowListConfig memory) {
     return s_config;
   }
 
   /// @notice Sets the contracts's configuration
-  /// @param config - See the contents of the TermsOfServiceAllowList.Config struct for more information
-  function updateConfig(Config memory config) public onlyOwner {
+  /// @param config - See the contents of the TermsOfServiceAllowListConfig struct in ITermsOfServiceAllowList.sol for more information
+  function updateConfig(TermsOfServiceAllowListConfig memory config) public onlyOwner {
     s_config = config;
     emit ConfigUpdated(config);
   }
@@ -99,8 +91,9 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     }
 
     // Add recipient to the allow list
-    s_allowedSenders.add(recipient);
-    emit AddedAccess(recipient);
+    if (s_allowedSenders.add(recipient)) {
+      emit AddedAccess(recipient);
+    }
   }
 
   /// @inheritdoc ITermsOfServiceAllowList

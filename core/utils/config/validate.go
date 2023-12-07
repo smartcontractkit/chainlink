@@ -9,7 +9,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 

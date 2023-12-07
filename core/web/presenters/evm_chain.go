@@ -1,6 +1,6 @@
 package presenters
 
-import "github.com/smartcontractkit/chainlink-relay/pkg/types"
+import "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 // EVMChainResource is an EVM chain JSONAPI resource.
 type EVMChainResource struct {

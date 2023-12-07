@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -19,8 +20,9 @@ import (
 var _ Client = &mockClient{}
 
 type mockClient struct {
-	started bool
-	closed  bool
+	started   bool
+	closed    bool
+	rawClient pb.MercuryClient
 }
 
 func (c *mockClient) Transmit(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
@@ -40,6 +42,8 @@ func (c *mockClient) Close() error {
 func (c *mockClient) Name() string                   { return "mock client" }
 func (c *mockClient) Ready() error                   { return nil }
 func (c *mockClient) HealthReport() map[string]error { return nil }
+func (c *mockClient) ServerURL() string              { return "mock client url" }
+func (c *mockClient) RawClient() pb.MercuryClient    { return c.rawClient }
 
 func newMockClient(lggr logger.Logger) *mockClient {
 	return &mockClient{}
@@ -52,6 +56,7 @@ func Test_Pool(t *testing.T) {
 
 	t.Run("Checkout", func(t *testing.T) {
 		p := newPool(lggr)
+		p.cacheSet = &mockCacheSet{}
 
 		t.Run("checks out one started client", func(t *testing.T) {
 			clientPrivKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(rand.Int63()))
@@ -59,7 +64,7 @@ func Test_Pool(t *testing.T) {
 			serverURL := "example.com:443/ws"
 
 			client := newMockClient(lggr)
-			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string) Client {
+			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
 				assert.Equal(t, clientPrivKey, cprivk)
 				assert.Equal(t, serverPubKey, spubk)
 				assert.Equal(t, serverURL, surl)
@@ -105,7 +110,7 @@ func Test_Pool(t *testing.T) {
 				"example.invalid:8000/ws",
 			}
 
-			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string) Client {
+			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
 				return newMockClient(lggr)
 			}
 
@@ -199,6 +204,7 @@ func Test_Pool(t *testing.T) {
 	})
 
 	p := newPool(lggr)
+	p.cacheSet = &mockCacheSet{}
 
 	t.Run("Name", func(t *testing.T) {
 		assert.Equal(t, "PoolTestLogger", p.Name())
@@ -220,7 +226,7 @@ func Test_Pool(t *testing.T) {
 		}
 
 		var clients []*mockClient
-		p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string) Client {
+		p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
 			c := newMockClient(lggr)
 			clients = append(clients, c)
 			return c

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type testNodeConfig struct {
@@ -52,7 +52,7 @@ type testNodeOpts struct {
 
 func newTestNode(t *testing.T, opts testNodeOpts) testNode {
 	if opts.lggr == nil {
-		opts.lggr = logger.TestLogger(t)
+		opts.lggr = logger.Test(t)
 	}
 
 	if opts.name == "" {

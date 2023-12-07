@@ -7,13 +7,13 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -46,7 +46,7 @@ type LoopRelayerStorer interface {
 // This will be deprecated/removed when products depend only
 // on the relayer interface.
 type LegacyChainer interface {
-	LegacyEVMChains() evm.LegacyChainContainer
+	LegacyEVMChains() legacyevm.LegacyChainContainer
 	LegacyCosmosChains() LegacyCosmosContainer
 }
 
@@ -106,14 +106,14 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			return fmt.Errorf("failed to setup EVM relayer: %w", err2)
 		}
 
-		legacyMap := make(map[string]evm.Chain)
+		legacyMap := make(map[string]legacyevm.Chain)
 		for id, a := range adapters {
 			// adapter is a service
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
 			legacyMap[id.ChainID] = a.Chain()
 		}
-		op.legacyChains.EVMChains = evm.NewLegacyChains(legacyMap, config.AppConfig.EVMConfigs())
+		op.legacyChains.EVMChains = legacyevm.NewLegacyChains(legacyMap, config.AppConfig.EVMConfigs())
 		return nil
 	}
 }
@@ -121,7 +121,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 // InitCosmos is a option for instantiating Cosmos relayers
 func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		adapters, err2 := factory.NewCosmos(ctx, config)
+		adapters, err2 := factory.NewCosmos(config)
 		if err2 != nil {
 			return fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
 		}
@@ -185,7 +185,7 @@ func (rs *CoreRelayerChainInteroperators) Get(id relay.ID) (loop.Relayer, error)
 
 // LegacyEVMChains returns a container with all the evm chains
 // TODO BCF-2511
-func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() evm.LegacyChainContainer {
+func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() legacyevm.LegacyChainContainer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.legacyChains.EVMChains
@@ -351,7 +351,7 @@ func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 // legacyChains encapsulates the chain-specific dependencies. Will be
 // deprecated when chain-specific logic is removed from products.
 type legacyChains struct {
-	EVMChains    evm.LegacyChainContainer
+	EVMChains    legacyevm.LegacyChainContainer
 	CosmosChains LegacyCosmosContainer
 }
 

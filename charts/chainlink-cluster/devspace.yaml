@@ -32,6 +32,7 @@ images:
 deployments:
   app:
     helm:
+      releaseName: "app"
       chart:
         name: cl-cluster
         path: .
@@ -39,26 +40,66 @@ deployments:
       # they can be defined the same way in values.yml
       # devspace merging this "values" and "values.yml" before deploy
       values:
-        runner:
-          image: ${DEVSPACE_IMAGE}
-          stateful: false
-        geth:
-          version: v1.12.0
-          wsrpc-port: 8546
-          httprpc-port: 8544
-          networkid: 1337
-          blocktime: 1
-        mockserver:
-          port: 1080
-        db:
-          stateful: false
+        podSecurityContext:
+          fsGroup: 999
+
         chainlink:
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 14933
+            runAsGroup: 999
           web_port: 6688
-          p2p_port: 8090
+          p2p_port: 6690
           nodes:
             - name: node-1
               image: ${DEVSPACE_IMAGE}
               version: latest
+              # default resources are 300m/1Gi
+              # first node need more resources to build faster inside container
+              # at least 2Gi of memory is required otherwise build will fail (OOM)
+              resources:
+                requests:
+                  cpu: 2000m
+                  memory: 2048Mi
+                limits:
+                  cpu: 2000m
+                  memory: 2048Mi
+              # override default config per node
+              # for example, use OCRv2 P2P setup, the whole config
+              #      toml: |
+              #        RootDir = './clroot'
+              #        [Log]
+              #        JSONConsole = true
+              #        Level = 'debug'
+              #        [WebServer]
+              #        AllowOrigins = '*'
+              #        SecureCookies = false
+              #        SessionTimeout = '999h0m0s'
+              #        [OCR2]
+              #        Enabled = true
+              #        [P2P]
+              #        [P2P.V2]
+              #        Enabled = false
+              #        AnnounceAddresses = []
+              #        DefaultBootstrappers = []
+              #        DeltaDial = '15s'
+              #        DeltaReconcile = '1m0s'
+              #        ListenAddresses = []
+              #        [[EVM]]
+              #        ChainID = '1337'
+              #        MinContractPayment = '0'
+              #        [[EVM.Nodes]]
+              #        Name = 'node-0'
+              #        WSURL = 'ws://geth:8546'
+              #        HTTPURL = 'http://geth:8544'
+              #        [WebServer.TLS]
+              #        HTTPSPort = 0
+              # or use overridesToml to override some part of configuration
+              #      overridesToml: |
             - name: node-2
               image: ${DEVSPACE_IMAGE}
               version: latest
@@ -68,10 +109,124 @@ deployments:
             - name: node-4
               image: ${DEVSPACE_IMAGE}
               version: latest
-        podAnnotations: { }
-        nodeSelector: { }
-        tolerations: [ ]
-        affinity: { }
+            - name: node-5
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+            - name: node-6
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+
+        # each CL node have a dedicated PostgreSQL 11.15
+        # use StatefulSet by setting:
+        #
+        # stateful: true
+        # capacity 10Gi
+        #
+        # if you are running long tests
+        db:
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+          stateful: false
+          resources:
+            requests:
+              cpu: 1
+              memory: 1024Mi
+            limits:
+              cpu: 1
+              memory: 1024Mi
+        # default cluster shipped with latest Geth ( dev mode by default )
+        geth:
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+          version: v1.12.0
+          wsrpc-port: 8546
+          httprpc-port: 8544
+          networkid: 1337
+          blocktime: 1
+          resources:
+            requests:
+              cpu: 1
+              memory: 1024Mi
+            limits:
+              cpu: 1
+              memory: 1024Mi
+        # mockserver is https://www.mock-server.com/where/kubernetes.html
+        # used to stub External Adapters
+        mockserver:
+          #  image: "mockserver/mockserver"
+          #  version: "mockserver-5.15.0"
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+          enabled: true
+          releasenameOverride: mockserver
+          app:
+            runAsUser: 999
+            readOnlyRootFilesystem: false
+          port: 1080
+          resources:
+            requests:
+              cpu: 1
+              memory: 1024Mi
+            limits:
+              cpu: 1
+              memory: 1024Mi
+        runner:
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+          stateful: false
+          resources:
+            requests:
+              cpu: 1
+              memory: 512Mi
+            limits:
+              cpu: 1
+              memory: 512Mi
+          affinity: { }
+          tolerations: [ ]
+          nodeSelector: { }
+          ingress:
+            enabled: false
+            className: ""
+            hosts: [ ]
+            tls: [ ]
+            annotations: { }
+          service:
+            type: NodePort
+            port: 8080
+
+
+        # monitoring.coreos.com/v1 PodMonitor for each node
+        prometheusMonitor: true
+
+        # deployment placement, standard helm stuff
+        podAnnotations:
+        nodeSelector:
+        tolerations:
+        affinity:
 
 profiles:
   # this replaces only "runner" pod, usable when you'd like to run some system level tests inside k8s
@@ -79,7 +234,7 @@ profiles:
     patches:
       - op: replace
         path: dev.app.workingDir
-        value: /home/root/chainlink/integration-tests
+        value: /home/chainlink/integration-tests
       - op: replace
         path: dev.app.container
         value: runner
@@ -104,21 +259,20 @@ profiles:
 # This is a list of `dev` containers that are based on the containers created by your deployments
 dev:
   app:
-    workingDir: /home/root/chainlink
+    workingDir: /home/chainlink
     container: node
     labelSelector:
       instance: node-1
     # Sync files between the local filesystem and the development container
     sync:
-      - path: ../../core/services/chainlink:/home/root/chainlink/core/services/chainlink
+      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
         printLogs: true
         disableDownload: true
-      - path: ../..:/home/root/chainlink
+      - path: ../..:/home/chainlink
         printLogs: true
         disableDownload: true
         uploadExcludePaths:
           - integration-tests/
-          - .git/
           - .github/
           - belt/
           - charts/
@@ -128,16 +282,16 @@ dev:
           - integration-scripts/
           - testdata/
           - evm-test-helpers/
-          - tools/
     # Open a terminal and use the following command
     terminal:
       command: bash
     ssh:
       enabled: true
     proxyCommands:
-      - command: devspace
-      - command: kubectl
-      - command: helm
+#       TODO: access issues
+#      - command: devspace
+#      - command: kubectl
+#      - command: helm
       - gitCredentials: true
     ports:
       - port: "2345"

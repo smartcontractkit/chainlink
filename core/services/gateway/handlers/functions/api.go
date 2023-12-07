@@ -5,6 +5,7 @@ import "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 const (
 	MethodSecretsSet  = "secrets_set"
 	MethodSecretsList = "secrets_list"
+	MethodHeartbeat   = "heartbeat"
 )
 
 type SecretsSetRequest struct {
@@ -17,17 +18,17 @@ type SecretsSetRequest struct {
 
 // SecretsListRequest has empty payload
 
-type SecretsResponseBase struct {
+type ResponseBase struct {
 	Success      bool   `json:"success"`
 	ErrorMessage string `json:"error_message,omitempty"`
 }
 
 type SecretsSetResponse struct {
-	SecretsResponseBase
+	ResponseBase
 }
 
 type SecretsListResponse struct {
-	SecretsResponseBase
+	ResponseBase
 	Rows []SecretsListRow `json:"rows,omitempty"`
 }
 
@@ -38,7 +39,7 @@ type SecretsListRow struct {
 }
 
 // Gateway -> User response, which combines responses from several nodes
-type CombinedSecretsResponse struct {
-	SecretsResponseBase
+type CombinedResponse struct {
+	ResponseBase
 	NodeResponses []*api.Message `json:"node_responses"`
 }

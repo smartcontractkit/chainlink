@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
@@ -88,10 +89,12 @@ type ContractDeployer interface {
 	DeployKeeperRegistrar(registryVersion eth_contracts.KeeperRegistryVersion, linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error)
 	LoadKeeperRegistrar(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistrar, error)
 	DeployUpkeepTranscoder() (UpkeepTranscoder, error)
+	LoadUpkeepTranscoder(address common.Address) (UpkeepTranscoder, error)
 	DeployKeeperRegistry(opts *KeeperRegistryOpts) (KeeperRegistry, error)
 	LoadKeeperRegistry(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
+	DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error)
 	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error)
 	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error)
 	DeployKeeperConsumerPerformance(
@@ -761,6 +764,25 @@ func (e *EthereumContractDeployer) DeployUpkeepTranscoder() (UpkeepTranscoder, e
 	}, err
 }
 
+func (e *EthereumContractDeployer) LoadUpkeepTranscoder(address common.Address) (UpkeepTranscoder, error) {
+	instance, err := e.client.LoadContract("UpkeepTranscoder", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return upkeep_transcoder.NewUpkeepTranscoder(address, backend)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &EthereumUpkeepTranscoder{
+		client:     e.client,
+		transcoder: instance.(*upkeep_transcoder.UpkeepTranscoder),
+		address:    &address,
+	}, err
+}
+
 func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_contracts.KeeperRegistryVersion, linkAddr string,
 	registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error) {
 
@@ -1190,6 +1212,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry1_1: instance.(*keeper_registry_wrapper1_1.KeeperRegistry),
+			version:     registryVersion,
 		}, err
 	case eth_contracts.RegistryVersion_1_2:
 		instance, err := e.client.LoadContract("KeeperRegistry", address, func(
@@ -1205,6 +1228,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry1_2: instance.(*keeper_registry_wrapper1_2.KeeperRegistry),
+			version:     registryVersion,
 		}, err
 	case eth_contracts.RegistryVersion_1_3:
 		instance, err := e.client.LoadContract("KeeperRegistry", address, func(
@@ -1220,6 +1244,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry1_3: instance.(*keeper_registry_wrapper1_3.KeeperRegistry),
+			version:     registryVersion,
 		}, err
 	case eth_contracts.RegistryVersion_2_0:
 		instance, err := e.client.LoadContract("KeeperRegistry", address, func(
@@ -1235,6 +1260,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry2_0: instance.(*keeper_registry_wrapper2_0.KeeperRegistry),
+			version:     registryVersion,
 		}, err
 	case eth_contracts.RegistryVersion_2_1:
 		instance, err := e.client.LoadContract("KeeperRegistry", address, func(
@@ -1250,6 +1276,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry2_1: instance.(*iregistry21.IKeeperRegistryMaster),
+			version:     registryVersion,
 		}, err
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", registryVersion)
@@ -1288,6 +1315,25 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterv
 	return &EthereumAutomationLogCounterConsumer{
 		client:   e.client,
 		consumer: instance.(*log_upkeep_counter_wrapper.LogUpkeepCounter),
+		address:  address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error) {
+	address, _, instance, err := e.client.DeployContract("SimpleLogUpkeepCounter", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return simple_log_upkeep_counter_wrapper.DeploySimpleLogUpkeepCounter(
+			auth, backend,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumAutomationSimpleLogCounterConsumer{
+		client:   e.client,
+		consumer: instance.(*simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounter),
 		address:  address,
 	}, err
 }
