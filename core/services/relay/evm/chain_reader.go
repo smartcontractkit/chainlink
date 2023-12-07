@@ -37,8 +37,8 @@ type chainReader struct {
 func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
 
 	parsed := &parsedTypes{
-		encoderDefs: map[string]*CodecEntry{},
-		decoderDefs: map[string]*CodecEntry{},
+		encoderDefs: map[string]*codecEntry{},
+		decoderDefs: map[string]*codecEntry{},
 	}
 
 	if err := addTypes(config.ChainContractReaders, parsed); err != nil {
@@ -118,8 +118,17 @@ func addMethods(name string, abi abi.ABI, chainReaderDefinition types.ChainReade
 		return fmt.Errorf("method: %q doesn't exist", chainReaderDefinition.ChainSpecificName)
 	}
 
+	if err := addEncoderDef(name, method, parsed, chainReaderDefinition); err != nil {
+		return err
+	}
+
+	return addDecoderDef(name, method.Outputs, parsed, chainReaderDefinition)
+}
+
+func addEncoderDef(name string, method abi.Method, parsed *parsedTypes, chainReaderDefinition types.ChainReaderDefinition) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-	input := &CodecEntry{Args: method.Inputs, encodingPrefix: method.ID}
+	input := &codecEntry{Args: method.Inputs, encodingPrefix: method.ID}
+
 	if err := input.Init(); err != nil {
 		return err
 	}
@@ -130,12 +139,11 @@ func addMethods(name string, abi abi.ABI, chainReaderDefinition types.ChainReade
 	}
 	input.mod = inputMod
 	parsed.encoderDefs[wrapItemType(name, true)] = input
-
-	return addDecoderDef(name, method.Outputs, parsed, chainReaderDefinition)
+	return nil
 }
 
 func addDecoderDef(name string, outputs abi.Arguments, parsed *parsedTypes, def types.ChainReaderDefinition) error {
-	output := &CodecEntry{Args: outputs}
+	output := &codecEntry{Args: outputs}
 	mod, err := def.OutputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err

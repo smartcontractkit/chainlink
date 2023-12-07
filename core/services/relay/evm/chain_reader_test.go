@@ -51,15 +51,12 @@ type chainReaderInterfaceTester struct {
 }
 
 func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
-	if it.chain != nil {
-		return
-	}
-
 	// can re-use the same chain for tests, just make new contract for each test
 	if it.chain != nil {
 		return
 	}
 
+	t.Cleanup(func() { it.address = "" })
 	it.chain = &mocks.Chain{}
 	it.setupChainNoClient(t)
 	it.chain.On("LogPoller").Return(logger.NullLogger)
@@ -100,10 +97,6 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 		},
 	}
 	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
-}
-
-func (it *chainReaderInterfaceTester) Teardown(_ *testing.T) {
-	it.address = ""
 }
 
 func (it *chainReaderInterfaceTester) Name() string {

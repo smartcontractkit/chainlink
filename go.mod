@@ -100,10 +100,11 @@ require (
 	gonum.org/v1/gonum v0.14.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
-	gopkg.in/guregu/null.v2 v2.1.2
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
+
+require gopkg.in/guregu/null.v2 v2.1.2 // indirect
 
 require (
 	cloud.google.com/go/compute v1.23.3 // indirect

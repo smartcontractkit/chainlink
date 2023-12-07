@@ -8,12 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"gopkg.in/guregu/null.v2"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"gopkg.in/guregu/null.v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )

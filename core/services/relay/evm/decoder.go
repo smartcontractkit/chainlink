@@ -10,7 +10,7 @@ import (
 )
 
 type decoder struct {
-	Definitions map[string]*CodecEntry
+	Definitions map[string]*codecEntry
 }
 
 var _ commontypes.Decoder = &decoder{}
@@ -50,7 +50,7 @@ func (m *decoder) GetMaxDecodingSize(ctx context.Context, n int, itemType string
 	return m.Definitions[itemType].GetMaxSize(n)
 }
 
-func extractDecoding(info *CodecEntry, raw []byte) (any, error) {
+func extractDecoding(info *codecEntry, raw []byte) (any, error) {
 	unpacked := map[string]any{}
 	if err := info.Args.UnpackIntoMap(unpacked, raw); err != nil {
 		return nil, commontypes.ErrInvalidEncoding

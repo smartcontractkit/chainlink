@@ -24,7 +24,7 @@ func TestCodecEntry(t *testing.T) {
 		require.NoError(t, err)
 		type4, err := abi.NewType("int24", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
-		entry := CodecEntry{
+		entry := codecEntry{
 			Args: abi.Arguments{
 				{Name: "Field1", Type: type1},
 				{Name: "Field2", Type: type2},
@@ -66,7 +66,7 @@ func TestCodecEntry(t *testing.T) {
 			{Name: "Field4", Type: "int24"},
 		})
 		require.NoError(t, err)
-		entry := CodecEntry{
+		entry := codecEntry{
 			Args: abi.Arguments{
 				{Name: "Field1", Type: type1},
 				{Name: "Field2", Type: tupleType},
@@ -104,7 +104,7 @@ func TestCodecEntry(t *testing.T) {
 			{Name: "Field1", Type: "int16"},
 		})
 		require.NoError(t, err)
-		entry := CodecEntry{
+		entry := codecEntry{
 			Args: abi.Arguments{{Name: "", Type: wrappedTuple}},
 		}
 		require.NoError(t, entry.Init())
@@ -116,7 +116,7 @@ func TestCodecEntry(t *testing.T) {
 	t.Run("slice types", func(t *testing.T) {
 		type1, err := abi.NewType("int16[]", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
-		entry := CodecEntry{
+		entry := codecEntry{
 			Args: abi.Arguments{{Name: "Field1", Type: type1}},
 		}
 		require.NoError(t, entry.Init())
@@ -128,7 +128,7 @@ func TestCodecEntry(t *testing.T) {
 	t.Run("array types", func(t *testing.T) {
 		type1, err := abi.NewType("int16[3]", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
-		entry := CodecEntry{
+		entry := codecEntry{
 			Args: abi.Arguments{{Name: "Field1", Type: type1}},
 		}
 		require.NoError(t, entry.Init())
