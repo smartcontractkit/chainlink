@@ -9,14 +9,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 )
 
 // Tests a basic OCRv2 median feed
@@ -31,7 +30,6 @@ func TestOCRv2Basic(t *testing.T) {
 	network, err := ethBuilder.
 		WihtExistingConfigFromEnvVar().
 		Build()
-
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
@@ -62,8 +60,8 @@ func TestOCRv2Basic(t *testing.T) {
 		err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
 		require.NoError(t, err, "Error funding Chainlink nodes")
 	}
-	// err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
-	// require.NoError(t, err, "Error funding Chainlink nodes")
+	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
+	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	// Gather transmitters
 	var transmitters []string

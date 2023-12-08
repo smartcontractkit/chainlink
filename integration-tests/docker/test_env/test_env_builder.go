@@ -1,6 +1,7 @@
 package test_env
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"os"
@@ -318,6 +319,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 		b.te.RpcProvider = rpcProvider
 		b.te.PrivateEthereumConfig = &enCfg
+
+		if b.hasLogStream {
+			for _, c := range b.ethereumNetwork.Containers {
+				b.te.LogStream.ConnectContainer(context.Background(), *c.Container, string(c.ContainerType))
+			}
+		}
 	}
 
 	if !b.isNonEVM {
