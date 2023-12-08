@@ -29,6 +29,7 @@ func TestVRFBasic(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err)
 	env.ParallelTransactions(true)
@@ -118,6 +119,7 @@ func TestVRFJobReplacement(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err)
 	env.ParallelTransactions(true)

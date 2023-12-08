@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -118,7 +118,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainR
 		}
 	}
 	if opts.MailMon == nil {
-		opts.MailMon = srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+		opts.MailMon = servicetest.Run(t, utils.NewMailboxMonitor(t.Name()))
 	}
 	if testopts.GasEstimator != nil {
 		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {

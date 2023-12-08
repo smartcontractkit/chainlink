@@ -380,6 +380,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, app.Stop()) })
 
 	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())

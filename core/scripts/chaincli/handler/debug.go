@@ -18,7 +18,6 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
@@ -314,22 +313,6 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 	if simulateResult.Success {
 		resolveEligible()
-	}
-}
-
-type blockSubscriber struct {
-	ethClient *ethclient.Client
-}
-
-func (bs *blockSubscriber) LatestBlock() *ocr2keepers.BlockKey {
-	header, err := bs.ethClient.HeaderByNumber(context.Background(), nil)
-	if err != nil {
-		return nil
-	}
-
-	return &ocr2keepers.BlockKey{
-		Number: ocr2keepers.BlockNumber(header.Number.Uint64()),
-		Hash:   header.Hash(),
 	}
 }
 
