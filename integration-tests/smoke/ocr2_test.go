@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 )
 
 // Tests a basic OCRv2 median feed
@@ -22,7 +24,14 @@ func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	// network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	// require.NoError(t, err, "Error building ethereum network config")
+
+	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
+	network, err := ethBuilder.
+		WihtExistingConfigFromEnvVar().
+		Build()
+
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
