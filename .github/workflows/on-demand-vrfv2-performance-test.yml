@@ -120,7 +120,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@a052942591aaa12716eb9835b490d812a77d0831 # v2.3.1
         with:
           test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 24h -run TestVRFV2Performance/vrfv2_performance_test ./load/vrfv2
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
