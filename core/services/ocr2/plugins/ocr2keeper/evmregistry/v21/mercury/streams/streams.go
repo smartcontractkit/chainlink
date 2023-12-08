@@ -222,7 +222,6 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 		checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonMercuryCallbackReverted)
 		s.lggr.Debugf("at block %d upkeep %s requested time %s mercury callback reverts", lookup.Block, lookup.UpkeepId, lookup.Time)
 		return fmt.Errorf("at block %d upkeep %s requested time %s mercury callback reverts", lookup.Block, lookup.UpkeepId, lookup.Time)
-
 	}
 
 	if !needed {
@@ -234,7 +233,7 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 	checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonNone)
 	checkResults[i].Eligible = true
 	checkResults[i].PerformData = performData
-	s.lggr.Infof("at block %d upkeep %s requested time %s successful with perform data: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(performData))
+	s.lggr.Infof("at block %d upkeep %s requested time %s CheckCallback successful with perform data: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(performData))
 
 	return nil
 }

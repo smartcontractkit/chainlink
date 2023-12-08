@@ -260,7 +260,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			if streamsLookup.IsMercuryV02() {
 				message("using mercury lookup v0.2")
 				// check if upkeep is allowed to use mercury v0.2
-				_, _, _, allowed, err := streams.AllowedToUseMercury(latestCallOpts, upkeepID)
+				_, _, _, allowed, err := streams.AllowedToUseMercury(triggerCallOpts, upkeepID)
 				if err != nil {
 					failUnknown("failed to check if upkeep is allowed to use mercury", err)
 				}
@@ -283,10 +283,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			checkResults := []ocr2keepers.CheckResult{automationCheckResult}
 			values, err := streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
 
-			if automationCheckResult.IneligibilityReason == uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput) {
+			if checkResults[0].IneligibilityReason == uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput) {
 				resolveIneligible("upkeep used invalid revert data")
 			}
-			if automationCheckResult.PipelineExecutionState == uint8(mercury.InvalidMercuryRequest) {
+			if checkResults[0].PipelineExecutionState == uint8(mercury.InvalidMercuryRequest) {
 				resolveIneligible("the mercury request data is invalid")
 			}
 			if err != nil {
@@ -298,10 +298,11 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			if err != nil {
 				failUnknown("failed to execute mercury callback ", err)
 			}
-			if automationCheckResult.IneligibilityReason != 0 {
-				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", automationCheckResult.IneligibilityReason))
+
+			if checkResults[0].IneligibilityReason != 0 {
+				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResults[0].IneligibilityReason))
 			}
-			upkeepNeeded, performData = automationCheckResult.Eligible, automationCheckResult.PerformData
+			upkeepNeeded, performData = checkResults[0].Eligible, checkResults[0].PerformData
 			// do tenderly simulations for checkCallback
 			rawCall, err := core.RegistryABI.Pack("checkCallback", upkeepID, values, streamsLookup.ExtraData)
 			if err != nil {
@@ -320,13 +321,23 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	if !upkeepNeeded {
 		resolveIneligible("upkeep is not needed")
 	}
-	// simulate perform ukeep
-	simulateResult, err := keeperRegistry21.SimulatePerformUpkeep(latestCallOpts, upkeepID, performData)
+	// simulate perform upkeep
+	simulateResult, err := keeperRegistry21.SimulatePerformUpkeep(triggerCallOpts, upkeepID, performData)
 	if err != nil {
 		failUnknown("failed to simulate perform upkeep: ", err)
 	}
+
+	// do tenderly simulation
+	rawCall, err := core.RegistryABI.Pack("simulatePerformUpkeep", upkeepID, performData)
+	if err != nil {
+		failUnknown("failed to pack raw simulatePerformUpkeep call", err)
+	}
+	addLink("simulatePerformUpkeep simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+
 	if simulateResult.Success {
 		resolveEligible()
+	} else {
+		resolveIneligible("simulate perform upkeep unsuccessful")
 	}
 }
 
@@ -441,11 +452,11 @@ func warning(msg string) {
 }
 
 func resolveIneligible(msg string) {
-	exit(fmt.Sprintf("✅ %s: this upkeep is not currently eligible", msg), nil, 0)
+	exit(fmt.Sprintf("❌ this upkeep is not eligible: %s", msg), nil, 0)
 }
 
 func resolveEligible() {
-	exit("❌ this upkeep is currently eligible", nil, 0)
+	exit("✅ this upkeep is eligible", nil, 0)
 }
 
 func rerun(msg string, err error) {
