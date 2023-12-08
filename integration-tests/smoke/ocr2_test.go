@@ -48,8 +48,12 @@ func TestOCRv2Basic(t *testing.T) {
 	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
-	require.NoError(t, err, "Error funding Chainlink nodes")
+	for i := 0; i < 100; i++ {
+		err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
+		require.NoError(t, err, "Error funding Chainlink nodes")
+	}
+	// err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
+	// require.NoError(t, err, "Error funding Chainlink nodes")
 
 	// Gather transmitters
 	var transmitters []string
