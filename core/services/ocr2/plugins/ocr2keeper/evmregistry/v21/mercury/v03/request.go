@@ -100,7 +100,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 
 	params := fmt.Sprintf("%s=%s&%s=%s", mercury.FeedIDs, strings.Join(sl.Feeds, ","), mercury.Timestamp, sl.Time.String())
 	batchPathV03 := mercuryBatchPathV03
-	if sl.IsMercuryUsingBatchPathV03() {
+	if sl.IsMercuryV03UsingBlockNumber() {
 		batchPathV03 = mercuryBatchPathV03BlockNumber
 	}
 	reqUrl := fmt.Sprintf("%s%s%s", c.mercuryConfig.Credentials().URL, batchPathV03, params)
