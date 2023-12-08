@@ -226,17 +226,16 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	done()
 
 	t.Run("recover logs", func(t *testing.T) {
-
 		addr, contract := addrs[0], contracts[0]
 		upkeepID := registerUpkeep(t, registry, addr, carrol, steve, backend)
 		backend.Commit()
 		t.Logf("Registered new upkeep %s for address %s", upkeepID.String(), addr.String())
 		// Emit 100 logs in a burst
-		emits := 100
+		recoverEmits := 100
 		i := 0
 		emitEvents(testutils.Context(t), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {
 			i++
-			if i%(emits/4) == 0 {
+			if i%(recoverEmits/4) == 0 {
 				backend.Commit()
 				time.Sleep(time.Millisecond * 250) // otherwise we get "invalid transaction nonce" errors
 			}
@@ -253,7 +252,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 		t.Logf("Mined %d blocks, waiting for logs to be recovered", dummyBlocks)
 
-		listener, done := listenPerformedN(t, backend, registry, ids, int64(beforeDummyBlocks), len(ids))
+		listener, done := listenPerformedN(t, backend, registry, ids, int64(beforeDummyBlocks), recoverEmits)
 		g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 		done()
 	})
@@ -390,7 +389,7 @@ func mapListener(m *sync.Map, n int) func() bool {
 	return func() bool {
 		count := 0
 		m.Range(func(key, value interface{}) bool {
-			count++
+			count += value.(int)
 			return true
 		})
 		return count > n
@@ -404,18 +403,18 @@ func listenPerformedN(t *testing.T, backend *backends.SimulatedBackend, registry
 
 	go func() {
 		for ctx.Err() == nil {
-			bl := backend.Blockchain().CurrentBlock().Number.Uint64()
+			currentBlock := backend.Blockchain().CurrentBlock().Number.Uint64()
 
-			sc := make([]bool, len(ids))
-			for i := range sc {
-				sc[i] = true
+			success := make([]bool, len(ids))
+			for i := range success {
+				success[i] = true
 			}
 
 			iter, err := registry.FilterUpkeepPerformed(&bind.FilterOpts{
 				Start:   uint64(start),
-				End:     &bl,
+				End:     &currentBlock,
 				Context: ctx,
-			}, ids, sc)
+			}, ids, success)
 
 			if ctx.Err() != nil {
 				return
@@ -426,7 +425,15 @@ func listenPerformedN(t *testing.T, backend *backends.SimulatedBackend, registry
 			for iter.Next() {
 				if iter.Event != nil {
 					t.Logf("[automation-ocr3 | EvmRegistry] upkeep performed event emitted for id %s", iter.Event.Id.String())
-					cache.Store(iter.Event.Id.String(), true)
+
+					//cache.Store(iter.Event.Id.String(), true)
+					count, ok := cache.Load(iter.Event.Id.String())
+					if !ok {
+						cache.Store(iter.Event.Id.String(), 1)
+						continue
+					}
+					countI := count.(int)
+					cache.Store(iter.Event.Id.String(), countI+1)
 				}
 			}
 
