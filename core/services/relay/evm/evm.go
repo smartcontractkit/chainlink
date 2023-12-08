@@ -506,6 +506,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	if !common.IsHexAddress(relayOpts.ContractID) {
 		return nil, fmt.Errorf("invalid contractID %s, expected hex address", relayOpts.ContractID)
 	}
+	contractID := common.HexToAddress(relayOpts.ContractID)
 
 	configWatcher, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
@@ -533,7 +534,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	// allow fallback until chain reader is default and median contract is removed, but still log just in case
 	var chainReaderService commontypes.ChainReader
 	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(lggr, r.chain.LogPoller(), r.chain, *relayConfig.ChainReader); err != nil {
+		if chainReaderService, err = NewChainReaderService(lggr, r.chain.LogPoller(), contractID, r.chain, *relayConfig.ChainReader); err != nil {
 			return nil, err
 		}
 	} else {

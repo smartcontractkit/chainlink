@@ -23,6 +23,16 @@ struct InnerTestStruct {
 }
 
 contract LatestValueHolder {
+    event Triggered(
+        int32 field,
+        string differentField,
+        uint8 oracleId,
+        uint8[32] oracleIds,
+        bytes32 account,
+        bytes32[] accounts,
+        int192 bigField,
+        MidLevelTestStruct nestedStruct);
+
     TestStruct[] private seen;
     uint64[] private arr;
 
@@ -68,5 +78,16 @@ contract LatestValueHolder {
 
     function GetSliceValue() public view returns (uint64[] memory) {
         return arr;
+    }
+
+    function TriggerEvent(int32 field,
+        string calldata differentField,
+        uint8 oracleId,
+        uint8[32] calldata oracleIds,
+        bytes32 account,
+        bytes32[] calldata accounts,
+        int192 bigField,
+        MidLevelTestStruct calldata nestedStruct) public {
+        emit Triggered(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
     }
 }
