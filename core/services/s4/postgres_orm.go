@@ -90,7 +90,7 @@ func (o orm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*Snaps
 	q := o.q.WithOpts(qopts...)
 	rows := make([]*SnapshotRow, 0)
 
-	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, payload FROM %s WHERE namespace = $1 AND address >= $2 AND address <= $3;`, o.tableName)
+	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, octet_length(payload) AS payload_size FROM %s WHERE namespace = $1 AND address >= $2 AND address <= $3;`, o.tableName)
 	if err := q.Select(&rows, stmt, o.namespace, addressRange.MinAddress, addressRange.MaxAddress); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err

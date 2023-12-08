@@ -20,12 +20,12 @@ type Row struct {
 
 // SnapshotRow(s) are returned by GetSnapshot function.
 type SnapshotRow struct {
-	Address    *big.Big
-	SlotId     uint
-	Version    uint64
-	Expiration int64
-	Confirmed  bool
-	Payload    []byte
+	Address     *big.Big
+	SlotId      uint
+	Version     uint64
+	Expiration  int64
+	Confirmed   bool
+	PayloadSize uint64
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore

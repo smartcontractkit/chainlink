@@ -62,7 +62,7 @@ var (
 var (
 	promStorageUserUpdatesCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "storage_user_updates",
-		Help: "Number of actual updates users performed by nodes",
+		Help: "Number of storage updates performed by users",
 	}, []string{"don_id"})
 )
 
