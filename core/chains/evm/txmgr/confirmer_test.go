@@ -3005,12 +3005,14 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	pgtest.MustExec(t, db, `DELETE FROM pipeline_runs`)
 
 	t.Run("processes eth_txes with receipt older than minConfirmations that reverted", func(t *testing.T) {
-		ch := make(chan interface{})
+		type data struct {
+			value any
+			error
+		}
+		ch := make(chan data)
 		nonce := evmtypes.Nonce(4)
-		var err error
-		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, thisErr error) error {
-			err = thisErr
-			ch <- value
+		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, err error) error {
+			ch <- data{value, err}
 			return nil
 		})
 
@@ -3037,11 +3039,11 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		select {
 		case data := <-ch:
-			assert.Error(t, err)
+			assert.Error(t, data.error)
 
-			assert.EqualError(t, err, fmt.Sprintf("transaction %s reverted on-chain", etx.TxAttempts[0].Hash.String()))
+			assert.EqualError(t, data.error, fmt.Sprintf("transaction %s reverted on-chain", etx.TxAttempts[0].Hash.String()))
 
-			assert.Nil(t, data)
+			assert.Nil(t, data.value)
 
 		case <-testutils.AfterWaitTimeout(t):
 			t.Fatal("no value received")
