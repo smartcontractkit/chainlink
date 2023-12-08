@@ -290,7 +290,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				resolveIneligible("the mercury request data is invalid")
 			}
 			if err != nil {
-				resolveIneligible("failed to DoMercuryRequest")
+				failCheckConfig("failed to do mercury request ", err)
 			}
 
 			// do checkCallback
