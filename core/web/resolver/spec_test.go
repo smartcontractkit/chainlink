@@ -581,6 +581,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 					VRFSpec: &job.VRFSpec{
 						BatchCoordinatorAddress:       &batchCoordinatorAddress,
 						BatchFulfillmentEnabled:       true,
+						CustomRevertsPipelineEnabled:  true,
 						MinIncomingConfirmations:      1,
 						CoordinatorAddress:            coordinatorAddress,
 						CreatedAt:                     f.Timestamp(),
@@ -617,6 +618,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 									batchCoordinatorAddress
 									batchFulfillmentEnabled
 									batchFulfillmentGasMultiplier
+									customRevertsPipelineEnabled
 									chunkSize
 									backoffInitialDelay
 									backoffMaxDelay
@@ -644,6 +646,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"batchCoordinatorAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
 							"batchFulfillmentEnabled": true,
 							"batchFulfillmentGasMultiplier": 1,
+							"customRevertsPipelineEnabled": true,
 							"chunkSize": 25,
 							"backoffInitialDelay": "1m0s",
 							"backoffMaxDelay": "1h0m0s",

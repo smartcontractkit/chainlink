@@ -454,6 +454,9 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var batchFulfillmentEnabled bool
 	require.NoError(t, db.Get(&batchFulfillmentEnabled, `SELECT batch_fulfillment_enabled FROM vrf_specs LIMIT 1`))
 	require.False(t, batchFulfillmentEnabled)
+	var customRevertsPipelineEnabled bool
+	require.NoError(t, db.Get(&customRevertsPipelineEnabled, `SELECT custom_reverts_pipeline_enabled FROM vrf_specs LIMIT 1`))
+	require.False(t, customRevertsPipelineEnabled)
 	var batchFulfillmentGasMultiplier float64
 	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
 	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)
@@ -514,13 +517,14 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
 	jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 		testspecs.VRFSpecParams{
-			VRFVersion:          vrfcommon.V2Plus,
-			RequestedConfsDelay: 10,
-			FromAddresses:       fromAddresses,
-			ChunkSize:           25,
-			BackoffInitialDelay: time.Minute,
-			BackoffMaxDelay:     time.Hour,
-			GasLanePrice:        assets.GWei(100),
+			VRFVersion:                   vrfcommon.V2Plus,
+			RequestedConfsDelay:          10,
+			FromAddresses:                fromAddresses,
+			ChunkSize:                    25,
+			BackoffInitialDelay:          time.Minute,
+			BackoffMaxDelay:              time.Hour,
+			GasLanePrice:                 assets.GWei(100),
+			CustomRevertsPipelineEnabled: true,
 		}).
 		Toml())
 	require.NoError(t, err)
@@ -534,6 +538,9 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	var batchFulfillmentEnabled bool
 	require.NoError(t, db.Get(&batchFulfillmentEnabled, `SELECT batch_fulfillment_enabled FROM vrf_specs LIMIT 1`))
 	require.False(t, batchFulfillmentEnabled)
+	var customRevertsPipelineEnabled bool
+	require.NoError(t, db.Get(&customRevertsPipelineEnabled, `SELECT custom_reverts_pipeline_enabled FROM vrf_specs LIMIT 1`))
+	require.True(t, customRevertsPipelineEnabled)
 	var batchFulfillmentGasMultiplier float64
 	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
 	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)

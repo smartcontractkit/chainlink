@@ -641,6 +641,11 @@ func (r *VRFSpecResolver) BatchFulfillmentGasMultiplier() float64 {
 	return float64(r.spec.BatchFulfillmentGasMultiplier)
 }
 
+// CustomRevertsPipelineEnabled resolves the spec's custom reverts pipeline enabled flag.
+func (r *VRFSpecResolver) CustomRevertsPipelineEnabled() *bool {
+	return &r.spec.CustomRevertsPipelineEnabled
+}
+
 // ChunkSize resolves the spec's chunk size.
 func (r *VRFSpecResolver) ChunkSize() int32 {
 	return int32(r.spec.ChunkSize)
