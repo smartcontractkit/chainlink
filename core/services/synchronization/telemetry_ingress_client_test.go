@@ -9,8 +9,8 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -35,8 +35,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	url := &url.URL{}
 	serverPubKeyHex := "33333333333"
 	telemIngressClient := synchronization.NewTestTelemetryIngressClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient)
-	require.NoError(t, telemIngressClient.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, telemIngressClient.Close()) }()
+	servicetest.Run(t, telemIngressClient)
 
 	// Create the telemetry payload
 	telemetry := []byte("101010")

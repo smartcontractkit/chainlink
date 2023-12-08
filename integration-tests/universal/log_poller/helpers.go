@@ -1060,6 +1060,7 @@ func setupLogPollerTestDocker(
 		WithChainOptions(logPolllerSettingsFn).
 		EVMClientNetworkOptions(evmClientSettingsFn).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 

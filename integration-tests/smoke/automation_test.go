@@ -1097,6 +1097,7 @@ func setupAutomationTestDocker(
 			WithMockAdapter().
 			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
 			WithStandardCleanup().
+			WithLogStream().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 		env.ParallelTransactions(true)
