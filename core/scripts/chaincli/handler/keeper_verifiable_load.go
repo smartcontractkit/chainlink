@@ -58,7 +58,7 @@ type upkeepStats struct {
 	SortedAllDelays []float64
 }
 
-func (k *Keeper) GetVerifiableLoadStats(ctx context.Context, csv bool) {
+func (k *Keeper) PrintVerifiableLoadStats(ctx context.Context, csv bool) {
 	var v verifiableLoad
 	var err error
 	addr := common.HexToAddress(k.cfg.VerifiableLoadContractAddress)
@@ -99,7 +99,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context, csv bool) {
 	// create a number of workers to process the upkeep ids in batch
 	for i := 0; i < workerNum; i++ {
 		wg.Add(1)
-		go k.getUpkeepInfo(idChan, resultsChan, v, opts, &wg, csv)
+		go k.fetchUpkeepInfo(idChan, resultsChan, v, opts, &wg, csv)
 	}
 
 	for _, id := range upkeepIds {
@@ -134,7 +134,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context, csv bool) {
 	log.Printf("All STATS ABOVE ARE CALCULATED AT BLOCK %d", blockNum)
 }
 
-func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *upkeepInfo, v verifiableLoad, opts *bind.CallOpts, wg *sync.WaitGroup, csv bool) {
+func (k *Keeper) fetchUpkeepInfo(idChan chan *big.Int, resultsChan chan *upkeepInfo, v verifiableLoad, opts *bind.CallOpts, wg *sync.WaitGroup, csv bool) {
 	defer wg.Done()
 
 	for id := range idChan {
@@ -161,7 +161,7 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *upkeepInf
 		var wg1 sync.WaitGroup
 		for i := uint16(0); i <= b; i++ {
 			wg1.Add(1)
-			go k.getBucketData(v, opts, id, i, &wg1, info)
+			go k.fetchBucketData(v, opts, id, i, &wg1, info)
 		}
 		wg1.Wait()
 
@@ -196,7 +196,7 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *upkeepInf
 	}
 }
 
-func (k *Keeper) getBucketData(v verifiableLoad, opts *bind.CallOpts, id *big.Int, bucketNum uint16, wg *sync.WaitGroup, info *upkeepInfo) {
+func (k *Keeper) fetchBucketData(v verifiableLoad, opts *bind.CallOpts, id *big.Int, bucketNum uint16, wg *sync.WaitGroup, info *upkeepInfo) {
 	defer wg.Done()
 
 	var bucketDelays []*big.Int

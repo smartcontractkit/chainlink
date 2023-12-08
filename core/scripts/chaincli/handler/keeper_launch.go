@@ -371,7 +371,7 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 	}
 
 	// Correctly assign contract version in OCR job spec.
-	var contractVersion string = "v2.0"
+	contractVersion := "v2.0"
 	if k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
 		contractVersion = "v2.1"
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -97,8 +98,7 @@ func TestFunctionsHandler_CleanStartAndClose(t *testing.T) {
 	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, logger.TestLogger(t))
 	require.NoError(t, err)
 
-	require.NoError(t, handler.Start(testutils.Context(t)))
-	require.NoError(t, handler.Close())
+	servicetest.Run(t, handler)
 }
 
 func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {

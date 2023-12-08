@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -70,14 +70,14 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	hb := headtracker.NewHeadBroadcaster(logger)
 	orm := headtracker.NewORM(db, logger, cfg.Database(), *ethClient.ConfiguredChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg.EVM(), evmCfg.EVM().HeadTracker())
 	mailMon := mailbox.NewMonitor(t.Name())
+	servicetest.Run(t, mailMon)
+	hb := headtracker.NewHeadBroadcaster(logger)
+	servicetest.Run(t, hb)
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg.EVM(), evmCfg.EVM().HeadTracker(), hb, hs, mailMon)
-	var ms services.MultiStart
-	require.NoError(t, ms.Start(testutils.Context(t), mailMon, hb, ht))
-	t.Cleanup(func() { require.NoError(t, services.CloseAll(mailMon, hb, ht)) })
+	servicetest.Run(t, ht)
 
 	latest1, unsubscribe1 := hb.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet

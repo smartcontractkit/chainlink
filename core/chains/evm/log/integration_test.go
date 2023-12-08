@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -29,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -1326,7 +1326,7 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch3 := make(chan types.Log)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	mailMon := srvctest.Start(t, mailbox.NewMonitor(t.Name()))
+	mailMon := servicetest.RunHealthy(t, mailbox.NewMonitor(t.Name()))
 	lb := log.NewBroadcaster(nil, ethClient, nil, logger.Test(t), nil, mailMon)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)

@@ -128,7 +128,6 @@ func TestNurse(t *testing.T) {
 	n2, err := nrse.totalProfileBytes()
 	require.NoError(t, err)
 	require.Greater(t, n2, uint64(0))
-
 }
 
 func profileExists(t *testing.T, nrse *Nurse, typ string) bool {
