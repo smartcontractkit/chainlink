@@ -235,15 +235,12 @@ func (t *OCR2Transaction) BlockNumber() (uint64, error) {
 			block, err := hexutil.DecodeUint64(blStr)
 			if err != nil {
 				return 0, fmt.Errorf("failed to parse block number: %s", err)
-			} else {
-				return block, nil
 			}
-		} else {
-			return 0, fmt.Errorf("not a string")
+			return block, nil
 		}
-	} else {
-		return 0, fmt.Errorf("not found")
+		return 0, fmt.Errorf("not a string")
 	}
+	return 0, fmt.Errorf("not found")
 }
 
 func (t *OCR2Transaction) To() *common.Address {
@@ -335,17 +332,15 @@ func (t *OCR2TransmitTx) SetStaticValues(elem *OCR2ReportDataElem) {
 	if err != nil {
 		elem.Err = err.Error()
 		return
-	} else {
-		elem.From = from.String()
 	}
+	elem.From = from.String()
 
 	block, err := t.BlockNumber()
 	if err != nil {
 		elem.Err = err.Error()
 		return
-	} else {
-		elem.BlockNumber = fmt.Sprintf("%d", block)
 	}
+	elem.BlockNumber = fmt.Sprintf("%d", block)
 
 	upkeeps, err := t.UpkeepsInTransmit()
 	if err != nil {
