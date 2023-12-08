@@ -33,6 +33,7 @@ func TestOCRv2Basic(t *testing.T) {
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err)
 
@@ -107,6 +108,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err)
 
