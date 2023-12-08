@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -43,10 +44,12 @@ type BlockSubscriber struct {
 	mu               sync.RWMutex
 	hb               httypes.HeadBroadcaster
 	lp               logpoller.LogPoller
+	ge               gas.EvmFeeEstimator
 	headC            chan *evmtypes.Head
 	unsubscribe      func()
 	subscribers      map[int]chan ocr2keepers.BlockHistory
 	blocks           map[int64]string
+	fastGas          map[int64]int64
 	maxSubId         int
 	lastClearedBlock int64
 	lastSentBlock    int64
@@ -71,6 +74,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, fina
 		headC:            make(chan *evmtypes.Head, channelSize),
 		subscribers:      map[int]chan ocr2keepers.BlockHistory{},
 		blocks:           map[int64]string{},
+		fastGas:          map[int64]int64{},
 		blockHistorySize: blockHistorySize,
 		blockSize:        lookbackDepth,
 		finalityDepth:    finalityDepth,
@@ -273,6 +277,15 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 			bs.lggr.Warnf("subscriber channel is full, dropping block history with length %d", len(history))
 		}
 	}
+
+	//fee, _, err := bs.ge.GetFee(ctx, _, feeLimit, maxFeeWei)
+	//var fg int64
+	//if fee.ValidDynamic() {
+	//	fg = fee.DynamicFeeCap.Int64() + fee.DynamicTipCap.Int64()
+	//} else {
+	//	fg = fee.Legacy.Int64()
+	//}
+	//bs.fastGas[h.Number] = fg
 
 	bs.lggr.Debugf("published block history with length %d and latestBlock %d to %d subscriber(s)", len(history), bs.latestBlock.Load(), len(bs.subscribers))
 }

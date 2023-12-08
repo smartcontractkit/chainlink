@@ -191,17 +191,14 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			continue
 		}
 
-		// estimated_tx_call_data is not needed to estimate fast gas except for Arbitrum.
-		//fee, _, _ := r.gasEstimator.GetFee(ctx, estimated_tx_call_data, feeLimit, maxFeePrice)
-		//fastGas := new(big.Int)
-		//if fee.ValidDynamic() {
-		//	fastGas = fee.DynamicFeeCap.ToInt() // should we consider tipping??
-		//} else {
-		//	fastGas = fee.Legacy.ToInt()
-		//}
-		//
 		//// this block will be updated by plug-in to keep it relatively new. e.g. within 2 min from block height
 		//// call gas estimator (GE) component to get L2 gas cost
+		//// estimated_tx_call_data is not needed to estimate fast gas except for Arbitrum.
+		//fg, ok := r.bs.fastGas[block.Int64()]
+		//if !ok {
+		//	// if fast gas at this block does not exist, use the latest
+		//	fg, _, _ = r.gasEstimator.GetFee(...)
+		//}
 		//
 		//var estimatedL1GasCost uint256
 		//var err error
@@ -227,7 +224,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			}
 
 			// check data will include the log trigger config
-			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData /* ChainConfig(estimatedL1GasCost, fastGas) */)
+			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData /* ChainConfig(estimatedL1GasCost, fg) */)
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack log trigger checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
@@ -237,7 +234,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		default:
 			// checkUpkeep is overloaded on the contract for conditionals and log upkeeps
 			// Need to use the first function (checkUpkeep0) for conditionals
-			payload, err = r.abi.Pack("checkUpkeep0", upkeepId /* ChainConfig(estimatedL1GasCost, fastGas) */)
+			payload, err = r.abi.Pack("checkUpkeep0", upkeepId /* ChainConfig(estimatedL1GasCost, fg) */)
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack conditional checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
@@ -389,20 +386,17 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		} else {
 			// at this point, the core node knows the exact perform data of the upkeep and the call data to L1.
 			// it can calculate a relatively accurate L1 gas cost
-
-			//actual_tx_call_data := checkResults[performToKeyIdx[i]].PerformData + byte padding;
-			//fee, _, _ := r.gasEstimator.GetFee(ctx, actual_tx_call_data, feeLimit, maxFeePrice)
-			//fastGas := new(big.Int)
-			//if fee.ValidDynamic() {
-			//	fastGas = fee.DynamicFeeCap.ToInt() // should we consider tipping??
-			//} else {
-			//	fastGas = fee.Legacy.ToInt()
+			//fg, ok := r.bs.fastGas[block.Int64()]
+			//if !ok {
+			//	// if fast gas at this block does not exist, use the latest
+			//	fg, _, _ = r.gasEstimator.GetFee(...)
 			//}
 			//
 			//// this block will be updated by plug-in to keep it relatively new. e.g. within 2 min from block height
 			//// call gas estimator (GE) component to get L2 gas cost
 			//
 			//// can we estimate this L1GasCost by comparing estimated call data and actual call data??
+			//actual_tx_call_data := checkResults[performToKeyIdx[i]].PerformData + byte padding;
 			//var executionL1GasCost uint256
 			//var err error
 			//// if L1 oracle is configured, it's a L2
@@ -412,7 +406,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			//		// handle error
 			//	}
 			//}
-			//checkResults[performToKeyIdx[i]].FastGasWei = fastGas
+			//checkResults[performToKeyIdx[i]].FastGasWei = fg
 			//checkResults[performToKeyIdx[i]].L1GasCost = executionL1GasCost
 		}
 	}
