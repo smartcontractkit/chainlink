@@ -150,6 +150,7 @@ func GetErrorForTx(client *ethclient.Client, txHash string, requester string) (s
 		From:     common.HexToAddress(requester),
 		To:       tx.To(),
 		Data:     tx.Data(),
+		Value:    tx.Value(),
 		Gas:      tx.Gas(),
 		GasPrice: tx.GasPrice(),
 	}
