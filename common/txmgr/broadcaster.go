@@ -351,9 +351,14 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) moni
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.listenerConfig.FallbackPollInterval()))
 
-		retryable, err := eb.ProcessUnstartedTxs(ctx, addr)
+		err, retryable := eb.handleAnyInProgressTx(ctx, addr)
 		if err != nil {
-			eb.lggr.Errorw("Error occurred while handling tx queue in ProcessUnstartedTxs", "err", err)
+			eb.lggr.Errorw("Failed to handle in progress tx", "err", err)
+		} else {
+			retryable, err = eb.ProcessUnstartedTxs(ctx, addr)
+			if err != nil {
+				eb.lggr.Errorw("Error occurred while handling tx queue in ProcessUnstartedTxs", "err", err)
+			}
 		}
 		// On retryable errors we implement exponential backoff retries. This
 		// handles intermittent connectivity, remote RPC races, timing issues etc
@@ -441,10 +446,6 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Proc
 		}
 	}()
 
-	err, retryable = eb.handleAnyInProgressTx(ctx, fromAddress)
-	if err != nil {
-		return retryable, fmt.Errorf("ProcessUnstartedTxs failed on handleAnyInProgressTx: %w", err)
-	}
 	for {
 		maxInFlightTransactions := eb.txConfig.MaxInFlight()
 		if maxInFlightTransactions > 0 {
