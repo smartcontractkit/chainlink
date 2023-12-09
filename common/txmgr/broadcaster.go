@@ -55,8 +55,6 @@ var (
 
 var ErrTxRemoved = errors.New("tx removed")
 
-type ProcessUnstartedTxs[ADDR types.Hashable] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
-
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory[
 	CHAIN_ID types.ID,
@@ -124,8 +122,6 @@ type Broadcaster[
 	// when Start is called
 	autoSyncSequence bool
 
-	processUnstartedTxsImpl ProcessUnstartedTxs[ADDR]
-
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
@@ -187,7 +183,6 @@ func NewBroadcaster[
 		autoSyncSequence: autoSyncSequence,
 	}
 
-	b.processUnstartedTxsImpl = b.processUnstartedTxs
 	b.generateNextSequence = generateNextSequence
 	return b
 }
@@ -356,7 +351,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) moni
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.listenerConfig.FallbackPollInterval()))
 
-		retryable, err := eb.processUnstartedTxsImpl(ctx, addr)
+		retryable, err := eb.ProcessUnstartedTxs(ctx, addr)
 		if err != nil {
 			eb.lggr.Errorw("Error occurred while handling tx queue in ProcessUnstartedTxs", "err", err)
 		}
@@ -433,28 +428,22 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Sync
 	}
 }
 
-// ProcessUnstartedTxs picks up and handles all txes in the queue
-// revive:disable:error-return
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) ProcessUnstartedTxs(ctx context.Context, addr ADDR) (retryable bool, err error) {
-	return eb.processUnstartedTxs(ctx, addr)
-}
-
 // NOTE: This MUST NOT be run concurrently for the same address or it could
 // result in undefined state or deadlocks.
 // First handle any in_progress transactions left over from last time.
 // Then keep looking up unstarted transactions and processing them until there are none remaining.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) processUnstartedTxs(ctx context.Context, fromAddress ADDR) (retryable bool, err error) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) ProcessUnstartedTxs(ctx context.Context, fromAddress ADDR) (retryable bool, err error) {
 	var n uint
 	mark := time.Now()
 	defer func() {
 		if n > 0 {
-			eb.lggr.Debugw("Finished processUnstartedTxs", "address", fromAddress, "time", time.Since(mark), "n", n, "id", "broadcaster")
+			eb.lggr.Debugw("Finished ProcessUnstartedTxs", "address", fromAddress, "time", time.Since(mark), "n", n, "id", "broadcaster")
 		}
 	}()
 
 	err, retryable = eb.handleAnyInProgressTx(ctx, fromAddress)
 	if err != nil {
-		return retryable, fmt.Errorf("processUnstartedTxs failed on handleAnyInProgressTx: %w", err)
+		return retryable, fmt.Errorf("ProcessUnstartedTxs failed on handleAnyInProgressTx: %w", err)
 	}
 	for {
 		maxInFlightTransactions := eb.txConfig.MaxInFlight()
@@ -479,7 +468,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) proc
 		}
 		etx, err := eb.nextUnstartedTransactionWithSequence(fromAddress)
 		if err != nil {
-			return true, fmt.Errorf("processUnstartedTxs failed on nextUnstartedTransactionWithSequence: %w", err)
+			return true, fmt.Errorf("ProcessUnstartedTxs failed on nextUnstartedTransactionWithSequence: %w", err)
 		}
 		if etx == nil {
 			return false, nil
@@ -489,18 +478,18 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) proc
 		var retryable bool
 		a, _, _, retryable, err = eb.NewTxAttempt(ctx, *etx, eb.lggr)
 		if err != nil {
-			return retryable, fmt.Errorf("processUnstartedTxs failed on NewAttempt: %w", err)
+			return retryable, fmt.Errorf("ProcessUnstartedTxs failed on NewAttempt: %w", err)
 		}
 
 		if err := eb.txStore.UpdateTxUnstartedToInProgress(ctx, etx, &a); errors.Is(err, ErrTxRemoved) {
 			eb.lggr.Debugw("tx removed", "txID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {
-			return true, fmt.Errorf("processUnstartedTxs failed on UpdateTxUnstartedToInProgress: %w", err)
+			return true, fmt.Errorf("ProcessUnstartedTxs failed on UpdateTxUnstartedToInProgress: %w", err)
 		}
 
 		if err, retryable := eb.handleInProgressTx(ctx, *etx, a, time.Now()); err != nil {
-			return retryable, fmt.Errorf("processUnstartedTxs failed on handleInProgressTx: %w", err)
+			return retryable, fmt.Errorf("ProcessUnstartedTxs failed on handleInProgressTx: %w", err)
 		}
 	}
 }

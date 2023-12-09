@@ -49,6 +49,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+type testBroadcaster struct {
+	*txmgr.Broadcaster
+	disableUnstartedTxProcessing bool
+}
+
+func (tb *testBroadcaster) ProcessUnstartedTxs(ctx context.Context, fromAddress gethCommon.Address) (retryable bool, err error) {
+	if tb.disableUnstartedTxProcessing {
+		return false, nil
+	}
+	return tb.Broadcaster.ProcessUnstartedTxs(ctx, fromAddress)
+}
+
 // NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
 func NewTestEthBroadcaster(
 	t testing.TB,
@@ -58,7 +70,7 @@ func NewTestEthBroadcaster(
 	config evmconfig.ChainScopedConfig,
 	checkerFactory txmgr.TransmitCheckerFactory,
 	nonceAutoSync bool,
-) *txmgr.Broadcaster {
+) *testBroadcaster {
 	t.Helper()
 
 	lggr := logger.Test(t)
@@ -66,10 +78,11 @@ func NewTestEthBroadcaster(
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config.EVM().GasEstimator(), ge.BlockHistory(), lggr), ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, keyStore, estimator)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient)
-	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), config.Database().Listener(), keyStore, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
+	b := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), config.Database().Listener(), keyStore, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
+	ethBroadcaster := &testBroadcaster{Broadcaster: b}
 
 	// Mark instance as test
-	ethBroadcaster.XXXTestDisableUnstartedTxAutoProcessing()
+	ethBroadcaster.disableUnstartedTxProcessing = true
 	servicetest.Run(t, ethBroadcaster)
 	return ethBroadcaster
 }
@@ -616,7 +629,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		<-chBlock
 	}).Once()
 	ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil)
-	eb := txmgr.NewEvmBroadcaster(
+	b := txmgr.NewEvmBroadcaster(
 		txStore,
 		txmgr.NewEvmTxmClient(ethClient),
 		evmcfg,
@@ -630,7 +643,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		&testCheckerFactory{},
 		false,
 	)
-	eb.XXXTestDisableUnstartedTxAutoProcessing()
+	eb := &testBroadcaster{Broadcaster: b}
+	eb.disableUnstartedTxProcessing = true
 
 	// Start instance of broadcaster
 	servicetest.Run(t, eb)
@@ -977,7 +991,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	})
 }
 
-func getLocalNextNonce(t *testing.T, eb *txmgr.Broadcaster, fromAddress gethCommon.Address) uint64 {
+func getLocalNextNonce(t *testing.T, eb *testBroadcaster, fromAddress gethCommon.Address) uint64 {
 	n, err := eb.GetNextSequence(testutils.Context(t), fromAddress)
 	require.NoError(t, err)
 	require.NotNil(t, n)
@@ -1819,8 +1833,9 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 
-		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
-		eb.XXXTestDisableUnstartedTxAutoProcessing()
+		b := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
+		eb := &testBroadcaster{Broadcaster: b}
+		eb.disableUnstartedTxProcessing = true
 
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), errors.New("something exploded")).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(ethNodeNonce, nil)
