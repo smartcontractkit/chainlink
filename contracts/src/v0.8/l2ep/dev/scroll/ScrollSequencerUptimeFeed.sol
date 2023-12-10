@@ -115,7 +115,7 @@ contract ScrollSequencerUptimeFeed is
   /// @param timestamp The L1 block timestamp of status update
   function _recordRound(uint80 roundId, bool status, uint64 timestamp) private {
     s_feedState = FeedState(roundId, status, timestamp, uint64(block.timestamp));
-    s_rounds[roundId] = Round(status, timestamp, s_feedState.updatedAt);
+    s_rounds[roundId] = Round(status, timestamp, uint64(block.timestamp));
 
     emit NewRound(roundId, msg.sender, timestamp);
     emit AnswerUpdated(_getStatusAnswer(status), roundId, timestamp);
@@ -126,8 +126,8 @@ contract ScrollSequencerUptimeFeed is
   /// @param status Sequencer status
   function _updateRound(uint80 roundId, bool status) private {
     s_feedState.updatedAt = uint64(block.timestamp);
-    s_rounds[roundId].updatedAt = s_feedState.updatedAt;
-    emit RoundUpdated(_getStatusAnswer(status), s_feedState.updatedAt);
+    s_rounds[roundId].updatedAt = uint64(block.timestamp);
+    emit RoundUpdated(_getStatusAnswer(status), uint64(block.timestamp));
   }
 
   /// @notice Record a new status and timestamp if it has changed since the last round.
@@ -136,6 +136,8 @@ contract ScrollSequencerUptimeFeed is
   /// @param status Sequencer status
   /// @param timestamp Block timestamp of status update
   function updateStatus(bool status, uint64 timestamp) external override {
+    FeedState memory feedState = s_feedState;
+
     if (
       msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != s_l1Sender
     ) {
@@ -143,16 +145,16 @@ contract ScrollSequencerUptimeFeed is
     }
 
     // Ignore if latest recorded timestamp is newer
-    if (s_feedState.startedAt > timestamp) {
-      emit UpdateIgnored(s_feedState.latestStatus, s_feedState.startedAt, status, timestamp);
+    if (feedState.startedAt > timestamp) {
+      emit UpdateIgnored(feedState.latestStatus, feedState.startedAt, status, timestamp);
       return;
     }
 
-    if (s_feedState.latestStatus == status) {
-      _updateRound(s_feedState.latestRoundId, status);
+    if (feedState.latestStatus == status) {
+      _updateRound(feedState.latestRoundId, status);
     } else {
-      s_feedState.latestRoundId += 1;
-      _recordRound(s_feedState.latestRoundId, status, timestamp);
+      feedState.latestRoundId += 1;
+      _recordRound(feedState.latestRoundId, status, timestamp);
     }
   }
 
@@ -216,12 +218,14 @@ contract ScrollSequencerUptimeFeed is
     checkAccess
     returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
+    FeedState memory feedState = s_feedState;
+
     return (
-      s_feedState.latestRoundId,
-      _getStatusAnswer(s_feedState.latestStatus),
-      s_feedState.startedAt,
-      s_feedState.updatedAt,
-      s_feedState.latestRoundId
+      feedState.latestRoundId,
+      _getStatusAnswer(feedState.latestStatus),
+      feedState.startedAt,
+      feedState.updatedAt,
+      feedState.latestRoundId
     );
   }
 }
