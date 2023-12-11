@@ -1,8 +1,10 @@
 package keystore_test
 
 import (
+	"crypto/rand"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -39,7 +40,10 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 
 	t.Run("errors when getting non-existent ID", func(t *testing.T) {
 		defer reset()
-		_, err := ks.Get("non-existent-id")
+		var nonExistent p2pkey.PeerID
+		_, err := rand.Read(nonExistent[:])
+		require.NoError(t, err)
+		_, err = ks.Get(nonExistent)
 		require.Error(t, err)
 	})
 
@@ -58,7 +62,10 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.PeerID(), cltest.Password)
 		require.NoError(t, err)
-		_, err = ks.Export("non-existent", cltest.Password)
+		var nonExistent p2pkey.PeerID
+		_, err = rand.Read(nonExistent[:])
+		require.NoError(t, err)
+		_, err = ks.Export(nonExistent, cltest.Password)
 		assert.Error(t, err)
 		_, err = ks.Delete(key.PeerID())
 		require.NoError(t, err)
@@ -117,14 +124,14 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 
 	t.Run("GetOrFirst", func(t *testing.T) {
 		defer reset()
-		_, err := ks.GetOrFirst("")
+		_, err := ks.GetOrFirst(p2pkey.PeerID{})
 		require.Contains(t, err.Error(), "no p2p keys exist")
-		id := p2pkey.PeerID("a0")
+		id := p2pkey.PeerID{0xa0}
 		_, err = ks.GetOrFirst(id)
 		require.Contains(t, err.Error(), fmt.Sprintf("unable to find P2P key with id %s", id))
 		k1, err := ks.Create()
 		require.NoError(t, err)
-		k2, err := ks.GetOrFirst("")
+		k2, err := ks.GetOrFirst(p2pkey.PeerID{})
 		require.NoError(t, err)
 		require.Equal(t, k1, k2)
 		k3, err := ks.GetOrFirst(k1.PeerID())
@@ -132,7 +139,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.Equal(t, k1, k3)
 		_, err = ks.Create()
 		require.NoError(t, err)
-		_, err = ks.GetOrFirst("")
+		_, err = ks.GetOrFirst(p2pkey.PeerID{})
 		require.Contains(t, err.Error(), "multiple p2p keys found")
 		//Check for possible keys in error message
 		require.Contains(t, err.Error(), k1.ID())
@@ -147,12 +154,19 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 	t.Run("clears p2p_peers on delete", func(t *testing.T) {
 		key, err := ks.Create()
 		require.NoError(t, err)
-		p2pPeer1 := ocrcommon.P2PPeer{
+		type P2PPeer struct {
+			ID        string
+			Addr      string
+			PeerID    string
+			CreatedAt time.Time
+			UpdatedAt time.Time
+		}
+		p2pPeer1 := P2PPeer{
 			ID:     cltest.NewPeerID().String(),
 			Addr:   testutils.NewAddress().Hex(),
 			PeerID: cltest.DefaultPeerID, // different p2p key
 		}
-		p2pPeer2 := ocrcommon.P2PPeer{
+		p2pPeer2 := P2PPeer{
 			ID:     cltest.NewPeerID().String(),
 			Addr:   testutils.NewAddress().Hex(),
 			PeerID: key.PeerID().Raw(),

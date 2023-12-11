@@ -29,6 +29,8 @@ func (p2pkc *P2PKeysController) Index(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewP2PKeyResources(keys), "p2pKey")
 }
 
+const keyType = "Ed25519"
+
 // Create and return a P2P key
 // Example:
 // "POST <application>/keys/p2p"
@@ -44,7 +46,7 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 		"id":           key.ID(),
 		"p2pPublicKey": key.PublicKeyHex(),
 		"p2pPeerID":    key.PeerID(),
-		"p2pType":      key.Type(),
+		"p2pType":      keyType,
 	})
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")
 }
@@ -101,7 +103,7 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 		"id":           key.ID(),
 		"p2pPublicKey": key.PublicKeyHex(),
 		"p2pPeerID":    key.PeerID(),
-		"p2pType":      key.Type(),
+		"p2pType":      keyType,
 	})
 
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")

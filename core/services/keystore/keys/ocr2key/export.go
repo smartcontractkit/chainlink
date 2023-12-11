@@ -66,7 +66,7 @@ func ToEncryptedJSON(key KeyBundle, password string, scryptParams utils.ScryptPa
 		password,
 		scryptParams,
 		adulteratedPassword,
-		func(id string, key KeyBundle, cryptoJSON keystore.CryptoJSON) (EncryptedOCRKeyExport, error) {
+		func(id string, key KeyBundle, cryptoJSON keystore.CryptoJSON) EncryptedOCRKeyExport {
 			pubKeyConfig := key.ConfigEncryptionPublicKey()
 			pubKey := key.OffchainPublicKey()
 			return EncryptedOCRKeyExport{
@@ -77,7 +77,7 @@ func ToEncryptedJSON(key KeyBundle, password string, scryptParams utils.ScryptPa
 				OffChainPublicKey: hex.EncodeToString(pubKey[:]),
 				ConfigPublicKey:   hex.EncodeToString(pubKeyConfig[:]),
 				Crypto:            cryptoJSON,
-			}, nil
+			}
 		},
 	)
 }
