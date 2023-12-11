@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink/v2/dashboard
+module github.com/smartcontractkit/chainlink/charts/chainlink-cluster/dashboard
 
 go 1.21
 
