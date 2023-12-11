@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -154,11 +155,17 @@ func TestCritical(t *testing.T) {
 
 func testCritical(t *testing.T, lggr Logger, observed *observer.ObservedLogs, msg string, lvl zapcore.Level) {
 	Critical(lggr, "foo", "bar")
+	_, filename, lineNum, ok := runtime.Caller(0)
+	require.True(t, ok)
+	lineNum -= 1
+
 	all := observed.TakeAll()
 	require.Len(t, all, 1)
 	line := all[0]
-	assert.Equal(t, lvl, line.Level)
+	assert.Equal(t, lvl, line.Level, "expected %q but got %q", lvl, line.Level)
 	assert.Equal(t, msg, line.Message)
+	assert.Equal(t, filename, line.Caller.File)
+	assert.Equal(t, lineNum, line.Caller.Line)
 }
 
 func TestCriticalw(t *testing.T) {
@@ -177,11 +184,17 @@ func TestCriticalw(t *testing.T) {
 
 func testCriticalw(t *testing.T, lggr Logger, observed *observer.ObservedLogs, msg string, lvl zapcore.Level) {
 	Criticalw(lggr, "msg", "foo", "bar")
+	_, filename, lineNum, ok := runtime.Caller(0)
+	require.True(t, ok)
+	lineNum -= 1
+
 	all := observed.TakeAll()
 	require.Len(t, all, 1)
 	line := all[0]
 	assert.Equal(t, lvl, line.Level)
 	assert.Equal(t, msg, line.Message)
+	assert.Equal(t, filename, line.Caller.File)
+	assert.Equal(t, lineNum, line.Caller.Line)
 	require.Equal(t, "bar", line.ContextMap()["foo"])
 }
 
@@ -201,11 +214,17 @@ func TestCriticalf(t *testing.T) {
 
 func testCriticalf(t *testing.T, lggr Logger, observed *observer.ObservedLogs, msg string, lvl zapcore.Level) {
 	Criticalf(lggr, "foo: %s", "bar")
+	_, filename, lineNum, ok := runtime.Caller(0)
+	require.True(t, ok)
+	lineNum -= 1
+
 	all := observed.TakeAll()
 	require.Len(t, all, 1)
 	line := all[0]
 	assert.Equal(t, lvl, line.Level)
 	assert.Equal(t, msg, line.Message)
+	assert.Equal(t, filename, line.Caller.File)
+	assert.Equal(t, lineNum, line.Caller.Line)
 }
 
 type other struct {
@@ -217,7 +236,7 @@ func (o *other) With(args ...interface{}) Logger {
 }
 
 func (o *other) Helper(skip int) Logger {
-	return &other{o.SugaredLogger.With(zap.AddCallerSkip(skip))}
+	return &other{o.SugaredLogger.WithOptions(zap.AddCallerSkip(skip))}
 }
 
 func (o *other) Name() string {
@@ -230,9 +249,15 @@ func (o *other) Named(name string) Logger {
 	return &newLogger
 }
 
-func (o *other) Critical(args ...interface{})                       { o.DPanic(args...) }
-func (o *other) Criticalf(format string, values ...interface{})     { o.DPanicf(format, values...) }
-func (o *other) Criticalw(msg string, keysAndValues ...interface{}) { o.DPanicw(msg, keysAndValues...) }
+func (o *other) Critical(args ...interface{}) {
+	o.WithOptions(zap.AddCallerSkip(1)).DPanic(args...)
+}
+func (o *other) Criticalf(format string, values ...interface{}) {
+	o.WithOptions(zap.AddCallerSkip(1)).DPanicf(format, values...)
+}
+func (o *other) Criticalw(msg string, keysAndValues ...interface{}) {
+	o.WithOptions(zap.AddCallerSkip(1)).DPanicw(msg, keysAndValues...)
+}
 
 type different struct {
 	*zap.SugaredLogger
@@ -243,7 +268,7 @@ func (d *different) With(args ...interface{}) differentLogger {
 }
 
 func (d *different) Helper(skip int) differentLogger {
-	return &other{d.SugaredLogger.With(zap.AddCallerSkip(skip))}
+	return &different{d.SugaredLogger.WithOptions(zap.AddCallerSkip(skip))}
 }
 
 func (d *different) Name() string {
@@ -265,7 +290,7 @@ func (m *mismatch) With(args ...interface{}) interface{} {
 }
 
 func (m *mismatch) Helper(skip int) interface{} {
-	return &other{m.SugaredLogger.With(zap.AddCallerSkip(skip))}
+	return &mismatch{m.SugaredLogger.WithOptions(zap.AddCallerSkip(skip))}
 }
 
 func (m *mismatch) Name() string {

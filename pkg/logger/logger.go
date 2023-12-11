@@ -86,7 +86,7 @@ func testObserved(tb testing.TB, lvl zapcore.Level) (*zap.SugaredLogger, *observ
 	observe := zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, oCore)
 	})
-	return zaptest.NewLogger(tb, zaptest.WrapOptions(observe)).Sugar(), logs
+	return zaptest.NewLogger(tb, zaptest.WrapOptions(observe, zap.AddCaller())).Sugar(), logs
 }
 
 // Nop returns a no-op Logger.
@@ -183,6 +183,7 @@ func Helper(l Logger, skip int) Logger {
 
 // Critical emits critical level logs (a remapping of [zap.DPanicLevel]) or falls back to error level with a '[crit]' prefix.
 func Critical(l Logger, args ...interface{}) {
+	l = Helper(l, 1)
 	switch t := l.(type) {
 	case *logger:
 		t.DPanic(args...)
@@ -200,6 +201,7 @@ func Critical(l Logger, args ...interface{}) {
 
 // Criticalf emits critical level logs (a remapping of [zap.DPanicLevel]) or falls back to error level with a '[crit]' prefix.
 func Criticalf(l Logger, format string, values ...interface{}) {
+	l = Helper(l, 1)
 	switch t := l.(type) {
 	case *logger:
 		t.DPanicf(format, values...)
@@ -217,6 +219,7 @@ func Criticalf(l Logger, format string, values ...interface{}) {
 
 // Criticalw emits critical level logs (a remapping of [zap.DPanicLevel]) or falls back to error level with a '[crit]' prefix.
 func Criticalw(l Logger, msg string, keysAndValues ...interface{}) {
+	l = Helper(l, 1)
 	switch t := l.(type) {
 	case *logger:
 		t.DPanicw(msg, keysAndValues...)
