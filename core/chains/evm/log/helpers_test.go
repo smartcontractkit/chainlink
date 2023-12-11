@@ -21,6 +21,8 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -40,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -89,7 +90,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	})
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 	lggr := logger.Test(t)
-	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, utils.NewMailboxMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
 	orm := log.NewORM(db, lggr, config.Database(), cltest.FixtureChainID)

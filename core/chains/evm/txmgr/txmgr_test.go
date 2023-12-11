@@ -21,6 +21,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
@@ -552,8 +553,7 @@ func TestTxm_Reset(t *testing.T) {
 		assert.EqualError(t, err, "not started")
 	})
 
-	require.NoError(t, txm.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, txm.Close()) }()
+	servicetest.Run(t, txm)
 
 	t.Run("returns no error if started", func(t *testing.T) {
 		err := txm.Reset(addr, false)

@@ -14,6 +14,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
@@ -119,7 +120,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	gatewayConfig := fmt.Sprintf(gatewayConfigTemplate, nodeKeys.Address)
 	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
 	require.NoError(t, err)
-	require.NoError(t, gateway.Start(testutils.Context(t)))
+	servicetest.Run(t, gateway)
 	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()
 	userUrl := fmt.Sprintf("http://localhost:%d/user", userPort)
 	nodeUrl := fmt.Sprintf("ws://localhost:%d/node", nodePort)
@@ -129,7 +130,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl), client, client, utils.NewRealClock(), lggr)
 	require.NoError(t, err)
 	client.connector = connector
-	require.NoError(t, connector.Start(testutils.Context(t)))
+	servicetest.Run(t, connector)
 
 	// Send requests until one of them reaches Connector
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -144,7 +145,4 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 		_, _ = httpClient.Do(req) // could initially return error if Gateway is not fully initialized yet
 		return client.done.Load()
 	}, testutils.WaitTimeout(t), testutils.TestInterval).Should(gomega.Equal(true))
-
-	require.NoError(t, connector.Close())
-	require.NoError(t, gateway.Close())
 }

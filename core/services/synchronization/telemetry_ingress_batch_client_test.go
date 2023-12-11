@@ -9,8 +9,8 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -37,7 +37,7 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	serverPubKeyHex := "33333333333"
 	sendInterval := time.Millisecond * 5
 	telemIngressClient := synchronization.NewTestTelemetryIngressBatchClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient, sendInterval, false)
-	require.NoError(t, telemIngressClient.Start(testutils.Context(t)))
+	servicetest.Run(t, telemIngressClient)
 
 	// Create telemetry payloads for different contracts
 	telemPayload1 := synchronization.TelemPayload{
@@ -100,7 +100,4 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	g.Eventually(func() []uint32 {
 		return []uint32{contractCounter1.Load(), contractCounter2.Load(), contractCounter3.Load()}
 	}).Should(gomega.Equal([]uint32{3, 2, 1}))
-
-	// Client should shut down
-	telemIngressClient.Close()
 }

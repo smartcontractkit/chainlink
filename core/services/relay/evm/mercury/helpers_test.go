@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
@@ -167,13 +168,11 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	cfg := pgtest.NewQConfig(false)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
 	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
 	subscription := pgmocks.NewSubscription(t)
-	require.NoError(t, lp.Start(ctx))
-	t.Cleanup(func() { lp.Close() })
+	servicetest.Run(t, lp)
 
 	eventBroadcaster.On("Subscribe", "evm.insert_on_logs", "").Return(subscription, nil)
 

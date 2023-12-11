@@ -3,21 +3,19 @@ package cache
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CacheSet(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	cs := newCacheSet(lggr, Config{})
 	ctx := testutils.Context(t)
-	require.NoError(t, cs.Start(ctx))
-	t.Cleanup(func() {
-		assert.NoError(t, cs.Close())
-	})
+	servicetest.Run(t, cs)
 
 	t.Run("Get", func(t *testing.T) {
 		c := &mockClient{}

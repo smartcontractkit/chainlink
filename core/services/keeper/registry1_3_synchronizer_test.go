@@ -12,19 +12,20 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	registry1_3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	registry1_3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var registryConfig1_3 = registry1_3.Config{
@@ -242,8 +243,7 @@ func Test_RegistrySynchronizer1_3_ConfigSetLog(t *testing.T) {
 		2,
 		0)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
@@ -295,8 +295,7 @@ func Test_RegistrySynchronizer1_3_KeepersUpdatedLog(t *testing.T) {
 		2,
 		0)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
@@ -347,8 +346,7 @@ func Test_RegistrySynchronizer1_3_UpkeepCanceledLog(t *testing.T) {
 		2,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { require.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
 
@@ -387,8 +385,7 @@ func Test_RegistrySynchronizer1_3_UpkeepRegisteredLog(t *testing.T) {
 		2,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
@@ -432,8 +429,7 @@ func Test_RegistrySynchronizer1_3_UpkeepPerformedLog(t *testing.T) {
 		2,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
@@ -487,8 +483,7 @@ func Test_RegistrySynchronizer1_3_UpkeepGasLimitSetLog(t *testing.T) {
 		2,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
@@ -540,8 +535,7 @@ func Test_RegistrySynchronizer1_3_UpkeepReceivedLog(t *testing.T) {
 		2,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
@@ -583,8 +577,7 @@ func Test_RegistrySynchronizer1_3_UpkeepMigratedLog(t *testing.T) {
 		2,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { require.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
 
@@ -625,8 +618,7 @@ func Test_RegistrySynchronizer1_3_UpkeepPausedLog_UpkeepUnpausedLog(t *testing.T
 		2,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { require.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
 
@@ -695,8 +687,7 @@ func Test_RegistrySynchronizer1_3_UpkeepCheckDataUpdatedLog(t *testing.T) {
 		2,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 

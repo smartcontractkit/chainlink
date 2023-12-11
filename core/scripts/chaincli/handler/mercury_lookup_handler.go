@@ -218,6 +218,7 @@ func (mlh *MercuryLookupHandler) singleFeedRequest(ctx context.Context, ch chan<
 			defer func(Body io.ReadCloser) {
 				err := Body.Close()
 				if err != nil {
+					_ = "" // placate linter
 					// mlh.logger.Errorf("Encountered error when closing the body of the response in single feed: %s", err)
 				}
 			}(resp.Body)
@@ -326,6 +327,7 @@ func (mlh *MercuryLookupHandler) multiFeedsRequest(ctx context.Context, ch chan<
 			defer func(Body io.ReadCloser) {
 				err := Body.Close()
 				if err != nil {
+					_ = "" // placate linter
 					// mlh.logger.Errorf("Encountered error when closing the body of the response in the multi feed: %s", err)
 				}
 			}(resp.Body)
