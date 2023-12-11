@@ -70,6 +70,11 @@ type TestEvmTxStore interface {
 	InsertTxAttempt(attempt *TxAttempt) error
 	LoadTxesAttempts(etxs []*Tx, qopts ...pg.QOpt) error
 	GetFatalTransactions(ctx context.Context) (txes []*Tx, err error)
+	GetAllTxes(ctx context.Context) (txes []*Tx, err error)
+	GetAllTxAttempts(ctx context.Context) (attempts []TxAttempt, err error)
+	CountTxesByStateAndSubject(ctx context.Context, state txmgrtypes.TxState, subject uuid.UUID) (count int, err error)
+	FindTxesByFromAddressAndState(ctx context.Context, fromAddress common.Address, state string) (txes []*Tx, err error)
+	UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context, id int64, blockNum uint) error
 }
 
 type evmTxStore struct {
@@ -2008,6 +2013,66 @@ func (o *evmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Co
 		return nil
 	})
 	return txes, pkgerrors.Wrap(err, "FindTxesWithAttemptsAndReceiptsByIdsAndState failed")
+}
+
+// For testing only, get all txes in the DB
+func (o *evmTxStore) GetAllTxes(ctx context.Context) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := "SELECT * FROM evm.txes"
+	err = qq.Select(&dbEtxs, sql)
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, err
+}
+
+// For testing only, get all tx attempts in the DB
+func (o *evmTxStore) GetAllTxAttempts(ctx context.Context) (attempts []TxAttempt, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbAttempts []DbEthTxAttempt
+	sql := "SELECT * FROM evm.tx_attempts"
+	err = qq.Select(&dbAttempts, sql)
+	attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
+	return attempts, err
+}
+
+func (o *evmTxStore) CountTxesByStateAndSubject(ctx context.Context, state txmgrtypes.TxState, subject uuid.UUID) (count int, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	sql := "SELECT COUNT(*) FROM evm.txes WHERE state = $1 AND subject = $2"
+	err = qq.Get(&count, sql, state, subject)
+	return count, err
+}
+
+func (o *evmTxStore) FindTxesByFromAddressAndState(ctx context.Context, fromAddress common.Address, state string) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	sql := "SELECT * FROM evm.txes WHERE from_address = $1 AND state = $2"
+	var dbEtxs []DbEthTx
+	err = qq.Select(&dbEtxs, sql, fromAddress, state)
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, err
+}
+
+func (o *evmTxStore) UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context, id int64, blockNum uint) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	sql := "UPDATE evm.tx_attempts SET broadcast_before_block_num = $1 WHERE eth_tx_id = $2"
+	_, err := qq.Exec(sql, blockNum, id)
+	return err
 }
 
 // Returns a context that contains the values of the provided context,

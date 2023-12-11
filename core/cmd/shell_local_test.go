@@ -418,7 +418,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 			assert.NoError(t, c.RebroadcastTransactions(ctx))
 
-			cltest.AssertEthTxAttemptCountStays(t, app.GetSqlxDB(), 1)
+			cltest.AssertEthTxAttemptCountStays(t, txStore, 1)
 		})
 	}
 }

@@ -403,11 +403,13 @@ func TestDelegate_InvalidLog(t *testing.T) {
 		}
 	}
 
-	// Ensure we have NOT queued up an eth transaction
-	var ethTxes []txmgr.DbEthTx
-	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM evm.txes;`)
+	db := pgtest.NewSqlxDB(t)
+	cfg := pgtest.NewQConfig(false)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+
+	txes, err := txStore.GetAllTxes(testutils.Context(t))
 	require.NoError(t, err)
-	require.Len(t, ethTxes, 0)
+	require.Len(t, txes, 0)
 }
 
 func TestFulfilledCheck(t *testing.T) {
