@@ -130,12 +130,8 @@ contract FunctionsSubscriptions_OwnerCancelSubscription is FunctionsSubscription
 contract FunctionsSubscriptions_RecoverFunds is FunctionsRouterSetup {
   event FundsRecovered(address to, uint256 amount);
 
-  function test_RecoverFunds_Success(uint64 fundsTransferred) public {
-    //amount must be less than LINK total supply
-    vm.assume(fundsTransferred < 1_000_000_000 * 1e18);
-    vm.assume(fundsTransferred > 0);
-
-    // uint256 fundsTransferred = 1 * 1e18; // 1 LINK
+  function test_RecoverFunds_Success() public {
+    uint256 fundsTransferred = 1 * 1e18; // 1 LINK
     s_linkToken.transfer(address(s_functionsRouter), fundsTransferred);
 
     // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
@@ -320,58 +316,43 @@ contract FunctionsSubscriptions_OnTokenTransfer is FunctionsClientSetup {
     s_functionsRouter.addConsumer(s_subscriptionId, address(s_functionsClient));
   }
 
-  function test_OnTokenTransfer_RevertIfPaused(uint96 fundingAmount) public {
-    // Funding amount must be less than LINK total supply
+  function test_OnTokenTransfer_RevertIfPaused() public {
+    // Funding amount must be less than or equal to LINK total supply
     uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
-    vm.assume(fundingAmount <= totalSupplyJuels);
-    vm.assume(fundingAmount >= 0);
-
     s_functionsRouter.pause();
     vm.expectRevert("Pausable: paused");
-    s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, abi.encode(s_subscriptionId));
+    s_linkToken.transferAndCall(address(s_functionsRouter), totalSupplyJuels, abi.encode(s_subscriptionId));
   }
 
-  function test_OnTokenTransfer_RevertIfCallerIsNotLink(uint96 fundingAmount) public {
-    // Funding amount must be less than LINK total supply
+  function test_OnTokenTransfer_RevertIfCallerIsNotLink() public {
+    // Funding amount must be less than or equal to LINK total supply
     uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
-    vm.assume(fundingAmount <= totalSupplyJuels);
-    vm.assume(fundingAmount >= 0);
-
     vm.expectRevert(FunctionsSubscriptions.OnlyCallableFromLink.selector);
-    s_functionsRouter.onTokenTransfer(address(s_functionsRouter), fundingAmount, abi.encode(s_subscriptionId));
+    s_functionsRouter.onTokenTransfer(address(s_functionsRouter), totalSupplyJuels, abi.encode(s_subscriptionId));
   }
 
-  function test_OnTokenTransfer_RevertIfCallerIsNoCalldata(uint96 fundingAmount) public {
-    // Funding amount must be less than LINK total supply
+  function test_OnTokenTransfer_RevertIfCallerIsNoCalldata() public {
+    // Funding amount must be less than or equal to LINK total supply
     uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
-    vm.assume(fundingAmount <= totalSupplyJuels);
-    vm.assume(fundingAmount >= 0);
-
     vm.expectRevert(FunctionsSubscriptions.InvalidCalldata.selector);
-    s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, new bytes(0));
+    s_linkToken.transferAndCall(address(s_functionsRouter), totalSupplyJuels, new bytes(0));
   }
 
-  function test_OnTokenTransfer_RevertIfCallerIsNoSubscription(uint96 fundingAmount) public {
-    // Funding amount must be less than LINK total supply
+  function test_OnTokenTransfer_RevertIfCallerIsNoSubscription() public {
+    // Funding amount must be less than or equal to LINK total supply
     uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
-    vm.assume(fundingAmount <= totalSupplyJuels);
-    vm.assume(fundingAmount >= 0);
-
     vm.expectRevert(FunctionsSubscriptions.InvalidSubscription.selector);
     uint64 invalidSubscriptionId = 123456789;
-    s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, abi.encode(invalidSubscriptionId));
+    s_linkToken.transferAndCall(address(s_functionsRouter), totalSupplyJuels, abi.encode(invalidSubscriptionId));
   }
 
   function test_OnTokenTransfer_Success(uint96 fundingAmount) public {
     // Funding amount must be less than LINK total supply
     uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
     // Some of the total supply is already in the subscription account
-    vm.assume(fundingAmount <= totalSupplyJuels);
-    vm.assume(fundingAmount >= 0);
-
-    s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, abi.encode(s_subscriptionId));
+    s_linkToken.transferAndCall(address(s_functionsRouter), totalSupplyJuels, abi.encode(s_subscriptionId));
     uint96 subscriptionBalanceAfter = s_functionsRouter.getSubscription(s_subscriptionId).balance;
-    assertEq(fundingAmount, subscriptionBalanceAfter);
+    assertEq(totalSupplyJuels, subscriptionBalanceAfter);
   }
 }
 
