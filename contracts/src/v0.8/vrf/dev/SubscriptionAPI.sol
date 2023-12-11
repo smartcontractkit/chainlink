@@ -114,6 +114,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // 6685 + // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
     // Total: 37,185 gas.
     uint32 gasAfterPaymentCalculation;
+    // Premium percentage for native payment. Value of 15 indicates 15% premium of total gas costs. 0 indicates no premium.
+    uint8 nativePremiumPercentage;
+    // Discount percentage for link payment. Cannot exceed nativePremiumPercentage value. If nativePremiumPercentage is 15 and 
+    // linkDiscountPercentage is 5, then the final premium is 10% premium of the total gas costs for link payment.
+    uint8 linkDiscountPercentage;
   }
   Config public s_config;
 

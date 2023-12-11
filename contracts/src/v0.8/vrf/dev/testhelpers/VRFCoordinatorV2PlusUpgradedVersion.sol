@@ -99,7 +99,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    FeeConfig feeConfig
+    uint8 nativePremiumPercentage,
+    uint8 linkDiscountPercentage
   );
 
   constructor(address blockhashStore) SubscriptionAPI() {
@@ -136,7 +137,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @param stalenessSeconds if the native/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @param fallbackWeiPerUnitLink fallback native/link price in the case of a stale feed
-   * @param feeConfig fee configuration
+   * @param nativePremiumPercentage native premium percentage
+   * @param linkDiscountPercentage link discount percentage
    */
   function setConfig(
     uint16 minimumRequestConfirmations,
@@ -144,7 +146,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    FeeConfig memory feeConfig
+    uint8 nativePremiumPercentage,
+    uint8 linkDiscountPercentage
   ) external onlyOwner {
     if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
       revert InvalidRequestConfirmations(
@@ -161,9 +164,10 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
-      reentrancyLock: false
+      reentrancyLock: false,
+      nativePremiumPercentage: nativePremiumPercentage,
+      linkDiscountPercentage: linkDiscountPercentage
     });
-    s_feeConfig = feeConfig;
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
     emit ConfigSet(
       minimumRequestConfirmations,
@@ -171,7 +175,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       stalenessSeconds,
       gasAfterPaymentCalculation,
       fallbackWeiPerUnitLink,
-      s_feeConfig
+      nativePremiumPercentage,
+      linkDiscountPercentage
     );
   }
 

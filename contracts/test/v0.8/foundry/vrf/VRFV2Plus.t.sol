@@ -37,9 +37,6 @@ contract VRFV2Plus is BaseTest {
   MockLinkToken s_linkToken;
   MockV3Aggregator s_linkNativeFeed;
 
-  VRFCoordinatorV2_5.FeeConfig basicFeeConfig =
-    VRFCoordinatorV2_5.FeeConfig({fulfillmentFlatFeeLinkPPM: 0, fulfillmentFlatFeeNativePPM: 0});
-
   // VRF KeyV2 generated from a node; not sensitive information.
   // The secret key used to generate this key is: 10.
   bytes vrfUncompressedPublicKey =
@@ -88,31 +85,32 @@ contract VRFV2Plus is BaseTest {
     s_testCoordinator.setLINKAndLINKNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
   }
 
-  function setConfig(VRFCoordinatorV2_5.FeeConfig memory feeConfig) internal {
+  function setConfig() internal {
     s_testCoordinator.setConfig(
       0, // minRequestConfirmations
       2_500_000, // maxGasLimit
       1, // stalenessSeconds
       50_000, // gasAfterPaymentCalculation
       50000000000000000, // fallbackWeiPerUnitLink
-      feeConfig
+      15, // nativePremiumPercentage
+      5 // linkDiscountPercentage
     );
   }
 
   function testSetConfig() public {
     // Should setConfig successfully.
-    setConfig(basicFeeConfig);
+    setConfig();
     (uint16 minConfs, uint32 gasLimit, ) = s_testCoordinator.getRequestConfig();
     assertEq(minConfs, 0);
     assertEq(gasLimit, 2_500_000);
 
     // Test that setting requestConfirmations above MAX_REQUEST_CONFIRMATIONS reverts.
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidRequestConfirmations.selector, 500, 500, 200));
-    s_testCoordinator.setConfig(500, 2_500_000, 1, 50_000, 50000000000000000, basicFeeConfig);
+    s_testCoordinator.setConfig(500, 2_500_000, 1, 50_000, 50000000000000000, 15, 5);
 
     // Test that setting fallbackWeiPerUnitLink to zero reverts.
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidLinkWeiPrice.selector, 0));
-    s_testCoordinator.setConfig(0, 2_500_000, 1, 50_000, 0, basicFeeConfig);
+    s_testCoordinator.setConfig(0, 2_500_000, 1, 50_000, 0, 15, 5);
   }
 
   function testRegisterProvingKey() public {
@@ -247,7 +245,7 @@ contract VRFV2Plus is BaseTest {
     s_testCoordinator.fundSubscriptionWithNative{value: 10 ether}(subId);
 
     // Apply basic configs to contract.
-    setConfig(basicFeeConfig);
+    setConfig();
     registerProvingKey();
 
     // Request random words.
@@ -341,19 +339,19 @@ contract VRFV2Plus is BaseTest {
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 100_000 gas.
+    // The cost of fulfillRandomWords is approximately 70_000 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())
-    // baseFeeWei = 1 * (50_000 + 100_000)
-    // baseFeeWei = 150_000
+    // baseFeeWei = 1 * (50_000 + 70_000)
+    // baseFeeWei = 120_000
     // ...
-    // billed_fee = baseFeeWei + flatFeeWei + l1CostWei
-    // billed_fee = baseFeeWei + 0 + 0
-    // billed_fee = 150_000
+    // billed_fee = baseFeeWei * (100 + linkPremiumPercentage / 100) 
+    // billed_fee = baseFeeWei * 1.15
+    // billed_fee = 138_000
     (, uint96 nativeBalanceAfter, , , ) = s_testCoordinator.getSubscription(subId);
-    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 120_000, 10_000);
+    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 138_000, 10_000);
   }
 
   function testRequestAndFulfillRandomWordsLINK() public {
@@ -364,7 +362,7 @@ contract VRFV2Plus is BaseTest {
     uint256 subId = s_testConsumer.s_subId();
 
     // Apply basic configs to contract.
-    setConfig(basicFeeConfig);
+    setConfig();
     registerProvingKey();
 
     // Request random words.
@@ -458,19 +456,19 @@ contract VRFV2Plus is BaseTest {
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 90_000 gas.
+    // The cost of fulfillRandomWords is approximately 96_000 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // paymentNoFee = (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft() + l1CostWei) / link_native_ratio)
-    // paymentNoFee = (1 * (50_000 + 90_000 + 0)) / .5
-    // paymentNoFee = 280_000
+    // paymentNoFee = (1 * (50_000 + 96_000 + 0)) / .5
+    // paymentNoFee = 292_000
     // ...
-    // billed_fee = paymentNoFee + fulfillmentFlatFeeLinkPPM
-    // billed_fee = baseFeeWei + 0
-    // billed_fee = 280_000
+    // billed_fee = paymentNoFee * ((100 + nativePremiumPercentage - linkDiscountPercent) / 100)
+    // billed_fee = paymentNoFee * 1.1
+    // billed_fee = 321_200
     // note: delta is doubled from the native test to account for more variance due to the link/native ratio
     (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
-    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 280_000, 20_000);
+    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 321_200, 10_000);
   }
 }
