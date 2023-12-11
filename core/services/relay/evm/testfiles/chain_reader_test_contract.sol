@@ -76,6 +76,11 @@ contract LatestValueHolder {
         return 3;
     }
 
+    function GetDifferentPrimitiveValue() public pure returns (uint64) {
+        // See chain_reader_interface_tests.go in chainlink-relay
+        return 1990;
+    }
+
     function GetSliceValue() public view returns (uint64[] memory) {
         return arr;
     }

@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
@@ -35,8 +36,6 @@ import (
 )
 
 const commonGasLimitOnEvms = uint64(4712388)
-const chainReaderContractName = "LatestValueHolder"
-const returnSeenName = "ReturnSeen"
 
 func TestChainReader(t *testing.T) {
 	RunChainReaderInterfaceTests(t, &chainReaderInterfaceTester{})
@@ -45,6 +44,7 @@ func TestChainReader(t *testing.T) {
 type chainReaderInterfaceTester struct {
 	chain       *mocks.Chain
 	address     string
+	address2    string
 	chainConfig types.ChainReaderConfig
 	auth        *bind.TransactOpts
 	sim         *backends.SimulatedBackend
@@ -55,14 +55,15 @@ type chainReaderInterfaceTester struct {
 
 func (it *chainReaderInterfaceTester) Setup(ctx context.Context, t *testing.T) {
 	t.Cleanup(func() {
-		it.address = ""
-		require.NoError(t, it.cr.Close())
+		// DB may be closed by the test already, ignore errors
+		_ = it.cr.Close()
 		it.cr = nil
+		it.evmTest = nil
 	})
 
 	// can re-use the same chain for tests, just make new contract for each test
 	if it.chain != nil {
-		it.deployNewContract(ctx, t)
+		it.deployNewContracts(t)
 		return
 	}
 
@@ -73,7 +74,7 @@ func (it *chainReaderInterfaceTester) Setup(ctx context.Context, t *testing.T) {
 
 	it.chainConfig = types.ChainReaderConfig{
 		ChainContractReaders: map[string]types.ChainContractReader{
-			chainReaderContractName: {
+			AnyContractName: {
 				ContractABI: testfiles.TestfilesMetaData.ABI,
 				ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: {
@@ -81,6 +82,9 @@ func (it *chainReaderInterfaceTester) Setup(ctx context.Context, t *testing.T) {
 					},
 					MethodReturningUint64: {
 						ChainSpecificName: "GetPrimitiveValue",
+					},
+					DifferentMethodReturningUint64: {
+						ChainSpecificName: "GetDifferentPrimitiveValue",
 					},
 					MethodReturningUint64Slice: {
 						ChainSpecificName: "GetSliceValue",
@@ -90,7 +94,7 @@ func (it *chainReaderInterfaceTester) Setup(ctx context.Context, t *testing.T) {
 						ReadType:          types.Event,
 					},
 					MethodReturningSeenStruct: {
-						ChainSpecificName: returnSeenName,
+						ChainSpecificName: "ReturnSeen",
 						InputModifications: codec.ModifiersConfig{
 							&codec.HardCodeConfig{
 								OnChainValues: map[string]any{
@@ -106,10 +110,18 @@ func (it *chainReaderInterfaceTester) Setup(ctx context.Context, t *testing.T) {
 					},
 				},
 			},
+			AnySecondContractName: {
+				ContractABI: testfiles.TestfilesMetaData.ABI,
+				ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
+					MethodReturningUint64: {
+						ChainSpecificName: "GetDifferentPrimitiveValue",
+					},
+				},
+			},
 		},
 	}
 	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
-	it.deployNewContract(ctx, t)
+	it.deployNewContracts(t)
 }
 
 func (it *chainReaderInterfaceTester) Name() string {
@@ -129,63 +141,63 @@ func (it *chainReaderInterfaceTester) GetChainReader(ctx context.Context, t *tes
 	}
 
 	addr := common.HexToAddress(it.address)
+	addr2 := common.HexToAddress(it.address2)
 	lggr := logger.NullLogger
 	db := pgtest.NewSqlxDB(t)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), it.chain.Client(), lggr, time.Millisecond, false, 0, 1, 1, 10000)
 	require.NoError(t, lp.Start(ctx))
 	it.chain.On("LogPoller").Return(lp)
-	cr, err := evm.NewChainReaderService(lggr, lp, addr, it.chain, it.chainConfig)
+	b := evm.Bindings{
+		AnyContractName: {
+			MethodTakingLatestParamsReturningTestStruct: evm.NewAddrEvtFromAddress(addr),
+			MethodReturningUint64:                       evm.NewAddrEvtFromAddress(addr),
+			DifferentMethodReturningUint64:              evm.NewAddrEvtFromAddress(addr2),
+			MethodReturningUint64Slice:                  evm.NewAddrEvtFromAddress(addr),
+			EventName:                                   evm.NewAddrEvtFromAddress(addr),
+			MethodReturningSeenStruct:                   evm.NewAddrEvtFromAddress(addr),
+		},
+		AnySecondContractName: {
+			MethodReturningUint64: evm.NewAddrEvtFromAddress(addr2),
+		},
+	}
+	cr, err := evm.NewChainReaderService(lggr, lp, b, it.chain, it.chainConfig)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr
 	return cr
 }
 
-func (it *chainReaderInterfaceTester) GetPrimitiveContract(_ context.Context, t *testing.T) clcommontypes.BoundContract {
-	return clcommontypes.BoundContract{
-		Address: it.address,
-		Name:    MethodReturningUint64,
-	}
+func (it *chainReaderInterfaceTester) GetPrimitiveContract(_ *testing.T) string {
+	return it.address
 }
 
-func (it *chainReaderInterfaceTester) GetReturnSeenContract(ctx context.Context, t *testing.T) clcommontypes.BoundContract {
-	it.deployNewContract(ctx, t)
-	return clcommontypes.BoundContract{
-		Address: it.address,
-		Name:    returnSeenName,
-	}
-}
-func (it *chainReaderInterfaceTester) GetSliceContract(ctx context.Context, t *testing.T) clcommontypes.BoundContract {
-	// Since most tests don't use the contract, it's set up lazily to save time
-	it.deployNewContract(ctx, t)
-	return clcommontypes.BoundContract{
-		Address: it.address,
-		Name:    MethodReturningUint64Slice,
-	}
+func (it *chainReaderInterfaceTester) GetDifferentPrimitiveContract(_ *testing.T) string {
+	// Using the same address for a different contract name proves that we can map different logical contracts to the same contract if needed.
+	// Although it's unlikely that the same type name in a different contract name would have a different meaning, it's possible.
+	// Mapping it to a different function on the same contract address proves the most flexibility.
+	return it.address2
 }
 
-func (it *chainReaderInterfaceTester) SetLatestValue(ctx context.Context, t *testing.T, testStruct *TestStruct) clcommontypes.BoundContract {
-	it.sendTxWithTestStruct(ctx, t, testStruct, (*testfiles.TestfilesTransactor).AddTestStruct)
-	return clcommontypes.BoundContract{
-		Address: it.address,
-		Name:    MethodTakingLatestParamsReturningTestStruct,
-	}
+func (it *chainReaderInterfaceTester) GetReturnSeenContract(_ *testing.T) string {
+	return it.address
+}
+func (it *chainReaderInterfaceTester) GetSliceContract(_ *testing.T) string {
+	return it.address
 }
 
-func (it *chainReaderInterfaceTester) TriggerEvent(ctx context.Context, t *testing.T, testStruct *TestStruct) clcommontypes.BoundContract {
-	it.sendTxWithTestStruct(ctx, t, testStruct, (*testfiles.TestfilesTransactor).TriggerEvent)
-	return clcommontypes.BoundContract{
-		Address: it.address,
-		Name:    EventName,
-	}
+func (it *chainReaderInterfaceTester) SetLatestValue(t *testing.T, testStruct *TestStruct) string {
+	it.sendTxWithTestStruct(t, testStruct, (*testfiles.TestfilesTransactor).AddTestStruct)
+	return it.address
+}
+
+func (it *chainReaderInterfaceTester) TriggerEvent(t *testing.T, testStruct *TestStruct) string {
+	it.sendTxWithTestStruct(t, testStruct, (*testfiles.TestfilesTransactor).TriggerEvent)
+	return it.address
 }
 
 type testStructFn = func(*testfiles.TestfilesTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, [32]byte, [][32]byte, *big.Int, testfiles.MidLevelTestStruct) (*evmtypes.Transaction, error)
 
-func (it *chainReaderInterfaceTester) sendTxWithTestStruct(ctx context.Context, t *testing.T, testStruct *TestStruct, fn testStructFn) {
-	// Since most tests don't use the contract, it's set up lazily to save time
-	it.deployNewContract(ctx, t)
-
+func (it *chainReaderInterfaceTester) sendTxWithTestStruct(t *testing.T, testStruct *TestStruct, fn testStructFn) {
 	tx, err := fn(
 		&it.evmTest.TestfilesTransactor,
 		it.auth,
@@ -232,26 +244,31 @@ func (it *chainReaderInterfaceTester) setupChainNoClient(t require.TestingT) {
 	it.sim.Commit()
 }
 
-func (it *chainReaderInterfaceTester) deployNewContract(ctx context.Context, t *testing.T) {
-	if it.address != "" {
-		return
-	}
+func (it *chainReaderInterfaceTester) deployNewContracts(t *testing.T) {
+	it.address = it.deployNewContract(t)
+	it.address2 = it.deployNewContract(t)
+}
+
+func (it *chainReaderInterfaceTester) deployNewContract(t *testing.T) string {
+	ctx := testutils.Context(t)
 	gasPrice, err := it.sim.SuggestGasPrice(ctx)
 	require.NoError(t, err)
 	it.auth.GasPrice = gasPrice
 
 	// 105528 was in the error: gas too low: have 0, want 105528
 	// Not sure if there's a better way to get it.
-	it.auth.GasLimit = 1055280000
+	it.auth.GasLimit = 10552800
 
 	address, tx, ts, err := testfiles.DeployTestfiles(it.auth, it.sim)
 
 	require.NoError(t, err)
 	it.sim.Commit()
-	it.evmTest = ts
+	if it.evmTest == nil {
+		it.evmTest = ts
+	}
 	it.incNonce()
-	it.awaitTx(ctx, t, tx)
-	it.address = address.String()
+	it.awaitTx(t, tx)
+	return address.String()
 }
 
 func (it *chainReaderInterfaceTester) awaitTx(ctx context.Context, t *testing.T, tx *evmtypes.Transaction) {

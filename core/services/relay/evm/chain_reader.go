@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -28,48 +27,51 @@ type ChainReaderService interface {
 }
 
 type chainReader struct {
-	lggr       logger.Logger
-	lp         logpoller.LogPoller
-	codec      commontypes.RemoteCodec
-	client     evmclient.Client
-	contractID common.Address
-	events     map[string]common.Hash
+	lggr     logger.Logger
+	lp       logpoller.LogPoller
+	codec    commontypes.RemoteCodec
+	client   evmclient.Client
+	bindings Bindings
 	commonservices.StateMachine
 }
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
-func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, contractID common.Address, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
+func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, b Bindings, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
 	parsed := &parsedTypes{
 		encoderDefs: map[string]*codecEntry{},
 		decoderDefs: map[string]*codecEntry{},
 	}
 
-	events, err := addTypes(config.ChainContractReaders, parsed)
-	if err != nil {
+	if err := addTypes(config.ChainContractReaders, b, parsed); err != nil {
 		return nil, err
 	}
 
 	c, err := parsed.toCodec()
 
 	return &chainReader{
-		lggr:       lggr.Named("ChainReader"),
-		lp:         lp,
-		codec:      c,
-		client:     chain.Client(),
-		contractID: contractID,
-		events:     events,
+		lggr:     lggr.Named("ChainReader"),
+		lp:       lp,
+		codec:    c,
+		client:   chain.Client(),
+		bindings: b,
 	}, err
 }
 
 func (cr *chainReader) Name() string { return cr.lggr.Name() }
 
-var _ commontypes.TypeProvider = &chainReader{}
+var _ commontypes.ContractTypeProvider = &chainReader{}
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, bc commontypes.BoundContract, method string, params any, returnVal any) error {
-	if hash, ok := cr.events[method]; ok {
-		return cr.getLatestValueFromLogPoller(ctx, bc, method, hash, returnVal)
+	b, err := cr.bindings.getBinding(bc.Name, method)
+	if err != nil {
+		return err
 	}
-	return cr.getLatestValueFromContract(ctx, bc, method, params, returnVal)
+
+	if b.evt == nil {
+		return cr.getLatestValueFromContract(ctx, bc, method, params, returnVal)
+	}
+
+	return cr.getLatestValueFromLogPoller(ctx, bc, method, *b.evt, returnVal)
 }
 
 func (cr *chainReader) getLatestValueFromLogPoller(ctx context.Context, bc commontypes.BoundContract, method string, hash common.Hash, returnVal any) error {
@@ -81,11 +83,11 @@ func (cr *chainReader) getLatestValueFromLogPoller(ctx context.Context, bc commo
 		}
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
-	return cr.codec.Decode(ctx, log.Data, returnVal, wrapItemType(method, false))
+	return cr.codec.Decode(ctx, log.Data, returnVal, wrapItemType(bc.Name, method, false))
 }
 
 func (cr *chainReader) getLatestValueFromContract(ctx context.Context, bc commontypes.BoundContract, method string, params any, returnVal any) error {
-	data, err := cr.codec.Encode(ctx, params, wrapItemType(method, true))
+	data, err := cr.codec.Encode(ctx, params, wrapItemType(bc.Name, method, true))
 	if err != nil {
 		return err
 	}
@@ -103,25 +105,40 @@ func (cr *chainReader) getLatestValueFromContract(ctx context.Context, bc common
 		return err
 	}
 
-	return cr.codec.Decode(ctx, output, returnVal, wrapItemType(method, false))
+	return cr.codec.Decode(ctx, output, returnVal, wrapItemType(bc.Name, method, false))
 }
 
 func (cr *chainReader) Start(_ context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
-		for name, eventId := range cr.events {
-			if err := cr.lp.RegisterFilter(logpoller.Filter{
-				Name:      name,
-				EventSigs: evmtypes.HashArray{eventId},
-				Addresses: evmtypes.AddressArray{cr.contractID},
-			}); err != nil {
-				return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+		for contractName, contractEvents := range cr.bindings {
+			for eventName, b := range contractEvents {
+				if b.evt == nil {
+					continue
+				}
+
+				if err := cr.lp.RegisterFilter(logpoller.Filter{
+					Name:      wrapItemType(contractName, eventName, false),
+					EventSigs: evmtypes.HashArray{*b.evt},
+					Addresses: evmtypes.AddressArray{b.addr},
+				}); err != nil {
+					return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+				}
 			}
 		}
 		return nil
 	})
 }
 func (cr *chainReader) Close() error {
-	return nil
+	return cr.StopOnce("ChainReader", func() error {
+		for contractName, contractEvents := range cr.bindings {
+			for eventName := range contractEvents {
+				if err := cr.lp.UnregisterFilter(wrapItemType(contractName, eventName, false)); err != nil {
+					return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func (cr *chainReader) Ready() error { return nil }
@@ -129,33 +146,38 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
-func (cr *chainReader) CreateType(itemType string, forEncoding bool) (any, error) {
-	return cr.codec.CreateType(wrapItemType(itemType, forEncoding), forEncoding)
+func (cr *chainReader) CreateContractType(contractName, methodName string, forEncoding bool) (any, error) {
+	return cr.codec.CreateType(wrapItemType(contractName, methodName, forEncoding), forEncoding)
 }
 
-func addEventTypes(name string, contractABI abi.ABI, chainReaderDefinition types.ChainReaderDefinition, parsed *parsedTypes) (common.Hash, error) {
+func addEventTypes(contractName, methodName string, b Bindings, contractABI abi.ABI, chainReaderDefinition types.ChainReaderDefinition, parsed *parsedTypes) error {
 	event, methodExists := contractABI.Events[chainReaderDefinition.ChainSpecificName]
 	if !methodExists {
-		return common.Hash{}, fmt.Errorf("method: %s doesn't exist", chainReaderDefinition.ChainSpecificName)
+		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	return event.ID, addDecoderDef(name, event.Inputs, parsed, chainReaderDefinition)
+	if err := b.addEvent(contractName, methodName, event.ID); err != nil {
+		return err
+	}
+
+	return addDecoderDef(contractName, methodName, event.Inputs, parsed, chainReaderDefinition)
 }
 
-func addMethods(name string, abi abi.ABI, chainReaderDefinition types.ChainReaderDefinition, parsed *parsedTypes) error {
+func addMethods(
+	contractName, methodName string, abi abi.ABI, chainReaderDefinition types.ChainReaderDefinition, parsed *parsedTypes) error {
 	method, methodExists := abi.Methods[chainReaderDefinition.ChainSpecificName]
 	if !methodExists {
 		return fmt.Errorf("method: %q doesn't exist", chainReaderDefinition.ChainSpecificName)
 	}
 
-	if err := addEncoderDef(name, method, parsed, chainReaderDefinition); err != nil {
+	if err := addEncoderDef(contractName, methodName, method, parsed, chainReaderDefinition); err != nil {
 		return err
 	}
 
-	return addDecoderDef(name, method.Outputs, parsed, chainReaderDefinition)
+	return addDecoderDef(contractName, methodName, method.Outputs, parsed, chainReaderDefinition)
 }
 
-func addEncoderDef(name string, method abi.Method, parsed *parsedTypes, chainReaderDefinition types.ChainReaderDefinition) error {
+func addEncoderDef(contractName, methodName string, method abi.Method, parsed *parsedTypes, chainReaderDefinition types.ChainReaderDefinition) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
 	input := &codecEntry{Args: method.Inputs, encodingPrefix: method.ID}
 
@@ -168,53 +190,53 @@ func addEncoderDef(name string, method abi.Method, parsed *parsedTypes, chainRea
 		return err
 	}
 	input.mod = inputMod
-	parsed.encoderDefs[wrapItemType(name, true)] = input
+	parsed.encoderDefs[wrapItemType(contractName, methodName, true)] = input
 	return nil
 }
 
-func addDecoderDef(name string, outputs abi.Arguments, parsed *parsedTypes, def types.ChainReaderDefinition) error {
+func addDecoderDef(contractName, methodName string, outputs abi.Arguments, parsed *parsedTypes, def types.ChainReaderDefinition) error {
 	output := &codecEntry{Args: outputs}
 	mod, err := def.OutputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err
 	}
 	output.mod = mod
-	parsed.decoderDefs[wrapItemType(name, false)] = output
+	parsed.decoderDefs[wrapItemType(contractName, methodName, false)] = output
 	return output.Init()
 }
 
-func addTypes(chainContractReaders map[string]types.ChainContractReader, parsed *parsedTypes) (map[string]common.Hash, error) {
-	events := map[string]common.Hash{}
+func addTypes(chainContractReaders map[string]types.ChainContractReader, b Bindings, parsed *parsedTypes) error {
 	for contractName, chainContractReader := range chainContractReaders {
 		contractAbi, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		for chainReadingDefinitionName, chainReaderDefinition := range chainContractReader.ChainReaderDefinitions {
+		for typeName, chainReaderDefinition := range chainContractReader.ChainReaderDefinitions {
 			switch chainReaderDefinition.ReadType {
 			case types.Method:
-				err = addMethods(chainReadingDefinitionName, contractAbi, chainReaderDefinition, parsed)
+				err = addMethods(contractName, typeName, contractAbi, chainReaderDefinition, parsed)
 			case types.Event:
-				var hash common.Hash
-				hash, err = addEventTypes(chainReadingDefinitionName, contractAbi, chainReaderDefinition, parsed)
-				events[chainReadingDefinitionName] = hash
+				err = addEventTypes(contractName, typeName, b, contractAbi, chainReaderDefinition, parsed)
 			default:
-				return nil, fmt.Errorf("invalid chain reader definition read type: %d", chainReaderDefinition.ReadType)
+				return fmt.Errorf(
+					"%w: invalid chain reader definition read type: %d",
+					commontypes.ErrInvalidConfig,
+					chainReaderDefinition.ReadType)
 			}
 
 			if err != nil {
-				return nil, errors.Wrap(err, fmt.Sprintf("invalid chain reader config for contract: %q chain reading definition: %q", contractName, chainReadingDefinitionName))
+				return err
 			}
 		}
 	}
 
-	return events, nil
+	return nil
 }
 
-func wrapItemType(itemType string, isParams bool) string {
+func wrapItemType(contractName, methodName string, isParams bool) string {
 	if isParams {
-		return fmt.Sprintf("params.%s", itemType)
+		return fmt.Sprintf("params.%s.%s", contractName, methodName)
 	}
-	return fmt.Sprintf("return.%s", itemType)
+	return fmt.Sprintf("return.%s.%s", contractName, methodName)
 }
