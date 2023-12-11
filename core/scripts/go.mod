@@ -238,7 +238,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231211141118-8632187920b3 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231208233406-1b3044c429f0 // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231211143247-06712ca080ba // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20231127231053-2232d3a6766d // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231208233436-cedaf9bd45f0 // indirect
