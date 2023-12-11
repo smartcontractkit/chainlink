@@ -241,7 +241,7 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231211143247-06712ca080ba // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20231127231053-2232d3a6766d // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231208233436-cedaf9bd45f0 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231211143359-6250e9681a4b // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231211143131-c94c034f314e // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 // indirect
