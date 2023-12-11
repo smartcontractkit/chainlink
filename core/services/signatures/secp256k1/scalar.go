@@ -19,7 +19,7 @@ import (
 	"io"
 	"math/big"
 
-	secp256k1BTCD "github.com/btcsuite/btcd/btcec"
+	secp256k1BTCD "github.com/btcsuite/btcd/btcec/v2"
 	"github.com/ethereum/go-ethereum/common"
 
 	"go.dedis.ch/kyber/v3"

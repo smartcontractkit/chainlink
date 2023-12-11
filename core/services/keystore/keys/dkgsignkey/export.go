@@ -31,12 +31,12 @@ func (key Key) ToEncryptedJSON(password string, scryptParams utils.ScryptParams)
 		password,
 		scryptParams,
 		adulteratedPassword,
-		func(id string, key Key, cryptoJSON keystore.CryptoJSON) (keys.EncryptedKeyExport, error) {
+		func(id string, key Key, cryptoJSON keystore.CryptoJSON) keys.EncryptedKeyExport {
 			return keys.EncryptedKeyExport{
 				KeyType:   id,
 				PublicKey: key.PublicKeyString(),
 				Crypto:    cryptoJSON,
-			}, nil
+			}
 		},
 	)
 }
