@@ -112,7 +112,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.35.4
+	go install github.com/vektra/mockery/v2@v2.38.0
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -146,6 +146,10 @@ goreleaser-dev-build: ## Run goreleaser snapshot build
 .PHONY: goreleaser-dev-release
 goreleaser-dev-release: ## run goreleaser snapshot release
 	./tools/bin/goreleaser_wrapper release --snapshot --rm-dist --config ${GORELEASER_CONFIG}
+
+.PHONY: modgraph
+modgraph:
+	./tools/bin/modgraph > go.md
 
 help:
 	@echo ""

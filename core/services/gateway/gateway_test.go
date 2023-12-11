@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
@@ -130,8 +131,7 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, lggr), lggr)
 	require.NoError(t, err)
-	require.NoError(t, gateway.Start(testutils.Context(t)))
-	require.NoError(t, gateway.Close())
+	servicetest.Run(t, gateway)
 }
 
 func requireJsonRPCResult(t *testing.T, response []byte, expectedId string, expectedResult string) {

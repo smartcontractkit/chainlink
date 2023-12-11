@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
@@ -40,8 +41,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		})
 
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client)
-		require.NoError(t, o.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, o.Close()) })
+		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(42), gasPrice)
@@ -57,8 +57,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			(*big.Int)(res).SetInt64(42)
 		})
 
-		require.NoError(t, o.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, o.Close()) })
+		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, assets.NewWeiI(40))
 		require.Error(t, err)
 		assert.EqualError(t, err, "estimated gas price: 42 wei is greater than the maximum gas price configured: 40 wei")
@@ -75,8 +74,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			(*big.Int)(res).SetInt64(120)
 		})
 
-		require.NoError(t, o.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, o.Close()) })
+		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, assets.NewWeiI(110))
 		assert.EqualError(t, err, "estimated gas price: 120 wei is greater than the maximum gas price configured: 110 wei")
 		assert.Nil(t, gasPrice)
@@ -96,8 +94,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
 
-		require.NoError(t, o.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, o.Close()) })
+		servicetest.RunHealthy(t, o)
 
 		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "failed to estimate gas; gas price not set")

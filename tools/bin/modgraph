@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+# Generates go.md
+
+set -e
+
+echo "# smartcontractkit Go modules
+\`\`\`mermaid
+flowchart LR
+  subgraph chains
+    chainlink-cosmos
+    chainlink-evm
+    chainlink-solana
+    chainlink-starknet/relayer
+  end
+
+  subgraph products
+    chainlink-automation
+    chainlink-ccip
+    chainlink-data-streams
+    chainlink-feeds
+    chainlink-functions
+    chainlink-vrf
+  end
+
+  classDef outline stroke-dasharray:6,fill:none;
+  class chains,products outline
+"
+go mod graph | \
+  # org only
+  grep smartcontractkit.*smartcontractkit | \
+  # drop prefix
+  sed s/"github\.com\/smartcontractkit\/"/""/g | \
+  # insert edges
+  sed s/" "/" --> "/ | \
+  # drop versions
+  sed s/"@[^ ]*"/""/g | \
+  # insert links
+  sed s/"\([^ ]*\)$"/"\1\nclick \1 href \"https:\/\/github.com\/smartcontractkit\/\1\""/ | \
+  # truncate links to repo
+  sed s/"\"https:\/\/github.com\/smartcontractkit\/\([^\"\/]*\)\/.*\""/"\"https:\/\/github.com\/smartcontractkit\/\1\""/ | \
+  # dedupe lines
+  awk '!x[$0]++' | \
+  # indent
+  sed 's/^/  /'
+echo "\`\`\`"
