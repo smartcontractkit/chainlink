@@ -16,12 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type ChainID = string
-
 type Configs interface {
-	Chains(ids ...ChainID) ([]types.ChainStatus, int, error)
+	Chains(ids ...string) ([]types.ChainStatus, int, error)
 	Node(name string) (Node, error)
-	Nodes(chainID ChainID) (nodes []Node, err error)
+	Nodes(chainID string) (nodes []Node, err error)
 	NodeStatus(name string) (types.NodeStatus, error)
 }
 
