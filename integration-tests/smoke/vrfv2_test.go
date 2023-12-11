@@ -37,6 +37,7 @@ func TestVRFv2Basic(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err, "error creating test env")
 
@@ -128,6 +129,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err, "error creating test env")
 
