@@ -3,14 +3,15 @@ package ccip
 import (
 	"context"
 	"encoding/json"
+	"math/big"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
@@ -104,15 +106,15 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 		"sourceNative", sourceNative,
 		"sourceRouter", sourceRouter.Address())
 	return &CommitPluginStaticConfig{
-			lggr:                commitLggr,
-			destLP:              destChain.LogPoller(),
-			onRampReader:        onRampReader,
-			offRamp:             offRampReader,
-			priceGetter:         pipelinePriceGetter,
-			sourceNative:        sourceNative,
-			sourceChainSelector: staticConfig.SourceChainSelector,
-			destClient:          destChain.Client(),
-			commitStore:         commitStoreReader,
+			lggr:                  commitLggr,
+			onRampReader:          onRampReader,
+			offRamp:               offRampReader,
+			priceGetter:           pipelinePriceGetter,
+			sourceNative:          sourceNative,
+			sourceChainSelector:   staticConfig.SourceChainSelector,
+			destChainSelector:     staticConfig.ChainSelector,
+			commitStore:           commitStoreReader,
+			priceRegistryProvider: ccipdataprovider.NewEvmPriceRegistry(destChain.LogPoller(), destChain.Client(), commitLggr, CommitPluginLabel),
 		}, &BackfillArgs{
 			sourceLP:         sourceChain.LogPoller(),
 			destLP:           destChain.LogPoller(),
@@ -140,7 +142,11 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainC
 		return nil, err1
 	}
 
-	argsNoPlugin.ReportingPluginFactory = promwrapper.NewPromFactory(wrappedPluginFactory, "CCIPCommit", jb.OCR2OracleSpec.Relay, pluginConfig.destChainEVMID)
+	destChainID, err := chainselectors.ChainIdFromSelector(pluginConfig.destChainSelector)
+	if err != nil {
+		return nil, err
+	}
+	argsNoPlugin.ReportingPluginFactory = promwrapper.NewPromFactory(wrappedPluginFactory, "CCIPCommit", jb.OCR2OracleSpec.Relay, big.NewInt(0).SetUint64(destChainID))
 	argsNoPlugin.Logger = relaylogger.NewOCRWrapper(pluginConfig.lggr, true, logError)
 	oracle, err := libocr2.NewOracle(argsNoPlugin)
 	if err != nil {
