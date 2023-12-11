@@ -105,10 +105,6 @@ type StreamsLookup struct {
 	Block    uint64
 }
 
-func (l *StreamsLookup) IsMercuryVersionUnkown() bool {
-	return l.FeedParamKey != FeedIDs
-}
-
 func (l *StreamsLookup) IsMercuryV02() bool {
 	return l.FeedParamKey == FeedIdHex && l.TimeParamKey == BlockNumber
 }
@@ -117,6 +113,6 @@ func (l *StreamsLookup) IsMercuryV03() bool {
 	return l.FeedParamKey == FeedIDs
 }
 
-func (l *StreamsLookup) IsMercuryUsingBatchPathV03() bool {
+func (l *StreamsLookup) IsMercuryV03UsingBlockNumber() bool {
 	return l.TimeParamKey == BlockNumber
 }
