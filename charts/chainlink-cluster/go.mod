@@ -170,10 +170,6 @@ require (
 )
 
 replace (
-	// Fixes go mod tidy issue for ambiguous imports from go-ethereum
-	// See https://github.com/ugorji/go/issues/279
-	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
-
 	github.com/go-kit/log => github.com/go-kit/log v0.2.1
 
 	// replicating the replace directive on cosmos SDK
