@@ -86,7 +86,7 @@ func NewAddressState[
 		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
 	as.inprogress = tx
-	if tx.IdempotencyKey != nil {
+	if tx != nil && tx.IdempotencyKey != nil {
 		as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
 	}
 
