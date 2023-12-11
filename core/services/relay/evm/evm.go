@@ -372,12 +372,11 @@ func newConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.Re
 }
 
 type configTransmitterOpts struct {
-	configWatcher *configWatcher
 	// override the gas limit default provided in the config watcher
 	pluginGasLimit *uint32
 }
 
-func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, opts configTransmitterOpts) (*contractTransmitter, error) {
+func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -393,8 +392,6 @@ func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, tra
 	if sendingKeysLength == 0 {
 		return nil, pkgerrors.New("no sending keys provided")
 	}
-
-	configWatcher := opts.configWatcher
 
 	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
 	// Ensure that this forwarder is not set to a local sending key, and ensure our sending keys are enabled.
@@ -473,7 +470,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 
 	reportCodec := evmreportcodec.ReportCodec{}
-	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configTransmitterOpts{configWatcher: configWatcher})
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{})
 	if err != nil {
 		return nil, err
 	}
