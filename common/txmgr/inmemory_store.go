@@ -24,35 +24,6 @@ var (
 	ErrSequenceNotFound = fmt.Errorf("sequence not found")
 )
 
-// Store and update all transaction state as files
-// Read from the files to restore state at startup
-// Delete files when transactions are completed or reaped
-
-// Life of a Transaction
-// 1. Transaction Request is created
-// 2. Transaction Request is submitted to the Transaction Manager
-// 3. Transaction Manager creates and persists a new transaction (unstarted) from the transaction request (not persisted)
-// 4. Transaction Manager sends the transaction (unstarted) to the Broadcaster Unstarted Queue
-// 4. Transaction Manager prunes the Unstarted Queue based on the transaction prune strategy
-
-// NOTE(jtw): Only one transaction per address can be in_progress at a time
-// NOTE(jtw): Only one transaction attempt per transaction can be in_progress at a time
-// NOTE(jtw): Only one broadcasted attempt exists per transaction the rest are errored or abandoned
-// 1. Broadcaster assigns a sequence number to the transaction
-// 2. Broadcaster creates and persists a new transaction attempt (in_progress) from the transaction (in_progress)
-// 3. Broadcaster asks the Checker to check if the transaction should not be sent
-// 4. Broadcaster asks the Attempt builder to figure out gas fee for the transaction
-// 5. Broadcaster attempts to send the Transaction to TransactionClient to be published on-chain
-// 6. Broadcaster updates the transaction attempt (broadcast) and transaction (unconfirmed)
-// 7. Broadcaster increments global sequence number for address for next transaction attempt
-
-// NOTE(jtw): Only one receipt should exist per confirmed transaction
-// 1. Confirmer listens and reads new Head events from the Chain
-// 2. Confirmer sets the last known block number for the transaction attempts that have been broadcast
-// 3. Confirmer checks for missing receipts for transactions that have been broadcast
-// 4. Confirmer sets transactions that have failed to (unconfirmed) which will be retried by the resender
-// 5. Confirmer sets transactions that have been confirmed to (confirmed) and creates a new receipt which is persisted
-
 type PersistentTxStore[
 	ADDR types.Hashable,
 	CHAIN_ID types.ID,
@@ -116,8 +87,8 @@ func NewInMemoryStore[
 		return nil, fmt.Errorf("new_in_memory_store: %w", err)
 	}
 	for _, fromAddr := range addresses {
-		as := NewAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](chainID, fromAddr, maxUnstarted)
-		if err := as.Initialize(txStore); err != nil {
+		as, err := NewAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](chainID, fromAddr, maxUnstarted, txStore)
+		if err != nil {
 			return nil, fmt.Errorf("new_in_memory_store: %w", err)
 		}
 

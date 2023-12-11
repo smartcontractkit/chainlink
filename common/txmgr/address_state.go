@@ -1,7 +1,6 @@
 package txmgr
 
 import (
-	"container/heap"
 	"context"
 	"fmt"
 	"sync"
@@ -22,14 +21,13 @@ type AddressState[
 ] struct {
 	chainID     CHAIN_ID
 	fromAddress ADDR
+	txStore     PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	lock               sync.RWMutex
+	sync.RWMutex
 	idempotencyKeyToTx map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	unstarted          *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	inprogress         *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	// TODO(jtw): using the TX ID as the key for the map might not make sense since the ID is set by the
-	// postgres DB which creates a dependency on the postgres DB. We should consider creating a UUID or ULID
-	// TX ID -> TX
+	// NOTE: currently the unconfirmed map's key is the transaction ID that is assigned via the postgres DB
 	unconfirmed map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 }
 
@@ -40,22 +38,25 @@ func NewAddressState[
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
-](chainID CHAIN_ID, fromAddress ADDR, maxUnstarted int) *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+](
+	chainID CHAIN_ID,
+	fromAddress ADDR,
+	maxUnstarted int,
+	txStore PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+) (*AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
 	as := AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		chainID:            chainID,
-		fromAddress:        fromAddress,
+		chainID:     chainID,
+		fromAddress: fromAddress,
+		txStore:     txStore,
+
 		idempotencyKeyToTx: map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 		unstarted:          NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
 		inprogress:         nil,
 		unconfirmed:        map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 	}
 
-	return &as
-}
-
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initialize(txStore PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) error {
-	as.lock.Lock()
-	defer as.lock.Unlock()
+	as.Lock()
+	defer as.Unlock()
 
 	// Load all unstarted transactions from persistent storage
 	offset := 0
@@ -63,7 +64,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initia
 	for {
 		txs, count, err := txStore.UnstartedTransactions(offset, limit, as.fromAddress, as.chainID)
 		if err != nil {
-			return fmt.Errorf("address_state: initialization: %w", err)
+			return nil, fmt.Errorf("address_state: initialization: %w", err)
 		}
 		for i := 0; i < len(txs); i++ {
 			tx := txs[i]
@@ -82,7 +83,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initia
 	ctx := context.Background()
 	tx, err := txStore.GetTxInProgress(ctx, as.fromAddress)
 	if err != nil {
-		return fmt.Errorf("address_state: initialization: %w", err)
+		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
 	as.inprogress = tx
 	if tx.IdempotencyKey != nil {
@@ -95,7 +96,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initia
 	for {
 		txs, count, err := txStore.UnconfirmedTransactions(offset, limit, as.fromAddress, as.chainID)
 		if err != nil {
-			return fmt.Errorf("address_state: initialization: %w", err)
+			return nil, fmt.Errorf("address_state: initialization: %w", err)
 		}
 		for i := 0; i < len(txs); i++ {
 			tx := txs[i]
@@ -110,12 +111,13 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Initia
 		offset += limit
 	}
 
-	return nil
+	return &as, nil
+
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) close() {
-	as.lock.Lock()
-	defer as.lock.Unlock()
+	as.Lock()
+	defer as.Unlock()
 
 	as.unstarted.Close()
 	as.unstarted = nil
@@ -125,28 +127,28 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) close(
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) unstartedCount() int {
-	as.lock.RLock()
-	defer as.lock.RUnlock()
+	as.RLock()
+	defer as.RUnlock()
 
 	return as.unstarted.Len()
 }
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) unconfirmedCount() int {
-	as.lock.RLock()
-	defer as.lock.RUnlock()
+	as.RLock()
+	defer as.RUnlock()
 
 	return len(as.unconfirmed)
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTxWithIdempotencyKey(key string) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	as.lock.RLock()
-	defer as.lock.RUnlock()
+	as.RLock()
+	defer as.RUnlock()
 
 	return as.idempotencyKeyToTx[key]
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findLatestSequence() SEQ {
-	as.lock.RLock()
-	defer as.lock.RUnlock()
+	as.RLock()
+	defer as.RUnlock()
 
 	var maxSeq SEQ
 	if as.inprogress != nil && as.inprogress.Sequence != nil {
@@ -167,8 +169,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findLa
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	as.lock.RLock()
-	defer as.lock.RUnlock()
+	as.RLock()
+	defer as.RUnlock()
 
 	tx := as.unstarted.PeekNextTx()
 	if tx == nil {
@@ -179,8 +181,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNe
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekInProgressTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	as.lock.RLock()
-	defer as.lock.RUnlock()
+	as.RLock()
+	defer as.RUnlock()
 
 	tx := as.inprogress
 	if tx == nil {
@@ -191,8 +193,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekIn
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxToUnstarted(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	as.lock.Lock()
-	defer as.lock.Unlock()
+	as.Lock()
+	defer as.Unlock()
 
 	if as.unstarted.Len() >= as.unstarted.Cap() {
 		return fmt.Errorf("move_tx_to_unstarted: address %s unstarted queue capactiry has been reached", as.fromAddress)
@@ -207,8 +209,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxT
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUnstartedToInProgress(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	as.lock.Lock()
-	defer as.lock.Unlock()
+	as.Lock()
+	defer as.Unlock()
 
 	if as.inprogress != nil {
 		return fmt.Errorf("move_unstarted_to_in_progress: address %s already has a transaction in progress", as.fromAddress)
@@ -234,8 +236,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveInProgressToUnconfirmed(
 	txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
-	as.lock.Lock()
-	defer as.lock.Unlock()
+	as.Lock()
+	defer as.Unlock()
 
 	tx := as.inprogress
 	if tx == nil {
@@ -248,6 +250,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveIn
 		if tx.TxAttempts[i].ID == txAttempt.ID {
 			tx.TxAttempts[i] = txAttempt
 			found = true
+			break
 		}
 	}
 	if !found {
@@ -264,124 +267,41 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveIn
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon() {
-	as.lock.Lock()
-	defer as.lock.Unlock()
+	as.Lock()
+	defer as.Unlock()
 
 	for as.unstarted.Len() > 0 {
 		tx := as.unstarted.RemoveNextTx()
-		tx.State = TxFatalError
-		tx.Sequence = nil
-		tx.Error = null.NewString("abandoned", true)
+		abandon[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](tx)
 	}
 
 	if as.inprogress != nil {
-		as.inprogress.State = TxFatalError
-		as.inprogress.Sequence = nil
-		as.inprogress.Error = null.NewString("abandoned", true)
+		tx := as.inprogress
+		abandon[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](tx)
 		as.inprogress = nil
 	}
 	for _, tx := range as.unconfirmed {
-		tx.State = TxFatalError
-		tx.Sequence = nil
-		tx.Error = null.NewString("abandoned", true)
+		abandon[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](tx)
 	}
 	for _, tx := range as.idempotencyKeyToTx {
-		tx.State = TxFatalError
-		tx.Sequence = nil
-		tx.Error = null.NewString("abandoned", true)
+		abandon[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](tx)
 	}
 
 	clear(as.unconfirmed)
 }
 
-// TxPriorityQueue is a priority queue of transactions prioritized by creation time. The oldest transaction is at the front of the queue.
-type TxPriorityQueue[
+func abandon[
 	CHAIN_ID types.ID,
 	ADDR, TX_HASH, BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
-] struct {
-	sync.Mutex
-	txs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-}
-
-// NewTxPriorityQueue returns a new TxPriorityQueue instance
-func NewTxPriorityQueue[
-	CHAIN_ID types.ID,
-	ADDR, TX_HASH, BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
-](maxUnstarted int) *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	pq := TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		txs: make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], 0, maxUnstarted),
+](tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	if tx == nil {
+		return
 	}
 
-	return &pq
-}
-
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Cap() int {
-	return cap(pq.txs)
-}
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Len() int {
-	return len(pq.txs)
-}
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Less(i, j int) bool {
-	// We want Pop to give us the oldest, not newest, transaction based on creation time
-	return pq.txs[i].CreatedAt.Before(pq.txs[j].CreatedAt)
-}
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Swap(i, j int) {
-	pq.txs[i], pq.txs[j] = pq.txs[j], pq.txs[i]
-}
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Push(tx any) {
-	pq.txs = append(pq.txs, tx.(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]))
-}
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pop() any {
-	pq.Lock()
-	defer pq.Unlock()
-
-	old := pq.txs
-	n := len(old)
-	tx := old[n-1]
-	old[n-1] = nil // avoid memory leak
-	pq.txs = old[0 : n-1]
-	return tx
-}
-
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AddTx(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
-	pq.Lock()
-	defer pq.Unlock()
-
-	heap.Push(pq, tx)
-}
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RemoveNextTx() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	pq.Lock()
-	defer pq.Unlock()
-
-	return heap.Pop(pq).(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-}
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RemoveTxByID(id int64) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	pq.Lock()
-	defer pq.Unlock()
-
-	for i, tx := range pq.txs {
-		if tx.ID == id {
-			return heap.Remove(pq, i).(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	return nil
-}
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PeekNextTx() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	if len(pq.txs) == 0 {
-		return nil
-	}
-	return pq.txs[0]
-}
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() {
-	pq.Lock()
-	defer pq.Unlock()
-
-	clear(pq.txs)
+	tx.State = TxFatalError
+	tx.Sequence = nil
+	tx.Error = null.NewString("abandoned", true)
 }
