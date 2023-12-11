@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mitchellh/mapstructure"
 
@@ -27,6 +28,7 @@ import (
 var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountHook, codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook}
 
 func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
+	fmt.Printf("!!!!!!!!!!\nNewCodec\n%#v\n!!!!!!!!!!\n", conf.ChainCodecConfigs)
 	parsed := &parsedTypes{
 		encoderDefs: map[string]*codecEntry{},
 		decoderDefs: map[string]*codecEntry{},
@@ -35,16 +37,19 @@ func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 	for k, v := range conf.ChainCodecConfigs {
 		args := abi.Arguments{}
 		if err := json.Unmarshal(([]byte)(v.TypeAbi), &args); err != nil {
+			fmt.Printf("!!!!!!!!!!\nNewCodec json abi/n%s/n err\n%#v\n!!!!!!!!!!\n%", v.TypeAbi, err)
 			return nil, err
 		}
 
 		mod, err := v.ModifierConfigs.ToModifier(evmDecoderHooks...)
 		if err != nil {
+			fmt.Printf("!!!!!!!!!!\nNewCodec mod err\n%#v\n!!!!!!!!!!\n%", err)
 			return nil, err
 		}
 
 		item := &codecEntry{Args: args, mod: mod}
-		if err := item.Init(); err != nil {
+		if err = item.Init(); err != nil {
+			fmt.Printf("!!!!!!!!!!\nNewCodec init err\n%#v\n!!!!!!!!!!\n%", err)
 			return nil, err
 		}
 
@@ -106,13 +111,17 @@ func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
 }
 
 func decodeAccountHook(from, to reflect.Type, data any) (any, error) {
-	b32, _ := types.GetType("bytes32")
-	if from.Kind() == reflect.String && to == b32.Checked {
+	if from.Kind() == reflect.String && to == reflect.TypeOf(common.Address{}) {
 		decoded, err := hexutil.Decode(data.(string))
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
+		} else if len(decoded) != common.AddressLength {
+			return nil, fmt.Errorf(
+				"%w: wrong number size for address expected %v got %v",
+				commontypes.ErrWrongNumberOfElements,
+				common.AddressLength, len(decoded))
 		}
-		return [32]byte(decoded), nil
+		return common.Address(decoded), nil
 	}
 	return data, nil
 }

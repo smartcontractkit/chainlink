@@ -129,10 +129,10 @@ func (it *chainReaderInterfaceTester) Name() string {
 }
 
 func (it *chainReaderInterfaceTester) GetAccountBytes(i int) []byte {
-	account := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2}
-	account[i%32] += byte(i)
-	account[(i+3)%32] += byte(i + 3)
-	return account
+	account := [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	account[i%20] += byte(i)
+	account[(i+3)%20] += byte(i + 3)
+	return account[:]
 }
 
 func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes.ChainReader {
@@ -176,7 +176,7 @@ func (it *chainReaderInterfaceTester) TriggerEvent(t *testing.T, testStruct *Tes
 	it.sendTxWithTestStruct(t, testStruct, (*testfiles.TestfilesTransactor).TriggerEvent)
 }
 
-type testStructFn = func(*testfiles.TestfilesTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, [32]byte, [][32]byte, *big.Int, testfiles.MidLevelTestStruct) (*evmtypes.Transaction, error)
+type testStructFn = func(*testfiles.TestfilesTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, testfiles.MidLevelTestStruct) (*evmtypes.Transaction, error)
 
 func (it *chainReaderInterfaceTester) sendTxWithTestStruct(t *testing.T, testStruct *TestStruct, fn testStructFn) {
 	tx, err := fn(
@@ -186,7 +186,7 @@ func (it *chainReaderInterfaceTester) sendTxWithTestStruct(t *testing.T, testStr
 		testStruct.DifferentField,
 		uint8(testStruct.OracleID),
 		convertOracleIDs(testStruct.OracleIDs),
-		[32]byte(testStruct.Account),
+		common.Address(testStruct.Account),
 		convertAccounts(testStruct.Accounts),
 		testStruct.BigField,
 		midToInternalType(testStruct.NestedStruct),
@@ -205,10 +205,10 @@ func convertOracleIDs(oracleIDs [32]commontypes.OracleID) [32]byte {
 	return convertedIds
 }
 
-func convertAccounts(accounts [][]byte) [][32]byte {
-	convertedAccounts := make([][32]byte, len(accounts))
+func convertAccounts(accounts [][]byte) []common.Address {
+	convertedAccounts := make([]common.Address, len(accounts))
 	for i, a := range accounts {
-		convertedAccounts[i] = [32]byte(a)
+		convertedAccounts[i] = common.Address(a)
 	}
 	return convertedAccounts
 }
@@ -267,10 +267,10 @@ func (it *chainReaderInterfaceTester) incNonce() {
 	}
 }
 
-func getAccounts(first TestStruct) [][32]byte {
-	accountBytes := make([][32]byte, len(first.Accounts))
+func getAccounts(first TestStruct) []common.Address {
+	accountBytes := make([]common.Address, len(first.Accounts))
 	for i, account := range first.Accounts {
-		accountBytes[i] = [32]byte(account)
+		accountBytes[i] = common.Address(account)
 	}
 	return accountBytes
 }
@@ -302,7 +302,7 @@ func toInternalType(testStruct TestStruct) testfiles.TestStruct {
 		DifferentField: testStruct.DifferentField,
 		OracleId:       byte(testStruct.OracleID),
 		OracleIds:      convertOracleIDs(testStruct.OracleIDs),
-		Account:        [32]byte(testStruct.Account),
+		Account:        common.Address(testStruct.Account),
 		Accounts:       convertAccounts(testStruct.Accounts),
 		BigField:       testStruct.BigField,
 		NestedStruct:   midToInternalType(testStruct.NestedStruct),

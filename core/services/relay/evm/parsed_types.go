@@ -16,14 +16,17 @@ type parsedTypes struct {
 func (parsed *parsedTypes) toCodec() (commontypes.RemoteCodec, error) {
 	modByTypeName := map[string]codec.Modifier{}
 	if err := addEntries(parsed.encoderDefs, modByTypeName); err != nil {
+		fmt.Printf("!!!!!!!!!!\nto codec add encoder entries err\n%#v\n!!!!!!!!!!\n%", err)
 		return nil, err
 	}
 	if err := addEntries(parsed.decoderDefs, modByTypeName); err != nil {
+		fmt.Printf("!!!!!!!!!!\nto codec add decoder entries err\n%#v\n!!!!!!!!!!\n%", err)
 		return nil, err
 	}
 
 	mod, err := codec.NewByItemTypeModifier(modByTypeName)
 	if err != nil {
+		fmt.Printf("!!!!!!!!!!\nto codec mod by type err\n%#v\n!!!!!!!!!!\n%", err)
 		return nil, err
 	}
 	underlying := &evmCodec{
@@ -31,7 +34,9 @@ func (parsed *parsedTypes) toCodec() (commontypes.RemoteCodec, error) {
 		decoder:     &decoder{Definitions: parsed.decoderDefs},
 		parsedTypes: parsed,
 	}
-	return codec.NewModifierCodec(underlying, mod, evmDecoderHooks...)
+	mc, err := codec.NewModifierCodec(underlying, mod, evmDecoderHooks...)
+	fmt.Printf("!!!!!!!!!!\nnow modifier codec: has error?\n%v\n%#v\n!!!!!!!!!!\n%", err != nil, err)
+	return mc, err
 }
 
 // addEntries extracts the mods from codecEntry and adds them to modByTypeName use with codec.NewByItemTypeModifier

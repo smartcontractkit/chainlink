@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -63,8 +64,13 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 var _ commontypes.ContractTypeProvider = &chainReader{}
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
+	b := make([]byte, 2048) // adjust buffer size to be larger than expected stack
+	n := runtime.Stack(b, false)
+	s := string(b[:n])
+	cr.lggr.Infof("!!!!!!!!!!\nEVM CR\n%s.%s\n%#v\n%s\n!!!!!!!!!!\n", contractName, method, params, s)
 	ae, err := cr.bindings.getBinding(contractName, method, false)
 	if err != nil {
+		cr.lggr.Errorf("!!!!!!!!!!\nEVM CR err:\n%v\n!!!!!!!!!!\n", err)
 		return err
 	}
 
@@ -76,29 +82,41 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 }
 
 func (cr *chainReader) getLatestValueFromLogPoller(ctx context.Context, contractName, method string, hash common.Hash, returnVal any) error {
+	cr.lggr.Infof("!!!!!!!!!!\nEVM latest from log poller\n!!!!!!!!!!\n")
 	ae, err := cr.bindings.getBinding(contractName, method, false)
 	if err != nil {
+		cr.lggr.Errorf("!!!!!!!!!!\nEVM no binding err:\n%v\n!!!!!!!!!!\n", err)
 		return err
 	}
 
 	log, err := cr.lp.LatestLogByEventSigWithConfs(hash, ae.addr, logpoller.Finalized)
 	if err != nil {
+		cr.lggr.Errorf("!!!!!!!!!!\nNo sig err:\n%v\n!!!!!!!!!!\n", err)
 		if strings.Contains(err.Error(), "not found") {
 			return fmt.Errorf("%w: %w", commontypes.ErrNotFound, err)
 		}
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
-	return cr.codec.Decode(ctx, log.Data, returnVal, wrapItemType(contractName, method, false))
+	err = cr.codec.Decode(ctx, log.Data, returnVal, wrapItemType(contractName, method, false))
+	if err != nil {
+		cr.lggr.Errorf("!!!!!!!!!!\nEVM decode err:\n%v\n!!!!!!!!!!\n", err)
+	} else {
+		cr.lggr.Infof("!!!!!!!!!!\nEVM decode success\n%#v\n!!!!!!!!!!\n", returnVal)
+	}
+	return err
 }
 
 func (cr *chainReader) getLatestValueFromContract(ctx context.Context, contractName, method string, params any, returnVal any) error {
+	cr.lggr.Infof("!!!!!!!!!!\nEVM latest from contract\n!!!!!!!!!!\n")
 	data, err := cr.codec.Encode(ctx, params, wrapItemType(contractName, method, true))
 	if err != nil {
+		cr.lggr.Errorf("!!!!!!!!!!\nEVM encode err:\n%v\n!!!!!!!!!!\n", err)
 		return err
 	}
 
 	ae, err := cr.bindings.getBinding(contractName, method, true)
 	if err != nil {
+		cr.lggr.Errorf("!!!!!!!!!!\nEVM no binding err:\n%v\n!!!!!!!!!!\n", err)
 		return err
 	}
 	callMsg := ethereum.CallMsg{
@@ -110,10 +128,17 @@ func (cr *chainReader) getLatestValueFromContract(ctx context.Context, contractN
 	output, err := cr.client.CallContract(ctx, callMsg, nil)
 
 	if err != nil {
+		cr.lggr.Errorf("!!!!!!!!!!\nEVM call err:\n%v\n!!!!!!!!!!\n", err)
 		return err
 	}
 
-	return cr.codec.Decode(ctx, output, returnVal, wrapItemType(contractName, method, false))
+	err = cr.codec.Decode(ctx, output, returnVal, wrapItemType(contractName, method, false))
+	if err != nil {
+		cr.lggr.Errorf("!!!!!!!!!!\nEVM decode err:\n%v\n!!!!!!!!!!\n", err)
+	} else {
+		cr.lggr.Infof("!!!!!!!!!!\nEVM decode success\n%#v\n!!!!!!!!!!\n", returnVal)
+	}
+	return err
 }
 
 func (cr *chainReader) Start(_ context.Context) error {

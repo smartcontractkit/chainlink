@@ -2,9 +2,9 @@ package evm
 
 import (
 	"context"
+	"fmt"
 	"reflect"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"runtime"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -16,8 +16,10 @@ type encoder struct {
 var _ commontypes.Encoder = &encoder{}
 
 func (e *encoder) Encode(ctx context.Context, item any, itemType string) ([]byte, error) {
+	fmt.Printf("!!!!!!!!!!\\nEncode: %#v\\n%s\\n!!!!!!!!!!\\n", item, itemType)
 	info, ok := e.Definitions[itemType]
 	if !ok {
+		fmt.Printf("!!!!!!!!!!\\nEncode error not found\\n%s\\n!!!!!!!!!!\\n", itemType)
 		return nil, commontypes.ErrInvalidType
 	}
 
@@ -27,14 +29,24 @@ func (e *encoder) Encode(ctx context.Context, item any, itemType string) ([]byte
 		return cpy, nil
 	}
 
-	return encode(reflect.ValueOf(item), info)
+	b, err := encode(reflect.ValueOf(item), info)
+	if err == nil {
+		fmt.Printf("!!!!!!!!!!\\nEncode success\\n%s\\n!!!!!!!!!!\\n", itemType)
+	} else {
+		fmt.Printf("!!!!!!!!!!\\nEncode error\\n%v\\n%s\\n!!!!!!!!!!\\n", err, itemType)
+	}
+	return b, err
 }
 
 func (e *encoder) GetMaxEncodingSize(ctx context.Context, n int, itemType string) (int, error) {
+	b := make([]byte, 2048) // adjust buffer size to be larger than expected stack
+	nb := runtime.Stack(b, false)
+	s := string(b[:nb])
+	fmt.Printf("!!!!!!!!!!\\nGetMaxEncodingSize\\n%s\\n\\n%v\\n%s!!!!!!!!!!\\n", itemType, e.Definitions, s)
 	return e.Definitions[itemType].GetMaxSize(n)
 }
 
-func encode(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
+func encode(item reflect.Value, info *codecEntry) ([]byte, error) {
 	for item.Kind() == reflect.Pointer {
 		item = reflect.Indirect(item)
 	}
@@ -48,7 +60,7 @@ func encode(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
 	}
 }
 
-func encodeArray(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
+func encodeArray(item reflect.Value, info *codecEntry) ([]byte, error) {
 	length := item.Len()
 	var native reflect.Value
 	switch info.checkedType.Kind() {
@@ -76,7 +88,7 @@ func encodeArray(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) 
 	return pack(info, native.Interface())
 }
 
-func encodeItem(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
+func encodeItem(item reflect.Value, info *codecEntry) ([]byte, error) {
 	if item.Type() == reflect.PointerTo(info.checkedType) {
 		item = reflect.NewAt(info.nativeType, item.UnsafePointer())
 	} else if item.Type() != reflect.PointerTo(info.nativeType) {
@@ -100,7 +112,7 @@ func encodeItem(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
 	return pack(info, values...)
 }
 
-func pack(info *codecEntry, values ...any) (ocrtypes.Report, error) {
+func pack(info *codecEntry, values ...any) ([]byte, error) {
 	if bytes, err := info.Args.Pack(values...); err == nil {
 		withPrefix := make([]byte, 0, len(info.encodingPrefix)+len(bytes))
 		withPrefix = append(withPrefix, info.encodingPrefix...)

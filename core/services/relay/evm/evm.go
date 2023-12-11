@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 
@@ -453,22 +454,27 @@ func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, tra
 
 func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
 	lggr := r.lggr.Named("MedianProvider").Named(rargs.ExternalJobID.String())
+	lggr.Infof("!!!!!!!!\nIn new median provider\n%s\n!!!!!!!!\n", string(rargs.RelayConfig))
 	relayOpts := types.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
+		lggr.Infof("!!!!!!!!\nfailed to get relay config: %w\n!!!!!!!!\n", err)
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
 	expectedChainID := relayConfig.ChainID.String()
 	if expectedChainID != r.chain.ID().String() {
+		lggr.Infof("!!!!!!!!\nwrong chain id %s\n!!!!!!!!\n", r.chain.ID().String())
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
 	if !common.IsHexAddress(relayOpts.ContractID) {
+		lggr.Infof("!!!!!!!!\ninvalid contract id %s\n!!!!!!!!\n", relayOpts.ContractID)
 		return nil, fmt.Errorf("invalid contractID %s, expected hex address", relayOpts.ContractID)
 	}
 	contractID := common.HexToAddress(relayOpts.ContractID)
 
 	configWatcher, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
+		lggr.Infof("!!!!!!!!\nconfig watcher %s\n!!!!!!!!\n", configWatcher)
 		return nil, err
 	}
 
@@ -485,19 +491,19 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 	medianProvider := medianProvider{
 		configWatcher:       configWatcher,
-		reportCodec:         reportCodec,
+		reportCodec:         reportCodec, // loggingCodec{c: reportCodec, l: lggr},
 		contractTransmitter: contractTransmitter,
 		medianContract:      medianContract,
 	}
 
 	// allow fallback until chain reader is default and median contract is removed, but still log just in case
-	var chainReaderService commontypes.ChainReader
+	var chainReaderService ChainReaderService
 	if relayConfig.ChainReader != nil {
 		b := Bindings{
 			// TODO BCF-2837: clean up the hard-coded values.
 			"median": {
 				"LatestTransmissionDetails": &addrEvtBinding{addr: contractID},
-				"LatestRoundReported":       &addrEvtBinding{addr: contractID},
+				"LatestRoundRequested":      &addrEvtBinding{addr: contractID},
 			},
 		}
 
@@ -510,8 +516,10 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	medianProvider.chainReader = chainReaderService
 
 	if relayConfig.Codec != nil {
+		lggr.Infof("!!!!!!!!\nCodec config found\n%#v\n!!!!!!!!\n", relayConfig.Codec)
 		medianProvider.codec, err = NewCodec(*relayConfig.Codec)
 		if err != nil {
+			lggr.Infof("!!!!!!!!\nfailed to make new codec\n%v\n!!!!!!!!\n", err)
 			return nil, err
 		}
 	} else {
@@ -528,7 +536,7 @@ type medianProvider struct {
 	contractTransmitter ContractTransmitter
 	reportCodec         median.ReportCodec
 	medianContract      *medianContract
-	chainReader         commontypes.ChainReader
+	chainReader         ChainReaderService
 	codec               commontypes.Codec
 	ms                  services.MultiStart
 }
@@ -538,7 +546,11 @@ func (p *medianProvider) Name() string {
 }
 
 func (p *medianProvider) Start(ctx context.Context) error {
-	return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter)
+	if p.chainReader == nil {
+		return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter)
+	}
+
+	return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter, p.chainReader)
 }
 
 func (p *medianProvider) Close() error {
@@ -585,4 +597,22 @@ func (p *medianProvider) ChainReader() commontypes.ChainReader {
 
 func (p *medianProvider) Codec() commontypes.Codec {
 	return p.codec
+}
+
+type loggingCodec struct {
+	c median.ReportCodec
+	l logger.Logger
+}
+
+func (l loggingCodec) BuildReport(observations []median.ParsedAttributedObservation) (ocrtypes.Report, error) {
+	panic("implement me BR")
+}
+
+func (l loggingCodec) MedianFromReport(report ocrtypes.Report) (*big.Int, error) {
+	//TODO implement me
+	panic("implement me MFR")
+}
+
+func (l loggingCodec) MaxReportLength(n int) (int, error) {
+	panic("implement me MRL")
 }
