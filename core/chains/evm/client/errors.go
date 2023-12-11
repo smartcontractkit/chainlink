@@ -424,56 +424,55 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		return commonclient.Fatal
 	}
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
-		lggr.Debugw("Transaction already confirmed for this nonce: %d", tx.Nonce(), "err", sendError)
+		lggr.Debugw("Transaction already confirmed for this nonce: %d", tx.Nonce(), "err", sendError, "etx", tx)
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark it as TransactionAlreadyKnown.
 		return commonclient.TransactionAlreadyKnown
 	}
 	if sendError.IsReplacementUnderpriced() {
 		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %x. "+
-			"Eth node returned error: '%s'. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
-			tx.Hash(), err), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap)
+			tx.Hash()), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap, "err", sendError, "etx", tx)
 
 		// Assume success and hand off to the next cycle.
 		return commonclient.Successful
 	}
 	if sendError.IsTransactionAlreadyInMempool() {
-		lggr.Debugw("Transaction already in mempool", "txHash", tx.Hash, "nodeErr", sendError.Error())
+		lggr.Debugw("Transaction already in mempool", "etx", tx, "err", sendError)
 		return commonclient.Successful
 	}
 	if sendError.IsTemporarilyUnderpriced() {
-		lggr.Infow("Transaction temporarily underpriced", "err", sendError.Error())
+		lggr.Infow("Transaction temporarily underpriced", "err", sendError)
 		return commonclient.Successful
 	}
 	if sendError.IsTerminallyUnderpriced() {
-		lggr.Errorw("Transaction terminally underpriced", "txHash", tx.Hash, "err", sendError)
+		lggr.Errorw("Transaction terminally underpriced", "etx", tx, "err", sendError)
 		return commonclient.Underpriced
 	}
 	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
 		if isL2 {
-			lggr.Errorw("Transaction fee out of range", "err", sendError)
+			lggr.Errorw("Transaction fee out of range", "err", sendError, "etx", tx)
 			return commonclient.FeeOutOfValidRange
 		}
-		lggr.Errorw("this error type only handled for L2s", "err", sendError)
+		lggr.Errorw("this error type only handled for L2s", "err", sendError, "etx", tx)
 		return commonclient.Unsupported
 	}
 	if sendError.IsNonceTooHighError() {
 		// This error occurs when the tx nonce is greater than current_nonce + tx_count_in_mempool,
 		// instead of keeping the tx in mempool. This can happen if previous transactions haven't
 		// reached the client yet. The correct thing to do is to mark it as retryable.
-		lggr.Warnw("Transaction has a nonce gap.", "err", err)
+		lggr.Warnw("Transaction has a nonce gap.", "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsInsufficientEth() {
 		logger.Criticalw(lggr, fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
-		), "err", sendError)
+		), "err", sendError, "etx", tx)
 		return commonclient.InsufficientFunds
 	}
 	if sendError.IsTimeout() {
-		lggr.Errorw("timeout while sending transaction %s", tx.Hash().Hex(), "err", sendError)
+		lggr.Errorw("timeout while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsTxFeeExceedsCap() {
@@ -484,7 +483,7 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		)
 		return commonclient.ExceedsMaxFee
 	}
-	lggr.Errorw("Unknown error encountered when sending transaction", "err", err)
+	lggr.Errorw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
 }
 
