@@ -1,6 +1,7 @@
 package p2pkey
 
 import (
+	"crypto/ed25519"
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
@@ -8,14 +9,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
+
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
-// Key represents a libp2p private key
+// Key represents a p2p private key
 type Key struct {
-	cryptop2p.PrivKey
+	PrivKey ed25519.PrivateKey
 }
 
 func (k Key) ToV2() KeyV2 {
@@ -25,7 +26,7 @@ func (k Key) ToV2() KeyV2 {
 	}
 }
 
-// PublicKeyBytes is generated using cryptop2p.PubKey.Raw()
+// PublicKeyBytes is a [ed25519.PublicKey]
 type PublicKeyBytes []byte
 
 func (pkb PublicKeyBytes) String() string {
@@ -47,7 +48,7 @@ func (pkb *PublicKeyBytes) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	*pkb = PublicKeyBytes(result)
+	*pkb = result
 	return nil
 }
 
@@ -66,19 +67,19 @@ func (pkb PublicKeyBytes) Value() (driver.Value, error) {
 }
 
 func (k Key) GetPeerID() (PeerID, error) {
-	peerID, err := peer.IDFromPrivateKey(k)
+	peerID, err := ragep2ptypes.PeerIDFromPrivateKey(k.PrivKey)
 	if err != nil {
-		return "", errors.WithStack(err)
+		return PeerID{}, errors.WithStack(err)
 	}
 	return PeerID(peerID), err
 }
 
 func (k Key) PeerID() PeerID {
-	peerID, err := peer.IDFromPrivateKey(k)
+	peerID, err := k.GetPeerID()
 	if err != nil {
 		panic(err)
 	}
-	return PeerID(peerID)
+	return peerID
 }
 
 type EncryptedP2PKey struct {
@@ -113,7 +114,8 @@ func (ep2pk EncryptedP2PKey) Decrypt(auth string) (k Key, err error) {
 	if err != nil {
 		return k, errors.Wrapf(err, "could not decrypt P2P key %s (0x%x)", ep2pk.PeerID.String(), ep2pk.PubKey)
 	}
-	privK, err := cryptop2p.UnmarshalPrivateKey(marshalledPrivK)
+
+	privK, err := UnmarshalPrivateKey(marshalledPrivK)
 	if err != nil {
 		return k, errors.Wrapf(err, "could not unmarshal P2P private key for %s (0x%x)", ep2pk.PeerID.String(), ep2pk.PubKey)
 	}

@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 const peerIDPrefix = "p2p_"
 
-type PeerID peer.ID
+type PeerID types.PeerID
 
 func MakePeerID(s string) (PeerID, error) {
 	var peerID PeerID
@@ -22,15 +23,14 @@ func MakePeerID(s string) (PeerID, error) {
 func (p PeerID) String() string {
 	// Handle a zero peerID more gracefully, i.e. print it as empty string rather
 	// than `p2p_`
-	raw := p.Raw()
-	if raw == "" {
+	if p == (PeerID{}) {
 		return ""
 	}
-	return fmt.Sprintf("%s%s", peerIDPrefix, raw)
+	return fmt.Sprintf("%s%s", peerIDPrefix, p.Raw())
 }
 
 func (p PeerID) Raw() string {
-	return peer.ID(p).String()
+	return types.PeerID(p).String()
 }
 
 func (p *PeerID) UnmarshalString(s string) error {
@@ -38,6 +38,9 @@ func (p *PeerID) UnmarshalString(s string) error {
 }
 
 func (p *PeerID) MarshalText() ([]byte, error) {
+	if *p == (PeerID{}) {
+		return nil, nil
+	}
 	return []byte(p.Raw()), nil
 }
 
@@ -51,7 +54,8 @@ func (p *PeerID) UnmarshalText(bs []byte) error {
 		return nil
 	}
 
-	peerID, err := peer.Decode(input)
+	var peerID types.PeerID
+	err := peerID.UnmarshalText([]byte(input))
 	if err != nil {
 		return errors.Wrapf(err, `PeerID#UnmarshalText("%v")`, input)
 	}
@@ -60,7 +64,7 @@ func (p *PeerID) UnmarshalText(bs []byte) error {
 }
 
 func (p *PeerID) Scan(value interface{}) error {
-	*p = PeerID("")
+	*p = PeerID{}
 	switch s := value.(type) {
 	case string:
 		if s != "" {
@@ -74,7 +78,8 @@ func (p *PeerID) Scan(value interface{}) error {
 }
 
 func (p PeerID) Value() (driver.Value, error) {
-	return peer.Encode(peer.ID(p)), nil
+	b, err := types.PeerID(p).MarshalText()
+	return string(b), err
 }
 
 func (p PeerID) MarshalJSON() ([]byte, error) {
