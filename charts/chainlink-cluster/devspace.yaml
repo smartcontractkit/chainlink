@@ -2,6 +2,7 @@ version: v2beta1
 name: chainlink
 
 vars:
+  NS_TTL: 72h
   DEVSPACE_IMAGE:
     source: env
 
@@ -20,7 +21,16 @@ pipelines:
       run_dependencies --all                            # 1. Deploy any projects this project needs (see "dependencies")
       ensure_pull_secrets --all                         # 2. Ensure pull secrets
       build_images --all -t $(git rev-parse --short HEAD)    # 3. Build, tag (git commit hash) and push all images (see "images")
-      create_deployments --all                          # 4. Deploy Helm charts and manifests specfied as "deployments"
+      create_deployments --all                          # 5. Deploy Helm charts and manifests specfied as "deployments"
+      kubectl annotate namespace ${DEVSPACE_NAMESPACE} janitor/ttl=${NS_TTL}
+      echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
+  purge:
+    run: |-
+      kubectl delete ns ${DEVSPACE_NAMESPACE}
+
+commands:
+  connect: |-
+    sudo kubefwd svc -n ${DEVSPACE_NAMESPACE}
 
 images:
   app:
@@ -28,9 +38,21 @@ images:
     dockerfile: ../../core/chainlink.devspace.Dockerfile
     context: ../..
 
+hooks:
+  - wait:
+      running: true
+      terminatedWithCode: 0
+    container:
+      labelSelector:
+        # vars don't work here, = releaseName
+        release: "app"
+    events: ["after:deploy:app"]
+    name: "wait-for-pod-hook"
+
 # This is a list of `deployments` that DevSpace can create for this project
 deployments:
   app:
+    namespace: ${DEVSPACE_NAMESPACE}
     helm:
       releaseName: "app"
       chart:
