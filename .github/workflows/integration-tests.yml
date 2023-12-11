@@ -430,7 +430,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@340ddab3071f97b827861b3e7eebf53b283b731f # v2.2.16
         env:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
@@ -571,7 +571,7 @@ jobs:
   eth-smoke-go-mod-cache:
     environment: integration
     needs: [eth-smoke-tests]
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu-latest
     name: ETH Smoke Tests Go Mod Cache
     continue-on-error: true
     steps:
