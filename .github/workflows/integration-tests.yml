@@ -335,13 +335,14 @@ jobs:
             file: ocr
             client: geth
             pyroscope_env: ci-smoke-ocr-evm-simulated         
-          - name: ocr-nethermind
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            run: -run TestOCRBasic
-            file: ocr
-            client: nethermind
-            pyroscope_env: ci-smoke-ocr-evm-simulated                          
+          # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE
+          # - name: ocr-nethermind
+          #   nodes: 1
+          #   os: ubuntu20.04-8cores-32GB
+          #   run: -run TestOCRBasic
+          #   file: ocr
+          #   client: nethermind
+          #   pyroscope_env: ci-smoke-ocr-evm-simulated                          
           - name: ocr-besu
             nodes: 1
             os: ubuntu20.04-8cores-32GB
@@ -369,13 +370,14 @@ jobs:
             file: ocr2
             client: geth
             pyroscope_env: ci-smoke-ocr2-evm-simulated            
-          - name: ocr2-nethermind
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            run: -run TestOCRv2Basic
-            file: ocr2
-            client: nethermind
-            pyroscope_env: ci-smoke-ocr2-evm-simulated                         
+          # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE            
+          # - name: ocr2-nethermind
+          #   nodes: 1
+          #   os: ubuntu20.04-8cores-32GB
+          #   run: -run TestOCRv2Basic
+          #   file: ocr2
+          #   client: nethermind
+          #   pyroscope_env: ci-smoke-ocr2-evm-simulated                         
           - name: ocr2-besu
             nodes: 1
             os: ubuntu20.04-8cores-32GB
