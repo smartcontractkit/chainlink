@@ -1,7 +1,7 @@
 {
   "name": "@chainlink/contracts-ccip",
-  "version": "0.7.6",
-  "description": "Chainlink smart contracts",
+  "version": "1.2.1",
+  "description": "Chainlink CCIP smart contracts",
   "author": "Chainlink devs",
   "license": "BUSL-1.1",
   "private": false,
@@ -17,19 +17,20 @@
     "coverage": "hardhat coverage",
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "pnpm publish --tag beta",
-    "publish-prod": "npm dist-tag add @chainlink/contracts-ccip@0.7.6 latest",
+    "publish-prod": "npm dist-tag add @chainlink/contracts-ccip@1.2.1 latest",
     "lint:ccip": "solhint --config ./src/v0.8/ccip/.solhint.json --ignore-path .ccip-solhint-ignore --max-warnings 0 \"./src/v0.8/ccip/**/*.sol\"",
     "solhint": "solhint --max-warnings 404 \"./src/v0.8/**/*.sol\""
   },
   "files": [
     "src/v0.8/ccip/**/*.sol",
     "!src/v0.8/ccip/test/**/*",
-    "!src/v0.8/ccip/pools/USDC/**/*",
-    "src/v0.8/shared/interfaces/IOwnable.sol",
     "src/v0.8/shared/access/ConfirmedOwner.sol",
     "src/v0.8/shared/access/ConfirmedOwnerWithProposal.sol",
     "src/v0.8/shared/access/OwnerIsCreator.sol",
+    "src/v0.8/shared/call/CallWithExactGas.sol",
     "src/v0.8/shared/enumerable/EnumerableMapAddresses.sol",
+    "src/v0.8/shared/interfaces/IOwnable.sol",
+    "src/v0.8/shared/interfaces/ITypeAndVersion.sol",
     "src/v0.8/shared/token/ERC20/IBurnMintERC20.sol",
     "src/v0.8/shared/token/ERC677/IERC677.sol",
     "src/v0.8/shared/token/ERC677/IERC677Receiver.sol",
@@ -38,11 +39,10 @@
     "src/v0.8/vendor/openzeppelin-solidity",
     "src/v0.8/vendor/Context.sol",
     "src/v0.8/vendor/Pausable.sol",
-    "src/v0.8/interfaces/TypeAndVersionInterface.sol",
     "abi/v0.8/",
-    "LICENSE.md",
-    "LICENSE-MIT.md",
-    "v1.0-CCIP-License-grants.md"
+    "src/v0.8/ccip/LICENSE.md",
+    "src/v0.8/ccip/LICENSE-MIT.md",
+    "src/v0.8/ccip/v1.2-CCIP-License-grants.md"
   ],
   "pnpm": {
     "_comment": "See https://github.com/ethers-io/ethers.js/discussions/2849#discussioncomment-2696454",
