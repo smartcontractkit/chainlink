@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -20,17 +20,15 @@ import (
 // it exposes some of the database implementation details (e.g. pg.Q). Ideally it should be agnostic and could be applied to any persistence layer.
 // What is more, LogPoller should not be aware of the underlying database implementation and delegate all the queries to the ORM.
 type ORM interface {
-	Q() pg.Q
 	InsertLogs(logs []Log, qopts ...pg.QOpt) error
-	InsertBlock(blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, lastFinalizedBlockNumber int64, qopts ...pg.QOpt) error
+	InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error
 	InsertFilter(filter Filter, qopts ...pg.QOpt) error
 
 	LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error)
 	DeleteFilter(name string, qopts ...pg.QOpt) error
 
-	DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error
 	DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error
-	DeleteLogsAfter(start int64, qopts ...pg.QOpt) error
+	DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error
 	DeleteExpiredLogs(qopts ...pg.QOpt) error
 
 	GetBlocksRange(start int64, end int64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
@@ -50,28 +48,27 @@ type ORM interface {
 	SelectIndexedLogsTopicGreaterThan(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectIndexedLogsTopicRange(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin, topicValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
+	SelectIndexedLogsByTxHash(address common.Address, eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordRange(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
+	SelectLogsDataWordBetween(address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 }
 
 type DbORM struct {
 	chainID *big.Int
 	q       pg.Q
+	lggr    logger.Logger
 }
 
 // NewORM creates a DbORM scoped to chainID.
 func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *DbORM {
-	namedLogger := lggr.Named("Configs")
+	namedLogger := logger.Named(lggr, "Configs")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &DbORM{
 		chainID: chainID,
 		q:       q,
+		lggr:    lggr,
 	}
-}
-
-func (o *DbORM) Q() pg.Q {
-	return o.q
 }
 
 // InsertBlock is idempotent to support replays.
@@ -191,12 +188,6 @@ func (o *DbORM) SelectLatestLogByEventSigWithConfs(eventSig common.Hash, address
 	return &l, nil
 }
 
-// DeleteBlocksAfter delete all blocks after and including start.
-func (o *DbORM) DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-	return q.ExecQ(`DELETE FROM evm.log_poller_blocks WHERE block_number >= $1 AND evm_chain_id = $2`, start, utils.NewBig(o.chainID))
-}
-
 // DeleteBlocksBefore delete all blocks before and including end.
 func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
@@ -204,9 +195,31 @@ func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 	return err
 }
 
-func (o *DbORM) DeleteLogsAfter(start int64, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-	return q.ExecQ(`DELETE FROM evm.logs WHERE block_number >= $1 AND evm_chain_id = $2`, start, utils.NewBig(o.chainID))
+func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
+	// These deletes are bounded by reorg depth, so they are
+	// fast and should not slow down the log readers.
+	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		args, err := newQueryArgs(o.chainID).
+			withStartBlock(start).
+			toArgs()
+		if err != nil {
+			o.lggr.Error("Cant build args for DeleteLogsAndBlocksAfter queries", "err", err)
+			return err
+		}
+
+		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
+		if err != nil {
+			o.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
+			return err
+		}
+
+		_, err = tx.NamedExec(`DELETE FROM evm.logs WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
+		if err != nil {
+			o.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
+			return err
+		}
+		return nil
+	})
 }
 
 type Exp struct {
@@ -233,13 +246,35 @@ func (o *DbORM) DeleteExpiredLogs(qopts ...pg.QOpt) error {
 
 // InsertLogs is idempotent to support replays.
 func (o *DbORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
-	for _, log := range logs {
-		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
-			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
-		}
+	if err := o.validateLogs(logs); err != nil {
+		return err
 	}
-	q := o.q.WithOpts(qopts...)
 
+	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		return o.insertLogsWithinTx(logs, tx)
+	})
+}
+
+func (o *DbORM) InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error {
+	// Optimization, don't open TX when there is only a block to be persisted
+	if len(logs) == 0 {
+		return o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, qopts...)
+	}
+
+	if err := o.validateLogs(logs); err != nil {
+		return err
+	}
+
+	// Block and logs goes with the same TX to ensure atomicity
+	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		if err := o.InsertBlock(block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber, pg.WithQueryer(tx)); err != nil {
+			return err
+		}
+		return o.insertLogsWithinTx(logs, tx)
+	})
+}
+
+func (o *DbORM) insertLogsWithinTx(logs []Log, tx pg.Queryer) error {
 	batchInsertSize := 4000
 	for i := 0; i < len(logs); i += batchInsertSize {
 		start, end := i, i+batchInsertSize
@@ -247,12 +282,14 @@ func (o *DbORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 			end = len(logs)
 		}
 
-		err := q.ExecQNamed(`
-			INSERT INTO evm.logs 
-				(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at) 
+		_, err := tx.NamedExec(`
+				INSERT INTO evm.logs 
+					(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at) 
 				VALUES 
-				(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) 
-				ON CONFLICT DO NOTHING`, logs[start:end])
+					(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) 
+				ON CONFLICT DO NOTHING`,
+			logs[start:end],
+		)
 
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
@@ -262,6 +299,15 @@ func (o *DbORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 				continue
 			}
 			return err
+		}
+	}
+	return nil
+}
+
+func (o *DbORM) validateLogs(logs []Log) error {
+	for _, log := range logs {
+		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
+			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
 		}
 	}
 	return nil
@@ -490,6 +536,32 @@ func (o *DbORM) SelectLogsDataWordGreaterThan(address common.Address, eventSig c
 	return logs, nil
 }
 
+func (o *DbORM) SelectLogsDataWordBetween(address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
+		withWordIndexMin(wordIndexMin).
+		withWordIndexMax(wordIndexMax).
+		withWordValue(wordValue).
+		withConfs(confs).
+		toArgs()
+	if err != nil {
+		return nil, err
+	}
+	query := fmt.Sprintf(`
+		SELECT * FROM evm.logs 
+			WHERE evm_chain_id = :evm_chain_id
+			AND address = :address
+			AND event_sig = :event_sig
+			AND substring(data from 32*:word_index_min+1 for 32) <= :word_value
+			AND substring(data from 32*:word_index_max+1 for 32) >= :word_value
+			AND block_number <= %s
+			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+	var logs []Log
+	if err = o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
 func (o *DbORM) SelectIndexedLogsTopicGreaterThan(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
 		withTopicIndex(topicIndex).
@@ -619,9 +691,10 @@ func (o *DbORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig c
 	return logs, nil
 }
 
-func (o *DbORM) SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+func (o *DbORM) SelectIndexedLogsByTxHash(address common.Address, eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	args, err := newQueryArgs(o.chainID).
 		withTxHash(txHash).
+		withAddress(address).
 		withEventSig(eventSig).
 		toArgs()
 	if err != nil {
@@ -631,8 +704,9 @@ func (o *DbORM) SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Ha
 	err = o.q.WithOpts(qopts...).SelectNamed(&logs, `
 		SELECT * FROM evm.logs 
 			WHERE evm_chain_id = :evm_chain_id
+			AND address = :address
+			AND event_sig = :event_sig			  
 			AND tx_hash = :tx_hash
-			AND event_sig = :event_sig
 			ORDER BY (block_number, log_index)`, args)
 	if err != nil {
 		return nil, err

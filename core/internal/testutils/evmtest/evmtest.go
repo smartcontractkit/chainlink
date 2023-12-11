@@ -9,17 +9,17 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/jmoiron/sqlx"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -30,17 +30,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func NewChainScopedConfig(t testing.TB, cfg evm.AppConfig) evmconfig.ChainScopedConfig {
+func NewChainScopedConfig(t testing.TB, cfg legacyevm.AppConfig) evmconfig.ChainScopedConfig {
 	var evmCfg *evmtoml.EVMConfig
 	if len(cfg.EVMConfigs()) > 0 {
 		evmCfg = cfg.EVMConfigs()[0]
@@ -60,7 +60,7 @@ type TestChainOpts struct {
 	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
 	LogPoller      logpoller.LogPoller
-	GeneralConfig  evm.AppConfig
+	GeneralConfig  legacyevm.AppConfig
 	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
 	TxManager      txmgr.TxManager
@@ -78,12 +78,12 @@ func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) *evmrelay.Chai
 	return cc
 }
 
-func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayExtenderConfig {
+func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayExtenderConfig {
 	require.NotNil(t, testopts.KeyStore)
-	opts := evm.ChainRelayExtenderConfig{
+	opts := legacyevm.ChainRelayExtenderConfig{
 		Logger:   logger.TestLogger(t),
 		KeyStore: testopts.KeyStore,
-		ChainOpts: evm.ChainOpts{
+		ChainOpts: legacyevm.ChainOpts{
 			AppConfig:        testopts.GeneralConfig,
 			EventBroadcaster: pg.NewNullEventBroadcaster(),
 			MailMon:          testopts.MailMon,
@@ -118,7 +118,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 		}
 	}
 	if opts.MailMon == nil {
-		opts.MailMon = srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+		opts.MailMon = servicetest.Run(t, utils.NewMailboxMonitor(t.Name()))
 	}
 	if testopts.GasEstimator != nil {
 		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {
@@ -138,7 +138,7 @@ func MustGetDefaultChainID(t testing.TB, evmCfgs evmtoml.EVMConfigs) *big.Int {
 }
 
 // Deprecated, this is a replacement function for tests for now removed default chain logic
-func MustGetDefaultChain(t testing.TB, cc evm.LegacyChainContainer) evm.Chain {
+func MustGetDefaultChain(t testing.TB, cc legacyevm.LegacyChainContainer) legacyevm.Chain {
 	if len(cc.Slice()) == 0 {
 		t.Fatalf("at least one evm chain container must be defined")
 	}

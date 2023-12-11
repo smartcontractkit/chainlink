@@ -16,11 +16,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/olekukonko/tablewriter"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocr2keepers20 "github.com/smartcontractkit/ocr2keepers/pkg/v2"
+
+	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm20"
+	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v20"
 )
 
 type OCR2ReportDataElem struct {
@@ -233,15 +235,12 @@ func (t *OCR2Transaction) BlockNumber() (uint64, error) {
 			block, err := hexutil.DecodeUint64(blStr)
 			if err != nil {
 				return 0, fmt.Errorf("failed to parse block number: %s", err)
-			} else {
-				return block, nil
 			}
-		} else {
-			return 0, fmt.Errorf("not a string")
+			return block, nil
 		}
-	} else {
-		return 0, fmt.Errorf("not found")
+		return 0, fmt.Errorf("not a string")
 	}
+	return 0, fmt.Errorf("not found")
 }
 
 func (t *OCR2Transaction) To() *common.Address {
@@ -333,17 +332,15 @@ func (t *OCR2TransmitTx) SetStaticValues(elem *OCR2ReportDataElem) {
 	if err != nil {
 		elem.Err = err.Error()
 		return
-	} else {
-		elem.From = from.String()
 	}
+	elem.From = from.String()
 
 	block, err := t.BlockNumber()
 	if err != nil {
 		elem.Err = err.Error()
 		return
-	} else {
-		elem.BlockNumber = fmt.Sprintf("%d", block)
 	}
+	elem.BlockNumber = fmt.Sprintf("%d", block)
 
 	upkeeps, err := t.UpkeepsInTransmit()
 	if err != nil {

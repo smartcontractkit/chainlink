@@ -16,6 +16,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
@@ -25,9 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -266,7 +267,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 0, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.TestLogger(t)
+		lggr := logger.Test(t)
 		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
@@ -292,7 +293,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 2, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.TestLogger(t)
+		lggr := logger.Test(t)
 		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
@@ -317,7 +318,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 4, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.TestLogger(t)
+		lggr := logger.Test(t)
 		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
@@ -342,7 +343,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 7, 1, logs[1:], func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.TestLogger(t)
+		lggr := logger.Test(t)
 		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
 		listener := helper.newLogListenerWithJob("one")
 		listener2 := helper.newLogListenerWithJob("two")
@@ -468,7 +469,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 
 	var backfillCount atomic.Int64
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	backfillStart := lastStoredBlockHeight - numConfirmations - int64(blockBackfillDepth)
 	// the first backfill should start from before the last stored head
 	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
@@ -539,7 +540,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 	var backfillCount atomic.Int64
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := backfillCount.Add(1) - 1
 		lggr.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
@@ -1324,8 +1325,8 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch3 := make(chan types.Log)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
-	lb := log.NewBroadcaster(nil, ethClient, nil, logger.TestLogger(t), nil, mailMon)
+	mailMon := servicetest.RunHealthy(t, utils.NewMailboxMonitor(t.Name()))
+	lb := log.NewBroadcaster(nil, ethClient, nil, logger.Test(t), nil, mailMon)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
 

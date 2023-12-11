@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	avaxclient "github.com/ava-labs/coreth/ethclient"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -34,11 +33,6 @@ type Environment struct {
 
 	Jc *rpc.Client
 
-	// AvaxEc is appropriately set if the environment is configured to interact with an avalanche
-	// chain. It should be used instead of the regular Ec field because avalanche calculates
-	// blockhashes differently and the regular Ec will give consistently incorrect results on basic
-	// queries (like e.g eth_blockByNumber).
-	AvaxEc  avaxclient.Client
 	ChainID int64
 }
 
@@ -83,12 +77,6 @@ func SetupEnv(overrideNonce bool) Environment {
 
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
 	PanicErr(err)
-
-	var avaxClient avaxclient.Client
-	if IsAvaxNetwork(chainID) {
-		avaxClient, err = avaxclient.Dial(ethURL)
-		PanicErr(err)
-	}
 
 	// Owner key. Make sure it has eth
 	b, err := hex.DecodeString(accountKey)
@@ -136,7 +124,6 @@ func SetupEnv(overrideNonce bool) Environment {
 		Owner:   owner,
 		Ec:      ec,
 		Jc:      jsonRPCClient,
-		AvaxEc:  avaxClient,
 		ChainID: chainID,
 	}
 }
@@ -218,6 +205,11 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 		prefix = "https://goerli.basescan.org"
 	case 8453:
 		prefix = "https://basescan.org"
+
+	case 280: // zkSync Goerli testnet
+		prefix = "https://goerli.explorer.zksync.io"
+	case 324: // zkSync mainnet
+		prefix = "https://explorer.zksync.io"
 
 	default: // Unknown chain, return prefix as-is
 		prefix = ""
@@ -480,11 +472,10 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 		// Avalanche block headers are special, handle them by using the avalanche rpc client
 		// rather than the regular go-ethereum ethclient.
 		if IsAvaxNetwork(env.ChainID) {
+			var h AvaHeader
 			// Get child block since it's the one that has the parent hash in its header.
-			h, err := env.AvaxEc.HeaderByNumber(
-				context.Background(),
-				new(big.Int).Set(blockNum).Add(blockNum, offset),
-			)
+			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
+			err := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
 			if err != nil {
 				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
 			}

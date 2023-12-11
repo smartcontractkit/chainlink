@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {FunctionsCoordinator} from "../../../dev/v1_X/FunctionsCoordinator.sol";
 import {FunctionsBilling} from "../../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsResponse} from "../../../dev/v1_X/libraries/FunctionsResponse.sol";
+import {FunctionsBillingConfig} from "../../../dev/v1_X/interfaces/IFunctionsBilling.sol";
 
 /// @title Functions Coordinator Test Harness
 /// @notice Contract to expose internal functions for testing purposes
@@ -13,7 +14,7 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
 
   constructor(
     address router,
-    FunctionsBilling.Config memory config,
+    FunctionsBillingConfig memory config,
     address linkToNativeFeed
   ) FunctionsCoordinator(router, config, linkToNativeFeed) {
     s_linkToNativeFeed_HARNESS = linkToNativeFeed;
@@ -79,9 +80,10 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
     bytes memory response,
     bytes memory err,
     bytes memory onchainMetadata,
-    bytes memory offchainMetadata
+    bytes memory offchainMetadata,
+    uint8 reportBatchSize
   ) external returns (FunctionsResponse.FulfillResult) {
-    return super._fulfillAndBill(requestId, response, err, onchainMetadata, offchainMetadata);
+    return super._fulfillAndBill(requestId, response, err, onchainMetadata, offchainMetadata, reportBatchSize);
   }
 
   function disperseFeePool_HARNESS() external {

@@ -6,14 +6,13 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+//go:generate mockery --quiet --name sendOnlyClient --structname mockSendOnlyClient --filename "mock_send_only_client_test.go" --inpackage --case=underscore
 type sendOnlyClient[
 	CHAIN_ID types.ID,
 ] interface {
@@ -23,6 +22,8 @@ type sendOnlyClient[
 }
 
 // SendOnlyNode represents one node used as a sendonly
+//
+//go:generate mockery --quiet --name SendOnlyNode --structname mockSendOnlyNode --filename "mock_send_only_node_test.go"  --inpackage --case=underscore
 type SendOnlyNode[
 	CHAIN_ID types.ID,
 	RPC sendOnlyClient[CHAIN_ID],
@@ -57,7 +58,7 @@ type sendOnlyNode[
 	log     logger.Logger
 	name    string
 	chainID CHAIN_ID
-	chStop  utils.StopChan
+	chStop  services.StopChan
 	wg      sync.WaitGroup
 }
 
@@ -74,7 +75,8 @@ func NewSendOnlyNode[
 ) SendOnlyNode[CHAIN_ID, RPC] {
 	s := new(sendOnlyNode[CHAIN_ID, RPC])
 	s.name = name
-	s.log = lggr.Named("SendOnlyNode").Named(name).With(
+	s.log = logger.Named(logger.Named(lggr, "SendOnlyNode"), name)
+	s.log = logger.With(s.log,
 		"nodeTier", "sendonly",
 	)
 	s.rpc = rpc
@@ -144,6 +146,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
 func (s *sendOnlyNode[CHAIN_ID, RPC]) Close() error {
 	return s.StopOnce(s.name, func() error {
 		s.rpc.Close()
+		close(s.chStop)
 		s.wg.Wait()
 		s.setState(nodeStateClosed)
 		return nil
@@ -159,7 +162,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) RPC() RPC {
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) String() string {
-	return fmt.Sprintf("(%s)%s:%s", client.Secondary.String(), s.name, s.uri.Redacted())
+	return fmt.Sprintf("(%s)%s:%s", Secondary.String(), s.name, s.uri.Redacted())
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state nodeState) (changed bool) {

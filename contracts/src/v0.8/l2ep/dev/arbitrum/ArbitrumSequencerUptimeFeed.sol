@@ -2,9 +2,9 @@
 pragma solidity ^0.8.4;
 
 import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import {AggregatorInterface} from "../../../interfaces/AggregatorInterface.sol";
-import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
-import {AggregatorV2V3Interface} from "../../../interfaces/AggregatorV2V3Interface.sol";
+import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
+import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
+import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {FlagsInterface} from "../interfaces/FlagsInterface.sol";
 import {ArbitrumSequencerUptimeFeedInterface} from "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
@@ -287,6 +287,8 @@ contract ArbitrumSequencerUptimeFeed is
     roundId = _roundId;
     updatedAt = startedAt;
     answeredInRound = roundId;
+
+    return (roundId, answer, startedAt, updatedAt, answeredInRound);
   }
 
   /// @inheritdoc AggregatorV3Interface
@@ -305,5 +307,7 @@ contract ArbitrumSequencerUptimeFeed is
     startedAt = feedState.latestTimestamp;
     updatedAt = startedAt;
     answeredInRound = roundId;
+
+    return (roundId, answer, startedAt, updatedAt, answeredInRound);
   }
 }

@@ -1,23 +1,24 @@
 package ocrcommon_test
 
 import (
+	"crypto/rand"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-
+	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 func Test_DiscovererDatabase(t *testing.T) {
 	db := pgtest.NewSqlDB(t)
 
-	localPeerID1 := cltest.MustRandomP2PPeerID(t)
-	localPeerID2 := cltest.MustRandomP2PPeerID(t)
+	localPeerID1 := mustRandomP2PPeerID(t)
+	localPeerID2 := mustRandomP2PPeerID(t)
 
 	dd1 := ocrcommon.NewDiscovererDatabase(db, localPeerID1)
 	dd2 := ocrcommon.NewDiscovererDatabase(db, localPeerID2)
@@ -80,4 +81,12 @@ func Test_DiscovererDatabase(t *testing.T) {
 		assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
 
 	})
+}
+
+func mustRandomP2PPeerID(t *testing.T) p2ppeer.ID {
+	p2pPrivkey, _, err := cryptop2p.GenerateEd25519Key(rand.Reader)
+	require.NoError(t, err)
+	id, err := p2ppeer.IDFromPrivateKey(p2pPrivkey)
+	require.NoError(t, err)
+	return id
 }

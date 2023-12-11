@@ -2,11 +2,7 @@ name: chaincli CI
 
 on:
   push:
-    paths:
-      - "core/scripts/chaincli/**"
   pull_request:
-    paths:
-      - "core/scripts/chaincli/**"
 
 jobs:
   golangci:

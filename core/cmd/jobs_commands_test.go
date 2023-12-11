@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -313,7 +314,7 @@ func TestShell_ListFindJobs(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
+	flagSetApplyFromAction(client.CreateJob, fs, "")
 
 	require.NoError(t, fs.Parse([]string{getDirectRequestSpec()}))
 
@@ -339,7 +340,7 @@ func TestShell_ShowJob(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
+	flagSetApplyFromAction(client.CreateJob, fs, "")
 
 	require.NoError(t, fs.Parse([]string{getDirectRequestSpec()}))
 
@@ -368,7 +369,8 @@ func TestShell_CreateJobV2(t *testing.T) {
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
 		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -382,7 +384,7 @@ func TestShell_CreateJobV2(t *testing.T) {
 	requireJobsCount(t, app.JobORM(), 0)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
+	flagSetApplyFromAction(client.CreateJob, fs, "")
 
 	nameAndExternalJobID := uuid.New()
 	spec := fmt.Sprintf(ocrBootstrapSpec, nameAndExternalJobID, nameAndExternalJobID)
@@ -413,7 +415,7 @@ func TestShell_DeleteJob(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
+	flagSetApplyFromAction(client.CreateJob, fs, "")
 
 	require.NoError(t, fs.Parse([]string{getDirectRequestSpec()}))
 
@@ -432,12 +434,12 @@ func TestShell_DeleteJob(t *testing.T) {
 
 	// Must supply job id
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteJob, set, "")
+	flagSetApplyFromAction(client.DeleteJob, set, "")
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, "must pass the job id to be archived", client.DeleteJob(c).Error())
 
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteJob, set, "")
+	flagSetApplyFromAction(client.DeleteJob, set, "")
 
 	require.NoError(t, set.Parse([]string{output.ID}))
 

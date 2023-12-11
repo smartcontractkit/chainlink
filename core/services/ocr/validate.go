@@ -5,14 +5,14 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -37,7 +37,7 @@ type insecureConfig interface {
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(legacyChains evm.LegacyChainContainer, tomlString string) (job.Job, error) {
+func ValidatedOracleSpecToml(legacyChains legacyevm.LegacyChainContainer, tomlString string) (job.Job, error) {
 	return ValidatedOracleSpecTomlCfg(func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
 		c, err := legacyChains.Get(id.String())
 		if err != nil {
@@ -76,11 +76,6 @@ func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (evmconfig.ChainScope
 	}
 	if !tree.Has("isBootstrapPeer") {
 		return jb, errors.New("isBootstrapPeer is not defined")
-	}
-	for i := range spec.P2PBootstrapPeers {
-		if _, err = multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return jb, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
-		}
 	}
 
 	if len(spec.P2PV2Bootstrappers) > 0 {

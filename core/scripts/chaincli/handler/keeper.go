@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/umbracle/ethgo/abi"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -34,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 )
 
 // Keeper is the keepers commands handler
@@ -434,9 +435,8 @@ func (k *Keeper) getRegistry20(ctx context.Context) (common.Address, *registry20
 	}
 	if k.cfg.RegistryConfigUpdate {
 		panic("KeeperRegistry2.0 could not be updated")
-	} else {
-		log.Println("KeeperRegistry2.0 config not updated: KEEPER_CONFIG_UPDATE=false")
 	}
+	log.Println("KeeperRegistry2.0 config not updated: KEEPER_CONFIG_UPDATE=false")
 	return registryAddr, keeperRegistry20
 }
 
@@ -452,9 +452,8 @@ func (k *Keeper) getRegistry21(ctx context.Context) (common.Address, *iregistry2
 	}
 	if k.cfg.RegistryConfigUpdate {
 		panic("KeeperRegistry2.1 could not be updated")
-	} else {
-		log.Println("KeeperRegistry2.1 config not updated: KEEPER_CONFIG_UPDATE=false")
 	}
+	log.Println("KeeperRegistry2.1 config not updated: KEEPER_CONFIG_UPDATE=false")
 	return registryAddr, keeperRegistry21
 }
 
@@ -478,9 +477,8 @@ func (k *Keeper) getRegistry12(ctx context.Context) (common.Address, *registry12
 			log.Fatalf("KeeperRegistry config update failed on registry address: %s, error is: %s", k.cfg.RegistryAddress, err.Error())
 		}
 		log.Println("KeeperRegistry config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
-	} else {
-		log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
 	}
+	log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
 	return registryAddr, keeperRegistry12
 }
 
@@ -512,9 +510,8 @@ func (k *Keeper) getRegistry11(ctx context.Context) (common.Address, *registry11
 			log.Fatalf("KeeperRegistry config update failed on registry address: %s, error is %s", k.cfg.RegistryAddress, err.Error())
 		}
 		log.Println("KeeperRegistry config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
-	} else {
-		log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
 	}
+	log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
 	return registryAddr, keeperRegistry11
 }
 
@@ -719,7 +716,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		log.Printf("registry version is %s", v)
 		log.Printf("active upkeep ids: %v", activeUpkeepIds)
 
-		adminBytes, err := json.Marshal(evm.UpkeepPrivilegeConfig{
+		adminBytes, err := json.Marshal(streams.UpkeepPrivilegeConfig{
 			MercuryEnabled: true,
 		})
 		if err != nil {

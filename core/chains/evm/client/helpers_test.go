@@ -9,13 +9,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	commonconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type TestNodePoolConfig struct {
@@ -44,9 +42,9 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	n := NewNode(nodePoolCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID, 1)
-	n.(*node).setLatestReceived(0, utils.NewBigI(0))
+	n.(*node).setLatestReceived(0, big.NewInt(0))
 	primaries := []Node{n}
 
 	var sendonlys []SendOnlyNode
@@ -88,8 +86,8 @@ func NewChainClientWithTestNode(
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	lggr := logger.TestLogger(t)
-	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, clienttypes.Primary)
+	lggr := logger.Test(t)
+	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
 	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCCLient](
 		nodeCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
@@ -101,7 +99,7 @@ func NewChainClientWithTestNode(
 			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
-		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, clienttypes.Secondary)
+		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
 		s := commonclient.NewSendOnlyNode[*big.Int, RPCCLient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
@@ -121,7 +119,7 @@ func NewChainClientWithEmptyNode(
 	chainID *big.Int,
 ) Client {
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	var chainType commonconfig.ChainType
 	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType)

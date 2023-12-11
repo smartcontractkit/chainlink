@@ -5,7 +5,7 @@ import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
 import {LinkTokenReceiver} from "./LinkTokenReceiver.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
-import {AuthorizedReceiverInterface} from "../../interfaces/AuthorizedReceiverInterface.sol";
+import {AuthorizedReceiverInterface} from "./interfaces/AuthorizedReceiverInterface.sol";
 import {OperatorInterface} from "../../interfaces/OperatorInterface.sol";
 import {IOwnable} from "../../shared/interfaces/IOwnable.sol";
 import {WithdrawalInterface} from "./interfaces/WithdrawalInterface.sol";
@@ -318,7 +318,8 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     for (uint256 i = 0; i < receivers.length; ++i) {
       uint256 sendAmount = amounts[i];
       valueRemaining = valueRemaining - sendAmount;
-      receivers[i].transfer(sendAmount);
+      (bool success, ) = receivers[i].call{value: sendAmount}("");
+      require(success, "Address: unable to send value, recipient may have reverted");
     }
     require(valueRemaining == 0, "Too much ETH sent");
   }

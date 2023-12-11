@@ -7,7 +7,8 @@ import (
 	"github.com/lib/pq"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -43,7 +44,7 @@ const (
 type DirectRequestSpec struct {
 	ContractAddress          ethkey.EIP55Address      `json:"contractAddress"`
 	MinIncomingConfirmations clnull.Uint32            `json:"minIncomingConfirmations"`
-	MinContractPayment       *assets.Link             `json:"minContractPaymentLinkJuels"`
+	MinContractPayment       *commonassets.Link       `json:"minContractPaymentLinkJuels"`
 	Requesters               models.AddressCollection `json:"requesters"`
 	Initiator                string                   `json:"initiator"`
 	CreatedAt                time.Time                `json:"createdAt"`
@@ -80,7 +81,7 @@ type FluxMonitorSpec struct {
 	DrumbeatEnabled     bool                `json:"drumbeatEnabled"`
 	DrumbeatSchedule    *string             `json:"drumbeatSchedule"`
 	DrumbeatRandomDelay *string             `json:"drumbeatRandomDelay"`
-	MinPayment          *assets.Link        `json:"minPayment"`
+	MinPayment          *commonassets.Link  `json:"minPayment"`
 	CreatedAt           time.Time           `json:"createdAt"`
 	UpdatedAt           time.Time           `json:"updatedAt"`
 	EVMChainID          *utils.Big          `json:"evmChainID"`
@@ -119,7 +120,6 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 // OffChainReportingSpec defines the spec details of a OffChainReporting Job
 type OffChainReportingSpec struct {
 	ContractAddress                        ethkey.EIP55Address  `json:"contractAddress"`
-	P2PBootstrapPeers                      pq.StringArray       `json:"p2pBootstrapPeers"`
 	P2PV2Bootstrappers                     pq.StringArray       `json:"p2pv2Bootstrappers"`
 	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                *models.Sha256Hash   `json:"keyBundleID"`
@@ -143,7 +143,6 @@ type OffChainReportingSpec struct {
 func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 	return &OffChainReportingSpec{
 		ContractAddress:                        spec.ContractAddress,
-		P2PBootstrapPeers:                      spec.P2PBootstrapPeers,
 		P2PV2Bootstrappers:                     spec.P2PV2Bootstrappers,
 		IsBootstrapPeer:                        spec.IsBootstrapPeer,
 		EncryptedOCRKeyBundleID:                spec.EncryptedOCRKeyBundleID,

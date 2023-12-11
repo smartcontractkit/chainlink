@@ -18,7 +18,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -34,13 +37,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -88,8 +89,8 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 		}
 	})
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
-	lggr := logger.TestLogger(t)
-	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	lggr := logger.Test(t)
+	mailMon := servicetest.Run(t, utils.NewMailboxMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
 	orm := log.NewORM(db, lggr, config.Database(), cltest.FixtureChainID)
@@ -265,7 +266,7 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 	var rec received
 	return &simpleLogListener{
 		db:       db,
-		lggr:     logger.TestLogger(t),
+		lggr:     logger.Test(t),
 		cfg:      helper.config.Database(),
 		name:     name,
 		received: &rec,
@@ -281,7 +282,7 @@ func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
 func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
 	listener.received.Lock()
 	defer listener.received.Unlock()
-	listener.lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+	logger.Tracef(listener.lggr, "Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)

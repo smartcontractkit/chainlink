@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
@@ -43,4 +44,9 @@ type ContractAddresses struct {
 	BatchBHSAddress         common.Address
 	CoordinatorAddress      common.Address
 	BatchCoordinatorAddress common.Address
+}
+
+type VRFKeyRegistrationConfig struct {
+	VRFKeyUncompressedPubKey string
+	RegisterAgainstAddress   string
 }

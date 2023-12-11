@@ -14,7 +14,7 @@ BlockBackfillDepth = 10 # Default
 # BlockBackfillSkip enables skipping of very long backfills.
 BlockBackfillSkip = false # Default
 # ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-# Available types: arbitrum, metis, optimismBedrock, xdai
+# Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync
 ChainType = 'arbitrum' # Example
 # FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID so it should not be necessary to change this under normal operation.
 # BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
@@ -335,6 +335,14 @@ ContractConfirmations = 4 # Default
 ContractTransmitterTransmitTimeout = '10s' # Default
 # DatabaseTimeout sets `OCR.DatabaseTimeout` for this EVM chain.
 DatabaseTimeout = '10s' # Default
+# **ADVANCED**
+# DeltaCOverride (and `DeltaCJitterOverride`) determine the config override DeltaC.
+# DeltaC is the maximum age of the latest report in the contract. If the maximum age is exceeded, a new report will be
+# created by the report generation protocol.
+DeltaCOverride = "168h" # Default
+# **ADVANCED**
+# DeltaCJitterOverride is the range for jitter to add to `DeltaCOverride`.
+DeltaCJitterOverride = "1h" # Default
 # ObservationGracePeriod sets `OCR.ObservationGracePeriod` for this EVM chain.
 ObservationGracePeriod = '1s' # Default
 

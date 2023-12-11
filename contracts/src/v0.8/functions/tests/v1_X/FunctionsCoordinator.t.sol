@@ -10,12 +10,11 @@ import {Routable} from "../../dev/v1_X/Routable.sol";
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsRouterSetup, FunctionsDONSetup, FunctionsSubscriptionSetup} from "./Setup.t.sol";
-import "forge-std/console.sol";
 
 /// @notice #constructor
 contract FunctionsCoordinator_Constructor is FunctionsRouterSetup {
   function test_Constructor_Success() public {
-    assertEq(s_functionsCoordinator.typeAndVersion(), "Functions Coordinator v1.1.0");
+    assertEq(s_functionsCoordinator.typeAndVersion(), "Functions Coordinator v1.2.0");
     assertEq(s_functionsCoordinator.owner(), OWNER_ADDRESS);
   }
 }

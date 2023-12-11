@@ -3,7 +3,9 @@ package handler
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -12,10 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"crypto/sha256"
-
-	"encoding/json"
 
 	"github.com/avast/retry-go"
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
@@ -220,6 +218,7 @@ func (mlh *MercuryLookupHandler) singleFeedRequest(ctx context.Context, ch chan<
 			defer func(Body io.ReadCloser) {
 				err := Body.Close()
 				if err != nil {
+					_ = "" // placate linter
 					// mlh.logger.Errorf("Encountered error when closing the body of the response in single feed: %s", err)
 				}
 			}(resp.Body)
@@ -328,6 +327,7 @@ func (mlh *MercuryLookupHandler) multiFeedsRequest(ctx context.Context, ch chan<
 			defer func(Body io.ReadCloser) {
 				err := Body.Close()
 				if err != nil {
+					_ = "" // placate linter
 					// mlh.logger.Errorf("Encountered error when closing the body of the response in the multi feed: %s", err)
 				}
 			}(resp.Body)

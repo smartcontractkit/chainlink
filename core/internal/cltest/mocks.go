@@ -11,12 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/jmoiron/sqlx"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -397,7 +399,7 @@ func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }
 
-func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg evm.AppConfig) evm.LegacyChainContainer {
+func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig) legacyevm.LegacyChainContainer {
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Logger").Return(logger.TestLogger(t))
@@ -409,7 +411,19 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 
 }
 
-func NewLegacyChainsWithChain(ch evm.Chain, cfg evm.AppConfig) evm.LegacyChainContainer {
-	m := map[string]evm.Chain{ch.ID().String(): ch}
-	return evm.NewLegacyChains(m, cfg.EVMConfigs())
+func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig, txm txmgr.TxManager) legacyevm.LegacyChainContainer {
+	ch := new(evmmocks.Chain)
+	ch.On("Client").Return(ethClient)
+	ch.On("Logger").Return(logger.TestLogger(t))
+	scopedCfg := evmtest.NewChainScopedConfig(t, cfg)
+	ch.On("ID").Return(scopedCfg.EVM().ChainID())
+	ch.On("Config").Return(scopedCfg)
+	ch.On("TxManager").Return(txm)
+
+	return NewLegacyChainsWithChain(ch, cfg)
+}
+
+func NewLegacyChainsWithChain(ch legacyevm.Chain, cfg legacyevm.AppConfig) legacyevm.LegacyChainContainer {
+	m := map[string]legacyevm.Chain{ch.ID().String(): ch}
+	return legacyevm.NewLegacyChains(m, cfg.EVMConfigs())
 }

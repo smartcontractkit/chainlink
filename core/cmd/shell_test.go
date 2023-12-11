@@ -2,15 +2,20 @@ package cmd_test
 
 import (
 	"crypto/rand"
+	"flag"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -513,4 +518,48 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 		_, err := rf.NewStarkNet(ks, duplicateConfig.StarknetConfigs())
 		require.Error(t, err)
 	})
+}
+
+// flagSetApplyFromAction applies the flags from action to the flagSet.
+// `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
+func flagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
+	cliApp := cmd.Shell{}
+	app := cmd.NewApp(&cliApp)
+
+	foundName := parentCommand == ""
+	actionFuncName := getFuncName(action)
+
+	for _, command := range app.Commands {
+		flags := recursiveFindFlagsWithName(actionFuncName, command, parentCommand, foundName)
+
+		for _, flag := range flags {
+			flag.Apply(flagSet)
+		}
+	}
+
+}
+
+func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, parent string, foundName bool) []cli.Flag {
+
+	if command.Action != nil {
+		if actionFuncName == getFuncName(command.Action) && foundName {
+			return command.Flags
+		}
+	}
+
+	for _, subcommand := range command.Subcommands {
+		if !foundName {
+			foundName = strings.EqualFold(subcommand.Name, parent)
+		}
+
+		found := recursiveFindFlagsWithName(actionFuncName, subcommand, parent, foundName)
+		if found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func getFuncName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }

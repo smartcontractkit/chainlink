@@ -9,11 +9,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -89,13 +90,13 @@ func TestResolver_ETHKeys(t *testing.T) {
 				linkAddr := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
 
 				cfg := configtest.NewGeneralConfig(t, nil)
-				m := map[string]evm.Chain{states[0].EVMChainID.String(): f.Mocks.chain}
-				legacyEVMChains := evm.NewLegacyChains(m, cfg.EVMConfigs())
+				m := map[string]legacyevm.Chain{states[0].EVMChainID.String(): f.Mocks.chain}
+				legacyEVMChains := legacyevm.NewLegacyChains(m, cfg.EVMConfigs())
 
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
-				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(assets.NewLinkFromJuels(12), nil)
+				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(commonassets.NewLinkFromJuels(12), nil)
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.balM.On("GetEthBalance", address).Return(assets.NewEth(1))
 				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
@@ -300,7 +301,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
-				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(assets.NewLinkFromJuels(12), gError)
+				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(commonassets.NewLinkFromJuels(12), gError)
 				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(f.Mocks.chain, nil)
 				f.Mocks.relayerChainInterops.EVMChains = f.Mocks.legacyEVMChains
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
@@ -353,7 +354,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
-				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(assets.NewLinkFromJuels(12), nil)
+				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(commonassets.NewLinkFromJuels(12), nil)
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.chain.On("BalanceMonitor").Return(nil)
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)

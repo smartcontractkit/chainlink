@@ -12,6 +12,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
+	"github.com/urfave/cli"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
@@ -21,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/urfave/cli"
 )
 
 func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Shell, *cli.App) {
@@ -85,6 +86,9 @@ func main() {
 	batchBHSAddressString := flag.String("batch-bhs-address", "", "address of Batch BHS contract")
 	coordinatorAddressString := flag.String("coordinator-address", "", "address of VRF Coordinator contract")
 	batchCoordinatorAddressString := flag.String("batch-coordinator-address", "", "address Batch VRF Coordinator contract")
+	registerVRFKeyAgainstAddress := flag.String("register-vrf-key-against-address", "", "VRF Key registration against address - "+
+		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
+	deployVRFOwner := flag.Bool("deploy-vrfv2-owner", true, "whether to deploy VRF owner contracts")
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
@@ -171,6 +175,11 @@ func main() {
 			BatchCoordinatorAddress: common.HexToAddress(*batchCoordinatorAddressString),
 		}
 
+		vrfKeyRegistrationConfig := model.VRFKeyRegistrationConfig{
+			VRFKeyUncompressedPubKey: nodesMap[model.VRFPrimaryNodeName].VrfKeys[0],
+			RegisterAgainstAddress:   *registerVRFKeyAgainstAddress,
+		}
+
 		var jobSpecs model.JobSpecs
 
 		switch *vrfVersion {
@@ -188,10 +197,10 @@ func main() {
 			}
 
 			coordinatorConfigV2 := v2scripts.CoordinatorConfigV2{
-				MinConfs:               minConfs,
-				MaxGasLimit:            &constants.MaxGasLimit,
-				StalenessSeconds:       &constants.StalenessSeconds,
-				GasAfterPayment:        &constants.GasAfterPayment,
+				MinConfs:               *minConfs,
+				MaxGasLimit:            constants.MaxGasLimit,
+				StalenessSeconds:       constants.StalenessSeconds,
+				GasAfterPayment:        constants.GasAfterPayment,
 				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
 				FeeConfig:              feeConfigV2,
 			}
@@ -199,11 +208,12 @@ func main() {
 			jobSpecs = v2scripts.VRFV2DeployUniverse(
 				e,
 				subscriptionBalanceJuels,
-				&nodesMap[model.VRFPrimaryNodeName].VrfKeys[0],
+				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2,
 				*batchFulfillmentEnabled,
 				nodesMap,
+				*deployVRFOwner,
 			)
 		case "v2plus":
 			feeConfigV2Plus := vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
@@ -211,10 +221,10 @@ func main() {
 				FulfillmentFlatFeeNativePPM: uint32(constants.FlatFeeNativePPM),
 			}
 			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
-				MinConfs:               minConfs,
-				MaxGasLimit:            &constants.MaxGasLimit,
-				StalenessSeconds:       &constants.StalenessSeconds,
-				GasAfterPayment:        &constants.GasAfterPayment,
+				MinConfs:               *minConfs,
+				MaxGasLimit:            constants.MaxGasLimit,
+				StalenessSeconds:       constants.StalenessSeconds,
+				GasAfterPayment:        constants.GasAfterPayment,
 				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
 				FeeConfig:              feeConfigV2Plus,
 			}
@@ -223,7 +233,7 @@ func main() {
 				e,
 				subscriptionBalanceJuels,
 				subscriptionBalanceNativeWei,
-				&nodesMap[model.VRFPrimaryNodeName].VrfKeys[0],
+				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2Plus,
 				*batchFulfillmentEnabled,
@@ -496,9 +506,12 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 			var newKey presenters.ETHKeyResource
 
 			flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
+			flagSet.String("evm-chain-id", os.Getenv("ETH_CHAIN_ID"), "chain id")
 			if *maxGasPriceGwei > 0 {
 				helpers.PanicErr(flagSet.Set("max-gas-price-gwei", fmt.Sprintf("%d", *maxGasPriceGwei)))
 			}
+			err := flagSet.Parse([]string{"-evm-chain-id", os.Getenv("ETH_CHAIN_ID")})
+			helpers.PanicErr(err)
 			err = client.CreateETHKey(cli.NewContext(app, flagSet, nil))
 			helpers.PanicErr(err)
 			helpers.PanicErr(json.Unmarshal(output.Bytes(), &newKey))

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {AggregatorValidatorInterface} from "../../../interfaces/AggregatorValidatorInterface.sol";
+import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
@@ -204,6 +204,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       message
     );
     emit L2WithdrawalRequested(id, amount, refundAddr);
+
+    return id;
   }
 
   /**

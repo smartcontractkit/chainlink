@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -364,13 +365,13 @@ func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.St
 
 }
 
-func (ekc *ETHKeysController) setLinkBalance(bal *assets.Link) presenters.NewETHKeyOption {
+func (ekc *ETHKeysController) setLinkBalance(bal *commonassets.Link) presenters.NewETHKeyOption {
 	return presenters.SetETHKeyLinkBalance(bal)
 }
 
 // queries the EthClient for the LINK balance at the address associated with state
-func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.State) *assets.Link {
-	var bal *assets.Link
+func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.State) *commonassets.Link {
+	var bal *commonassets.Link
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
@@ -411,7 +412,7 @@ func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddres
 
 // getChain is a convenience wrapper to retrieve a chain for a given request
 // and call the corresponding API response error function for 400, 404 and 500 results
-func (ekc *ETHKeysController) getChain(c *gin.Context, chainIDstr string) (chain evm.Chain, ok bool) {
+func (ekc *ETHKeysController) getChain(c *gin.Context, chainIDstr string) (chain legacyevm.Chain, ok bool) {
 	chain, err := getChain(ekc.app.GetRelayers().LegacyEVMChains(), chainIDstr)
 	if err != nil {
 		if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) {

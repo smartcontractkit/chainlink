@@ -6,7 +6,7 @@ on:
         description: Chainlink image version to use
         required: true
         type: string
-        default: 2.5.0
+        default: 2.6.0
       chainlinkImage:
         description: Chainlink image repo to use
         required: true
@@ -57,7 +57,7 @@ jobs:
       id-token: write
       contents: read
     name: ${{ inputs.network }} Automation Benchmark Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-16cores-64GB
     env:
       SELECTED_NETWORKS: ${{ inputs.network }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
@@ -108,8 +108,9 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          suites: benchmark load/automationv2_1 chaos reorg
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         env:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark

@@ -9,9 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -96,7 +97,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 						CreatedAt:                f.Timestamp(),
 						EVMChainID:               utils.NewBigI(42),
 						MinIncomingConfirmations: clnull.NewUint32(1, true),
-						MinContractPayment:       assets.NewLinkFromJuels(1000),
+						MinContractPayment:       commonassets.NewLinkFromJuels(1000),
 						Requesters:               models.AddressCollection{requesterAddress},
 					},
 				}, nil)
@@ -163,7 +164,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 						DrumbeatEnabled:   false,
 						IdleTimerDisabled: false,
 						IdleTimerPeriod:   time.Duration(1 * time.Hour),
-						MinPayment:        assets.NewLinkFromJuels(1000),
+						MinPayment:        commonassets.NewLinkFromJuels(1000),
 						PollTimerDisabled: false,
 						PollTimerPeriod:   time.Duration(1 * time.Minute),
 					},
@@ -232,7 +233,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 						DrumbeatSchedule:    "CRON_TZ=UTC 0 0 1 1 *",
 						IdleTimerDisabled:   true,
 						IdleTimerPeriod:     time.Duration(1 * time.Hour),
-						MinPayment:          assets.NewLinkFromJuels(1000),
+						MinPayment:          commonassets.NewLinkFromJuels(1000),
 						PollTimerDisabled:   true,
 						PollTimerPeriod:     time.Duration(1 * time.Minute),
 					},
@@ -384,7 +385,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 						IsBootstrapPeer:                        false,
 						EncryptedOCRKeyBundleID:                &keyBundleID,
 						ObservationTimeout:                     models.Interval(2 * time.Minute),
-						P2PBootstrapPeers:                      pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
 						P2PV2Bootstrappers:                     pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
 						TransmitterAddress:                     &transmitterAddress,
 					},
@@ -410,7 +410,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 									isBootstrapPeer
 									keyBundleID
 									observationTimeout
-									p2pBootstrapPeers
 									p2pv2Bootstrappers
 									transmitterAddress
 								}
@@ -437,7 +436,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 							"isBootstrapPeer": false,
 							"keyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"observationTimeout": "2m0s",
-							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
 							"p2pv2Bootstrappers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}

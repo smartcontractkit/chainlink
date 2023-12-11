@@ -34,7 +34,7 @@ inputs:
     required: false
   git-commit-sha:
     description: Git commit SHA used as metadata when building the application (appears in logs)
-    default: ${{ github.sha }}
+    default: ${{ github.event.pull_request.head.sha || github.sha }}
     required: false
   aws-role-to-assume:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
@@ -73,7 +73,7 @@ runs:
   using: composite
   steps:
     - name: Set shared variables
-      shell: sh
+      shell: bash
       # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
       run: |
         SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
@@ -122,7 +122,9 @@ runs:
 
     - name: Generate docker metadata for root image
       id: meta-root
-      uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
+      uses: docker/metadata-action@2c0bd771b40637d97bf205cbccdd294a32112176 # v4.5.0
+      env:
+        DOCKER_METADATA_PR_HEAD_SHA: "true"
       with:
         # list of Docker images to use as base name for tags
         images: ${{ env.shared-images }}
@@ -164,7 +166,9 @@ runs:
 
     - name: Generate docker metadata for non-root image
       id: meta-nonroot
-      uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
+      uses: docker/metadata-action@2c0bd771b40637d97bf205cbccdd294a32112176 # v4.5.0
+      env:
+        DOCKER_METADATA_PR_HEAD_SHA: "true"
       with:
         flavor: |
           latest=auto
@@ -223,7 +227,7 @@ runs:
 
     - if: inputs.sign-images == 'true'
       name: Install cosign
-      uses: sigstore/cosign-installer@581838fbedd492d2350a9ecd427a95d6de1e5d01 # v2.1.0
+      uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19 # v3.1.2
       with:
         cosign-release: "v1.6.0"
 

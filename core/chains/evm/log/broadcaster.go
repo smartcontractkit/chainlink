@@ -12,13 +12,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -110,7 +110,7 @@ type (
 
 		utils.DependentAwaiter
 
-		chStop                utils.StopChan
+		chStop                services.StopChan
 		wgDone                sync.WaitGroup
 		trackedAddressesCount atomic.Uint32
 		replayChannel         chan replayRequest
@@ -167,7 +167,7 @@ var _ Broadcaster = (*broadcaster)(nil)
 // NewBroadcaster creates a new instance of the broadcaster
 func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *utils.MailboxMonitor) *broadcaster {
 	chStop := make(chan struct{})
-	lggr = lggr.Named("LogBroadcaster")
+	lggr = logger.Named(lggr, "LogBroadcaster")
 	chainId := ethClient.ConfiguredChainID()
 	return &broadcaster{
 		orm:                    orm,
@@ -443,7 +443,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			// Do we have logs in the pool?
 			// They are are invalid, since we may have missed 'removed' logs.
 			if blockNum := b.invalidatePool(); blockNum > 0 {
-				lggr = lggr.With("blockNumber", blockNum)
+				lggr = logger.With(lggr, "blockNumber", blockNum)
 			}
 			lggr.Debugw("Subscription terminated. Backfilling after resubscribing")
 			return true, err

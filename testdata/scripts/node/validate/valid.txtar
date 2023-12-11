@@ -190,7 +190,7 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = false
+CaptureAutomationCustomTelemetry = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
@@ -213,19 +213,6 @@ IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
-
-[P2P.V1]
-Enabled = false
-AnnounceIP = ''
-AnnouncePort = 0
-BootstrapCheckInterval = '20s'
-DefaultBootstrapPeers = []
-DHTAnnouncementCounterUserPrefix = 0
-DHTLookupInterval = 10
-ListenIP = '0.0.0.0'
-ListenPort = 0
-NewStreamTimeout = '10s'
-PeerstoreWriteInterval = '5m0s'
 
 [P2P.V2]
 Enabled = true
@@ -285,6 +272,14 @@ Enabled = false
 CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
+Mode = 'tls'
+TLSCertPath = ''
+
+[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1s'
+MaxStaleAge = '1h0m0s'
+LatestReportDeadline = '5s'
 
 [[EVM]]
 ChainID = '1'
@@ -356,6 +351,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [EVM.OCR2]

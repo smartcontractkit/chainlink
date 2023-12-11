@@ -71,25 +71,40 @@ core/scripts/gateway @bolekk @pinebit
 /operator-ui/ @DeividasK @jkongie
 
 # Contracts
-/contracts/ @se3000 @connorwstein @RensR
+/contracts/ @RensR
 
-/contracts/srv/v0.8/automation @smartcontractkit/keepers
+# First we match on project names to catch files like the compilation scripts,
+# gas snapshots and other files not places in the project directories.
+# This could give some false positives, so afterwards we match on the project directories
+# to ensure the entire directory is always owned by the correct team.
+
+/contracts/**/*shared* @RensR
 /contracts/**/*keeper* @smartcontractkit/keepers
 /contracts/**/*upkeep* @smartcontractkit/keepers
 /contracts/**/*automation* @smartcontractkit/keepers
-/contracts/gas-snapshots/automation.gas-snapshot @smartcontractkit/keepers
-
-/contracts/src/v0.8/functions @smartcontractkit/functions
 /contracts/**/*functions* @smartcontractkit/functions
-/contracts/gas-snapshots/functions.gas-snapshot @smartcontractkit/functions
-
-/contracts/src/v0.8/llo-feeds @austinborn @Fletch153
-/contracts/gas-snapshots/llo-feeds.gas-snapshot @austinborn @Fletch153
-
-/contracts/src/v0.8/vrf @smartcontractkit/vrf-team
+/contracts/**/*llo-feeds* @austinborn @Fletch153
 /contracts/**/*vrf* @smartcontractkit/vrf-team
+/contracts/**/*l2ep* @simsonraj
+/contracts/**/*operatorforwarder* @essamhassan
 
+/contracts/src/v0.8/automation @smartcontractkit/keepers
+/contracts/src/v0.8/functions @smartcontractkit/functions
+# TODO: interfaces folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/l2ep @simsonraj
+/contracts/src/v0.8/llo-feeds @austinborn @Fletch153
+# TODO: mocks folder, folder should be removed and files moved to the correct folders
+/contracts/src/v0.8/operatorforwarder @essamhassan
+/contracts/src/v0.8/shared @RensR
+# TODO: tests folder, folder should be removed and files moved to the correct folders
+# TODO: transmission folder, owner should be found
+/contracts/src/v0.8/vrf @smartcontractkit/vrf-team
+
+
+
+# At the end, match any files missed by the patterns above
+/contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/functions
+
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
@@ -104,6 +119,8 @@ core/scripts/gateway @bolekk @pinebit
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-load-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-nightly-tests.yml @smartcontractkit/keepers
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 
