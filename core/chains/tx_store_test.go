@@ -241,11 +241,11 @@ func evmTxStore(t *testing.T, cfg chainlink.GeneralConfig) (TestingTxStore[commo
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	chainID := ethClient.ConfiguredChainID()
 
-	return cltest.NewTxStore(t, db, cfg.Database()), fromAddress, chainID
+	return cltest.NewTestTxStore(t, db, cfg.Database()), fromAddress, chainID
 }
 func inmemoryTxStore(t *testing.T, cfg chainlink.GeneralConfig) (TestingTxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee], common.Address, *big.Int) {
 	db := pgtest.NewSqlxDB(t)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
