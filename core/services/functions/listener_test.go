@@ -19,7 +19,9 @@ import (
 
 	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -39,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	evmrelay_mocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types/mocks"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	sync_mocks "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
@@ -81,7 +82,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	broadcaster := log_mocks.NewBroadcaster(t)
 	broadcaster.On("AddDependents", 1)
-	mailMon := srvctest.Start(t, mailbox.NewMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
@@ -175,9 +176,8 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 		close(doneCh)
 	}).Return(nil)
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
@@ -270,9 +270,8 @@ func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) 
 		close(doneCh)
 	}).Return(nil)
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *testing.T) {
@@ -312,9 +311,8 @@ func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *te
 		close(doneCh)
 	}).Return(nil)
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
@@ -339,9 +337,8 @@ func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 		close(doneCh)
 	}).Return(nil)
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
@@ -395,9 +392,8 @@ func TestFunctionsListener_PruneRequests(t *testing.T) {
 		doneCh <- true
 	})
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_TimeoutRequests(t *testing.T) {
@@ -411,9 +407,8 @@ func TestFunctionsListener_TimeoutRequests(t *testing.T) {
 		doneCh <- true
 	})
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
@@ -434,7 +429,6 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 		ormCallExited.Done()
 	}).Return(errors.New("timeout"))
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	ormCallExited.Wait() // should not freeze
-	uni.service.Close()
 }

@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/hashicorp/consul/sdk/freeport"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -48,8 +48,8 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 		contractAddress = cltest.NewEIP55Address()
 	)
 
-	peerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
-	require.NoError(t, err)
+	var peerID ragep2ptypes.PeerID
+	require.NoError(t, peerID.UnmarshalText([]byte(configtest.DefaultPeerID)))
 	randomBytes := testutils.Random32Byte()
 
 	var tt = []struct {
@@ -380,6 +380,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, app.Stop()) })
 
 	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())

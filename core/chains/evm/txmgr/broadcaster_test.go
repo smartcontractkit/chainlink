@@ -23,6 +23,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
@@ -60,7 +61,6 @@ func NewTestEthBroadcaster(
 	nonceAutoSync bool,
 ) *txmgr.Broadcaster {
 	t.Helper()
-	ctx := testutils.Context(t)
 
 	lggr := logger.Test(t)
 	ge := config.EVM().GasEstimator()
@@ -71,8 +71,7 @@ func NewTestEthBroadcaster(
 
 	// Mark instance as test
 	ethBroadcaster.XXXTestDisableUnstartedTxAutoProcessing()
-	require.NoError(t, ethBroadcaster.Start(ctx))
-	t.Cleanup(func() { assert.NoError(t, ethBroadcaster.Close()) })
+	servicetest.Run(t, ethBroadcaster)
 	return ethBroadcaster
 }
 
@@ -635,8 +634,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	eb.XXXTestDisableUnstartedTxAutoProcessing()
 
 	// Start instance of broadcaster
-	require.NoError(t, eb.Start(testutils.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, eb.Close()) })
+	servicetest.Run(t, eb)
 
 	mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
 
@@ -1795,8 +1793,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(ethNodeNonce), nil).Once()
-		require.NoError(t, eb.Start(ctx))
-		defer func() { assert.NoError(t, eb.Close()) }()
+		servicetest.Run(t, eb)
 
 		testutils.WaitForLogMessage(t, observed, "Fast-forward sequence")
 
@@ -1829,8 +1826,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), errors.New("something exploded")).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(ethNodeNonce, nil)
 
-		require.NoError(t, eb.Start(ctx))
-		defer func() { assert.NoError(t, eb.Close()) }()
+		servicetest.Run(t, eb)
 
 		testutils.WaitForLogMessage(t, observed, "Fast-forward sequence")
 
