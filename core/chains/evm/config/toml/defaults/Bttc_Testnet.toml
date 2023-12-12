@@ -1,4 +1,5 @@
 ChainID = '1029'
+ChainType = 'Bttc'
 FinalityDepth = 500 
 # blocks are generated every 2-4s 
 LogPollInterval = '2s'
