@@ -19,11 +19,15 @@ import (
 
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
+	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
-		WithGeth().
+		WithTestInstance(t).
+		WithPrivateEthereumNetwork(network).
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
@@ -97,7 +101,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),

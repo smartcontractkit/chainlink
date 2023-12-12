@@ -38,6 +38,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
@@ -339,7 +340,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 
-	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+	mailMon := mailbox.NewMonitor(cfg.AppID().String())
 	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
 
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{

@@ -16,6 +16,7 @@ import (
 	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
@@ -164,7 +165,7 @@ type ChainOpts struct {
 	AppConfig AppConfig
 
 	EventBroadcaster pg.EventBroadcaster
-	MailMon          *utils.MailboxMonitor
+	MailMon          *mailbox.Monitor
 	GasEstimator     gas.EvmFeeEstimator
 
 	*sqlx.DB
