@@ -2,7 +2,13 @@ name: chaincli CI
 
 on:
   push:
+    paths:
+      - "core/scripts/chaincli/**"
+      - ".github/workflows/ci-chaincli.yml"
   pull_request:
+    paths:
+      - "core/scripts/chaincli/**"
+      - ".github/workflows/ci-chaincli.yml"
 
 jobs:
   golangci:
