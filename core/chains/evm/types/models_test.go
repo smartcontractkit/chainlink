@@ -1,6 +1,7 @@
 package types_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -99,18 +100,18 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 
 	signedTx, err := ethKeyStore.SignTx(fromAddress, tx, chainID)
 	require.NoError(t, err)
-	encodedTx, err := signedTx.MarshalBinary()
-	require.NoError(t, err)
+	rlp := new(bytes.Buffer)
+	require.NoError(t, signedTx.EncodeRLP(rlp))
 
-	attempt := txmgr.TxAttempt{SignedRawTx: encodedTx}
+	attempt := txmgr.TxAttempt{SignedRawTx: rlp.Bytes()}
 
 	gotSignedTx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
 	require.NoError(t, err)
-	decodedTx, err2 := gotSignedTx.MarshalBinary()
-	require.NoError(t, err2)
+	decodedEncoded := new(bytes.Buffer)
+	require.NoError(t, gotSignedTx.EncodeRLP(decodedEncoded))
 
 	require.Equal(t, signedTx.Hash(), gotSignedTx.Hash())
-	require.Equal(t, attempt.SignedRawTx, decodedTx)
+	require.Equal(t, attempt.SignedRawTx, decodedEncoded.Bytes())
 }
 
 func TestHead_ChainLength(t *testing.T) {
