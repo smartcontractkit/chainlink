@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -65,7 +66,7 @@ type TestChainOpts struct {
 	DB             *sqlx.DB
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
-	MailMon        *utils.MailboxMonitor
+	MailMon        *mailbox.Monitor
 	GasEstimator   gas.EvmFeeEstimator
 }
 
@@ -118,7 +119,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainR
 		}
 	}
 	if opts.MailMon == nil {
-		opts.MailMon = servicetest.Run(t, utils.NewMailboxMonitor(t.Name()))
+		opts.MailMon = servicetest.Run(t, mailbox.NewMonitor(t.Name()))
 	}
 	if testopts.GasEstimator != nil {
 		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {

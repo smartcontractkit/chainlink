@@ -8,7 +8,7 @@ metadata:
 spec:
   namespaceSelector:
     matchNames:
-      - "cl-cluster"
+      - {{ $.Release.Namespace }}
   podMetricsEndpoints:
     - port: access
   selector:
