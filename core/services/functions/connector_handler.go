@@ -63,7 +63,7 @@ var (
 	promStorageUserUpdatesCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "storage_user_updates",
 		Help: "Number of storage updates performed by users",
-	}, []string{"don_id"})
+	}, []string{})
 )
 
 // internal request ID is a hash of (sender, requestID)
@@ -194,7 +194,7 @@ func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewa
 		err = h.storage.Put(ctx, &key, &record, request.Signature)
 		if err == nil {
 			response.Success = true
-			promStorageUserUpdatesCount.WithLabelValues(body.DonId).Inc()
+			promStorageUserUpdatesCount.WithLabelValues().Inc()
 		} else {
 			response.ErrorMessage = fmt.Sprintf("Failed to set secret: %v", err)
 		}

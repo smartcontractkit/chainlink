@@ -8,11 +8,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var (
