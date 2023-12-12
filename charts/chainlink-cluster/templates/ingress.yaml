@@ -25,8 +25,8 @@ spec:
       http:
         paths:
         {{- range .http.paths }}
-          - path: {{ .path }}
-            pathType: {{ .pathType }}
+          - path: /
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: {{ .backend.service.name }}
