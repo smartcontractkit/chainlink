@@ -592,10 +592,6 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 		},
 	}
 
-	if err := logpollerutil.RegisterLpFilters(lp, filters); err != nil {
-		return nil, err
-	}
-
 	return &OffRamp{
 		offRamp:             offRamp,
 		ec:                  ec,

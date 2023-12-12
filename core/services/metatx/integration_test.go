@@ -181,7 +181,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 	defer wrappedDestTokenUSD.Close()
 	defer bankERC20USD.Close()
 
-	ccipContracts.SetUpNodesAndJobs(t, tokenPricesUSDPipeline, 29599)
+	ccipContracts.SetUpNodesAndJobs(t, tokenPricesUSDPipeline)
 
 	geCurrentSeqNum := 1
 
