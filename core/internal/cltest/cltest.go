@@ -26,7 +26,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -39,6 +38,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
@@ -141,11 +141,10 @@ func init() {
 		fmt.Printf("[gin] %-6s %-25s --> %s (%d handlers)\n", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
-	defaultP2PPeerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
+	err := DefaultP2PPeerID.UnmarshalString(configtest.DefaultPeerID)
 	if err != nil {
 		panic(err)
 	}
-	DefaultP2PPeerID = p2pkey.PeerID(defaultP2PPeerID)
 }
 
 func NewRandomPositiveInt64() int64 {
@@ -341,7 +340,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 
-	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+	mailMon := mailbox.NewMonitor(cfg.AppID().String())
 	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
 
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{

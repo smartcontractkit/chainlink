@@ -26,7 +26,7 @@ func TestFluxBasic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(3).
