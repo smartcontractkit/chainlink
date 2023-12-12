@@ -19,12 +19,12 @@ var (
 	promStoragePluginUpdatesCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "storage_plugin_updates",
 		Help: "Number of storage updates fetched from other nodes",
-	}, []string{"don_id"})
+	}, []string{})
 
 	promStorageTotalByteSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "storage_total_byte_size",
 		Help: "Current byte size of data stored in S4",
-	}, []string{"don_id"})
+	}, []string{})
 )
 
 type plugin struct {
@@ -73,7 +73,7 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 		return nil, errors.Wrap(err, "failed to GetVersions in Query()")
 	}
 
-	storageTotalByteSize := big.NewInt(0)
+	var storageTotalByteSize uint64
 	rows := make([]*SnapshotRow, len(snapshot))
 	for i, v := range snapshot {
 		rows[i] = &SnapshotRow{
@@ -82,7 +82,7 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 			Version: v.Version,
 		}
 
-		storageTotalByteSize = new(big.Int).Add(storageTotalByteSize, big.NewInt(int64(v.PayloadSize)))
+		storageTotalByteSize += v.PayloadSize
 	}
 
 	queryBytes, err := MarshalQuery(rows, c.addressRange)
@@ -93,8 +93,7 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(rows)))
 	promReportingPluginsQueryByteSize.WithLabelValues(c.config.ProductName).Set(float64(len(queryBytes)))
 
-	storageSize, _ := storageTotalByteSize.Float64()
-	promStorageTotalByteSize.WithLabelValues(c.config.DONID).Set(storageSize)
+	promStorageTotalByteSize.WithLabelValues().Set(float64(storageTotalByteSize))
 
 	c.addressRange.Advance()
 
@@ -288,7 +287,7 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, ts types.Repor
 			c.logger.Error("Failed to Update a row in ShouldAcceptFinalizedReport()", commontypes.LogFields{"err": err})
 			continue
 		}
-		promStoragePluginUpdatesCount.WithLabelValues(c.config.DONID).Inc()
+		promStoragePluginUpdatesCount.WithLabelValues().Inc()
 	}
 
 	c.logger.Debug("S4StorageReporting ShouldAcceptFinalizedReport", commontypes.LogFields{
