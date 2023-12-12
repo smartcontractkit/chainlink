@@ -20,6 +20,7 @@ import (
 	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -44,7 +45,6 @@ import (
 	sync_mocks "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FunctionsListenerUniverse struct {
@@ -82,7 +82,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	broadcaster := log_mocks.NewBroadcaster(t)
 	broadcaster.On("AddDependents", 1)
-	mailMon := servicetest.Run(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
