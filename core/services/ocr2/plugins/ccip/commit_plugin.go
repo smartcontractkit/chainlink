@@ -21,6 +21,7 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
@@ -59,7 +60,7 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 	if err != nil {
 		return nil, nil, err
 	}
-	commitStoreReader, err := ccipdata.NewCommitStoreReader(lggr, commitStoreAddress, destChain.Client(), destChain.LogPoller(), sourceChain.GasEstimator())
+	commitStoreReader, err := factory.NewCommitStoreReader(lggr, commitStoreAddress, destChain.Client(), destChain.LogPoller(), sourceChain.GasEstimator())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not create commitStore reader")
 	}
@@ -72,11 +73,11 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 	}
 
 	// Load all the readers relevant for this plugin.
-	onRampReader, err := ccipdata.NewOnRampReader(commitLggr, staticConfig.SourceChainSelector, staticConfig.ChainSelector, staticConfig.OnRamp, sourceChain.LogPoller(), sourceChain.Client())
+	onRampReader, err := factory.NewOnRampReader(commitLggr, staticConfig.SourceChainSelector, staticConfig.ChainSelector, staticConfig.OnRamp, sourceChain.LogPoller(), sourceChain.Client())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed onramp reader")
 	}
-	offRampReader, err := ccipdata.NewOffRampReader(commitLggr, common.HexToAddress(pluginConfig.OffRamp), destChain.Client(), destChain.LogPoller(), destChain.GasEstimator())
+	offRampReader, err := factory.NewOffRampReader(commitLggr, common.HexToAddress(pluginConfig.OffRamp), destChain.Client(), destChain.LogPoller(), destChain.GasEstimator())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed offramp reader")
 	}
@@ -167,7 +168,7 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainC
 }
 
 func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
-	return ccipdata.CommitReportToEthTxMeta(typ, ver)
+	return factory.CommitReportToEthTxMeta(typ, ver)
 }
 
 // UnregisterCommitPluginLpFilters unregisters all the registered filters for both source and dest chains.

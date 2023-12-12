@@ -1,4 +1,4 @@
-package ccipdata
+package v1_0_0
 
 import (
 	"fmt"
@@ -85,7 +85,7 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			batchCaller := rpclibmocks.NewEvmBatchCaller(t)
-			o := &OffRampV1_0_0{evmBatchCaller: batchCaller, lp: lp}
+			o := &OffRamp{evmBatchCaller: batchCaller, lp: lp}
 			srcTks, dstTks, outputs := generateTokensAndOutputs()
 			outputs = tc.outputChangeFn(outputs)
 			batchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).

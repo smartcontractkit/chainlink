@@ -38,7 +38,7 @@ func (c *LogPollerReader) LatestBlock(ctx context.Context) (logpoller.LogPollerB
 	return c.lp.LatestBlock(pg.WithParentCtx(ctx))
 }
 
-func parseLogs[T any](logs []logpoller.Log, lggr logger.Logger, parseFunc func(log types.Log) (*T, error)) ([]Event[T], error) {
+func ParseLogs[T any](logs []logpoller.Log, lggr logger.Logger, parseFunc func(log types.Log) (*T, error)) ([]Event[T], error) {
 	reqs := make([]Event[T], 0, len(logs))
 	for _, log := range logs {
 		data, err := parseFunc(log.ToGethLog())

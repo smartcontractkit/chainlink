@@ -1,4 +1,4 @@
-package ccipdata_test
+package v1_2_0_test
 
 import (
 	"math/big"
@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -30,7 +31,7 @@ func TestExecutionReportEncodingV120(t *testing.T) {
 
 	lp := lpmocks.NewLogPoller(t)
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	offRamp, err := ccipdata.NewOffRampV1_2_0(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
+	offRamp, err := v1_2_0.NewOffRamp(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
 	require.NoError(t, err)
 
 	encodeExecutionReport, err := offRamp.EncodeExecutionReport(report)
@@ -42,8 +43,8 @@ func TestExecutionReportEncodingV120(t *testing.T) {
 }
 
 func TestOffRampFiltersV120(t *testing.T) {
-	assertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
-		c, err := ccipdata.NewOffRampV1_2_0(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
+	ccipdata.AssertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
+		c, err := v1_2_0.NewOffRamp(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
 		require.NoError(t, err)
 		return c
 	}, 3)

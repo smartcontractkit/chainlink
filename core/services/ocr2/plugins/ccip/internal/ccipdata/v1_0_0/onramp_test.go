@@ -1,4 +1,4 @@
-package ccipdata
+package v1_0_0
 
 import (
 	"encoding/hex"
@@ -22,7 +22,7 @@ func TestHasherV1_0_0(t *testing.T) {
 	ramp, err := evm_2_evm_onramp_1_0_0.NewEVM2EVMOnRamp(onRampAddress, nil)
 	require.NoError(t, err)
 	hashingCtx := hashlib.NewKeccakCtx()
-	hasher := NewLeafHasherV1_0_0(sourceChainSelector, destChainSelector, onRampAddress, hashingCtx, ramp)
+	hasher := NewLeafHasher(sourceChainSelector, destChainSelector, onRampAddress, hashingCtx, ramp)
 
 	message := evm_2_evm_onramp_1_0_0.InternalEVM2EVMMessage{
 		SourceChainSelector: sourceChainSelector,
@@ -39,7 +39,7 @@ func TestHasherV1_0_0(t *testing.T) {
 		MessageId:           [32]byte{},
 	}
 
-	data, err := onRampABI.Events[CCIPSendRequestedEventNameV1_0_0].Inputs.Pack(message)
+	data, err := onRampABI.Events[CCIPSendRequestedEventName].Inputs.Pack(message)
 	require.NoError(t, err)
 	hash, err := hasher.HashLeaf(types.Log{Topics: []common.Hash{abihelpers.MustGetEventID("CCIPSendRequested", onRampABI)}, Data: data})
 	require.NoError(t, err)
@@ -65,7 +65,7 @@ func TestHasherV1_0_0(t *testing.T) {
 		MessageId: [32]byte{},
 	}
 
-	data, err = onRampABI.Events[CCIPSendRequestedEventNameV1_0_0].Inputs.Pack(message)
+	data, err = onRampABI.Events[CCIPSendRequestedEventName].Inputs.Pack(message)
 	require.NoError(t, err)
 	hash, err = hasher.HashLeaf(types.Log{Topics: []common.Hash{abihelpers.MustGetEventID("CCIPSendRequested", onRampABI)}, Data: data})
 	require.NoError(t, err)
@@ -78,6 +78,6 @@ func TestMetaDataHash(t *testing.T) {
 	sourceChainSelector, destChainSelector := uint64(1), uint64(4)
 	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
 	ctx := hashlib.NewKeccakCtx()
-	hash := getMetaDataHash(ctx, ctx.Hash([]byte(MetaDataHashPrefixV1_0_0)), sourceChainSelector, onRampAddress, destChainSelector)
+	hash := GetMetaDataHash(ctx, ctx.Hash([]byte(MetaDataHashPrefix)), sourceChainSelector, onRampAddress, destChainSelector)
 	require.Equal(t, "1409948abde219f43870c3d6d1c16beabd8878eb5039a3fa765eb56e4b8ded9e", hex.EncodeToString(hash[:]))
 }
