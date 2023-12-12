@@ -1,4 +1,4 @@
-package ccipdata
+package v1_3_0
 
 import (
 	"context"
@@ -29,7 +29,7 @@ func TestHasherV1_3_0(t *testing.T) {
 	hashingCtx := hashlib.NewKeccakCtx()
 	ramp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRampAddress, nil)
 	require.NoError(t, err)
-	hasher := NewLeafHasherV1_3_0(sourceChainSelector, destChainSelector, onRampAddress, hashingCtx, ramp)
+	hasher := NewLeafHasher(sourceChainSelector, destChainSelector, onRampAddress, hashingCtx, ramp)
 
 	message := evm_2_evm_onramp.InternalEVM2EVMMessage{
 		SourceChainSelector: sourceChainSelector,
@@ -47,9 +47,9 @@ func TestHasherV1_3_0(t *testing.T) {
 		MessageId:           [32]byte{},
 	}
 
-	data, err := onRampABI.Events[CCIPSendRequestedEventNameV1_3_0].Inputs.Pack(message)
+	data, err := onRampABI.Events[CCIPSendRequestedEventName].Inputs.Pack(message)
 	require.NoError(t, err)
-	hash, err := hasher.HashLeaf(types.Log{Topics: []common.Hash{CCIPSendRequestEventSigV1_3_0}, Data: data})
+	hash, err := hasher.HashLeaf(types.Log{Topics: []common.Hash{CCIPSendRequestEventSig}, Data: data})
 	require.NoError(t, err)
 
 	// NOTE: Must match spec
@@ -74,9 +74,9 @@ func TestHasherV1_3_0(t *testing.T) {
 		MessageId:       [32]byte{},
 	}
 
-	data, err = onRampABI.Events[CCIPSendRequestedEventNameV1_3_0].Inputs.Pack(message)
+	data, err = onRampABI.Events[CCIPSendRequestedEventName].Inputs.Pack(message)
 	require.NoError(t, err)
-	hash, err = hasher.HashLeaf(types.Log{Topics: []common.Hash{CCIPSendRequestEventSigV1_3_0}, Data: data})
+	hash, err = hasher.HashLeaf(types.Log{Topics: []common.Hash{CCIPSendRequestEventSig}, Data: data})
 	require.NoError(t, err)
 
 	// NOTE: Must match spec
@@ -101,7 +101,7 @@ func TestLogPollerClient_GetSendRequestsBetweenSeqNums1_3_0(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lp := mocks.NewLogPoller(t)
-			onRampV2, err := NewOnRampV1_3_0(lggr, 1, 1, onRampAddr, lp, nil)
+			onRampV2, err := NewOnRamp(lggr, 1, 1, onRampAddr, lp, nil)
 			require.NoError(t, err)
 
 			lp.On("LogsDataWordRange",

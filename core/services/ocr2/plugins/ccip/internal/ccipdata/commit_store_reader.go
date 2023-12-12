@@ -4,19 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -115,22 +108,6 @@ type CommitStoreReader interface {
 	RegisterFilters(qopts ...pg.QOpt) error
 }
 
-func NewCommitStoreReader(lggr logger.Logger, address common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator) (CommitStoreReader, error) {
-	contractType, version, err := ccipconfig.TypeAndVersion(address, ec)
-	if err != nil {
-		return nil, errors.Errorf("expected %v got %v", ccipconfig.EVM2EVMOnRamp, contractType)
-	}
-	switch version.String() {
-	case V1_0_0, V1_1_0:
-		// Versions are identical
-		return NewCommitStoreV1_0_0(lggr, address, ec, lp, estimator)
-	case V1_2_0, V1_3_0:
-		return NewCommitStoreV1_2_0(lggr, address, ec, lp, estimator)
-	default:
-		return nil, errors.Errorf("got unexpected version %v", version.String())
-	}
-}
-
 // FetchCommitStoreStaticConfig provides access to a commitStore's static config, which is required to access the source chain ID.
 func FetchCommitStoreStaticConfig(address common.Address, ec client.Client) (commit_store.CommitStoreStaticConfig, error) {
 	commitStore, err := loadCommitStore(address, ec)
@@ -146,52 +123,4 @@ func loadCommitStore(commitStoreAddress common.Address, client client.Client) (c
 		return nil, errors.Wrap(err, "Invalid commitStore contract")
 	}
 	return commit_store.NewCommitStore(commitStoreAddress, client)
-}
-
-// EncodeCommitReport is only used in tests
-// TODO should remove it and update tests to use Reader interface.
-func EncodeCommitReport(report CommitStoreReport) ([]byte, error) {
-	commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
-	return encodeCommitReportV1_2_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)
-}
-
-func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
-	if typ != ccipconfig.CommitStore {
-		return nil, errors.Errorf("expected %v got %v", ccipconfig.CommitStore, typ)
-	}
-	switch ver.String() {
-	case V1_0_0, V1_1_0:
-		commitStoreABI := abihelpers.MustParseABI(commit_store_1_0_0.CommitStoreABI)
-		return func(report []byte) (*txmgr.TxMeta, error) {
-			commitReport, err := decodeCommitReportV1_0_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)
-			if err != nil {
-				return nil, err
-			}
-			return commitReportToEthTxMeta(commitReport)
-		}, nil
-	case V1_2_0, V1_3_0:
-		commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
-		return func(report []byte) (*txmgr.TxMeta, error) {
-			commitReport, err := decodeCommitReportV1_2_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)
-			if err != nil {
-				return nil, err
-			}
-			return commitReportToEthTxMeta(commitReport)
-		}, nil
-	default:
-		return nil, errors.Errorf("got unexpected version %v", ver.String())
-	}
-}
-
-// CommitReportToEthTxMeta generates a txmgr.EthTxMeta from the given commit report.
-// sequence numbers of the committed messages will be added to tx metadata
-func commitReportToEthTxMeta(commitReport CommitStoreReport) (*txmgr.TxMeta, error) {
-	n := uint64(commitReport.Interval.Max-commitReport.Interval.Min) + 1
-	seqRange := make([]uint64, n)
-	for i := uint64(0); i < n; i++ {
-		seqRange[i] = i + commitReport.Interval.Min
-	}
-	return &txmgr.TxMeta{
-		SeqNumbers: seqRange,
-	}, nil
 }

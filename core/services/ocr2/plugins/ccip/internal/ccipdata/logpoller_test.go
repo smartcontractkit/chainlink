@@ -56,7 +56,7 @@ func Test_parseLogs(t *testing.T) {
 		return &log.Index, nil
 	}
 
-	parsedEvents, err := parseLogs[uint](logs, logger.TestLogger(t), parseFn)
+	parsedEvents, err := ParseLogs[uint](logs, logger.TestLogger(t), parseFn)
 	assert.NoError(t, err)
 	assert.Len(t, parsedEvents, 99)
 

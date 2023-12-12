@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -29,7 +30,7 @@ func (c *CCIPContracts) CreateDefaultCommitOffchainConfig(t *testing.T) []byte {
 }
 
 func (c *CCIPContracts) createCommitOffchainConfig(t *testing.T, feeUpdateHearBeat time.Duration, inflightCacheExpiry time.Duration) []byte {
-	config, err := ccipconfig.EncodeOffchainConfig(ccipdata.CommitOffchainConfigV1_2_0{
+	config, err := ccipconfig.EncodeOffchainConfig(v1_2_0.CommitOffchainConfig{
 		SourceFinalityDepth:      1,
 		DestFinalityDepth:        1,
 		GasPriceHeartBeat:        models.MustMakeDuration(feeUpdateHearBeat),
@@ -45,7 +46,7 @@ func (c *CCIPContracts) createCommitOffchainConfig(t *testing.T, feeUpdateHearBe
 }
 
 func (c *CCIPContracts) CreateDefaultExecOnchainConfig(t *testing.T) []byte {
-	config, err := abihelpers.EncodeAbiStruct(ccipdata.ExecOnchainConfigV1_2_0{
+	config, err := abihelpers.EncodeAbiStruct(v1_2_0.ExecOnchainConfig{
 		PermissionLessExecutionThresholdSeconds: PermissionLessExecutionThresholdSeconds,
 		Router:                                  c.Dest.Router.Address(),
 		PriceRegistry:                           c.Dest.PriceRegistry.Address(),

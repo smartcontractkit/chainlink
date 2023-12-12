@@ -1,4 +1,4 @@
-package ccipdata
+package v1_2_0
 
 import (
 	"math/big"
@@ -10,12 +10,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestCommitReportEncodingV_1_2_0(t *testing.T) {
-	report := CommitStoreReport{
-		TokenPrices: []TokenPrice{
+func TestCommitReportEncoding(t *testing.T) {
+	report := ccipdata.CommitStoreReport{
+		TokenPrices: []ccipdata.TokenPrice{
 			{
 				Token: utils.RandomAddress(),
 				Value: big.NewInt(9e18),
@@ -25,7 +26,7 @@ func TestCommitReportEncodingV_1_2_0(t *testing.T) {
 				Value: big.NewInt(1e18),
 			},
 		},
-		GasPrices: []GasPrice{
+		GasPrices: []ccipdata.GasPrice{
 			{
 				DestChainSelector: rand.Uint64(),
 				Value:             big.NewInt(2000e9),
@@ -36,10 +37,10 @@ func TestCommitReportEncodingV_1_2_0(t *testing.T) {
 			},
 		},
 		MerkleRoot: [32]byte{123},
-		Interval:   CommitStoreInterval{Min: 1, Max: 10},
+		Interval:   ccipdata.CommitStoreInterval{Min: 1, Max: 10},
 	}
 
-	c, err := NewCommitStoreV1_2_0(logger.TestLogger(t), utils.RandomAddress(), nil, mocks.NewLogPoller(t), nil)
+	c, err := NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, mocks.NewLogPoller(t), nil)
 	assert.NoError(t, err)
 
 	encodedReport, err := c.EncodeCommitReport(report)

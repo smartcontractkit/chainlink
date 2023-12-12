@@ -24,20 +24,23 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestPriceRegistryFilters(t *testing.T) {
 	cl := mocks.NewClient(t)
 
-	assertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
-		c, err := ccipdata.NewPriceRegistryV1_0_0(logger.TestLogger(t), addr, lp, cl)
+	ccipdata.AssertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
+		c, err := v1_0_0.NewPriceRegistry(logger.TestLogger(t), addr, lp, cl)
 		require.NoError(t, err)
 		return c
 	}, 3)
 
-	assertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
-		c, err := ccipdata.NewPriceRegistryV1_2_0(logger.TestLogger(t), addr, lp, cl)
+	ccipdata.AssertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
+		c, err := v1_2_0.NewPriceRegistry(logger.TestLogger(t), addr, lp, cl)
 		require.NoError(t, err)
 		return c
 	}, 3)
@@ -120,19 +123,19 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 	addr2, _, _, err := price_registry.DeployPriceRegistry(user, ec, nil, feeTokens, 1000)
 	require.NoError(t, err)
 	commitAndGetBlockTs(ec) // Deploy these
-	pr10r, err := ccipdata.NewPriceRegistryReader(lggr, addr, lp, ec)
+	pr10r, err := factory.NewPriceRegistryReader(lggr, addr, lp, ec)
 	require.NoError(t, err)
-	assert.Equal(t, reflect.TypeOf(pr10r).String(), reflect.TypeOf(&ccipdata.PriceRegistryV1_0_0{}).String())
-	pr12r, err := ccipdata.NewPriceRegistryReader(lggr, addr2, lp, ec)
+	assert.Equal(t, reflect.TypeOf(pr10r).String(), reflect.TypeOf(&v1_0_0.PriceRegistry{}).String())
+	pr12r, err := factory.NewPriceRegistryReader(lggr, addr2, lp, ec)
 	require.NoError(t, err)
-	assert.Equal(t, reflect.TypeOf(pr12r).String(), reflect.TypeOf(&ccipdata.PriceRegistryV1_2_0{}).String())
+	assert.Equal(t, reflect.TypeOf(pr12r).String(), reflect.TypeOf(&v1_2_0.PriceRegistry{}).String())
 	// Apply block1.
-	ccipdata.ApplyPriceRegistryUpdateV1_0_0(t, user, addr, ec, gasPriceUpdatesBlock1, tokenPriceUpdatesBlock1)
-	ccipdata.ApplyPriceRegistryUpdateV1_2_0(t, user, addr2, ec, gasPriceUpdatesBlock1, tokenPriceUpdatesBlock1)
+	v1_0_0.ApplyPriceRegistryUpdate(t, user, addr, ec, gasPriceUpdatesBlock1, tokenPriceUpdatesBlock1)
+	v1_2_0.ApplyPriceRegistryUpdate(t, user, addr2, ec, gasPriceUpdatesBlock1, tokenPriceUpdatesBlock1)
 	b1 := commitAndGetBlockTs(ec)
 	// Apply block2
-	ccipdata.ApplyPriceRegistryUpdateV1_0_0(t, user, addr, ec, gasPriceUpdatesBlock2, tokenPriceUpdatesBlock2)
-	ccipdata.ApplyPriceRegistryUpdateV1_2_0(t, user, addr2, ec, gasPriceUpdatesBlock2, tokenPriceUpdatesBlock2)
+	v1_0_0.ApplyPriceRegistryUpdate(t, user, addr, ec, gasPriceUpdatesBlock2, tokenPriceUpdatesBlock2)
+	v1_2_0.ApplyPriceRegistryUpdate(t, user, addr2, ec, gasPriceUpdatesBlock2, tokenPriceUpdatesBlock2)
 	b2 := commitAndGetBlockTs(ec)
 
 	// Capture all lp data.

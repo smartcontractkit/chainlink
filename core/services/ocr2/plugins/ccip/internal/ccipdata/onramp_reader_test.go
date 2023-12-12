@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -31,9 +32,9 @@ type onRampReaderTH struct {
 }
 
 func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
-	_, bc := newSimulation(t)
+	_, bc := ccipdata.NewSimulation(t)
 	lp := lpmocks.NewLogPoller(t)
-	_, err := ccipdata.NewOnRampReader(logger.TestLogger(t), testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), common.Address{}, lp, bc)
+	_, err := factory.NewOnRampReader(logger.TestLogger(t), testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), common.Address{}, lp, bc)
 	assert.EqualError(t, err, "expected 'EVM2EVMOnRamp' got '' (no contract code at given address)")
 }
 
@@ -70,7 +71,7 @@ func TestOnRampReaderInit(t *testing.T) {
 }
 
 func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
-	user, bc := newSimulation(t)
+	user, bc := ccipdata.NewSimulation(t)
 	log := logger.TestLogger(t)
 	orm := logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), log, pgtest.NewQConfig(true))
 	lp := logpoller.NewLogPoller(
@@ -95,7 +96,7 @@ func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
 	}
 
 	// Create the version-specific reader.
-	reader, err := ccipdata.NewOnRampReader(log, testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), onRampAddress, lp, bc)
+	reader, err := factory.NewOnRampReader(log, testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), onRampAddress, lp, bc)
 	require.NoError(t, err)
 
 	return onRampReaderTH{
@@ -167,7 +168,7 @@ func setupOnRampV1_0_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 	)
 	bc.Commit()
 	require.NoError(t, err)
-	assertNonRevert(t, transaction, bc, user)
+	ccipdata.AssertNonRevert(t, transaction, bc, user)
 	return onRampAddress
 }
 
@@ -234,7 +235,7 @@ func setupOnRampV1_1_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 	)
 	bc.Commit()
 	require.NoError(t, err)
-	assertNonRevert(t, transaction, bc, user)
+	ccipdata.AssertNonRevert(t, transaction, bc, user)
 	return onRampAddress
 }
 
@@ -305,7 +306,7 @@ func setupOnRampV1_2_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 	)
 	bc.Commit()
 	require.NoError(t, err)
-	assertNonRevert(t, transaction, bc, user)
+	ccipdata.AssertNonRevert(t, transaction, bc, user)
 	return onRampAddress
 }
 
@@ -376,7 +377,7 @@ func setupOnRampV1_3_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 	)
 	bc.Commit()
 	require.NoError(t, err)
-	assertNonRevert(t, transaction, bc, user)
+	ccipdata.AssertNonRevert(t, transaction, bc, user)
 	return onRampAddress
 }
 

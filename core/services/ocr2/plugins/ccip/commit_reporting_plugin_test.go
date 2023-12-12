@@ -25,14 +25,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
@@ -304,7 +309,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			destPriceRegistryReader.On("GetTokensDecimals", ctx, destTokens).Return(destDecimals, nil).Maybe()
 
 			lp := mocks2.NewLogPoller(t)
-			commitStoreReader, err := ccipdata.NewCommitStoreV1_2_0(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
+			commitStoreReader, err := v1_2_0.NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
 			assert.NoError(t, err)
 
 			p := &CommitReportingPlugin{}
@@ -336,7 +341,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 
 			if tc.expCommitReport != nil {
 				assert.True(t, gotSomeReport)
-				encodedExpectedReport, err := ccipdata.EncodeCommitReport(*tc.expCommitReport)
+				encodedExpectedReport, err := encodeCommitReport(*tc.expCommitReport)
 				assert.NoError(t, err)
 				assert.Equal(t, types.Report(encodedExpectedReport), gotReport)
 			}
@@ -377,7 +382,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		p.commitStoreReader = commitStoreReader
 		commitStoreReader.On("DecodeCommitReport", mock.Anything).Return(report, nil)
 
-		encodedReport, err := ccipdata.EncodeCommitReport(report)
+		encodedReport, err := encodeCommitReport(report)
 		assert.NoError(t, err)
 		shouldAccept, err := p.ShouldAcceptFinalizedReport(ctx, types.ReportTimestamp{}, encodedReport)
 		assert.NoError(t, err)
@@ -404,7 +409,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 
 		// stale since report interval is behind on chain seq num
 		report.Interval = ccipdata.CommitStoreInterval{Min: onChainSeqNum - 2, Max: onChainSeqNum + 10}
-		encodedReport, err := ccipdata.EncodeCommitReport(report)
+		encodedReport, err := encodeCommitReport(report)
 		assert.NoError(t, err)
 
 		shouldAccept, err := p.ShouldAcceptFinalizedReport(ctx, types.ReportTimestamp{}, encodedReport)
@@ -448,7 +453,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 
 		// non-stale since report interval is not behind on-chain seq num
 		report.Interval = ccipdata.CommitStoreInterval{Min: onChainSeqNum, Max: onChainSeqNum + 10}
-		encodedReport, err := ccipdata.EncodeCommitReport(report)
+		encodedReport, err := encodeCommitReport(report)
 		assert.NoError(t, err)
 
 		shouldAccept, err := p.ShouldAcceptFinalizedReport(ctx, types.ReportTimestamp{}, encodedReport)
@@ -489,7 +494,7 @@ func TestCommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Run("should transmit when report is not stale", func(t *testing.T) {
 		// not-stale since report interval is not behind on chain seq num
 		report.Interval = ccipdata.CommitStoreInterval{Min: onChainSeqNum, Max: onChainSeqNum + 10}
-		encodedReport, err := ccipdata.EncodeCommitReport(report)
+		encodedReport, err := encodeCommitReport(report)
 		assert.NoError(t, err)
 		commitStoreReader.On("DecodeCommitReport", encodedReport).Return(report, nil).Once()
 		shouldTransmit, err := p.ShouldTransmitAcceptedReport(ctx, types.ReportTimestamp{}, encodedReport)
@@ -500,7 +505,7 @@ func TestCommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Run("should not transmit when report is stale", func(t *testing.T) {
 		// stale since report interval is behind on chain seq num
 		report.Interval = ccipdata.CommitStoreInterval{Min: onChainSeqNum - 2, Max: onChainSeqNum + 10}
-		encodedReport, err := ccipdata.EncodeCommitReport(report)
+		encodedReport, err := encodeCommitReport(report)
 		assert.NoError(t, err)
 		commitStoreReader.On("DecodeCommitReport", encodedReport).Return(report, nil).Once()
 		shouldTransmit, err := p.ShouldTransmitAcceptedReport(ctx, types.ReportTimestamp{}, encodedReport)
@@ -1584,7 +1589,7 @@ func Test_commitReportSize(t *testing.T) {
 	p.Property("bounded commit report size", prop.ForAll(func(root []byte, min, max uint64) bool {
 		var root32 [32]byte
 		copy(root32[:], root)
-		rep, err := ccipdata.EncodeCommitReport(ccipdata.CommitStoreReport{
+		rep, err := encodeCommitReport(ccipdata.CommitStoreReport{
 			MerkleRoot:  root32,
 			Interval:    ccipdata.CommitStoreInterval{Min: min, Max: max},
 			TokenPrices: []ccipdata.TokenPrice{},
@@ -1718,10 +1723,10 @@ func TestCommitReportToEthTxMeta(t *testing.T) {
 				MerkleRoot: tree.Root(),
 				Interval:   ccipdata.CommitStoreInterval{Min: tc.min, Max: tc.max},
 			}
-			out, err := ccipdata.EncodeCommitReport(report)
+			out, err := encodeCommitReport(report)
 			require.NoError(t, err)
 
-			fn, err := ccipdata.CommitReportToEthTxMeta(ccipconfig.CommitStore, *semver.MustParse("1.0.0"))
+			fn, err := factory.CommitReportToEthTxMeta(ccipconfig.CommitStore, *semver.MustParse("1.0.0"))
 			require.NoError(t, err)
 			txMeta, err := fn(out)
 			require.NoError(t, err)
@@ -1729,4 +1734,11 @@ func TestCommitReportToEthTxMeta(t *testing.T) {
 			require.EqualValues(t, tc.expectedRange, txMeta.SeqNumbers)
 		})
 	}
+}
+
+// TODO should be removed, tests need to be updated to use the Reader interface.
+// encodeCommitReport is only used in tests
+func encodeCommitReport(report ccipdata.CommitStoreReport) ([]byte, error) {
+	commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
+	return v1_2_0.EncodeCommitReport(abihelpers.MustGetEventInputs(v1_0_0.ReportAccepted, commitStoreABI), report)
 }

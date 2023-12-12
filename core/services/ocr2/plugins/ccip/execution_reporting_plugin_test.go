@@ -27,7 +27,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -240,7 +242,7 @@ func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		Proofs:            [][32]byte{{}},
 		ProofFlagBits:     big.NewInt(1),
 	}
-	encodedReport, err := ccipdata.EncodeExecutionReport(report)
+	encodedReport, err := factory.EncodeExecutionReport(report)
 	require.NoError(t, err)
 
 	mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
@@ -285,7 +287,7 @@ func TestExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 		Proofs:            [][32]byte{{}},
 		ProofFlagBits:     big.NewInt(1),
 	}
-	encodedReport, err := ccipdata.EncodeExecutionReport(report)
+	encodedReport, err := factory.EncodeExecutionReport(report)
 	require.NoError(t, err)
 
 	mockCommitStoreReader := ccipdatamocks.NewCommitStoreReader(t)
@@ -319,7 +321,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 	const bytesPerMessage = 1000
 
 	executionReport := generateExecutionReport(t, numMessages, tokensPerMessage, bytesPerMessage)
-	encodedReport, err := ccipdata.EncodeExecutionReport(executionReport)
+	encodedReport, err := factory.EncodeExecutionReport(executionReport)
 	assert.NoError(t, err)
 	// ensure "naive" full report would be bigger than limit
 	assert.Greater(t, len(encodedReport), MaxExecutionReportLength, "full execution report length")
@@ -352,7 +354,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 
 	lp := lpMocks.NewLogPoller(t)
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	offRampReader, err := ccipdata.NewOffRampV1_0_0(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
+	offRampReader, err := v1_0_0.NewOffRamp(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
 	assert.NoError(t, err)
 	p.offRampReader = offRampReader
 

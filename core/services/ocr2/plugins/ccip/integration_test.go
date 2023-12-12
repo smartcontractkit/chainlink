@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
@@ -515,7 +516,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 			node.EventuallyNodeUsesNewCommitConfig(t, ccipTH, ccipdata.CommitOnchainConfig{
 				PriceRegistry: ccipTH.Dest.PriceRegistry.Address(),
 			})
-			node.EventuallyNodeUsesNewExecConfig(t, ccipTH, ccipdata.ExecOnchainConfigV1_2_0{
+			node.EventuallyNodeUsesNewExecConfig(t, ccipTH, v1_2_0.ExecOnchainConfig{
 				PermissionLessExecutionThresholdSeconds: testhelpers.PermissionLessExecutionThresholdSeconds,
 				Router:                                  ccipTH.Dest.Router.Address(),
 				PriceRegistry:                           ccipTH.Dest.PriceRegistry.Address(),

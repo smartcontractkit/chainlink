@@ -3,16 +3,10 @@ package ccipdata
 import (
 	"context"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -57,24 +51,4 @@ type PriceRegistryReader interface {
 	GetTokenPrices(ctx context.Context, wantedTokens []common.Address) ([]TokenPriceUpdate, error)
 	// TODO: consider moving this method to a different interface since it's not related to the price registry
 	GetTokensDecimals(ctx context.Context, tokenAddresses []common.Address) ([]uint8, error)
-}
-
-// NewPriceRegistryReader determines the appropriate version of the price registry and returns a reader for it.
-func NewPriceRegistryReader(lggr logger.Logger, priceRegistryAddress common.Address, lp logpoller.LogPoller, cl client.Client) (PriceRegistryReader, error) {
-	_, version, err := ccipconfig.TypeAndVersion(priceRegistryAddress, cl)
-	if err != nil {
-		if strings.Contains(err.Error(), "execution reverted") {
-			lggr.Infof("Assuming %v is 1.0.0 price registry, got %v", priceRegistryAddress.String(), err)
-			// Unfortunately the v1 price registry doesn't have a method to get the version so assume if it reverts
-			// its v1.
-			return NewPriceRegistryV1_0_0(lggr, priceRegistryAddress, lp, cl)
-		}
-		return nil, err
-	}
-	switch version.String() {
-	case V1_2_0:
-		return NewPriceRegistryV1_2_0(lggr, priceRegistryAddress, lp, cl)
-	default:
-		return nil, errors.Errorf("got unexpected version %v", version.String())
-	}
 }
