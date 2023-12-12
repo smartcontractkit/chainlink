@@ -1,5 +1,5 @@
 ChainID = '1029'
-FinalityDepth = 9000
+FinalityDepth = 500 
 # blocks are generated every 2-4s 
 LogPollInterval = '2s'
 # Blocks are only emitted when a transaction happens / no empty blocks
