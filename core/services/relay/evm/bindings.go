@@ -11,7 +11,7 @@ import (
 type Bindings map[string]methodBindings
 
 func (b Bindings) addEvent(contractName, typeName string, evt common.Hash) error {
-	ae, err := b.getBinding(contractName, typeName)
+	ae, err := b.getBinding(contractName, typeName, true)
 	if err != nil {
 		return err
 	}
@@ -20,15 +20,19 @@ func (b Bindings) addEvent(contractName, typeName string, evt common.Hash) error
 	return nil
 }
 
-func (b Bindings) getBinding(contractName, typeName string) (*addrEvtBinding, error) {
-	typeNames, ok := b[contractName]
+func (b Bindings) getBinding(contractName, methodName string, isConfig bool) (*addrEvtBinding, error) {
+	errType := types.ErrInvalidType
+	if isConfig {
+		errType = types.ErrInvalidConfig
+	}
+	methodNames, ok := b[contractName]
 	if !ok {
-		return nil, fmt.Errorf("%w: contract %s not found", types.ErrInvalidConfig, contractName)
+		return nil, fmt.Errorf("%w: contract %s not found", errType, contractName)
 	}
 
-	ae, ok := typeNames[typeName]
+	ae, ok := methodNames[methodName]
 	if !ok {
-		return nil, fmt.Errorf("%w: method %s not found in contract %s", types.ErrInvalidConfig, typeName, contractName)
+		return nil, fmt.Errorf("%w: method %s not found in contract %s", errType, methodName, contractName)
 	}
 
 	return ae, nil
