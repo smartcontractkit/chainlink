@@ -30,6 +30,7 @@ on:
           - "KROMA_SEPOLIA"
           - "WEMIX_TESTNET"
           - "WEMIX_MAINNET"
+          - "BTTC_TESTNET"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
