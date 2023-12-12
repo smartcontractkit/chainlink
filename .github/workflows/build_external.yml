@@ -17,7 +17,19 @@ jobs:
       contents: read
     name: Build Chainlink Image
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: Get core ref from PR body
+        if: github.event_name == 'pull_request'
+        run: |
+          comment=$(gh pr view https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }} --json body -q '.body')
+          core_ref=$(echo $comment | grep -oP 'core ref: \K\S+' || true)
+          if [ ! -z "$core_ref" ]; then
+            echo "CUSTOM_CORE_REF=${core_ref}" >> "${GITHUB_ENV}"
+          else 
+            echo "CUSTOM_CORE_REF=develop" >> "${GITHUB_ENV}"
+          fi
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
@@ -37,7 +49,7 @@ jobs:
         with:
           push_tag: ""
           cl_repo: smartcontractkit/chainlink
-          cl_ref: develop
+          cl_ref: ${{ env.CUSTOM_CORE_REF }}
           dep_common_sha: ${{ github.event.pull_request.head.sha }}
           should_checkout: true
           QA_AWS_REGION: ""
@@ -48,8 +60,20 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Relay
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     runs-on: ubuntu-latest
     steps:
+      - name: Get solana ref from PR body
+        if: github.event_name == 'pull_request'
+        run: |
+          comment=$(gh pr view https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }} --json body -q '.body')
+          solana_ref=$(echo $comment | grep -oP 'solana ref: \K\S+' || true)
+          if [ ! -z "$solana_ref" ]; then
+            echo "CUSTOM_SOLANA_REF=${solana_ref}" >> "${GITHUB_ENV}"
+          else 
+            echo "CUSTOM_SOLANA_REF=develop" >> "${GITHUB_ENV}"
+          fi
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
@@ -62,6 +86,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: smartcontractkit/chainlink-solana
+          ref: ${{ env.CUSTOM_SOLANA_REF }}
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
@@ -80,8 +105,20 @@ jobs:
       id-token: write
       contents: read
     name: Starknet Build Relay
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     runs-on: ubuntu-latest
     steps:
+      - name: Get starknet ref from PR body
+        if: github.event_name == 'pull_request'
+        run: |
+          comment=$(gh pr view https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }} --json body -q '.body')
+          starknet_ref=$(echo $comment | grep -oP 'starknet ref: \K\S+' || true)
+          if [ ! -z "$starknet_ref" ]; then
+            echo "CUSTOM_STARKNET_REF=${starknet_ref}" >> "${GITHUB_ENV}"
+          else 
+            echo "CUSTOM_STARKNET_REF=develop" >> "${GITHUB_ENV}"
+          fi
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
@@ -94,6 +131,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: smartcontractkit/chainlink-starknet
+          ref: ${{ env.CUSTOM_STARKNET_REF }}
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
