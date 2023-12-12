@@ -117,7 +117,7 @@ func TestTxm_SignTx(t *testing.T) {
 		_, rawBytes, err := cks.SignTx(addr, typedTx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
-		require.Equal(t, "0x02e5802a808081f294b921f7763960b296b9cbad586ff066a18d749724818e83010203c0808080", hexutil.Encode(rawBytes))
+		require.Equal(t, "0xa702e5802a808081f294b921f7763960b296b9cbad586ff066a18d749724818e83010203c0808080", hexutil.Encode(rawBytes))
 
 		var decodedTx *gethtypes.Transaction
 		decodedTx, err = txmgr.GetGethSignedTx(rawBytes)

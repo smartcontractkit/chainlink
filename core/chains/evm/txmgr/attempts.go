@@ -1,6 +1,7 @@
 package txmgr
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -305,13 +306,12 @@ func (c *evmTxAttemptBuilder) SignTx(address common.Address, tx *types.Transacti
 	if err != nil {
 		return common.Hash{}, nil, fmt.Errorf("failed to sign tx: %w", err)
 	}
-	var txBytes []byte
-	txBytes, err = signedTx.MarshalBinary()
-	if err != nil {
-		return common.Hash{}, nil, fmt.Errorf("failed to marshal signed tx binary: %w", err)
+	rlp := new(bytes.Buffer)
+	if err := signedTx.EncodeRLP(rlp); err != nil {
+		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
 	txHash := signedTx.Hash()
-	return txHash, txBytes, nil
+	return txHash, rlp.Bytes(), nil
 }
 
 func newEvmPriorAttempts(attempts []TxAttempt) (prior []gas.EvmPriorAttempt) {
