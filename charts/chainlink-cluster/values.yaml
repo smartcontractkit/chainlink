@@ -182,7 +182,7 @@ runner:
 
 ingress:
   enabled: false
-  annotations: null # Pass in as multi-line string
+  annotations: {}
   ingressClassName: alb
   hosts:
     - host: chainlink-node-1.local
