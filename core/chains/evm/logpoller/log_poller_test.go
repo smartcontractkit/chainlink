@@ -965,8 +965,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			lgs, err = th.ORM.SelectLogsByBlockRange(11, 17)
 			require.NoError(t, err)
 			assert.Equal(t, 7, len(lgs))
-			th.assertHaveCanonical(t, 15, 16)
-			th.assertDontHave(t, 11, 14) // Do not expect to save backfilled blocks.
+			th.assertHaveCanonical(t, 14, 16) // Should have last finalized block plus unfinalized blocks
+			th.assertDontHave(t, 11, 13)      // Should not have older finalized blocks
 
 			// Verify that a custom block timestamp will get written to db correctly also
 			b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
@@ -1057,8 +1057,8 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
 			th.assertHaveCanonical(t, 1, 1)
-			th.assertDontHave(t, 2, 5) // These blocks are backfilled
-			th.assertHaveCanonical(t, 6, 10)
+			th.assertDontHave(t, 2, 3) // These blocks are backfilled
+			th.assertHaveCanonical(t, 5, 10)
 		})
 	}
 }
