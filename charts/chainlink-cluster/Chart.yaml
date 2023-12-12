@@ -6,5 +6,5 @@ appVersion: "2.6.0"
 dependencies:
   - name: mockserver
     version: "5.14.0"
-    repository: "@mockserver"
+    repository: "https://www.mock-server.com"
     condition: mockserver.enabled
