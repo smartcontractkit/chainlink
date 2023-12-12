@@ -42,11 +42,13 @@ func TestOffRampFilters(t *testing.T) {
 	ccipdata.AssertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
 		c, err := v1_0_0.NewOffRamp(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
 		require.NoError(t, err)
+		require.NoError(t, c.RegisterFilters())
 		return c
 	}, 3)
 	ccipdata.AssertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
 		c, err := v1_2_0.NewOffRamp(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
 		require.NoError(t, err)
+		require.NoError(t, c.RegisterFilters())
 		return c
 	}, 3)
 }
