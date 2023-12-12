@@ -8,6 +8,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -22,7 +23,7 @@ func Test_QueryArgs(t *testing.T) {
 			name:      "valid arguments",
 			queryArgs: newQueryArgs(big.NewInt(20)).withAddress(utils.ZeroAddress),
 			want: map[string]interface{}{
-				"evm_chain_id": utils.NewBigI(20),
+				"evm_chain_id": ubig.NewI(20),
 				"address":      utils.ZeroAddress,
 			},
 		},
