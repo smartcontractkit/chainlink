@@ -17,12 +17,12 @@ contract TokenProxy is OwnerIsCreator {
   error GasShouldBeZero();
 
   /// @notice The CCIP router contract
-  IRouterClient internal immutable i_router;
+  IRouterClient internal immutable i_ccipRouter;
   /// @notice Only this token is allowed to be sent using this proxy
   address internal immutable i_token;
 
   constructor(address router, address token) OwnerIsCreator() {
-    i_router = IRouterClient(router);
+    i_ccipRouter = IRouterClient(router);
     i_token = token;
     // Approve the router to spend an unlimited amount of tokens to reduce
     // gas cost per tx.
@@ -40,7 +40,7 @@ contract TokenProxy is OwnerIsCreator {
     Client.EVM2AnyMessage calldata message
   ) external view returns (uint256 fee) {
     _validateMessage(message);
-    return i_router.getFee(destinationChainSelector, message);
+    return i_ccipRouter.getFee(destinationChainSelector, message);
   }
 
   /// @notice Validates the message content, forwards it to the CCIP router and returns the result.
@@ -51,15 +51,15 @@ contract TokenProxy is OwnerIsCreator {
     _validateMessage(message);
     if (message.feeToken != address(0)) {
       // This path is probably warmed up already so the extra cost isn't too bad.
-      uint256 feeAmount = i_router.getFee(destinationChainSelector, message);
+      uint256 feeAmount = i_ccipRouter.getFee(destinationChainSelector, message);
       IERC20(message.feeToken).safeTransferFrom(msg.sender, address(this), feeAmount);
-      IERC20(message.feeToken).approve(address(i_router), feeAmount);
+      IERC20(message.feeToken).approve(address(i_ccipRouter), feeAmount);
     }
 
     // Transfer the tokens from the sender to this contract.
     IERC20(message.tokenAmounts[0].token).transferFrom(msg.sender, address(this), message.tokenAmounts[0].amount);
 
-    return i_router.ccipSend{value: msg.value}(destinationChainSelector, message);
+    return i_ccipRouter.ccipSend{value: msg.value}(destinationChainSelector, message);
   }
 
   /// @notice Validates the message content.
@@ -76,7 +76,7 @@ contract TokenProxy is OwnerIsCreator {
 
   /// @notice Returns the CCIP router contract.
   function getRouter() external view returns (IRouterClient) {
-    return i_router;
+    return i_ccipRouter;
   }
 
   /// @notice Returns the token that this proxy is allowed to send.
