@@ -82,7 +82,7 @@ jobs:
 
   build-lint-integration-tests:
     name: Build and Lint integration-tests
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu20.04-8cores-32GB
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -125,7 +125,7 @@ jobs:
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu20.04-8cores-32GB
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Collect Metrics
@@ -160,7 +160,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Test Image
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu20.04-8cores-32GB
     needs: [changes]
     steps:
       - name: Collect Metrics
@@ -207,8 +207,8 @@ jobs:
         id: build-test-matrix-list
         run: |
           cd ./integration-tests
-          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu20.04-8cores-32GB 1)
-          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB 1)
+          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu20.04-4cores-16GB 1)
+          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-4cores-16GB 1)
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
 
           # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
@@ -324,15 +324,15 @@ jobs:
             pyroscope_env: ""
           - name: ocr
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu20.04-4cores-16GB
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu20.04-4cores-16GB
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu20.04-4cores-16GB
             pyroscope_env: ci-smoke-ocr2-evm-simulated
             tag_suffix: "-plugins"
           - name: runlog
@@ -341,23 +341,23 @@ jobs:
             pyroscope_env: ""
           - name: vrf
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu20.04-4cores-16GB
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu20.04-4cores-16GB
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu20.04-4cores-16GB
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu20.04-4cores-16GB
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           - name: forwarders_ocr2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu20.04-4cores-16GB
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
@@ -571,7 +571,7 @@ jobs:
   eth-smoke-go-mod-cache:
     environment: integration
     needs: [eth-smoke-tests]
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu20.04-8cores-32GB
     name: ETH Smoke Tests Go Mod Cache
     continue-on-error: true
     steps:
@@ -755,7 +755,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Artifacts
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu20.04-8cores-32GB
     needs:
       [
         changes,
@@ -799,7 +799,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Test Image
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu20.04-8cores-32GB
     needs:
       [
         solana-build-contracts,
@@ -846,7 +846,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu20.04-8cores-32GB
     needs:
       [
         build-chainlink,
