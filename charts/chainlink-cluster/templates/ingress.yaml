@@ -11,7 +11,9 @@ metadata:
     {{- end }}
   {{- if .Values.ingress.annotations }}
   annotations:
-    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+  {{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
   {{- end }}
 spec:
   {{- with .Values.ingress.ingressClassName }}
