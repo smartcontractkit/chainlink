@@ -19,8 +19,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
@@ -29,7 +27,6 @@ import (
 	"github.com/robfig/cron/v3"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
-	"golang.org/x/exp/constraints"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
