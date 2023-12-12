@@ -24,12 +24,12 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.0-alpha.0.0.20231120164534-d4cab696c459
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231121180428-d7f28e91ccc3
-	github.com/smartcontractkit/chainlink-testing-framework v1.19.2-0.20231120221959-1aa43ee080e0
+	github.com/smartcontractkit/chainlink-testing-framework v1.22.1-0.20231211221735-b7392e82e6bf
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20231107151413-13e0202ae8d7
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
-	github.com/smartcontractkit/wasp v0.3.6
+	github.com/smartcontractkit/wasp v0.3.7
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.23.0
@@ -103,7 +103,7 @@ require (
 	github.com/cometbft/cometbft v0.37.2 // indirect
 	github.com/cometbft/cometbft-db v0.7.0 // indirect
 	github.com/confio/ics23/go v0.9.0 // indirect
-	github.com/containerd/containerd v1.7.3 // indirect
+	github.com/containerd/containerd v1.7.7 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
@@ -127,7 +127,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
-	github.com/docker/docker v24.0.5+incompatible // indirect
+	github.com/docker/docker v24.0.6+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -326,7 +326,7 @@ require (
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
-	github.com/moby/patternmatcher v0.5.0 // indirect
+	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
@@ -354,7 +354,7 @@ require (
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0-rc4 // indirect
+	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
 	github.com/opencontainers/runc v1.1.7 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20210225150812-73cb765af46e // indirect
 	github.com/opentracing-contrib/go-stdlib v1.0.0 // indirect

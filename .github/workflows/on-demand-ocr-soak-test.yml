@@ -32,6 +32,7 @@ on:
           - "WEMIX_MAINNET"
           - "KAVA_MAINNET"
           - "KAVA_TESTNET"
+          - "BTTC_TESTNET"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false

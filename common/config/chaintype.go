@@ -19,11 +19,12 @@ const (
 	ChainKroma           ChainType = "kroma"
 	ChainZkSync          ChainType = "zksync"
 	ChainKava            ChainType = "kava"
+	ChainBttc            ChainType = "Bttc"
 )
 
 var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Join([]string{
 	string(ChainArbitrum), string(ChainMetis), string(ChainXDai), string(ChainOptimismBedrock), string(ChainCelo),
-	string(ChainKroma), string(ChainWeMix), string(ChainZkSync), string(ChainKava)}, ", "))
+	string(ChainKroma), string(ChainWeMix), string(ChainZkSync), string(ChainKava), string(ChainBttc)}, ", "))
 
 // IsValid returns true if the ChainType value is known or empty.
 func (c ChainType) IsValid() bool {
