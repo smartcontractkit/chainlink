@@ -103,7 +103,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 	if ms.chainID.String() != chainID.String() {
 		return tx, fmt.Errorf("create_transaction: %w", ErrInvalidChainID)
 	}
-	if _, ok := ms.addressStates[txRequest.FromAddress]; !ok {
+	as, ok := ms.addressStates[tx.FromAddress]
+	if !ok {
 		return tx, fmt.Errorf("create_transaction: %w", ErrAddressNotFound)
 	}
 
@@ -112,7 +113,11 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 	if err != nil {
 		return tx, fmt.Errorf("create_transaction: %w", err)
 	}
-	if err := ms.sendTxToUnstartedQueue(tx); err != nil {
+
+	// TODO(jtw); HANDLE PRUNING STEP
+
+	// Add the request to the Unstarted channel to be processed by the Broadcaster
+	if err := as.addTxToUnstarted(&tx); err != nil {
 		return tx, fmt.Errorf("create_transaction: %w", err)
 	}
 
@@ -431,22 +436,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 		return fmt.Errorf("abandon: %w", ErrAddressNotFound)
 	}
 	as.abandon()
-
-	return nil
-}
-
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sendTxToUnstartedQueue(tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	as, ok := ms.addressStates[tx.FromAddress]
-	if !ok {
-		return fmt.Errorf("send_tx_to_unstarted_queue: %w", ErrAddressNotFound)
-	}
-
-	// TODO(jtw); HANDLE PRUNING STEP
-
-	// Add the request to the Unstarted channel to be processed by the Broadcaster
-	if err := as.addTxToUnstarted(&tx); err != nil {
-		return fmt.Errorf("send_tx_to_unstarted_queue: %w", err)
-	}
 
 	return nil
 }
