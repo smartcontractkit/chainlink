@@ -7,7 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/avast/retry-go/v4 v4.5.1
-	github.com/btcsuite/btcd v0.23.4
+	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/cometbft/cometbft v0.37.2
 	github.com/cosmos/cosmos-sdk v0.47.4
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
@@ -24,7 +24,7 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-ldap/ldap/v3 v3.4.6
 	github.com/go-webauthn/webauthn v0.9.4
-	github.com/google/pprof v0.0.0-20230926050212-f7f687d19a98
+	github.com/google/pprof v0.0.0-20231023181126-ff6d637d2a7b
 	github.com/google/uuid v1.4.0
 	github.com/gorilla/securecookie v1.1.2
 	github.com/gorilla/sessions v1.2.2
@@ -43,13 +43,10 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/leanovate/gopter v0.2.10-0.20210127095200-9abe2343507a
 	github.com/lib/pq v1.10.9
-	github.com/libp2p/go-libp2p-core v0.8.5
-	github.com/libp2p/go-libp2p-peerstore v0.2.7
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mr-tron/base58 v1.2.0
-	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.30.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -131,7 +128,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/bytedance/sonic v1.10.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
@@ -223,9 +219,6 @@ require (
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/ipfs/go-cid v0.0.7 // indirect
-	github.com/ipfs/go-log v1.0.4 // indirect
-	github.com/ipfs/go-log/v2 v2.1.1 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -240,7 +233,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
-	github.com/libp2p/go-openssl v0.0.7 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
@@ -248,8 +240,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/mimoo/StrobeGo v0.0.0-20210601165009-122bf33a46e0 // indirect
-	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
-	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
@@ -257,13 +247,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
-	github.com/multiformats/go-base32 v0.0.3 // indirect
-	github.com/multiformats/go-base36 v0.1.0 // indirect
-	github.com/multiformats/go-multiaddr-fmt v0.1.0 // indirect
-	github.com/multiformats/go-multiaddr-net v0.2.0 // indirect
-	github.com/multiformats/go-multibase v0.0.3 // indirect
-	github.com/multiformats/go-multihash v0.0.14 // indirect
-	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/mwitkow/grpc-proxy v0.0.0-20230212185441-f345521cb9c9 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -279,8 +262,6 @@ require (
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
-	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -336,10 +317,6 @@ require (
 )
 
 replace (
-	// Fix go mod tidy issue for ambiguous imports from go-ethereum
-	// See https://github.com/ugorji/go/issues/279
-	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
-
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 

@@ -3,6 +3,7 @@ package utils
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -18,18 +19,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
-	"golang.org/x/exp/constraints"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/jpillora/backoff"
-	"github.com/libp2p/go-libp2p-core/peer"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
+	"golang.org/x/exp/constraints"
+
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
@@ -64,11 +64,11 @@ func Bytes32ToSlice(a [32]byte) (r []byte) {
 }
 
 func MustNewPeerID() string {
-	_, pubKey, err := cryptop2p.GenerateEd25519Key(rand.Reader)
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		panic(err)
 	}
-	peerID, err := peer.IDFromPublicKey(pubKey)
+	peerID, err := ragep2ptypes.PeerIDFromPublicKey(pubKey)
 	if err != nil {
 		panic(err)
 	}
