@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "charts/**"
+      - ".github/workflows/helm-chart.yml"
 
 jobs:
   ci-lint-helm-charts:
