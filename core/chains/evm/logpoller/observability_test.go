@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -126,7 +127,7 @@ func generateRandomLogs(chainId, count int) []Log {
 	logs := make([]Log, count)
 	for i := range logs {
 		logs[i] = Log{
-			EvmChainId:     utils.NewBigI(int64(chainId)),
+			EvmChainId:     ubig.NewI(int64(chainId)),
 			LogIndex:       int64(i + 1),
 			BlockHash:      utils.RandomBytes32(),
 			BlockNumber:    int64(i + 1),

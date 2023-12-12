@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -258,7 +259,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	headers := <-chchHeaders
-	headers.TrySend(&evmtypes.Head{Number: 1, Hash: utils.NewHash(), EVMChainID: utils.NewBig(&cltest.FixtureChainID)})
+	headers.TrySend(&evmtypes.Head{Number: 1, Hash: utils.NewHash(), EVMChainID: ubig.New(&cltest.FixtureChainID)})
 	g.Eventually(checker.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
 	ht.Stop(t)
@@ -719,7 +720,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: gethCommon.BigToHash(big.NewInt(0)),
 		Time:       now,
 	}
-	head0 := evmtypes.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, gethHead0.Time, utils.NewBig(&cltest.FixtureChainID))
+	head0 := evmtypes.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, gethHead0.Time, ubig.New(&cltest.FixtureChainID))
 
 	h1 := *cltest.Head(1)
 	h1.ParentHash = head0.Hash
@@ -729,7 +730,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: utils.NewHash(),
 		Time:       now,
 	}
-	head8 := evmtypes.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, gethHead8.Time, utils.NewBig(&cltest.FixtureChainID))
+	head8 := evmtypes.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, gethHead8.Time, ubig.New(&cltest.FixtureChainID))
 
 	h9 := *cltest.Head(9)
 	h9.ParentHash = head8.Hash
@@ -739,7 +740,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: h9.Hash,
 		Time:       now,
 	}
-	head10 := evmtypes.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, gethHead10.Time, utils.NewBig(&cltest.FixtureChainID))
+	head10 := evmtypes.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, gethHead10.Time, ubig.New(&cltest.FixtureChainID))
 
 	h11 := *cltest.Head(11)
 	h11.ParentHash = head10.Hash
