@@ -4,8 +4,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -36,5 +38,28 @@ func LogsConfirmations(finalized bool) logpoller.Confirmations {
 	if finalized {
 		return logpoller.Finalized
 	}
-	return logpoller.Confirmations(0)
+	return logpoller.Unconfirmed
+}
+
+func ParseLogs[T any](logs []logpoller.Log, lggr logger.Logger, parseFunc func(log types.Log) (*T, error)) ([]Event[T], error) {
+	reqs := make([]Event[T], 0, len(logs))
+	for _, log := range logs {
+		data, err := parseFunc(log.ToGethLog())
+		if err == nil {
+			reqs = append(reqs, Event[T]{
+				Data: *data,
+				Meta: Meta{
+					BlockTimestamp: log.BlockTimestamp,
+					BlockNumber:    log.BlockNumber,
+					TxHash:         log.TxHash,
+					LogIndex:       uint(log.LogIndex),
+				},
+			})
+		}
+	}
+
+	if len(logs) != len(reqs) {
+		lggr.Warnw("Some logs were not parsed", "logs", len(logs), "requests", len(reqs))
+	}
+	return reqs, nil
 }
