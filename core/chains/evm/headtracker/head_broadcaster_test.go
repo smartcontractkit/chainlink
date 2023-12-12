@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
@@ -71,7 +72,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	orm := headtracker.NewORM(db, logger, cfg.Database(), *ethClient.ConfiguredChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg.EVM(), evmCfg.EVM().HeadTracker())
-	mailMon := utils.NewMailboxMonitor(t.Name())
+	mailMon := mailbox.NewMonitor(t.Name())
 	servicetest.Run(t, mailMon)
 	hb := headtracker.NewHeadBroadcaster(logger)
 	servicetest.Run(t, hb)
