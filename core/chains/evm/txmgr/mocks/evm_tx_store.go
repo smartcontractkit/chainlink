@@ -1340,6 +1340,80 @@ func (_m *EvmTxStore) TxAttempts(offset int, limit int) ([]types.TxAttempt[*big.
 	return r0, r1, r2
 }
 
+// UnconfirmedTransactions provides a mock function with given fields: limit, offset, fromAddress, chainID
+func (_m *EvmTxStore) UnconfirmedTransactions(limit int, offset int, fromAddress common.Address, chainID *big.Int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error) {
+	ret := _m.Called(limit, offset, fromAddress, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UnconfirmedTransactions")
+	}
+
+	var r0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 int
+	var r2 error
+	if rf, ok := ret.Get(0).(func(int, int, common.Address, *big.Int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error)); ok {
+		return rf(limit, offset, fromAddress, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(int, int, common.Address, *big.Int) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(limit, offset, fromAddress, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(int, int, common.Address, *big.Int) int); ok {
+		r1 = rf(limit, offset, fromAddress, chainID)
+	} else {
+		r1 = ret.Get(1).(int)
+	}
+
+	if rf, ok := ret.Get(2).(func(int, int, common.Address, *big.Int) error); ok {
+		r2 = rf(limit, offset, fromAddress, chainID)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// UnstartedTransactions provides a mock function with given fields: limit, offset, fromAddress, chainID
+func (_m *EvmTxStore) UnstartedTransactions(limit int, offset int, fromAddress common.Address, chainID *big.Int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error) {
+	ret := _m.Called(limit, offset, fromAddress, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UnstartedTransactions")
+	}
+
+	var r0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 int
+	var r2 error
+	if rf, ok := ret.Get(0).(func(int, int, common.Address, *big.Int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error)); ok {
+		return rf(limit, offset, fromAddress, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(int, int, common.Address, *big.Int) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(limit, offset, fromAddress, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(int, int, common.Address, *big.Int) int); ok {
+		r1 = rf(limit, offset, fromAddress, chainID)
+	} else {
+		r1 = ret.Get(1).(int)
+	}
+
+	if rf, ok := ret.Get(2).(func(int, int, common.Address, *big.Int) error); ok {
+		r2 = rf(limit, offset, fromAddress, chainID)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // UpdateBroadcastAts provides a mock function with given fields: ctx, now, etxIDs
 func (_m *EvmTxStore) UpdateBroadcastAts(ctx context.Context, now time.Time, etxIDs []int64) error {
 	ret := _m.Called(ctx, now, etxIDs)
