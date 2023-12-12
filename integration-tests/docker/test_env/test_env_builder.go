@@ -241,7 +241,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.t != nil {
-		b.te.WithTestLogger(b.t)
+		b.te.WithTestInstance(b.t)
 	}
 
 	switch b.cleanUpType {

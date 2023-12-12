@@ -8,7 +8,6 @@ NoNewHeadsThreshold = '0'
 [GasEstimator]
 EIP1559DynamicFees = false
 
-
 [GasEstimator.BlockHistory]
 # how many blocks we want to keep in memory to calculate gas price
 # # Average block time of 2s
