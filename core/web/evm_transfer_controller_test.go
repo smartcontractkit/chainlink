@@ -13,13 +13,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -55,7 +55,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 		FromAddress:        key.Address,
 		Amount:             amount,
 		SkipWaitTxAttempt:  true,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -96,7 +96,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 		FromAddress:        key.Address,
 		Amount:             amount,
 		SkipWaitTxAttempt:  true,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -142,7 +142,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 		FromAddress:        key.Address,
 		Amount:             amount,
 		SkipWaitTxAttempt:  true,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -172,7 +172,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
 		Amount:             amount,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -207,7 +207,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
 		AllowHigherAmounts: false,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -245,7 +245,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
 		AllowHigherAmounts: false,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
@@ -288,7 +288,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
-		c.EVM[0].ChainID = (*utils.Big)(testutils.FixtureChainID)
+		c.EVM[0].ChainID = (*ubig.Big)(testutils.FixtureChainID)
 		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
 		// Testing triggers requires committing transactions and does not work with transactional tests
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(time.Second)
@@ -308,7 +308,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 		FromAddress:        key.Address,
 		Amount:             amount,
 		WaitAttemptTimeout: &timeout,
-		EVMChainID:         utils.NewBig(evmtest.MustGetDefaultChainID(t, config.EVMConfigs())),
+		EVMChainID:         ubig.New(evmtest.MustGetDefaultChainID(t, config.EVMConfigs())),
 	}
 
 	body, err := json.Marshal(&request)
