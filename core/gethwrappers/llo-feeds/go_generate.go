@@ -9,3 +9,4 @@ package gethwrappers
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.16/ExposedVerifier/ExposedVerifier.abi ../../../contracts/solc/v0.8.16/ExposedVerifier/ExposedVerifier.bin ExposedVerifier exposed_verifier
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.16/RewardManager/RewardManager.abi ../../../contracts/solc/v0.8.16/RewardManager/RewardManager.bin RewardManager reward_manager
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.16/FeeManager/FeeManager.abi ../../../contracts/solc/v0.8.16/FeeManager/FeeManager.bin FeeManager fee_manager
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.16/StreamConfigStore/StreamConfigStore.abi ../../../contracts/solc/v0.8.16/StreamConfigStore/StreamConfigStore.bin StreamConfigStore stream_config_store
