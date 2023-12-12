@@ -168,32 +168,12 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 	return cr
 }
 
-func (it *chainReaderInterfaceTester) GetPrimitiveContract(_ *testing.T) string {
-	return it.address
-}
-
-func (it *chainReaderInterfaceTester) GetDifferentPrimitiveContract(_ *testing.T) string {
-	// Using the same address for a different contract name proves that we can map different logical contracts to the same contract if needed.
-	// Although it's unlikely that the same type name in a different contract name would have a different meaning, it's possible.
-	// Mapping it to a different function on the same contract address proves the most flexibility.
-	return it.address2
-}
-
-func (it *chainReaderInterfaceTester) GetReturnSeenContract(_ *testing.T) string {
-	return it.address
-}
-func (it *chainReaderInterfaceTester) GetSliceContract(_ *testing.T) string {
-	return it.address
-}
-
-func (it *chainReaderInterfaceTester) SetLatestValue(t *testing.T, testStruct *TestStruct) string {
+func (it *chainReaderInterfaceTester) SetLatestValue(t *testing.T, testStruct *TestStruct) {
 	it.sendTxWithTestStruct(t, testStruct, (*testfiles.TestfilesTransactor).AddTestStruct)
-	return it.address
 }
 
-func (it *chainReaderInterfaceTester) TriggerEvent(t *testing.T, testStruct *TestStruct) string {
+func (it *chainReaderInterfaceTester) TriggerEvent(t *testing.T, testStruct *TestStruct) {
 	it.sendTxWithTestStruct(t, testStruct, (*testfiles.TestfilesTransactor).TriggerEvent)
-	return it.address
 }
 
 type testStructFn = func(*testfiles.TestfilesTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, [32]byte, [][32]byte, *big.Int, testfiles.MidLevelTestStruct) (*evmtypes.Transaction, error)

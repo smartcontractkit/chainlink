@@ -62,41 +62,48 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 
 var _ commontypes.ContractTypeProvider = &chainReader{}
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, bc commontypes.BoundContract, method string, params any, returnVal any) error {
-	b, err := cr.bindings.getBinding(bc.Name, method)
+func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
+	ae, err := cr.bindings.getBinding(contractName, method, false)
 	if err != nil {
 		return err
 	}
 
-	if b.evt == nil {
-		return cr.getLatestValueFromContract(ctx, bc, method, params, returnVal)
+	if ae.evt == nil {
+		return cr.getLatestValueFromContract(ctx, contractName, method, params, returnVal)
 	}
 
-	return cr.getLatestValueFromLogPoller(ctx, bc, method, *b.evt, returnVal)
+	return cr.getLatestValueFromLogPoller(ctx, contractName, method, *ae.evt, returnVal)
 }
 
-func (cr *chainReader) getLatestValueFromLogPoller(ctx context.Context, bc commontypes.BoundContract, method string, hash common.Hash, returnVal any) error {
-	contractAddr := common.HexToAddress(bc.Address)
-	log, err := cr.lp.LatestLogByEventSigWithConfs(hash, contractAddr, logpoller.Finalized)
+func (cr *chainReader) getLatestValueFromLogPoller(ctx context.Context, contractName, method string, hash common.Hash, returnVal any) error {
+	ae, err := cr.bindings.getBinding(contractName, method, false)
+	if err != nil {
+		return err
+	}
+
+	log, err := cr.lp.LatestLogByEventSigWithConfs(hash, ae.addr, logpoller.Finalized)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return fmt.Errorf("%w: %w", commontypes.ErrNotFound, err)
 		}
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
-	return cr.codec.Decode(ctx, log.Data, returnVal, wrapItemType(bc.Name, method, false))
+	return cr.codec.Decode(ctx, log.Data, returnVal, wrapItemType(contractName, method, false))
 }
 
-func (cr *chainReader) getLatestValueFromContract(ctx context.Context, bc commontypes.BoundContract, method string, params any, returnVal any) error {
-	data, err := cr.codec.Encode(ctx, params, wrapItemType(bc.Name, method, true))
+func (cr *chainReader) getLatestValueFromContract(ctx context.Context, contractName, method string, params any, returnVal any) error {
+	data, err := cr.codec.Encode(ctx, params, wrapItemType(contractName, method, true))
 	if err != nil {
 		return err
 	}
 
-	address := common.HexToAddress(bc.Address)
+	ae, err := cr.bindings.getBinding(contractName, method, true)
+	if err != nil {
+		return err
+	}
 	callMsg := ethereum.CallMsg{
-		To:   &address,
-		From: address,
+		To:   &ae.addr,
+		From: ae.addr,
 		Data: data,
 	}
 
@@ -106,7 +113,7 @@ func (cr *chainReader) getLatestValueFromContract(ctx context.Context, bc common
 		return err
 	}
 
-	return cr.codec.Decode(ctx, output, returnVal, wrapItemType(bc.Name, method, false))
+	return cr.codec.Decode(ctx, output, returnVal, wrapItemType(contractName, method, false))
 }
 
 func (cr *chainReader) Start(_ context.Context) error {

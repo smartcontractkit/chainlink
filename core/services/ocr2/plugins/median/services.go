@@ -215,7 +215,7 @@ type latestRoundRequested struct {
 func (m *medianContract) LatestTransmissionDetails(ctx context.Context) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, latestAnswer *big.Int, latestTimestamp time.Time, err error) {
 	var resp latestTransmissionDetailsResponse
 
-	err = m.chainReader.GetLatestValue(ctx, m.contract, "LatestTransmissionDetails", nil, &resp)
+	err = m.chainReader.GetLatestValue(ctx, m.contract.Name, "LatestTransmissionDetails", nil, &resp)
 	if err != nil {
 		return
 	}
@@ -226,7 +226,7 @@ func (m *medianContract) LatestTransmissionDetails(ctx context.Context) (configD
 func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, err error) {
 	var resp latestRoundRequested
 
-	err = m.chainReader.GetLatestValue(ctx, m.contract, "LatestRoundReported", map[string]string{}, &resp)
+	err = m.chainReader.GetLatestValue(ctx, m.contract.Name, "LatestRoundRequested", map[string]string{}, &resp)
 	if err != nil {
 		return
 	}
