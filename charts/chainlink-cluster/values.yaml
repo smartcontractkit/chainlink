@@ -185,15 +185,64 @@ ingress:
   annotations: null # Pass in as multi-line string
   ingressClassName: alb
   hosts:
-    # must be string template with one %s for index
-    - host: chainlink-node-%s.local
+    - host: chainlink-node-1.local
       http:
         paths:
           - path: /
             pathType: ImplementationSpecific
             backend:
               service:
-                name: chainlink-node-%s
+                name: chainlink-node-1
+                port:
+                  number: 6688
+    - host: chainlink-node-2.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-2
+                port:
+                  number: 6688
+    - host: chainlink-node-3.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-3
+                port:
+                  number: 6688
+    - host: chainlink-node-4.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-4
+                port:
+                  number: 6688
+    - host: chainlink-node-5.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-5
+                port:
+                  number: 6688
+    - host: chainlink-node-6.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-6
                 port:
                   number: 6688
     - host: chainlink-geth-http.local
