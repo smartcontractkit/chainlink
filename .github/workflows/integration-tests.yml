@@ -228,7 +228,7 @@ jobs:
           fi
 
   eth-smoke-tests-matrix-automation:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')) }}
     environment: integration
     permissions:
       checks: write
@@ -297,7 +297,7 @@ jobs:
         continue-on-error: true
 
   eth-smoke-tests-matrix:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')) }}
     environment: integration
     permissions:
       checks: write
