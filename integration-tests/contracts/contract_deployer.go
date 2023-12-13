@@ -510,7 +510,6 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		log.Info().Msg(fmt.Sprintf("SISHIRR: %d, %d, %d, %s", auth.GasLimit, auth.GasPrice.Uint64(), auth.GasTipCap.Uint64(), auth.From))
 		return link_token_interface.DeployLinkToken(auth, backend)
 	})
 	if err != nil {
