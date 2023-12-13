@@ -28,6 +28,10 @@ type SugaredLogger interface {
 	Trace(args ...interface{})
 	Tracef(format string, vals ...interface{})
 	Tracew(msg string, keysAndVals ...interface{})
+
+	Named(string) SugaredLogger
+	With(keyvals ...any) SugaredLogger
+	Helper(skip int) SugaredLogger
 }
 
 // Sugared returns a new SugaredLogger wrapping the given Logger.
@@ -118,4 +122,16 @@ func (s *sugared) Criticalw(msg string, keysAndValues ...interface{}) {
 		return
 	}
 	s.h.Errorw(critPrefix+msg, keysAndValues...)
+}
+
+func (s *sugared) Named(n string) SugaredLogger {
+	return Sugared(Named(s.Logger, n))
+}
+
+func (s *sugared) With(keyvals ...interface{}) SugaredLogger {
+	return Sugared(With(s.Logger, keyvals...))
+}
+
+func (s *sugared) Helper(skip int) SugaredLogger {
+	return Sugared(Helper(s.Logger, skip))
 }
