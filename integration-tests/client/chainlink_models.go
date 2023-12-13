@@ -8,8 +8,8 @@ import (
 
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -1128,6 +1128,7 @@ type VRFV2PlusJobSpec struct {
 	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
 	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
 	BackOffMaxDelay          time.Duration `toml:"backOffMaxDelay"`
+	PollPeriod               time.Duration `toml:"pollPeriod"`
 }
 
 // Type returns the type of the job
@@ -1419,6 +1420,6 @@ type ReplayResponseData struct {
 }
 
 type ReplayResponseAttributes struct {
-	Message    string     `json:"message"`
-	EVMChainID *utils.Big `json:"evmChainID"`
+	Message    string   `json:"message"`
+	EVMChainID *big.Big `json:"evmChainID"`
 }

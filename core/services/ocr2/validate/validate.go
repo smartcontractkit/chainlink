@@ -125,16 +125,42 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 	return nil
 }
 
-type coreConfig struct {
+type PipelineSpec struct {
+	Name string `json:"name"`
+	Spec string `json:"spec"`
+}
+
+type Config struct {
+	Pipelines    []PipelineSpec `json:"pipelines"`
+	PluginConfig map[string]any `json:"pluginConfig"`
+}
+
+type innerConfig struct {
 	Command       string `json:"command"`
 	ProviderType  string `json:"providerType"`
 	PluginName    string `json:"pluginName"`
 	TelemetryType string `json:"telemetryType"`
+	Config
 }
 
 type OCR2GenericPluginConfig struct {
-	CoreConfig   coreConfig `json:"coreConfig"`
-	PluginConfig string
+	innerConfig
+}
+
+func (o *OCR2GenericPluginConfig) UnmarshalJSON(data []byte) error {
+	err := json.Unmarshal(data, &o.innerConfig)
+	if err != nil {
+		return nil
+	}
+
+	m := map[string]any{}
+	err = json.Unmarshal(data, &m)
+	if err != nil {
+		return err
+	}
+
+	o.PluginConfig = m
+	return nil
 }
 
 func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {
@@ -144,12 +170,11 @@ func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {
 		return err
 	}
 
-	cc := p.CoreConfig
-	if cc.PluginName == "" {
+	if p.PluginName == "" {
 		return errors.New("generic config invalid: must provide plugin name")
 	}
 
-	if cc.TelemetryType == "" {
+	if p.TelemetryType == "" {
 		return errors.New("generic config invalid: must provide telemetry type")
 	}
 

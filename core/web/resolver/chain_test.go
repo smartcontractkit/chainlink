@@ -8,17 +8,13 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtoml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 func TestResolver_Chains(t *testing.T) {
 	var (
-		chainID = *utils.NewBigI(1)
+		chainID = *big.NewI(1)
 		query   = `
 			query GetChains {
 				chains {
@@ -115,7 +111,7 @@ ResendAfterThreshold = '1h0m0s'
 
 func TestResolver_Chain(t *testing.T) {
 	var (
-		chainID = *utils.NewBigI(1)
+		chainID = *big.NewI(1)
 		query   = `
 			query GetChain {
 				chain(id: "1") {

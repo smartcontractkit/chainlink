@@ -89,6 +89,7 @@ type ContractDeployer interface {
 	DeployKeeperRegistrar(registryVersion eth_contracts.KeeperRegistryVersion, linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error)
 	LoadKeeperRegistrar(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistrar, error)
 	DeployUpkeepTranscoder() (UpkeepTranscoder, error)
+	LoadUpkeepTranscoder(address common.Address) (UpkeepTranscoder, error)
 	DeployKeeperRegistry(opts *KeeperRegistryOpts) (KeeperRegistry, error)
 	LoadKeeperRegistry(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
@@ -763,6 +764,25 @@ func (e *EthereumContractDeployer) DeployUpkeepTranscoder() (UpkeepTranscoder, e
 	}, err
 }
 
+func (e *EthereumContractDeployer) LoadUpkeepTranscoder(address common.Address) (UpkeepTranscoder, error) {
+	instance, err := e.client.LoadContract("UpkeepTranscoder", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return upkeep_transcoder.NewUpkeepTranscoder(address, backend)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &EthereumUpkeepTranscoder{
+		client:     e.client,
+		transcoder: instance.(*upkeep_transcoder.UpkeepTranscoder),
+		address:    &address,
+	}, err
+}
+
 func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_contracts.KeeperRegistryVersion, linkAddr string,
 	registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error) {
 
@@ -1192,6 +1212,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry1_1: instance.(*keeper_registry_wrapper1_1.KeeperRegistry),
+			version:     registryVersion,
 		}, err
 	case eth_contracts.RegistryVersion_1_2:
 		instance, err := e.client.LoadContract("KeeperRegistry", address, func(
@@ -1207,6 +1228,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry1_2: instance.(*keeper_registry_wrapper1_2.KeeperRegistry),
+			version:     registryVersion,
 		}, err
 	case eth_contracts.RegistryVersion_1_3:
 		instance, err := e.client.LoadContract("KeeperRegistry", address, func(
@@ -1222,6 +1244,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry1_3: instance.(*keeper_registry_wrapper1_3.KeeperRegistry),
+			version:     registryVersion,
 		}, err
 	case eth_contracts.RegistryVersion_2_0:
 		instance, err := e.client.LoadContract("KeeperRegistry", address, func(
@@ -1237,6 +1260,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry2_0: instance.(*keeper_registry_wrapper2_0.KeeperRegistry),
+			version:     registryVersion,
 		}, err
 	case eth_contracts.RegistryVersion_2_1:
 		instance, err := e.client.LoadContract("KeeperRegistry", address, func(
@@ -1252,6 +1276,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry2_1: instance.(*iregistry21.IKeeperRegistryMaster),
+			version:     registryVersion,
 		}, err
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", registryVersion)

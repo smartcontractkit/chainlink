@@ -13,12 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -48,12 +48,12 @@ type arbitrumEstimator struct {
 
 	chForceRefetch chan (chan struct{})
 	chInitialised  chan struct{}
-	chStop         utils.StopChan
+	chStop         services.StopChan
 	chDone         chan struct{}
 }
 
 func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) EvmEstimator {
-	lggr = lggr.Named("ArbitrumEstimator")
+	lggr = logger.Named(lggr, "ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,
 		EvmEstimator:   NewSuggestedPriceEstimator(lggr, rpcClient),

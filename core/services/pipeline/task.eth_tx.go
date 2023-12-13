@@ -13,11 +13,11 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -42,7 +42,7 @@ type ETHTxTask struct {
 	forwardingAllowed bool
 	specGasLimit      *uint32
 	keyStore          ETHKeyStore
-	legacyChains      evm.LegacyChainContainer
+	legacyChains      legacyevm.LegacyChainContainer
 	jobType           string
 }
 

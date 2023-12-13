@@ -3,14 +3,13 @@ package reportcodec
 import (
 	"errors"
 	"fmt"
-
 	"math/big"
 
 	pkgerrors "github.com/pkg/errors"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	reportcodec "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v3"
+	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -21,7 +20,7 @@ var ReportTypes = reporttypes.GetSchema()
 var maxReportLength = 32 * len(ReportTypes) // each arg is 256 bit EVM word
 var zero = big.NewInt(0)
 
-var _ reportcodec.ReportCodec = &ReportCodec{}
+var _ v3.ReportCodec = &ReportCodec{}
 
 type ReportCodec struct {
 	logger logger.Logger
@@ -32,7 +31,7 @@ func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
 	return &ReportCodec{lggr, feedID}
 }
 
-func (r *ReportCodec) BuildReport(rf reportcodec.ReportFields) (ocrtypes.Report, error) {
+func (r *ReportCodec) BuildReport(rf v3.ReportFields) (ocrtypes.Report, error) {
 	var merr error
 	if rf.BenchmarkPrice == nil {
 		merr = errors.Join(merr, errors.New("benchmarkPrice may not be nil"))

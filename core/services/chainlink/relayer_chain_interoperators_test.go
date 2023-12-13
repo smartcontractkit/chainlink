@@ -11,12 +11,15 @@ import (
 
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -29,12 +32,11 @@ import (
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestCoreRelayerChainInteroperators(t *testing.T) {
 
-	evmChainID1, evmChainID2 := utils.NewBig(big.NewInt(1)), utils.NewBig(big.NewInt(2))
+	evmChainID1, evmChainID2 := ubig.New(big.NewInt(1)), ubig.New(big.NewInt(2))
 	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
 	starknetChainID1, starknetChainID2 := "starknet-id-1", "starknet-id-2"
 	cosmosChainID1, cosmosChainID2 := "cosmos-id-1", "cosmos-id-2"
@@ -69,7 +71,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			Chain:   cfg,
 			Nodes:   evmcfg.EVMNodes{&node1_1, &node1_2},
 		}
-		id2 := utils.NewBig(big.NewInt(2))
+		id2 := ubig.New(big.NewInt(2))
 		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 			ChainID: evmChainID2,
 			Chain:   evmcfg.Defaults(id2),
@@ -203,10 +205,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "2 evm chains with 3 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					ChainOpts: evm.ChainOpts{
+					ChainOpts: legacyevm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
-						MailMon:          &utils.MailboxMonitor{},
+						MailMon:          &mailbox.Monitor{},
 						DB:               db,
 					},
 					CSAETHKeystore: keyStore,
@@ -277,10 +279,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Keystore:    keyStore.Solana(),
 				TOMLConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					ChainOpts: evm.ChainOpts{
+					ChainOpts: legacyevm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
-						MailMon:          &utils.MailboxMonitor{},
+						MailMon:          &mailbox.Monitor{},
 						DB:               db,
 					},
 					CSAETHKeystore: keyStore,

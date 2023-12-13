@@ -29,7 +29,7 @@ jobs:
           gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
       - name: Notify Slack
-        if: ${{ failure() && github.event.schedule != '' }}
+        if: ${{ failure() && (github.event_name == 'merge_group' || github.event.branch == 'develop')}}
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
@@ -84,7 +84,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} ./...
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.cmd == 'go_core_tests' }}
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@a052942591aaa12716eb9835b490d812a77d0831 # v2.3.1
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
@@ -107,7 +107,7 @@ jobs:
             ./coverage.txt
             ./postgres_logs.txt
       - name: Notify Slack
-        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && github.event.schedule != '' }}
+        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') }}
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

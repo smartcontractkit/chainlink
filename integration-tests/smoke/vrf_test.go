@@ -24,11 +24,12 @@ func TestVRFBasic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err)
 	env.ParallelTransactions(true)
@@ -113,11 +114,12 @@ func TestVRFJobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err)
 	env.ParallelTransactions(true)

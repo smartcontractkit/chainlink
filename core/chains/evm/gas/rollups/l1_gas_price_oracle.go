@@ -12,11 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -38,7 +39,7 @@ type l1GasPriceOracle struct {
 	l1GasPrice   *assets.Wei
 
 	chInitialised chan struct{}
-	chStop        utils.StopChan
+	chStop        services.StopChan
 	chDone        chan struct{}
 }
 
@@ -93,7 +94,7 @@ func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType conf
 	return &l1GasPriceOracle{
 		client:        ethClient,
 		pollPeriod:    PollPeriod,
-		logger:        lggr.Named(fmt.Sprintf("L1GasPriceOracle(%s)", chainType)),
+		logger:        logger.Named(lggr, fmt.Sprintf("L1GasPriceOracle(%s)", chainType)),
 		address:       address,
 		callArgs:      callArgs,
 		chInitialised: make(chan struct{}),
@@ -158,7 +159,7 @@ func (o *l1GasPriceOracle) refresh() (t *time.Timer) {
 	}
 
 	if len(b) != 32 { // returns uint256;
-		o.logger.Criticalf("return data length (%d) different than expected (%d)", len(b), 32)
+		logger.Criticalf(o.logger, "return data length (%d) different than expected (%d)", len(b), 32)
 		return
 	}
 	price := new(big.Int).SetBytes(b)

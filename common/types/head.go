@@ -1,9 +1,8 @@
 package types
 
 import (
+	"math/big"
 	"time"
-
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Head provides access to a chain's head, as needed by the TxManager.
@@ -36,5 +35,5 @@ type Head[BLOCK_HASH Hashable] interface {
 
 	// Returns the total difficulty of the block. For chains who do not have a concept of block
 	// difficulty, return 0.
-	BlockDifficulty() *utils.Big
+	BlockDifficulty() *big.Int
 }

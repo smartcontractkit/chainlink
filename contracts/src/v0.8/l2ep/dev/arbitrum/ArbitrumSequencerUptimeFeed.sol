@@ -287,6 +287,8 @@ contract ArbitrumSequencerUptimeFeed is
     roundId = _roundId;
     updatedAt = startedAt;
     answeredInRound = roundId;
+
+    return (roundId, answer, startedAt, updatedAt, answeredInRound);
   }
 
   /// @inheritdoc AggregatorV3Interface
@@ -305,5 +307,7 @@ contract ArbitrumSequencerUptimeFeed is
     startedAt = feedState.latestTimestamp;
     updatedAt = startedAt;
     answeredInRound = roundId;
+
+    return (roundId, answer, startedAt, updatedAt, answeredInRound);
   }
 }

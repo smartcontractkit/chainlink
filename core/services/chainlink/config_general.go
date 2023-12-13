@@ -13,8 +13,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
@@ -137,7 +135,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		return nil, err
 	}
 
-	_, warning := utils.MultiErrorList(o.Config.deprecationWarnings())
+	_, warning := utils.MultiErrorList(o.Config.warnings())
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
@@ -443,14 +441,6 @@ func (g *generalConfig) P2P() config.P2P {
 	return &p2p{c: g.c.P2P}
 }
 
-func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
-	return g.c.P2P.NetworkStack()
-}
-
-func (g *generalConfig) P2PNetworkingStackRaw() string {
-	return g.c.P2P.NetworkStack().String()
-}
-
 func (g *generalConfig) P2PPeerID() p2pkey.PeerID {
 	return *g.c.P2P.PeerID
 }
@@ -507,7 +497,7 @@ func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 }
 
 func (g *generalConfig) Mercury() coreconfig.Mercury {
-	return &mercuryConfig{s: g.secrets.Mercury}
+	return &mercuryConfig{c: g.c.Mercury, s: g.secrets.Mercury}
 }
 
 func (g *generalConfig) Threshold() coreconfig.Threshold {

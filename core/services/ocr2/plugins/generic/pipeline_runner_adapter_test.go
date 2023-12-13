@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -53,7 +54,7 @@ func TestAdapter_Integration(t *testing.T) {
 		http.DefaultClient,
 	)
 	pra := generic.NewPipelineRunnerAdapter(logger, job.Job{}, pr)
-	results, err := pra.ExecuteRun(context.Background(), spec, types.Vars{Vars: map[string]interface{}{"val": 1}}, types.Options{})
+	results, err := pra.ExecuteRun(testutils.Context(t), spec, types.Vars{Vars: map[string]interface{}{"val": 1}}, types.Options{})
 	require.NoError(t, err)
 
 	finalResult := results[0].Value.(decimal.Decimal)
@@ -85,7 +86,7 @@ func TestAdapter_AddsDefaultVars(t *testing.T) {
 	jobID, externalJobID, name := int32(100), uuid.New(), null.StringFrom("job-name")
 	pra := generic.NewPipelineRunnerAdapter(logger, job.Job{ID: jobID, ExternalJobID: externalJobID, Name: name}, mpr)
 
-	_, err := pra.ExecuteRun(context.Background(), spec, types.Vars{}, types.Options{})
+	_, err := pra.ExecuteRun(testutils.Context(t), spec, types.Vars{}, types.Options{})
 	require.NoError(t, err)
 
 	gotName, err := mpr.vars.Get("jb.name")
@@ -107,8 +108,8 @@ func TestPipelineRunnerAdapter_SetsVarsOnSpec(t *testing.T) {
 	jobID, externalJobID, name, jobType := int32(100), uuid.New(), null.StringFrom("job-name"), job.Type("generic")
 	pra := generic.NewPipelineRunnerAdapter(logger, job.Job{ID: jobID, ExternalJobID: externalJobID, Name: name, Type: jobType}, mpr)
 
-	maxDuration := time.Duration(100 * time.Second)
-	_, err := pra.ExecuteRun(context.Background(), spec, types.Vars{}, types.Options{MaxTaskDuration: maxDuration})
+	maxDuration := 100 * time.Second
+	_, err := pra.ExecuteRun(testutils.Context(t), spec, types.Vars{}, types.Options{MaxTaskDuration: maxDuration})
 	require.NoError(t, err)
 
 	assert.Equal(t, jobID, mpr.spec.JobID)

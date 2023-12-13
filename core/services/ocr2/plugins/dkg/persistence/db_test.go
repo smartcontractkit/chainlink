@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
-	"github.com/smartcontractkit/ocr2vrf/types/hash"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
+	"github.com/smartcontractkit/chainlink-vrf/types/hash"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
@@ -35,9 +36,9 @@ func TestLoader_Chains(t *testing.T) {
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	one := utils.NewBigI(1)
+	one := ubig.NewI(1)
 	chain := toml.EVMConfig{ChainID: one, Chain: toml.Defaults(one)}
-	two := utils.NewBigI(2)
+	two := ubig.NewI(2)
 	chain2 := toml.EVMConfig{ChainID: two, Chain: toml.Defaults(two)}
 	config1, err := chain.TOMLString()
 	require.NoError(t, err)

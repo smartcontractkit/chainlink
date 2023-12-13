@@ -9,7 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
@@ -21,8 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 // EvmFeeEstimator provides a unified interface that wraps EvmEstimator and can determine if legacy or dynamic fee estimation should be used

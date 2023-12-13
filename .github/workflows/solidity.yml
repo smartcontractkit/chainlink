@@ -32,7 +32,6 @@ jobs:
               - 'contracts/src/v0.6/**/*'
               - 'contracts/src/v0.7/**/*'
 
-
       - name: Fail if read-only files have changed
         if: ${{ steps.changes.outputs.old_sol == 'true' }}
         run: |
@@ -41,8 +40,6 @@ jobs:
             echo "$file was changed"
           done
           exit 1
-
-
 
   prepublish-test:
     needs: [changes]
@@ -117,7 +114,7 @@ jobs:
       run:
         working-directory: contracts
     needs: [changes]
-    name: Lint ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    name: Solidity Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo

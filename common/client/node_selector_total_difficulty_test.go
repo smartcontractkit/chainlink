@@ -1,10 +1,10 @@
 package client
 
 import (
+	big "math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -27,10 +27,10 @@ func TestTotalDifficultyNodeSelector(t *testing.T) {
 			node.On("StateAndLatest").Return(nodeStateOutOfSync, int64(-1), nil)
 		} else if i == 1 {
 			// second node is alive
-			node.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(7))
+			node.On("StateAndLatest").Return(nodeStateAlive, int64(1), big.NewInt(7))
 		} else {
 			// third node is alive and best
-			node.On("StateAndLatest").Return(nodeStateAlive, int64(2), utils.NewBigI(8))
+			node.On("StateAndLatest").Return(nodeStateAlive, int64(2), big.NewInt(8))
 		}
 		node.On("Order").Maybe().Return(int32(1))
 		nodes = append(nodes, node)
@@ -42,7 +42,7 @@ func TestTotalDifficultyNodeSelector(t *testing.T) {
 	t.Run("stick to the same node", func(t *testing.T) {
 		node := newMockNode[types.ID, Head, nodeClient](t)
 		// fourth node is alive (same as 3rd)
-		node.On("StateAndLatest").Return(nodeStateAlive, int64(2), utils.NewBigI(8))
+		node.On("StateAndLatest").Return(nodeStateAlive, int64(2), big.NewInt(8))
 		node.On("Order").Maybe().Return(int32(1))
 		nodes = append(nodes, node)
 
@@ -53,7 +53,7 @@ func TestTotalDifficultyNodeSelector(t *testing.T) {
 	t.Run("another best node", func(t *testing.T) {
 		node := newMockNode[types.ID, Head, nodeClient](t)
 		// fifth node is alive (better than 3rd and 4th)
-		node.On("StateAndLatest").Return(nodeStateAlive, int64(3), utils.NewBigI(11))
+		node.On("StateAndLatest").Return(nodeStateAlive, int64(3), big.NewInt(11))
 		node.On("Order").Maybe().Return(int32(1))
 		nodes = append(nodes, node)
 
@@ -88,7 +88,7 @@ func TestTotalDifficultyNodeSelector_None(t *testing.T) {
 			node.On("StateAndLatest").Return(nodeStateOutOfSync, int64(-1), nil)
 		} else {
 			// others are unreachable
-			node.On("StateAndLatest").Return(nodeStateUnreachable, int64(1), utils.NewBigI(7))
+			node.On("StateAndLatest").Return(nodeStateUnreachable, int64(1), big.NewInt(7))
 		}
 		nodes = append(nodes, node)
 	}
@@ -106,7 +106,7 @@ func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 	t.Run("same td and order", func(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			node := newMockNode[types.ID, Head, nodeClient](t)
-			node.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(10))
+			node.On("StateAndLatest").Return(nodeStateAlive, int64(1), big.NewInt(10))
 			node.On("Order").Return(int32(2))
 			nodes = append(nodes, node)
 		}
@@ -117,15 +117,15 @@ func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 
 	t.Run("same td but different order", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
-		node1.On("StateAndLatest").Return(nodeStateAlive, int64(3), utils.NewBigI(10))
+		node1.On("StateAndLatest").Return(nodeStateAlive, int64(3), big.NewInt(10))
 		node1.On("Order").Return(int32(3))
 
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
-		node2.On("StateAndLatest").Return(nodeStateAlive, int64(3), utils.NewBigI(10))
+		node2.On("StateAndLatest").Return(nodeStateAlive, int64(3), big.NewInt(10))
 		node2.On("Order").Return(int32(1))
 
 		node3 := newMockNode[types.ID, Head, nodeClient](t)
-		node3.On("StateAndLatest").Return(nodeStateAlive, int64(3), utils.NewBigI(10))
+		node3.On("StateAndLatest").Return(nodeStateAlive, int64(3), big.NewInt(10))
 		node3.On("Order").Return(int32(2))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3}
@@ -136,15 +136,15 @@ func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 
 	t.Run("different td but same order", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
-		node1.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(10))
+		node1.On("StateAndLatest").Return(nodeStateAlive, int64(1), big.NewInt(10))
 		node1.On("Order").Maybe().Return(int32(3))
 
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
-		node2.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(11))
+		node2.On("StateAndLatest").Return(nodeStateAlive, int64(1), big.NewInt(11))
 		node2.On("Order").Maybe().Return(int32(3))
 
 		node3 := newMockNode[types.ID, Head, nodeClient](t)
-		node3.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(12))
+		node3.On("StateAndLatest").Return(nodeStateAlive, int64(1), big.NewInt(12))
 		node3.On("Order").Return(int32(3))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3}
@@ -155,19 +155,19 @@ func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 
 	t.Run("different head and different order", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
-		node1.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(100))
+		node1.On("StateAndLatest").Return(nodeStateAlive, int64(1), big.NewInt(100))
 		node1.On("Order").Maybe().Return(int32(4))
 
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
-		node2.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(110))
+		node2.On("StateAndLatest").Return(nodeStateAlive, int64(1), big.NewInt(110))
 		node2.On("Order").Maybe().Return(int32(5))
 
 		node3 := newMockNode[types.ID, Head, nodeClient](t)
-		node3.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(110))
+		node3.On("StateAndLatest").Return(nodeStateAlive, int64(1), big.NewInt(110))
 		node3.On("Order").Maybe().Return(int32(1))
 
 		node4 := newMockNode[types.ID, Head, nodeClient](t)
-		node4.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(105))
+		node4.On("StateAndLatest").Return(nodeStateAlive, int64(1), big.NewInt(105))
 		node4.On("Order").Maybe().Return(int32(2))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3, node4}

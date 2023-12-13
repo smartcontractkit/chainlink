@@ -1,7 +1,6 @@
 package gas_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -14,11 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestWrappedEvmEstimator(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	// fee values
 	gasLimit := uint32(10)

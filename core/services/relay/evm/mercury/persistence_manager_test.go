@@ -1,17 +1,17 @@
 package mercury
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/jmoiron/sqlx"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -30,7 +30,7 @@ func TestPersistenceManager(t *testing.T) {
 	jobID1 := rand.Int32()
 	jobID2 := jobID1 + 1
 
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
@@ -69,7 +69,7 @@ func TestPersistenceManager(t *testing.T) {
 }
 
 func TestPersistenceManagerAsyncDelete(t *testing.T) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	jobID := rand.Int32()
 	db := pgtest.NewSqlxDB(t)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
@@ -120,7 +120,7 @@ func TestPersistenceManagerPrune(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	reports := make([][]byte, 25)
 	for i := 0; i < 25; i++ {

@@ -49,7 +49,7 @@ type onchainSubscriptions struct {
 	lggr               logger.Logger
 	closeWait          sync.WaitGroup
 	rwMutex            sync.RWMutex
-	stopCh             utils.StopChan
+	stopCh             services.StopChan
 }
 
 func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscriptionsConfig, lggr logger.Logger) (OnchainSubscriptions, error) {
@@ -70,7 +70,7 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 		router:             router,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
 		lggr:               lggr.Named("OnchainSubscriptions"),
-		stopCh:             make(utils.StopChan),
+		stopCh:             make(services.StopChan),
 	}, nil
 }
 

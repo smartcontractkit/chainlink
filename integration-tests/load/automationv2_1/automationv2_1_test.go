@@ -2,8 +2,8 @@ package automationv2_1
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 	"strconv"
@@ -15,11 +15,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/slack-go/slack"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocr2keepers30config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
-	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/smartcontractkit/wasp"
+
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
@@ -27,15 +30,17 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 )
 
 const (
@@ -125,6 +130,7 @@ var (
 )
 
 func TestLogTrigger(t *testing.T) {
+	ctx := tests.Context(t)
 	l := logging.GetTestLogger(t)
 
 	l.Info().Msg("Starting automation v2.1 log trigger load test")
@@ -278,31 +284,14 @@ func TestLogTrigger(t *testing.T) {
 
 	chainClient.ParallelTransactions(true)
 
-	linkToken, err := contractDeployer.DeployLinkTokenContract()
-	require.NoError(t, err, "Error deploying link token contract")
-
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for contracts to deploy")
-
-	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
-		t, contractseth.RegistryVersion_2_1, *registrySettings, linkToken, contractDeployer, chainClient,
-	)
-
-	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(100), 0)
-	require.NoError(t, err, "Error funding chainlink nodes")
-
-	actions.CreateOCRKeeperJobs(
-		t,
-		chainlinkNodes,
-		registry.Address(),
-		chainClient.GetChainID().Int64(),
-		0,
-		contractseth.RegistryVersion_2_1,
-	)
-
-	S, oracleIdentities, err := actions.GetOracleIdentities(chainlinkNodes)
-	require.NoError(t, err, "Error getting oracle identities")
-	offC, err := json.Marshal(ocr2keepers30config.OffchainConfig{
+	a := automationv2.NewAutomationTestK8s(chainClient, contractDeployer, chainlinkNodes)
+	a.RegistrySettings = *registrySettings
+	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
+		AutoApproveConfigType: uint8(2),
+		AutoApproveMaxAllowed: math.MaxUint16,
+		MinLinkJuels:          big.NewInt(0),
+	}
+	a.PluginConfig = ocr2keepers30config.OffchainConfig{
 		TargetProbability:    "0.999",
 		TargetInRounds:       1,
 		PerformLockoutWindow: 80_000, // Copied from arbitrum mainnet prod value
@@ -310,64 +299,33 @@ func TestLogTrigger(t *testing.T) {
 		GasOverheadPerUpkeep: 300_000,
 		MinConfirmations:     0,
 		MaxUpkeepBatchSize:   10,
-	})
-	require.NoError(t, err, "Error marshalling offchain config")
-
-	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := ocr3.ContractSetConfigArgsForTests(
-		10*time.Second,        // deltaProgress time.Duration,
-		15*time.Second,        // deltaResend time.Duration,
-		500*time.Millisecond,  // deltaInitial time.Duration,
-		1000*time.Millisecond, // deltaRound time.Duration,
-		200*time.Millisecond,  // deltaGrace time.Duration,
-		300*time.Millisecond,  // deltaCertifiedCommitRequest time.Duration
-		15*time.Second,        // deltaStage time.Duration,
-		24,                    // rMax uint64,
-		S,                     // s []int,
-		oracleIdentities,      // oracles []OracleIdentityExtra,
-		offC,                  // reportingPluginConfig []byte,
-		20*time.Millisecond,   // maxDurationQuery time.Duration,
-		20*time.Millisecond,   // maxDurationObservation time.Duration, // good to here
-		1200*time.Millisecond, // maxDurationShouldAcceptAttestedReport time.Duration,
-		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,                     // f int,
-		nil,                   // onchainConfig []byte,
-	)
-	require.NoError(t, err, "Error setting OCR config vars")
-
-	var signers []common.Address
-	for _, signer := range signerOnchainPublicKeys {
-		require.Equal(t, 20, len(signer), "OnChainPublicKey '%v' has wrong length for address", signer)
-		signers = append(signers, common.BytesToAddress(signer))
+	}
+	a.PublicConfig = ocr3.PublicConfig{
+		DeltaProgress:                           10 * time.Second,
+		DeltaResend:                             15 * time.Second,
+		DeltaInitial:                            500 * time.Millisecond,
+		DeltaRound:                              1000 * time.Millisecond,
+		DeltaGrace:                              200 * time.Millisecond,
+		DeltaCertifiedCommitRequest:             300 * time.Millisecond,
+		DeltaStage:                              15 * time.Second,
+		RMax:                                    24,
+		MaxDurationQuery:                        20 * time.Millisecond,
+		MaxDurationObservation:                  20 * time.Millisecond,
+		MaxDurationShouldAcceptAttestedReport:   1200 * time.Millisecond,
+		MaxDurationShouldTransmitAcceptedReport: 20 * time.Millisecond,
+		F:                                       1,
 	}
 
-	var transmitters []common.Address
-	for _, transmitter := range transmitterAccounts {
-		require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount '%s' is not a valid Ethereum address", string(transmitter))
-		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
-	}
+	a.SetupAutomationDeployment(t)
 
-	onchainConfig, err := registrySettings.EncodeOnChainConfig(registrar.Address(), common.HexToAddress(chainClient.GetDefaultWallet().Address()))
-	require.NoError(t, err, "Error encoding onchain config")
-	l.Info().Msg("Done building OCR config")
-	ocrConfig := contracts.OCRv2Config{
-		Signers:               signers,
-		Transmitters:          transmitters,
-		F:                     f,
-		OnchainConfig:         onchainConfig,
-		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        offchainConfig,
-	}
-
-	err = registry.SetConfig(*registrySettings, ocrConfig)
-	require.NoError(t, err, "Error setting registry config")
+	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(100), 0)
+	require.NoError(t, err, "Error funding chainlink nodes")
 
 	consumerContracts := make([]contracts.KeeperConsumer, 0)
 	triggerContracts := make([]contracts.LogEmitter, 0)
 
 	utilsABI, err := automation_utils_2_1.AutomationUtilsMetaData.GetAbi()
 	require.NoError(t, err, "Error getting automation utils abi")
-	registrarABI, err := registrar21.AutomationRegistrarMetaData.GetAbi()
-	require.NoError(t, err, "Error getting automation registrar abi")
 	emitterABI, err := log_emitter.LogEmitterMetaData.GetAbi()
 	require.NoError(t, err, "Error getting log emitter abi")
 	consumerABI, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
@@ -376,8 +334,8 @@ func TestLogTrigger(t *testing.T) {
 	var bytes0 = [32]byte{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	}
-	registrationTxHashes := make([]common.Hash, 0)
-	upkeepIds := make([]*big.Int, 0)
+
+	upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
 
 	for i := 0; i < numberOfUpkeeps; i++ {
 		consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
@@ -421,53 +379,36 @@ func TestLogTrigger(t *testing.T) {
 		require.NoError(t, err, "Error encoding log trigger config")
 		l.Debug().Bytes("Encoded Log Trigger Config", encodedLogTriggerConfig).Msg("Encoded Log Trigger Config")
 
-		registrationRequest, err := registrarABI.Pack(
-			"register",
-			fmt.Sprintf("LogTriggerUpkeep-%d", i),
-			[]byte("test@mail.com"),
-			common.HexToAddress(consumerContract.Address()),
-			automationDefaultUpkeepGasLimit,
-			common.HexToAddress(chainClient.GetDefaultWallet().Address()),
-			uint8(1),
-			[]byte("0"),
-			encodedLogTriggerConfig,
-			[]byte("0"),
-			automationDefaultLinkFunds,
-			common.HexToAddress(chainClient.GetDefaultWallet().Address()),
-		)
-		require.NoError(t, err, "Error encoding upkeep registration request")
-		tx, err := linkToken.TransferAndCall(registrar.Address(), automationDefaultLinkFunds, registrationRequest)
-		require.NoError(t, err, "Error sending upkeep registration request")
-		registrationTxHashes = append(registrationTxHashes, tx.Hash())
+		upkeepConfig := automationv2.UpkeepConfig{
+			UpkeepName:     fmt.Sprintf("LogTriggerUpkeep-%d", i),
+			EncryptedEmail: []byte("test@mail.com"),
+			UpkeepContract: common.HexToAddress(consumerContract.Address()),
+			GasLimit:       automationDefaultUpkeepGasLimit,
+			AdminAddress:   common.HexToAddress(chainClient.GetDefaultWallet().Address()),
+			TriggerType:    uint8(1),
+			CheckData:      []byte("0"),
+			TriggerConfig:  encodedLogTriggerConfig,
+			OffchainConfig: []byte("0"),
+			FundingAmount:  automationDefaultLinkFunds,
+		}
+		upkeepConfigs = append(upkeepConfigs, upkeepConfig)
 	}
+
+	registrationTxHashes, err := a.RegisterUpkeeps(upkeepConfigs)
+	require.NoError(t, err, "Error registering upkeeps")
 
 	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for upkeeps to be registered")
+	require.NoError(t, err, "Failed waiting for upkeeps to register")
 
-	for _, txHash := range registrationTxHashes {
-		receipt, err := chainClient.GetTxReceipt(txHash)
-		require.NoError(t, err, "Registration tx should be completed")
-		var upkeepId *big.Int
-		for _, rawLog := range receipt.Logs {
-			parsedUpkeepId, err := registry.ParseUpkeepIdFromRegisteredLog(rawLog)
-			if err == nil {
-				upkeepId = parsedUpkeepId
-				break
-			}
-		}
-		require.NotNil(t, upkeepId, "Upkeep ID should be found after registration")
-		l.Debug().
-			Str("TxHash", txHash.String()).
-			Str("Upkeep ID", upkeepId.String()).
-			Msg("Found upkeepId in tx hash")
-		upkeepIds = append(upkeepIds, upkeepId)
-	}
-	l.Info().Msg("Successfully registered all Automation Consumer Contracts")
-	l.Info().Interface("Upkeep IDs", upkeepIds).Msg("Upkeep IDs")
+	upkeepIds, err := a.ConfirmUpkeepsRegistered(registrationTxHashes)
+	require.NoError(t, err, "Error confirming upkeeps registered")
+
+	l.Info().Msg("Successfully registered all Automation Upkeeps")
+	l.Info().Interface("Upkeep IDs", upkeepIds).Msg("Upkeeps Registered")
 	l.Info().Str("STARTUP_WAIT_TIME", StartupWaitTime.String()).Msg("Waiting for plugin to start")
 	time.Sleep(StartupWaitTime)
 
-	startBlock, err := chainClient.LatestBlockNumber(context.Background())
+	startBlock, err := chainClient.LatestBlockNumber(ctx)
 	require.NoError(t, err, "Error getting latest block number")
 
 	p := wasp.NewProfile()
@@ -511,13 +452,13 @@ func TestLogTrigger(t *testing.T) {
 	endTime := time.Now()
 	testDuration := endTime.Sub(startTime)
 	l.Info().Str("Duration", testDuration.String()).Msg("Test Duration")
-	endBlock, err := chainClient.LatestBlockNumber(context.Background())
+	endBlock, err := chainClient.LatestBlockNumber(ctx)
 	require.NoError(t, err, "Error getting latest block number")
 	l.Info().Uint64("Starting Block", startBlock).Uint64("Ending Block", endBlock).Msg("Test Block Range")
 
 	upkeepDelays := make([][]int64, 0)
 	var numberOfEventsEmitted int
-	var batchSize = 500
+	var batchSize uint64 = 500
 
 	for _, gen := range p.Generators {
 		numberOfEventsEmitted += len(gen.GetData().OKData.Data)
@@ -525,37 +466,47 @@ func TestLogTrigger(t *testing.T) {
 	numberOfEventsEmitted = numberOfEventsEmitted * numberOfEvents
 	l.Info().Int("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
-	if endBlock-startBlock < uint64(batchSize) {
-		batchSize = int(endBlock - startBlock)
+	if endBlock-startBlock < batchSize {
+		batchSize = endBlock - startBlock
 	}
 
-	for cIter, consumerContract := range consumerContracts {
+	for _, consumerContract := range consumerContracts {
 		var (
 			logs    []types.Log
 			address = common.HexToAddress(consumerContract.Address())
 			timeout = 5 * time.Second
 		)
-		for fromBlock := startBlock; fromBlock < endBlock; fromBlock += uint64(batchSize) + 1 {
-			var (
-				filterQuery = geth.FilterQuery{
-					Addresses: []common.Address{address},
-					FromBlock: big.NewInt(0).SetUint64(fromBlock),
-					ToBlock:   big.NewInt(0).SetUint64(fromBlock + uint64(batchSize)),
-					Topics:    [][]common.Hash{{consumerABI.Events["PerformingUpkeep"].ID}},
+		for fromBlock := startBlock; fromBlock < endBlock; fromBlock += batchSize + 1 {
+			filterQuery := geth.FilterQuery{
+				Addresses: []common.Address{address},
+				FromBlock: big.NewInt(0).SetUint64(fromBlock),
+				ToBlock:   big.NewInt(0).SetUint64(fromBlock + batchSize),
+				Topics:    [][]common.Hash{{consumerABI.Events["PerformingUpkeep"].ID}},
+			}
+			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
+			for err != nil {
+				var (
+					logsInBatch []types.Log
+				)
+				ctx2, cancel := context.WithTimeout(ctx, timeout)
+				logsInBatch, err = chainClient.FilterLogs(ctx2, filterQuery)
+				cancel()
+				if err != nil {
+					l.Error().Err(err).
+						Interface("FilterQuery", filterQuery).
+						Str("Contract Address", consumerContract.Address()).
+						Str("Timeout", timeout.String()).
+						Msg("Error getting logs")
+					timeout = time.Duration(math.Min(float64(timeout)*2, float64(2*time.Minute)))
+					continue
 				}
-			)
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			logsInBatch, err := chainClient.FilterLogs(ctx, filterQuery)
-			cancel()
-			if err != nil {
-				l.Error().Err(err).
+				l.Info().
 					Interface("FilterQuery", filterQuery).
 					Str("Contract Address", consumerContract.Address()).
 					Str("Timeout", timeout.String()).
-					Msg("Error getting logs")
+					Msg("Collected logs")
+				logs = append(logs, logsInBatch...)
 			}
-			logs = append(logs, logsInBatch...)
-			time.Sleep(time.Millisecond * 500)
 		}
 
 		if len(logs) > 0 {
@@ -575,9 +526,6 @@ func TestLogTrigger(t *testing.T) {
 			}
 			upkeepDelays = append(upkeepDelays, delay)
 		}
-		if (cIter+1)%batchSize == 0 {
-			time.Sleep(time.Millisecond * 500)
-		}
 	}
 
 	l.Info().Interface("Upkeep Delays", upkeepDelays).Msg("Upkeep Delays")
@@ -589,6 +537,8 @@ func TestLogTrigger(t *testing.T) {
 	}
 
 	avg, median, ninetyPct, ninetyNinePct, maximum := testreporters.IntListStats(allUpkeepDelays)
+	eventsMissed := numberOfEventsEmitted - len(allUpkeepDelays)
+	percentMissed := float64(eventsMissed) / float64(numberOfEventsEmitted) * 100
 	l.Info().
 		Float64("Average", avg).Int64("Median", median).
 		Int64("90th Percentile", ninetyPct).Int64("99th Percentile", ninetyNinePct).
@@ -597,13 +547,15 @@ func TestLogTrigger(t *testing.T) {
 	l.Info().
 		Int("Total Perform Count", len(allUpkeepDelays)).
 		Int("Total Events Emitted", numberOfEventsEmitted).
-		Int("Total Events Missed", numberOfEventsEmitted-len(allUpkeepDelays)).
+		Int("Total Events Missed", eventsMissed).
+		Float64("Percent Missed", percentMissed).
 		Msg("Test completed")
 
 	testReport := fmt.Sprintf("Upkeep Delays in seconds\nAverage: %f\nMedian: %d\n90th Percentile: %d\n"+
-		"99th Percentile: %d\nMax: %d\nTotal Perform Count: %d\n\nTotal Events Emitted: %d\nTotal Events Missed: %d\nTest Duration: %s\n",
+		"99th Percentile: %d\nMax: %d\nTotal Perform Count: %d\n\nTotal Events Emitted: %d\nTotal Events Missed: %d\n"+
+		"Percent Missed: %f\nTest Duration: %s\n",
 		avg, median, ninetyPct, ninetyNinePct, maximum, len(allUpkeepDelays), numberOfEventsEmitted,
-		numberOfEventsEmitted-len(allUpkeepDelays), testDuration.String())
+		eventsMissed, percentMissed, testDuration.String())
 
 	err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(endTime.UnixMilli(), 10),

@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -95,7 +96,7 @@ var (
 		},
 		EVM: []*evmcfg.EVMConfig{
 			{
-				ChainID: utils.NewBigI(1),
+				ChainID: big.NewI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth:      ptr[uint32](26),
 					FinalityTagEnabled: ptr[bool](false),
@@ -112,7 +113,7 @@ var (
 					},
 				}},
 			{
-				ChainID: utils.NewBigI(42),
+				ChainID: big.NewI(42),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						PriceDefault: assets.NewWeiI(math.MaxInt64),
@@ -125,7 +126,7 @@ var (
 					},
 				}},
 			{
-				ChainID: utils.NewBigI(137),
+				ChainID: big.NewI(137),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						Mode: ptr("FixedPrice"),
@@ -227,11 +228,13 @@ func TestConfig_Marshal(t *testing.T) {
 				Enabled:         ptr(true),
 				CollectorTarget: ptr("localhost:4317"),
 				NodeID:          ptr("clc-ocr-sol-devnet-node-1"),
+				SamplingRatio:   ptr(1.0),
+				Mode:            ptr("tls"),
+				TLSCertPath:     ptr("/path/to/cert.pem"),
 				Attributes: map[string]string{
 					"test": "load",
 					"env":  "dev",
 				},
-				SamplingRatio: ptr(1.0),
 			},
 		},
 	}
@@ -408,19 +411,6 @@ func TestConfig_Marshal(t *testing.T) {
 		OutgoingMessageBufferSize: ptr[int64](17),
 		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 		TraceLogging:              ptr(true),
-		V1: toml.P2PV1{
-			Enabled:                          ptr(true),
-			AnnounceIP:                       mustIP("1.2.3.4"),
-			AnnouncePort:                     ptr[uint16](1234),
-			BootstrapCheckInterval:           models.MustNewDuration(time.Minute),
-			DefaultBootstrapPeers:            &[]string{"foo", "bar", "should", "these", "be", "typed"},
-			DHTAnnouncementCounterUserPrefix: ptr[uint32](4321),
-			DHTLookupInterval:                ptr[int64](9),
-			ListenIP:                         mustIP("4.3.2.1"),
-			ListenPort:                       ptr[uint16](9),
-			NewStreamTimeout:                 models.MustNewDuration(time.Second),
-			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
-		},
 		V2: toml.P2PV2{
 			Enabled:           ptr(false),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
@@ -474,7 +464,7 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
-			ChainID: utils.NewBigI(1),
+			ChainID: big.NewI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
 				AutoCreateKey: ptr(false),
@@ -572,6 +562,8 @@ func TestConfig_Marshal(t *testing.T) {
 					ContractConfirmations:              ptr[uint16](11),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
+					DeltaCOverride:                     models.MustNewDuration(time.Hour),
+					DeltaCJitterOverride:               models.MustNewDuration(time.Second),
 					ObservationGracePeriod:             &second,
 				},
 				OCR2: evmcfg.OCR2{
@@ -666,6 +658,13 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
+	full.Mercury = toml.Mercury{
+		Cache: toml.MercuryCache{
+			LatestReportTTL:      models.MustNewDuration(100 * time.Second),
+			MaxStaleAge:          models.MustNewDuration(101 * time.Second),
+			LatestReportDeadline: models.MustNewDuration(102 * time.Second),
+		},
+	}
 
 	for _, tt := range []struct {
 		name   string
@@ -688,6 +687,8 @@ Enabled = true
 CollectorTarget = 'localhost:4317'
 NodeID = 'clc-ocr-sol-devnet-node-1'
 SamplingRatio = 1.0
+Mode = 'tls'
+TLSCertPath = '/path/to/cert.pem'
 
 [Tracing.Attributes]
 env = 'dev'
@@ -859,19 +860,6 @@ OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
 
-[P2P.V1]
-Enabled = true
-AnnounceIP = '1.2.3.4'
-AnnouncePort = 1234
-BootstrapCheckInterval = '1m0s'
-DefaultBootstrapPeers = ['foo', 'bar', 'should', 'these', 'be', 'typed']
-DHTAnnouncementCounterUserPrefix = 4321
-DHTLookupInterval = 9
-ListenIP = '4.3.2.1'
-ListenPort = 9
-NewStreamTimeout = '1s'
-PeerstoreWriteInterval = '1m0s'
-
 [P2P.V2]
 Enabled = false
 AnnounceAddresses = ['a', 'b', 'c']
@@ -1008,6 +996,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
+DeltaCOverride = '1h0m0s'
+DeltaCJitterOverride = '1s'
 ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
@@ -1099,6 +1089,12 @@ ConfirmationPoll = '42s'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+`},
+		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1m40s'
+MaxStaleAge = '1m41s'
+LatestReportDeadline = '1m42s'
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},
@@ -1299,19 +1295,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		effective = "# Effective Configuration, with defaults applied:\n"
 		warning   = "# Configuration warning:\n"
 
-		deprecated = `2 errors:
-	- P2P.V1: is deprecated and will be removed in a future version
-	- P2P.V1: 10 errors:
-		- AnnounceIP: is deprecated and will be removed in a future version
-		- AnnouncePort: is deprecated and will be removed in a future version
-		- BootstrapCheckInterval: is deprecated and will be removed in a future version
-		- DefaultBootstrapPeers: is deprecated and will be removed in a future version
-		- DHTAnnouncementCounterUserPrefix: is deprecated and will be removed in a future version
-		- DHTLookupInterval: is deprecated and will be removed in a future version
-		- ListenIP: is deprecated and will be removed in a future version
-		- ListenPort: is deprecated and will be removed in a future version
-		- NewStreamTimeout: is deprecated and will be removed in a future version
-		- PeerstoreWriteInterval: is deprecated and will be removed in a future version`
+		deprecated = `` // none
 	)
 	tests := []struct {
 		name         string
@@ -1483,7 +1467,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
-	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
+	c.EVM = evmcfg.EVMConfigs{{ChainID: big.NewI(99999133712345)}}
 	c.Cosmos = coscfg.TOMLConfigs{{ChainID: ptr("unknown cosmos chain")}}
 	c.Solana = solana.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = stkcfg.TOMLConfigs{{ChainID: ptr("unknown starknet chain")}}
@@ -1533,6 +1517,46 @@ func TestConfig_SetFrom(t *testing.T) {
 			ts, err := c.TOMLString()
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, ts)
+		})
+	}
+}
+
+func TestConfig_warnings(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         Config
+		expectedErrors []string
+	}{
+		{
+			name:           "No warnings",
+			config:         Config{},
+			expectedErrors: nil,
+		},
+		{
+			name: "Value warning - unencrypted mode with TLS path set",
+			config: Config{
+				Core: toml.Core{
+					Tracing: toml.Tracing{
+						Enabled:     ptr(true),
+						Mode:        ptr("unencrypted"),
+						TLSCertPath: ptr("/path/to/cert.pem"),
+					},
+				},
+			},
+			expectedErrors: []string{"Tracing.TLSCertPath: invalid value (/path/to/cert.pem): must be empty when Tracing.Mode is 'unencrypted'"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.warnings()
+			if len(tt.expectedErrors) == 0 {
+				assert.NoError(t, err)
+			} else {
+				for _, expectedErr := range tt.expectedErrors {
+					assert.Contains(t, err.Error(), expectedErr)
+				}
+			}
 		})
 	}
 }

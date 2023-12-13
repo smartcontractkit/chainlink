@@ -9,6 +9,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // JobSpecType defines the the the spec type of the job
@@ -49,7 +49,7 @@ type DirectRequestSpec struct {
 	Initiator                string                   `json:"initiator"`
 	CreatedAt                time.Time                `json:"createdAt"`
 	UpdatedAt                time.Time                `json:"updatedAt"`
-	EVMChainID               *utils.Big               `json:"evmChainID"`
+	EVMChainID               *big.Big                 `json:"evmChainID"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
@@ -84,7 +84,7 @@ type FluxMonitorSpec struct {
 	MinPayment          *commonassets.Link  `json:"minPayment"`
 	CreatedAt           time.Time           `json:"createdAt"`
 	UpdatedAt           time.Time           `json:"updatedAt"`
-	EVMChainID          *utils.Big          `json:"evmChainID"`
+	EVMChainID          *big.Big            `json:"evmChainID"`
 }
 
 // NewFluxMonitorSpec initializes a new DirectFluxMonitorSpec from a
@@ -120,7 +120,6 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 // OffChainReportingSpec defines the spec details of a OffChainReporting Job
 type OffChainReportingSpec struct {
 	ContractAddress                        ethkey.EIP55Address  `json:"contractAddress"`
-	P2PBootstrapPeers                      pq.StringArray       `json:"p2pBootstrapPeers"`
 	P2PV2Bootstrappers                     pq.StringArray       `json:"p2pv2Bootstrappers"`
 	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                *models.Sha256Hash   `json:"keyBundleID"`
@@ -132,7 +131,7 @@ type OffChainReportingSpec struct {
 	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations"`
 	CreatedAt                              time.Time            `json:"createdAt"`
 	UpdatedAt                              time.Time            `json:"updatedAt"`
-	EVMChainID                             *utils.Big           `json:"evmChainID"`
+	EVMChainID                             *big.Big             `json:"evmChainID"`
 	DatabaseTimeout                        *models.Interval     `json:"databaseTimeout"`
 	ObservationGracePeriod                 *models.Interval     `json:"observationGracePeriod"`
 	ContractTransmitterTransmitTimeout     *models.Interval     `json:"contractTransmitterTransmitTimeout"`
@@ -144,7 +143,6 @@ type OffChainReportingSpec struct {
 func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 	return &OffChainReportingSpec{
 		ContractAddress:                        spec.ContractAddress,
-		P2PBootstrapPeers:                      spec.P2PBootstrapPeers,
 		P2PV2Bootstrappers:                     spec.P2PV2Bootstrappers,
 		IsBootstrapPeer:                        spec.IsBootstrapPeer,
 		EncryptedOCRKeyBundleID:                spec.EncryptedOCRKeyBundleID,
@@ -222,7 +220,7 @@ type KeeperSpec struct {
 	FromAddress     ethkey.EIP55Address `json:"fromAddress"`
 	CreatedAt       time.Time           `json:"createdAt"`
 	UpdatedAt       time.Time           `json:"updatedAt"`
-	EVMChainID      *utils.Big          `json:"evmChainID"`
+	EVMChainID      *big.Big            `json:"evmChainID"`
 }
 
 // NewKeeperSpec generates a new KeeperSpec from a job.KeeperSpec
@@ -277,7 +275,7 @@ type VRFSpec struct {
 	MinIncomingConfirmations      uint32                `json:"confirmations"`
 	CreatedAt                     time.Time             `json:"createdAt"`
 	UpdatedAt                     time.Time             `json:"updatedAt"`
-	EVMChainID                    *utils.Big            `json:"evmChainID"`
+	EVMChainID                    *big.Big              `json:"evmChainID"`
 	ChunkSize                     uint32                `json:"chunkSize"`
 	RequestTimeout                models.Duration       `json:"requestTimeout"`
 	BackoffInitialDelay           models.Duration       `json:"backoffInitialDelay"`
@@ -319,7 +317,7 @@ type BlockhashStoreSpec struct {
 	TrustedBlockhashStoreBatchSize int32                 `json:"trustedBlockhashStoreBatchSize"`
 	PollPeriod                     time.Duration         `json:"pollPeriod"`
 	RunTimeout                     time.Duration         `json:"runTimeout"`
-	EVMChainID                     *utils.Big            `json:"evmChainID"`
+	EVMChainID                     *big.Big              `json:"evmChainID"`
 	FromAddresses                  []ethkey.EIP55Address `json:"fromAddresses"`
 	CreatedAt                      time.Time             `json:"createdAt"`
 	UpdatedAt                      time.Time             `json:"updatedAt"`
@@ -355,7 +353,7 @@ type BlockHeaderFeederSpec struct {
 	BatchBlockhashStoreAddress ethkey.EIP55Address   `json:"batchBlockhashStoreAddress"`
 	PollPeriod                 time.Duration         `json:"pollPeriod"`
 	RunTimeout                 time.Duration         `json:"runTimeout"`
-	EVMChainID                 *utils.Big            `json:"evmChainID"`
+	EVMChainID                 *big.Big              `json:"evmChainID"`
 	FromAddresses              []ethkey.EIP55Address `json:"fromAddresses"`
 	GetBlockhashesBatchSize    uint16                `json:"getBlockhashesBatchSize"`
 	StoreBlockhashesBatchSize  uint16                `json:"storeBlockhashesBatchSize"`

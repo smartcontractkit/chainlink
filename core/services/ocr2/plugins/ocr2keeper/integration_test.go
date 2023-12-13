@@ -1,7 +1,6 @@
 package ocr2keeper_test
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -24,19 +23,21 @@ import (
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
@@ -57,12 +58,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 const (
@@ -125,7 +122,6 @@ func setupNode(
 		c.OCR2.Enabled = ptr(true)
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.V1.Enabled = ptr(false)
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
@@ -171,14 +167,14 @@ func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
 	jb, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &jb)
+	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 }
 
 func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &jb)
+	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 }
 
@@ -414,15 +410,6 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	}
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
 
-	// check pipeline runs
-	var allRuns []pipeline.Run
-	for _, node := range nodes {
-		runs, err2 := node.App.PipelineORM().GetAllRuns()
-		require.NoError(t, err2)
-		allRuns = append(allRuns, runs...)
-	}
-	require.GreaterOrEqual(t, len(allRuns), 1)
-
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
 	require.NoError(t, err)
@@ -451,7 +438,7 @@ func setupForwarderForNode(
 
 	// add forwarder address to be tracked in db
 	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), app.GetConfig().Database())
-	chainID := utils.Big(*backend.Blockchain().Config().ChainID)
+	chainID := ubig.Big(*backend.Blockchain().Config().ChainID)
 	_, err = forwarderORM.CreateForwarder(faddr, chainID)
 	require.NoError(t, err)
 
@@ -685,15 +672,6 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		return received
 	}
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
-
-	// check pipeline runs
-	var allRuns []pipeline.Run
-	for _, node := range nodes {
-		runs, err2 := node.App.PipelineORM().GetAllRuns()
-		require.NoError(t, err2)
-		allRuns = append(allRuns, runs...)
-	}
-	require.GreaterOrEqual(t, len(allRuns), 1)
 
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)

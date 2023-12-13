@@ -1,14 +1,18 @@
 package functions
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
 
 	"go.uber.org/multierr"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -25,35 +29,56 @@ import (
 type functionsConnectorHandler struct {
 	services.StateMachine
 
-	connector      connector.GatewayConnector
-	signerKey      *ecdsa.PrivateKey
-	nodeAddress    string
-	storage        s4.Storage
-	allowlist      functions.OnchainAllowlist
-	rateLimiter    *hc.RateLimiter
-	subscriptions  functions.OnchainSubscriptions
-	minimumBalance assets.Link
-	lggr           logger.Logger
+	connector           connector.GatewayConnector
+	signerKey           *ecdsa.PrivateKey
+	nodeAddress         string
+	storage             s4.Storage
+	allowlist           functions.OnchainAllowlist
+	rateLimiter         *hc.RateLimiter
+	subscriptions       functions.OnchainSubscriptions
+	minimumBalance      assets.Link
+	listener            FunctionsListener
+	offchainTransmitter OffchainTransmitter
+	heartbeatRequests   map[RequestID]*HeartbeatResponse
+	orderedRequests     []RequestID
+	mu                  sync.Mutex
+	chStop              services.StopChan
+	shutdownWaitGroup   sync.WaitGroup
+	lggr                logger.Logger
 }
+
+const (
+	HeartbeatRequestTimeoutSec = 240
+	HeartbeatCacheSize         = 1000
+)
 
 var (
 	_ connector.Signer                  = &functionsConnectorHandler{}
 	_ connector.GatewayConnectorHandler = &functionsConnectorHandler{}
 )
 
-func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, minimumBalance assets.Link, lggr logger.Logger) (*functionsConnectorHandler, error) {
-	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil {
-		return nil, fmt.Errorf("signerKey, storage, allowlist, rateLimiter and subscriptions must be non-nil")
+// internal request ID is a hash of (sender, requestID)
+func InternalId(sender []byte, requestId []byte) RequestID {
+	return RequestID(crypto.Keccak256Hash(append(sender, requestId...)).Bytes())
+}
+
+func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, listener FunctionsListener, offchainTransmitter OffchainTransmitter, minimumBalance assets.Link, lggr logger.Logger) (*functionsConnectorHandler, error) {
+	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil || listener == nil || offchainTransmitter == nil {
+		return nil, fmt.Errorf("all dependencies must be non-nil")
 	}
 	return &functionsConnectorHandler{
-		nodeAddress:    nodeAddress,
-		signerKey:      signerKey,
-		storage:        storage,
-		allowlist:      allowlist,
-		rateLimiter:    rateLimiter,
-		subscriptions:  subscriptions,
-		minimumBalance: minimumBalance,
-		lggr:           lggr.Named("FunctionsConnectorHandler"),
+		nodeAddress:         nodeAddress,
+		signerKey:           signerKey,
+		storage:             storage,
+		allowlist:           allowlist,
+		rateLimiter:         rateLimiter,
+		subscriptions:       subscriptions,
+		minimumBalance:      minimumBalance,
+		listener:            listener,
+		offchainTransmitter: offchainTransmitter,
+		heartbeatRequests:   make(map[RequestID]*HeartbeatResponse),
+		chStop:              make(services.StopChan),
+		lggr:                lggr.Named("FunctionsConnectorHandler"),
 	}, nil
 }
 
@@ -84,7 +109,7 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 	case functions.MethodSecretsSet:
 		if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
 			h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayId, "address", fromAddr, "balance", balance, "minBalance", h.minimumBalance)
-			response := functions.SecretsResponseBase{
+			response := functions.ResponseBase{
 				Success:      false,
 				ErrorMessage: "user subscription has insufficient balance",
 			}
@@ -92,6 +117,8 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 			return
 		}
 		h.handleSecretsSet(ctx, gatewayId, body, fromAddr)
+	case functions.MethodHeartbeat:
+		h.handleHeartbeat(ctx, gatewayId, body, fromAddr)
 	default:
 		h.lggr.Errorw("unsupported method", "id", gatewayId, "method", body.Method)
 	}
@@ -102,14 +129,21 @@ func (h *functionsConnectorHandler) Start(ctx context.Context) error {
 		if err := h.allowlist.Start(ctx); err != nil {
 			return err
 		}
-		return h.subscriptions.Start(ctx)
+		if err := h.subscriptions.Start(ctx); err != nil {
+			return err
+		}
+		h.shutdownWaitGroup.Add(1)
+		go h.reportLoop()
+		return nil
 	})
 }
 
 func (h *functionsConnectorHandler) Close() error {
 	return h.StopOnce("FunctionsConnectorHandler", func() (err error) {
+		close(h.chStop)
 		err = multierr.Combine(err, h.allowlist.Close())
 		err = multierr.Combine(err, h.subscriptions.Close())
+		h.shutdownWaitGroup.Wait()
 		return
 	})
 }
@@ -158,6 +192,112 @@ func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewa
 		response.ErrorMessage = fmt.Sprintf("Bad request to set secret: %v", err)
 	}
 	h.sendResponseAndLog(ctx, gatewayId, body, response)
+}
+
+func (h *functionsConnectorHandler) handleHeartbeat(ctx context.Context, gatewayId string, requestBody *api.MessageBody, fromAddr ethCommon.Address) {
+	var request *OffchainRequest
+	err := json.Unmarshal(requestBody.Payload, &request)
+	if err != nil {
+		h.sendResponseAndLog(ctx, gatewayId, requestBody, internalErrorResponse(fmt.Sprintf("failed to unmarshal request: %v", err)))
+		return
+	}
+	if !bytes.Equal(request.RequestInitiator, fromAddr.Bytes()) {
+		h.sendResponseAndLog(ctx, gatewayId, requestBody, internalErrorResponse("RequestInitiator doesn't match sender"))
+		return
+	}
+	if !bytes.Equal(request.SubscriptionOwner, fromAddr.Bytes()) {
+		h.sendResponseAndLog(ctx, gatewayId, requestBody, internalErrorResponse("SubscriptionOwner doesn't match sender"))
+		return
+	}
+
+	internalId := InternalId(fromAddr.Bytes(), request.RequestId)
+	request.RequestId = internalId[:]
+	h.lggr.Infow("handling offchain heartbeat", "messageId", requestBody.MessageId, "internalId", internalId, "sender", requestBody.Sender)
+	h.mu.Lock()
+	response, ok := h.heartbeatRequests[internalId]
+	if !ok { // new request
+		response = &HeartbeatResponse{
+			Status:     RequestStatePending,
+			ReceivedTs: uint64(time.Now().Unix()),
+		}
+		h.cacheNewRequestLocked(internalId, response)
+		h.shutdownWaitGroup.Add(1)
+		go h.handleOffchainRequest(request)
+	}
+	responseToSend := *response
+	h.mu.Unlock()
+	requestBody.Receiver = requestBody.Sender
+	h.sendResponseAndLog(ctx, gatewayId, requestBody, responseToSend)
+}
+
+func internalErrorResponse(internalError string) HeartbeatResponse {
+	return HeartbeatResponse{
+		Status:        RequestStateInternalError,
+		InternalError: internalError,
+	}
+}
+
+func (h *functionsConnectorHandler) handleOffchainRequest(request *OffchainRequest) {
+	defer h.shutdownWaitGroup.Done()
+	stopCtx, _ := h.chStop.NewCtx()
+	ctx, cancel := context.WithTimeout(stopCtx, time.Duration(HeartbeatRequestTimeoutSec)*time.Second)
+	defer cancel()
+	err := h.listener.HandleOffchainRequest(ctx, request)
+	if err != nil {
+		h.lggr.Errorw("internal error while processing", "id", request.RequestId, "error", err)
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		state, ok := h.heartbeatRequests[RequestID(request.RequestId)]
+		if !ok {
+			h.lggr.Errorw("request unexpectedly disappeared from local cache", "id", request.RequestId)
+			return
+		}
+		state.CompletedTs = uint64(time.Now().Unix())
+		state.Status = RequestStateInternalError
+		state.InternalError = err.Error()
+	} else {
+		// no error - results will be sent to OCR aggregation and returned via reportLoop()
+		h.lggr.Infow("request processed successfully, waiting for aggregation ...", "id", request.RequestId)
+	}
+}
+
+// Listen to OCR reports passed from the plugin and process them against a local cache of requests.
+func (h *functionsConnectorHandler) reportLoop() {
+	defer h.shutdownWaitGroup.Done()
+	for {
+		select {
+		case report := <-h.offchainTransmitter.ReportChannel():
+			h.lggr.Infow("received report", "requestId", report.RequestId, "resultLen", len(report.Result), "errorLen", len(report.Error))
+			if len(report.RequestId) != RequestIDLength {
+				h.lggr.Errorw("report has invalid requestId", "requestId", report.RequestId)
+				continue
+			}
+			h.mu.Lock()
+			cachedResponse, ok := h.heartbeatRequests[RequestID(report.RequestId)]
+			if !ok {
+				h.lggr.Infow("received report for unknown request, caching it", "id", report.RequestId)
+				cachedResponse = &HeartbeatResponse{}
+				h.cacheNewRequestLocked(RequestID(report.RequestId), cachedResponse)
+			}
+			cachedResponse.CompletedTs = uint64(time.Now().Unix())
+			cachedResponse.Status = RequestStateComplete
+			cachedResponse.Response = report
+			h.mu.Unlock()
+		case <-h.chStop:
+			h.lggr.Info("exiting reportLoop")
+			return
+		}
+	}
+}
+
+func (h *functionsConnectorHandler) cacheNewRequestLocked(requestId RequestID, response *HeartbeatResponse) {
+	// remove oldest requests
+	for len(h.orderedRequests) >= HeartbeatCacheSize {
+		delete(h.heartbeatRequests, h.orderedRequests[0])
+		h.orderedRequests = h.orderedRequests[1:]
+	}
+	h.heartbeatRequests[requestId] = response
+	h.orderedRequests = append(h.orderedRequests, requestId)
 }
 
 func (h *functionsConnectorHandler) sendResponseAndLog(ctx context.Context, gatewayId string, requestBody *api.MessageBody, payload any) {

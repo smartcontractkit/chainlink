@@ -12,7 +12,7 @@ type RunResultSaver struct {
 	services.StateMachine
 
 	maxSuccessfulRuns uint64
-	runResults        <-chan *pipeline.Run
+	runResults        chan *pipeline.Run
 	pipelineRunner    pipeline.Runner
 	done              chan struct{}
 	logger            logger.Logger
@@ -24,15 +24,25 @@ func (r *RunResultSaver) HealthReport() map[string]error {
 
 func (r *RunResultSaver) Name() string { return r.logger.Name() }
 
-func NewResultRunSaver(runResults <-chan *pipeline.Run, pipelineRunner pipeline.Runner, done chan struct{},
-	logger logger.Logger, maxSuccessfulRuns uint64,
+func NewResultRunSaver(pipelineRunner pipeline.Runner,
+	logger logger.Logger, maxSuccessfulRuns uint64, resultsWriteDepth uint64,
 ) *RunResultSaver {
 	return &RunResultSaver{
 		maxSuccessfulRuns: maxSuccessfulRuns,
-		runResults:        runResults,
+		runResults:        make(chan *pipeline.Run, resultsWriteDepth),
 		pipelineRunner:    pipelineRunner,
-		done:              done,
+		done:              make(chan struct{}),
 		logger:            logger.Named("RunResultSaver"),
+	}
+}
+
+// Save sends the run on the internal `runResults` channel for saving.
+// IMPORTANT: if the `runResults` pipeline is full, the run will be dropped.
+func (r *RunResultSaver) Save(run *pipeline.Run) {
+	select {
+	case r.runResults <- run:
+	default:
+		r.logger.Warnw("RunSaver: the write queue was full, dropping run")
 	}
 }
 

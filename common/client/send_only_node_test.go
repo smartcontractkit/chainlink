@@ -1,20 +1,20 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestNewSendOnlyNode(t *testing.T) {
@@ -25,7 +25,7 @@ func TestNewSendOnlyNode(t *testing.T) {
 	u, err := url.Parse(fmt.Sprintf(urlFormat, password))
 	require.NoError(t, err)
 	redacted := fmt.Sprintf(urlFormat, "xxxxx")
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	name := "TestNewSendOnlyNode"
 	chainID := types.RandomID()
 	client := newMockSendOnlyClient[types.ID](t)
@@ -42,7 +42,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 	t.Parallel()
 	t.Run("becomes unusable if initial dial fails", func(t *testing.T) {
 		t.Parallel()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
 		expectedError := errors.New("some http error")
@@ -58,7 +58,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 	})
 	t.Run("Default ChainID(0) produces warn and skips checks", func(t *testing.T) {
 		t.Parallel()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
 		client.On("DialHTTP").Return(nil).Once()
@@ -73,7 +73,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 	})
 	t.Run("Can recover from chainID verification failure", func(t *testing.T) {
 		t.Parallel()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
 		client.On("DialHTTP").Return(nil)
@@ -97,7 +97,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 	})
 	t.Run("Can recover from chainID mismatch", func(t *testing.T) {
 		t.Parallel()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
 		client.On("DialHTTP").Return(nil).Once()
@@ -120,7 +120,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 	})
 	t.Run("Start with Random ChainID", func(t *testing.T) {
 		t.Parallel()
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
 		client.On("DialHTTP").Return(nil).Once()

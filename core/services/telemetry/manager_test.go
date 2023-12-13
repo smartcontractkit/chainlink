@@ -1,7 +1,6 @@
 package telemetry
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -15,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -190,13 +188,14 @@ func TestNewManager(t *testing.T) {
 
 	require.Equal(t, "TelemetryManager", m.Name())
 
-	require.Nil(t, m.Start(context.Background()))
+	require.Nil(t, m.Start(testutils.Context(t)))
+	t.Cleanup(func() {
+		require.NoError(t, m.Close())
+	})
 	testutils.WaitForLogMessageCount(t, logObs, "error connecting error while dialing dial tcp", 3)
 
 	hr := m.HealthReport()
 	require.Equal(t, 4, len(hr))
-	require.Nil(t, m.Close())
-	time.Sleep(time.Second * 1)
 }
 
 func TestCorrectEndpointRouting(t *testing.T) {
@@ -246,10 +245,9 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		})
 
 		tm.endpoints[i] = &telemetryEndpoint{
-			StateMachine: services.StateMachine{},
-			ChainID:      e.chainID,
-			Network:      e.network,
-			client:       clientMock,
+			ChainID: e.chainID,
+			Network: e.network,
+			client:  clientMock,
 		}
 
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -21,7 +21,7 @@ var (
 	defaultNames = map[string]string{}
 
 	// DefaultIDs is the set of chain ids which have defaults.
-	DefaultIDs []*utils.Big
+	DefaultIDs []*big.Big
 )
 
 func init() {
@@ -36,7 +36,7 @@ func init() {
 			log.Fatalf("failed to read %q: %v", path, err)
 		}
 		var config = struct {
-			ChainID *utils.Big
+			ChainID *big.Big
 			Chain
 		}{}
 
@@ -61,13 +61,13 @@ func init() {
 		defaults[id] = config.Chain
 		defaultNames[id] = strings.ReplaceAll(strings.TrimSuffix(fe.Name(), ".toml"), "_", " ")
 	}
-	slices.SortFunc(DefaultIDs, func(a, b *utils.Big) int {
+	slices.SortFunc(DefaultIDs, func(a, b *big.Big) int {
 		return a.Cmp(b)
 	})
 }
 
 // DefaultsNamed returns the default Chain values, optionally for the given chainID, as well as a name if the chainID is known.
-func DefaultsNamed(chainID *utils.Big) (c Chain, name string) {
+func DefaultsNamed(chainID *big.Big) (c Chain, name string) {
 	c.SetFrom(&fallback)
 	if chainID == nil {
 		return
@@ -82,7 +82,7 @@ func DefaultsNamed(chainID *utils.Big) (c Chain, name string) {
 
 // Defaults returns a Chain based on the defaults for chainID and fields from with, applied in order so later Chains
 // override earlier ones.
-func Defaults(chainID *utils.Big, with ...*Chain) Chain {
+func Defaults(chainID *big.Big, with ...*Chain) Chain {
 	c, _ := DefaultsNamed(chainID)
 	for _, w := range with {
 		c.SetFrom(w)
@@ -90,7 +90,7 @@ func Defaults(chainID *utils.Big, with ...*Chain) Chain {
 	return c
 }
 
-func ChainTypeForID(chainID *utils.Big) (config.ChainType, bool) {
+func ChainTypeForID(chainID *big.Big) (config.ChainType, bool) {
 	s := chainID.String()
 	if d, ok := defaults[s]; ok {
 		if d.ChainType == nil {
