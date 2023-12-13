@@ -6,6 +6,7 @@ LogPollInterval = '2s'
 
 [GasEstimator] 
 EIP1559DynamicFees = false
+PriceDefault = '0.015 ether' 
 PriceMin = '0.009 ether' 
 BumpPercent = 20
 
