@@ -182,7 +182,7 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 	case *blockchain.WeMixClient:
 		return &WeMixContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.BttcClient:
-		return &WeMixContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+		return &BttcContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -510,6 +510,7 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
+		log.Info().Msg(fmt.Sprintf("SISHIRR: %d, %d, %d, %s", auth.GasLimit, auth.GasPrice.Uint64(), auth.GasTipCap.Uint64(), auth.From))
 		return link_token_interface.DeployLinkToken(auth, backend)
 	})
 	if err != nil {

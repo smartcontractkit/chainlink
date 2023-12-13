@@ -6,13 +6,11 @@ LogPollInterval = '2s'
 
 [GasEstimator] 
 EIP1559DynamicFees = false
-PriceDefault = '10 mwei'
+PriceDefault = '15 mwei'
 PriceMin = '9 mwei' 
-BumpPercent = 20
 
 [GasEstimator.BlockHistory]
 # how many blocks we want to keep in memory to calculate gas price
-# # Average block time of 2s
 BlockHistorySize = 24
 
 [Transactions]
