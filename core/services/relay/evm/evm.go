@@ -490,13 +490,13 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 
 	// allow fallback until chain reader is default and median contract is removed, but still log just in case
-	var chainReaderService commontypes.ChainReader
+	var chainReaderService ChainReaderService
 	if relayConfig.ChainReader != nil {
 		b := Bindings{
 			// TODO BCF-2837: clean up the hard-coded values.
 			"median": {
 				"LatestTransmissionDetails": &addrEvtBinding{addr: contractID},
-				"LatestRoundReported":       &addrEvtBinding{addr: contractID},
+				"LatestRoundRequested":      &addrEvtBinding{addr: contractID},
 			},
 		}
 
@@ -528,7 +528,7 @@ type medianProvider struct {
 	contractTransmitter ContractTransmitter
 	reportCodec         median.ReportCodec
 	medianContract      *medianContract
-	chainReader         commontypes.ChainReader
+	chainReader         ChainReaderService
 	codec               commontypes.Codec
 	ms                  services.MultiStart
 }
@@ -536,7 +536,11 @@ type medianProvider struct {
 func (p *medianProvider) Name() string { return p.lggr.Name() }
 
 func (p *medianProvider) Start(ctx context.Context) error {
-	return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter, p.medianContract)
+	if p.chainReader == nil {
+		return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter, p.medianContract)
+	}
+
+	return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter, p.chainReader)
 }
 
 func (p *medianProvider) Close() error { return p.ms.Close() }

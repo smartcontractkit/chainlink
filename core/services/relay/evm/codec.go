@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mitchellh/mapstructure"
 
@@ -44,7 +45,7 @@ func NewCodec(conf types.CodecConfig) (commontypes.CodecTypeProvider, error) {
 		}
 
 		item := &codecEntry{Args: args, mod: mod}
-		if err := item.Init(); err != nil {
+		if err = item.Init(); err != nil {
 			return nil, err
 		}
 
@@ -106,13 +107,17 @@ func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
 }
 
 func decodeAccountHook(from, to reflect.Type, data any) (any, error) {
-	b32, _ := types.GetType("bytes32")
-	if from.Kind() == reflect.String && to == b32.Checked {
+	if from.Kind() == reflect.String && to == reflect.TypeOf(common.Address{}) {
 		decoded, err := hexutil.Decode(data.(string))
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
+		} else if len(decoded) != common.AddressLength {
+			return nil, fmt.Errorf(
+				"%w: wrong number size for address expected %v got %v",
+				commontypes.ErrWrongNumberOfElements,
+				common.AddressLength, len(decoded))
 		}
-		return [32]byte(decoded), nil
+		return common.Address(decoded), nil
 	}
 	return data, nil
 }

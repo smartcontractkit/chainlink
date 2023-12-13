@@ -2,6 +2,8 @@ package types
 
 import (
 	"reflect"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 //go:generate go run ./gen/main.go
@@ -46,6 +48,10 @@ var typeMap = map[string]*AbiEncodingType{
 	"string": {
 		Native:  reflect.TypeOf(""),
 		Checked: reflect.TypeOf(""),
+	},
+	"address": {
+		Native:  reflect.TypeOf(common.Address{}),
+		Checked: reflect.TypeOf(common.Address{}),
 	},
 }
 

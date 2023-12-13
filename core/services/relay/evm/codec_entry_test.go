@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
@@ -135,5 +136,20 @@ func TestCodecEntry(t *testing.T) {
 		native := reflect.New(entry.nativeType)
 		iNative := reflect.Indirect(native)
 		iNative.FieldByName("Field1").Set(reflect.ValueOf([3]int16{2, 3, 30}))
+	})
+
+	t.Run("Not return values makes struct{}", func(t *testing.T) {
+		entry := codecEntry{Args: abi.Arguments{}}
+		require.NoError(t, entry.Init())
+		assert.Equal(t, reflect.TypeOf(struct{}{}), entry.nativeType)
+		assert.Equal(t, reflect.TypeOf(struct{}{}), entry.checkedType)
+	})
+
+	t.Run("Address works", func(t *testing.T) {
+		address, err := abi.NewType("address", "", []abi.ArgumentMarshaling{})
+		require.NoError(t, err)
+		entry := codecEntry{Args: abi.Arguments{{Name: "foo", Type: address}}}
+		fmt.Printf("%+v\n", address.GetType())
+		require.NoError(t, entry.Init())
 	})
 }
