@@ -23,6 +23,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	commonPipeline "github.com/smartcontractkit/chainlink-common/pkg/pipeline"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -432,7 +434,7 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, regi
 }
 
 func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,created_at) VALUES ($1, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
+	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,created_at) VALUES ($1, 0, NOW()) RETURNING *`, commonPipeline.RunStatusRunning))
 	return run
 }
 
@@ -443,17 +445,17 @@ func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID i
 	var fatalErrors pipeline.RunErrors
 	now := time.Now()
 	switch status {
-	case pipeline.RunStatusCompleted:
+	case commonPipeline.RunStatusCompleted:
 		finishedAt = &now
 		outputs = pipeline.JSONSerializable{
 			Val:   "foo",
 			Valid: true,
 		}
-	case pipeline.RunStatusErrored:
+	case commonPipeline.RunStatusErrored:
 		finishedAt = &now
 		allErrors = []null.String{null.StringFrom("oh no!")}
 		fatalErrors = []null.String{null.StringFrom("oh no!")}
-	case pipeline.RunStatusRunning, pipeline.RunStatusSuspended:
+	case commonPipeline.RunStatusRunning, commonPipeline.RunStatusSuspended:
 		// leave empty
 	default:
 		t.Fatalf("unknown status: %s", status)
