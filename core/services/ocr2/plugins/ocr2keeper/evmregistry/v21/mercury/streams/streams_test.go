@@ -102,14 +102,12 @@ func (r *mockRegistry) CheckCallback(opts *bind.CallOpts, id *big.Int, values []
 // setups up a streams object for tests.
 func setupStreams(t *testing.T) *streams {
 	lggr := logger.TestLogger(t)
-	packer := encoding.NewAbiPacker()
 	mercuryConfig := new(MockMercuryConfigProvider)
 	blockSubscriber := new(MockBlockSubscriber)
 	registry := &mockRegistry{}
 	client := evmClientMocks.NewClient(t)
 
 	streams := NewStreamsLookup(
-		packer,
 		mercuryConfig,
 		blockSubscriber,
 		client,
