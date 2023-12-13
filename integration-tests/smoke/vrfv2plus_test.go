@@ -54,7 +54,7 @@ func TestVRFv2Plus(t *testing.T) {
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	// register proving key against oracle address (sending key) in order to test Withdraw
+	// default wallet address is used to test Withdraw
 	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
 
 	numberOfTxKeysToCreate := 2
@@ -63,7 +63,6 @@ func TestVRFv2Plus(t *testing.T) {
 		vrfv2PlusConfig,
 		linkToken,
 		mockETHLinkFeed,
-		defaultWalletAddress,
 		numberOfTxKeysToCreate,
 		1,
 		1,
@@ -633,16 +632,12 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	// register proving key against oracle address (sending key) in order to test Withdraw
-	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
-
 	numberOfTxKeysToCreate := 2
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(
 		env,
 		vrfv2PlusConfig,
 		linkToken,
 		mockETHLinkFeed,
-		defaultWalletAddress,
 		numberOfTxKeysToCreate,
 		1,
 		1,
@@ -723,15 +718,11 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	nativeTokenPrimaryKeyAddress, err := env.ClCluster.NodeAPIs()[0].PrimaryEthAddress()
-	require.NoError(t, err, "error getting primary eth address")
-
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(
 		env,
 		vrfv2PlusConfig,
 		linkAddress,
 		mockETHLinkFeedAddress,
-		nativeTokenPrimaryKeyAddress,
 		0,
 		2,
 		1,
