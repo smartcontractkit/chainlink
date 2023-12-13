@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -77,11 +78,11 @@ func TestHeads_AddHeads(t *testing.T) {
 	var parentHash common.Hash
 	for i := 0; i < 5; i++ {
 		hash := utils.NewHash()
-		h := evmtypes.NewHead(big.NewInt(int64(i)), hash, parentHash, uint64(time.Now().Unix()), utils.NewBigI(0))
+		h := evmtypes.NewHead(big.NewInt(int64(i)), hash, parentHash, uint64(time.Now().Unix()), ubig.NewI(0))
 		testHeads = append(testHeads, &h)
 		if i == 2 {
 			// uncled block
-			h := evmtypes.NewHead(big.NewInt(int64(i)), uncleHash, parentHash, uint64(time.Now().Unix()), utils.NewBigI(0))
+			h := evmtypes.NewHead(big.NewInt(int64(i)), uncleHash, parentHash, uint64(time.Now().Unix()), ubig.NewI(0))
 			testHeads = append(testHeads, &h)
 		}
 		parentHash = hash

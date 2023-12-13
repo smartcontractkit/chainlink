@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -761,8 +762,8 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
  * TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs
  */
 
-func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *utils.Big) {
-	chainID := utils.NewBig(big.NewInt(12345))
+func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
+	chainID := ubig.New(big.NewInt(12345))
 	lggr := logger.TestLogger(t)
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,

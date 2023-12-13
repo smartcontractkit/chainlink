@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -246,7 +247,7 @@ type OCROracleSpec struct {
 	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval"`
 	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
-	EVMChainID                             *utils.Big           `toml:"evmChainID" db:"evm_chain_id"`
+	EVMChainID                             *big.Big             `toml:"evmChainID" db:"evm_chain_id"`
 	DatabaseTimeout                        *models.Interval     `toml:"databaseTimeout"`
 	ObservationGracePeriod                 *models.Interval     `toml:"observationGracePeriod"`
 	ContractTransmitterTransmitTimeout     *models.Interval     `toml:"contractTransmitterTransmitTimeout"`
@@ -434,7 +435,7 @@ type DirectRequestSpec struct {
 	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
 	Requesters               models.AddressCollection `toml:"requesters"`
 	MinContractPayment       *commonassets.Link       `toml:"minContractPaymentLinkJuels"`
-	EVMChainID               *utils.Big               `toml:"evmChainID"`
+	EVMChainID               *big.Big                 `toml:"evmChainID"`
 	CreatedAt                time.Time                `toml:"-"`
 	UpdatedAt                time.Time                `toml:"-"`
 }
@@ -475,9 +476,9 @@ type FluxMonitorSpec struct {
 	DrumbeatRandomDelay time.Duration
 	DrumbeatEnabled     bool
 	MinPayment          *commonassets.Link
-	EVMChainID          *utils.Big `toml:"evmChainID"`
-	CreatedAt           time.Time  `toml:"-"`
-	UpdatedAt           time.Time  `toml:"-"`
+	EVMChainID          *big.Big  `toml:"evmChainID"`
+	CreatedAt           time.Time `toml:"-"`
+	UpdatedAt           time.Time `toml:"-"`
 }
 
 type KeeperSpec struct {
@@ -485,7 +486,7 @@ type KeeperSpec struct {
 	ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
 	MinIncomingConfirmations *uint32             `toml:"minIncomingConfirmations"`
 	FromAddress              ethkey.EIP55Address `toml:"fromAddress"`
-	EVMChainID               *utils.Big          `toml:"evmChainID"`
+	EVMChainID               *big.Big            `toml:"evmChainID"`
 	CreatedAt                time.Time           `toml:"-"`
 	UpdatedAt                time.Time           `toml:"-"`
 }
@@ -512,7 +513,7 @@ type VRFSpec struct {
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
 	MinIncomingConfirmations uint32                `toml:"minIncomingConfirmations"`
-	EVMChainID               *utils.Big            `toml:"evmChainID"`
+	EVMChainID               *big.Big              `toml:"evmChainID"`
 	FromAddresses            []ethkey.EIP55Address `toml:"fromAddresses"`
 	PollPeriod               time.Duration         `toml:"pollPeriod"`          // For v2 jobs
 	RequestedConfsDelay      int64                 `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
@@ -586,7 +587,7 @@ type BlockhashStoreSpec struct {
 	RunTimeout time.Duration `toml:"runTimeout"`
 
 	// EVMChainID defines the chain ID for monitoring and storing of blockhashes.
-	EVMChainID *utils.Big `toml:"evmChainID"`
+	EVMChainID *big.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
 	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
@@ -635,7 +636,7 @@ type BlockHeaderFeederSpec struct {
 	RunTimeout time.Duration `toml:"runTimeout"`
 
 	// EVMChainID defines the chain ID for monitoring and storing of blockhashes.
-	EVMChainID *utils.Big `toml:"evmChainID"`
+	EVMChainID *big.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
 	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
@@ -662,11 +663,11 @@ type LegacyGasStationServerSpec struct {
 	ForwarderAddress ethkey.EIP55Address `toml:"forwarderAddress"`
 
 	// EVMChainID defines the chain ID from which the meta-transaction request originates.
-	EVMChainID *utils.Big `toml:"evmChainID"`
+	EVMChainID *big.Big `toml:"evmChainID"`
 
 	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param.
 	// This selector is equivalent to (source) chainID specified in SendTransaction request
-	CCIPChainSelector *utils.Big `toml:"ccipChainSelector"`
+	CCIPChainSelector *big.Big `toml:"ccipChainSelector"`
 
 	// FromAddress is the sender address that should be used to send meta-transactions
 	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
@@ -699,10 +700,10 @@ type LegacyGasStationSidecarSpec struct {
 	RunTimeout time.Duration `toml:"runTimeout"`
 
 	// EVMChainID defines the chain ID for the on-chain events tracked by sidecar
-	EVMChainID *utils.Big `toml:"evmChainID"`
+	EVMChainID *big.Big `toml:"evmChainID"`
 
 	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param
-	CCIPChainSelector *utils.Big `toml:"ccipChainSelector"`
+	CCIPChainSelector *big.Big `toml:"ccipChainSelector"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`
@@ -772,7 +773,7 @@ type EALSpec struct {
 	ForwarderAddress ethkey.EIP55Address `toml:"forwarderAddress"`
 
 	// EVMChainID defines the chain ID from which the meta-transaction request originates.
-	EVMChainID *utils.Big `toml:"evmChainID"`
+	EVMChainID *big.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to send meta-transactions
 	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
