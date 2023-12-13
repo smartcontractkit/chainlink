@@ -4,8 +4,6 @@ import (
 	"context"
 	"reflect"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -34,7 +32,7 @@ func (e *encoder) GetMaxEncodingSize(ctx context.Context, n int, itemType string
 	return e.Definitions[itemType].GetMaxSize(n)
 }
 
-func encode(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
+func encode(item reflect.Value, info *codecEntry) ([]byte, error) {
 	for item.Kind() == reflect.Pointer {
 		item = reflect.Indirect(item)
 	}
@@ -48,7 +46,7 @@ func encode(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
 	}
 }
 
-func encodeArray(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
+func encodeArray(item reflect.Value, info *codecEntry) ([]byte, error) {
 	length := item.Len()
 	var native reflect.Value
 	switch info.checkedType.Kind() {
@@ -76,7 +74,7 @@ func encodeArray(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) 
 	return pack(info, native.Interface())
 }
 
-func encodeItem(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
+func encodeItem(item reflect.Value, info *codecEntry) ([]byte, error) {
 	if item.Type() == reflect.PointerTo(info.checkedType) {
 		item = reflect.NewAt(info.nativeType, item.UnsafePointer())
 	} else if item.Type() != reflect.PointerTo(info.nativeType) {
@@ -100,7 +98,7 @@ func encodeItem(item reflect.Value, info *codecEntry) (ocrtypes.Report, error) {
 	return pack(info, values...)
 }
 
-func pack(info *codecEntry, values ...any) (ocrtypes.Report, error) {
+func pack(info *codecEntry, values ...any) ([]byte, error) {
 	if bytes, err := info.Args.Pack(values...); err == nil {
 		withPrefix := make([]byte, 0, len(info.encodingPrefix)+len(bytes))
 		withPrefix = append(withPrefix, info.encodingPrefix...)
