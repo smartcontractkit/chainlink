@@ -9,11 +9,11 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestNewMedianProvider(t *testing.T) {
@@ -37,7 +37,7 @@ func TestNewMedianProvider(t *testing.T) {
 	})
 
 	t.Run("invalid contractID", func(t *testing.T) {
-		relayConfig := evmtypes.RelayConfig{ChainID: utils.NewBig(chainID)}
+		relayConfig := evmtypes.RelayConfig{ChainID: big.New(chainID)}
 		rc, err2 := json.Marshal(&relayConfig)
 		require.NoError(t, err2)
 		rargsBadContractID := commontypes.RelayArgs{ContractID: "NotAContractID", RelayConfig: rc}

@@ -18,12 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -82,7 +82,7 @@ type TransmitChecker[
 	// is returned. Errors should only be returned if the checker can confirm that a transaction
 	// should not be sent, other errors (for example connection or other unexpected errors) should
 	// be logged and swallowed.
-	Check(ctx context.Context, l logger.Logger, tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], a txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
+	Check(ctx context.Context, l logger.SugaredLogger, tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], a txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 }
 
 // Broadcaster monitors txes for transactions that need to
@@ -108,7 +108,7 @@ type Broadcaster[
 	FEE feetypes.Fee,
 ] struct {
 	services.StateMachine
-	lggr    logger.Logger
+	lggr    logger.SugaredLogger
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	client  txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -172,7 +172,7 @@ func NewBroadcaster[
 ) *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Broadcaster")
 	b := &Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
-		lggr:             lggr,
+		lggr:             logger.Sugared(lggr),
 		txStore:          txStore,
 		client:           client,
 		TxAttemptBuilder: txAttemptBuilder,
@@ -311,7 +311,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) getS
 	if err == nil {
 		return seq, nil
 	}
-	logger.Criticalw(eb.lggr, "failed to retrieve next sequence from on-chain for address: ", "address", address.String())
+	eb.lggr.Criticalw("failed to retrieve next sequence from on-chain for address: ", "address", address.String())
 	return seq, err
 
 }
@@ -399,7 +399,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Sync
 	localSequence, err := eb.GetNextSequence(ctx, addr)
 	// Address not found in map so skip sync
 	if err != nil {
-		logger.Criticalw(eb.lggr, "Failed to retrieve local next sequence for address", "address", addr.String(), "err", err)
+		eb.lggr.Criticalw("Failed to retrieve local next sequence for address", "address", addr.String(), "err", err)
 		return
 	}
 
@@ -414,7 +414,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Sync
 			newNextSequence, err := eb.sequenceSyncer.Sync(ctx, addr, localSequence)
 			if err != nil {
 				if attempt > 5 {
-					logger.Criticalw(eb.lggr, "Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
+					eb.lggr.Criticalw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
 					eb.SvcErrBuffer.Append(err)
 				} else {
 					eb.lggr.Warnw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
@@ -537,7 +537,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		return fmt.Errorf("building transmit checker: %w", err), false
 	}
 
-	lgr := etx.GetLogger(logger.With(eb.lggr, "fee", attempt.TxFee))
+	lgr := etx.GetLogger(eb.lggr.With("fee", attempt.TxFee))
 
 	// If the transmit check does not complete within the timeout, the transaction will be sent
 	// anyway.
@@ -647,14 +647,14 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// If there is only one RPC node, or all RPC nodes have the same
 		// configured cap, this transaction will get stuck and keep repeating
 		// forever until the issue is resolved.
-		logger.Criticalw(lgr, `RPC node rejected this tx as outside Fee Cap`)
+		lgr.Criticalw(`RPC node rejected this tx as outside Fee Cap`)
 		fallthrough
 	default:
 		// Every error that doesn't fall under one of the above categories will be treated as Unknown.
 		fallthrough
 	case client.Unknown:
 		eb.SvcErrBuffer.Append(err)
-		logger.Criticalw(lgr, `Unknown error occurred while handling tx queue in ProcessUnstartedTxs. This chain/RPC client may not be supported. `+
+		lgr.Criticalw(`Unknown error occurred while handling tx queue in ProcessUnstartedTxs. This chain/RPC client may not be supported. `+
 			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "err", err, "etx", etx, "attempt", attempt)
 		nextSequence, e := eb.client.PendingSequenceAt(ctx, etx.FromAddress)
 		if e != nil {
