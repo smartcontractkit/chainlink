@@ -205,7 +205,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        network: [Sepolia, Optimism Goerli, Optimism Sepolia, Arbitrum Sepolia, Base Goerli, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Scroll Sepolia, Linea Goerli]
+        network: [Sepolia, Optimism Sepolia, Arbitrum Sepolia, Base Goerli, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Scroll Sepolia, Linea Goerli]
     steps:
       - name: Get Results
         id: test-results
