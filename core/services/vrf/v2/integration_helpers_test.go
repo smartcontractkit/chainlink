@@ -1804,7 +1804,7 @@ func testReplayOldRequestsOnStartUp(
 		uni.backend.Commit()
 	}
 
-	config, db = heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(sendingKey.EIP55Address),
