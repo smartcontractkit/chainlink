@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -225,7 +226,7 @@ func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string,
 	u.cache[workID] = record
 
 	u.pendingRecords = append(u.pendingRecords, persistedStateRecord{
-		UpkeepID:            utils.NewBig(upkeepID),
+		UpkeepID:            ubig.New(upkeepID),
 		WorkID:              record.workID,
 		CompletionState:     uint8(record.state),
 		IneligibilityReason: reason,
