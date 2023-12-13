@@ -413,13 +413,13 @@ func ExtractRPCError(baseErr error) (*JsonError, error) {
 	return &jErr, nil
 }
 
-func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
+func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
 	sendError := NewSendError(err)
 	if sendError == nil {
 		return commonclient.Successful
 	}
 	if sendError.Fatal() {
-		logger.Criticalw(lggr, "Fatal error sending transaction", "err", sendError, "etx", tx)
+		lggr.Criticalw("Fatal error sending transaction", "err", sendError, "etx", tx)
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return commonclient.Fatal
 	}
@@ -465,7 +465,7 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		return commonclient.Retryable
 	}
 	if sendError.IsInsufficientEth() {
-		logger.Criticalw(lggr, fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
+		lggr.Criticalw(fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
 		), "err", sendError, "etx", tx)
@@ -476,7 +476,7 @@ func ClassifySendError(err error, lggr logger.Logger, tx *types.Transaction, fro
 		return commonclient.Retryable
 	}
 	if sendError.IsTxFeeExceedsCap() {
-		logger.Criticalw(lggr, fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
+		lggr.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"etx", tx,
 			"err", sendError,
 			"id", "RPCTxFeeCapExceeded",

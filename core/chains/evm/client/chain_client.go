@@ -37,11 +37,11 @@ type chainClient struct {
 		*evmtypes.Head,
 		RPCCLient,
 	]
-	logger logger.Logger
+	logger logger.SugaredLogger
 }
 
 func NewChainClient(
-	logger logger.Logger,
+	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
@@ -64,7 +64,7 @@ func NewChainClient(
 		*evmtypes.Head,
 		RPCCLient,
 	](
-		logger,
+		lggr,
 		selectionMode,
 		leaseDuration,
 		noNewHeadsThreshold,
@@ -77,7 +77,7 @@ func NewChainClient(
 	)
 	return &chainClient{
 		multiNode: multiNode,
-		logger:    logger,
+		logger:    logger.Sugared(lggr),
 	}
 }
 

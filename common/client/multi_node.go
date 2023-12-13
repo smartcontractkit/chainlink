@@ -86,7 +86,7 @@ type multiNode[
 	sendonlys           []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
 	chainID             CHAIN_ID
 	chainType           config.ChainType
-	lggr                logger.Logger
+	lggr                logger.SugaredLogger
 	selectionMode       string
 	noNewHeadsThreshold time.Duration
 	nodeSelector        NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]
@@ -118,7 +118,7 @@ func NewMultiNode[
 	HEAD types.Head[BLOCK_HASH],
 	RPC_CLIENT RPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD],
 ](
-	l logger.Logger,
+	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
@@ -131,9 +131,6 @@ func NewMultiNode[
 ) MultiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT] {
 	nodeSelector := newNodeSelector(selectionMode, nodes)
 
-	lggr := logger.Named(l, "MultiNode")
-	lggr = logger.With(lggr, "chainID", chainID.String())
-
 	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
 	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
 	const reportInterval = 6500 * time.Millisecond
@@ -142,7 +139,7 @@ func NewMultiNode[
 		sendonlys:           sendonlys,
 		chainID:             chainID,
 		chainType:           chainType,
-		lggr:                lggr,
+		lggr:                logger.Sugared(lggr).Named("MultiNode").With("chainID", chainID.String()),
 		selectionMode:       selectionMode,
 		noNewHeadsThreshold: noNewHeadsThreshold,
 		nodeSelector:        nodeSelector,
@@ -249,7 +246,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	c.activeNode = c.nodeSelector.Select()
 
 	if c.activeNode == nil {
-		logger.Criticalw(c.lggr, "No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
+		c.lggr.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
 		errmsg := fmt.Errorf("no live nodes available for chain %s", c.chainID.String())
 		c.SvcErrBuffer.Append(errmsg)
 		err = ErroringNodeError
@@ -351,10 +348,10 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	}
 
 	live := total - dead
-	logger.Tracew(c.lggr, fmt.Sprintf("MultiNode state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	c.lggr.Tracew(fmt.Sprintf("MultiNode state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	if total == dead {
 		rerr := fmt.Errorf("no primary nodes available: 0/%d nodes are alive", total)
-		logger.Criticalw(c.lggr, rerr.Error(), "nodeStates", nodeStates)
+		c.lggr.Criticalw(rerr.Error(), "nodeStates", nodeStates)
 		c.SvcErrBuffer.Append(rerr)
 	} else if dead > 0 {
 		c.lggr.Errorw(fmt.Sprintf("At least one primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
@@ -405,7 +402,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 			if err != nil {
 				c.lggr.Debugw("Secondary node BatchCallContext failed", "err", err)
 			} else {
-				logger.Trace(c.lggr, "Secondary node BatchCallContext success")
+				c.lggr.Trace("Secondary node BatchCallContext success")
 			}
 		}(n)
 	}

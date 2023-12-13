@@ -1,4 +1,4 @@
-package utils
+package big
 
 import (
 	"encoding/json"
@@ -198,15 +198,15 @@ func TestBig_Scan(t *testing.T) {
 		input interface{}
 		want  *Big
 	}{
-		{"zero string", "0", NewBig(big.NewInt(0))},
-		{"one string", "1", NewBig(big.NewInt(1))},
+		{"zero string", "0", New(big.NewInt(0))},
+		{"one string", "1", New(big.NewInt(1))},
 		{
 			"large string",
 			"115792089237316195423570985008687907853269984665640564039457584007913129639935",
-			NewBig(uint256Max),
+			New(uint256Max),
 		},
-		{"zero as bytes", []uint8{48}, NewBig(big.NewInt(0))},
-		{"small number as bytes", []uint8{49, 52}, NewBig(big.NewInt(14))},
+		{"zero as bytes", []uint8{48}, New(big.NewInt(0))},
+		{"small number as bytes", []uint8{49, 52}, New(big.NewInt(14))},
 		{
 			"max number as bytes",
 			[]uint8{
@@ -216,7 +216,7 @@ func TestBig_Scan(t *testing.T) {
 				48, 51, 57, 52, 53, 55, 53, 56, 52, 48, 48, 55, 57, 49, 51, 49, 50, 57,
 				54, 51, 57, 57, 51, 53,
 			},
-			NewBig(uint256Max),
+			New(uint256Max),
 		},
 	}
 	for _, test := range tests {
