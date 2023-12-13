@@ -2,6 +2,7 @@ package ccipdata_test
 
 import (
 	"context"
+	"github.com/stretchr/testify/mock"
 	"math/big"
 	"reflect"
 	"testing"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
@@ -226,6 +228,44 @@ func TestPriceRegistryReader(t *testing.T) {
 		pr := pr
 		t.Run("PriceRegistryReader"+version, func(t *testing.T) {
 			testPriceRegistryReader(t, th, pr)
+		})
+	}
+}
+
+func TestNewPriceRegistryReader(t *testing.T) {
+	var tt = []struct {
+		typeAndVersion string
+		expectedErr    string
+	}{
+		{
+			typeAndVersion: "blah",
+			expectedErr:    "unable to read type and version: invalid type and version blah",
+		},
+		{
+			typeAndVersion: "EVM2EVMOffRamp 1.0.0",
+			expectedErr:    "expected PriceRegistry got EVM2EVMOffRamp",
+		},
+		{
+			typeAndVersion: "PriceRegistry 1.2.0",
+			expectedErr:    "",
+		},
+		{
+			typeAndVersion: "PriceRegistry 2.0.0",
+			expectedErr:    "unsupported price registry version 2.0.0",
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.typeAndVersion, func(t *testing.T) {
+			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
+			require.NoError(t, err)
+			c := evmclientmocks.NewClient(t)
+			c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(b, nil)
+			_, err = factory.NewPriceRegistryReader(logger.TestLogger(t), common.Address{}, lpmocks.NewLogPoller(t), c)
+			if tc.expectedErr != "" {
+				require.EqualError(t, err, tc.expectedErr)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

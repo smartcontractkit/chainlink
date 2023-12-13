@@ -22,7 +22,10 @@ import (
 func NewCommitStoreReader(lggr logger.Logger, address common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator) (ccipdata.CommitStoreReader, error) {
 	contractType, version, err := ccipconfig.TypeAndVersion(address, ec)
 	if err != nil {
-		return nil, errors.Errorf("expected %v got %v", ccipconfig.EVM2EVMOnRamp, contractType)
+		return nil, errors.Wrapf(err, "unable to read type and version")
+	}
+	if contractType != ccipconfig.CommitStore {
+		return nil, errors.Errorf("expected %v got %v", ccipconfig.CommitStore, contractType)
 	}
 	switch version.String() {
 	case ccipdata.V1_0_0, ccipdata.V1_1_0:
@@ -31,7 +34,7 @@ func NewCommitStoreReader(lggr logger.Logger, address common.Address, ec client.
 	case ccipdata.V1_2_0, ccipdata.V1_3_0:
 		return v1_2_0.NewCommitStore(lggr, address, ec, lp, estimator)
 	default:
-		return nil, errors.Errorf("got unexpected version %v", version.String())
+		return nil, errors.Errorf("unsupported commit store version %v", version.String())
 	}
 }
 

@@ -21,9 +21,12 @@ import (
 )
 
 func NewOffRampReader(lggr logger.Logger, addr common.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator) (ccipdata.OffRampReader, error) {
-	_, version, err := ccipconfig.TypeAndVersion(addr, destClient)
+	contractType, version, err := ccipconfig.TypeAndVersion(addr, destClient)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "unable to read type and version")
+	}
+	if contractType != ccipconfig.EVM2EVMOffRamp {
+		return nil, errors.Errorf("expected %v got %v", ccipconfig.EVM2EVMOffRamp, contractType)
 	}
 	switch version.String() {
 	case ccipdata.V1_0_0, ccipdata.V1_1_0:
