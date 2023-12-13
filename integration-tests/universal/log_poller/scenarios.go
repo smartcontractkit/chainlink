@@ -191,7 +191,6 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	}
 
 	l.Info().Msg("Starting replay log poller test")
-	l.Info().Msg("( hasFilters bug fixed )")
 
 	var (
 		err           error
