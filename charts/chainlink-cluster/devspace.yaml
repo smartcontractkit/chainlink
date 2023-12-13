@@ -2,6 +2,7 @@ version: v2beta1
 name: chainlink
 
 vars:
+  NS_TTL: 72h
   DEVSPACE_IMAGE:
     source: env
 
@@ -20,17 +21,41 @@ pipelines:
       run_dependencies --all                            # 1. Deploy any projects this project needs (see "dependencies")
       ensure_pull_secrets --all                         # 2. Ensure pull secrets
       build_images --all -t $(git rev-parse --short HEAD)    # 3. Build, tag (git commit hash) and push all images (see "images")
-      create_deployments --all                          # 4. Deploy Helm charts and manifests specfied as "deployments"
+      create_deployments --all                          # 5. Deploy Helm charts and manifests specfied as "deployments"
+      kubectl annotate namespace ${DEVSPACE_NAMESPACE} janitor/ttl=${NS_TTL}
+      echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
+  purge:
+    run: |-
+      kubectl delete ns ${DEVSPACE_NAMESPACE}
+
+commands:
+  connect: |-
+    sudo kubefwd svc -n ${DEVSPACE_NAMESPACE}
 
 images:
   app:
     image: ${DEVSPACE_IMAGE}
     dockerfile: ../../core/chainlink.devspace.Dockerfile
     context: ../..
+    docker:
+      disableFallback: true
+
+hooks:
+  - wait:
+      running: true
+      terminatedWithCode: 0
+      timeout: 600
+    container:
+      labelSelector:
+        # vars don't work here, = releaseName
+        release: "app"
+    events: ["after:deploy:app"]
+    name: "wait-for-pod-hook"
 
 # This is a list of `deployments` that DevSpace can create for this project
 deployments:
   app:
+    namespace: ${DEVSPACE_NAMESPACE}
     helm:
       releaseName: "app"
       chart:
@@ -58,6 +83,16 @@ deployments:
             - name: node-1
               image: ${DEVSPACE_IMAGE}
               version: latest
+              # default resources are 300m/1Gi
+              # first node need more resources to build faster inside container
+              # at least 2Gi of memory is required otherwise build will fail (OOM)
+              resources:
+                requests:
+                  cpu: 2000m
+                  memory: 2048Mi
+                limits:
+                  cpu: 2000m
+                  memory: 2048Mi
               # override default config per node
               # for example, use OCRv2 P2P setup, the whole config
               #      toml: |
@@ -105,13 +140,6 @@ deployments:
             - name: node-6
               image: ${DEVSPACE_IMAGE}
               version: latest
-          resources:
-            requests:
-              cpu: 350m
-              memory: 1024Mi
-            limits:
-              cpu: 350m
-              memory: 1024Mi
 
         # each CL node have a dedicated PostgreSQL 11.15
         # use StatefulSet by setting:
@@ -231,7 +259,7 @@ profiles:
     patches:
       - op: replace
         path: dev.app.workingDir
-        value: /home/root/chainlink/integration-tests
+        value: /home/chainlink/integration-tests
       - op: replace
         path: dev.app.container
         value: runner
@@ -256,21 +284,20 @@ profiles:
 # This is a list of `dev` containers that are based on the containers created by your deployments
 dev:
   app:
-    workingDir: /home/root/chainlink
+    workingDir: /home/chainlink
     container: node
     labelSelector:
       instance: node-1
     # Sync files between the local filesystem and the development container
     sync:
-      - path: ../../core/services/chainlink:/home/root/chainlink/core/services/chainlink
+      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
         printLogs: true
         disableDownload: true
-      - path: ../..:/home/root/chainlink
+      - path: ../..:/home/chainlink
         printLogs: true
         disableDownload: true
         uploadExcludePaths:
           - integration-tests/
-          - .git/
           - .github/
           - belt/
           - charts/
@@ -280,16 +307,16 @@ dev:
           - integration-scripts/
           - testdata/
           - evm-test-helpers/
-          - tools/
     # Open a terminal and use the following command
     terminal:
       command: bash
     ssh:
       enabled: true
     proxyCommands:
-      - command: devspace
-      - command: kubectl
-      - command: helm
+#       TODO: access issues
+#      - command: devspace
+#      - command: kubectl
+#      - command: helm
       - gitCredentials: true
     ports:
       - port: "2345"

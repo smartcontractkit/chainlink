@@ -16,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -55,8 +56,8 @@ func NewEIP55Address() ethkey.EIP55Address {
 	return e
 }
 
-func NewPeerID() p2ppeer.ID {
-	id, err := p2ppeer.Decode("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
+func NewPeerID() (id ragep2ptypes.PeerID) {
+	err := id.UnmarshalText([]byte("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw"))
 	if err != nil {
 		panic(err)
 	}
@@ -240,12 +241,12 @@ type RandomKey struct {
 	Nonce    int64
 	Disabled bool
 
-	chainIDs []utils.Big // nil: Fixture, set empty for none
+	chainIDs []ubig.Big // nil: Fixture, set empty for none
 }
 
 func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
 	if r.chainIDs == nil {
-		r.chainIDs = []utils.Big{*utils.NewBig(&FixtureChainID)}
+		r.chainIDs = []ubig.Big{*ubig.New(&FixtureChainID)}
 	}
 
 	key := MustGenerateRandomKey(t)
@@ -272,7 +273,7 @@ func (r RandomKey) MustInsertWithState(t testing.TB, keystore keystore.Eth) (eth
 // MustInsertRandomKey inserts a randomly generated (not cryptographically secure) key for testing.
 // By default, it is enabled for the fixture chain. Pass chainIDs to override.
 // Use MustInsertRandomKeyNoChains for a key associate with no chains.
-func MustInsertRandomKey(t testing.TB, keystore keystore.Eth, chainIDs ...utils.Big) (ethkey.KeyV2, common.Address) {
+func MustInsertRandomKey(t testing.TB, keystore keystore.Eth, chainIDs ...ubig.Big) (ethkey.KeyV2, common.Address) {
 	r := RandomKey{}
 	if len(chainIDs) > 0 {
 		r.chainIDs = chainIDs
@@ -281,7 +282,7 @@ func MustInsertRandomKey(t testing.TB, keystore keystore.Eth, chainIDs ...utils.
 }
 
 func MustInsertRandomKeyNoChains(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
-	return RandomKey{chainIDs: []utils.Big{}}.MustInsert(t, keystore)
+	return RandomKey{chainIDs: []ubig.Big{}}.MustInsert(t, keystore)
 }
 
 func MustInsertRandomKeyReturningState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
@@ -299,7 +300,7 @@ func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 }
 
 func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evmtypes.Head {
-	h := evmtypes.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
+	h := evmtypes.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, ubig.New(&FixtureChainID))
 	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
@@ -347,7 +348,7 @@ NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0,0
 
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
-	drs := &job.DirectRequestSpec{EVMChainID: (*utils.Big)(testutils.FixtureChainID)}
+	drs := &job.DirectRequestSpec{EVMChainID: (*ubig.Big)(testutils.FixtureChainID)}
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
@@ -391,7 +392,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 }
 
 func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth, keeperIndex, numKeepers, blockCountPerTurn int32) (keeper.Registry, job.Job) {
-	key, _ := MustInsertRandomKey(t, ethKeyStore, *utils.NewBig(testutils.SimulatedChainID))
+	key, _ := MustInsertRandomKey(t, ethKeyStore, *ubig.New(testutils.SimulatedChainID))
 	from := key.EIP55Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
@@ -415,7 +416,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, registry keeper.Registry) keeper.UpkeepRegistration {
 	korm := keeper.NewORM(db, logger.TestLogger(t), cfg)
-	upkeepID := utils.NewBigI(int64(mathrand.Uint32()))
+	upkeepID := ubig.NewI(int64(mathrand.Uint32()))
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
 		ExecuteGas: uint32(150_000),

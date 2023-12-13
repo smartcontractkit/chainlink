@@ -118,7 +118,7 @@ type Q struct {
 	Queryer
 	ParentCtx    context.Context
 	db           *sqlx.DB
-	logger       logger.Logger
+	logger       logger.SugaredLogger
 	config       QConfig
 	QueryTimeout time.Duration
 }
@@ -130,7 +130,7 @@ func NewQ(db *sqlx.DB, lggr logger.Logger, config QConfig, qopts ...QOpt) (q Q) 
 
 	q.db = db
 	// skip two levels since we use internal helpers and also want to point up the stack to the caller of the Q method.
-	q.logger = logger.Helper(lggr, 2)
+	q.logger = logger.Sugared(logger.Helper(lggr, 2))
 	q.config = config
 
 	if q.Queryer == nil {
@@ -356,7 +356,7 @@ func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 	kvs := []any{"ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "percent", strconv.FormatFloat(pct, 'f', 1, 64), "sql", q}
 
 	if elapsed >= timeout {
-		logger.Criticalw(q.logger, "SLOW SQL QUERY", kvs...)
+		q.logger.Criticalw("SLOW SQL QUERY", kvs...)
 	} else if errThreshold := timeout / 5; errThreshold > 0 && elapsed > errThreshold {
 		q.logger.Errorw("SLOW SQL QUERY", kvs...)
 	} else if warnThreshold := timeout / 10; warnThreshold > 0 && elapsed > warnThreshold {

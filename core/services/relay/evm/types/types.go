@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 type ChainReaderConfig struct {
@@ -55,7 +55,7 @@ const (
 )
 
 type RelayConfig struct {
-	ChainID                *utils.Big         `json:"chainID"`
+	ChainID                *big.Big           `json:"chainID"`
 	FromBlock              uint64             `json:"fromBlock"`
 	EffectiveTransmitterID null.String        `json:"effectiveTransmitterID"`
 	ConfigContractAddress  *common.Address    `json:"configContractAddress"`

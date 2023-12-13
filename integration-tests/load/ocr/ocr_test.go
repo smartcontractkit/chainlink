@@ -3,12 +3,13 @@ package ocr
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
-
-	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/wasp"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
 )
 
 var (
@@ -18,7 +19,7 @@ var (
 	}
 )
 
-func TestOCRPerformance(t *testing.T) {
+func TestOCRLoad(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	cc, msClient, cd, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
 	require.NoError(t, err)
@@ -46,7 +47,7 @@ func TestOCRPerformance(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestOCRCapacity(t *testing.T) {
+func TestOCRVolume(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	cc, msClient, cd, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
 	require.NoError(t, err)

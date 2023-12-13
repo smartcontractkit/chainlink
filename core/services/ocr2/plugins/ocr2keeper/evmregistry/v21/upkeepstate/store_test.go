@@ -14,6 +14,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -346,7 +347,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			scanner := &mockScanner{}
 			store := NewUpkeepStateStore(orm, lggr, scanner)
 
-			require.NoError(t, store.Start(ctx))
+			servicetest.Run(t, store)
 
 			t.Cleanup(func() {
 				t.Log("cleaning up database")
@@ -379,8 +380,6 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			observedLogs.TakeAll()
 
 			require.Equal(t, 0, observedLogs.Len())
-
-			require.NoError(t, store.Close())
 		})
 	}
 }
@@ -467,7 +466,7 @@ func TestUpkeepStateStore_Service(t *testing.T) {
 	store.retention = 500 * time.Millisecond
 	store.cleanCadence = 100 * time.Millisecond
 
-	assert.NoError(t, store.Start(ctx), "no error from starting service")
+	servicetest.Run(t, store)
 
 	// add a value to set up the test
 	require.NoError(t, store.SetUpkeepState(ctx, ocr2keepers.CheckResult{
@@ -493,8 +492,6 @@ func TestUpkeepStateStore_Service(t *testing.T) {
 	values, err = store.SelectByWorkIDs(ctx, "0x2")
 	require.NoError(t, err, "no error from selecting states")
 	require.Equal(t, []ocr2keepers.UpkeepState{ocr2keepers.UnknownState}, values, "selected values should match expected")
-
-	assert.NoError(t, store.Close(), "no error from closing service")
 }
 
 func createUpkeepIDForTest(v int64) ocr2keepers.UpkeepIdentifier {

@@ -21,6 +21,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
@@ -32,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -205,7 +207,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("no eth key exists with address %s", rndAddr.String()))
 
-		_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth(), *utils.NewBigI(1337))
+		_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth(), *ubig.NewI(1337))
 
 		_, err = txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    otherAddress,
@@ -300,7 +302,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		// Create mock forwarder, mock authorizedsenders call.
 		form := forwarders.NewORM(db, logger.Test(t), cfg.Database())
 		fwdrAddr := testutils.NewAddress()
-		fwdr, err := form.CreateForwarder(fwdrAddr, utils.Big(cltest.FixtureChainID))
+		fwdr, err := form.CreateForwarder(fwdrAddr, ubig.Big(cltest.FixtureChainID))
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 
@@ -552,8 +554,7 @@ func TestTxm_Reset(t *testing.T) {
 		assert.EqualError(t, err, "not started")
 	})
 
-	require.NoError(t, txm.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, txm.Close()) }()
+	servicetest.Run(t, txm)
 
 	t.Run("returns no error if started", func(t *testing.T) {
 		err := txm.Reset(addr, false)

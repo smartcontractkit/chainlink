@@ -99,7 +99,7 @@ func (e *EnhancedTelemetryService[T]) Start(context.Context) error {
 
 func (e *EnhancedTelemetryService[T]) Close() error {
 	return e.StopOnce("EnhancedTelemetryService", func() error {
-		e.chDone <- struct{}{}
+		close(e.chDone)
 		e.lggr.Infof("Stopping enhanced telemetry service for job %d", e.job.ID)
 		return nil
 	})
