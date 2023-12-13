@@ -1,5 +1,5 @@
-ChainID = '1029'
 ChainType = 'bttc'
+ChainID = '1029'
 FinalityDepth = 500 
 # blocks are generated every 2-4s 
 LogPollInterval = '2s'
@@ -7,8 +7,6 @@ LogPollInterval = '2s'
 [GasEstimator] 
 Mode = 'BlockHistory'
 EIP1559DynamicFees = false
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0.009 ether'
 
 [GasEstimator.BlockHistory]
 # how many blocks we want to keep in memory to calculate gas price
