@@ -5,7 +5,7 @@ FinalityDepth = 500
 LogPollInterval = '2s'
 
 [GasEstimator]
-PriceMin = '300000 gwei' 
+PriceMin = '9000000  gwei' 
 PriceMax = '30000000 gwei' 
 
 [GasEstimator.BlockHistory]
