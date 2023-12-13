@@ -98,7 +98,7 @@ type logPoller struct {
 	services.StateMachine
 	ec                       Client
 	orm                      ORM
-	lggr                     logger.Logger
+	lggr                     logger.SugaredLogger
 	pollPeriod               time.Duration // poll period set by block production rate
 	useFinalityTag           bool          // indicates whether logPoller should use chain's finality or pick a fixed depth for finality
 	finalityDepth            int64         // finality depth is taken to mean that block (head - finality) is finalized. If `useFinalityTag` is set to true, this value is ignored, because finalityDepth is fetched from chain
@@ -138,7 +138,7 @@ func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, pollPeriod time.Durati
 		cancel:                   cancel,
 		ec:                       ec,
 		orm:                      orm,
-		lggr:                     logger.Named(lggr, "LogPoller"),
+		lggr:                     logger.Sugared(logger.Named(lggr, "LogPoller")),
 		replayStart:              make(chan int64),
 		replayComplete:           make(chan error),
 		pollPeriod:               pollPeriod,
@@ -666,7 +666,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 				}
 			}
 			if batchSize == 1 {
-				logger.Criticalw(lp.lggr, "Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
+				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
 				return err
 			}
 			batchSize /= 2
@@ -921,7 +921,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 			return nil, err
 		}
 	}
-	logger.Criticalw(lp.lggr, "Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
+	lp.lggr.Criticalw("Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
 	rerr := errors.New("Reorg greater than finality depth")
 	lp.SvcErrBuffer.Append(rerr)
 	return nil, rerr

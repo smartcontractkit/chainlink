@@ -68,7 +68,7 @@ type Pool struct {
 	sendonlys           []SendOnlyNode
 	chainID             *big.Int
 	chainType           config.ChainType
-	logger              logger.Logger
+	logger              logger.SugaredLogger
 	selectionMode       string
 	noNewHeadsThreshold time.Duration
 	nodeSelector        NodeSelector
@@ -113,7 +113,7 @@ func NewPool(lggr logger.Logger, selectionMode string, leaseDuration time.Durati
 		sendonlys:           sendonlys,
 		chainID:             chainID,
 		chainType:           chainType,
-		logger:              lggr,
+		logger:              logger.Sugared(lggr),
 		selectionMode:       selectionMode,
 		noNewHeadsThreshold: noNewHeadsTreshold,
 		nodeSelector:        nodeSelector,
@@ -272,10 +272,10 @@ func (p *Pool) report() {
 	}
 
 	live := total - dead
-	logger.Tracew(p.logger, fmt.Sprintf("Pool state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	p.logger.Tracew(fmt.Sprintf("Pool state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	if total == dead {
 		rerr := fmt.Errorf("no EVM primary nodes available: 0/%d nodes are alive", total)
-		logger.Criticalw(p.logger, rerr.Error(), "nodeStates", nodeStates)
+		p.logger.Criticalw(rerr.Error(), "nodeStates", nodeStates)
 		p.SvcErrBuffer.Append(rerr)
 	} else if dead > 0 {
 		p.logger.Errorw(fmt.Sprintf("At least one EVM primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
@@ -320,7 +320,7 @@ func (p *Pool) selectNode() (node Node) {
 	p.activeNode = p.nodeSelector.Select()
 
 	if p.activeNode == nil {
-		logger.Criticalw(p.logger, "No live RPC nodes available", "NodeSelectionMode", p.nodeSelector.Name())
+		p.logger.Criticalw("No live RPC nodes available", "NodeSelectionMode", p.nodeSelector.Name())
 		errmsg := fmt.Errorf("no live nodes available for chain %s", p.chainID.String())
 		p.SvcErrBuffer.Append(errmsg)
 		return &erroringNode{errMsg: errmsg.Error()}
@@ -367,7 +367,7 @@ func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 			if err != nil {
 				p.logger.Debugw("Secondary node BatchCallContext failed", "err", err)
 			} else {
-				logger.Trace(p.logger, "Secondary node BatchCallContext success")
+				p.logger.Trace("Secondary node BatchCallContext success")
 			}
 		}(n)
 	}

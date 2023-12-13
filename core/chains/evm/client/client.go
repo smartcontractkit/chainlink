@@ -102,7 +102,7 @@ func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc
 // client represents an abstract client that manages connections to
 // multiple nodes for a single chain id
 type client struct {
-	logger logger.Logger
+	logger logger.SugaredLogger
 	pool   *Pool
 }
 
@@ -113,10 +113,10 @@ var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.H
 // Currently only supports one primary
 //
 // Deprecated: use [NewChainClient]
-func NewClientWithNodes(logger logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsThreshold time.Duration, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
-	pool := NewPool(logger, selectionMode, leaseDuration, noNewHeadsThreshold, primaryNodes, sendOnlyNodes, chainID, chainType)
+func NewClientWithNodes(lggr logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsThreshold time.Duration, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
+	pool := NewPool(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaryNodes, sendOnlyNodes, chainID, chainType)
 	return &client{
-		logger: logger,
+		logger: logger.Sugared(lggr),
 		pool:   pool,
 	}, nil
 }
