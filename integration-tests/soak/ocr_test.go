@@ -14,7 +14,35 @@ import (
 func TestOCRSoak(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
-	customNetworkTOML := ``
+	customNetworkTOML := `
+	ChainID = '1029'
+ChainType = 'bttc'
+FinalityDepth = 500 
+# blocks are generated every 2-4s 
+LogPollInterval = '2s'
+
+[GasEstimator]
+PriceMin = '9000000 gwei' 
+PriceMax = '30000000 gwei' 
+
+[GasEstimator.BlockHistory]
+# how many blocks we want to keep in memory to calculate gas price
+# # Average block time of 2s
+BlockHistorySize = 24
+
+[Transactions]
+ResendAfterThreshold = '30s'
+
+[HeadTracker]
+# re-org for bttc is really high so we want to check for the block where reorg happens
+HistoryDepth = 500
+
+[NodePool]
+SyncThreshold = 10
+
+[OCR]
+ContractConfirmations = 1
+`
 	// Uncomment below for debugging TOML issues on the node
 	// network := networks.MustGetSelectedNetworksFromEnv()[0]
 	// fmt.Println("Using Chainlink TOML\n---------------------")
