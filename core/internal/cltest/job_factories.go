@@ -25,7 +25,7 @@ const (
 			contractAddress    = "%s"
 			evmChainID		   = "0"
 			p2pPeerID          = "%s"
-			p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+			p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 			isBootstrapPeer    = false
 			transmitterAddress = "%s"
 			keyBundleID = "%s"

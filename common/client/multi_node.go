@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -166,12 +165,12 @@ func NewMultiNode[
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) Dial(ctx context.Context) error {
 	return c.StartOnce("MultiNode", func() (merr error) {
 		if len(c.nodes) == 0 {
-			return errors.Errorf("no available nodes for chain %s", c.chainID.String())
+			return fmt.Errorf("no available nodes for chain %s", c.chainID.String())
 		}
 		var ms services.MultiStart
 		for _, n := range c.nodes {
 			if n.ConfiguredChainID().String() != c.chainID.String() {
-				return ms.CloseBecause(errors.Errorf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
+				return ms.CloseBecause(fmt.Errorf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
 			}
 			rawNode, ok := n.(*node[CHAIN_ID, HEAD, RPC_CLIENT])
 			if ok {
@@ -188,7 +187,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		}
 		for _, s := range c.sendonlys {
 			if s.ConfiguredChainID().String() != c.chainID.String() {
-				return ms.CloseBecause(errors.Errorf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", s.String(), s.ConfiguredChainID().String(), c.chainID.String()))
+				return ms.CloseBecause(fmt.Errorf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", s.String(), s.ConfiguredChainID().String(), c.chainID.String()))
 			}
 			if err := ms.Start(ctx, s); err != nil {
 				return err

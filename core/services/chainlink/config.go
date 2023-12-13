@@ -28,9 +28,9 @@ import (
 // When adding a new field:
 //   - consider including a unit suffix with the field name
 //   - TOML is limited to int64/float64, so fields requiring greater range/precision must use non-standard types
-//     implementing encoding.TextMarshaler/TextUnmarshaler, like utils.Big and decimal.Decimal
+//     implementing encoding.TextMarshaler/TextUnmarshaler, like big.Big and decimal.Decimal
 //   - std lib types that don't implement encoding.TextMarshaler/TextUnmarshaler (time.Duration, url.URL, big.Int) won't
-//     work as expected, and require wrapper types. See models.Duration, models.URL, utils.Big.
+//     work as expected, and require wrapper types. See models.Duration, models.URL, big.Big.
 type Config struct {
 	toml.Core
 
@@ -76,42 +76,7 @@ func (c *Config) valueWarnings() (err error) {
 // deprecationWarnings returns an error if the Config contains deprecated fields.
 // This is typically used before defaults have been applied, with input from the user.
 func (c *Config) deprecationWarnings() (err error) {
-	if c.P2P.V1 != (toml.P2PV1{}) {
-		err = multierr.Append(err, config.ErrDeprecated{Name: "P2P.V1"})
-		var err2 error
-		if c.P2P.V1.AnnounceIP != nil {
-			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "AnnounceIP"})
-		}
-		if c.P2P.V1.AnnouncePort != nil {
-			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "AnnouncePort"})
-		}
-		if c.P2P.V1.BootstrapCheckInterval != nil {
-			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "BootstrapCheckInterval"})
-		}
-		if c.P2P.V1.DefaultBootstrapPeers != nil {
-			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "DefaultBootstrapPeers"})
-		}
-		if c.P2P.V1.DHTAnnouncementCounterUserPrefix != nil {
-			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "DHTAnnouncementCounterUserPrefix"})
-		}
-		if c.P2P.V1.DHTLookupInterval != nil {
-			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "DHTLookupInterval"})
-		}
-		if c.P2P.V1.ListenIP != nil {
-			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "ListenIP"})
-		}
-		if c.P2P.V1.ListenPort != nil {
-			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "ListenPort"})
-		}
-		if c.P2P.V1.NewStreamTimeout != nil {
-			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "NewStreamTimeout"})
-		}
-		if c.P2P.V1.PeerstoreWriteInterval != nil {
-			err2 = multierr.Append(err2, config.ErrDeprecated{Name: "PeerstoreWriteInterval"})
-		}
-		err2 = config.NamedMultiErrorList(err2, "P2P.V1")
-		err = multierr.Append(err, err2)
-	}
+	// none
 	return
 }
 

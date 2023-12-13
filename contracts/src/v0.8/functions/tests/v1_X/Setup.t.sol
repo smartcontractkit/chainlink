@@ -9,7 +9,9 @@ import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {TermsOfServiceAllowList} from "../../dev/v1_X/accessControl/TermsOfServiceAllowList.sol";
+import {TermsOfServiceAllowListConfig} from "../../dev/v1_X/accessControl/interfaces/ITermsOfServiceAllowList.sol";
 import {MockLinkToken} from "../../../mocks/MockLinkToken.sol";
+import {FunctionsBillingConfig} from "../../dev/v1_X/interfaces/IFunctionsBilling.sol";
 
 import "forge-std/Vm.sol";
 
@@ -64,9 +66,9 @@ contract FunctionsRouterSetup is BaseTest {
       });
   }
 
-  function getCoordinatorConfig() public view returns (FunctionsBilling.Config memory) {
+  function getCoordinatorConfig() public view returns (FunctionsBillingConfig memory) {
     return
-      FunctionsBilling.Config({
+      FunctionsBillingConfig({
         feedStalenessSeconds: 24 * 60 * 60, // 1 day
         gasOverheadAfterCallback: 93_942,
         gasOverheadBeforeCallback: 105_000,
@@ -79,8 +81,8 @@ contract FunctionsRouterSetup is BaseTest {
       });
   }
 
-  function getTermsOfServiceConfig() public view returns (TermsOfServiceAllowList.Config memory) {
-    return TermsOfServiceAllowList.Config({enabled: true, signerPublicKey: TOS_SIGNER});
+  function getTermsOfServiceConfig() public view returns (TermsOfServiceAllowListConfig memory) {
+    return TermsOfServiceAllowListConfig({enabled: true, signerPublicKey: TOS_SIGNER});
   }
 }
 

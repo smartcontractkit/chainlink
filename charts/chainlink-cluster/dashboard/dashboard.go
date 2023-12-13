@@ -350,48 +350,6 @@ func (m *CLClusterDashboard) generate() error {
 				),
 			),
 		),
-		// logs
-		dashboard.Row(
-			"Logs",
-			row.Collapse(),
-			row.WithTimeSeries(
-				"Log Counters",
-				timeseries.Span(12),
-				timeseries.Height("200px"),
-				timeseries.DataSource(m.PrometheusDataSourceName),
-				timeseries.WithPrometheusTarget(
-					`log_panic_count{namespace="${namespace}"}`,
-					prometheus.Legend("{{pod}} - panic"),
-				),
-				timeseries.WithPrometheusTarget(
-					`log_fatal_count{namespace="${namespace}"}`,
-					prometheus.Legend("{{pod}} - fatal"),
-				),
-				timeseries.WithPrometheusTarget(
-					`log_critical_count{namespace="${namespace}"}`,
-					prometheus.Legend("{{pod}} - critical"),
-				),
-				timeseries.WithPrometheusTarget(
-					`log_warn_count{namespace="${namespace}"}`,
-					prometheus.Legend("{{pod}} - warn"),
-				),
-				timeseries.WithPrometheusTarget(
-					`log_error_count{namespace="${namespace}"}`,
-					prometheus.Legend("{{pod}} - error"),
-				),
-			),
-			m.logsRowOption("All errors", `
-			{namespace="${namespace}", app="app", container="node"} 
-			| json 
-			| level="error" 
-			|  line_format "{{ .instance }} {{ .level }} {{ .ts }} {{ .logger }} {{ .caller }} {{ .msg }} {{ .version }} {{ .nodeTier }} {{ .nodeName }} {{ .node }} {{ .evmChainID }} {{ .nodeOrder }} {{ .mode }} {{ .nodeState }} {{ .sentryEventID }} {{ .stacktrace }}"`),
-			m.logsRowOption("Node 1", `{namespace="${namespace}", app="app", instance="node-1", container="node"}`),
-			m.logsRowOption("Node 2", `{namespace="${namespace}", app="app", instance="node-2", container="node"}`),
-			m.logsRowOption("Node 3", `{namespace="${namespace}", app="app", instance="node-3", container="node"}`),
-			m.logsRowOption("Node 4", `{namespace="${namespace}", app="app", instance="node-4", container="node"}`),
-			m.logsRowOption("Node 5", `{namespace="${namespace}", app="app", instance="node-5", container="node"}`),
-			m.logsRowOption("Node 6", `{namespace="${namespace}", app="app", instance="node-6", container="node"}`),
-		),
 		// HeadTracker
 		dashboard.Row("Head tracker",
 			row.Collapse(),

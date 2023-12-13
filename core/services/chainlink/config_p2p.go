@@ -1,11 +1,7 @@
 package chainlink
 
 import (
-	"net"
-	"time"
-
 	"github.com/smartcontractkit/libocr/commontypes"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -18,11 +14,7 @@ type p2p struct {
 }
 
 func (p *p2p) Enabled() bool {
-	return p.V1().Enabled() || p.V2().Enabled()
-}
-
-func (p *p2p) NetworkStack() (n ocrnetworking.NetworkingStack) {
-	return p.c.NetworkStack()
+	return p.V2().Enabled()
 }
 
 func (p *p2p) PeerID() p2pkey.PeerID {
@@ -43,63 +35,6 @@ func (p *p2p) OutgoingMessageBufferSize() int {
 
 func (p *p2p) V2() config.V2 {
 	return &p2pv2{p.c.V2}
-}
-
-func (p *p2p) V1() config.V1 {
-	return &p2pv1{p.c.V1}
-}
-
-type p2pv1 struct {
-	c toml.P2PV1
-}
-
-func (v *p2pv1) Enabled() bool {
-	return *v.c.Enabled
-}
-
-func (v *p2pv1) AnnounceIP() net.IP {
-	return *v.c.AnnounceIP
-}
-
-func (v *p2pv1) AnnouncePort() uint16 {
-	return *v.c.AnnouncePort
-}
-
-func (v *p2pv1) DefaultBootstrapPeers() ([]string, error) {
-	p := *v.c.DefaultBootstrapPeers
-	if p == nil {
-		p = []string{}
-	}
-	return p, nil
-}
-
-func (v *p2pv1) DHTAnnouncementCounterUserPrefix() uint32 {
-	return *v.c.DHTAnnouncementCounterUserPrefix
-}
-
-func (v *p2pv1) ListenIP() net.IP {
-	return *v.c.ListenIP
-}
-
-func (v *p2pv1) ListenPort() uint16 {
-	p := *v.c.ListenPort
-	return p
-}
-
-func (v *p2pv1) NewStreamTimeout() time.Duration {
-	return v.c.NewStreamTimeout.Duration()
-}
-
-func (v *p2pv1) BootstrapCheckInterval() time.Duration {
-	return v.c.BootstrapCheckInterval.Duration()
-}
-
-func (v *p2pv1) DHTLookupInterval() int {
-	return int(*v.c.DHTLookupInterval)
-}
-
-func (v *p2pv1) PeerstoreWriteInterval() time.Duration {
-	return v.c.PeerstoreWriteInterval.Duration()
 }
 
 type p2pv2 struct {

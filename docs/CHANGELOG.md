@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-### Fixed
-- Fixed a bug that caused the Telemetry Manager to report incorrect health
+...
+
+## 2.8.0 - UNRELEASED
 
 ### Added
 
@@ -53,7 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `mercury_cache_wait_count`
     `mercury_cache_miss_count`
 - Added new `EVM.OCR` TOML config fields `DeltaCOverride` and `DeltaCJitterOverride` for overriding the config DeltaC.
-
+- Mercury v0.2 has improved consensus around current block that uses the most recent 5 blocks instead of only the latest one
+- Two new prom metrics for mercury, nops should consider adding alerting on these:
+    - `mercury_insufficient_blocks_count`
+    - `mercury_zero_blocks_count`
+  
 ### Changed
 
 - `PromReporter` no longer directly reads txm related status from the db, and instead uses the txStore API.
@@ -64,16 +69,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed `Optimism2` as a supported gas estimator mode
 
-### Added
-
-- Mercury v0.2 has improved consensus around current block that uses the most recent 5 blocks instead of only the latest one
-- Two new prom metrics for mercury, nops should consider adding alerting on these:
-    - `mercury_insufficient_blocks_count`
-    - `mercury_zero_blocks_count`
-
 ### Fixed
 
 - Corrected Ethereum Sepolia `LinkContractAddress` to `0x779877A7B0D9E8603169DdbD7836e478b4624789`
+- Fixed a bug that caused the Telemetry Manager to report incorrect health
+
+### Upcoming Required Configuration Changes
+Starting in `v2.9.0`:
+- `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` will no longer be allowed. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
+- `P2P.V1` will no longer be supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
 
 ...
 

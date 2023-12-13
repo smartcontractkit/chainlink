@@ -14,10 +14,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // For more information about the Txm architecture, see the design doc:
@@ -339,18 +341,20 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
+			ctx, cancel := b.chStop.NewCtx()
+			defer cancel()
 			// Retry indefinitely on failure
-			backoff := utils.NewRedialBackoff()
+			backoff := iutils.NewRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.broadcaster.startInternal(); err != nil {
+					if err := b.broadcaster.startInternal(ctx); err != nil {
 						logger.Criticalw(b.logger, "Failed to start Broadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
 					return
-				case <-b.chStop:
+				case <-ctx.Done():
 					stopOnce.Do(func() { stopped = true })
 					return
 				}
@@ -359,7 +363,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
-			backoff := utils.NewRedialBackoff()
+			backoff := iutils.NewRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):

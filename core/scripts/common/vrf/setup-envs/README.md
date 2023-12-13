@@ -38,7 +38,8 @@ go run . \
 --batch-fulfillment-enabled="true" \
 --min-confs=3 \
 --register-vrf-key-against-address=<vrf key will be registered against this address 
-in order to call oracleWithdraw from this address>
+in order to call oracleWithdraw from this address> \
+--deploy-vrfv2-owner="true"
 ```
 
 Optional parameters - will not be deployed if specified 
@@ -71,7 +72,7 @@ go run . \
 --sending-key-funding-amount="1e17" \
 --deploy-contracts-and-create-jobs="false" 
 ```
-Then update corresponding deployment scripts with the new ETH addresses, specifying max gas price for each key
+Then update corresponding deployment scripts in infra-k8s repo with the new ETH addresses, specifying max gas price for each key
 
 e.g.:
 ```
@@ -98,6 +99,7 @@ go run . \
 --batch-fulfillment-enabled="true" \
 --min-confs=3 \
 --register-vrf-key-against-address="<eoa address>" \
+--deploy-vrfv2-owner="true" \
 --link-address "<link address>" \
 --link-eth-feed "<link eth feed address>" 
 ``` 

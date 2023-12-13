@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/pelletier/go-toml/v2"
-
 	"github.com/jmoiron/sqlx"
+	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
@@ -46,9 +45,11 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 	relayers := make(map[relay.ID]evmrelay.LoopRelayAdapter)
 
+	lggr := r.Logger.Named("EVM")
+
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
 	ccOpts := legacyevm.ChainRelayExtenderConfig{
-		Logger:    r.Logger.Named("EVM"),
+		Logger:    lggr,
 		KeyStore:  config.CSAETHKeystore.Eth(),
 		ChainOpts: config.ChainOpts,
 	}
@@ -72,7 +73,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 			EventBroadcaster: ccOpts.EventBroadcaster,
 			MercuryPool:      r.MercuryPool,
 		}
-		relayer, err2 := evmrelay.NewRelayer(r.Logger.Named("EVM").Named(relayID.ChainID), chain, relayerOpts)
+		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
 			err = errors.Join(err, err2)
 			continue

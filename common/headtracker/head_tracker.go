@@ -2,20 +2,20 @@ package headtracker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -43,14 +43,14 @@ type HeadTracker[
 	log             logger.Logger
 	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH]
 	headSaver       types.HeadSaver[HTH, BLOCK_HASH]
-	mailMon         *utils.MailboxMonitor
+	mailMon         *mailbox.Monitor
 	client          htrktypes.Client[HTH, S, ID, BLOCK_HASH]
 	chainID         ID
 	config          htrktypes.Config
 	htConfig        htrktypes.HeadTrackerConfig
 
-	backfillMB   *utils.Mailbox[HTH]
-	broadcastMB  *utils.Mailbox[HTH]
+	backfillMB   *mailbox.Mailbox[HTH]
+	broadcastMB  *mailbox.Mailbox[HTH]
 	headListener types.HeadListener[HTH, BLOCK_HASH]
 	chStop       services.StopChan
 	wgDone       sync.WaitGroup
@@ -70,7 +70,7 @@ func NewHeadTracker[
 	htConfig htrktypes.HeadTrackerConfig,
 	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH],
 	headSaver types.HeadSaver[HTH, BLOCK_HASH],
-	mailMon *utils.MailboxMonitor,
+	mailMon *mailbox.Monitor,
 	getNilHead func() HTH,
 ) types.HeadTracker[HTH, BLOCK_HASH] {
 	chStop := make(chan struct{})
@@ -82,8 +82,8 @@ func NewHeadTracker[
 		config:          config,
 		htConfig:        htConfig,
 		log:             lggr,
-		backfillMB:      utils.NewSingleMailbox[HTH](),
-		broadcastMB:     utils.NewMailbox[HTH](HeadsBufferSize),
+		backfillMB:      mailbox.NewSingle[HTH](),
+		broadcastMB:     mailbox.New[HTH](HeadsBufferSize),
 		chStop:          chStop,
 		headListener:    NewHeadListener[HTH, S, ID, BLOCK_HASH](lggr, client, config, chStop),
 		headSaver:       headSaver,
@@ -123,7 +123,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 			ht.log.Errorw("Error getting initial head", "err", err)
 		} else if initialHead.IsValid() {
 			if err := ht.handleNewHead(ctx, initialHead); err != nil {
-				return errors.Wrap(err, "error handling initial head")
+				return fmt.Errorf("error handling initial head: %w", err)
 			}
 		} else {
 			ht.log.Debug("Got nil initial head")
@@ -179,7 +179,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) LatestChain() HTH {
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) getInitialHead(ctx context.Context) (HTH, error) {
 	head, err := ht.client.HeadByNumber(ctx, nil)
 	if err != nil {
-		return ht.getNilHead(), errors.Wrap(err, "failed to fetch initial head")
+		return ht.getNilHead(), fmt.Errorf("failed to fetch initial head: %w", err)
 	}
 	loggerFields := []interface{}{"head", head}
 	if head.IsValid() {
@@ -204,7 +204,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
-		return errors.Wrapf(err, "failed to save head: %#v", head)
+		return fmt.Errorf("failed to save head: %#v: %w", head, err)
 	}
 
 	if !prevHead.IsValid() || head.BlockNumber() > prevHead.BlockNumber() {
@@ -212,7 +212,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 
 		headWithChain := ht.headSaver.Chain(head.BlockHash())
 		if !headWithChain.IsValid() {
-			return errors.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
+			return fmt.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
 		}
 		ht.backfillMB.Deliver(headWithChain)
 		ht.broadcastMB.Deliver(headWithChain)
@@ -339,7 +339,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 			ht.log.Debugw("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
 			break
 		} else if err != nil {
-			return errors.Wrap(err, "fetchAndSaveHead failed")
+			return fmt.Errorf("fetchAndSaveHead failed: %w", err)
 		}
 	}
 	return

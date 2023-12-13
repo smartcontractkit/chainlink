@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -109,20 +110,6 @@ func WithOCR2() NodeConfigOpt {
 	}
 }
 
-// Deprecated: P2Pv1 is soon to be fully deprecated
-// WithP2Pv1 enables P2Pv1 and disables P2Pv2
-func WithP2Pv1() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.P2P.V1 = toml.P2PV1{
-			Enabled:    ptr.Ptr(true),
-			ListenIP:   it_utils.MustIP("0.0.0.0"),
-			ListenPort: ptr.Ptr[uint16](6690),
-		}
-		// disabled default
-		c.P2P.V2 = toml.P2PV2{Enabled: ptr.Ptr(false)}
-	}
-}
-
 func WithP2Pv2() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V2 = toml.P2PV2{
@@ -176,7 +163,7 @@ func SetChainConfig(
 		}
 		cfg.EVM = evmcfg.EVMConfigs{
 			{
-				ChainID: utils.NewBig(big.NewInt(chain.ChainID)),
+				ChainID: ubig.New(big.NewInt(chain.ChainID)),
 				Chain:   chainConfig,
 				Nodes:   nodes,
 			},
@@ -193,7 +180,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 	var evmConfigs []*evmcfg.EVMConfig
 	for _, network := range networks {
 		evmConfigs = append(evmConfigs, &evmcfg.EVMConfig{
-			ChainID: utils.NewBig(big.NewInt(network.ChainID)),
+			ChainID: ubig.New(big.NewInt(network.ChainID)),
 			Chain: evmcfg.Chain{
 				AutoCreateKey:      ptr.Ptr(true),
 				FinalityDepth:      ptr.Ptr[uint32](50),

@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -95,13 +95,12 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 	subscriber := newSubscriber(1)
 	lpWrapper.SubscribeToUpdates("mock_subscriber", subscriber)
 
-	require.NoError(t, lpWrapper.Start(testutils.Context(t)))
+	servicetest.Run(t, lpWrapper)
 	subscriber.updates.Wait()
 	reqs, resps, err := lpWrapper.LatestEvents()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(reqs))
 	require.Equal(t, 0, len(resps))
-	lpWrapper.Close()
 }
 
 func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
@@ -111,10 +110,9 @@ func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
 
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "00"), nil)
 
-	require.NoError(t, lpWrapper.Start(testutils.Context(t)))
+	servicetest.Run(t, lpWrapper)
 	_, _, err := lpWrapper.LatestEvents()
 	require.Error(t, err)
-	lpWrapper.Close()
 }
 
 func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
@@ -135,7 +133,7 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 	// On the 3rd query, the original request log appears again
 	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{mockedLog}, nil).Once()
 
-	require.NoError(t, lpWrapper.Start(testutils.Context(t)))
+	servicetest.Run(t, lpWrapper)
 	subscriber.updates.Wait()
 
 	oracleRequests, _, err := lpWrapper.LatestEvents()
