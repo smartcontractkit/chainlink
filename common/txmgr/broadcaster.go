@@ -531,6 +531,9 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 
 	// If the transmit check does not complete within the timeout, the transaction will be sent
 	// anyway.
+	// It's intentional that we only run `Check` for unstarted transactions.
+	// Running it on other states might lead to nonce duplication, as we might mark applied transactions as fatally errored.
+
 	checkCtx, cancel := context.WithTimeout(ctx, TransmitCheckTimeout)
 	defer cancel()
 	err = checker.Check(checkCtx, lgr, *etx, attempt)
