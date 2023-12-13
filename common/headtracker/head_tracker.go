@@ -40,7 +40,7 @@ type HeadTracker[
 	BLOCK_HASH types.Hashable,
 ] struct {
 	services.StateMachine
-	log             logger.Logger
+	log             logger.SugaredLogger
 	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH]
 	headSaver       types.HeadSaver[HTH, BLOCK_HASH]
 	mailMon         *mailbox.Monitor
@@ -81,7 +81,7 @@ func NewHeadTracker[
 		chainID:         client.ConfiguredChainID(),
 		config:          config,
 		htConfig:        htConfig,
-		log:             lggr,
+		log:             logger.Sugared(lggr),
 		backfillMB:      mailbox.NewSingle[HTH](),
 		broadcastMB:     mailbox.New[HTH](HeadsBufferSize),
 		chStop:          chStop,
@@ -227,7 +227,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		prevUnFinalizedHead := prevHead.BlockNumber() - int64(ht.config.FinalityDepth())
 		if head.BlockNumber() < prevUnFinalizedHead {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
-			logger.Criticalf(ht.log, "Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
+			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
 			ht.SvcErrBuffer.Append(errors.New("got very old block"))
 		}
 	}
@@ -310,7 +310,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 	}
 	mark := time.Now()
 	fetched := 0
-	l := logger.With(ht.log, "blockNumber", headBlockNumber,
+	l := ht.log.With("blockNumber", headBlockNumber,
 		"n", headBlockNumber-baseHeight,
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", headBlockNumber-1)
