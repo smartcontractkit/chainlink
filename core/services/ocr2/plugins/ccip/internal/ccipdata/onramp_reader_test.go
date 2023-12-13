@@ -1,6 +1,8 @@
 package ccipdata_test
 
 import (
+	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/stretchr/testify/mock"
 	"math/big"
 	"testing"
 	"time"
@@ -33,9 +35,8 @@ type onRampReaderTH struct {
 
 func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
 	_, bc := ccipdata.NewSimulation(t)
-	lp := lpmocks.NewLogPoller(t)
-	_, err := factory.NewOnRampReader(logger.TestLogger(t), testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), common.Address{}, lp, bc)
-	assert.EqualError(t, err, "expected 'EVM2EVMOnRamp' got '' (no contract code at given address)")
+	_, err := factory.NewOnRampReader(logger.TestLogger(t), testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), common.Address{}, lpmocks.NewLogPoller(t), bc)
+	assert.EqualError(t, err, "unable to read type and version: no contract code at given address")
 }
 
 func TestOnRampReaderInit(t *testing.T) {
@@ -415,4 +416,42 @@ func testOnRampReader(t *testing.T, th onRampReaderTH, expectedRouterAddress com
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, expectedRouterAddress, cfg.Router)
+}
+
+func TestNewOnRampReader(t *testing.T) {
+	var tt = []struct {
+		typeAndVersion string
+		expectedErr    string
+	}{
+		{
+			typeAndVersion: "blah",
+			expectedErr:    "unable to read type and version: invalid type and version blah",
+		},
+		{
+			typeAndVersion: "EVM2EVMOffRamp 1.0.0",
+			expectedErr:    "expected EVM2EVMOnRamp got EVM2EVMOffRamp",
+		},
+		{
+			typeAndVersion: "EVM2EVMOnRamp 1.2.0",
+			expectedErr:    "",
+		},
+		{
+			typeAndVersion: "EVM2EVMOnRamp 2.0.0",
+			expectedErr:    "unsupported onramp version 2.0.0",
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.typeAndVersion, func(t *testing.T) {
+			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
+			require.NoError(t, err)
+			c := evmclientmocks.NewClient(t)
+			c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(b, nil)
+			_, err = factory.NewOnRampReader(logger.TestLogger(t), 1, 2, common.Address{}, lpmocks.NewLogPoller(t), c)
+			if tc.expectedErr != "" {
+				require.EqualError(t, err, tc.expectedErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }

@@ -54,7 +54,7 @@ func TypeAndVersion(addr common.Address, client bind.ContractBackend) (ContractT
 	}
 	v, err := semver.NewVersion(versionStr)
 	if err != nil {
-		return "", semver.Version{}, err
+		return "", semver.Version{}, errors.Wrapf(err, "failed parsing version %s", versionStr)
 	}
 
 	if !ContractTypes.Contains(ContractType(contractType)) {

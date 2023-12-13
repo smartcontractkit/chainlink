@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
@@ -361,6 +362,44 @@ func TestCommitStoreReaders(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, expectedGas[v], cr.GasPriceEstimator().String(gp))
 
+		})
+	}
+}
+
+func TestNewCommitStoreReader(t *testing.T) {
+	var tt = []struct {
+		typeAndVersion string
+		expectedErr    string
+	}{
+		{
+			typeAndVersion: "blah",
+			expectedErr:    "unable to read type and version: invalid type and version blah",
+		},
+		{
+			typeAndVersion: "EVM2EVMOffRamp 1.0.0",
+			expectedErr:    "expected CommitStore got EVM2EVMOffRamp",
+		},
+		{
+			typeAndVersion: "CommitStore 1.2.0",
+			expectedErr:    "",
+		},
+		{
+			typeAndVersion: "CommitStore 2.0.0",
+			expectedErr:    "unsupported commit store version 2.0.0",
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.typeAndVersion, func(t *testing.T) {
+			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
+			require.NoError(t, err)
+			c := evmclientmocks.NewClient(t)
+			c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(b, nil)
+			_, err = factory.NewCommitStoreReader(logger.TestLogger(t), common.Address{}, c, lpmocks.NewLogPoller(t), nil)
+			if tc.expectedErr != "" {
+				require.EqualError(t, err, tc.expectedErr)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

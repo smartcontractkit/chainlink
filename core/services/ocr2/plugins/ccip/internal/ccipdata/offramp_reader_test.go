@@ -1,6 +1,7 @@
 package ccipdata_test
 
 import (
+	"github.com/stretchr/testify/mock"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper"
@@ -437,4 +439,42 @@ func testOffRampReader(t *testing.T, th offRampReaderTH) {
 	destPools, err := th.reader.GetDestinationTokenPools(ctx)
 	require.NoError(t, err)
 	require.Empty(t, destPools)
+}
+
+func TestNewOffRampReader(t *testing.T) {
+	var tt = []struct {
+		typeAndVersion string
+		expectedErr    string
+	}{
+		{
+			typeAndVersion: "blah",
+			expectedErr:    "unable to read type and version: invalid type and version blah",
+		},
+		{
+			typeAndVersion: "CommitStore 1.0.0",
+			expectedErr:    "expected EVM2EVMOffRamp got CommitStore",
+		},
+		{
+			typeAndVersion: "EVM2EVMOffRamp 1.2.0",
+			expectedErr:    "",
+		},
+		{
+			typeAndVersion: "EVM2EVMOffRamp 2.0.0",
+			expectedErr:    "unsupported offramp version 2.0.0",
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.typeAndVersion, func(t *testing.T) {
+			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
+			require.NoError(t, err)
+			c := evmclientmocks.NewClient(t)
+			c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(b, nil)
+			_, err = factory.NewOffRampReader(logger.TestLogger(t), common.Address{}, c, lpmocks.NewLogPoller(t), nil)
+			if tc.expectedErr != "" {
+				assert.EqualError(t, err, tc.expectedErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
