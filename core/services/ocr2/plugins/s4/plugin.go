@@ -4,13 +4,28 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
+)
+
+var (
+	promStoragePluginUpdatesCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "storage_plugin_updates",
+		Help: "Number of storage updates fetched from other nodes",
+	}, []string{})
+
+	promStorageTotalByteSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "storage_total_byte_size",
+		Help: "Current byte size of data stored in S4",
+	}, []string{})
 )
 
 type plugin struct {
@@ -59,6 +74,7 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 		return nil, errors.Wrap(err, "failed to GetVersions in Query()")
 	}
 
+	var storageTotalByteSize uint64
 	rows := make([]*SnapshotRow, len(snapshot))
 	for i, v := range snapshot {
 		rows[i] = &SnapshotRow{
@@ -66,6 +82,8 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 			Slotid:  uint32(v.SlotId),
 			Version: v.Version,
 		}
+
+		storageTotalByteSize += v.PayloadSize
 	}
 
 	queryBytes, err := MarshalQuery(rows, c.addressRange)
@@ -75,6 +93,8 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 
 	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(rows)))
 	promReportingPluginsQueryByteSize.WithLabelValues(c.config.ProductName).Set(float64(len(queryBytes)))
+
+	promStorageTotalByteSize.WithLabelValues().Set(float64(storageTotalByteSize))
 
 	c.addressRange.Advance()
 
@@ -123,7 +143,7 @@ func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, quer
 			c.logger.Error("ORM GetSnapshot error", commontypes.LogFields{"err": err})
 		} else {
 			type rkey struct {
-				address *utils.Big
+				address *big.Big
 				slotID  uint
 			}
 
@@ -268,6 +288,7 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, ts types.Repor
 			c.logger.Error("Failed to Update a row in ShouldAcceptFinalizedReport()", commontypes.LogFields{"err": err})
 			continue
 		}
+		promStoragePluginUpdatesCount.WithLabelValues().Inc()
 	}
 
 	c.logger.Debug("S4StorageReporting ShouldAcceptFinalizedReport", commontypes.LogFields{

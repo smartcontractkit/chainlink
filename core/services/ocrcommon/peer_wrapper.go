@@ -2,15 +2,10 @@ package ocrcommon
 
 import (
 	"context"
-	"crypto/ed25519"
-	"fmt"
 	"io"
 
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
-
 	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -44,14 +39,13 @@ type (
 	// SingletonPeerWrapper manages all libocr peers for the application
 	SingletonPeerWrapper struct {
 		services.StateMachine
-		keyStore      keystore.Master
-		p2pCfg        config.P2P
-		ocrCfg        PeerWrapperOCRConfig
-		dbConfig      pg.QConfig
-		db            *sqlx.DB
-		lggr          logger.Logger
-		PeerID        p2pkey.PeerID
-		pstoreWrapper *Pstorewrapper
+		keyStore keystore.Master
+		p2pCfg   config.P2P
+		ocrCfg   PeerWrapperOCRConfig
+		dbConfig pg.QConfig
+		db       *sqlx.DB
+		lggr     logger.Logger
+		PeerID   p2pkey.PeerID
 
 		// Used at shutdown to stop all of this peer's goroutines
 		peerCloser io.Closer
@@ -125,15 +119,11 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	}
 	p.PeerID = key.PeerID()
 
-	discovererDB := NewDiscovererDatabase(p.db.DB, p2ppeer.ID(p.PeerID))
+	discovererDB := NewDiscovererDatabase(p.db.DB, p.PeerID.Raw())
 
 	config := p.p2pCfg
-	pk, err := key.PrivKey.Raw()
-	if err != nil {
-		return ocrnetworking.PeerConfig{}, fmt.Errorf("failed to get raw private key: %w", err)
-	}
 	peerConfig := ocrnetworking.PeerConfig{
-		PrivKey: ed25519.PrivateKey(pk),
+		PrivKey: key.PrivKey,
 		Logger:  commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
 
 		// V2 config
@@ -157,9 +147,6 @@ func (p *SingletonPeerWrapper) Close() error {
 	return p.StopOnce("SingletonPeerWrapper", func() (err error) {
 		if p.peerCloser != nil {
 			err = p.peerCloser.Close()
-		}
-		if p.pstoreWrapper != nil {
-			err = multierr.Combine(err, p.pstoreWrapper.Close())
 		}
 		return err
 	})

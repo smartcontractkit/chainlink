@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -48,13 +49,13 @@ type ORM interface {
 
 type orm struct {
 	q          pg.Q
-	evmChainID utils.Big
+	evmChainID ubig.Big
 }
 
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, evmChainID big.Int) *orm {
-	return &orm{pg.NewQ(db, lggr, cfg), *utils.NewBig(&evmChainID)}
+	return &orm{pg.NewQ(db, lggr, cfg), *ubig.New(&evmChainID)}
 }
 
 func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (consumed bool, err error) {
@@ -128,7 +129,7 @@ func (o *orm) MarkBroadcastsConsumed(blockHashes []common.Hash, blockNumbers []u
 		BlockNumber uint64      `db:"blockNumber"`
 		LogIndex    uint        `db:"logIndex"`
 		JobID       int32       `db:"jobID"`
-		ChainID     utils.Big   `db:"chainID"`
+		ChainID     ubig.Big    `db:"chainID"`
 	}
 	inputs := make([]input, len(blockHashes))
 	query := `
