@@ -120,7 +120,7 @@ func TestVRFV2Performance(t *testing.T) {
 				require.NoError(t, err, vrfv2_actions.ErrWaitTXsComplete)
 			}
 			l.Info().
-				Str("Coordinator", vrfv2Contracts.Coordinator.Address()).
+				Str("Coordinator", cfg.ExistingEnvConfig.CoordinatorAddress).
 				Int("Number of Subs to create", vrfv2Config.NumberOfSubToCreate).
 				Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 			subIDs, err = vrfv2_actions.CreateFundSubsAndAddConsumers(
