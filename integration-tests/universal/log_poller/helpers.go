@@ -42,6 +42,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/logpoller"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
@@ -150,7 +152,7 @@ type ExpectedFilter struct {
 	topic          common.Hash
 }
 
-func getExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []ExpectedFilter {
+func getExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *lp_config.Config) []ExpectedFilter {
 	expectedFilters := make([]ExpectedFilter, 0)
 	for _, emitter := range logEmitters {
 		for _, event := range cfg.General.EventsToEmit {
@@ -224,7 +226,7 @@ func getStringSlice(length int) []string {
 	return result
 }
 
-var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contracts.LogEmitter, cfg *Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
+var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contracts.LogEmitter, cfg *lp_config.Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
 	address := (*logEmitter).Address().String()
 	localCounter := 0
 	select {
@@ -488,7 +490,7 @@ func (m *MissingLogs) IsEmpty() bool {
 	return true
 }
 
-var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, clnodeCluster *test_env.ClCluster, l zerolog.Logger, coreLogger core_logger.SugaredLogger, cfg *Config) (MissingLogs, error) {
+var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, clnodeCluster *test_env.ClCluster, l zerolog.Logger, coreLogger core_logger.SugaredLogger, cfg *lp_config.Config) (MissingLogs, error) {
 	wg := &sync.WaitGroup{}
 
 	type dbQueryResult struct {
@@ -657,7 +659,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 	return missingLogs, nil
 }
 
-var printMissingLogsByType = func(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *Config) {
+var printMissingLogsByType = func(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *lp_config.Config) {
 	var findHumanName = func(topic common.Hash) string {
 		for _, event := range cfg.General.EventsToEmit {
 			if event.ID == topic {
@@ -681,7 +683,7 @@ var printMissingLogsByType = func(missingLogs map[string][]geth_types.Log, l zer
 	}
 }
 
-var getEVMLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *Config) ([]geth_types.Log, error) {
+var getEVMLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *lp_config.Config) ([]geth_types.Log, error) {
 	allLogsInEVMNode := make([]geth_types.Log, 0)
 	for j := 0; j < len(logEmitters); j++ {
 		address := (*logEmitters[j]).Address()
@@ -711,15 +713,15 @@ var getEVMLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEm
 	return allLogsInEVMNode, nil
 }
 
-func executeGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
-	if cfg.General.Generator == GeneratorType_WASP {
+func executeGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contracts.LogEmitter) (int, error) {
+	if cfg.General.Generator == lp_config.GeneratorType_WASP {
 		return runWaspGenerator(t, cfg, logEmitters)
 	}
 
 	return runLoopedGenerator(t, cfg, logEmitters)
 }
 
-func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
+func runWaspGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contracts.LogEmitter) (int, error) {
 	l := logging.GetTestLogger(t)
 
 	var RPSprime int64
@@ -776,7 +778,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 	return counter.value, nil
 }
 
-func runLoopedGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
+func runLoopedGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contracts.LogEmitter) (int, error) {
 	l := logging.GetTestLogger(t)
 
 	// Start emitting events in parallel, each contract is emitting events in a separate goroutine
@@ -822,8 +824,8 @@ func runLoopedGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogE
 	return int(total), nil
 }
 
-func getExpectedLogCount(cfg *Config) int64 {
-	if cfg.General.Generator == GeneratorType_WASP {
+func getExpectedLogCount(cfg *lp_config.Config) int64 {
+	if cfg.General.Generator == lp_config.GeneratorType_WASP {
 		if cfg.Wasp.Load.RPS != 0 {
 			return cfg.Wasp.Load.RPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds()) * int64(cfg.General.EventsPerTx)
 		}
@@ -859,7 +861,7 @@ var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 	return nil
 }
 
-var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, cfg *Config, errorCh chan error) {
+var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, cfg *lp_config.Config, errorCh chan error) {
 	if cfg.ChaosConfig == nil || cfg.ChaosConfig.ExperimentCount == 0 {
 		errorCh <- nil
 		return
@@ -930,7 +932,7 @@ var GetFinalityDepth = func(chainId int64) (int64, error) {
 	return finalityDepth, nil
 }
 
-var GetEndBlockToWaitFor = func(endBlock, chainId int64, cfg *Config) (int64, error) {
+var GetEndBlockToWaitFor = func(endBlock, chainId int64, cfg *lp_config.Config) (int64, error) {
 	if cfg.General.UseFinalityTag {
 		return endBlock + 1, nil
 	}
@@ -990,6 +992,7 @@ func setupLogPollerTestDocker(
 	upkeepsNeeded int,
 	lpPollingInterval time.Duration,
 	finalityTagEnabled bool,
+	testConfig *tc.TestConfig,
 ) (
 	blockchain.EVMClient,
 	[]*client.ChainlinkClient,
@@ -1000,9 +1003,10 @@ func setupLogPollerTestDocker(
 	*test_env.CLClusterTestEnv,
 ) {
 	l := logging.GetTestLogger(t)
+
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-	network := networks.MustGetSelectedNetworksFromEnv()[0]
+	network := networks.MustGetSelectedNetworkConfig(testConfig.NetworkConfig)[0]
 
 	finalityDepth, err := GetFinalityDepth(network.ChainID)
 	require.NoError(t, err, "Error getting finality depth")
@@ -1043,7 +1047,7 @@ func setupLogPollerTestDocker(
 		WithConsensusType(ctf_test_env.ConsensusType_PoS).
 		WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
 		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
-		WithBeaconChainConfig(ctf_test_env.BeaconChainConfig{
+		WithEthereumChainConfig(ctf_test_env.EthereumChainConfig{
 			SecondsPerSlot: 8,
 			SlotsPerEpoch:  2,
 		}).

@@ -24,6 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -47,9 +49,9 @@ HistoryDepth = 400
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
-	activeEVMNetwork          = networks.MustGetSelectedNetworksFromEnv()[0]
+
 	defaultAutomationSettings = map[string]interface{}{
-		"toml": networks.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
+		"toml": "",
 		"db": map[string]interface{}{
 			"stateful": false,
 			"capacity": "1Gi",
@@ -67,7 +69,7 @@ LimitDefault = 5_000_000`
 	}
 
 	defaultReorgEthereumSettings = &reorg.Props{
-		NetworkName: activeEVMNetwork.Name,
+		NetworkName: "",
 		NetworkType: "geth-reorg",
 		Values: map[string]interface{}{
 			"geth": map[string]interface{}{
@@ -136,22 +138,32 @@ func TestAutomationReorg(t *testing.T) {
 		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			network := networks.MustGetSelectedNetworksFromEnv()[0]
+			config, err := tc.GetConfig(tc.Reorg, tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
 
 			defaultAutomationSettings["replicas"] = numberOfNodes
+			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.PyroscopeConfig, networkTOML, network)
 			cd := chainlink.New(0, defaultAutomationSettings)
+
+			ethSetting := defaultReorgEthereumSettings
+			ethSetting.NetworkName = network.Name
+
 			testEnvironment := environment.
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
 					TTL:             time.Hour * 1,
 					Test:            t}).
-				AddHelm(reorg.New(defaultReorgEthereumSettings)).
+				AddHelm(reorg.New(ethSetting)).
 				AddChart(blockscout.New(&blockscout.Props{
 					Name:    "geth-blockscout",
-					WsURL:   activeEVMNetwork.URL,
-					HttpURL: activeEVMNetwork.HTTPURLs[0]})).
+					WsURL:   network.URL,
+					HttpURL: network.HTTPURLs[0]})).
 				AddHelm(cd)
-			err := testEnvironment.Run()
+			err = testEnvironment.Run()
 			require.NoError(t, err, "Error setting up test environment")
 
 			if testEnvironment.WillUseRemoteRunner() {
@@ -168,7 +180,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			// Register cleanup for any test
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 

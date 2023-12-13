@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	mrand "math/rand"
-	"os"
 	"strconv"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -50,8 +50,9 @@ type S4SecretsCfg struct {
 	S4SetPayload          string
 }
 
-func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
-	bc, err := blockchain.NewEVMClientFromNetwork(networks.MustGetSelectedNetworksFromEnv()[0], log.Logger)
+func SetupLocalLoadTestEnv(config *tc.TestConfig) (*FunctionsTest, error) {
+	selectedNetwork := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+	bc, err := blockchain.NewEVMClientFromNetwork(selectedNetwork, log.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +68,9 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	cfg := config.Functions
+
 	lt, err := cl.LoadLINKToken(cfg.Common.LINKTokenAddr)
 	if err != nil {
 		return nil, err
@@ -104,7 +108,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 		}
 		cfg.Common.SubscriptionID = subID
 	}
-	pKey, pubKey, err := parseEthereumPrivateKey(os.Getenv("MUMBAI_KEYS"))
+	pKey, pubKey, err := parseEthereumPrivateKey(selectedNetwork.PrivateKeys[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to load Ethereum private key: %w", err)
 	}
@@ -130,7 +134,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 		}
 		slotID, slotVersion, err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
 			GatewayURL:            cfg.Common.GatewayURL,
-			PrivateKey:            cfg.MumbaiPrivateKey,
+			PrivateKey:            selectedNetwork.PrivateKeys[0],
 			MessageID:             strconv.Itoa(mrand.Intn(100000-1) + 1),
 			Method:                "secrets_set",
 			DonID:                 cfg.Common.DONID,

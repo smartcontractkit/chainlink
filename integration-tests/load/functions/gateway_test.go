@@ -6,13 +6,16 @@ import (
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 )
 
 func TestGatewayLoad(t *testing.T) {
-	cfg, err := ReadConfig()
+	config, err := tc.GetConfig(tc.Load, tc.Functions)
 	require.NoError(t, err)
-	ft, err := SetupLocalLoadTestEnv(cfg)
+
+	require.NoError(t, err)
+	ft, err := SetupLocalLoadTestEnv(&config)
 	require.NoError(t, err)
 	ft.EVMClient.ParallelTransactions(false)
 
@@ -20,6 +23,8 @@ func TestGatewayLoad(t *testing.T) {
 		"branch": "gateway_healthcheck",
 		"commit": "gateway_healthcheck",
 	}
+
+	cfg := config.Functions
 
 	secretsListCfg := &wasp.Config{
 		LoadType: wasp.RPS,
@@ -29,7 +34,7 @@ func TestGatewayLoad(t *testing.T) {
 			cfg.GatewayListSoak.Duration.Duration(),
 		),
 		Gun: NewGatewaySecretsSetGun(
-			cfg,
+			&config,
 			functions.MethodSecretsList,
 			ft.EthereumPrivateKey,
 			ft.ThresholdPublicKey,
@@ -47,7 +52,7 @@ func TestGatewayLoad(t *testing.T) {
 			cfg.GatewaySetSoak.Duration.Duration(),
 		),
 		Gun: NewGatewaySecretsSetGun(
-			cfg,
+			&config,
 			functions.MethodSecretsSet,
 			ft.EthereumPrivateKey,
 			ft.ThresholdPublicKey,

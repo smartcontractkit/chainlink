@@ -12,12 +12,14 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/smartcontractkit/wasp"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 /* SingleFunctionCallGun is a gun that constantly requests randomness for one feed  */
 
 type GatewaySecretsSetGun struct {
-	Cfg                *PerformanceConfig
+	Cfg                *tc.TestConfig
 	Resty              *resty.Client
 	SlotID             uint
 	Method             string
@@ -26,7 +28,7 @@ type GatewaySecretsSetGun struct {
 	DONPublicKey       []byte
 }
 
-func NewGatewaySecretsSetGun(cfg *PerformanceConfig, method string, pKey *ecdsa.PrivateKey, tdh2PubKey *tdh2easy.PublicKey, donPubKey []byte) *GatewaySecretsSetGun {
+func NewGatewaySecretsSetGun(cfg *tc.TestConfig, method string, pKey *ecdsa.PrivateKey, tdh2PubKey *tdh2easy.PublicKey, donPubKey []byte) *GatewaySecretsSetGun {
 	return &GatewaySecretsSetGun{
 		Cfg:                cfg,
 		Resty:              resty.New(),
@@ -59,12 +61,13 @@ func callSecretsSet(m *GatewaySecretsSetGun) *wasp.CallResult {
 	if err != nil {
 		return &wasp.CallResult{Error: err.Error(), Failed: true}
 	}
+	cfg := m.Cfg.Functions
 	_, _, err = UploadS4Secrets(m.Resty, &S4SecretsCfg{
-		GatewayURL:            m.Cfg.Common.GatewayURL,
+		GatewayURL:            cfg.Common.GatewayURL,
 		PrivateKey:            os.Getenv("MUMBAI_KEYS"),
 		MessageID:             randNum,
 		Method:                "secrets_set",
-		DonID:                 m.Cfg.Common.DONID,
+		DonID:                 cfg.Common.DONID,
 		S4SetSlotID:           randSlot,
 		S4SetVersion:          version,
 		S4SetExpirationPeriod: expiration,
@@ -81,13 +84,14 @@ func callSecretsList(m *GatewaySecretsSetGun) *wasp.CallResult {
 	randSlot := uint(rand.Intn(5))
 	version := uint64(time.Now().UnixNano())
 	expiration := int64(60 * 60 * 1000)
+	cfg := m.Cfg.Functions
 	if err := ListS4Secrets(m.Resty, &S4SecretsCfg{
-		GatewayURL:            fmt.Sprintf(m.Cfg.Common.GatewayURL),
-		RecieverAddr:          m.Cfg.Common.Receiver,
+		GatewayURL:            fmt.Sprintf(cfg.Common.GatewayURL),
+		RecieverAddr:          cfg.Common.Receiver,
 		PrivateKey:            os.Getenv("MUMBAI_KEYS"),
 		MessageID:             randNum,
 		Method:                m.Method,
-		DonID:                 m.Cfg.Common.DONID,
+		DonID:                 cfg.Common.DONID,
 		S4SetSlotID:           randSlot,
 		S4SetVersion:          version,
 		S4SetExpirationPeriod: expiration,

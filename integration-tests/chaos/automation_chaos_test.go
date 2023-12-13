@@ -25,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -41,7 +43,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 
 	defaultAutomationSettings = map[string]interface{}{
 		"replicas": 6,
-		"toml":     networks.AddNetworksConfig(baseTOML, networks.MustGetSelectedNetworksFromEnv()[0]),
+		"toml":     "",
 		"db": map[string]interface{}{
 			"stateful": true,
 			"capacity": "1Gi",
@@ -58,11 +60,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		},
 	}
 
-	defaultEthereumSettings = &ethereum.Props{
-		// utils.MustGetSelectedNetworksFromEnv()
-		NetworkName: networks.MustGetSelectedNetworksFromEnv()[0].Name,
-		Simulated:   networks.MustGetSelectedNetworksFromEnv()[0].Simulated,
-		WsURLs:      networks.MustGetSelectedNetworksFromEnv()[0].URLs,
+	defaultEthereumSettings = ethereum.Props{
 		Values: map[string]interface{}{
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
@@ -96,6 +94,20 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	}
 )
 
+func getDefaultAutomationSettings(config *tc.TestConfig) map[string]interface{} {
+	defaultAutomationSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0])
+	return defaultAutomationSettings
+}
+
+func getDefaultEthereumSettings(config *tc.TestConfig) *ethereum.Props {
+	network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+	defaultEthereumSettings.NetworkName = network.Name
+	defaultEthereumSettings.Simulated = network.Simulated
+	defaultEthereumSettings.WsURLs = network.URLs
+
+	return &defaultEthereumSettings
+}
+
 type KeeperConsumerContracts int32
 
 const (
@@ -120,6 +132,11 @@ func TestAutomationChaos(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			config, err := tc.GetConfig(tc.Chaos, tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			testCases := map[string]struct {
 				networkChart environment.ConnectedChart
 				clChart      environment.ConnectedChart
@@ -128,8 +145,8 @@ func TestAutomationChaos(t *testing.T) {
 			}{
 				// see ocr_chaos.test.go for comments
 				PodChaosFailMinorityNodes: {
-					ethereum.New(defaultEthereumSettings),
-					chainlink.New(0, defaultAutomationSettings),
+					ethereum.New(getDefaultEthereumSettings(&config)),
+					chainlink.New(0, getDefaultAutomationSettings(&config)),
 					chaos.NewFailPods,
 					&chaos.Props{
 						LabelsSelector: &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
@@ -137,8 +154,8 @@ func TestAutomationChaos(t *testing.T) {
 					},
 				},
 				PodChaosFailMajorityNodes: {
-					ethereum.New(defaultEthereumSettings),
-					chainlink.New(0, defaultAutomationSettings),
+					ethereum.New(getDefaultEthereumSettings(&config)),
+					chainlink.New(0, getDefaultAutomationSettings(&config)),
 					chaos.NewFailPods,
 					&chaos.Props{
 						LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -146,8 +163,8 @@ func TestAutomationChaos(t *testing.T) {
 					},
 				},
 				PodChaosFailMajorityDB: {
-					ethereum.New(defaultEthereumSettings),
-					chainlink.New(0, defaultAutomationSettings),
+					ethereum.New(getDefaultEthereumSettings(&config)),
+					chainlink.New(0, getDefaultAutomationSettings(&config)),
 					chaos.NewFailPods,
 					&chaos.Props{
 						LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -156,8 +173,8 @@ func TestAutomationChaos(t *testing.T) {
 					},
 				},
 				NetworkChaosFailMajorityNetwork: {
-					ethereum.New(defaultEthereumSettings),
-					chainlink.New(0, defaultAutomationSettings),
+					ethereum.New(getDefaultEthereumSettings(&config)),
+					chainlink.New(0, getDefaultAutomationSettings(&config)),
 					chaos.NewNetworkPartition,
 					&chaos.Props{
 						FromLabels:  &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -166,8 +183,8 @@ func TestAutomationChaos(t *testing.T) {
 					},
 				},
 				NetworkChaosFailBlockchainNode: {
-					ethereum.New(defaultEthereumSettings),
-					chainlink.New(0, defaultAutomationSettings),
+					ethereum.New(getDefaultEthereumSettings(&config)),
+					chainlink.New(0, getDefaultAutomationSettings(&config)),
 					chaos.NewNetworkPartition,
 					&chaos.Props{
 						FromLabels:  &map[string]*string{"app": ptr.Ptr("geth")},
@@ -182,7 +199,7 @@ func TestAutomationChaos(t *testing.T) {
 				testCase := testCase
 				t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 					t.Parallel()
-					network := networks.MustGetSelectedNetworksFromEnv()[0] // Need a new copy of the network for each test
+					network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0] // Need a new copy of the network for each test
 
 					testEnvironment := environment.
 						New(&environment.Config{
@@ -224,7 +241,7 @@ func TestAutomationChaos(t *testing.T) {
 						if chainClient != nil {
 							chainClient.GasStats().PrintStats()
 						}
-						err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+						err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
 						require.NoError(t, err, "Error tearing down environment")
 					})
 

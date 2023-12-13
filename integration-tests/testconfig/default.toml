@@ -1,0 +1,23 @@
+[OCR]
+ocrish_field = "stefan"
+
+[Logging]
+test_log_collect=false
+test_log_level="DEBUG"
+log_stream_log_targets=["file"]
+#loki_tenant_id
+#loki_url
+#loki_basic_auth
+#grafana_url
+#grafana_data_source
+run_id="mietek"
+
+[Network]
+selected_networks=["simulated"]
+#evm_http_urls=
+#evm_ws_urls=
+#evm_keys=
+
+[ChainlinkImage]
+image="public.ecr.aws/chainlink/chainlink"
+version="2.7.0"

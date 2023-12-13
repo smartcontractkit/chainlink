@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	"github.com/slack-go/slack"
 
@@ -21,7 +21,7 @@ type VRFV2PlusTestReporter struct {
 	AverageFulfillmentInMillions *big.Int
 	SlowestFulfillment           *big.Int
 	FastestFulfillment           *big.Int
-	Vrfv2PlusConfig              *vrfv2plus_config.VRFV2PlusConfig
+	testConfig                   *tc.TestConfig
 }
 
 func (o *VRFV2PlusTestReporter) SetReportData(
@@ -31,7 +31,7 @@ func (o *VRFV2PlusTestReporter) SetReportData(
 	AverageFulfillmentInMillions *big.Int,
 	SlowestFulfillment *big.Int,
 	FastestFulfillment *big.Int,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	testConfig *tc.TestConfig,
 ) {
 	o.TestType = testType
 	o.RequestCount = RequestCount
@@ -39,7 +39,7 @@ func (o *VRFV2PlusTestReporter) SetReportData(
 	o.AverageFulfillmentInMillions = AverageFulfillmentInMillions
 	o.SlowestFulfillment = SlowestFulfillment
 	o.FastestFulfillment = FastestFulfillment
-	o.Vrfv2PlusConfig = &vrfv2PlusConfig
+	o.testConfig = testConfig
 }
 
 // SendSlackNotification sends a slack message to a slack webhook
@@ -53,6 +53,8 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 	if testFailed {
 		headerText = fmt.Sprintf(":x: VRF V2 Plus %s Test FAILED :x:", o.TestType)
 	}
+
+	vrfv2lusConfig := o.testConfig.VRFv2Plus.Common
 
 	messageBlocks := testreporters.SlackNotifyBlocks(headerText, os.Getenv("SELECTED_NETWORKS"), []string{
 		fmt.Sprintf(
@@ -70,17 +72,17 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 				"RandomnessRequestCountPerRequest: %d\n"+
 				"RandomnessRequestCountPerRequestDeviation: %d\n",
 			o.TestType,
-			o.Vrfv2PlusConfig.TestDuration.Truncate(time.Second).String(),
-			o.Vrfv2PlusConfig.UseExistingEnv,
+			vrfv2lusConfig.TestDuration.Truncate(time.Second).String(),
+			vrfv2lusConfig.UseExistingEnv,
 			o.RequestCount.String(),
 			o.FulfilmentCount.String(),
 			o.AverageFulfillmentInMillions.String(),
 			o.SlowestFulfillment.String(),
 			o.FastestFulfillment.String(),
-			o.Vrfv2PlusConfig.RPS,
-			o.Vrfv2PlusConfig.RateLimitUnitDuration.String(),
-			o.Vrfv2PlusConfig.RandomnessRequestCountPerRequest,
-			o.Vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation,
+			vrfv2lusConfig.RPS,
+			vrfv2lusConfig.RateLimitUnitDuration.String(),
+			vrfv2lusConfig.RandomnessRequestCountPerRequest,
+			vrfv2lusConfig.RandomnessRequestCountPerRequestDeviation,
 		),
 	})
 

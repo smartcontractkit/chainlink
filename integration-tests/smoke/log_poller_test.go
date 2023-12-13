@@ -5,24 +5,26 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/logpoller"
 	logpoller "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
 )
 
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
 func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
+	lpCfg := lp_config.Config{
+		General: &lp_config.General{
+			Generator:      lp_config.GeneratorType_Looped,
 			Contracts:      2,
 			EventsPerTx:    4,
 			UseFinalityTag: false,
 		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
+		LoopedConfig: &lp_config.LoopedConfig{
+			ContractConfig: lp_config.ContractConfig{
 				ExecutionCount: 100,
 			},
-			FuzzConfig: logpoller.FuzzConfig{
+			FuzzConfig: lp_config.FuzzConfig{
 				MinEmitWaitTimeMs: 200,
 				MaxEmitWaitTimeMs: 500,
 			},
@@ -34,24 +36,29 @@ func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg.General.EventsToEmit = eventsToEmit
+	lpCfg.General.EventsToEmit = eventsToEmit
+	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.LogPoller = &lpCfg
 
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
 func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
+	lpCfg := lp_config.Config{
+		General: &lp_config.General{
+			Generator:      lp_config.GeneratorType_Looped,
 			Contracts:      2,
 			EventsPerTx:    4,
 			UseFinalityTag: true,
 		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
+		LoopedConfig: &lp_config.LoopedConfig{
+			ContractConfig: lp_config.ContractConfig{
 				ExecutionCount: 100,
 			},
-			FuzzConfig: logpoller.FuzzConfig{
+			FuzzConfig: lp_config.FuzzConfig{
 				MinEmitWaitTimeMs: 200,
 				MaxEmitWaitTimeMs: 500,
 			},
@@ -63,7 +70,12 @@ func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg.General.EventsToEmit = eventsToEmit
+	lpCfg.General.EventsToEmit = eventsToEmit
+	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.LogPoller = &lpCfg
 
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
@@ -71,18 +83,18 @@ func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
 func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
+	lpCfg := lp_config.Config{
+		General: &lp_config.General{
+			Generator:      lp_config.GeneratorType_Looped,
 			Contracts:      300,
 			EventsPerTx:    3,
 			UseFinalityTag: false,
 		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
+		LoopedConfig: &lp_config.LoopedConfig{
+			ContractConfig: lp_config.ContractConfig{
 				ExecutionCount: 30,
 			},
-			FuzzConfig: logpoller.FuzzConfig{
+			FuzzConfig: lp_config.FuzzConfig{
 				MinEmitWaitTimeMs: 200,
 				MaxEmitWaitTimeMs: 500,
 			},
@@ -94,24 +106,29 @@ func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg.General.EventsToEmit = eventsToEmit
+	lpCfg.General.EventsToEmit = eventsToEmit
+	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.LogPoller = &lpCfg
 
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
 func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
+	lpCfg := lp_config.Config{
+		General: &lp_config.General{
+			Generator:      lp_config.GeneratorType_Looped,
 			Contracts:      300,
 			EventsPerTx:    3,
 			UseFinalityTag: true,
 		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
+		LoopedConfig: &lp_config.LoopedConfig{
+			ContractConfig: lp_config.ContractConfig{
 				ExecutionCount: 30,
 			},
-			FuzzConfig: logpoller.FuzzConfig{
+			FuzzConfig: lp_config.FuzzConfig{
 				MinEmitWaitTimeMs: 200,
 				MaxEmitWaitTimeMs: 500,
 			},
@@ -123,7 +140,12 @@ func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg.General.EventsToEmit = eventsToEmit
+	lpCfg.General.EventsToEmit = eventsToEmit
+	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.LogPoller = &lpCfg
 
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
@@ -132,23 +154,23 @@ func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 func TestLogPollerWithChaosFixedDepth(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
+	lpCfg := lp_config.Config{
+		General: &lp_config.General{
+			Generator:      lp_config.GeneratorType_Looped,
 			Contracts:      2,
 			EventsPerTx:    100,
 			UseFinalityTag: false,
 		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
+		LoopedConfig: &lp_config.LoopedConfig{
+			ContractConfig: lp_config.ContractConfig{
 				ExecutionCount: 100,
 			},
-			FuzzConfig: logpoller.FuzzConfig{
+			FuzzConfig: lp_config.FuzzConfig{
 				MinEmitWaitTimeMs: 200,
 				MaxEmitWaitTimeMs: 500,
 			},
 		},
-		ChaosConfig: &logpoller.ChaosConfig{
+		ChaosConfig: &lp_config.ChaosConfig{
 			ExperimentCount: 10,
 		},
 	}
@@ -158,29 +180,34 @@ func TestLogPollerWithChaosFixedDepth(t *testing.T) {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg.General.EventsToEmit = eventsToEmit
+	lpCfg.General.EventsToEmit = eventsToEmit
+	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.LogPoller = &lpCfg
 
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
 func TestLogPollerWithChaosFinalityTag(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
+	lpCfg := lp_config.Config{
+		General: &lp_config.General{
+			Generator:      lp_config.GeneratorType_Looped,
 			Contracts:      2,
 			EventsPerTx:    100,
 			UseFinalityTag: true,
 		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
+		LoopedConfig: &lp_config.LoopedConfig{
+			ContractConfig: lp_config.ContractConfig{
 				ExecutionCount: 100,
 			},
-			FuzzConfig: logpoller.FuzzConfig{
+			FuzzConfig: lp_config.FuzzConfig{
 				MinEmitWaitTimeMs: 200,
 				MaxEmitWaitTimeMs: 500,
 			},
 		},
-		ChaosConfig: &logpoller.ChaosConfig{
+		ChaosConfig: &lp_config.ChaosConfig{
 			ExperimentCount: 10,
 		},
 	}
@@ -190,7 +217,12 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg.General.EventsToEmit = eventsToEmit
+	lpCfg.General.EventsToEmit = eventsToEmit
+	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.LogPoller = &lpCfg
 
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
@@ -201,18 +233,18 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 // with approximate emission of 24 logs per second for ~110 seconds
 // 6 filters are registered
 func TestLogPollerReplayFixedDepth(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
+	lpCfg := lp_config.Config{
+		General: &lp_config.General{
+			Generator:      lp_config.GeneratorType_Looped,
 			Contracts:      2,
 			EventsPerTx:    4,
 			UseFinalityTag: false,
 		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
+		LoopedConfig: &lp_config.LoopedConfig{
+			ContractConfig: lp_config.ContractConfig{
 				ExecutionCount: 100,
 			},
-			FuzzConfig: logpoller.FuzzConfig{
+			FuzzConfig: lp_config.FuzzConfig{
 				MinEmitWaitTimeMs: 200,
 				MaxEmitWaitTimeMs: 500,
 			},
@@ -224,25 +256,29 @@ func TestLogPollerReplayFixedDepth(t *testing.T) {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg.General.EventsToEmit = eventsToEmit
-	consistencyTimeout := "5m"
+	lpCfg.General.EventsToEmit = eventsToEmit
+	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.LogPoller = &lpCfg
 
-	logpoller.ExecuteLogPollerReplay(t, &cfg, consistencyTimeout)
+	logpoller.ExecuteLogPollerReplay(t, &cfg, "5m")
 }
 
 func TestLogPollerReplayFinalityTag(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
+	lpCfg := lp_config.Config{
+		General: &lp_config.General{
+			Generator:      lp_config.GeneratorType_Looped,
 			Contracts:      2,
 			EventsPerTx:    4,
 			UseFinalityTag: false,
 		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
+		LoopedConfig: &lp_config.LoopedConfig{
+			ContractConfig: lp_config.ContractConfig{
 				ExecutionCount: 100,
 			},
-			FuzzConfig: logpoller.FuzzConfig{
+			FuzzConfig: lp_config.FuzzConfig{
 				MinEmitWaitTimeMs: 200,
 				MaxEmitWaitTimeMs: 500,
 			},
@@ -254,8 +290,12 @@ func TestLogPollerReplayFinalityTag(t *testing.T) {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg.General.EventsToEmit = eventsToEmit
-	consistencyTimeout := "5m"
+	lpCfg.General.EventsToEmit = eventsToEmit
+	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.LogPoller = &lpCfg
 
-	logpoller.ExecuteLogPollerReplay(t, &cfg, consistencyTimeout)
+	logpoller.ExecuteLogPollerReplay(t, &cfg, "5m")
 }

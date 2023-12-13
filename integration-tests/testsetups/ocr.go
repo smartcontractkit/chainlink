@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"sort"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -19,7 +18,6 @@ import (
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/kelseyhightower/envconfig"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -43,6 +41,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 const (
@@ -52,7 +52,7 @@ const (
 
 // OCRSoakTest defines a typical OCR soak test
 type OCRSoakTest struct {
-	Inputs                *OCRSoakTestInputs
+	Config                *tc.TestConfig
 	TestReporter          testreporters.OCRSoakTestReporter
 	OperatorForwarderFlow bool
 
@@ -68,6 +68,7 @@ type OCRSoakTest struct {
 	chainClient      blockchain.EVMClient
 	mockServer       *ctfClient.MockserverClient
 	filterQuery      geth.FilterQuery
+	testConfig       *tc.TestConfig
 
 	ocrRoundStates []*testreporters.OCRRoundState
 	testIssues     []*testreporters.TestIssue
@@ -77,57 +78,51 @@ type OCRSoakTest struct {
 }
 
 // OCRSoakTestInputs define required inputs to run an OCR soak test
-type OCRSoakTestInputs struct {
-	TestDuration            time.Duration `envconfig:"TEST_DURATION" default:"15m"`         // How long to run the test for
-	NumberOfContracts       int           `envconfig:"NUMBER_CONTRACTS" default:"2"`        // Number of OCR contracts to launch
-	ChainlinkNodeFunding    float64       `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"` // Amount of native currency to fund each chainlink node with
-	bigChainlinkNodeFunding *big.Float    // Convenience conversions for funding
-	TimeBetweenRounds       time.Duration `envconfig:"TIME_BETWEEN_ROUNDS" default:"1m"` // How long to wait before starting a new round; controls frequency of rounds
-}
+// type OCRSoakTestInputs struct {
+// 	TestDuration            time.Duration `envconfig:"TEST_DURATION" default:"15m"`         // How long to run the test for
+// 	NumberOfContracts       int           `envconfig:"NUMBER_CONTRACTS" default:"2"`        // Number of OCR contracts to launch
+// 	ChainlinkNodeFunding    float64       `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"` // Amount of native currency to fund each chainlink node with
+// 	bigChainlinkNodeFunding *big.Float    // Convenience conversions for funding
+// 	TimeBetweenRounds       time.Duration `envconfig:"TIME_BETWEEN_ROUNDS" default:"1m"` // How long to wait before starting a new round; controls frequency of rounds
+// }
 
-func (i OCRSoakTestInputs) setForRemoteRunner() {
-	os.Setenv("TEST_OCR_TEST_DURATION", i.TestDuration.String())
-	os.Setenv("TEST_OCR_NUMBER_CONTRACTS", fmt.Sprint(i.NumberOfContracts))
-	os.Setenv("TEST_OCR_CHAINLINK_NODE_FUNDING", strconv.FormatFloat(i.ChainlinkNodeFunding, 'f', -1, 64))
-	os.Setenv("TEST_OCR_TIME_BETWEEN_ROUNDS", i.TimeBetweenRounds.String())
+// func (i OCRSoakTestInputs) setForRemoteRunner() {
+// 	os.Setenv("TEST_OCR_TEST_DURATION", i.TestDuration.String())
+// 	os.Setenv("TEST_OCR_NUMBER_CONTRACTS", fmt.Sprint(i.NumberOfContracts))
+// 	os.Setenv("TEST_OCR_CHAINLINK_NODE_FUNDING", strconv.FormatFloat(i.ChainlinkNodeFunding, 'f', -1, 64))
+// 	os.Setenv("TEST_OCR_TIME_BETWEEN_ROUNDS", i.TimeBetweenRounds.String())
 
-	selectedNetworks := strings.Split(os.Getenv("SELECTED_NETWORKS"), ",")
-	for _, networkPrefix := range selectedNetworks {
-		urlEnv := fmt.Sprintf("%s_URLS", networkPrefix)
-		httpEnv := fmt.Sprintf("%s_HTTP_URLS", networkPrefix)
-		os.Setenv(fmt.Sprintf("TEST_%s", urlEnv), os.Getenv(urlEnv))
-		os.Setenv(fmt.Sprintf("TEST_%s", httpEnv), os.Getenv(httpEnv))
-	}
-}
+// 	selectedNetworks := strings.Split(os.Getenv("SELECTED_NETWORKS"), ",")
+// 	for _, networkPrefix := range selectedNetworks {
+// 		urlEnv := fmt.Sprintf("%s_URLS", networkPrefix)
+// 		httpEnv := fmt.Sprintf("%s_HTTP_URLS", networkPrefix)
+// 		os.Setenv(fmt.Sprintf("TEST_%s", urlEnv), os.Getenv(urlEnv))
+// 		os.Setenv(fmt.Sprintf("TEST_%s", httpEnv), os.Getenv(httpEnv))
+// 	}
+// }
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
-func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
-	var testInputs OCRSoakTestInputs
-	err := envconfig.Process("OCR", &testInputs)
-	if err != nil {
-		return nil, err
-	}
-	testInputs.setForRemoteRunner()
-
+func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*OCRSoakTest, error) {
 	test := &OCRSoakTest{
-		Inputs:                &testInputs,
+		Config:                config,
 		OperatorForwarderFlow: forwarderFlow,
 		TestReporter: testreporters.OCRSoakTestReporter{
 			StartTime: time.Now(),
 		},
 		t:              t,
 		startTime:      time.Now(),
-		timeLeft:       testInputs.TestDuration,
+		timeLeft:       config.OCR.Soak.TestDuration.Duration,
 		log:            logging.GetTestLogger(t),
 		ocrRoundStates: make([]*testreporters.OCRRoundState, 0),
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
+		testConfig:     config,
 	}
 	return test, test.ensureInputValues()
 }
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
-func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
-	network := networks.MustGetSelectedNetworksFromEnv()[0] // Environment currently being used to soak test on
+func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, testConfig *tc.TestConfig) {
+	network := networks.MustGetSelectedNetworkConfig(testConfig.NetworkConfig)[0] // Environment currently being used to soak test on
 	nsPre := "soak-ocr-"
 	if o.OperatorForwarderFlow {
 		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
@@ -142,7 +137,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 
 	cd := chainlink.New(0, map[string]any{
 		"replicas": 6,
-		"toml":     networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customChainlinkNetworkTOML, network),
+		"toml":     networks.AddNetworkDetailedConfig(config.BaseOCR1Config, testConfig.PyroscopeConfig, customChainlinkNetworkTOML, network),
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
@@ -164,9 +159,9 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 }
 
 // LoadEnvironment loads an existing test environment using the provided URLs
-func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, mockServerURL string) {
+func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, mockServerURL string, testConfig *tc.TestConfig) {
 	var (
-		network = networks.MustGetSelectedNetworksFromEnv()[0]
+		network = networks.MustGetSelectedNetworkConfig(testConfig.NetworkConfig)[0]
 		err     error
 	)
 	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
@@ -183,10 +178,10 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 	return o.testEnvironment
 }
 
-func (o *OCRSoakTest) Setup() {
+func (o *OCRSoakTest) Setup(testConfig *tc.TestConfig) {
 	var (
 		err     error
-		network = networks.MustGetSelectedNetworksFromEnv()[0]
+		network = networks.MustGetSelectedNetworkConfig(testConfig.NetworkConfig)[0]
 	)
 
 	// Environment currently being used to soak test on
@@ -207,7 +202,7 @@ func (o *OCRSoakTest) Setup() {
 	require.NoError(o.t, err, "Deploying Link Token Contract shouldn't fail")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
-	err = actions.FundChainlinkNodes(o.workerNodes, o.chainClient, o.Inputs.bigChainlinkNodeFunding)
+	err = actions.FundChainlinkNodes(o.workerNodes, o.chainClient, big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	if o.OperatorForwarderFlow {
@@ -230,7 +225,7 @@ func (o *OCRSoakTest) Setup() {
 
 		o.ocrInstances = actions.DeployOCRContractsForwarderFlow(
 			o.t,
-			o.Inputs.NumberOfContracts,
+			*o.Config.OCR.Soak.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
 			o.workerNodes,
@@ -239,7 +234,7 @@ func (o *OCRSoakTest) Setup() {
 		)
 	} else {
 		o.ocrInstances, err = actions.DeployOCRContracts(
-			o.Inputs.NumberOfContracts,
+			*o.Config.OCR.Soak.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
 			o.workerNodes,
@@ -273,11 +268,11 @@ func (o *OCRSoakTest) Run() {
 	}
 
 	o.log.Info().
-		Str("Test Duration", o.Inputs.TestDuration.Truncate(time.Second).String()).
+		Str("Test Duration", o.Config.OCR.Soak.TestDuration.Duration.Truncate(time.Second).String()).
 		Int("Number of OCR Contracts", len(o.ocrInstances)).
 		Msg("Starting OCR Soak Test")
 
-	o.testLoop(o.Inputs.TestDuration, startingValue)
+	o.testLoop(o.Config.OCR.Soak.TestDuration.Duration, startingValue)
 	o.complete()
 }
 
@@ -287,9 +282,10 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 	string,
 	[]*client.ChainlinkK8sClient,
 	reportModel.TestReporter,
+	reportModel.GrafanaURLProvider,
 	blockchain.EVMClient,
 ) {
-	return t, o.namespace, append(o.workerNodes, o.bootstrapNode), &o.TestReporter, o.chainClient
+	return t, o.namespace, append(o.workerNodes, o.bootstrapNode), &o.TestReporter, o.testConfig, o.chainClient
 }
 
 // *********************
@@ -331,7 +327,7 @@ func (o *OCRSoakTest) SaveState() error {
 		StartingBlockNum:     o.startingBlockNum,
 		StartTime:            o.startTime,
 		TimeRunning:          time.Since(o.startTime),
-		TestDuration:         o.Inputs.TestDuration,
+		TestDuration:         o.Config.OCR.Soak.TestDuration.Duration,
 		OCRContractAddresses: ocrAddresses,
 
 		ChainURL:         o.chainClient.GetNetworkConfig().URL,
@@ -382,12 +378,12 @@ func (o *OCRSoakTest) LoadState() error {
 	}
 	o.ocrRoundStates = testState.OCRRoundStates
 	o.testIssues = testState.TestIssues
-	o.Inputs.TestDuration = testState.TestDuration
+	o.Config.OCR.Soak.TestDuration.Duration = testState.TestDuration
 	o.timeLeft = testState.TestDuration - testState.TimeRunning
 	o.startTime = testState.StartTime
 	o.startingBlockNum = testState.StartingBlockNum
 
-	network := networks.MustGetSelectedNetworksFromEnv()[0]
+	network := networks.MustGetSelectedNetworkConfig(o.Config.NetworkConfig)[0]
 	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
 	if err != nil {
 		return err
@@ -428,7 +424,7 @@ func (o *OCRSoakTest) Resume() {
 		Message:   "Test Resumed",
 	})
 	o.log.Info().
-		Str("Total Duration", o.Inputs.TestDuration.String()).
+		Str("Total Duration", o.Config.OCR.Soak.TestDuration.String()).
 		Str("Time Left", o.timeLeft.String()).
 		Msg("Resuming OCR Soak Test")
 
@@ -495,7 +491,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			return
 		case <-newRoundTrigger.C:
 			err := o.triggerNewRound(newValue)
-			timerReset := o.Inputs.TimeBetweenRounds
+			timerReset := o.Config.OCR.Soak.TimeBetweenRounds.Duration
 			if err != nil {
 				timerReset = time.Second * 5
 				o.log.Error().Err(err).
@@ -704,22 +700,22 @@ func (o *OCRSoakTest) collectEvents() error {
 
 // ensureValues ensures that all values needed to run the test are present
 func (o *OCRSoakTest) ensureInputValues() error {
-	inputs := o.Inputs
-	if inputs.NumberOfContracts <= 0 {
-		return fmt.Errorf("Number of OCR contracts must be greater than 0, found %d", inputs.NumberOfContracts)
+	ocrConfig := o.Config.OCR.Soak
+	if ocrConfig.NumberOfContracts != nil && *ocrConfig.NumberOfContracts <= 0 {
+		return fmt.Errorf("Number of OCR contracts must be set and greater than 0, found %d", ocrConfig.NumberOfContracts)
 	}
-	if inputs.ChainlinkNodeFunding <= 0 {
-		return fmt.Errorf("Chainlink node funding must be greater than 0, found %f", inputs.ChainlinkNodeFunding)
+	if ocrConfig.ChainlinkNodeFunding != nil && *ocrConfig.ChainlinkNodeFunding <= 0 {
+		return fmt.Errorf("Chainlink node funding must be greater than 0, found %f", ocrConfig.ChainlinkNodeFunding)
 	}
-	if inputs.TestDuration <= time.Minute {
-		return fmt.Errorf("Test duration must be greater than 1 minute, found %s", inputs.TestDuration.String())
+	if ocrConfig.TestDuration != nil && ocrConfig.TestDuration.Duration <= time.Minute {
+		return fmt.Errorf("Test duration must be greater than 1 minute, found %s", ocrConfig.TestDuration)
 	}
-	if inputs.TimeBetweenRounds >= time.Hour {
-		return fmt.Errorf("Time between rounds must be less than 1 hour, found %s", inputs.TimeBetweenRounds.String())
+	if ocrConfig.TimeBetweenRounds != nil && ocrConfig.TimeBetweenRounds.Duration >= time.Hour {
+		return fmt.Errorf("Time between rounds must be less than 1 hour, found %s", ocrConfig.TimeBetweenRounds)
 	}
-	if inputs.TimeBetweenRounds < time.Second*30 {
-		return fmt.Errorf("Time between rounds must be greater or equal to 30 seconds, found %s", inputs.TimeBetweenRounds.String())
+	if ocrConfig.TimeBetweenRounds != nil && ocrConfig.TimeBetweenRounds.Duration < time.Second*30 {
+		return fmt.Errorf("Time between rounds must be greater or equal to 30 seconds, found %s", ocrConfig.TimeBetweenRounds)
 	}
-	o.Inputs.bigChainlinkNodeFunding = big.NewFloat(inputs.ChainlinkNodeFunding)
+
 	return nil
 }

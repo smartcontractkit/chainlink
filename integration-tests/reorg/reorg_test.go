@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 const (
@@ -78,12 +79,13 @@ func CleanupReorgTest(
 	t *testing.T,
 	testEnvironment *environment.Environment,
 	chainlinkNodes []*client.ChainlinkK8sClient,
+	testConfig *tc.TestConfig,
 	chainClient blockchain.EVMClient,
 ) {
 	if chainClient != nil {
 		chainClient.GasStats().PrintStats()
 	}
-	err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+	err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, testConfig, chainClient)
 	require.NoError(t, err, "Error tearing down environment")
 }
 
@@ -118,14 +120,19 @@ func TestDirectRequestReorg(t *testing.T) {
 		return
 	}
 
+	config, err := tc.GetConfig(tc.Reorg, tc.Automation)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// related https://app.shortcut.com/chainlinklabs/story/38295/creating-an-evm-chain-via-cli-or-api-immediately-polling-the-nodes-and-returning-an-error
 	// node must work and reconnect even if network is not working
 	time.Sleep(90 * time.Second)
-	activeEVMNetwork = networks.SimulatedEVMNonDev
+	network := networks.SimulatedEVMNonDev
 	netCfg := fmt.Sprintf(networkDRTOML, EVMFinalityDepth, EVMTrackerHistoryDepth)
 	chainlinkDeployment := chainlink.New(0, map[string]interface{}{
 		"replicas": 1,
-		"toml":     networks.AddNetworkDetailedConfig(baseDRTOML, netCfg, activeEVMNetwork),
+		"toml":     networks.AddNetworkDetailedConfig(baseDRTOML, config.PyroscopeConfig, netCfg, network),
 	})
 
 	err = testEnvironment.AddHelm(chainlinkDeployment).Run()
@@ -141,7 +148,7 @@ func TestDirectRequestReorg(t *testing.T) {
 	require.NoError(t, err, "Error connecting to Mockserver")
 
 	t.Cleanup(func() {
-		CleanupReorgTest(t, testEnvironment, chainlinkNodes, chainClient)
+		CleanupReorgTest(t, testEnvironment, chainlinkNodes, &config, chainClient)
 	})
 
 	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))

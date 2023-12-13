@@ -4,36 +4,35 @@ import (
 	"math/rand"
 
 	"github.com/rs/zerolog"
-
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */
 
 type SingleHashGun struct {
-	contracts   *vrfv2_actions.VRFV2Contracts
-	keyHash     [32]byte
-	subIDs      []uint64
-	vrfv2Config vrfv2_config.VRFV2Config
-	logger      zerolog.Logger
+	contracts  *vrfv2_actions.VRFV2Contracts
+	keyHash    [32]byte
+	subIDs     []uint64
+	testConfig *tc.TestConfig
+	logger     zerolog.Logger
 }
 
 func NewSingleHashGun(
 	contracts *vrfv2_actions.VRFV2Contracts,
 	keyHash [32]byte,
 	subIDs []uint64,
-	vrfv2Config vrfv2_config.VRFV2Config,
+	testConfig *tc.TestConfig,
 	logger zerolog.Logger,
 ) *SingleHashGun {
 	return &SingleHashGun{
-		contracts:   contracts,
-		keyHash:     keyHash,
-		subIDs:      subIDs,
-		vrfv2Config: vrfv2Config,
-		logger:      logger,
+		contracts:  contracts,
+		keyHash:    keyHash,
+		subIDs:     subIDs,
+		testConfig: testConfig,
+		logger:     logger,
 	}
 }
 
@@ -41,8 +40,9 @@ func NewSingleHashGun(
 func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 
+	vrfv2Config := m.testConfig.VRFv2.Common
 	//randomly increase/decrease randomness request count per TX
-	randomnessRequestCountPerRequest := deviateValue(m.vrfv2Config.RandomnessRequestCountPerRequest, m.vrfv2Config.RandomnessRequestCountPerRequestDeviation)
+	randomnessRequestCountPerRequest := deviateValue(vrfv2Config.RandomnessRequestCountPerRequest, vrfv2Config.RandomnessRequestCountPerRequestDeviation)
 	_, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.LoadTestConsumers[0],
@@ -51,8 +51,8 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		randomnessRequestCountPerRequest,
-		m.vrfv2Config,
-		m.vrfv2Config.RandomWordsFulfilledEventTimeout,
+		m.testConfig,
+		vrfv2Config.RandomWordsFulfilledEventTimeout,
 		m.logger,
 	)
 	if err != nil {

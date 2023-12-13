@@ -26,17 +26,24 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestOCR2VRFChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	loadedNetwork := networks.MustGetSelectedNetworksFromEnv()[0]
+	testconfig, err := tc.GetConfig(tc.Chaos, tc.OCR2VRF)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	loadedNetwork := networks.MustGetSelectedNetworkConfig(testconfig.NetworkConfig)[0]
 
 	defaultOCR2VRFSettings := map[string]interface{}{
 		"replicas": 6,
 		"toml": networks.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
+			testconfig.PyroscopeConfig,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
 			loadedNetwork,
 		),
@@ -119,7 +126,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		testCase := tc
 		t.Run(fmt.Sprintf("OCR2VRF_%s", testCaseName), func(t *testing.T) {
 			t.Parallel()
-			testNetwork := networks.MustGetSelectedNetworksFromEnv()[0] // Need a new copy of the network for each test
+			testNetwork := networks.MustGetSelectedNetworkConfig(testconfig.NetworkConfig)[0] // Need a new copy of the network for each test
 			testEnvironment := environment.
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf(
@@ -150,7 +157,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &testconfig, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 

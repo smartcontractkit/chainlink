@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -26,8 +27,11 @@ func TestOCRLoad(t *testing.T) {
 	require.NoError(t, err)
 	ocrInstances, err := SetupFeed(cc, msClient, cd, bootstrapNode, workerNodes, lt)
 	require.NoError(t, err)
-	cfg, err := ReadConfig()
+
+	config, err := tc.GetConfig(tc.Load, tc.OCR)
 	require.NoError(t, err)
+
+	cfg := config.OCR
 	SimulateEAActivity(l, cfg.Load.EAChangeInterval.Duration(), ocrInstances, workerNodes, msClient)
 
 	p := wasp.NewProfile()
@@ -52,8 +56,10 @@ func TestOCRVolume(t *testing.T) {
 	require.NoError(t, err)
 	lt, err := SetupCluster(cc, cd, workerNodes)
 	require.NoError(t, err)
-	cfg, err := ReadConfig()
+	config, err := tc.GetConfig(tc.Load, tc.OCR)
 	require.NoError(t, err)
+
+	cfg := config.OCR
 
 	p := wasp.NewProfile()
 	p.Add(wasp.NewGenerator(&wasp.Config{

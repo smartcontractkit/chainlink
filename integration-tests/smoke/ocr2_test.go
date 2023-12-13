@@ -15,14 +15,22 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
+	config, err := tc.GetConfig(tc.Smoke, tc.OCR2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
+		WithTestConfig(&config).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
@@ -96,8 +104,14 @@ func TestOCRv2Basic(t *testing.T) {
 func TestOCRv2JobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
+	config, err := tc.GetConfig(tc.Smoke, tc.OCR2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
+		WithTestConfig(&config).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),

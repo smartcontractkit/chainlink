@@ -7,32 +7,33 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kelseyhightower/envconfig"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 )
 
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	var vrfv2Config vrfv2_config.VRFV2Config
-	err := envconfig.Process("VRFV2", &vrfv2Config)
-	require.NoError(t, err)
+	config, err := tc.GetConfig(tc.Smoke, tc.VRFv2)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
+		WithTestConfig(&config).
 		WithGeth().
 		WithCLNodes(1).
-		WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
 		WithLogStream().
 		Build()
@@ -40,7 +41,7 @@ func TestVRFv2Basic(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(vrfv2Config.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.Common.LinkNativeFeedResponse))
 	require.NoError(t, err)
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err)
@@ -51,7 +52,7 @@ func TestVRFv2Basic(t *testing.T) {
 	numberOfTxKeysToCreate := 1
 	vrfv2Contracts, subIDs, vrfv2Data, err := vrfv2_actions.SetupVRFV2Environment(
 		env,
-		vrfv2Config,
+		&config,
 		linkToken,
 		mockETHLinkFeed,
 		defaultWalletAddress,
@@ -70,7 +71,6 @@ func TestVRFv2Basic(t *testing.T) {
 	vrfv2_actions.LogSubDetails(l, subscription, subID, vrfv2Contracts.Coordinator)
 
 	t.Run("Request Randomness", func(t *testing.T) {
-		testConfig := vrfv2Config
 		subBalanceBeforeRequest := subscription.Balance
 
 		jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2Data.VRFJob.Data.ID)
@@ -82,9 +82,9 @@ func TestVRFv2Basic(t *testing.T) {
 			vrfv2Contracts.Coordinator,
 			vrfv2Data,
 			subID,
-			testConfig.RandomnessRequestCountPerRequest,
-			testConfig,
-			testConfig.RandomWordsFulfilledEventTimeout,
+			config.VRFv2.Common.RandomnessRequestCountPerRequest,
+			&config,
+			config.VRFv2.Common.RandomWordsFulfilledEventTimeout,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -104,7 +104,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		require.Equal(t, testConfig.NumberOfWords, uint32(len(status.RandomWords)))
+		require.Equal(t, config.VRFv2.Common.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -116,15 +116,16 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	var vrfv2Config vrfv2_config.VRFV2Config
-	err := envconfig.Process("VRFV2", &vrfv2Config)
-	require.NoError(t, err)
+	config, err := tc.GetConfig(tc.Smoke, tc.VRFv2)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
 		WithCLNodes(1).
-		WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
 		WithLogStream().
 		Build()
@@ -132,7 +133,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(vrfv2Config.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.Common.LinkNativeFeedResponse))
 	require.NoError(t, err)
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err)
@@ -143,7 +144,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	numberOfTxKeysToCreate := 2
 	vrfv2Contracts, subIDs, vrfv2Data, err := vrfv2_actions.SetupVRFV2Environment(
 		env,
-		vrfv2Config,
+		&config,
 		linkToken,
 		mockETHLinkFeed,
 		defaultWalletAddress,
@@ -162,7 +163,6 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	vrfv2_actions.LogSubDetails(l, subscription, subID, vrfv2Contracts.Coordinator)
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
-		testConfig := vrfv2Config
 		txKeys, _, err := env.ClCluster.Nodes[0].API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
 
@@ -175,9 +175,9 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 				vrfv2Contracts.Coordinator,
 				vrfv2Data,
 				subID,
-				testConfig.RandomnessRequestCountPerRequest,
-				testConfig,
-				testConfig.RandomWordsFulfilledEventTimeout,
+				config.VRFv2.Common.RandomnessRequestCountPerRequest,
+				&config,
+				config.VRFv2.Common.RandomWordsFulfilledEventTimeout,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")

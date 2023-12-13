@@ -7,11 +7,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	lp_helpers "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
 )
 
 func TestLoadTestLogPoller(t *testing.T) {
-	cfg, err := lp_helpers.ReadConfig(lp_helpers.DefaultConfigFilename)
+	config, err := tc.GetConfig(tc.Load, tc.LogPoller)
 	require.NoError(t, err)
 
 	eventsToEmit := []abi.Event{}
@@ -19,7 +20,7 @@ func TestLoadTestLogPoller(t *testing.T) {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg.General.EventsToEmit = eventsToEmit
+	config.LogPoller.General.EventsToEmit = eventsToEmit
 
-	lp_helpers.ExecuteBasicLogPollerTest(t, cfg)
+	lp_helpers.ExecuteBasicLogPollerTest(t, &config)
 }

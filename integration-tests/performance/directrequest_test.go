@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	"github.com/google/uuid"
@@ -31,7 +32,12 @@ import (
 
 func TestDirectRequestPerformance(t *testing.T) {
 	l := logging.GetTestLogger(t)
-	testEnvironment := setupDirectRequestTest(t)
+	config, err := tc.GetConfig(tc.Performance, tc.DirectRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testEnvironment := setupDirectRequestTest(t, &config)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -123,13 +129,13 @@ func TestDirectRequestPerformance(t *testing.T) {
 	})
 	profileTest.Setup(testEnvironment)
 	t.Cleanup(func() {
-		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, chainClient)
+		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, &config, chainClient)
 	})
 	profileTest.Run()
 }
 
-func setupDirectRequestTest(t *testing.T) (testEnvironment *environment.Environment) {
-	network := networks.MustGetSelectedNetworksFromEnv()[0]
+func setupDirectRequestTest(t *testing.T, config *tc.TestConfig) (testEnvironment *environment.Environment) {
+	network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -142,7 +148,7 @@ func setupDirectRequestTest(t *testing.T) (testEnvironment *environment.Environm
 HTTPWriteTimout = '300s'`
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 1,
-		"toml":     networks.AddNetworksConfig(baseTOML, network),
+		"toml":     networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, network),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

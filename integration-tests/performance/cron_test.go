@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
@@ -38,17 +39,23 @@ func CleanupPerformanceTest(
 	testEnvironment *environment.Environment,
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	testReporter testreporters.ChainlinkProfileTestReporter,
+	testConfig *tc.TestConfig,
 	chainClient blockchain.EVMClient,
 ) {
 	if chainClient != nil {
 		chainClient.GasStats().PrintStats()
 	}
-	err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, &testReporter, zapcore.PanicLevel, chainClient)
+	err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, &testReporter, zapcore.PanicLevel, testConfig, chainClient)
 	require.NoError(t, err, "Error tearing down environment")
 }
 
 func TestCronPerformance(t *testing.T) {
-	testEnvironment := setupCronTest(t)
+	config, err := tc.GetConfig(tc.Performance, tc.Cron)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testEnvironment := setupCronTest(t, &config)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -100,15 +107,15 @@ func TestCronPerformance(t *testing.T) {
 	})
 	// Register cleanup for any test
 	t.Cleanup(func() {
-		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, nil)
+		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, &config, nil)
 	})
 	profileTest.Setup(testEnvironment)
 	profileTest.Run()
 }
 
-func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
+func setupCronTest(t *testing.T, config *tc.TestConfig) (testEnvironment *environment.Environment) {
 	logging.Init()
-	network := networks.MustGetSelectedNetworksFromEnv()[0]
+	network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -121,7 +128,7 @@ func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
 HTTPWriteTimout = '300s'`
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 1,
-		"toml":     networks.AddNetworksConfig(baseTOML, network),
+		"toml":     networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, network),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

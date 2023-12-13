@@ -6,12 +6,15 @@ import (
 
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestFunctionsLoad(t *testing.T) {
-	cfg, err := ReadConfig()
+	config, err := tc.GetConfig(tc.Load, tc.Functions)
 	require.NoError(t, err)
-	ft, err := SetupLocalLoadTestEnv(cfg)
+
+	ft, err := SetupLocalLoadTestEnv(&config)
 	require.NoError(t, err)
 	ft.EVMClient.ParallelTransactions(false)
 
@@ -23,6 +26,7 @@ func TestFunctionsLoad(t *testing.T) {
 	MonitorLoadStats(t, ft, labels)
 
 	t.Run("mumbai functions soak test http", func(t *testing.T) {
+		cfg := config.Functions
 		_, err := wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -53,6 +57,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test http", func(t *testing.T) {
+		cfg := config.Functions
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -83,6 +88,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions soak test only secrets", func(t *testing.T) {
+		cfg := config.Functions
 		_, err := wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -113,6 +119,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test only secrets", func(t *testing.T) {
+		cfg := config.Functions
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -143,6 +150,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions soak test real", func(t *testing.T) {
+		cfg := config.Functions
 		_, err := wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -173,6 +181,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test real", func(t *testing.T) {
+		cfg := config.Functions
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,

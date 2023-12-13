@@ -3,7 +3,6 @@ package chaos
 import (
 	"fmt"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -25,8 +24,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -51,14 +50,19 @@ var (
 	chaosEndRound   int64 = 4
 )
 
-func TestMain(m *testing.M) {
-	defaultOCRSettings["toml"] = networks.AddNetworksConfig(config.BaseOCR1Config, networks.MustGetSelectedNetworksFromEnv()[0])
-	os.Exit(m.Run())
+func getDefaultOcrSettings(config *tc.TestConfig) map[string]interface{} {
+	defaultOCRSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0])
+	return defaultAutomationSettings
 }
 
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig(tc.Chaos, tc.OCR)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -77,7 +81,7 @@ func TestOCRChaos(t *testing.T) {
 		// https://github.com/smartcontractkit/chainlink-testing-framework/k8s/blob/master/README.md
 		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
+			chainlink.New(0, getDefaultOcrSettings(&config)),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -87,7 +91,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		NetworkChaosFailBlockchainNode: {
 			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
+			chainlink.New(0, getDefaultOcrSettings(&config)),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": ptr.Ptr("geth")},
@@ -97,7 +101,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMinorityNodes: {
 			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
+			chainlink.New(0, getDefaultOcrSettings(&config)),
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
@@ -106,7 +110,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityNodes: {
 			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
+			chainlink.New(0, getDefaultOcrSettings(&config)),
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -115,7 +119,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityDB: {
 			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
+			chainlink.New(0, getDefaultOcrSettings(&config)),
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -164,7 +168,7 @@ func TestOCRChaos(t *testing.T) {
 				if chainClient != nil {
 					chainClient.GasStats().PrintStats()
 				}
-				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 

@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
@@ -45,7 +46,12 @@ var keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 
 func TestKeeperPerformance(t *testing.T) {
 	l := logging.GetTestLogger(t)
-	testEnvironment, chainClient, chainlinkNodes, contractDeployer, linkToken := setupKeeperTest(t, "basic-smoke")
+	config, err := tc.GetConfig(tc.Performance, tc.DirectRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testEnvironment, chainClient, chainlinkNodes, contractDeployer, linkToken := setupKeeperTest(t, "basic-smoke", &config)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -118,7 +124,7 @@ func TestKeeperPerformance(t *testing.T) {
 	})
 	// Register cleanup
 	t.Cleanup(func() {
-		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, chainClient)
+		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, &config, chainClient)
 	})
 	profileTest.Setup(testEnvironment)
 	profileTest.Run()
@@ -127,6 +133,7 @@ func TestKeeperPerformance(t *testing.T) {
 func setupKeeperTest(
 	t *testing.T,
 	testName string,
+	config *tc.TestConfig,
 ) (
 	*environment.Environment,
 	blockchain.EVMClient,
@@ -134,7 +141,7 @@ func setupKeeperTest(
 	contracts.ContractDeployer,
 	contracts.LinkToken,
 ) {
-	network := networks.MustGetSelectedNetworksFromEnv()[0]
+	network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
 	evmConfig := eth.New(nil)
 	if !network.Simulated {
 		evmConfig = eth.New(&eth.Props{
@@ -155,7 +162,7 @@ PerformGasOverhead = 150_000`
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 5,
-		"toml":     networks.AddNetworksConfig(baseTOML, network),
+		"toml":     networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, network),
 	})
 
 	testEnvironment := environment.New(

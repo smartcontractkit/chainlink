@@ -2,20 +2,14 @@ package logpoller
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 
-	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/pelletier/go-toml/v2"
-	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
-	DefaultConfigFilename = "config.toml"
-
 	ErrReadPerfConfig      = "failed to read TOML config for performance tests"
 	ErrUnmarshalPerfConfig = "failed to unmarshal TOML config for performance tests"
 )
@@ -72,60 +66,65 @@ type Load struct {
 	CallTimeout           *models.Duration `toml:"call_timeout"`
 }
 
-func ReadConfig(configName string) (*Config, error) {
-	var cfg *Config
-	d, err := os.ReadFile(configName)
-	if err != nil {
-		return nil, errors.Wrap(err, ErrReadPerfConfig)
-	}
-	err = toml.Unmarshal(d, &cfg)
-	if err != nil {
-		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
-	}
-
-	if err := cfg.validate(); err != nil {
-		return nil, err
-	}
-
-	log.Debug().Interface("Config", cfg).Msg("Parsed config")
-	return cfg, nil
-}
-
-func (c *Config) OverrideFromEnv() error {
-	if contr := os.Getenv("CONTRACTS"); contr != "" {
-		c.General.Contracts = mustParseInt(contr)
-	}
-
-	if eventsPerTx := os.Getenv("EVENTS_PER_TX"); eventsPerTx != "" {
-		c.General.EventsPerTx = mustParseInt(eventsPerTx)
-	}
-
-	if useFinalityTag := os.Getenv("USE_FINALITY_TAG"); useFinalityTag != "" {
-		c.General.UseFinalityTag = mustParseBool(useFinalityTag)
-	}
-
-	if duration := os.Getenv("LOAD_DURATION"); duration != "" {
-		d, err := models.ParseDuration(duration)
-		if err != nil {
-			return err
-		}
-
-		if c.General.Generator == GeneratorType_WASP {
-			c.Wasp.Load.Duration = &d
-		} else {
-			// this is completely arbitrary and practice shows that even with this values
-			// test executes much longer than specified, probably due to network latency
-			c.LoopedConfig.FuzzConfig.MinEmitWaitTimeMs = 400
-			c.LoopedConfig.FuzzConfig.MaxEmitWaitTimeMs = 600
-			// divide by 4 based on past runs, but we should do it in a better way
-			c.LoopedConfig.ContractConfig.ExecutionCount = int(d.Duration().Seconds() / 4)
-		}
-	}
-
+func (c *Config) ApplyOverrides(from interface{}) error {
+	//TODO implement me
 	return nil
 }
 
-func (c *Config) validate() error {
+// func ReadConfig(configName string) (*Config, error) {
+// 	var cfg *Config
+// 	d, err := os.ReadFile(configName)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, ErrReadPerfConfig)
+// 	}
+// 	err = toml.Unmarshal(d, &cfg)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
+// 	}
+
+// 	if err := cfg.validate(); err != nil {
+// 		return nil, err
+// 	}
+
+// 	log.Debug().Interface("Config", cfg).Msg("Parsed config")
+// 	return cfg, nil
+// }
+
+// func (c *Config) OverrideFromEnv() error {
+// 	if contr := os.Getenv("CONTRACTS"); contr != "" {
+// 		c.General.Contracts = mustParseInt(contr)
+// 	}
+
+// 	if eventsPerTx := os.Getenv("EVENTS_PER_TX"); eventsPerTx != "" {
+// 		c.General.EventsPerTx = mustParseInt(eventsPerTx)
+// 	}
+
+// 	if useFinalityTag := os.Getenv("USE_FINALITY_TAG"); useFinalityTag != "" {
+// 		c.General.UseFinalityTag = mustParseBool(useFinalityTag)
+// 	}
+
+// 	if duration := os.Getenv("LOAD_DURATION"); duration != "" {
+// 		d, err := models.ParseDuration(duration)
+// 		if err != nil {
+// 			return err
+// 		}
+
+// 		if c.General.Generator == GeneratorType_WASP {
+// 			c.Wasp.Load.Duration = &d
+// 		} else {
+// 			// this is completely arbitrary and practice shows that even with this values
+// 			// test executes much longer than specified, probably due to network latency
+// 			c.LoopedConfig.FuzzConfig.MinEmitWaitTimeMs = 400
+// 			c.LoopedConfig.FuzzConfig.MaxEmitWaitTimeMs = 600
+// 			// divide by 4 based on past runs, but we should do it in a better way
+// 			c.LoopedConfig.ContractConfig.ExecutionCount = int(d.Duration().Seconds() / 4)
+// 		}
+// 	}
+
+// 	return nil
+// }
+
+func (c *Config) Validate() error {
 	if c.General == nil {
 		return fmt.Errorf("General config is nil")
 	}

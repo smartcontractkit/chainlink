@@ -22,13 +22,19 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	testEnvironment, testNetwork := setupVRFTest(t)
+	config, err := tc.GetConfig(tc.Performance, tc.DirectRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testEnvironment, testNetwork := setupVRFTest(t, &config)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -128,14 +134,14 @@ func TestVRFBasic(t *testing.T) {
 		ChainlinkNodes:  chainlinkNodes,
 	})
 	t.Cleanup(func() {
-		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, chainClient)
+		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, &config, chainClient)
 	})
 	profileTest.Setup(testEnvironment)
 	profileTest.Run()
 }
 
-func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
+func setupVRFTest(t *testing.T, config *tc.TestConfig) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
+	testNetwork = networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -147,7 +153,7 @@ func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testN
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'`
 	cd := chainlink.New(0, map[string]interface{}{
-		"toml": networks.AddNetworksConfig(baseTOML, testNetwork),
+		"toml": networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, testNetwork),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

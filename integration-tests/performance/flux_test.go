@@ -25,12 +25,18 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 func TestFluxPerformance(t *testing.T) {
 	l := logging.GetTestLogger(t)
-	testEnvironment, testNetwork := setupFluxTest(t)
+	config, err := tc.GetConfig(tc.Performance, tc.DirectRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testEnvironment, testNetwork := setupFluxTest(t, &config)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -166,14 +172,14 @@ func TestFluxPerformance(t *testing.T) {
 	})
 	// Register cleanup
 	t.Cleanup(func() {
-		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, chainClient)
+		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, &config, chainClient)
 	})
 	profileTest.Setup(testEnvironment)
 	profileTest.Run()
 }
 
-func setupFluxTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
+func setupFluxTest(t *testing.T, config *tc.TestConfig) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
+	testNetwork = networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
 	evmConf := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConf = ethereum.New(&ethereum.Props{
@@ -189,7 +195,7 @@ HTTPWriteTimout = '300s'
 Enabled = true`
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 3,
-		"toml":     networks.AddNetworksConfig(baseTOML, testNetwork),
+		"toml":     networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, testNetwork),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

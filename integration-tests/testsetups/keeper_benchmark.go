@@ -38,6 +38,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 // KeeperBenchmarkTest builds a test to check that chainlink nodes are able to upkeep a specified amount of Upkeep
@@ -59,6 +61,7 @@ type KeeperBenchmarkTest struct {
 	namespace        string
 	chainlinkNodes   []*client.ChainlinkK8sClient
 	chainClient      blockchain.EVMClient
+	testConfig       *tc.TestConfig
 	contractDeployer contracts.ContractDeployer
 
 	linkToken contracts.LinkToken
@@ -113,13 +116,14 @@ func NewKeeperBenchmarkTest(t *testing.T, inputs KeeperBenchmarkTestInputs) *Kee
 }
 
 // Setup prepares contracts for the test
-func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
+func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config *tc.TestConfig) {
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
 	k.ensureInputValues()
 	k.env = env
 	k.namespace = k.env.Cfg.Namespace
 	inputs := k.Inputs
+	k.testConfig = config
 
 	k.keeperRegistries = make([]contracts.KeeperRegistry, len(inputs.RegistryVersions))
 	k.keeperRegistrars = make([]contracts.KeeperRegistrar, len(inputs.RegistryVersions))
@@ -202,7 +206,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	}
 
 	k.log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
-	err = k.SendSlackNotification(nil)
+	err = k.SendSlackNotification(nil, config)
 	if err != nil {
 		k.log.Warn().Msg("Sending test start slack notification failed")
 	}
@@ -405,9 +409,10 @@ func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
 	string,
 	[]*client.ChainlinkK8sClient,
 	reportModel.TestReporter,
+	reportModel.GrafanaURLProvider,
 	blockchain.EVMClient,
 ) {
-	return t, k.namespace, k.chainlinkNodes, &k.TestReporter, k.chainClient
+	return t, k.namespace, k.chainlinkNodes, &k.TestReporter, k.testConfig, k.chainClient
 }
 
 // *********************
@@ -571,13 +576,18 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	}
 }
 
-func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client) error {
+func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, config *tc.TestConfig) error {
 	if slackClient == nil {
 		slackClient = slack.New(reportModel.SlackAPIKey)
 	}
 
+	grafanaUrl, err := config.GetGrafanaURL()
+	if err != nil {
+		return err
+	}
+
 	headerText := ":white_check_mark: Automation Benchmark Test STARTED :white_check_mark:"
-	formattedDashboardUrl := fmt.Sprintf("%s&from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", testreporters.DashboardUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
+	formattedDashboardUrl := fmt.Sprintf("%s&from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
 	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 
 	notificationBlocks := []slack.Block{}

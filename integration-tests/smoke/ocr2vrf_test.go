@@ -23,12 +23,21 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
+
+var ocr2vrfSmokeConfig *testconfig.TestConfig
 
 func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig(tc.Smoke, tc.OCR2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -44,7 +53,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &config, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -91,6 +100,11 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig(tc.Smoke, tc.OCR2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -106,7 +120,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &config, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -149,7 +163,15 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 }
 
 func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
+	if ocr2vrfSmokeConfig == nil {
+		c, err := testconfig.GetConfig(tc.Smoke, tc.OCR2VRF)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ocr2vrfSmokeConfig = &c
+	}
+
+	testNetwork = networks.MustGetSelectedNetworkConfig(ocr2vrfSmokeConfig.NetworkConfig)[0]
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = eth.New(&eth.Props{
@@ -163,6 +185,7 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 		"replicas": 6,
 		"toml": networks.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
+			ocr2vrfSmokeConfig.PyroscopeConfig,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
 			testNetwork,
 		),

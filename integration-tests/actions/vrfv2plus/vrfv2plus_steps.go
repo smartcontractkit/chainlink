@@ -18,10 +18,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
@@ -204,7 +204,7 @@ func FundVRFCoordinatorV2_5Subscription(
 // SetupVRFV2_5Environment will create specified number of subscriptions and add the same conumer/s to each of them
 func SetupVRFV2_5Environment(
 	env *test_env.CLClusterTestEnv,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	testConfig *tc.TestConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
 	registerProvingKeyAgainstAddress string,
@@ -221,6 +221,7 @@ func SetupVRFV2_5Environment(
 	}
 
 	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Setting Coordinator Config")
+	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
 	err = vrfv2_5Contracts.Coordinator.SetConfig(
 		vrfv2PlusConfig.MinimumConfirmations,
 		vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
@@ -251,7 +252,7 @@ func SetupVRFV2_5Environment(
 		Msg("Creating and funding subscriptions, adding consumers")
 	subIDs, err := CreateFundSubsAndAddConsumers(
 		env,
-		vrfv2PlusConfig,
+		testConfig,
 		linkToken,
 		vrfv2_5Contracts.Coordinator, vrfv2_5Contracts.LoadTestConsumers, numberOfSubToCreate)
 	if err != nil {
@@ -275,7 +276,7 @@ func SetupVRFV2_5Environment(
 	}
 
 	chainID := env.EVMClient.GetChainID()
-	newNativeTokenKeyAddresses, err := CreateAndFundSendingKeys(env, vrfv2PlusConfig, numberOfTxKeysToCreate, chainID)
+	newNativeTokenKeyAddresses, err := CreateAndFundSendingKeys(env, testConfig, numberOfTxKeysToCreate, chainID)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -328,7 +329,7 @@ func SetupVRFV2_5Environment(
 	return vrfv2_5Contracts, subIDs, &data, nil
 }
 
-func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig, numberOfNativeTokenAddressesToCreate int, chainID *big.Int) ([]string, error) {
+func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, numberOfNativeTokenAddressesToCreate int, chainID *big.Int) ([]string, error) {
 	var newNativeTokenKeyAddresses []string
 	for i := 0; i < numberOfNativeTokenAddressesToCreate; i++ {
 		newTxKey, response, err := env.ClCluster.NodeAPIs()[0].CreateTxKey("evm", chainID.String())
@@ -339,7 +340,7 @@ func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, vrfv2PlusConfig vr
 			return nil, fmt.Errorf("error creating transaction key - response code, err %d", response.StatusCode)
 		}
 		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.ID)
-		err = actions.FundAddress(env.EVMClient, newTxKey.Data.ID, big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding))
+		err = actions.FundAddress(env.EVMClient, newTxKey.Data.ID, big.NewFloat(*testConfig.Common.ChainlinkNodeFunding))
 		if err != nil {
 			return nil, err
 		}
@@ -349,13 +350,13 @@ func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, vrfv2PlusConfig vr
 
 func CreateFundSubsAndAddConsumers(
 	env *test_env.CLClusterTestEnv,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	testConfig *tc.TestConfig,
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	consumers []contracts.VRFv2PlusLoadTestConsumer,
 	numberOfSubToCreate int,
 ) ([]*big.Int, error) {
-	subIDs, err := CreateSubsAndFund(env, vrfv2PlusConfig, linkToken, coordinator, numberOfSubToCreate)
+	subIDs, err := CreateSubsAndFund(env, testConfig, linkToken, coordinator, numberOfSubToCreate)
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +384,7 @@ func CreateFundSubsAndAddConsumers(
 
 func CreateSubsAndFund(
 	env *test_env.CLClusterTestEnv,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	testConfig *tc.TestConfig,
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
@@ -396,7 +397,7 @@ func CreateSubsAndFund(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
-	err = FundSubscriptions(env, vrfv2PlusConfig, linkToken, coordinator, subs)
+	err = FundSubscriptions(env, testConfig, linkToken, coordinator, subs)
 	if err != nil {
 		return nil, err
 	}
@@ -458,11 +459,12 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts
 
 func FundSubscriptions(
 	env *test_env.CLClusterTestEnv,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	testConfig *tc.TestConfig,
 	linkAddress contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subIDs []*big.Int,
 ) error {
+	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
 	for _, subID := range subIDs {
 		//Native Billing
 		amountWei := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountNative))
@@ -518,11 +520,12 @@ func RequestRandomnessAndWaitForFulfillment(
 	subID *big.Int,
 	isNativeBilling bool,
 	randomnessRequestCountPerRequest uint16,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	testConfig *tc.TestConfig,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
-	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, vrfv2PlusConfig, l)
+	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
+	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, testConfig, l)
 	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
 		subID,
@@ -553,10 +556,11 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 	vrfv2PlusData *VRFV2PlusData,
 	subID *big.Int,
 	isNativeBilling bool,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	testConfig *tc.TestConfig,
 	l zerolog.Logger,
 ) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled, error) {
-	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, vrfv2PlusConfig, l)
+	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
+	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, testConfig, l)
 	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
 		subID,
@@ -597,14 +601,14 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 
 func SetupVRFV2PlusWrapperEnvironment(
 	env *test_env.CLClusterTestEnv,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	testConfig *tc.TestConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
 	coordinator contracts.VRFCoordinatorV2_5,
 	keyHash [32]byte,
 	wrapperConsumerContractsAmount int,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
-
+	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
 	wrapperContracts, err := DeployVRFV2PlusDirectFundingContracts(
 		env.ContractDeployer,
 		env.EVMClient,
@@ -653,7 +657,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 
-	err = FundSubscriptions(env, vrfv2PlusConfig, linkToken, coordinator, []*big.Int{wrapperSubID})
+	err = FundSubscriptions(env, testConfig, linkToken, coordinator, []*big.Int{wrapperSubID})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -730,11 +734,12 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	vrfv2PlusData *VRFV2PlusData,
 	subID *big.Int,
 	isNativeBilling bool,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	testConfig *tc.TestConfig,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
-	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, vrfv2PlusConfig, l)
+	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
+	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, testConfig, l)
 	if isNativeBilling {
 		_, err := consumer.RequestRandomnessNative(
 			vrfv2PlusConfig.MinimumConfirmations,
@@ -1030,8 +1035,9 @@ func logRandRequest(
 	coordinator string,
 	subID *big.Int,
 	isNativeBilling bool,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	config *tc.TestConfig,
 	l zerolog.Logger) {
+	vrfv2PlusConfig := config.VRFv2Plus.Common
 	l.Debug().
 		Str("Consumer", consumer).
 		Str("Coordinator", coordinator).

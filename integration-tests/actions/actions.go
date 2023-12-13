@@ -258,10 +258,11 @@ func TeardownSuite(
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
+	grafnaUrlProvider testreporters.GrafanaURLProvider,
 	clients ...blockchain.EVMClient,
 ) error {
 	l := logging.GetTestLogger(t)
-	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
+	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel, grafnaUrlProvider); err != nil {
 		return fmt.Errorf("Error dumping environment logs, leaving environment running for manual retrieval, err: %w", err)
 	}
 	// Delete all jobs to stop depleting the funds
@@ -302,11 +303,12 @@ func TeardownRemoteSuite(
 	namespace string,
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
+	grafnaUrlProvider testreporters.GrafanaURLProvider,
 	client blockchain.EVMClient,
 ) error {
 	l := logging.GetTestLogger(t)
 	var err error
-	if err = testreporters.SendReport(t, namespace, "./", optionalTestReporter); err != nil {
+	if err = testreporters.SendReport(t, namespace, "./", optionalTestReporter, grafnaUrlProvider); err != nil {
 		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds

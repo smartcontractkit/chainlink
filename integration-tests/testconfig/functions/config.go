@@ -1,34 +1,26 @@
-package loadfunctions
+package functions
 
 import (
-	"fmt"
 	"math/big"
-	"os"
-
-	"github.com/pelletier/go-toml/v2"
-	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
-	DefaultConfigFilename = "config.toml"
-
 	ErrReadPerfConfig      = "failed to read TOML config for performance tests"
 	ErrUnmarshalPerfConfig = "failed to unmarshal TOML config for performance tests"
 )
 
-type PerformanceConfig struct {
-	Soak             *Soak            `toml:"Soak"`
-	SecretsSoak      *SecretsSoak     `toml:"SecretsSoak"`
-	RealSoak         *RealSoak        `toml:"RealSoak"`
-	Stress           *Stress          `toml:"Stress"`
-	SecretsStress    *SecretsStress   `toml:"SecretsStress"`
-	RealStress       *RealStress      `toml:"RealStress"`
-	GatewayListSoak  *GatewayListSoak `toml:"GatewayListSoak"`
-	GatewaySetSoak   *GatewaySetSoak  `toml:"GatewaySetSoak"`
-	Common           *Common          `toml:"Common"`
-	MumbaiPrivateKey string
+type Config struct {
+	Soak            *Soak            `toml:"Soak"`
+	SecretsSoak     *SecretsSoak     `toml:"SecretsSoak"`
+	RealSoak        *RealSoak        `toml:"RealSoak"`
+	Stress          *Stress          `toml:"Stress"`
+	SecretsStress   *SecretsStress   `toml:"SecretsStress"`
+	RealStress      *RealStress      `toml:"RealStress"`
+	GatewayListSoak *GatewayListSoak `toml:"GatewayListSoak"`
+	GatewaySetSoak  *GatewaySetSoak  `toml:"GatewaySetSoak"`
+	Common          *Common          `toml:"Common"`
 }
 
 type Common struct {
@@ -55,6 +47,10 @@ type Funding struct {
 	SubFunds  *big.Int   `toml:"sub_funds"`
 }
 
+// TODO remove all these types, move these fields to Common and just make sure
+// that we read correct TOML file for each test type, although that's a bit problematic
+// because we kind of have test types here that do not exist for any other product and adding
+// general support for something so specifici is not to my liking
 type Soak struct {
 	RPS             int64            `toml:"rps"`
 	RequestsPerCall uint32           `toml:"requests_per_call"`
@@ -101,25 +97,7 @@ type GatewaySetSoak struct {
 	Duration *models.Duration `toml:"duration"`
 }
 
-func ReadConfig() (*PerformanceConfig, error) {
-	var cfg *PerformanceConfig
-	d, err := os.ReadFile(DefaultConfigFilename)
-	if err != nil {
-		return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
-	}
-	err = toml.Unmarshal(d, &cfg)
-	if err != nil {
-		return nil, fmt.Errorf("%s, err: %w", ErrUnmarshalPerfConfig, err)
-	}
-	log.Debug().Interface("PerformanceConfig", cfg).Msg("Parsed performance config")
-	mpk := os.Getenv("MUMBAI_KEYS")
-	murls := os.Getenv("MUMBAI_URLS")
-	snet := os.Getenv("SELECTED_NETWORKS")
-	if mpk == "" || murls == "" || snet == "" {
-		return nil, fmt.Errorf(
-			"ensure variables are set:\nMUMBAI_KEYS variable, private keys, comma separated\nSELECTED_NETWORKS=MUMBAI\nMUMBAI_URLS variable, websocket urls, comma separated",
-		)
-	}
-	cfg.MumbaiPrivateKey = mpk
-	return cfg, nil
+func (c *Config) ApplyOverrides(from interface{}) error {
+	//TODO implement me
+	return nil
 }
