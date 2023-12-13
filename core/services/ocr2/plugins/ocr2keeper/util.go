@@ -68,24 +68,16 @@ func EVMProvider(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, spec jo
 
 func EVMDependencies20(
 	spec job.Job,
-	db *sqlx.DB,
 	lggr logger.Logger,
 	chain legacyevm.Chain,
-	ethKeystore keystore.Eth,
-) (evmrelay.OCR2KeeperProvider, *evmregistry20.EvmRegistry, Encoder20, *evmregistry20.LogProvider, error) {
+) (*evmregistry20.EvmRegistry, Encoder20, *evmregistry20.LogProvider, error) {
 	var err error
 
-	var keeperProvider evmrelay.OCR2KeeperProvider
 	var registry *evmregistry20.EvmRegistry
-
-	// the provider will be returned as a dependency
-	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, ethKeystore); err != nil {
-		return nil, nil, nil, nil, err
-	}
 
 	rAddr := ethkey.MustEIP55Address(spec.OCR2OracleSpec.ContractID).Address()
 	if registry, err = evmregistry20.NewEVMRegistryService(rAddr, chain, lggr); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	encoder := evmregistry20.EVMAutomationEncoder20{}
@@ -96,7 +88,7 @@ func EVMDependencies20(
 	// TODO: accept a version of the registry contract and use the correct interfaces
 	logProvider, err := evmregistry20.NewLogProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
-	return keeperProvider, registry, encoder, logProvider, err
+	return registry, encoder, logProvider, err
 }
 
 func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error) {
@@ -115,24 +107,18 @@ func EVMDependencies21(
 	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,
 	dbCfg pg.QConfig,
-	ethKeystore keystore.Eth,
-) (evmrelay.OCR2KeeperProvider, evmregistry21.AutomationServices, error) {
+) (evmregistry21.AutomationServices, error) {
 	var err error
-	var keeperProvider evmrelay.OCR2KeeperProvider
 
 	oSpec := spec.OCR2OracleSpec
-	// the provider will be returned as a dependency
-	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, ethKeystore); err != nil {
-		return nil, nil, err
-	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
 	services, err := evmregistry21.New(rAddr, chain, mc, keyring, lggr, db, dbCfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return keeperProvider, services, err
+	return services, err
 }
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
