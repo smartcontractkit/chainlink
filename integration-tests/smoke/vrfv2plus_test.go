@@ -54,7 +54,7 @@ func TestVRFv2Plus(t *testing.T) {
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	// register proving key against oracle address (sending key) in order to test oracleWithdraw
+	// register proving key against oracle address (sending key) in order to test Withdraw
 	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
 
 	numberOfTxKeysToCreate := 2
@@ -525,7 +525,7 @@ func TestVRFv2Plus(t *testing.T) {
 	})
 	t.Run("Oracle Withdraw", func(t *testing.T) {
 		testConfig := vrfv2PlusConfig
-		subIDsForOracleWithDraw, err := vrfv2plus.CreateFundSubsAndAddConsumers(
+		subIDsForWithdraw, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
 			testConfig,
 			linkToken,
@@ -534,13 +534,13 @@ func TestVRFv2Plus(t *testing.T) {
 			1,
 		)
 		require.NoError(t, err)
-		subIDForOracleWithdraw := subIDsForOracleWithDraw[0]
+		subIDForWithdraw := subIDsForWithdraw[0]
 
 		fulfilledEventLink, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			vrfv2PlusContracts.LoadTestConsumers[0],
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusData,
-			subIDForOracleWithdraw,
+			subIDForWithdraw,
 			false,
 			testConfig.RandomnessRequestCountPerRequest,
 			testConfig,
@@ -553,7 +553,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusContracts.LoadTestConsumers[0],
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusData,
-			subIDForOracleWithdraw,
+			subIDForWithdraw,
 			true,
 			testConfig.RandomnessRequestCountPerRequest,
 			testConfig,
@@ -563,10 +563,10 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 		amountToWithdrawLink := fulfilledEventLink.Payment
 
-		defaultWalletBalanceNativeBeforeOracleWithdraw, err := env.EVMClient.BalanceAt(testcontext.Get(t), common.HexToAddress(defaultWalletAddress))
+		defaultWalletBalanceNativeBeforeWithdraw, err := env.EVMClient.BalanceAt(testcontext.Get(t), common.HexToAddress(defaultWalletAddress))
 		require.NoError(t, err)
 
-		defaultWalletBalanceLinkBeforeOracleWithdraw, err := linkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		defaultWalletBalanceLinkBeforeWithdraw, err := linkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
 		require.NoError(t, err)
 
 		l.Info().
@@ -574,7 +574,7 @@ func TestVRFv2Plus(t *testing.T) {
 			Str("Amount", amountToWithdrawLink.String()).
 			Msg("Invoking Oracle Withdraw for LINK")
 
-		err = vrfv2PlusContracts.Coordinator.OracleWithdraw(
+		err = vrfv2PlusContracts.Coordinator.Withdraw(
 			common.HexToAddress(defaultWalletAddress),
 			amountToWithdrawLink,
 		)
@@ -586,7 +586,7 @@ func TestVRFv2Plus(t *testing.T) {
 			Str("Amount", amountToWithdrawNative.String()).
 			Msg("Invoking Oracle Withdraw for Native")
 
-		err = vrfv2PlusContracts.Coordinator.OracleWithdrawNative(
+		err = vrfv2PlusContracts.Coordinator.WithdrawNative(
 			common.HexToAddress(defaultWalletAddress),
 			amountToWithdrawNative,
 		)
@@ -595,15 +595,15 @@ func TestVRFv2Plus(t *testing.T) {
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
-		defaultWalletBalanceNativeAfterOracleWithdraw, err := env.EVMClient.BalanceAt(testcontext.Get(t), common.HexToAddress(defaultWalletAddress))
+		defaultWalletBalanceNativeAfterWithdraw, err := env.EVMClient.BalanceAt(testcontext.Get(t), common.HexToAddress(defaultWalletAddress))
 		require.NoError(t, err)
 
-		defaultWalletBalanceLinkAfterOracleWithdraw, err := linkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		defaultWalletBalanceLinkAfterWithdraw, err := linkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
 		require.NoError(t, err)
 
 		//not possible to verify exact amount of Native/LINK returned as defaultWallet is used in other tests in parallel which might affect the balance
-		require.Equal(t, 1, defaultWalletBalanceNativeAfterOracleWithdraw.Cmp(defaultWalletBalanceNativeBeforeOracleWithdraw), "Native funds were not returned after oracle withdraw native")
-		require.Equal(t, 1, defaultWalletBalanceLinkAfterOracleWithdraw.Cmp(defaultWalletBalanceLinkBeforeOracleWithdraw), "LINK funds were not returned after oracle withdraw")
+		require.Equal(t, 1, defaultWalletBalanceNativeAfterWithdraw.Cmp(defaultWalletBalanceNativeBeforeWithdraw), "Native funds were not returned after oracle withdraw native")
+		require.Equal(t, 1, defaultWalletBalanceLinkAfterWithdraw.Cmp(defaultWalletBalanceLinkBeforeWithdraw), "LINK funds were not returned after oracle withdraw")
 	})
 }
 
@@ -633,7 +633,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	// register proving key against oracle address (sending key) in order to test oracleWithdraw
+	// register proving key against oracle address (sending key) in order to test Withdraw
 	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
 
 	numberOfTxKeysToCreate := 2
@@ -761,7 +761,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
-	_, err = vrfv2plus.VRFV2PlusUpgradedVersionRegisterProvingKey(vrfv2PlusData.VRFKey, vrfv2PlusData.PrimaryEthAddress, newCoordinator)
+	_, err = vrfv2plus.VRFV2PlusUpgradedVersionRegisterProvingKey(vrfv2PlusData.VRFKey, newCoordinator)
 	require.NoError(t, err, fmt.Errorf("%s, err: %w", vrfv2plus.ErrRegisteringProvingKey, err))
 
 	err = newCoordinator.SetConfig(
