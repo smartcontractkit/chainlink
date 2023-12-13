@@ -34,3 +34,15 @@ func GetChainByChainID(chainSet evm.LegacyChainContainer, chainID uint64) (evm.C
 	}
 	return chain, chain.ID().Int64(), nil
 }
+
+func ResolveChainNames(sourceChainId int64, destChainId int64) (string, string, error) {
+	sourceChainName, err := chainselectors.NameFromChainId(uint64(sourceChainId))
+	if err != nil {
+		return "", "", err
+	}
+	destChainName, err := chainselectors.NameFromChainId(uint64(destChainId))
+	if err != nil {
+		return "", "", err
+	}
+	return sourceChainName, destChainName, nil
+}

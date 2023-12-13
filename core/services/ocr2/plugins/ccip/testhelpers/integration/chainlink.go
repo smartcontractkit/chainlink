@@ -936,23 +936,23 @@ func NewKsa(db *sqlx.DB, lggr logger.Logger, csa keystore.CSA, config chainlink.
 
 type NoopFeedsClient struct{}
 
-func (n NoopFeedsClient) ApprovedJob(ctx context.Context, in *pb.ApprovedJobRequest) (*pb.ApprovedJobResponse, error) {
+func (n NoopFeedsClient) ApprovedJob(context.Context, *pb.ApprovedJobRequest) (*pb.ApprovedJobResponse, error) {
 	return &pb.ApprovedJobResponse{}, nil
 }
 
-func (n NoopFeedsClient) Healthcheck(ctx context.Context, in *pb.HealthcheckRequest) (*pb.HealthcheckResponse, error) {
+func (n NoopFeedsClient) Healthcheck(context.Context, *pb.HealthcheckRequest) (*pb.HealthcheckResponse, error) {
 	return &pb.HealthcheckResponse{}, nil
 }
 
-func (n NoopFeedsClient) UpdateNode(ctx context.Context, in *pb.UpdateNodeRequest) (*pb.UpdateNodeResponse, error) {
+func (n NoopFeedsClient) UpdateNode(context.Context, *pb.UpdateNodeRequest) (*pb.UpdateNodeResponse, error) {
 	return &pb.UpdateNodeResponse{}, nil
 }
 
-func (n NoopFeedsClient) RejectedJob(ctx context.Context, in *pb.RejectedJobRequest) (*pb.RejectedJobResponse, error) {
+func (n NoopFeedsClient) RejectedJob(context.Context, *pb.RejectedJobRequest) (*pb.RejectedJobResponse, error) {
 	return &pb.RejectedJobResponse{}, nil
 }
 
-func (n NoopFeedsClient) CancelledJob(ctx context.Context, in *pb.CancelledJobRequest) (*pb.CancelledJobResponse, error) {
+func (n NoopFeedsClient) CancelledJob(context.Context, *pb.CancelledJobRequest) (*pb.CancelledJobResponse, error) {
 	return &pb.CancelledJobResponse{}, nil
 }
 

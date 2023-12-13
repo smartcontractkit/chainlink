@@ -17,6 +17,7 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -74,9 +75,11 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.Lega
 		return nil, nil, errors.Wrap(err, "open source chain")
 	}
 
-	execLggr := lggr.Named("CCIPExecution").With(
-		"sourceChain", ChainName(int64(chainID)),
-		"destChain", ChainName(destChainID))
+	sourceChainName, destChainName, err := ccipconfig.ResolveChainNames(int64(chainID), destChainID)
+	if err != nil {
+		return nil, nil, err
+	}
+	execLggr := lggr.Named("CCIPExecution").With("sourceChain", sourceChainName, "destChain", destChainName)
 	onRampReader, err := factory.NewOnRampReader(execLggr, offRampConfig.SourceChainSelector, offRampConfig.ChainSelector, offRampConfig.OnRamp, sourceChain.LogPoller(), sourceChain.Client())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "create onramp reader")

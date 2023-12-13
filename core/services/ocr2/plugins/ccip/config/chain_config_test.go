@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	evmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
@@ -89,4 +90,48 @@ func TestGetChainById_notFound(t *testing.T) {
 	_, _, err := GetChainByChainID(mockChainSet, uint64(444))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "chain not found in chainset")
+}
+
+func TestResolveChainNames(t *testing.T) {
+	tests := []struct {
+		name                    string
+		sourceChainId           int64
+		destChainId             int64
+		expectedSourceChainName string
+		expectedDestChainName   string
+		expectedErr             bool
+	}{
+		{
+			name:                    "success",
+			sourceChainId:           1,
+			destChainId:             10,
+			expectedSourceChainName: "ethereum-mainnet",
+			expectedDestChainName:   "ethereum-mainnet-optimism-1",
+		},
+		{
+			name:          "source chain not found",
+			sourceChainId: 901278309182,
+			destChainId:   10,
+			expectedErr:   true,
+		},
+		{
+			name:          "dest chain not found",
+			sourceChainId: 1,
+			destChainId:   901278309182,
+			expectedErr:   true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sourceChainName, destChainName, err := ResolveChainNames(test.sourceChainId, test.destChainId)
+			if test.expectedErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, test.expectedSourceChainName, sourceChainName)
+				assert.Equal(t, test.expectedDestChainName, destChainName)
+			}
+		})
+	}
 }
