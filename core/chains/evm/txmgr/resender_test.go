@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_EthResender_resendUnconfirmed(t *testing.T) {
@@ -109,7 +109,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	delay := models.MustNewDuration(1 * time.Nanosecond)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0] = &toml.EVMConfig{
-			Chain: toml.Defaults(utils.NewBig(big.NewInt(0)), &toml.Chain{
+			Chain: toml.Defaults(ubig.New(big.NewInt(0)), &toml.Chain{
 				Transactions: toml.Transactions{ResendAfterThreshold: delay},
 			}),
 		}

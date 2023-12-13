@@ -20,15 +20,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/null"
+
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -176,7 +177,7 @@ type DbEthTx struct {
 	Subject           uuid.NullUUID
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  null.Uint32
-	EVMChainID        utils.Big
+	EVMChainID        ubig.Big
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
 	TransmitChecker    *sqlutil.JSON
@@ -209,7 +210,7 @@ func (db *DbEthTx) FromTx(tx *Tx) {
 	db.CallbackCompleted = tx.CallbackCompleted
 
 	if tx.ChainID != nil {
-		db.EVMChainID = *utils.NewBig(tx.ChainID)
+		db.EVMChainID = *ubig.New(tx.ChainID)
 	}
 	if tx.Sequence != nil {
 		n := tx.Sequence.Int64()

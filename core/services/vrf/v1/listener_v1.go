@@ -17,6 +17,7 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -57,8 +58,8 @@ type Listener struct {
 	Job            job.Job
 	Q              pg.Q
 	GethKs         vrfcommon.GethKeyStore
-	MailMon        *utils.MailboxMonitor
-	ReqLogs        *utils.Mailbox[log.Broadcast]
+	MailMon        *mailbox.Monitor
+	ReqLogs        *mailbox.Mailbox[log.Broadcast]
 	ChStop         services.StopChan
 	WaitOnStop     chan struct{}
 	NewHead        chan struct{}

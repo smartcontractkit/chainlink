@@ -3,6 +3,7 @@ package s4
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -92,7 +93,7 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 		return nil, nil, ErrSlotIdTooBig
 	}
 
-	bigAddress := utils.NewBig(key.Address.Big())
+	bigAddress := big.New(key.Address.Big())
 	row, err := s.orm.Get(bigAddress, key.SlotId, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, nil, err
@@ -118,7 +119,7 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 }
 
 func (s *storage) List(ctx context.Context, address common.Address) ([]*SnapshotRow, error) {
-	bigAddress := utils.NewBig(address.Big())
+	bigAddress := big.New(address.Big())
 	sar, err := NewSingleAddressRange(bigAddress)
 	if err != nil {
 		return nil, err
@@ -148,7 +149,7 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 	}
 
 	row := &Row{
-		Address:    utils.NewBig(key.Address.Big()),
+		Address:    big.New(key.Address.Big()),
 		SlotId:     key.SlotId,
 		Payload:    make([]byte, len(record.Payload)),
 		Version:    key.Version,
