@@ -508,6 +508,10 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleUnstartedTx(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (error, bool) {
+	if etx.State != TxUnstarted {
+		return fmt.Errorf("invariant violation: expected transaction %v to be unstarted, it was %s", etx.ID, etx.State), false
+	}
+
 	attempt, _, _, retryable, err := eb.NewTxAttempt(ctx, *etx, eb.lggr)
 	if err != nil {
 		return fmt.Errorf("processUnstartedTxs failed on NewAttempt: %w", err), retryable
