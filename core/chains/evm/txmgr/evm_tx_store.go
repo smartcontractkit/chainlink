@@ -75,7 +75,7 @@ type TestEvmTxStore interface {
 
 type evmTxStore struct {
 	q         pg.Q
-	logger    logger.Logger
+	logger    logger.SugaredLogger
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 }
@@ -340,7 +340,7 @@ func NewTxStore(
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
 	return &evmTxStore{
 		q:         q,
-		logger:    namedLogger,
+		logger:    logger.Sugared(namedLogger),
 		ctx:       ctx,
 		ctxCancel: cancel,
 	}
@@ -1499,7 +1499,7 @@ GROUP BY e.id
 				txHashesHex[i] = common.BytesToAddress(r.TxHashes[i])
 			}
 
-			logger.Criticalw(o.logger, fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+			o.logger.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
 				"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
 				"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
 				"an external wallet has been used to send a transaction from account %s with nonce %v."+

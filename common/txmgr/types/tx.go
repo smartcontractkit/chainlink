@@ -254,7 +254,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetMeta() (*TxMeta[A
 }
 
 // GetLogger returns a new logger with metadata fields.
-func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger.Logger) logger.Logger {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger.Logger) logger.SugaredLogger {
 	lgr = logger.With(lgr,
 		"txID", e.ID,
 		"sequence", e.Sequence,
@@ -265,7 +265,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger
 	meta, err := e.GetMeta()
 	if err != nil {
 		lgr.Errorw("failed to get meta of the transaction", "err", err)
-		return lgr
+		return logger.Sugared(lgr)
 	}
 
 	if meta != nil {
@@ -315,7 +315,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger
 		}
 	}
 
-	return lgr
+	return logger.Sugared(lgr)
 }
 
 // GetChecker returns an Tx's transmit checker spec in struct form, unmarshalling it from JSON
