@@ -19,6 +19,10 @@ import (
 
 type Spec = common.Spec
 
+func SpecPipeline(s Spec) (*Pipeline, error) {
+	return Parse(s.DotDagSource)
+}
+
 type Run struct {
 	ID             int64            `json:"-"`
 	PipelineSpecID int32            `json:"-"`
