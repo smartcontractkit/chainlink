@@ -6,7 +6,7 @@ on:
 
 jobs:
   golangci:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -21,7 +21,7 @@ jobs:
           gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
 
   test:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'pull_request' }}
     name: scripts-test
     runs-on: ubuntu-latest
     steps:
@@ -33,9 +33,8 @@ jobs:
           go-module-file: core/scripts/go.sum
       - name: Run Tests
         shell: bash
-        run: |
-          cd core/scripts
-          go test ./...
+        working-directory: core/scripts
+        run: go test ./...
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
