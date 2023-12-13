@@ -65,7 +65,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chainlink-automation v1.0.1
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231213203435-f213bca2982d
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231213221837-9cba29c897a6
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231128204301-ee4297eff679
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20231213175155-181d4a261f5d
