@@ -5,8 +5,9 @@ FinalityDepth = 500
 LogPollInterval = '2s'
 
 [GasEstimator] 
-Mode = 'BlockHistory'
 EIP1559DynamicFees = false
+PriceMin = '0.009 ether' 
+BumpPercent = 20
 
 [GasEstimator.BlockHistory]
 # how many blocks we want to keep in memory to calculate gas price
@@ -25,3 +26,6 @@ SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
+
+[OCR2.Automation]
+GasLimit = 9000000
