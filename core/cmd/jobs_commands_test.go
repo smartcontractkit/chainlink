@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -368,7 +369,8 @@ func TestShell_CreateJobV2(t *testing.T) {
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
 		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)

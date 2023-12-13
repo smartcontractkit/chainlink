@@ -130,9 +130,10 @@ type pool struct {
 }
 
 func NewPool(lggr logger.Logger, cacheCfg cache.Config) Pool {
-	p := newPool(lggr.Named("Mercury.WSRPCPool"))
+	lggr = lggr.Named("Mercury.WSRPCPool")
+	p := newPool(lggr)
 	p.newClient = NewClient
-	p.cacheSet = cache.NewCacheSet(cacheCfg)
+	p.cacheSet = cache.NewCacheSet(lggr, cacheCfg)
 	return p
 }
 

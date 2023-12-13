@@ -32,6 +32,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -153,14 +154,13 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg.Database())
-	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+	mailMon := mailbox.NewMonitor(cfg.AppID().String())
 
 	dbListener := cfg.Database().Listener()
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing())
 
 	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
-		Logger:               appLggr,
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
 		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),

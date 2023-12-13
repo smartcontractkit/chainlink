@@ -9,11 +9,11 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaymercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v2"
+	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 )
 
-func newValidReportFields() relaymercuryv2.ReportFields {
-	return relaymercuryv2.ReportFields{
+func newValidReportFields() v2.ReportFields {
+	return v2.ReportFields{
 		Timestamp:          242,
 		BenchmarkPrice:     big.NewInt(243),
 		ValidFromTimestamp: 123,
@@ -27,7 +27,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 	r := ReportCodec{}
 
 	t.Run("BuildReport errors on zero values", func(t *testing.T) {
-		_, err := r.BuildReport(relaymercuryv2.ReportFields{})
+		_, err := r.BuildReport(v2.ReportFields{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "benchmarkPrice may not be nil")
 		assert.Contains(t, err.Error(), "linkFee may not be nil")

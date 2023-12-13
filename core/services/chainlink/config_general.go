@@ -13,8 +13,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
@@ -441,14 +439,6 @@ func (g *generalConfig) OCR2() config.OCR2 {
 
 func (g *generalConfig) P2P() config.P2P {
 	return &p2p{c: g.c.P2P}
-}
-
-func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
-	return g.c.P2P.NetworkStack()
-}
-
-func (g *generalConfig) P2PNetworkingStackRaw() string {
-	return g.c.P2P.NetworkStack().String()
 }
 
 func (g *generalConfig) P2PPeerID() p2pkey.PeerID {

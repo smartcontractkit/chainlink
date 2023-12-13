@@ -50,9 +50,9 @@ data:
   password.txt: |
   init.sh: |
     #!/bin/bash
-    if [ ! -d /root/.ethereum/keystore ]; then
-        echo "/root/.ethereum/keystore not found, running 'geth init'..."
-        geth init /root/ethconfig/genesis.json
+    if [ ! -d /app/.ethereum/keystore ]; then
+        echo "/app/.ethereum/keystore not found, running 'geth init'..."
+        geth init /app/ethconfig/genesis.json
         echo "...done!"
     fi
 

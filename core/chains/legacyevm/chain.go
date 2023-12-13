@@ -16,6 +16,7 @@ import (
 	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
@@ -32,11 +33,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
@@ -126,7 +127,7 @@ type chain struct {
 }
 
 type errChainDisabled struct {
-	ChainID *utils.Big
+	ChainID *ubig.Big
 }
 
 func (e errChainDisabled) Error() string {
@@ -164,7 +165,7 @@ type ChainOpts struct {
 	AppConfig AppConfig
 
 	EventBroadcaster pg.EventBroadcaster
-	MailMon          *utils.MailboxMonitor
+	MailMon          *mailbox.Monitor
 	GasEstimator     gas.EvmFeeEstimator
 
 	*sqlx.DB

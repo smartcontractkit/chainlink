@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/stretchr/testify/require"
 
 	logpoller "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
 )
@@ -70,12 +71,12 @@ func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
 
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
-func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
+func TestLogPollerManyFiltersFixedDepth(t *testing.T) {
 	t.Skip("This test is too slow to run in CI, run them manually as needed")
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      250,
+			Contracts:      300,
 			EventsPerTx:    3,
 			UseFinalityTag: false,
 		},
@@ -100,12 +101,12 @@ func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
-func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
-	t.Skip("This test is too slow to run in CI, run them manually as needed")
+func TestLogPollerManyFiltersFinalityTag(t *testing.T) {
+	// t.Skip("This test is too slow to run in CI, run them manually as needed")
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      250,
+			Contracts:      300,
 			EventsPerTx:    3,
 			UseFinalityTag: true,
 		},
@@ -124,6 +125,7 @@ func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
 	for _, event := range logpoller.EmitterABI.Events {
 		eventsToEmit = append(eventsToEmit, event)
 	}
+	require.Equal(t, len(eventsToEmit), len(logpoller.EmitterABI.Events), "eventsToEmit should be equal to number of events in EmitterABI")
 
 	cfg.General.EventsToEmit = eventsToEmit
 

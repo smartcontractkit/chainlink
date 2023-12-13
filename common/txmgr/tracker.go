@@ -8,11 +8,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -56,7 +56,7 @@ type Tracker[
 	txCache      map[int64]AbandonedTx[ADDR]
 	ttl          time.Duration
 	lock         sync.Mutex
-	mb           *utils.Mailbox[int64]
+	mb           *mailbox.Mailbox[int64]
 	wg           sync.WaitGroup
 	isStarted    bool
 	ctx          context.Context
@@ -85,7 +85,7 @@ func NewTracker[
 		enabledAddrs: map[ADDR]bool{},
 		txCache:      map[int64]AbandonedTx[ADDR]{},
 		ttl:          defaultTTL,
-		mb:           utils.NewSingleMailbox[int64](),
+		mb:           mailbox.NewSingle[int64](),
 		lock:         sync.Mutex{},
 		wg:           sync.WaitGroup{},
 	}

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/smartcontractkit/chainlink/v2/dashboard/dashboard"
+	"github.com/smartcontractkit/chainlink/charts/chainlink-cluster/dashboard/dashboard"
 	"github.com/smartcontractkit/wasp"
 )
 

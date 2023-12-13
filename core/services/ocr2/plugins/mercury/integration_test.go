@@ -34,10 +34,11 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 
-	relaymercury "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury"
-	relaycodecv1 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v1"
-	relaycodecv2 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v2"
-	relaycodecv3 "github.com/smartcontractkit/chainlink-common/pkg/reportingplugins/mercury/v3"
+	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
+	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	relaymercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -62,7 +63,7 @@ var (
 	f                      = uint8(1)
 	n                      = 4 // number of nodes
 	multiplier       int64 = 100000000
-	rawOnchainConfig       = relaymercury.OnchainConfig{
+	rawOnchainConfig       = mercurytypes.OnchainConfig{
 		Min: big.NewInt(0),
 		Max: big.NewInt(math.MaxInt64),
 	}
@@ -154,7 +155,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
 	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
-		report, err := (&reportcodecv1.ReportCodec{}).BuildReport(relaycodecv1.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), CurrentBlockHash: make([]byte, 32)})
+		report, err := (&reportcodecv1.ReportCodec{}).BuildReport(v1.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), CurrentBlockHash: make([]byte, 32)})
 		if err != nil {
 			panic(err)
 		}
@@ -503,7 +504,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
 	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
-		report, err := (&reportcodecv2.ReportCodec{}).BuildReport(relaycodecv2.ReportFields{BenchmarkPrice: big.NewInt(234567), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
+		report, err := (&reportcodecv2.ReportCodec{}).BuildReport(v2.ReportFields{BenchmarkPrice: big.NewInt(234567), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
 		if err != nil {
 			panic(err)
 		}
@@ -779,7 +780,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
 	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
-		report, err := (&reportcodecv3.ReportCodec{}).BuildReport(relaycodecv3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
+		report, err := (&reportcodecv3.ReportCodec{}).BuildReport(v3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
 		if err != nil {
 			panic(err)
 		}

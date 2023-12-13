@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -126,6 +127,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 	tests := []struct {
 		name       string
 		lookup     *mercury.StreamsLookup
+		input      []ocr2keepers.CheckResult
 		values     [][]byte
 		statusCode int
 
@@ -152,6 +154,9 @@ func TestStreams_CheckCallback(t *testing.T) {
 				},
 				UpkeepId: upkeepId,
 				Block:    bn,
+			},
+			input: []ocr2keepers.CheckResult{
+				{},
 			},
 			values:       values,
 			statusCode:   http.StatusOK,
@@ -185,6 +190,9 @@ func TestStreams_CheckCallback(t *testing.T) {
 				UpkeepId: upkeepId,
 				Block:    bn,
 			},
+			input: []ocr2keepers.CheckResult{
+				{},
+			},
 			values:       values,
 			statusCode:   http.StatusOK,
 			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -215,6 +223,9 @@ func TestStreams_CheckCallback(t *testing.T) {
 				},
 				UpkeepId: upkeepId,
 				Block:    bn,
+			},
+			input: []ocr2keepers.CheckResult{
+				{},
 			},
 			values:       values,
 			statusCode:   http.StatusOK,
@@ -255,10 +266,10 @@ func TestStreams_CheckCallback(t *testing.T) {
 				}).Once()
 			s.client = client
 
-			state, retryable, _, err := s.checkCallback(testutils.Context(t), tt.values, tt.lookup)
-			tt.wantErr(t, err, fmt.Sprintf("Error asserion failed: %v", tt.name))
-			assert.Equal(t, tt.state, state)
-			assert.Equal(t, tt.retryable, retryable)
+			err = s.CheckCallback(testutils.Context(t), tt.values, tt.lookup, tt.input, 0)
+			tt.wantErr(t, err, fmt.Sprintf("Error assertion failed: %v", tt.name))
+			assert.Equal(t, uint8(tt.state), tt.input[0].PipelineExecutionState)
+			assert.Equal(t, tt.retryable, tt.input[0].Retryable)
 		})
 	}
 }
@@ -434,7 +445,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 				BlockNumber: big.NewInt(10),
 			}
 
-			state, reason, retryable, allowed, err := s.allowedToUseMercury(opts, upkeepId)
+			state, reason, retryable, allowed, err := s.AllowedToUseMercury(opts, upkeepId)
 			assert.Equal(t, tt.err, err)
 			assert.Equal(t, tt.allowed, allowed)
 			assert.Equal(t, tt.state, state)
@@ -615,6 +626,31 @@ func TestStreams_StreamsLookup(t *testing.T) {
 						BlockNumber: 26046145,
 					},
 					IneligibilityReason: uint8(encoding.UpkeepFailureReasonTargetCheckReverted),
+				},
+			},
+			hasError: true,
+		},
+		{
+			name: "failure - invalid mercury version",
+			input: []ocr2keepers.CheckResult{
+				{
+					// This Perform data contains invalid FeedParamKey: {feedIdHex:RandomString [ETD-USD BTC-ETH] blockNumber 100 [48 120 48 48]}
+					PerformData: hexutil.MustDecode("0xf055e4a200000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001c00000000000000000000000000000000000000000000000000000000000000064000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000166665656449644865783a52616e646f6d537472696e670000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000074554442d5553440000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000074254432d45544800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b626c6f636b4e756d62657200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000043078303000000000000000000000000000000000000000000000000000000000"),
+					UpkeepID:    upkeepIdentifier,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: blockNum,
+					},
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonTargetCheckReverted),
+				},
+			},
+			expectedResults: []ocr2keepers.CheckResult{
+				{
+					PerformData: hexutil.MustDecode("0xf055e4a200000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001c00000000000000000000000000000000000000000000000000000000000000064000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000166665656449644865783a52616e646f6d537472696e670000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000074554442d5553440000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000074254432d45544800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b626c6f636b4e756d62657200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000043078303000000000000000000000000000000000000000000000000000000000"),
+					UpkeepID:    upkeepIdentifier,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: blockNum,
+					},
+					IneligibilityReason: uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput),
 				},
 			},
 			hasError: true,

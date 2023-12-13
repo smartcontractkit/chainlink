@@ -60,7 +60,6 @@ type OCRSpec {
     isBootstrapPeer: Boolean!
     keyBundleID: String
     observationTimeout: String
-    p2pBootstrapPeers: [String!]
     p2pv2Bootstrappers: [String!]
     transmitterAddress: String
     databaseTimeout: String!

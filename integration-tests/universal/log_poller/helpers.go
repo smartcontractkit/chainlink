@@ -1045,16 +1045,15 @@ func setupLogPollerTestDocker(
 		WithConsensusType(ctf_test_env.ConsensusType_PoS).
 		WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
 		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
-		WithBeaconChainConfig(ctf_test_env.BeaconChainConfig{
-			SecondsPerSlot: 12,
-			SlotsPerEpoch:  6,
+		WithEthereumChainConfig(ctf_test_env.EthereumChainConfig{
+			SecondsPerSlot: 8,
+			SlotsPerEpoch:  2,
 		}).
 		Build()
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err = test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
-		// WithGeth().
+		WithTestInstance(t).
 		WithPrivateEthereumNetwork(cfg).
 		WithCLNodes(clNodesCount).
 		WithCLNodeConfig(clNodeConfig).
@@ -1062,6 +1061,7 @@ func setupLogPollerTestDocker(
 		WithChainOptions(logPolllerSettingsFn).
 		EVMClientNetworkOptions(evmClientSettingsFn).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 

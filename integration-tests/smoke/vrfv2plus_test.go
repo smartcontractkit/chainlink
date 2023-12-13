@@ -29,16 +29,20 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	var vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
-	err := envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
+	err = envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
 	require.NoError(t, err)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
-		WithGeth().
+		WithTestInstance(t).
+		WithPrivateEthereumNetwork(network).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err, "error creating test env")
 
@@ -117,6 +121,7 @@ func TestVRFv2Plus(t *testing.T) {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
 	})
+
 	t.Run("Native Billing", func(t *testing.T) {
 		testConfig := vrfv2PlusConfig
 		var isNativeBilling = true
@@ -611,11 +616,12 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	require.NoError(t, err)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err, "error creating test env")
 
@@ -701,11 +707,12 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.NoError(t, err)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err, "error creating test env")
 	env.ParallelTransactions(true)

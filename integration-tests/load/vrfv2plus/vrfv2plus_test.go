@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
@@ -89,7 +88,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		vrfv2PlusConfig.KeyHash = cfg.ExistingEnvConfig.KeyHash
 
 		env, err = test_env.NewCLTestEnvBuilder().
-			WithTestLogger(t).
+			WithTestInstance(t).
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2PlusConfig)
@@ -117,6 +116,12 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			require.NoError(t, err)
 			consumers, err = vrfv2plus.DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, 1)
 			require.NoError(t, err)
+			err = env.EVMClient.WaitForEvents()
+			require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+			l.Info().
+				Str("Coordinator", cfg.ExistingEnvConfig.CoordinatorAddress).
+				Int("Number of Subs to create", vrfv2PlusConfig.NumberOfSubToCreate).
+				Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 			subIDs, err = vrfv2plus.CreateFundSubsAndAddConsumers(
 				env,
 				vrfv2PlusConfig,
@@ -162,7 +167,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		vrfv2PlusConfig.SubscriptionFundingAmountLink = cfg.NewEnvConfig.Funding.SubFundsLink
 		vrfv2PlusConfig.SubscriptionFundingAmountNative = cfg.NewEnvConfig.Funding.SubFundsNative
 		env, err = test_env.NewCLTestEnvBuilder().
-			WithTestLogger(t).
+			WithTestInstance(t).
 			WithGeth().
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
@@ -184,7 +189,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 						l.Error().Err(err).Msg("Error cleaning up test environment")
 					}
 				}).
-			WithLogWatcher().
+			WithLogStream().
 			Build()
 
 		require.NoError(t, err, "error creating test env")
@@ -308,13 +313,7 @@ func FundNodesIfNeeded(cfg *PerformanceConfig, client blockchain.EVMClient, l ze
 					Str("Should have at least", fundingAtLeast.String()).
 					Str("Funding Amount in ETH", fundingToSendEth.String()).
 					Msg("Funding Node's Sending Key")
-				gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
-					To: &address,
-				})
-				if err != nil {
-					return err
-				}
-				err = client.Fund(sendingKey, fundingToSendEth, gasEstimates)
+				err := actions.FundAddress(client, sendingKey, fundingToSendEth)
 				if err != nil {
 					return err
 				}

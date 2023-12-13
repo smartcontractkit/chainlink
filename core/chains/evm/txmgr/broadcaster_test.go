@@ -23,6 +23,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
@@ -36,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -59,19 +61,19 @@ func NewTestEthBroadcaster(
 	nonceAutoSync bool,
 ) *txmgr.Broadcaster {
 	t.Helper()
-	ctx := testutils.Context(t)
 
 	lggr := logger.Test(t)
 	ge := config.EVM().GasEstimator()
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config.EVM().GasEstimator(), ge.BlockHistory(), lggr), ge.EIP1559DynamicFees(), nil)
+	estimator := gas.NewWrappedEvmEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
+		return gas.NewFixedPriceEstimator(config.EVM().GasEstimator(), ge.BlockHistory(), lggr)
+	}, ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, keyStore, estimator)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient)
 	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), config.Database().Listener(), keyStore, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
 
 	// Mark instance as test
 	ethBroadcaster.XXXTestDisableUnstartedTxAutoProcessing()
-	require.NoError(t, ethBroadcaster.Start(ctx))
-	t.Cleanup(func() { assert.NoError(t, ethBroadcaster.Close()) })
+	servicetest.Run(t, ethBroadcaster)
 	return ethBroadcaster
 }
 
@@ -124,9 +126,9 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	require.Error(t, eb.XXXTestCloseInternal())
 
 	// Can successfully startInternal a previously closed instance
-	require.NoError(t, eb.XXXTestStartInternal())
+	require.NoError(t, eb.XXXTestStartInternal(ctx))
 	// Can't startInternal already started instance
-	require.Error(t, eb.XXXTestStartInternal())
+	require.Error(t, eb.XXXTestStartInternal(ctx))
 	// Can successfully closeInternal again
 	require.NoError(t, eb.XXXTestCloseInternal())
 }
@@ -634,8 +636,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	eb.XXXTestDisableUnstartedTxAutoProcessing()
 
 	// Start instance of broadcaster
-	require.NoError(t, eb.Start(testutils.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, eb.Close()) })
+	servicetest.Run(t, eb)
 
 	mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
 
@@ -1135,7 +1136,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				// same as the parent test, but callback is set by ctor
 				t.Run("callback set by ctor", func(t *testing.T) {
 					lggr := logger.Test(t)
-					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), nil)
+					estimator := gas.NewWrappedEvmEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
+						return gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr)
+					}, evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), nil)
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
 					localNextNonce = getLocalNextNonce(t, eb, fromAddress)
 					ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(localNextNonce), nil).Once()
@@ -1760,7 +1763,9 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 	ethNodeNonce := uint64(22)
 
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), nil)
+	estimator := gas.NewWrappedEvmEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
+		return gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr)
+	}, evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), nil)
 	checkerFactory := &testCheckerFactory{}
 
 	ge := evmcfg.EVM().GasEstimator()
@@ -1794,8 +1799,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(ethNodeNonce), nil).Once()
-		require.NoError(t, eb.Start(ctx))
-		defer func() { assert.NoError(t, eb.Close()) }()
+		servicetest.Run(t, eb)
 
 		testutils.WaitForLogMessage(t, observed, "Fast-forward sequence")
 
@@ -1828,8 +1832,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), errors.New("something exploded")).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(ethNodeNonce, nil)
 
-		require.NoError(t, eb.Start(ctx))
-		defer func() { assert.NoError(t, eb.Close()) }()
+		servicetest.Run(t, eb)
 
 		testutils.WaitForLogMessage(t, observed, "Fast-forward sequence")
 
@@ -1901,7 +1904,7 @@ func Test_NextNonce(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, addr1).Return(uint64(randNonce), nil).Once()
 	eb := NewTestEthBroadcaster(t, txStore, ethClient, ks, evmcfg, checkerFactory, false)
 	ctx := testutils.Context(t)
-	cltest.MustInsertRandomKey(t, ks, *utils.NewBig(testutils.FixtureChainID))
+	cltest.MustInsertRandomKey(t, ks, *ubig.New(testutils.FixtureChainID))
 
 	nonce, err := eb.GetNextSequence(ctx, addr1)
 	require.NoError(t, err)
@@ -2030,7 +2033,7 @@ type testChecker struct {
 
 func (t *testChecker) Check(
 	_ context.Context,
-	_ logger.Logger,
+	_ logger.SugaredLogger,
 	_ txmgr.Tx,
 	_ txmgr.TxAttempt,
 ) error {

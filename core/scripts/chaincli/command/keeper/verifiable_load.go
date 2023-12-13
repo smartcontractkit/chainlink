@@ -21,7 +21,7 @@ var verifiableLoad = &cobra.Command{
 		if err != nil {
 			log.Fatal("failed to get verify flag: ", err)
 		}
-		hdlr.GetVerifiableLoadStats(cmd.Context(), csv)
+		hdlr.PrintVerifiableLoadStats(cmd.Context(), csv)
 	},
 }
 

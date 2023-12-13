@@ -26,7 +26,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -39,6 +38,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
@@ -51,6 +51,7 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -141,11 +142,10 @@ func init() {
 		fmt.Printf("[gin] %-6s %-25s --> %s (%d handlers)\n", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
-	defaultP2PPeerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
+	err := DefaultP2PPeerID.UnmarshalString(configtest.DefaultPeerID)
 	if err != nil {
 		panic(err)
 	}
-	DefaultP2PPeerID = p2pkey.PeerID(defaultP2PPeerID)
 }
 
 func NewRandomPositiveInt64() int64 {
@@ -233,10 +233,10 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
-	chainID := *utils.NewBig(&FixtureChainID)
+	chainID := *ubig.New(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case *utils.Big:
+		case *ubig.Big:
 			chainID = *v
 		}
 	}
@@ -256,7 +256,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	return app
 }
 
-func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID utils.Big) {
+func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID ubig.Big) {
 	require.NoError(t, app.KeyStore.Unlock(Password))
 
 	for _, dep := range flagsAndDeps {
@@ -341,11 +341,10 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 
-	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+	mailMon := mailbox.NewMonitor(cfg.AppID().String())
 	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
 
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
-		Logger:               lggr,
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
 		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
@@ -995,13 +994,13 @@ func Head(val interface{}) *evmtypes.Head {
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
 	case uint64:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
 	case int64:
-		h = evmtypes.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
 	case *big.Int:
-		h = evmtypes.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(t, utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
 	default:
 		panic(fmt.Sprintf("Could not convert %v of type %T to Head", val, val))
 	}
@@ -1011,7 +1010,7 @@ func Head(val interface{}) *evmtypes.Head {
 func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
 	var h evmtypes.Head
 	time := uint64(0)
-	h = evmtypes.NewHead(big.NewInt(n), hash, utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+	h = evmtypes.NewHead(big.NewInt(n), hash, utils.NewHash(), time, ubig.New(&FixtureChainID))
 	return &h
 
 }
@@ -1392,7 +1391,7 @@ func (b *Blocks) NewHead(number uint64) *evmtypes.Head {
 		ParentHash: parent.Hash,
 		Parent:     parent,
 		Timestamp:  time.Unix(parent.Number+1, 0),
-		EVMChainID: utils.NewBig(&FixtureChainID),
+		EVMChainID: ubig.New(&FixtureChainID),
 	}
 	return head
 }
@@ -1431,7 +1430,7 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 		hash := utils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: utils.NewBig(&FixtureChainID)}
+		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: ubig.New(&FixtureChainID)}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent = parent

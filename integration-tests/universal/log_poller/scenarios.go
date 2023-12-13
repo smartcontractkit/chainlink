@@ -52,21 +52,53 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 		false,
 	)
 
+	upKeepIdSeen := make(map[int64]bool)
+	for _, upkeepID := range upkeepIDs {
+		if _, ok := upKeepIdSeen[upkeepID.Int64()]; ok {
+			t.Fatalf("Duplicate upkeep ID %d", upkeepID.Int64())
+		}
+		upKeepIdSeen[upkeepID.Int64()] = true
+	}
+	l.Info().Msg("No duplicate upkeep IDs found. OK!")
+
 	// Deploy Log Emitter contracts
 	logEmitters := uploadLogEmitterContractsAndWaitForFinalisation(l, t, testEnv, cfg)
 
+	contractAddressSeen := make(map[string]bool)
+	for _, logEmitter := range logEmitters {
+		address := (*logEmitter).Address().String()
+		if _, ok := contractAddressSeen[address]; ok {
+			t.Fatalf("Duplicate contract address %s", address)
+		}
+		contractAddressSeen[address] = true
+	}
+	l.Info().Msg("No duplicate contract addresses found. OK!")
+
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
+	uniqueFilters := make(map[string]bool)
 	for i := 0; i < len(upkeepIDs); i++ {
 		emitterAddress := (*logEmitters[i%cfg.General.Contracts]).Address()
 		upkeepID := upkeepIDs[i]
 		topicId := cfg.General.EventsToEmit[i%len(cfg.General.EventsToEmit)].ID
 
-		l.Info().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
+		l.Debug().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
+		if i%10 == 0 {
+			l.Info().Msgf("Registered log trigger for log emitter %d/%d", i, len(upkeepIDs))
+		}
 		err = registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
 		randomWait(150, 300)
 		require.NoError(t, err, "Error registering log trigger for log emitter")
+
+		key := fmt.Sprintf("%d-%s-%s", upkeepID.Int64(), emitterAddress.String(), topicId.Hex())
+		if _, ok := uniqueFilters[key]; ok {
+			t.Fatalf("Duplicate filter %s", key)
+		}
+		uniqueFilters[key] = true
 	}
+
+	require.Equal(t, upKeepsNeeded, len(uniqueFilters), "Number of unique filters should be equal to number of upkeeps")
+	l.Info().Msg("No duplicate filters found. OK!")
 
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")

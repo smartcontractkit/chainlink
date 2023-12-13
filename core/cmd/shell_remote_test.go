@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
@@ -62,7 +63,6 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
 		f := false
 		c.EVM[0].Enabled = &f
-		c.P2P.V1.Enabled = &f
 		c.P2P.V2.Enabled = &f
 
 		if overrideFn != nil {
@@ -567,7 +567,8 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 	}, func(opts *startOptions) {
