@@ -2033,7 +2033,7 @@ type testChecker struct {
 
 func (t *testChecker) Check(
 	_ context.Context,
-	_ logger.Logger,
+	_ logger.SugaredLogger,
 	_ txmgr.Tx,
 	_ txmgr.TxAttempt,
 ) error {
