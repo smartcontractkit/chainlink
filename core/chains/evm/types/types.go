@@ -13,6 +13,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -25,7 +26,7 @@ type Configs interface {
 
 type Node struct {
 	Name       string
-	EVMChainID utils.Big
+	EVMChainID ubig.Big
 	WSURL      null.String
 	HTTPURL    null.String
 	SendOnly   bool

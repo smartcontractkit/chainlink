@@ -26,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -216,6 +217,7 @@ func (filter *Filter) Contains(other *Filter) bool {
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
 // The filter may be unregistered later by Filter.Name
+// Warnings/debug information is keyed by filter name.
 func (lp *logPoller) RegisterFilter(filter Filter, qopts ...pg.QOpt) error {
 	if len(filter.Addresses) == 0 {
 		return errors.Errorf("at least one address must be specified")
@@ -241,33 +243,35 @@ func (lp *logPoller) RegisterFilter(filter Filter, qopts ...pg.QOpt) error {
 	if existingFilter, ok := lp.filters[filter.Name]; ok {
 		if existingFilter.Contains(&filter) {
 			// Nothing new in this Filter
+			lp.lggr.Warnw("Filter already present, no-op", "name", filter.Name, "filter", filter)
 			return nil
 		}
-		lp.lggr.Warnw("Updating existing filter with more events or addresses", "filter", filter)
-	} else {
-		lp.lggr.Debugw("Creating new filter", "filter", filter)
+		lp.lggr.Warnw("Updating existing filter with more events or addresses", "name", filter.Name, "filter", filter)
 	}
 
 	if err := lp.orm.InsertFilter(filter, qopts...); err != nil {
-		return errors.Wrap(err, "RegisterFilter failed to save filter to db")
+		return errors.Wrap(err, "error inserting filter")
 	}
 	lp.filters[filter.Name] = filter
 	lp.filterDirty = true
 	return nil
 }
 
+// UnregisterFilter will remove the filter with the given name.
+// If the name does not exist, it will log an error but not return an error.
+// Warnings/debug information is keyed by filter name.
 func (lp *logPoller) UnregisterFilter(name string, qopts ...pg.QOpt) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
 
 	_, ok := lp.filters[name]
 	if !ok {
-		lp.lggr.Errorf("Filter %s not found", name)
+		lp.lggr.Warnw("Filter not found", "name", name)
 		return nil
 	}
 
 	if err := lp.orm.DeleteFilter(name, qopts...); err != nil {
-		return errors.Wrapf(err, "Failed to delete filter %s", name)
+		return errors.Wrap(err, "error deleting filter")
 	}
 	delete(lp.filters, name)
 	lp.filterDirty = true
@@ -608,7 +612,7 @@ func convertLogs(logs []types.Log, blocks []LogPollerBlock, lggr logger.Logger, 
 			blockTimestamp = blocks[i].BlockTimestamp
 		}
 		lgs = append(lgs, Log{
-			EvmChainId: utils.NewBig(chainID),
+			EvmChainId: ubig.New(chainID),
 			LogIndex:   int64(l.Index),
 			BlockHash:  l.BlockHash,
 			// We assume block numbers fit in int64
