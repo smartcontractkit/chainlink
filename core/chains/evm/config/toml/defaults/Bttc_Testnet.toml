@@ -7,7 +7,8 @@ LogPollInterval = '2s'
 NoNewHeadsThreshold = '0'
 
 [GasEstimator]
-EIP1559DynamicFees = false
+PriceMin = '1 wei'
+BumpMin = '100 wei'
 
 [GasEstimator.BlockHistory]
 # how many blocks we want to keep in memory to calculate gas price
