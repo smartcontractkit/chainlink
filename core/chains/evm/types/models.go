@@ -18,8 +18,9 @@ import (
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -32,22 +33,22 @@ type Head struct {
 	L1BlockNumber    null.Int64
 	ParentHash       common.Hash
 	Parent           *Head
-	EVMChainID       *utils.Big
+	EVMChainID       *ubig.Big
 	Timestamp        time.Time
 	CreatedAt        time.Time
 	BaseFeePerGas    *assets.Wei
 	ReceiptsRoot     common.Hash
 	TransactionsRoot common.Hash
 	StateRoot        common.Hash
-	Difficulty       *utils.Big
-	TotalDifficulty  *utils.Big
+	Difficulty       *big.Int
+	TotalDifficulty  *big.Int
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
 var _ htrktypes.Head[common.Hash, *big.Int] = &Head{}
 
 // NewHead returns a Head instance.
-func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *utils.Big) Head {
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *ubig.Big) Head {
 	return Head{
 		Number:     number.Int64(),
 		Hash:       blockHash,
@@ -76,7 +77,11 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 	return h.Parent
 }
 
-func (h *Head) BlockDifficulty() *utils.Big {
+func (h *Head) GetTimestamp() time.Time {
+	return h.Timestamp
+}
+
+func (h *Head) BlockDifficulty() *big.Int {
 	return h.Difficulty
 }
 
@@ -279,8 +284,8 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.ReceiptsRoot = jsonHead.ReceiptsRoot
 	h.TransactionsRoot = jsonHead.TransactionsRoot
 	h.StateRoot = jsonHead.StateRoot
-	h.Difficulty = utils.NewBig(jsonHead.Difficulty.ToInt())
-	h.TotalDifficulty = utils.NewBig(jsonHead.TotalDifficulty.ToInt())
+	h.Difficulty = jsonHead.Difficulty.ToInt()
+	h.TotalDifficulty = jsonHead.TotalDifficulty.ToInt()
 	return nil
 }
 

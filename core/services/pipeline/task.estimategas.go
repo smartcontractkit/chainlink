@@ -12,7 +12,7 @@ import (
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -30,7 +30,7 @@ type EstimateGasLimitTask struct {
 	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
 	specGasLimit *uint32
-	legacyChains evm.LegacyChainContainer
+	legacyChains legacyevm.LegacyChainContainer
 	jobType      string
 }
 

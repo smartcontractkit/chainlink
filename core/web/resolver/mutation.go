@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -640,12 +640,13 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 		return nil, err
 	}
 
+	const keyType = "Ed25519"
 	r.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
 		"type":         "p2p",
 		"id":           key.ID(),
 		"p2pPublicKey": key.PublicKeyHex(),
 		"p2pPeerID":    key.PeerID(),
-		"p2pType":      key.Type(),
+		"p2pType":      keyType,
 	})
 
 	return NewCreateP2PKeyPayload(key), nil

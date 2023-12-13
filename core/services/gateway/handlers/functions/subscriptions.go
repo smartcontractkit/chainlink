@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -49,7 +49,7 @@ type onchainSubscriptions struct {
 	lggr               logger.Logger
 	closeWait          sync.WaitGroup
 	rwMutex            sync.RWMutex
-	stopCh             utils.StopChan
+	stopCh             services.StopChan
 }
 
 func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscriptionsConfig, lggr logger.Logger) (OnchainSubscriptions, error) {
@@ -70,7 +70,7 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 		router:             router,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
 		lggr:               lggr.Named("OnchainSubscriptions"),
-		stopCh:             make(utils.StopChan),
+		stopCh:             make(services.StopChan),
 	}, nil
 }
 

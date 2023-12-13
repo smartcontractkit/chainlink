@@ -1,7 +1,7 @@
 package services
 
 import (
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 type ServiceCtx = services.Service

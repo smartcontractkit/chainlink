@@ -2,12 +2,14 @@ package loadvrfv2plus
 
 import (
 	"encoding/base64"
+	"fmt"
+	"os"
+
 	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"os"
 )
 
 const (
@@ -39,8 +41,9 @@ type ExistingEnvConfig struct {
 	LinkAddress        string `toml:"link_address"`
 	SubID              string `toml:"sub_id"`
 	KeyHash            string `toml:"key_hash"`
-	SubFunding
-	CreateFundSubsAndAddConsumers bool `toml:"create_fund_subs_and_add_consumers"`
+	Funding
+	CreateFundSubsAndAddConsumers bool     `toml:"create_fund_subs_and_add_consumers"`
+	NodeSendingKeys               []string `toml:"node_sending_keys"`
 }
 
 type NewEnvConfig struct {
@@ -48,12 +51,14 @@ type NewEnvConfig struct {
 }
 
 type Common struct {
-	MinimumConfirmations uint16 `toml:"minimum_confirmations"`
+	MinimumConfirmations   uint16 `toml:"minimum_confirmations"`
+	CancelSubsAfterTestRun bool   `toml:"cancel_subs_after_test_run"`
 }
 
 type Funding struct {
-	NodeFunds float64 `toml:"node_funds"`
 	SubFunding
+	NodeSendingKeyFunding    float64 `toml:"node_sending_key_funding"`
+	NodeSendingKeyFundingMin float64 `toml:"node_sending_key_funding_min"`
 }
 
 type SubFunding struct {
@@ -95,18 +100,21 @@ func ReadConfig() (*PerformanceConfig, error) {
 	if rawConfig == "" {
 		d, err = os.ReadFile(DefaultConfigFilename)
 		if err != nil {
-			return nil, errors.Wrap(err, ErrReadPerfConfig)
+			return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
 		}
 	} else {
 		d, err = base64.StdEncoding.DecodeString(rawConfig)
+		if err != nil {
+			return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
+		}
 	}
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
+		return nil, fmt.Errorf("%s, err: %w", ErrUnmarshalPerfConfig, err)
 	}
 
 	if cfg.Soak.RandomnessRequestCountPerRequest <= cfg.Soak.RandomnessRequestCountPerRequestDeviation {
-		return nil, errors.Wrap(err, ErrDeviationShouldBeLessThanOriginal)
+		return nil, fmt.Errorf("%s, err: %w", ErrDeviationShouldBeLessThanOriginal, err)
 	}
 
 	log.Debug().Interface("Config", cfg).Msg("Parsed config")

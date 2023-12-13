@@ -20,6 +20,7 @@ func main() {
 	ghEventPath := flag.String("gh_event_path", "", "path to associated gh event")
 	ghEventName := flag.String("gh_event_name", "", "type of associated gh event")
 	ghRepo := flag.String("gh_repo", "", "name of gh repository")
+	ghRunID := flag.String("gh_run_id", "", "run id of the gh workflow")
 	flag.Parse()
 
 	if *grafanaHost == "" {
@@ -47,7 +48,7 @@ func main() {
 		readers = append(readers, r)
 	}
 
-	ctx := flakeytests.GetGithubMetadata(*ghRepo, *ghEventName, *ghSHA, *ghEventPath)
+	ctx := flakeytests.GetGithubMetadata(*ghRepo, *ghEventName, *ghSHA, *ghEventPath, *ghRunID)
 	rep := flakeytests.NewLokiReporter(*grafanaHost, *grafanaAuth, *command, ctx)
 	r := flakeytests.NewRunner(readers, rep, numReruns)
 	err := r.Run()

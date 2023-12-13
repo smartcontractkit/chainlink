@@ -122,7 +122,7 @@ func collectBranchesAndTags(results chan []string, errChan chan error) {
 	go func() {
 		stdOut, stdErr, err := gh.Exec("api", fmt.Sprintf("repos/%s/branches", chainlinkRepo), "-q", ".[][\"name\"]", "--paginate")
 		if err != nil {
-			errChan <- fmt.Errorf("%v: %s", err, stdErr.String())
+			errChan <- fmt.Errorf("%w: %s", err, stdErr.String())
 		}
 		branches := strings.Split(stdOut.String(), "\n")
 		cleanBranches := []string{}
@@ -139,7 +139,7 @@ func collectBranchesAndTags(results chan []string, errChan chan error) {
 	go func() {
 		stdOut, stdErr, err := gh.Exec("api", fmt.Sprintf("repos/%s/tags", chainlinkRepo), "-q", ".[][\"name\"]", "--paginate")
 		if err != nil {
-			errChan <- fmt.Errorf("%v: %s", err, stdErr.String())
+			errChan <- fmt.Errorf("%w: %s", err, stdErr.String())
 		}
 		tags := strings.Split(stdOut.String(), "\n")
 		cleanTags := []string{}

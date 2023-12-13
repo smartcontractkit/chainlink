@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -54,6 +53,7 @@ type Core struct {
 	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
+	Mercury          Mercury          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -82,6 +82,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
 	c.Keeper.setFrom(&f.Keeper)
+	c.Mercury.setFrom(&f.Mercury)
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
@@ -1038,21 +1039,7 @@ type P2P struct {
 	PeerID                    *p2pkey.PeerID
 	TraceLogging              *bool
 
-	V1 P2PV1 `toml:",omitempty"`
 	V2 P2PV2 `toml:",omitempty"`
-}
-
-func (p *P2P) NetworkStack() ocrnetworking.NetworkingStack {
-	v1, v2 := *p.V1.Enabled, *p.V2.Enabled
-	switch {
-	case v1 && v2:
-		return ocrnetworking.NetworkingStackV1V2
-	case v2:
-		return ocrnetworking.NetworkingStackV2
-	case v1:
-		return ocrnetworking.NetworkingStackV1
-	}
-	return ocrnetworking.NetworkingStack(0)
 }
 
 func (p *P2P) setFrom(f *P2P) {
@@ -1069,66 +1056,7 @@ func (p *P2P) setFrom(f *P2P) {
 		p.TraceLogging = v
 	}
 
-	p.V1.setFrom(&f.V1)
 	p.V2.setFrom(&f.V2)
-}
-
-type P2PV1 struct {
-	Enabled                          *bool
-	AnnounceIP                       *net.IP
-	AnnouncePort                     *uint16
-	BootstrapCheckInterval           *models.Duration
-	DefaultBootstrapPeers            *[]string
-	DHTAnnouncementCounterUserPrefix *uint32
-	DHTLookupInterval                *int64
-	ListenIP                         *net.IP
-	ListenPort                       *uint16
-	NewStreamTimeout                 *models.Duration
-	PeerstoreWriteInterval           *models.Duration
-}
-
-func (p *P2PV1) ValidateConfig() (err error) {
-	//TODO or empty?
-	if p.AnnouncePort != nil && p.AnnounceIP == nil {
-		err = multierr.Append(err, configutils.ErrMissing{Name: "AnnounceIP", Msg: fmt.Sprintf("required when AnnouncePort is set: %d", *p.AnnouncePort)})
-	}
-	return
-}
-
-func (p *P2PV1) setFrom(f *P2PV1) {
-	if v := f.Enabled; v != nil {
-		p.Enabled = v
-	}
-	if v := f.AnnounceIP; v != nil {
-		p.AnnounceIP = v
-	}
-	if v := f.AnnouncePort; v != nil {
-		p.AnnouncePort = v
-	}
-	if v := f.BootstrapCheckInterval; v != nil {
-		p.BootstrapCheckInterval = v
-	}
-	if v := f.DefaultBootstrapPeers; v != nil {
-		p.DefaultBootstrapPeers = v
-	}
-	if v := f.DHTAnnouncementCounterUserPrefix; v != nil {
-		p.DHTAnnouncementCounterUserPrefix = v
-	}
-	if v := f.DHTLookupInterval; v != nil {
-		p.DHTLookupInterval = v
-	}
-	if v := f.ListenIP; v != nil {
-		p.ListenIP = v
-	}
-	if v := f.ListenPort; v != nil {
-		p.ListenPort = v
-	}
-	if v := f.NewStreamTimeout; v != nil {
-		p.NewStreamTimeout = v
-	}
-	if v := f.PeerstoreWriteInterval; v != nil {
-		p.PeerstoreWriteInterval = v
-	}
 }
 
 type P2PV2 struct {
@@ -1358,6 +1286,32 @@ func (ins *Insecure) setFrom(f *Insecure) {
 	}
 }
 
+type MercuryCache struct {
+	LatestReportTTL      *models.Duration
+	MaxStaleAge          *models.Duration
+	LatestReportDeadline *models.Duration
+}
+
+func (mc *MercuryCache) setFrom(f *MercuryCache) {
+	if v := f.LatestReportTTL; v != nil {
+		mc.LatestReportTTL = v
+	}
+	if v := f.MaxStaleAge; v != nil {
+		mc.MaxStaleAge = v
+	}
+	if v := f.LatestReportDeadline; v != nil {
+		mc.LatestReportDeadline = v
+	}
+}
+
+type Mercury struct {
+	Cache MercuryCache `toml:",omitempty"`
+}
+
+func (m *Mercury) setFrom(f *Mercury) {
+	m.Cache.setFrom(&f.Cache)
+}
+
 type MercuryCredentials struct {
 	// LegacyURL is the legacy base URL for mercury v0.2 API
 	LegacyURL *models.SecretURL
@@ -1455,6 +1409,8 @@ type Tracing struct {
 	CollectorTarget *string
 	NodeID          *string
 	SamplingRatio   *float64
+	Mode            *string
+	TLSCertPath     *string
 	Attributes      map[string]string `toml:",omitempty"`
 }
 
@@ -1474,6 +1430,12 @@ func (t *Tracing) setFrom(f *Tracing) {
 	if v := f.SamplingRatio; v != nil {
 		t.SamplingRatio = f.SamplingRatio
 	}
+	if v := f.Mode; v != nil {
+		t.Mode = f.Mode
+	}
+	if v := f.TLSCertPath; v != nil {
+		t.TLSCertPath = f.TLSCertPath
+	}
 }
 
 func (t *Tracing) ValidateConfig() (err error) {
@@ -1487,10 +1449,39 @@ func (t *Tracing) ValidateConfig() (err error) {
 		}
 	}
 
-	if t.CollectorTarget != nil {
-		ok := isValidURI(*t.CollectorTarget)
-		if !ok {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+	if t.Mode != nil {
+		switch *t.Mode {
+		case "tls":
+			// TLSCertPath must be set
+			if t.TLSCertPath == nil {
+				err = multierr.Append(err, configutils.ErrMissing{Name: "TLSCertPath", Msg: "must be set when Tracing.Mode is tls"})
+			} else {
+				ok := isValidFilePath(*t.TLSCertPath)
+				if !ok {
+					err = multierr.Append(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
+				}
+			}
+		case "unencrypted":
+			// no-op
+		default:
+			// Mode must be either "tls" or "unencrypted"
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "Mode", Value: *t.Mode, Msg: "must be either 'tls' or 'unencrypted'"})
+		}
+	}
+
+	if t.CollectorTarget != nil && t.Mode != nil {
+		switch *t.Mode {
+		case "tls":
+			if !isValidURI(*t.CollectorTarget) {
+				err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+			}
+		case "unencrypted":
+			// Unencrypted traces can not be sent to external networks
+			if !isValidLocalURI(*t.CollectorTarget) {
+				err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid local URI"})
+			}
+		default:
+			// no-op
 		}
 	}
 
@@ -1499,15 +1490,19 @@ func (t *Tracing) ValidateConfig() (err error) {
 
 var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)
 
+// Validates uri is valid external or local URI
 func isValidURI(uri string) bool {
 	if strings.Contains(uri, "://") {
-		// Standard URI check
-		_, _ = url.ParseRequestURI(uri)
-		// TODO: BCF-2703. Handle error. All external addresses currently fail validation until we have secure transport to external networks.
-		return false
+		_, err := url.ParseRequestURI(uri)
+		return err == nil
 	}
 
-	// For URIs like "otel-collector:4317"
+	return isValidLocalURI(uri)
+}
+
+// isValidLocalURI returns true if uri is a valid local URI
+// External URIs (e.g. http://) are not valid local URIs, and will return false.
+func isValidLocalURI(uri string) bool {
 	parts := strings.Split(uri, ":")
 	if len(parts) == 2 {
 		host, port := parts[0], parts[1]
@@ -1529,4 +1524,8 @@ func isValidURI(uri string) bool {
 
 func isValidHostname(hostname string) bool {
 	return hostnameRegex.MatchString(hostname)
+}
+
+func isValidFilePath(path string) bool {
+	return len(path) > 0 && len(path) < 4096
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/model"
@@ -14,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -61,10 +62,10 @@ func (m *mockLoopImpl) run() {
 }
 
 func TestLoopRegistry(t *testing.T) {
-
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 // SleeperTask represents a task that waits in the background to process some work.

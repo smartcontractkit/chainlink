@@ -6,10 +6,10 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // TxmClient is a superset of all the methods needed for the txm
@@ -47,7 +47,7 @@ type TransactionClient[
 		ctx context.Context,
 		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		bathSize int,
-		lggr logger.Logger,
+		lggr logger.SugaredLogger,
 	) (
 		txCodes []client.SendTxReturnCode,
 		txErrs []error,
@@ -58,7 +58,7 @@ type TransactionClient[
 		ctx context.Context,
 		tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-		lggr logger.Logger,
+		lggr logger.SugaredLogger,
 	) (client.SendTxReturnCode, error)
 	SendEmptyTransaction(
 		ctx context.Context,

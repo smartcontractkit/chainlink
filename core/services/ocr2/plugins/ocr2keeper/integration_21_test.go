@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
@@ -30,10 +30,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
@@ -52,8 +53,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
-	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -64,7 +64,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	address := common.HexToAddress(hexutil.Encode(b))
 
 	spec := &job.OCR2OracleSpec{
-		PluginType: relaytypes.OCR2Keeper,
+		PluginType: types.OCR2Keeper,
 		ContractID: address.String(), // valid contract addr
 	}
 
@@ -76,7 +76,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	assert.Equal(t, logpoller.FilterName("KeeperRegistry Events", address), names[1])
 
 	spec = &job.OCR2OracleSpec{
-		PluginType: relaytypes.OCR2Keeper,
+		PluginType: types.OCR2Keeper,
 		ContractID: "0x5431", // invalid contract addr
 	}
 	_, err = ocr2keeper.FilterNamesFromSpec21(spec)
@@ -116,7 +116,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	require.NoError(t, err)
 	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
-	nodes, _ := setupNodes(t, nodeKeys, registry, backend, steve)
+	setupNodes(t, nodeKeys, registry, backend, steve)
 
 	<-time.After(time.Second * 5)
 
@@ -158,8 +158,6 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 		return received
 	}
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
-
-	checkPipelineRuns(t, nodes, 1)
 
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
@@ -203,7 +201,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	require.NoError(t, err)
 
 	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
-	nodes, _ := setupNodes(t, nodeKeys, registry, backend, steve)
+	setupNodes(t, nodeKeys, registry, backend, steve)
 	upkeeps := 1
 
 	_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
@@ -227,35 +225,36 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	done()
 
-	runs := checkPipelineRuns(t, nodes, 1)
-
 	t.Run("recover logs", func(t *testing.T) {
-
 		addr, contract := addrs[0], contracts[0]
 		upkeepID := registerUpkeep(t, registry, addr, carrol, steve, backend)
 		backend.Commit()
 		t.Logf("Registered new upkeep %s for address %s", upkeepID.String(), addr.String())
 		// Emit 100 logs in a burst
-		emits := 100
+		recoverEmits := 100
 		i := 0
 		emitEvents(testutils.Context(t), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {
 			i++
-			if i%(emits/4) == 0 {
+			if i%(recoverEmits/4) == 0 {
 				backend.Commit()
 				time.Sleep(time.Millisecond * 250) // otherwise we get "invalid transaction nonce" errors
 			}
 		})
-		// Mine enough blocks to ensre these logs don't fall into log provider range
+
+		beforeDummyBlocks := backend.Blockchain().CurrentBlock().Number.Uint64()
+
+		// Mine enough blocks to ensure these logs don't fall into log provider range
 		dummyBlocks := 500
 		for i := 0; i < dummyBlocks; i++ {
 			backend.Commit()
 			time.Sleep(time.Millisecond * 10)
 		}
+
 		t.Logf("Mined %d blocks, waiting for logs to be recovered", dummyBlocks)
 
-		expectedPostRecover := runs + emits
-		waitPipelineRuns(t, nodes, expectedPostRecover, testutils.WaitTimeout(t), cltest.DBPollingInterval)
-
+		listener, done := listenPerformedN(t, backend, registry, ids, int64(beforeDummyBlocks), recoverEmits)
+		g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
+		done()
 	})
 }
 
@@ -295,7 +294,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 
 	registry := deployKeeper21Registry(t, registryOwner, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
-	nodes, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner)
+	_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner)
 
 	const upkeepCount = 10
 	const mercuryFailCount = upkeepCount * 3 * 2
@@ -373,39 +372,6 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
 
 	done()
-
-	_ = checkPipelineRuns(t, nodes, 1*len(nodes)) // TODO: TBD
-}
-
-func waitPipelineRuns(t *testing.T, nodes []Node, n int, timeout, interval time.Duration) {
-	ctx, cancel := context.WithTimeout(testutils.Context(t), timeout)
-	defer cancel()
-	var allRuns []pipeline.Run
-	for len(allRuns) < n && ctx.Err() == nil {
-		allRuns = []pipeline.Run{}
-		for _, node := range nodes {
-			runs, err := node.App.PipelineORM().GetAllRuns()
-			require.NoError(t, err)
-			allRuns = append(allRuns, runs...)
-		}
-		time.Sleep(interval)
-	}
-	runs := len(allRuns)
-	t.Logf("found %d pipeline runs", runs)
-	require.GreaterOrEqual(t, runs, n)
-}
-
-func checkPipelineRuns(t *testing.T, nodes []Node, n int) int {
-	var allRuns []pipeline.Run
-	for _, node := range nodes {
-		runs, err2 := node.App.PipelineORM().GetAllRuns()
-		require.NoError(t, err2)
-		allRuns = append(allRuns, runs...)
-	}
-	runs := len(allRuns)
-	t.Logf("found %d pipeline runs", runs)
-	require.GreaterOrEqual(t, runs, n)
-	return runs
 }
 
 func emitEvents(ctx context.Context, t *testing.T, n int, contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter, carrol *bind.TransactOpts, afterEmit func()) {
@@ -423,32 +389,32 @@ func mapListener(m *sync.Map, n int) func() bool {
 	return func() bool {
 		count := 0
 		m.Range(func(key, value interface{}) bool {
-			count++
+			count += value.(int)
 			return true
 		})
 		return count > n
 	}
 }
 
-func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (func() bool, func()) {
+func listenPerformedN(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64, count int) (func() bool, func()) {
 	cache := &sync.Map{}
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	start := startBlock
 
 	go func() {
 		for ctx.Err() == nil {
-			bl := backend.Blockchain().CurrentBlock().Number.Uint64()
+			currentBlock := backend.Blockchain().CurrentBlock().Number.Uint64()
 
-			sc := make([]bool, len(ids))
-			for i := range sc {
-				sc[i] = true
+			success := make([]bool, len(ids))
+			for i := range success {
+				success[i] = true
 			}
 
 			iter, err := registry.FilterUpkeepPerformed(&bind.FilterOpts{
 				Start:   uint64(start),
-				End:     &bl,
+				End:     &currentBlock,
 				Context: ctx,
-			}, ids, sc)
+			}, ids, success)
 
 			if ctx.Err() != nil {
 				return
@@ -459,7 +425,15 @@ func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry 
 			for iter.Next() {
 				if iter.Event != nil {
 					t.Logf("[automation-ocr3 | EvmRegistry] upkeep performed event emitted for id %s", iter.Event.Id.String())
-					cache.Store(iter.Event.Id.String(), true)
+
+					//cache.Store(iter.Event.Id.String(), true)
+					count, ok := cache.Load(iter.Event.Id.String())
+					if !ok {
+						cache.Store(iter.Event.Id.String(), 1)
+						continue
+					}
+					countI := count.(int)
+					cache.Store(iter.Event.Id.String(), countI+1)
 				}
 			}
 
@@ -469,7 +443,11 @@ func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry 
 		}
 	}()
 
-	return mapListener(cache, 0), cancel
+	return mapListener(cache, count), cancel
+}
+
+func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (func() bool, func()) {
+	return listenPerformedN(t, backend, registry, ids, startBlock, 0)
 }
 
 func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts) ([]Node, *SimulatedMercuryServer) {
@@ -479,7 +457,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_keeper_ocr", nodeKeys[0], backend, nil, mServer)
+	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, mServer)
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
@@ -490,7 +468,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
 	for i := 0; i < 4; i++ {
-		app, peerID, transmitter, kb := setupNode(t, ports[i], fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
+		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		}, mServer)
@@ -720,7 +698,7 @@ func deployKeeper21Registry(
 	return registryMaster
 }
 
-func getUpkeepIdFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func getUpkeepIdFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *gethtypes.Transaction, backend *backends.SimulatedBackend) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -884,10 +862,11 @@ func (c *feedLookupUpkeepController) EnableMercury(
 	registry *iregistry21.IKeeperRegistryMaster,
 	registryOwner *bind.TransactOpts,
 ) error {
-	adminBytes, _ := json.Marshal(evm21.UpkeepPrivilegeConfig{
+	adminBytes, _ := json.Marshal(streams.UpkeepPrivilegeConfig{
 		MercuryEnabled: true,
 	})
 
+	ctx := testutils.Context(t)
 	for _, id := range c.upkeepIds {
 		if _, err := registry.SetUpkeepPrivilegeConfig(registryOwner, id, adminBytes); err != nil {
 			require.NoError(t, err)
@@ -898,7 +877,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 		callOpts := &bind.CallOpts{
 			Pending: true,
 			From:    registryOwner.From,
-			Context: context.Background(),
+			Context: ctx,
 		}
 
 		bts, err := registry.GetUpkeepPrivilegeConfig(callOpts, id)
@@ -908,7 +887,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 			return err
 		}
 
-		var checkBytes evm21.UpkeepPrivilegeConfig
+		var checkBytes streams.UpkeepPrivilegeConfig
 		if err := json.Unmarshal(bts, &checkBytes); err != nil {
 			require.NoError(t, err)
 
@@ -987,7 +966,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 		backend.Commit()
 
 		// verify event was emitted
-		block, _ := backend.BlockByHash(context.Background(), backend.Commit())
+		block, _ := backend.BlockByHash(ctx, backend.Commit())
 		t.Logf("block number after emit event: %d", block.NumberU64())
 
 		iter, _ := c.protocol.FilterLimitOrderExecuted(

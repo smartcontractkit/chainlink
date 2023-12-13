@@ -19,7 +19,7 @@ contract BaseTest is Test {
     // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
     if (s_baseTestInitialized) return;
     s_baseTestInitialized = true;
-    // Set msg.sender to OWNER until stopPrank is called
+    // Set msg.sender and tx.origin to OWNER until stopPrank is called
     vm.startPrank(OWNER_ADDRESS, OWNER_ADDRESS);
   }
 }

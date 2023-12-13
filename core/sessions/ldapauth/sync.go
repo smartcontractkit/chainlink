@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

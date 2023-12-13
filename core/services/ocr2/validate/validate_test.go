@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -627,7 +628,7 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 [relayConfig]
 chainID = 4
 
-[pluginConfig.coreConfig]
+[pluginConfig]
 pluginName = "median"
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -655,7 +656,7 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 [relayConfig]
 chainID = 4
 
-[pluginConfig.coreConfig]
+[pluginConfig]
 pluginName = "median"
 telemetryType = "median"
 `,
@@ -677,4 +678,43 @@ telemetryType = "median"
 			tc.assertion(t, s, err)
 		})
 	}
+}
+
+type envelope struct {
+	PluginConfig *validate.OCR2GenericPluginConfig
+}
+
+func TestOCR2GenericPluginConfig_Unmarshal(t *testing.T) {
+	payload := `
+[pluginConfig]
+pluginName = "median"
+telemetryType = "median"
+foo = "bar"
+
+[[pluginConfig.pipelines]]
+name = "default"
+spec = "a spec"
+`
+	tree, err := toml.Load(payload)
+	require.NoError(t, err)
+
+	// Load the toml how we load it in the plugin, i.e. convert to
+	// map[string]any first, then treat as JSON
+	o := map[string]any{}
+	err = tree.Unmarshal(&o)
+	require.NoError(t, err)
+
+	b, err := json.Marshal(o)
+	require.NoError(t, err)
+
+	e := &envelope{}
+	err = json.Unmarshal(b, e)
+	require.NoError(t, err)
+
+	pc := e.PluginConfig
+	assert.Equal(t, "bar", pc.PluginConfig["foo"])
+	assert.Len(t, pc.Pipelines, 1)
+	assert.Equal(t, validate.PipelineSpec{Name: "default", Spec: "a spec"}, pc.Pipelines[0])
+	assert.Equal(t, "median", pc.PluginName)
+	assert.Equal(t, "median", pc.TelemetryType)
 }

@@ -8,9 +8,9 @@ import (
 	"github.com/pkg/errors"
 	"go.dedis.ch/kyber/v3/sign/anon"
 
-	"github.com/smartcontractkit/ocr2vrf/dkg"
-	dkgwrapper "github.com/smartcontractkit/ocr2vrf/gethwrappers/dkg"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"github.com/smartcontractkit/chainlink-vrf/dkg"
+	dkgwrapper "github.com/smartcontractkit/chainlink-vrf/gethwrappers/dkg"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )

@@ -15,7 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -72,7 +72,7 @@ type donConnectionManager struct {
 	handler    handlers.Handler
 	codec      api.Codec
 	closeWait  sync.WaitGroup
-	shutdownCh chan struct{}
+	shutdownCh services.StopChan
 	lggr       logger.Logger
 }
 
@@ -271,7 +271,7 @@ func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress strin
 }
 
 func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState) {
-	ctx, _ := utils.StopChan(m.shutdownCh).NewCtx()
+	ctx, _ := m.shutdownCh.NewCtx()
 	for {
 		select {
 		case <-m.shutdownCh:
@@ -296,7 +296,7 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 }
 
 func (m *donConnectionManager) heartbeatLoop(intervalSec uint32) {
-	ctx, _ := utils.StopChan(m.shutdownCh).NewCtx()
+	ctx, _ := m.shutdownCh.NewCtx()
 	defer m.closeWait.Done()
 
 	if intervalSec == 0 {

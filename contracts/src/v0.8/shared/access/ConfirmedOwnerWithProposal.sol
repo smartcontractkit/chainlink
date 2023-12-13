@@ -3,10 +3,8 @@ pragma solidity ^0.8.0;
 
 import {IOwnable} from "../interfaces/IOwnable.sol";
 
-/**
- * @title The ConfirmedOwner contract
- * @notice A contract with helpers for basic contract ownership.
- */
+/// @title The ConfirmedOwner contract
+/// @notice A contract with helpers for basic contract ownership.
 contract ConfirmedOwnerWithProposal is IOwnable {
   address private s_owner;
   address private s_pendingOwner;
@@ -24,17 +22,12 @@ contract ConfirmedOwnerWithProposal is IOwnable {
     }
   }
 
-  /**
-   * @notice Allows an owner to begin transferring ownership to a new address,
-   * pending.
-   */
+  /// @notice Allows an owner to begin transferring ownership to a new address.
   function transferOwnership(address to) public override onlyOwner {
     _transferOwnership(to);
   }
 
-  /**
-   * @notice Allows an ownership transfer to be completed by the recipient.
-   */
+  /// @notice Allows an ownership transfer to be completed by the recipient.
   function acceptOwnership() external override {
     // solhint-disable-next-line custom-errors
     require(msg.sender == s_pendingOwner, "Must be proposed owner");
@@ -46,16 +39,12 @@ contract ConfirmedOwnerWithProposal is IOwnable {
     emit OwnershipTransferred(oldOwner, msg.sender);
   }
 
-  /**
-   * @notice Get the current owner
-   */
+  /// @notice Get the current owner
   function owner() public view override returns (address) {
     return s_owner;
   }
 
-  /**
-   * @notice validate, transfer ownership, and emit relevant events
-   */
+  /// @notice validate, transfer ownership, and emit relevant events
   function _transferOwnership(address to) private {
     // solhint-disable-next-line custom-errors
     require(to != msg.sender, "Cannot transfer to self");
@@ -65,17 +54,13 @@ contract ConfirmedOwnerWithProposal is IOwnable {
     emit OwnershipTransferRequested(s_owner, to);
   }
 
-  /**
-   * @notice validate access
-   */
+  /// @notice validate access
   function _validateOwnership() internal view {
     // solhint-disable-next-line custom-errors
     require(msg.sender == s_owner, "Only callable by owner");
   }
 
-  /**
-   * @notice Reverts if called by anyone other than the contract owner.
-   */
+  /// @notice Reverts if called by anyone other than the contract owner.
   modifier onlyOwner() {
     _validateOwnership();
     _;

@@ -6,18 +6,20 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	mercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
-	mercury_v2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
+
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -146,7 +148,7 @@ func TestGetChainID(t *testing.T) {
 	}
 
 	j.Type = job.Type(pipeline.OffchainReportingJobType)
-	j.OCROracleSpec.EVMChainID = (*utils.Big)(big.NewInt(1234567890))
+	j.OCROracleSpec.EVMChainID = (*ubig.Big)(big.NewInt(1234567890))
 	assert.Equal(t, "1234567890", e.getChainID())
 
 	j.Type = job.Type(pipeline.OffchainReporting2JobType)
@@ -205,14 +207,14 @@ func TestSendEATelemetry(t *testing.T) {
 		OCROracleSpec: &job.OCROracleSpec{
 			ContractAddress:    ethkey.EIP55AddressFromAddress(feedAddress),
 			CaptureEATelemetry: true,
-			EVMChainID:         (*utils.Big)(big.NewInt(9)),
+			EVMChainID:         (*ubig.Big)(big.NewInt(9)),
 		},
 	}
 
 	lggr, _ := logger.TestLoggerObserved(t, zap.WarnLevel)
 	doneCh := make(chan struct{})
 	enhancedTelemService := NewEnhancedTelemetryService(&jb, enhancedTelemChan, doneCh, monitoringEndpoint, lggr.Named("Enhanced Telemetry Mercury"))
-	require.NoError(t, enhancedTelemService.Start(testutils.Context(t)))
+	servicetest.Run(t, enhancedTelemService)
 	trrs := pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
@@ -323,7 +325,7 @@ func TestCollectAndSend(t *testing.T) {
 	doneCh := make(chan struct{})
 
 	enhancedTelemService := NewEnhancedTelemetryService(&jb, enhancedTelemChan, doneCh, monitoringEndpoint, lggr.Named("Enhanced Telemetry"))
-	require.NoError(t, enhancedTelemService.Start(testutils.Context(t)))
+	servicetest.Run(t, enhancedTelemService)
 	finalResult := &pipeline.FinalResult{
 		Values:      []interface{}{"123456"},
 		AllErrors:   nil,
@@ -573,7 +575,7 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 		lggr:               lggr,
 		monitoringEndpoint: monitoringEndpoint,
 	}
-	require.NoError(t, e.Start(testutils.Context(t)))
+	servicetest.Run(t, &e)
 
 	wg.Add(1)
 
@@ -689,13 +691,13 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 		lggr:               lggr,
 		monitoringEndpoint: monitoringEndpoint,
 	}
-	require.NoError(t, e.Start(testutils.Context(t)))
+	servicetest.Run(t, &e)
 
 	wg.Add(1)
 
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: trrsMercuryV2,
-		V2Observation: &mercury_v2.Observation{
+		V2Observation: &mercuryv2.Observation{
 			BenchmarkPrice:        mercury.ObsResult[*big.Int]{Val: big.NewInt(111111)},
 			MaxFinalizedTimestamp: mercury.ObsResult[int64]{Val: 321},
 			LinkPrice:             mercury.ObsResult[*big.Int]{Val: big.NewInt(4321)},
@@ -748,7 +750,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 					Value: nil,
 				}},
 		},
-		V2Observation: &mercury_v2.Observation{},
+		V2Observation: &mercuryv2.Observation{},
 		RepTimestamp: types.ReportTimestamp{
 			ConfigDigest: types.ConfigDigest{2},
 			Epoch:        11,
@@ -759,7 +761,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 	trrsMercuryV2[0].Result.Value = ""
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: trrsMercuryV2,
-		V2Observation:  &mercury_v2.Observation{},
+		V2Observation:  &mercuryv2.Observation{},
 		RepTimestamp: types.ReportTimestamp{
 			ConfigDigest: types.ConfigDigest{2},
 			Epoch:        11,

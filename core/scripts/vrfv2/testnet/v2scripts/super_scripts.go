@@ -19,17 +19,19 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 
+	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
 type CoordinatorConfigV2 struct {
-	MinConfs               *int
-	MaxGasLimit            *int64
-	StalenessSeconds       *int64
-	GasAfterPayment        *int64
+	MinConfs               int
+	MaxGasLimit            int64
+	StalenessSeconds       int64
+	GasAfterPayment        int64
 	FallbackWeiPerUnitLink *big.Int
 	FeeConfig              vrf_coordinator_v2.VRFCoordinatorV2FeeConfig
 }
@@ -50,9 +52,14 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 
 	batchFulfillmentEnabled := deployCmd.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
 
+	deployVRFOwner := deployCmd.Bool("deploy-vrf-owner", false, "whether to deploy VRF owner contracts")
+
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", constants.FallbackWeiPerUnitLink.String(), "fallback wei/link ratio")
-	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
+	registerVRFKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
+	registerVRFKeyAgainstAddress := deployCmd.String("register-vrf-key-against-address", "", "VRF Key registration against address - "+
+		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
+
 	vrfPrimaryNodeSendingKeysString := deployCmd.String("vrf-primary-node-sending-keys", "", "VRF Primary Node sending keys")
 
 	minConfs := deployCmd.Int("min-confs", constants.MinConfs, "min confs")
@@ -95,10 +102,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 
 	nodesMap := make(map[string]model.Node)
 
-	fundingAmount, ok := new(big.Int).SetString(*nodeSendingKeyFundingAmount, 10)
-	if !ok {
-		panic(fmt.Sprintf("failed to parse node sending key funding amount '%s'", *nodeSendingKeyFundingAmount))
-	}
+	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
 	nodesMap[model.VRFPrimaryNodeName] = model.Node{
 		SendingKeys:             util.MapToSendingKeyArr(vrfPrimaryNodeSendingKeys),
 		SendingKeyFundingAmount: fundingAmount,
@@ -119,22 +123,28 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	}
 
 	coordinatorConfig := CoordinatorConfigV2{
-		MinConfs:               minConfs,
-		MaxGasLimit:            maxGasLimit,
-		StalenessSeconds:       stalenessSeconds,
-		GasAfterPayment:        gasAfterPayment,
+		MinConfs:               *minConfs,
+		MaxGasLimit:            *maxGasLimit,
+		StalenessSeconds:       *stalenessSeconds,
+		GasAfterPayment:        *gasAfterPayment,
 		FallbackWeiPerUnitLink: fallbackWeiPerUnitLink,
 		FeeConfig:              feeConfig,
+	}
+
+	vrfKeyRegistrationConfig := model.VRFKeyRegistrationConfig{
+		VRFKeyUncompressedPubKey: *registerVRFKeyUncompressedPubKey,
+		RegisterAgainstAddress:   *registerVRFKeyAgainstAddress,
 	}
 
 	VRFV2DeployUniverse(
 		e,
 		subscriptionBalanceJuels,
-		registerKeyUncompressedPubKey,
+		vrfKeyRegistrationConfig,
 		contractAddresses,
 		coordinatorConfig,
 		*batchFulfillmentEnabled,
 		nodesMap,
+		*deployVRFOwner,
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -147,22 +157,23 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 func VRFV2DeployUniverse(
 	e helpers.Environment,
 	subscriptionBalanceJuels *big.Int,
-	registerKeyUncompressedPubKey *string,
+	vrfKeyRegistrationConfig model.VRFKeyRegistrationConfig,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2,
 	batchFulfillmentEnabled bool,
 	nodesMap map[string]model.Node,
+	deployVRFOwner bool,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
-	if len(*registerKeyUncompressedPubKey) > 0 {
+	if len(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey) > 0 {
 		// Put key in ECDSA format
-		if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
-			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
+		if strings.HasPrefix(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, "0x") {
+			vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey = strings.Replace(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, "0x", "04", 1)
 		}
 
 		// Generate compressed public key and key hash
-		pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
+		pubBytes, err := hex.DecodeString(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey)
 		helpers.PanicErr(err)
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
@@ -208,6 +219,15 @@ func VRFV2DeployUniverse(
 	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(contractAddresses.CoordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
+	var vrfOwnerAddress common.Address
+	if deployVRFOwner {
+		var tx *evmtypes.Transaction
+		fmt.Printf("\nDeploying VRF Owner for coordinator %v\n", contractAddresses.CoordinatorAddress)
+		vrfOwnerAddress, tx, _, err = vrf_owner.DeployVRFOwner(e.Owner, e.Ec, contractAddresses.CoordinatorAddress)
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	}
+
 	if contractAddresses.BatchCoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
 		fmt.Println("\nDeploying Batch Coordinator...")
 		contractAddresses.BatchCoordinatorAddress = DeployBatchCoordinatorV2(e, contractAddresses.CoordinatorAddress)
@@ -217,10 +237,10 @@ func VRFV2DeployUniverse(
 	SetCoordinatorConfig(
 		e,
 		*coordinator,
-		uint16(*coordinatorConfig.MinConfs),
-		uint32(*coordinatorConfig.MaxGasLimit),
-		uint32(*coordinatorConfig.StalenessSeconds),
-		uint32(*coordinatorConfig.GasAfterPayment),
+		uint16(coordinatorConfig.MinConfs),
+		uint32(coordinatorConfig.MaxGasLimit),
+		uint32(coordinatorConfig.StalenessSeconds),
+		uint32(coordinatorConfig.GasAfterPayment),
 		coordinatorConfig.FallbackWeiPerUnitLink,
 		coordinatorConfig.FeeConfig,
 	)
@@ -228,12 +248,12 @@ func VRFV2DeployUniverse(
 	fmt.Println("\nConfig set, getting current config from deployed contract...")
 	PrintCoordinatorConfig(coordinator)
 
-	if len(*registerKeyUncompressedPubKey) > 0 {
+	if len(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey) > 0 {
 		fmt.Println("\nRegistering proving key...")
 
 		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
-		RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, e.Owner.From.String())
+		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, vrfKeyRegistrationConfig.RegisterAgainstAddress)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		_, _, provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
@@ -265,13 +285,35 @@ func VRFV2DeployUniverse(
 	helpers.PanicErr(err)
 	fmt.Printf("Subscription %+v\n", s)
 
+	if deployVRFOwner {
+		// VRF Owner
+		vrfOwner, err := vrf_owner.NewVRFOwner(vrfOwnerAddress, e.Ec)
+		helpers.PanicErr(err)
+		var authorizedSendersSlice []common.Address
+		for _, s := range nodesMap[model.VRFPrimaryNodeName].SendingKeys {
+			authorizedSendersSlice = append(authorizedSendersSlice, common.HexToAddress(s.Address))
+		}
+		fmt.Printf("\nSetting authorised senders for VRF Owner: %v, Authorised senders %v\n", vrfOwnerAddress.String(), authorizedSendersSlice)
+		tx, err := vrfOwner.SetAuthorizedSenders(e.Owner, authorizedSendersSlice)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf owner set authorized senders")
+		fmt.Printf("\nTransfering ownership of coordinator: %v, VRF Owner %v\n", contractAddresses.CoordinatorAddress, vrfOwnerAddress.String())
+		tx, err = coordinator.TransferOwnership(e.Owner, vrfOwnerAddress)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer ownership to", vrfOwnerAddress.String())
+		fmt.Printf("\nAccepting ownership of coordinator: %v, VRF Owner %v\n", contractAddresses.CoordinatorAddress, vrfOwnerAddress.String())
+		tx, err = vrfOwner.AcceptVRFOwnership(e.Owner)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf owner accepting vrf ownership")
+	}
+
 	formattedVrfPrimaryJobSpec := fmt.Sprintf(
 		jobs.VRFV2JobFormatted,
 		contractAddresses.CoordinatorAddress,      //coordinatorAddress
 		contractAddresses.BatchCoordinatorAddress, //batchCoordinatorAddress
 		batchFulfillmentEnabled,                   //batchFulfillmentEnabled
 		compressedPkHex,                           //publicKey
-		*coordinatorConfig.MinConfs,               //minIncomingConfirmations
+		coordinatorConfig.MinConfs,                //minIncomingConfirmations
 		e.ChainID,                                 //evmChainID
 		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
 		contractAddresses.CoordinatorAddress,
@@ -285,6 +327,12 @@ func VRFV2DeployUniverse(
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
 	)
+	if deployVRFOwner {
+		formattedVrfPrimaryJobSpec = strings.Replace(formattedVrfPrimaryJobSpec,
+			"minIncomingConfirmations",
+			fmt.Sprintf("vrfOwnerAddress = \"%s\"\nminIncomingConfirmations", vrfOwnerAddress.Hex()),
+			1)
+	}
 
 	formattedVrfBackupJobSpec := fmt.Sprintf(
 		jobs.VRFV2JobFormatted,
@@ -306,6 +354,12 @@ func VRFV2DeployUniverse(
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
 	)
+	if deployVRFOwner {
+		formattedVrfBackupJobSpec = strings.Replace(formattedVrfBackupJobSpec,
+			"minIncomingConfirmations",
+			fmt.Sprintf("vrfOwnerAddress = \"%s\"\nminIncomingConfirmations", vrfOwnerAddress.Hex()),
+			1)
+	}
 
 	formattedBHSJobSpec := fmt.Sprintf(
 		jobs.BHSJobFormatted,
@@ -345,10 +399,11 @@ func VRFV2DeployUniverse(
 		"\nVRF Coordinator Address:", contractAddresses.CoordinatorAddress,
 		"\nBatch VRF Coordinator Address:", contractAddresses.BatchCoordinatorAddress,
 		"\nVRF Consumer Address:", consumerAddress,
+		"\nVRF Owner Address:", vrfOwnerAddress,
 		"\nVRF Subscription Id:", subID,
 		"\nVRF Subscription Balance:", *subscriptionBalanceJuels,
 		"\nPossible VRF Request command: ",
-		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, *coordinatorConfig.MinConfs),
+		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, coordinatorConfig.MinConfs),
 		"\nRetrieve Request Status: ",
 		fmt.Sprintf("go run . eoa-load-test-read-metrics --consumer-address=%s", consumerAddress),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",

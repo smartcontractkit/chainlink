@@ -56,6 +56,12 @@ install_gotestfmt:
 	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
 	set -euo pipefail
 
+lint:
+	golangci-lint --color=always run ./... --fix -v
+
+build:
+	@go build ./... && SELECTED_NETWORKS=SIMULATED go test -run=^# ./...
+
 # Builds the test image
 # tag: the tag for the test image being built, example: tag=tate
 # base_tag: the tag for the base-test-image to use, example: base_tag=latest
@@ -186,6 +192,12 @@ test_reorg_automation: ## Run the automation reorg tests
 build_docker_image:
 	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t $(image):$(tag) ../
 
+# image: the name for the chainlink image being built, example: image=chainlink
+# tag: the tag for the chainlink image being built, example: tag=latest
+# example usage: make build_docker_image image=chainlink tag=latest
+.PHONY: build_plugin_docker_image
+build_docker_image:
+	docker build -f ../plugins/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../
 
 # image: the name for the chainlink image being built, example: image=chainlink
 # tag: the tag for the chainlink image being built, example: tag=latest

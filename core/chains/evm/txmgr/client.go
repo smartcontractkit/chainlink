@@ -13,11 +13,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -43,7 +43,7 @@ func (c *evmTxmClient) BatchSendTransactions(
 	ctx context.Context,
 	attempts []TxAttempt,
 	batchSize int,
-	lggr logger.Logger,
+	lggr logger.SugaredLogger,
 ) (
 	codes []commonclient.SendTxReturnCode,
 	txErrs []error,
@@ -88,7 +88,7 @@ func (c *evmTxmClient) BatchSendTransactions(
 	return
 }
 
-func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.Logger) (commonclient.SendTxReturnCode, error) {
+func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.SugaredLogger) (commonclient.SendTxReturnCode, error) {
 	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
 	if err != nil {
 		lggr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)

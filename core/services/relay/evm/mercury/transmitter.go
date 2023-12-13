@@ -16,12 +16,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/sqlx"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -33,6 +34,7 @@ import (
 
 var (
 	maxTransmitQueueSize = 10_000
+	maxDeleteQueueSize   = 10_000
 	transmitTimeout      = 5 * time.Second
 )
 
@@ -60,6 +62,24 @@ var (
 	},
 		[]string{"feedID"},
 	)
+	transmitQueueDeleteErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_queue_delete_error_count",
+		Help: "Running count of DB errors when trying to delete an item from the queue DB",
+	},
+		[]string{"feedID"},
+	)
+	transmitQueueInsertErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_queue_insert_error_count",
+		Help: "Running count of DB errors when trying to insert an item into the queue DB",
+	},
+		[]string{"feedID"},
+	)
+	transmitQueuePushErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_queue_push_error_count",
+		Help: "Running count of DB errors when trying to push an item onto the queue",
+	},
+		[]string{"feedID"},
+	)
 	transmitServerErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "mercury_transmit_server_error_count",
 		Help: "Number of errored transmissions that failed due to an error returned by the mercury server",
@@ -69,7 +89,7 @@ var (
 )
 
 type Transmitter interface {
-	relaymercury.Transmitter
+	mercury.Transmitter
 	services.Service
 }
 
@@ -95,13 +115,18 @@ type mercuryTransmitter struct {
 	jobID       int32
 	fromAccount string
 
-	stopCh utils.StopChan
+	stopCh services.StopChan
 	queue  *TransmitQueue
 	wg     sync.WaitGroup
 
-	transmitSuccessCount         prometheus.Counter
-	transmitDuplicateCount       prometheus.Counter
-	transmitConnectionErrorCount prometheus.Counter
+	deleteQueue chan *pb.TransmitRequest
+
+	transmitSuccessCount          prometheus.Counter
+	transmitDuplicateCount        prometheus.Counter
+	transmitConnectionErrorCount  prometheus.Counter
+	transmitQueueDeleteErrorCount prometheus.Counter
+	transmitQueueInsertErrorCount prometheus.Counter
+	transmitQueuePushErrorCount   prometheus.Counter
 }
 
 var PayloadTypes = getPayloadTypes()
@@ -136,12 +161,16 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		feedID,
 		jobID,
 		fmt.Sprintf("%x", fromAccount),
-		make(chan (struct{})),
+		make(services.StopChan),
 		nil,
 		sync.WaitGroup{},
+		make(chan *pb.TransmitRequest, maxDeleteQueueSize),
 		transmitSuccessCount.WithLabelValues(feedIDHex),
 		transmitDuplicateCount.WithLabelValues(feedIDHex),
 		transmitConnectionErrorCount.WithLabelValues(feedIDHex),
+		transmitQueueDeleteErrorCount.WithLabelValues(feedIDHex),
+		transmitQueueInsertErrorCount.WithLabelValues(feedIDHex),
+		transmitQueuePushErrorCount.WithLabelValues(feedIDHex),
 	}
 }
 
@@ -163,6 +192,8 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 		if err := mt.queue.Start(ctx); err != nil {
 			return err
 		}
+		mt.wg.Add(1)
+		go mt.runDeleteQueueLoop()
 		mt.wg.Add(1)
 		go mt.runQueueLoop()
 		return nil
@@ -190,6 +221,46 @@ func (mt *mercuryTransmitter) HealthReport() map[string]error {
 	services.CopyHealth(report, mt.rpcClient.HealthReport())
 	services.CopyHealth(report, mt.queue.HealthReport())
 	return report
+}
+
+func (mt *mercuryTransmitter) runDeleteQueueLoop() {
+	defer mt.wg.Done()
+	runloopCtx, cancel := mt.stopCh.Ctx(context.Background())
+	defer cancel()
+
+	// Exponential backoff for very rarely occurring errors (DB disconnect etc)
+	b := backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    120 * time.Second,
+		Factor: 2,
+		Jitter: true,
+	}
+
+	for {
+		select {
+		case req := <-mt.deleteQueue:
+			for {
+				if err := mt.persistenceManager.Delete(runloopCtx, req); err != nil {
+					mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "req", req)
+					mt.transmitQueueDeleteErrorCount.Inc()
+					select {
+					case <-time.After(b.Duration()):
+						// Wait a backoff duration before trying to delete again
+						continue
+					case <-mt.stopCh:
+						// abort and return immediately on stop even if items remain in queue
+						return
+					}
+				}
+				break
+			}
+			// success
+			b.Reset()
+		case <-mt.stopCh:
+			// abort and return immediately on stop even if items remain in queue
+			return
+		}
+	}
 }
 
 func (mt *mercuryTransmitter) runQueueLoop() {
@@ -253,9 +324,10 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 			}
 		}
 
-		if err := mt.persistenceManager.Delete(runloopCtx, t.Req); err != nil {
-			mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "reportCtx", t.ReportCtx)
-			return
+		select {
+		case mt.deleteQueue <- t.Req:
+		default:
+			mt.lggr.Criticalw("Delete queue is full", "reportCtx", t.ReportCtx)
 		}
 	}
 }
@@ -288,9 +360,11 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 	mt.lggr.Tracew("Transmit enqueue", "req", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
 
 	if err := mt.persistenceManager.Insert(ctx, req, reportCtx); err != nil {
+		mt.transmitQueueInsertErrorCount.Inc()
 		return err
 	}
 	if ok := mt.queue.Push(req, reportCtx); !ok {
+		mt.transmitQueuePushErrorCount.Inc()
 		return errors.New("transmit queue is closed")
 	}
 	return nil

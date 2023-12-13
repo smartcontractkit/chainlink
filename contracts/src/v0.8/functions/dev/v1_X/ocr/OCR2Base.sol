@@ -10,17 +10,10 @@ import {OCR2Abstract} from "./OCR2Abstract.sol";
  * doc, which refers to this contract as simply the "contract".
  */
 abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
-  error ReportInvalid();
+  error ReportInvalid(string message);
   error InvalidConfig(string message);
 
-  bool internal immutable i_uniqueReports;
-
-  constructor(bool uniqueReports) ConfirmedOwner(msg.sender) {
-    i_uniqueReports = uniqueReports;
-  }
-
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  uint256 private constant maxUint32 = (1 << 32) - 1;
+  constructor() ConfirmedOwner(msg.sender) {}
 
   // incremented each time a new config is posted. This count is incorporated
   // into the config digest, to prevent replay attacks.
@@ -144,12 +137,12 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
 
     // Bounded by MAX_NUM_ORACLES in OCR2Abstract.sol
     for (uint256 i = 0; i < args.signers.length; i++) {
+      if (args.signers[i] == address(0)) revert InvalidConfig("signer must not be empty");
+      if (args.transmitters[i] == address(0)) revert InvalidConfig("transmitter must not be empty");
       // add new signer/transmitter addresses
-      // solhint-disable-next-line custom-errors
-      require(s_oracles[args.signers[i]].role == Role.Unset, "repeated signer address");
+      if (s_oracles[args.signers[i]].role != Role.Unset) revert InvalidConfig("repeated signer address");
       s_oracles[args.signers[i]] = Oracle(uint8(i), Role.Signer);
-      // solhint-disable-next-line custom-errors
-      require(s_oracles[args.transmitters[i]].role == Role.Unset, "repeated transmitter address");
+      if (s_oracles[args.transmitters[i]].role != Role.Unset) revert InvalidConfig("repeated transmitter address");
       s_oracles[args.transmitters[i]] = Oracle(uint8(i), Role.Transmitter);
       s_signers.push(args.signers[i]);
       s_transmitters.push(args.transmitters[i]);
@@ -287,8 +280,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       ss.length *
       32 + // 32 bytes per entry in _ss
       0; // placeholder
-    // solhint-disable-next-line custom-errors
-    require(msg.data.length == expected, "calldata length mismatch");
+    if (msg.data.length != expected) revert ReportInvalid("calldata length mismatch");
   }
 
   /**
@@ -319,30 +311,20 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
 
       emit Transmitted(configDigest, uint32(epochAndRound >> 8));
 
-      ConfigInfo memory configInfo = s_configInfo;
-      // solhint-disable-next-line custom-errors
-      require(configInfo.latestConfigDigest == configDigest, "configDigest mismatch");
+      // The following check is disabled to allow both current and proposed routes to submit reports using the same OCR config digest
+      // Chainlink Functions uses globally unique request IDs. Metadata about the request is stored and checked in the Coordinator and Router
+      // require(configInfo.latestConfigDigest == configDigest, "configDigest mismatch");
 
       _requireExpectedMsgDataLength(report, rs, ss);
 
-      uint256 expectedNumSignatures;
-      if (i_uniqueReports) {
-        expectedNumSignatures = (configInfo.n + configInfo.f) / 2 + 1;
-      } else {
-        expectedNumSignatures = configInfo.f + 1;
-      }
+      uint256 expectedNumSignatures = (s_configInfo.n + s_configInfo.f) / 2 + 1;
 
-      // solhint-disable-next-line custom-errors
-      require(rs.length == expectedNumSignatures, "wrong number of signatures");
-      // solhint-disable-next-line custom-errors
-      require(rs.length == ss.length, "signatures out of registration");
+      if (rs.length != expectedNumSignatures) revert ReportInvalid("wrong number of signatures");
+      if (rs.length != ss.length) revert ReportInvalid("report rs and ss must be of equal length");
 
       Oracle memory transmitter = s_oracles[msg.sender];
-      // solhint-disable-next-line custom-errors
-      require( // Check that sender is authorized to report
-        transmitter.role == Role.Transmitter && msg.sender == s_transmitters[transmitter.index],
-        "unauthorized transmitter"
-      );
+      if (transmitter.role != Role.Transmitter && msg.sender != s_transmitters[transmitter.index])
+        revert ReportInvalid("unauthorized transmitter");
     }
 
     address[MAX_NUM_ORACLES] memory signed;
@@ -357,10 +339,8 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       for (uint256 i = 0; i < rs.length; ++i) {
         address signer = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
         o = s_oracles[signer];
-        // solhint-disable-next-line custom-errors
-        require(o.role == Role.Signer, "address not authorized to sign");
-        // solhint-disable-next-line custom-errors
-        require(signed[o.index] == address(0), "non-unique signature");
+        if (o.role != Role.Signer) revert ReportInvalid("address not authorized to sign");
+        if (signed[o.index] != address(0)) revert ReportInvalid("non-unique signature");
         signed[o.index] = signer;
         signerCount += 1;
       }

@@ -1,16 +1,22 @@
 package functions_test
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"math/big"
 	"testing"
+	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	geth_common "github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
+	sfmocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -24,6 +30,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func newOffchainRequest(t *testing.T, sender []byte) (*api.Message, functions.RequestID) {
+	requestId := make([]byte, 32)
+	_, err := rand.Read(requestId)
+	require.NoError(t, err)
+	request := &functions.OffchainRequest{
+		RequestId:         requestId,
+		RequestInitiator:  sender,
+		SubscriptionId:    1,
+		SubscriptionOwner: sender,
+	}
+
+	internalId := functions.InternalId(request.RequestInitiator, request.RequestId)
+	req, err := json.Marshal(request)
+	require.NoError(t, err)
+	msg := &api.Message{
+		Body: api.MessageBody{
+			DonId:     "fun4",
+			MessageId: "1",
+			Method:    "heartbeat",
+			Payload:   req,
+		},
+	}
+	return msg, internalId
+}
+
 func TestFunctionsConnectorHandler(t *testing.T) {
 	t.Parallel()
 
@@ -34,12 +65,16 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	allowlist := gfmocks.NewOnchainAllowlist(t)
 	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	subscriptions := gfmocks.NewOnchainSubscriptions(t)
+	reportCh := make(chan *functions.OffchainResponse)
+	offchainTransmitter := sfmocks.NewOffchainTransmitter(t)
+	offchainTransmitter.On("ReportChannel", mock.Anything).Return(reportCh)
+	listener := sfmocks.NewFunctionsListener(t)
 	require.NoError(t, err)
 	allowlist.On("Start", mock.Anything).Return(nil)
 	allowlist.On("Close", mock.Anything).Return(nil)
 	subscriptions.On("Start", mock.Anything).Return(nil)
 	subscriptions.On("Close", mock.Anything).Return(nil)
-	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, subscriptions, *assets.NewLinkFromJuels(100), logger)
+	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, *assets.NewLinkFromJuels(100), logger)
 	require.NoError(t, err)
 
 	handler.SetConnector(connector)
@@ -78,7 +113,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			}
 			storage.On("List", ctx, addr).Return(snapshot, nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
-			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
@@ -91,7 +125,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			t.Run("orm error", func(t *testing.T) {
 				storage.On("List", ctx, addr).Return(nil, errors.New("boom")).Once()
 				allowlist.On("Allow", addr).Return(true).Once()
-				subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
@@ -218,8 +251,85 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			require.NoError(t, msg.Sign(privateKey))
 
 			allowlist.On("Allow", addr).Return(true).Once()
-			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 			handler.HandleGatewayMessage(testutils.Context(t), "gw1", &msg)
 		})
+	})
+
+	t.Run("heartbeat success", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		msg, internalId := newOffchainRequest(t, addr.Bytes())
+		require.NoError(t, msg.Sign(privateKey))
+
+		// first call to trigger the request
+		var response functions.HeartbeatResponse
+		allowlist.On("Allow", addr).Return(true).Once()
+		listener.On("HandleOffchainRequest", mock.Anything, mock.Anything).Return(nil).Once()
+		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
+			respMsg, ok := args[2].(*api.Message)
+			require.True(t, ok)
+			require.NoError(t, json.Unmarshal(respMsg.Body.Payload, &response))
+			require.Equal(t, functions.RequestStatePending, response.Status)
+		}).Return(nil).Once()
+		handler.HandleGatewayMessage(ctx, "gw1", msg)
+
+		// async response computation
+		reportCh <- &functions.OffchainResponse{
+			RequestId: internalId[:],
+			Result:    []byte("ok!"),
+		}
+		reportCh <- &functions.OffchainResponse{} // sending second item to make sure the first one got processed
+
+		// second call to collect the response
+		allowlist.On("Allow", addr).Return(true).Once()
+		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
+			respMsg, ok := args[2].(*api.Message)
+			require.True(t, ok)
+			require.NoError(t, json.Unmarshal(respMsg.Body.Payload, &response))
+			require.Equal(t, functions.RequestStateComplete, response.Status)
+		}).Return(nil).Once()
+		handler.HandleGatewayMessage(ctx, "gw1", msg)
+	})
+
+	t.Run("heartbeat internal error", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		msg, _ := newOffchainRequest(t, addr.Bytes())
+		require.NoError(t, msg.Sign(privateKey))
+
+		// first call to trigger the request
+		var response functions.HeartbeatResponse
+		allowlist.On("Allow", addr).Return(true).Once()
+		listener.On("HandleOffchainRequest", mock.Anything, mock.Anything).Return(errors.New("boom")).Once()
+		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Return(nil).Once()
+		handler.HandleGatewayMessage(ctx, "gw1", msg)
+
+		// collect the response - should eventually result in an internal error
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			returnedState := 0
+			allowlist.On("Allow", addr).Return(true).Once()
+			connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
+				respMsg, ok := args[2].(*api.Message)
+				require.True(t, ok)
+				require.NoError(t, json.Unmarshal(respMsg.Body.Payload, &response))
+				returnedState = response.Status
+			}).Return(nil).Once()
+			handler.HandleGatewayMessage(ctx, "gw1", msg)
+			return returnedState == functions.RequestStateInternalError
+		}, testutils.WaitTimeout(t), 50*time.Millisecond).Should(gomega.BeTrue())
+	})
+
+	t.Run("heartbeat sender address doesn't match", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		msg, _ := newOffchainRequest(t, geth_common.BytesToAddress([]byte("0x1234")).Bytes())
+		require.NoError(t, msg.Sign(privateKey))
+
+		var response functions.HeartbeatResponse
+		allowlist.On("Allow", addr).Return(true).Once()
+		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
+			respMsg, ok := args[2].(*api.Message)
+			require.True(t, ok)
+			require.NoError(t, json.Unmarshal(respMsg.Body.Payload, &response))
+			require.Equal(t, functions.RequestStateInternalError, response.Status)
+		}).Return(nil).Once()
+		handler.HandleGatewayMessage(ctx, "gw1", msg)
 	})
 }

@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"log"
+
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
@@ -15,6 +17,14 @@ var verifiableLoad = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
-		hdlr.GetVerifiableLoadStats(cmd.Context())
+		csv, err := cmd.Flags().GetBool("csv")
+		if err != nil {
+			log.Fatal("failed to get verify flag: ", err)
+		}
+		hdlr.PrintVerifiableLoadStats(cmd.Context(), csv)
 	},
+}
+
+func init() {
+	verifiableLoad.Flags().BoolP("csv", "c", false, "Specify if stats should be output as CSV")
 }

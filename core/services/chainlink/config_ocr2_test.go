@@ -38,7 +38,7 @@ func TestOCR2Config(t *testing.T) {
 	require.Equal(t, false, ocr2Cfg.TraceLogging())
 	require.Equal(t, uint32(1), ocr2Cfg.DefaultTransactionQueueDepth())
 	require.Equal(t, false, ocr2Cfg.CaptureEATelemetry())
-	require.Equal(t, false, ocr2Cfg.CaptureAutomationCustomTelemetry())
+	require.Equal(t, true, ocr2Cfg.CaptureAutomationCustomTelemetry())
 
 	keyBundleID, err := ocr2Cfg.KeyBundleID()
 	require.NoError(t, err)

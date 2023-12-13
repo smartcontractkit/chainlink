@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -247,6 +247,7 @@ type VRFSpecParams struct {
 	BackoffInitialDelay           time.Duration
 	BackoffMaxDelay               time.Duration
 	GasLanePrice                  *assets.Wei
+	PollPeriod                    time.Duration
 }
 
 type VRFSpec struct {
@@ -282,6 +283,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	vrfOwnerAddress := "0x5383C25DA15b1253463626243215495a3718beE4"
 	if params.VRFOwnerAddress != "" && vrfVersion == vrfcommon.V2 {
 		vrfOwnerAddress = params.VRFOwnerAddress
+	}
+	pollPeriod := 5 * time.Second
+	if params.PollPeriod > 0 && (vrfVersion == vrfcommon.V2 || vrfVersion == vrfcommon.V2Plus) {
+		pollPeriod = params.PollPeriod
 	}
 	batchFulfillmentGasMultiplier := 1.0
 	if params.BatchFulfillmentGasMultiplier >= 1.0 {
@@ -406,6 +411,7 @@ chunkSize = %d
 backoffInitialDelay = "%s"
 backoffMaxDelay = "%s"
 gasLanePrice = "%s"
+pollPeriod = "%s"
 observationSource = """
 %s
 """
@@ -414,7 +420,8 @@ observationSource = """
 		jobID, name, coordinatorAddress, params.EVMChainID, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
-		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(), observationSource)
+		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(),
+		pollPeriod.String(), observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
 		for _, address := range params.FromAddresses {
@@ -443,6 +450,7 @@ observationSource = """
 		BackoffMaxDelay:          params.BackoffMaxDelay,
 		VRFOwnerAddress:          vrfOwnerAddress,
 		VRFVersion:               vrfVersion,
+		PollPeriod:               pollPeriod,
 	}, toml: toml}
 }
 
@@ -503,10 +511,7 @@ contractAddress    = "%s"
 evmChainID         = %s
 p2pPeerID          = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 externalJobID      =  "%s"
-p2pBootstrapPeers  = [
-    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-]
-p2pv2Bootstrappers = []
+p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 isBootstrapPeer    = false
 keyBundleID        = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 monitoringEndpoint = "chain.link:4321"

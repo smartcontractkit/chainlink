@@ -10,8 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -21,15 +23,15 @@ type (
 		ethClient evmclient.Client
 		config    Config
 		logger    logger.Logger
-		chStop    utils.StopChan
+		chStop    services.StopChan
 	}
 )
 
-func newEthSubscriber(ethClient evmclient.Client, config Config, logger logger.Logger, chStop chan struct{}) *ethSubscriber {
+func newEthSubscriber(ethClient evmclient.Client, config Config, lggr logger.Logger, chStop chan struct{}) *ethSubscriber {
 	return &ethSubscriber{
 		ethClient: ethClient,
 		config:    config,
-		logger:    logger.Named("EthSubscriber"),
+		logger:    logger.Named(lggr, "EthSubscriber"),
 		chStop:    chStop,
 	}
 }

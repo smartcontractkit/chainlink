@@ -18,7 +18,21 @@ type VRFV2JobInfo struct {
 }
 
 type VRFV2Contracts struct {
-	Coordinator      contracts.VRFCoordinatorV2
-	BHS              contracts.BlockHashStore
-	LoadTestConsumer contracts.VRFv2LoadTestConsumer
+	Coordinator       contracts.VRFCoordinatorV2
+	BHS               contracts.BlockHashStore
+	LoadTestConsumers []contracts.VRFv2LoadTestConsumer
+}
+
+// VRFV2PlusKeyData defines a jobs into and proving key info
+type VRFV2KeyData struct {
+	VRFKey            *client.VRFKey
+	EncodedProvingKey VRFV2EncodedProvingKey
+	KeyHash           [32]byte
+}
+
+type VRFV2Data struct {
+	VRFV2KeyData
+	VRFJob            *client.Job
+	PrimaryEthAddress string
+	ChainID           *big.Int
 }

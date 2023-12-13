@@ -10,8 +10,6 @@ env:
 
 before:
   hooks:
-    - go mod tidy
-    - make operator-ui
     - ./tools/bin/goreleaser_utils before_hook
 
 # See https://goreleaser.com/customization/build/

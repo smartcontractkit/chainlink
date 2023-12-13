@@ -14,13 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -38,11 +37,11 @@ import (
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const mercuryOracleTOML = `name = 'LINK / ETH | 0x0000000000000000000000000000000000000000000000000000000000000001 | verifier_proxy 0x0000000000000000000000000000000000000001'
@@ -696,7 +695,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
-	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
+	customChainID := big.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
@@ -765,7 +764,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
-	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
+	customChainID := big.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
@@ -826,7 +825,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
-	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
+	customChainID := big.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
@@ -1022,7 +1021,7 @@ func Test_FindJob(t *testing.T) {
 	// Create a config with multiple EVM chains. The test fixtures already load 1337
 	// Additional chains will need additional fixture statements to add a chain to evm_chains.
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		chainID := utils.NewBigI(1337)
+		chainID := big.NewI(1337)
 		enabled := true
 		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 			ChainID: chainID,
@@ -1155,7 +1154,7 @@ func Test_FindJob(t *testing.T) {
 
 		assert.Equal(t, job.ID, jbID)
 
-		_, err2 = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
+		_, err2 = orm.FindJobIDByAddress("not-existing", big.NewI(0))
 		require.Error(t, err2)
 		require.ErrorIs(t, err2, sql.ErrNoRows)
 	})
@@ -1223,7 +1222,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)
-	jb.DirectRequestSpec.EVMChainID = utils.NewBigI(0)
+	jb.DirectRequestSpec.EVMChainID = big.NewI(0)
 
 	err = orm.CreateJob(&jb)
 	require.NoError(t, err)
@@ -1616,7 +1615,7 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 
 	jb, err = orm.FindJobWithoutSpecErrors(jobSpec.ID)
 	require.NoError(t, err)
-	jbWithErrors, err := orm.FindJobTx(jobSpec.ID)
+	jbWithErrors, err := orm.FindJobTx(testutils.Context(t), jobSpec.ID)
 	require.NoError(t, err)
 
 	assert.Equal(t, len(jb.JobSpecErrors), 0)

@@ -10,9 +10,10 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -33,11 +34,11 @@ type ormconfig struct {
 
 func (ormconfig) JobPipelineMaxSuccessfulRuns() uint64 { return 123456 }
 
-func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
+func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM) {
 	t.Helper()
 
-	if name != "" {
-		_, db = heavyweight.FullTestDBV2(t, name, nil)
+	if heavy {
+		_, db = heavyweight.FullTestDBV2(t, nil)
 	} else {
 		db = pgtest.NewSqlxDB(t)
 	}
@@ -47,12 +48,12 @@ func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
 	return
 }
 
-func setupHeavyORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
-	return setupORM(t, name)
+func setupHeavyORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM) {
+	return setupORM(t, true)
 }
 
 func setupLiteORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM) {
-	return setupORM(t, "")
+	return setupORM(t, false)
 }
 
 func Test_PipelineORM_CreateSpec(t *testing.T) {
@@ -464,7 +465,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
-	_, orm := setupHeavyORM(t, "pipeline_runs_reaper")
+	_, orm := setupHeavyORM(t)
 
 	var runsIds []int64
 
@@ -531,7 +532,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 			FromAddress:     cltest.NewEIP55Address(),
 			CreatedAt:       timestamp,
 			UpdatedAt:       timestamp,
-			EVMChainID:      (*utils.Big)(&cltest.FixtureChainID),
+			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
 		},
 		ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 		PipelineSpec: &pipeline.Spec{
@@ -630,7 +631,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 			ContractAddress: cltest.NewEIP55Address(),
 			CreatedAt:       timestamp,
 			UpdatedAt:       timestamp,
-			EVMChainID:      (*utils.Big)(&cltest.FixtureChainID),
+			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
 		},
 		ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 		PipelineSpec: &pipeline.Spec{

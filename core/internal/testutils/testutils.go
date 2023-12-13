@@ -27,7 +27,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

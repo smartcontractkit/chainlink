@@ -27,7 +27,6 @@ func DeployOCRContracts(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	bootstrapNode *client.ChainlinkK8sClient,
 	workerNodes []*client.ChainlinkK8sClient,
 	client blockchain.EVMClient,
 ) ([]contracts.OffchainAggregator, error) {
@@ -237,7 +236,7 @@ func CreateOCRJobs(
 			}
 			err = node.MustCreateBridge(bta)
 			if err != nil {
-				return fmt.Errorf("creating bridge job have failed: %w", err)
+				return fmt.Errorf("creating bridge on CL node failed: %w", err)
 			}
 
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode.ChainlinkClient}

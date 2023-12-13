@@ -8,18 +8,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	txmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig, cid *big.Int) *txmgr.Reaper {
-	return txmgr.NewEvmReaper(logger.TestLogger(t), db, cfg, txConfig, cid)
+	return txmgr.NewEvmReaper(logger.Test(t), db, cfg, txConfig, cid)
 }
 
 func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig) *txmgr.Reaper {
@@ -64,7 +64,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 	})
 
 	// Confirmed in block number 5
-	cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
@@ -119,7 +119,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "evm.txes", 0)
 	})
 
-	cltest.MustInsertFatalErrorEthTx(t, txStore, from)
+	mustInsertFatalErrorEthTx(t, txStore, from)
 
 	t.Run("deletes errored evm.txes that exceed the age threshold", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)

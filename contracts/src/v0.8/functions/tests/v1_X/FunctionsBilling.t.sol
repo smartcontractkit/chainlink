@@ -4,10 +4,13 @@ pragma solidity ^0.8.19;
 import {FunctionsCoordinator} from "../../dev/v1_X/FunctionsCoordinator.sol";
 import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
+import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {FunctionsSubscriptions} from "../../dev/v1_X/FunctionsSubscriptions.sol";
 import {Routable} from "../../dev/v1_X/Routable.sol";
 
-import {FunctionsRouterSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup, FunctionsMultipleFulfillmentsSetup} from "./Setup.t.sol";
+import {FunctionsRouterSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup, FunctionsFulfillmentSetup, FunctionsMultipleFulfillmentsSetup} from "./Setup.t.sol";
+
+import {FunctionsBillingConfig} from "../../dev/v1_X/interfaces/IFunctionsBilling.sol";
 
 /// @notice #constructor
 contract FunctionsBilling_Constructor is FunctionsSubscriptionSetup {
@@ -24,7 +27,7 @@ contract FunctionsBilling_GetConfig is FunctionsRouterSetup {
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
-    FunctionsBilling.Config memory config = s_functionsCoordinator.getConfig();
+    FunctionsBillingConfig memory config = s_functionsCoordinator.getConfig();
     assertEq(config.feedStalenessSeconds, getCoordinatorConfig().feedStalenessSeconds);
     assertEq(config.gasOverheadBeforeCallback, getCoordinatorConfig().gasOverheadBeforeCallback);
     assertEq(config.gasOverheadAfterCallback, getCoordinatorConfig().gasOverheadAfterCallback);
@@ -38,12 +41,12 @@ contract FunctionsBilling_GetConfig is FunctionsRouterSetup {
 
 /// @notice #updateConfig
 contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
-  FunctionsBilling.Config internal configToSet;
+  FunctionsBillingConfig internal configToSet;
 
   function setUp() public virtual override {
     FunctionsRouterSetup.setUp();
 
-    configToSet = FunctionsBilling.Config({
+    configToSet = FunctionsBillingConfig({
       feedStalenessSeconds: getCoordinatorConfig().feedStalenessSeconds * 2,
       gasOverheadAfterCallback: getCoordinatorConfig().gasOverheadAfterCallback * 2,
       gasOverheadBeforeCallback: getCoordinatorConfig().gasOverheadBeforeCallback * 2,
@@ -65,7 +68,7 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
     s_functionsCoordinator.updateConfig(configToSet);
   }
 
-  event ConfigUpdated(FunctionsBilling.Config config);
+  event ConfigUpdated(FunctionsBillingConfig config);
 
   function test_UpdateConfig_Success() public {
     // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
@@ -78,7 +81,7 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
 
     s_functionsCoordinator.updateConfig(configToSet);
 
-    FunctionsBilling.Config memory config = s_functionsCoordinator.getConfig();
+    FunctionsBillingConfig memory config = s_functionsCoordinator.getConfig();
     assertEq(config.feedStalenessSeconds, configToSet.feedStalenessSeconds);
     assertEq(config.gasOverheadAfterCallback, configToSet.gasOverheadAfterCallback);
     assertEq(config.gasOverheadBeforeCallback, configToSet.gasOverheadBeforeCallback);
@@ -216,13 +219,94 @@ contract FunctionsBilling__CalculateCostEstimate {
 }
 
 /// @notice #_startBilling
-contract FunctionsBilling__StartBilling {
-  // TODO: make contract internal function helper
+contract FunctionsBilling__StartBilling is FunctionsFulfillmentSetup {
+  function test__FulfillAndBill_HasUniqueGlobalRequestId() public {
+    // Variables that go into a requestId:
+    // - Coordinator address
+    // - Consumer contract
+    // - Subscription ID,
+    // - Consumer initiated requests
+    // - Request data
+    // - Request data version
+    // - Request callback gas limit
+    // - Estimated total cost in Juels
+    // - Request timeout timestamp
+    // - tx.origin
+
+    // Request #1 has already been fulfilled by the test setup
+
+    // Reset the nonce (initiatedRequests) by removing and re-adding the consumer
+    s_functionsRouter.removeConsumer(s_subscriptionId, address(s_functionsClient));
+    assertEq(s_functionsRouter.getSubscription(s_subscriptionId).consumers.length, 0);
+    s_functionsRouter.addConsumer(s_subscriptionId, address(s_functionsClient));
+    assertEq(s_functionsRouter.getSubscription(s_subscriptionId).consumers[0], address(s_functionsClient));
+
+    // Make Request #2
+    _sendAndStoreRequest(
+      2,
+      s_requests[1].requestData.sourceCode,
+      s_requests[1].requestData.secrets,
+      s_requests[1].requestData.args,
+      s_requests[1].requestData.bytesArgs,
+      s_requests[1].requestData.callbackGasLimit
+    );
+
+    // Request #1 and #2 should have different request IDs, because the request timeout timestamp has advanced.
+    // A request cannot be fulfilled in the same block, which prevents removing a consumer in the same block
+    assertNotEq(s_requests[1].requestId, s_requests[2].requestId);
+  }
 }
 
 /// @notice #_fulfillAndBill
-contract FunctionsBilling__FulfillAndBill {
-  // TODO: make contract internal function helper
+contract FunctionsBilling__FulfillAndBill is FunctionsClientRequestSetup {
+  function test__FulfillAndBill_RevertIfInvalidCommitment() public {
+    vm.expectRevert();
+    s_functionsCoordinator.fulfillAndBill_HARNESS(
+      s_requests[1].requestId,
+      new bytes(0),
+      new bytes(0),
+      new bytes(0), // malformed commitment data
+      new bytes(0),
+      1
+    );
+  }
+
+  event RequestBilled(
+    bytes32 indexed requestId,
+    uint96 juelsPerGas,
+    uint256 l1FeeShareWei,
+    uint96 callbackCostJuels,
+    uint96 totalCostJuels
+  );
+
+  function test__FulfillAndBill_Success() public {
+    uint96 juelsPerGas = uint96((1e18 * TX_GASPRICE_START) / uint256(LINK_ETH_RATE));
+    uint96 callbackCostGas = 5072; // Taken manually
+    uint96 callbackCostJuels = juelsPerGas * callbackCostGas;
+    uint96 gasOverheadJuels = juelsPerGas *
+      (getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback);
+
+    uint96 totalCostJuels = gasOverheadJuels + callbackCostJuels + s_donFee + s_adminFee;
+
+    // topic0 (function signature, always checked), check topic1 (true), NOT topic2 (false), NOT topic3 (false), and data (true).
+    bool checkTopic1 = true;
+    bool checkTopic2 = false;
+    bool checkTopic3 = false;
+    bool checkData = true;
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit RequestBilled(s_requests[1].requestId, juelsPerGas, 0, callbackCostJuels, totalCostJuels);
+
+    FunctionsResponse.FulfillResult resultCode = s_functionsCoordinator.fulfillAndBill_HARNESS(
+      s_requests[1].requestId,
+      new bytes(0),
+      new bytes(0),
+      abi.encode(s_requests[1].commitment),
+      new bytes(0),
+      1
+    );
+
+    assertEq(uint256(resultCode), uint256(FunctionsResponse.FulfillResult.FULFILLED));
+  }
 }
 
 /// @notice #deleteCommitment

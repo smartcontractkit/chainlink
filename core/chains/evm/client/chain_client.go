@@ -10,11 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var _ Client = (*chainClient)(nil)
@@ -35,11 +37,11 @@ type chainClient struct {
 		*evmtypes.Head,
 		RPCCLient,
 	]
-	logger logger.Logger
+	logger logger.SugaredLogger
 }
 
 func NewChainClient(
-	logger logger.Logger,
+	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
@@ -62,7 +64,7 @@ func NewChainClient(
 		*evmtypes.Head,
 		RPCCLient,
 	](
-		logger,
+		lggr,
 		selectionMode,
 		leaseDuration,
 		noNewHeadsThreshold,
@@ -75,7 +77,7 @@ func NewChainClient(
 	)
 	return &chainClient{
 		multiNode: multiNode,
-		logger:    logger,
+		logger:    logger.Sugared(lggr),
 	}
 }
 
@@ -118,7 +120,7 @@ func (c *chainClient) BlockByNumber(ctx context.Context, number *big.Int) (b *ty
 }
 
 func (c *chainClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	return c.multiNode.CallContext(ctx, result, method)
+	return c.multiNode.CallContext(ctx, result, method, args...)
 }
 
 func (c *chainClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
@@ -182,7 +184,7 @@ func (c *chainClient) IsL2() bool {
 	return c.multiNode.IsL2()
 }
 
-func (c *chainClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
+func (c *chainClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*commonassets.Link, error) {
 	return c.multiNode.LINKBalance(ctx, address, linkAddress)
 }
 

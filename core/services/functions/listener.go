@@ -15,7 +15,8 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -29,8 +30,6 @@ import (
 )
 
 var (
-	_ job.ServiceCtx = &FunctionsListener{}
-
 	sizeBuckets = []float64{
 		1024,
 		1024 * 4,
@@ -111,11 +110,21 @@ const (
 	DefaultPruneCheckFrequencySec uint32 = 60 * 10
 	DefaultPruneBatchSize         uint32 = 500
 
+	// Used in place of OnchainMetadata for all offchain requests.
+	OffchainRequestMarker string = "OFFCHAIN_REQUEST"
+
 	FlagCBORMaxSize    uint32 = 1
 	FlagSecretsMaxSize uint32 = 2
 )
 
-type FunctionsListener struct {
+//go:generate mockery --quiet --name FunctionsListener --output ./mocks/ --case=underscore
+type FunctionsListener interface {
+	job.ServiceCtx
+
+	HandleOffchainRequest(ctx context.Context, request *OffchainRequest) error
+}
+
+type functionsListener struct {
 	services.StateMachine
 	client             client.Client
 	contractAddressHex string
@@ -134,11 +143,13 @@ type FunctionsListener struct {
 	logPollerWrapper   evmrelayTypes.LogPollerWrapper
 }
 
-func (l *FunctionsListener) HealthReport() map[string]error {
+var _ FunctionsListener = &functionsListener{}
+
+func (l *functionsListener) HealthReport() map[string]error {
 	return map[string]error{l.Name(): l.Healthy()}
 }
 
-func (l *FunctionsListener) Name() string { return l.logger.Name() }
+func (l *functionsListener) Name() string { return l.logger.Name() }
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
@@ -156,8 +167,8 @@ func NewFunctionsListener(
 	urlsMonEndpoint commontypes.MonitoringEndpoint,
 	decryptor threshold.Decryptor,
 	logPollerWrapper evmrelayTypes.LogPollerWrapper,
-) *FunctionsListener {
-	return &FunctionsListener{
+) *functionsListener {
+	return &functionsListener{
 		client:             client,
 		contractAddressHex: contractAddressHex,
 		job:                job,
@@ -174,7 +185,7 @@ func NewFunctionsListener(
 }
 
 // Start complies with job.Service
-func (l *FunctionsListener) Start(context.Context) error {
+func (l *functionsListener) Start(context.Context) error {
 	return l.StartOnce("FunctionsListener", func() error {
 		l.serviceContext, l.serviceCancel = context.WithCancel(context.Background())
 
@@ -201,7 +212,7 @@ func (l *FunctionsListener) Start(context.Context) error {
 }
 
 // Close complies with job.Service
-func (l *FunctionsListener) Close() error {
+func (l *functionsListener) Close() error {
 	return l.StopOnce("FunctionsListener", func() error {
 		l.serviceCancel()
 		close(l.chStop)
@@ -210,7 +221,7 @@ func (l *FunctionsListener) Close() error {
 	})
 }
 
-func (l *FunctionsListener) processOracleEventsV1() {
+func (l *functionsListener) processOracleEventsV1() {
 	defer l.shutdownWaitGroup.Done()
 	freqMillis := l.pluginConfig.ListenerEventsCheckFrequencyMillis
 	if freqMillis == 0 {
@@ -244,7 +255,7 @@ func (l *FunctionsListener) processOracleEventsV1() {
 	}
 }
 
-func (l *FunctionsListener) getNewHandlerContext() (context.Context, context.CancelFunc) {
+func (l *functionsListener) getNewHandlerContext() (context.Context, context.CancelFunc) {
 	timeoutSec := l.pluginConfig.ListenerEventHandlerTimeoutSec
 	if timeoutSec == 0 {
 		return context.WithCancel(l.serviceContext)
@@ -252,7 +263,7 @@ func (l *FunctionsListener) getNewHandlerContext() (context.Context, context.Can
 	return context.WithTimeout(l.serviceContext, time.Duration(timeoutSec)*time.Second)
 }
 
-func (l *FunctionsListener) setError(ctx context.Context, requestId RequestID, errType ErrType, errBytes []byte) {
+func (l *functionsListener) setError(ctx context.Context, requestId RequestID, errType ErrType, errBytes []byte) {
 	if errType == INTERNAL_ERROR {
 		promRequestInternalError.WithLabelValues(l.contractAddressHex).Inc()
 	} else {
@@ -264,7 +275,7 @@ func (l *FunctionsListener) setError(ctx context.Context, requestId RequestID, e
 	}
 }
 
-func (l *FunctionsListener) getMaxCBORsize(flags RequestFlags) uint32 {
+func (l *functionsListener) getMaxCBORsize(flags RequestFlags) uint32 {
 	idx := flags[FlagCBORMaxSize]
 	if int(idx) >= len(l.pluginConfig.MaxRequestSizesList) {
 		return l.pluginConfig.MaxRequestSizeBytes // deprecated
@@ -272,7 +283,7 @@ func (l *FunctionsListener) getMaxCBORsize(flags RequestFlags) uint32 {
 	return l.pluginConfig.MaxRequestSizesList[idx]
 }
 
-func (l *FunctionsListener) getMaxSecretsSize(flags RequestFlags) uint32 {
+func (l *functionsListener) getMaxSecretsSize(flags RequestFlags) uint32 {
 	idx := flags[FlagSecretsMaxSize]
 	if int(idx) >= len(l.pluginConfig.MaxSecretsSizesList) {
 		return math.MaxUint32 // not enforced if not configured
@@ -280,7 +291,48 @@ func (l *FunctionsListener) getMaxSecretsSize(flags RequestFlags) uint32 {
 	return l.pluginConfig.MaxSecretsSizesList[idx]
 }
 
-func (l *FunctionsListener) handleOracleRequestV1(request *evmrelayTypes.OracleRequest) {
+func (l *functionsListener) HandleOffchainRequest(ctx context.Context, request *OffchainRequest) error {
+	if request == nil {
+		return errors.New("HandleOffchainRequest: received nil request")
+	}
+	if len(request.RequestId) != RequestIDLength {
+		return fmt.Errorf("HandleOffchainRequest: invalid request ID length %d", len(request.RequestId))
+	}
+	if len(request.SubscriptionOwner) != common.AddressLength || len(request.RequestInitiator) != common.AddressLength {
+		return fmt.Errorf("HandleOffchainRequest: SubscriptionOwner and RequestInitiator must be set to valid addresses")
+	}
+	if request.Timestamp < uint64(time.Now().Unix()-int64(l.pluginConfig.RequestTimeoutSec)) {
+		return fmt.Errorf("HandleOffchainRequest: request timestamp is too old")
+	}
+
+	var requestId RequestID
+	copy(requestId[:], request.RequestId[:32])
+	subscriptionOwner := common.BytesToAddress(request.SubscriptionOwner)
+	senderAddr := common.BytesToAddress(request.RequestInitiator)
+	emptyTxHash := common.Hash{}
+	zeroCallbackGasLimit := uint32(0)
+	newReq := &Request{
+		RequestID:        requestId,
+		RequestTxHash:    &emptyTxHash,
+		ReceivedAt:       time.Now(),
+		Flags:            []byte{},
+		CallbackGasLimit: &zeroCallbackGasLimit,
+		// use sender address in place of coordinator contract to keep batches uniform
+		CoordinatorContractAddress: &senderAddr,
+		OnchainMetadata:            []byte(OffchainRequestMarker),
+	}
+	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
+		if errors.Is(err, ErrDuplicateRequestID) {
+			l.logger.Warnw("HandleOffchainRequest: received duplicate request ID", "requestID", formatRequestId(requestId), "err", err)
+		} else {
+			l.logger.Errorw("HandleOffchainRequest: failed to create a DB entry for new request", "requestID", formatRequestId(requestId), "err", err)
+		}
+		return err
+	}
+	return l.handleRequest(ctx, requestId, request.SubscriptionId, subscriptionOwner, RequestFlags{}, &request.Data)
+}
+
+func (l *functionsListener) handleOracleRequestV1(request *evmrelayTypes.OracleRequest) {
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("handleOracleRequestV1: oracle request v1 received", "requestID", formatRequestId(request.RequestId))
 	ctx, cancel := l.getNewHandlerContext()
@@ -312,10 +364,13 @@ func (l *FunctionsListener) handleOracleRequestV1(request *evmrelayTypes.OracleR
 		l.setError(ctx, request.RequestId, USER_ERROR, []byte(err.Error()))
 		return
 	}
-	l.handleRequest(ctx, request.RequestId, request.SubscriptionId, request.SubscriptionOwner, request.Flags, requestData)
+	err = l.handleRequest(ctx, request.RequestId, request.SubscriptionId, request.SubscriptionOwner, request.Flags, requestData)
+	if err != nil {
+		l.logger.Errorw("handleOracleRequestV1: error in handleRequest()", "requestID", formatRequestId(request.RequestId), "err", err)
+	}
 }
 
-func (l *FunctionsListener) parseCBOR(requestId RequestID, cborData []byte, maxSizeBytes uint32) (*RequestData, error) {
+func (l *functionsListener) parseCBOR(requestId RequestID, cborData []byte, maxSizeBytes uint32) (*RequestData, error) {
 	if maxSizeBytes > 0 && uint32(len(cborData)) > maxSizeBytes {
 		l.logger.Errorw("request too big", "requestID", formatRequestId(requestId), "requestSize", len(cborData), "maxRequestSize", maxSizeBytes)
 		return nil, fmt.Errorf("request too big (max %d bytes)", maxSizeBytes)
@@ -330,7 +385,8 @@ func (l *FunctionsListener) parseCBOR(requestId RequestID, cborData []byte, maxS
 	return &requestData, nil
 }
 
-func (l *FunctionsListener) handleRequest(ctx context.Context, requestID RequestID, subscriptionId uint64, subscriptionOwner common.Address, flags RequestFlags, requestData *RequestData) {
+// Handle secret fetching/decryption and functions computation. Return error only for internal errors.
+func (l *functionsListener) handleRequest(ctx context.Context, requestID RequestID, subscriptionId uint64, subscriptionOwner common.Address, flags RequestFlags, requestData *RequestData) error {
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime)
@@ -343,26 +399,26 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	if err != nil {
 		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", requestIDStr, "err", err)
 		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(err.Error()))
-		return
+		return err
 	}
 
 	nodeProvidedSecrets, userErr, internalErr := l.getSecrets(ctx, eaClient, requestID, subscriptionOwner, requestData)
 	if internalErr != nil {
 		l.logger.Errorw("internal error during getSecrets", "requestID", requestIDStr, "err", internalErr)
 		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(internalErr.Error()))
-		return
+		return internalErr
 	}
 	if userErr != nil {
 		l.logger.Debugw("user error during getSecrets", "requestID", requestIDStr, "err", userErr)
 		l.setError(ctx, requestID, USER_ERROR, []byte(userErr.Error()))
-		return
+		return nil // user error
 	}
 
 	maxSecretsSize := l.getMaxSecretsSize(flags)
 	if uint32(len(nodeProvidedSecrets)) > maxSecretsSize {
 		l.logger.Errorw("secrets size too big", "requestID", requestIDStr, "secretsSize", len(nodeProvidedSecrets), "maxSecretsSize", maxSecretsSize)
 		l.setError(ctx, requestID, USER_ERROR, []byte("secrets size too big"))
-		return
+		return nil // user error
 	}
 
 	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, flags, nodeProvidedSecrets, requestData)
@@ -370,7 +426,7 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	if err != nil {
 		l.logger.Errorw("internal adapter error", "requestID", requestIDStr, "err", err)
 		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(err.Error()))
-		return
+		return err
 	}
 
 	if len(computationError) == 0 && len(computationResult) == 0 {
@@ -396,11 +452,13 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 		l.logger.Debugw("saving computation result", "requestID", requestIDStr)
 		if err2 := l.pluginORM.SetResult(requestID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", requestIDStr, "err", err2)
+			return err2
 		}
 	}
+	return nil
 }
 
-func (l *FunctionsListener) handleOracleResponseV1(response *evmrelayTypes.OracleResponse) {
+func (l *functionsListener) handleOracleResponseV1(response *evmrelayTypes.OracleResponse) {
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("oracle response v1 received", "requestID", formatRequestId(response.RequestId))
 
@@ -412,7 +470,7 @@ func (l *FunctionsListener) handleOracleResponseV1(response *evmrelayTypes.Oracl
 	promRequestConfirmed.WithLabelValues(l.contractAddressHex).Inc()
 }
 
-func (l *FunctionsListener) timeoutRequests() {
+func (l *functionsListener) timeoutRequests() {
 	defer l.shutdownWaitGroup.Done()
 	timeoutSec, freqSec, batchSize := l.pluginConfig.RequestTimeoutSec, l.pluginConfig.RequestTimeoutCheckFrequencySec, l.pluginConfig.RequestTimeoutBatchLookupSize
 	if timeoutSec == 0 || freqSec == 0 || batchSize == 0 {
@@ -448,7 +506,7 @@ func (l *FunctionsListener) timeoutRequests() {
 	}
 }
 
-func (l *FunctionsListener) pruneRequests() {
+func (l *functionsListener) pruneRequests() {
 	defer l.shutdownWaitGroup.Done()
 	maxStoredRequests, freqSec, batchSize := l.pluginConfig.PruneMaxStoredRequests, l.pluginConfig.PruneCheckFrequencySec, l.pluginConfig.PruneBatchSize
 	if maxStoredRequests == 0 {
@@ -490,7 +548,7 @@ func (l *FunctionsListener) pruneRequests() {
 	}
 }
 
-func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains []string) {
+func (l *functionsListener) reportSourceCodeDomains(requestId RequestID, domains []string) {
 	r := &telem.FunctionsRequest{
 		RequestId:   formatRequestId(requestId),
 		NodeAddress: l.job.OCR2OracleSpec.TransmitterID.ValueOrZero(),
@@ -505,7 +563,7 @@ func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains
 	}
 }
 
-func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID RequestID, subscriptionOwner common.Address, requestData *RequestData) (decryptedSecrets string, userError, internalError error) {
+func (l *functionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID RequestID, subscriptionOwner common.Address, requestData *RequestData) (decryptedSecrets string, userError, internalError error) {
 	if l.decryptor == nil {
 		l.logger.Warn("Decryptor not configured")
 		return "", nil, nil

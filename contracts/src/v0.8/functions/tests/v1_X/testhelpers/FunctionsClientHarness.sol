@@ -10,7 +10,7 @@ contract FunctionsClientHarness is FunctionsClientUpgradeHelper {
   constructor(address router) FunctionsClientUpgradeHelper(router) {}
 
   function getRouter_HARNESS() external view returns (address) {
-    return address(i_router);
+    return address(i_functionsRouter);
   }
 
   function sendRequest_HARNESS(

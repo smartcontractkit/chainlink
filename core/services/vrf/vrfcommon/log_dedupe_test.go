@@ -31,6 +31,22 @@ func TestLogDeduper(t *testing.T) {
 			results: []bool{true, false},
 		},
 		{
+			name: "different block number",
+			logs: []types.Log{
+				{
+					BlockNumber: 10,
+					BlockHash:   common.Hash{0x1},
+					Index:       3,
+				},
+				{
+					BlockNumber: 11,
+					BlockHash:   common.Hash{0x2},
+					Index:       3,
+				},
+			},
+			results: []bool{true, true},
+		},
+		{
 			name: "same block number different hash",
 			logs: []types.Log{
 				{
@@ -128,11 +144,11 @@ func TestLogDeduper(t *testing.T) {
 					Index:       11,
 				},
 				{
-					BlockNumber: 115,
+					BlockNumber: 1015,
 					BlockHash:   common.Hash{0x1, 0x1, 0x5},
 					Index:       0,
 				},
-				// Now the logs at blocks 10 and 11 should be pruned, and therefor redelivered.
+				// Now the logs at blocks 10 and 11 should be pruned, and therefore redelivered.
 				// The log at block 115 should not be redelivered.
 				{
 					BlockNumber: 10,
@@ -145,7 +161,7 @@ func TestLogDeduper(t *testing.T) {
 					Index:       11,
 				},
 				{
-					BlockNumber: 115,
+					BlockNumber: 1015,
 					BlockHash:   common.Hash{0x1, 0x1, 0x5},
 					Index:       0,
 				},

@@ -58,7 +58,16 @@ cd <YOUR LOCAL CHAINLINK REPO>/core/scripts/vrfv2/testnet
 - Not specifying `--link-eth-feed` would make the super script deploy a new LINK-ETH feed contract and use it for funding VRF V2+ subscription
 
 ```shell
-go run . deploy-universe --link-address=$LINK --link-eth-feed=$LINK_ETH_FEED --subscription-balance=<SUBSCRIPTION AMOUNT> --uncompressed-pub-key=$PUB_KEY --oracle-address=$ORACLE_ADDRESS
+go run . deploy-universe \
+--link-address=$LINK \
+--link-eth-feed=$LINK_ETH_FEED \
+--subscription-balance=5000000000000000000 \ #5 LINK
+--subscription-balance-native=1000000000000000000 \ #1 ETH
+--uncompressed-pub-key=<VRF Uncompressed Public Key> \
+--vrf-primary-node-sending-keys="<sending-key1-address,sending-key2-address>" \ #used to fund the keys and for sample VRF Job Spec generation
+--sending-key-funding-amount 100000000000000000 \ #0.1 ETH, fund addresses specified in vrf-primary-node-sending-keys
+--batch-fulfillment-enabled false \ #only used for sample VRF Job Spec generation
+--register-vrf-key-against-address="<eoa address>" # from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments
 ```
 
 ## Deploying the Consumer Contract

@@ -1,7 +1,6 @@
 package performance
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -20,6 +19,7 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -108,7 +108,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 
 		gom := gomega.NewGomegaWithT(t)
 		gom.Eventually(func(g gomega.Gomega) {
-			d, err := consumer.Data(context.Background())
+			d, err := consumer.Data(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting data from consumer contract shouldn't fail")
 			g.Expect(d).ShouldNot(gomega.BeNil(), "Expected the initial on chain data to be nil")
 			l.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
@@ -142,7 +142,7 @@ func setupDirectRequestTest(t *testing.T) (testEnvironment *environment.Environm
 HTTPWriteTimout = '300s'`
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 1,
-		"toml":     client.AddNetworksConfig(baseTOML, network),
+		"toml":     networks.AddNetworksConfig(baseTOML, network),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

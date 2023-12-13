@@ -28,6 +28,7 @@ var (
 type CoordinatorV2_X interface {
 	Address() common.Address
 	ParseRandomWordsRequested(log types.Log) (RandomWordsRequested, error)
+	ParseRandomWordsFulfilled(log types.Log) (RandomWordsFulfilled, error)
 	RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error)
 	AddConsumer(opts *bind.TransactOpts, subID *big.Int, consumer common.Address) (*types.Transaction, error)
 	CreateSubscription(opts *bind.TransactOpts) (*types.Transaction, error)
@@ -47,6 +48,10 @@ type CoordinatorV2_X interface {
 	GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error)
 	Migrate(opts *bind.TransactOpts, subID *big.Int, newCoordinator common.Address) (*types.Transaction, error)
 	FundSubscriptionWithNative(opts *bind.TransactOpts, subID *big.Int, amount *big.Int) (*types.Transaction, error)
+	// RandomWordsRequestedTopic returns the log topic of the RandomWordsRequested log
+	RandomWordsRequestedTopic() common.Hash
+	// RandomWordsFulfilledTopic returns the log topic of the RandomWordsFulfilled log
+	RandomWordsFulfilledTopic() common.Hash
 }
 
 type coordinatorV2 struct {
@@ -61,6 +66,14 @@ func NewCoordinatorV2(c *vrf_coordinator_v2.VRFCoordinatorV2) CoordinatorV2_X {
 	}
 }
 
+func (c *coordinatorV2) RandomWordsRequestedTopic() common.Hash {
+	return vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()
+}
+
+func (c *coordinatorV2) RandomWordsFulfilledTopic() common.Hash {
+	return vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic()
+}
+
 func (c *coordinatorV2) Address() common.Address {
 	return c.coordinator.Address()
 }
@@ -71,6 +84,14 @@ func (c *coordinatorV2) ParseRandomWordsRequested(log types.Log) (RandomWordsReq
 		return nil, err
 	}
 	return NewV2RandomWordsRequested(parsed), nil
+}
+
+func (c *coordinatorV2) ParseRandomWordsFulfilled(log types.Log) (RandomWordsFulfilled, error) {
+	parsed, err := c.coordinator.ParseRandomWordsFulfilled(log)
+	if err != nil {
+		return nil, err
+	}
+	return NewV2RandomWordsFulfilled(parsed), nil
 }
 
 func (c *coordinatorV2) RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error) {
@@ -187,6 +208,14 @@ func NewCoordinatorV2_5(c vrf_coordinator_v2_5.VRFCoordinatorV25Interface) Coord
 	}
 }
 
+func (c *coordinatorV2_5) RandomWordsRequestedTopic() common.Hash {
+	return vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic()
+}
+
+func (c *coordinatorV2_5) RandomWordsFulfilledTopic() common.Hash {
+	return vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic()
+}
+
 func (c *coordinatorV2_5) Address() common.Address {
 	return c.coordinator.Address()
 }
@@ -197,6 +226,14 @@ func (c *coordinatorV2_5) ParseRandomWordsRequested(log types.Log) (RandomWordsR
 		return nil, err
 	}
 	return NewV2_5RandomWordsRequested(parsed), nil
+}
+
+func (c *coordinatorV2_5) ParseRandomWordsFulfilled(log types.Log) (RandomWordsFulfilled, error) {
+	parsed, err := c.coordinator.ParseRandomWordsFulfilled(log)
+	if err != nil {
+		return nil, err
+	}
+	return NewV2_5RandomWordsFulfilled(parsed), nil
 }
 
 func (c *coordinatorV2_5) RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error) {

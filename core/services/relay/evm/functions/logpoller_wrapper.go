@@ -10,7 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
@@ -39,7 +40,7 @@ type logPollerWrapper struct {
 	detectedResponses         detectedEvents
 	mu                        sync.Mutex
 	closeWait                 sync.WaitGroup
-	stopCh                    utils.StopChan
+	stopCh                    services.StopChan
 	lggr                      logger.Logger
 }
 
@@ -106,7 +107,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		logPoller:                 logPoller,
 		client:                    client,
 		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
-		stopCh:                    make(utils.StopChan),
+		stopCh:                    make(services.StopChan),
 		lggr:                      lggr,
 	}, nil
 }
