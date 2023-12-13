@@ -853,7 +853,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
 	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
+		uni.neil, nil, pair(secp256k1.Coordinates(p)))
 	require.NoError(t, err)
 	uni.backend.Commit()
 	t.Run("non-proxied consumer", func(tt *testing.T) {
@@ -1013,7 +1013,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
 	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
+		uni.neil, nil, pair(secp256k1.Coordinates(p)))
 	require.NoError(t, err)
 	uni.backend.Commit()
 

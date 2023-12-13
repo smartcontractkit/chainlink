@@ -196,7 +196,7 @@ func SmokeTestVRF(e helpers.Environment) {
 	x, y := secp256k1.Coordinates(point)
 	fmt.Println("proving key points x:", x, ", y:", y)
 	fmt.Println("proving key points from unmarshal:", pk.X, pk.Y)
-	tx, err := coordinator.RegisterProvingKey(e.Owner, e.Owner.From, [2]*big.Int{x, y})
+	tx, err := coordinator.RegisterProvingKey(e.Owner, [2]*big.Int{x, y})
 	helpers.PanicErr(err)
 	registerReceipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "register proving key on", coordinatorAddress.String())
 	var provingKeyRegisteredLog *vrf_coordinator_v2_5.VRFCoordinatorV25ProvingKeyRegistered

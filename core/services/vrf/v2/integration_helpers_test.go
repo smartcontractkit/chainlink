@@ -1683,8 +1683,13 @@ func testMaliciousConsumer(
 	// Register a proving key associated with the VRF job.
 	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
-	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
+	if vrfVersion == vrfcommon.V2Plus {
+		_, err = uni.rootContract.RegisterProvingKey(
+			uni.neil, nil, pair(secp256k1.Coordinates(p)))
+	} else {
+		_, err = uni.rootContract.RegisterProvingKey(
+			uni.neil, &uni.nallory.From, pair(secp256k1.Coordinates(p)))
+	}
 	require.NoError(t, err)
 
 	subFunding := decimal.RequireFromString("1000000000000000000")
