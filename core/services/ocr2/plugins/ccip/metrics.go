@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -88,64 +87,4 @@ func incSkippedRequests(reason skipReason) {
 
 func timestampToLabels(t types.ReportTimestamp) []string {
 	return []string{t.ConfigDigest.Hex()}
-}
-
-// ChainName returns the name of the EVM network based on its chainID
-func ChainName(chainID int64) string {
-	switch chainID {
-	case 1:
-		return "ethereum-mainnet"
-	case 4:
-		return "ethereum-testnet-rinkeby"
-	case 5:
-		return "ethereum-testnet-goerli"
-	case 10:
-		return "ethereum-mainnet-optimism-1"
-	case 42:
-		return "ethereum-testnet-kovan"
-	case 56:
-		return "binance_smart_chain-mainnet"
-	case 97:
-		return "binance_smart_chain-testnet"
-	case 137:
-		return "polygon-mainnet"
-	case 420:
-		return "ethereum-testnet-goerli-optimism-1"
-	case 1111:
-		return "wemix-mainnet"
-	case 1112:
-		return "wemix-testnet"
-	case 255:
-		return "ethereum-mainnet-kroma-1"
-	case 2358:
-		return "ethereum-testnet-sepolia-kroma-1"
-	case 4002:
-		return "fantom-testnet"
-	case 8453:
-		return "ethereum-mainnet-base-1"
-	case 84531:
-		return "ethereum-testnet-goerli-base-1"
-	case 84532:
-		return "ethereum-testnet-sepolia-base-1"
-	case 42161:
-		return "ethereum-mainnet-arbitrum-1"
-	case 421613:
-		return "ethereum-testnet-goerli-arbitrum-1"
-	case 421614:
-		return "ethereum-testnet-sepolia-arbitrum-1"
-	case 43113:
-		return "avalanche-testnet-fuji"
-	case 43114:
-		return "avalanche-mainnet"
-	case 76578:
-		return "avalanche-testnet-anz-subnet"
-	case 80001:
-		return "polygon-testnet-mumbai"
-	case 11155111:
-		return "ethereum-testnet-sepolia"
-	case 11155420:
-		return "ethereum-testnet-sepolia-optimism-1"
-	default: // Unknown chain, return chainID as string
-		return strconv.FormatInt(chainID, 10)
-	}
 }

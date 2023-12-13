@@ -12,6 +12,7 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -64,9 +65,11 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not create commitStore reader")
 	}
-	commitLggr := lggr.Named("CCIPCommit").With(
-		"sourceChain", ChainName(sourceChainID),
-		"destChain", ChainName(destChainID))
+	sourceChainName, destChainName, err := ccipconfig.ResolveChainNames(sourceChainID, destChainID)
+	if err != nil {
+		return nil, nil, err
+	}
+	commitLggr := lggr.Named("CCIPCommit").With("sourceChain", sourceChainName, "destChain", destChainName)
 	pipelinePriceGetter, err := pricegetter.NewPipelineGetter(pluginConfig.TokenPricesUSDPipeline, pr, jb.ID, jb.ExternalJobID, jb.Name.ValueOrZero(), lggr)
 	if err != nil {
 		return nil, nil, err
