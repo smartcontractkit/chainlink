@@ -2,29 +2,19 @@ name: CI Scripts
 
 on:
   push:
-    paths:
-      - "core/scripts/**"
-      - ".github/workflows/ci-scripts.yml"
   pull_request:
-    paths:
-      - "core/scripts/**"
-      - ".github/workflows/ci-scripts.yml"
 
 jobs:
   golangci:
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
-    name: ${{ matrix.scripts }}-lint
-    strategy:
-      matrix:
-        scripts: [chaincli, common, functions, gateway, ocr2vrf, vrfv1, vrfv2, vrfv2plus]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         with:
-          name: ${{ matrix.scripts }}-lint
-          go-directory: core/scripts/${{ matrix.scripts }}
+          name: scripts-lint
+          go-directory: core/scripts
           go-version-file: core/scripts/go.mod
           go-module-file: core/scripts/go.sum
           gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
@@ -32,7 +22,7 @@ jobs:
 
   test:
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
-    name: script-tests
+    name: scripts-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1 
@@ -53,5 +43,5 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: test
+          this-job-name: scripts-test
         continue-on-error: true
