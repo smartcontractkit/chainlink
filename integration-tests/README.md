@@ -26,6 +26,8 @@ e.g.
 
 `make build_docker_image image=chainlink tag=test-tag`
 
+You'll want to set the `CHAINLINK_IMAGE` and `CHAINLINK_VERSION` env values appropriately as well. See [example.env](./example.env) for more details.
+
 ## Run
 
 `go test ./smoke/<product>_test.go`
