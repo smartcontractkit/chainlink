@@ -117,9 +117,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			consumers, err = vrfv2plus.DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, 1)
 			require.NoError(t, err)
 			err = env.EVMClient.WaitForEvents()
-			if err != nil {
-				require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
-			}
+			require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 			l.Info().
 				Str("Coordinator", cfg.ExistingEnvConfig.CoordinatorAddress).
 				Int("Number of Subs to create", vrfv2PlusConfig.NumberOfSubToCreate).
