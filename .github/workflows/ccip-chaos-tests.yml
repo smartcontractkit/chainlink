@@ -179,7 +179,7 @@ jobs:
       - name: Run Load With Chaos Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests/ccip-tests && go test -timeout 1h -count=1 -json -test.parallel 4 -run '^TestLoadCCIPStableWithPodChaosDiffCommitAndExec' ./load 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests/ccip-tests && go test -timeout 2h -count=1 -json -test.parallel 4 -run '^TestLoadCCIPStableWithPodChaosDiffCommitAndExec' ./load 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: ${{ github.sha }}

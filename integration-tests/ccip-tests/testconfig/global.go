@@ -84,6 +84,7 @@ func NewConfig() (*Config, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, ErrUnmarshalConfig)
 		}
+		log.Info().Interface("override", override).Msg("Applied overrides")
 	}
 	if override != nil {
 		// apply overrides for all products

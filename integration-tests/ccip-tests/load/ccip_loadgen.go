@@ -173,12 +173,15 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 	} else {
 		sendTx, err = sourceCCIP.Common.Router.CCIPSend(destChainSelector, msg, fee)
 	}
-	err = sourceCCIP.Common.ChainClient.MarkTxAsSentOnL2(sendTx)
 	if err != nil {
+		stats.UpdateState(lggr, 0, testreporters.TX, time.Since(startTime), testreporters.Failure)
 		res.Error = err.Error()
+		res.Data = stats.StatusByPhase
 		res.Failed = true
 		return res
 	}
+	err = sourceCCIP.Common.ChainClient.MarkTxAsSentOnL2(sendTx)
+
 	if err != nil {
 		stats.UpdateState(lggr, 0, testreporters.TX, time.Since(startTime), testreporters.Failure)
 		res.Error = fmt.Sprintf("ccip-send tx error %+v for msg ID %d", err, msgSerialNo)
@@ -186,7 +189,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 		res.Failed = true
 		return res
 	}
-	lggr = lggr.With().Str("Msg Tx", sendTx.Hash().String()).Logger()
+
 	txConfirmationTime := time.Now().UTC()
 	rcpt, err1 := bind.WaitMined(context.Background(), sourceCCIP.Common.ChainClient.DeployBackend(), sendTx)
 	if err1 == nil {
@@ -195,6 +198,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 			txConfirmationTime = hdr.Timestamp
 		}
 	}
+	lggr = lggr.With().Str("Msg Tx", sendTx.Hash().String()).Logger()
 	var gasUsed uint64
 	if rcpt != nil {
 		gasUsed = rcpt.GasUsed

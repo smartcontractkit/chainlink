@@ -44,7 +44,7 @@ func TestLoadCCIPStableRPSTriggerBySource(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		log.Info().Msg("Tearing down the environment")
-		require.NoError(t, testArgs.TestSetupArgs.TearDown())
+		testArgs.TearDown()
 	})
 	testArgs.TriggerLoadBySource()
 	testArgs.Wait()

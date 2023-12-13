@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,9 +32,9 @@ type ChaosConfig struct {
 type loadArgs struct {
 	t                *testing.T
 	lggr             zerolog.Logger
-	ctx              context.Context
 	schedules        []*wasp.Segment
 	RunnerWg         *errgroup.Group // to wait on individual load generators run
+	LoadStarterWg    *sync.WaitGroup // waits for all the runners to start
 	TestCfg          *testsetups.CCIPTestConfig
 	TestSetupArgs    *testsetups.CCIPTestSetUpOutputs
 	ChaosExps        []ChaosConfig
@@ -127,9 +128,17 @@ func (l *loadArgs) TriggerLoadByLane() {
 		l.AddToRunnerGroup(loadRunner)
 	}
 	for _, lane := range l.TestSetupArgs.Lanes {
-		startLoad(lane.ForwardLane)
+		l.LoadStarterWg.Add(1)
+		go func() {
+			defer l.LoadStarterWg.Done()
+			startLoad(lane.ForwardLane)
+		}()
 		if pointer.GetBool(l.TestSetupArgs.Cfg.TestGroupInput.BiDirectionalLane) {
-			startLoad(lane.ReverseLane)
+			l.LoadStarterWg.Add(1)
+			go func() {
+				defer l.LoadStarterWg.Done()
+				startLoad(lane.ReverseLane)
+			}()
 		}
 	}
 }
@@ -148,6 +157,9 @@ func (l *loadArgs) AddToRunnerGroup(gen *wasp.Generator) {
 }
 
 func (l *loadArgs) Wait() {
+	l.lggr.Info().Msg("Waiting for load to start on all lanes")
+	// wait for load runner to start
+	l.LoadStarterWg.Wait()
 	l.lggr.Info().Msg("Waiting for load to finish on all lanes")
 	// wait for load runner to finish
 	err := l.RunnerWg.Wait()
@@ -208,52 +220,58 @@ func (l *loadArgs) TriggerLoadBySource() {
 		}
 	}
 	for source, lanes := range laneBySource {
-		l.lggr.Info().
-			Str("Source Network", source).
-			Msg("Starting load for source")
-		if lanes[0].TestEnv != nil && lanes[0].TestEnv.K8Env != nil && lanes[0].TestEnv.K8Env.Cfg != nil {
-			namespace = lanes[0].TestEnv.K8Env.Cfg.Namespace
-		}
-		allLabels := map[string]string{
-			"test_group":   "load",
-			"cluster":      "sdlc",
-			"namespace":    namespace,
-			"test_id":      "ccip",
-			"source_chain": source,
-		}
-		multiCallGen, err := NewMultiCallLoadGenerator(l.TestCfg, lanes, l.TestCfg.TestGroupInput.RequestPerUnitTime[0], allLabels)
-		require.NoError(l.t, err)
+		source := source
+		lanes := lanes
+		l.LoadStarterWg.Add(1)
+		go func() {
+			defer l.LoadStarterWg.Done()
+			l.lggr.Info().
+				Str("Source Network", source).
+				Msg("Starting load for source")
+			if lanes[0].TestEnv != nil && lanes[0].TestEnv.K8Env != nil && lanes[0].TestEnv.K8Env.Cfg != nil {
+				namespace = lanes[0].TestEnv.K8Env.Cfg.Namespace
+			}
+			allLabels := map[string]string{
+				"test_group":   "load",
+				"cluster":      "sdlc",
+				"namespace":    namespace,
+				"test_id":      "ccip",
+				"source_chain": source,
+			}
+			multiCallGen, err := NewMultiCallLoadGenerator(l.TestCfg, lanes, l.TestCfg.TestGroupInput.RequestPerUnitTime[0], allLabels)
+			require.NoError(l.t, err)
 
-		loadRunner, err := wasp.NewGenerator(&wasp.Config{
-			T:                     l.TestCfg.Test,
-			GenName:               fmt.Sprintf("Source %s", source),
-			Schedule:              wasp.Plain(1, l.TestCfg.TestGroupInput.TestDuration.Duration()), // hardcoded request per unit time to 1 as we are using multiCallGen
-			LoadType:              wasp.RPS,
-			RateLimitUnitDuration: l.TestCfg.TestGroupInput.TimeUnit.Duration(),
-			CallResultBufLen:      10, // we keep the last 10 call results for each generator, as the detailed report is generated at the end of the test
-			CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
-			Gun:                   multiCallGen,
-			Logger:                multiCallGen.logger,
-			LokiConfig:            wasp.NewEnvLokiConfig(),
-			Labels:                allLabels,
-		})
-		require.NoError(l.TestCfg.Test, err, "initiating loadgen for source %s", source)
-		loadRunner.Run(false)
-		l.AddToRunnerGroup(loadRunner)
-		l.LoadgenTearDowns = append(l.LoadgenTearDowns, func() {
-			require.NoError(l.t, multiCallGen.Stop())
-		})
+			loadRunner, err := wasp.NewGenerator(&wasp.Config{
+				T:                     l.TestCfg.Test,
+				GenName:               fmt.Sprintf("Source %s", source),
+				Schedule:              wasp.Plain(1, l.TestCfg.TestGroupInput.TestDuration.Duration()), // hardcoded request per unit time to 1 as we are using multiCallGen
+				LoadType:              wasp.RPS,
+				RateLimitUnitDuration: l.TestCfg.TestGroupInput.TimeUnit.Duration(),
+				CallResultBufLen:      10, // we keep the last 10 call results for each generator, as the detailed report is generated at the end of the test
+				CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
+				Gun:                   multiCallGen,
+				Logger:                multiCallGen.logger,
+				LokiConfig:            wasp.NewEnvLokiConfig(),
+				Labels:                allLabels,
+			})
+			require.NoError(l.TestCfg.Test, err, "initiating loadgen for source %s", source)
+			loadRunner.Run(false)
+			l.AddToRunnerGroup(loadRunner)
+			l.LoadgenTearDowns = append(l.LoadgenTearDowns, func() {
+				require.NoError(l.t, multiCallGen.Stop())
+			})
+		}()
 	}
 }
 
 func NewLoadArgs(t *testing.T, lggr zerolog.Logger, parent context.Context, chaosExps ...ChaosConfig) *loadArgs {
-	wg, ctx := errgroup.WithContext(parent)
+	wg, _ := errgroup.WithContext(parent)
 	return &loadArgs{
-		t:         t,
-		lggr:      lggr,
-		RunnerWg:  wg,
-		ctx:       ctx,
-		TestCfg:   testsetups.NewCCIPTestConfig(t, lggr, testconfig.Load),
-		ChaosExps: chaosExps,
+		t:             t,
+		lggr:          lggr,
+		RunnerWg:      wg,
+		TestCfg:       testsetups.NewCCIPTestConfig(t, lggr, testconfig.Load),
+		ChaosExps:     chaosExps,
+		LoadStarterWg: &sync.WaitGroup{},
 	}
 }
