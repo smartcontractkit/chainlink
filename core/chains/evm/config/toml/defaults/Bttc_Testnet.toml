@@ -3,8 +3,10 @@ ChainID = '1029'
 FinalityDepth = 500 
 # blocks are generated every 2-4s 
 LogPollInterval = '2s'
+LinkContractAddress = "0xC391D8FFa7a05723C85f160Bd1Fe411C5898b2a4"
 
 [GasEstimator] 
+Mode = 'BlockHistory'
 EIP1559DynamicFees = false
 PriceDefault = '15 mwei'
 PriceMin = '9 mwei' 
@@ -12,9 +14,6 @@ PriceMin = '9 mwei'
 [GasEstimator.BlockHistory]
 # how many blocks we want to keep in memory to calculate gas price
 BlockHistorySize = 24
-
-[Transactions]
-ResendAfterThreshold = '30s'
 
 [HeadTracker]
 # re-org for bttc is really high so we want to check for the block where reorg happens
@@ -25,6 +24,3 @@ SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
-
-[OCR2.Automation]
-GasLimit = 9000000
