@@ -6,8 +6,8 @@ LogPollInterval = '2s'
 
 [GasEstimator] 
 EIP1559DynamicFees = false
-PriceDefault = '0.015 ether' 
-PriceMin = '0.009 ether' 
+PriceDefault = '10 mwei'
+PriceMin = '9 mwei' 
 BumpPercent = 20
 
 [GasEstimator.BlockHistory]
