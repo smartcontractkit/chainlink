@@ -6,8 +6,8 @@ struct TestStruct {
     string DifferentField;
     uint8 OracleId;
     uint8[32] OracleIds;
-    bytes32 Account;
-    bytes32[] Accounts;
+    address Account;
+    address[] Accounts;
     int192 BigField;
     MidLevelTestStruct NestedStruct;
 }
@@ -28,8 +28,8 @@ contract LatestValueHolder {
         string differentField,
         uint8 oracleId,
         uint8[32] oracleIds,
-        bytes32 account,
-        bytes32[] accounts,
+        address Account,
+        address[] Accounts,
         int192 bigField,
         MidLevelTestStruct nestedStruct);
 
@@ -47,8 +47,8 @@ contract LatestValueHolder {
         string calldata differentField,
         uint8 oracleId,
         uint8[32] calldata oracleIds,
-        bytes32 account,
-        bytes32[] calldata accounts,
+        address account,
+        address[] calldata accounts,
         int192 bigField,
         MidLevelTestStruct calldata nestedStruct) public {
         seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct));
@@ -59,8 +59,8 @@ contract LatestValueHolder {
         string calldata differentField,
         uint8 oracleId,
         uint8[32] calldata oracleIds,
-        bytes32 account,
-        bytes32[] calldata accounts,
+        address account,
+        address[] calldata accounts,
         int192 bigField,
         MidLevelTestStruct calldata nestedStruct) pure public returns (TestStruct memory) {
         return TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
@@ -89,8 +89,8 @@ contract LatestValueHolder {
         string calldata differentField,
         uint8 oracleId,
         uint8[32] calldata oracleIds,
-        bytes32 account,
-        bytes32[] calldata accounts,
+        address account,
+        address[] calldata accounts,
         int192 bigField,
         MidLevelTestStruct calldata nestedStruct) public {
         emit Triggered(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
