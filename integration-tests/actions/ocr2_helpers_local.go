@@ -20,12 +20,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 func CreateOCRv2JobsLocal(
@@ -95,11 +96,11 @@ func CreateOCRv2JobsLocal(
 			}
 			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {
-				return fmt.Errorf("creating bridge job have failed: %w", err)
+				return fmt.Errorf("creating bridge on CL node failed: %w", err)
 			}
 			err = chainlinkNode.MustCreateBridge(juelsBridge)
 			if err != nil {
-				return fmt.Errorf("creating bridge job have failed: %w", err)
+				return fmt.Errorf("creating bridge on CL node failed: %w", err)
 			}
 
 			ocrSpec := &client.OCR2TaskJobSpec{
