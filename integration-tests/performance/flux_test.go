@@ -179,7 +179,7 @@ func TestFluxPerformance(t *testing.T) {
 }
 
 func setupFluxTest(t *testing.T, config *tc.TestConfig) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+	testNetwork = networks.MustGetSelectedNetworkConfig(config.Network)[0]
 	evmConf := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConf = ethereum.New(&ethereum.Props{
@@ -195,7 +195,7 @@ HTTPWriteTimout = '300s'
 Enabled = true`
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 3,
-		"toml":     networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, testNetwork),
+		"toml":     networks.AddNetworksConfig(baseTOML, config.Pyroscope, testNetwork),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

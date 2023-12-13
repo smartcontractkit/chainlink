@@ -1,30 +1,21 @@
 package vrf
 
-import (
-	pkg_errors "github.com/pkg/errors"
-)
-
 type Config struct {
 	Common struct {
 		VRFishField *string `toml:"vrfish_field"`
 	} `toml:"Common"`
 }
 
-func (o *Config) ApplyOverrides(from interface{}) error {
-	switch asCfg := (from).(type) {
-	case *Config:
-		if asCfg == nil {
-			return nil
-		}
-
-		if asCfg.Common.VRFishField != nil {
-			o.Common.VRFishField = asCfg.Common.VRFishField
-		}
-
+func (o *Config) ApplyOverrides(from *Config) error {
+	if from == nil {
 		return nil
-	default:
-		return pkg_errors.Errorf("cannot apply overrides from unknown type %T", from)
 	}
+
+	if from.Common.VRFishField != nil {
+		o.Common.VRFishField = from.Common.VRFishField
+	}
+
+	return nil
 }
 
 func (o *Config) Validate() error {

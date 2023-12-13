@@ -141,7 +141,7 @@ func TestVRFBasic(t *testing.T) {
 }
 
 func setupVRFTest(t *testing.T, config *tc.TestConfig) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+	testNetwork = networks.MustGetSelectedNetworkConfig(config.Network)[0]
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -153,7 +153,7 @@ func setupVRFTest(t *testing.T, config *tc.TestConfig) (testEnvironment *environ
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'`
 	cd := chainlink.New(0, map[string]interface{}{
-		"toml": networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, testNetwork),
+		"toml": networks.AddNetworksConfig(baseTOML, config.Pyroscope, testNetwork),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

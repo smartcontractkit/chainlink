@@ -97,7 +97,12 @@ type GatewaySetSoak struct {
 	Duration *models.Duration `toml:"duration"`
 }
 
-func (c *Config) ApplyOverrides(from interface{}) error {
+func (c *Config) ApplyOverrides(_ *Config) error {
+	//TODO implement me
+	return nil
+}
+
+func (c *Config) Validate() error {
 	//TODO implement me
 	return nil
 }

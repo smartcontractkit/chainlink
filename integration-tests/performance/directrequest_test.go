@@ -135,7 +135,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 }
 
 func setupDirectRequestTest(t *testing.T, config *tc.TestConfig) (testEnvironment *environment.Environment) {
-	network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+	network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -148,7 +148,7 @@ func setupDirectRequestTest(t *testing.T, config *tc.TestConfig) (testEnvironmen
 HTTPWriteTimout = '300s'`
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 1,
-		"toml":     networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, network),
+		"toml":     networks.AddNetworksConfig(baseTOML, config.Pyroscope, network),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

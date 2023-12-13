@@ -45,7 +45,7 @@ type SubFunding struct {
 	SubFundsNative float64 `toml:"sub_funds_native"`
 }
 
-func (c *Config) ApplyOverrides(from interface{}) error {
+func (c *Config) ApplyOverrides(_ *Config) error {
 	//TODO implement me
 	return nil
 }

@@ -171,7 +171,7 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 		ocr2vrfSmokeConfig = &c
 	}
 
-	testNetwork = networks.MustGetSelectedNetworkConfig(ocr2vrfSmokeConfig.NetworkConfig)[0]
+	testNetwork = networks.MustGetSelectedNetworkConfig(ocr2vrfSmokeConfig.Network)[0]
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = eth.New(&eth.Props{
@@ -185,7 +185,7 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 		"replicas": 6,
 		"toml": networks.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
-			ocr2vrfSmokeConfig.PyroscopeConfig,
+			ocr2vrfSmokeConfig.Pyroscope,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
 			testNetwork,
 		),

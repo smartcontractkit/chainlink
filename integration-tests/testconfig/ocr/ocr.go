@@ -1,15 +1,13 @@
 package ocr
 
 import (
-	pkg_errors "github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type Config struct {
 	Soak   *SoakConfig `toml:"soak"`
-	Load   *Load       `toml:"Load"`
+	Load   *Volume     `toml:"Load"`
 	Volume *Volume     `toml:"Volume"`
 	Common *Common     `toml:"Common"`
 }
@@ -27,15 +25,6 @@ type Common struct {
 	ETHFunds int `toml:"eth_funds"`
 }
 
-type Load struct {
-	TestDuration          *models.Duration `toml:"test_duration"`
-	Rate                  int64            `toml:"rate"`
-	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
-	VerificationInterval  *models.Duration `toml:"verification_interval"`
-	VerificationTimeout   *models.Duration `toml:"verification_timeout"`
-	EAChangeInterval      *models.Duration `toml:"ea_change_interval"`
-}
-
 type Volume struct {
 	TestDuration          *models.Duration `toml:"test_duration"`
 	Rate                  int64            `toml:"rate"`
@@ -46,56 +35,89 @@ type Volume struct {
 	EAChangeInterval      *models.Duration `toml:"ea_change_interval"`
 }
 
-func (o *Config) ApplyOverrides(from interface{}) error {
-	switch asCfg := (from).(type) {
-	case *Config:
-		if asCfg == nil {
-			return nil
-		}
-
-		if asCfg.Soak != nil && o.Soak == nil {
-			o.Soak = asCfg.Soak
-		}
-
-		if asCfg.Soak != nil && o.Soak != nil {
-			if err := o.Soak.ApplyOverrides(asCfg.Soak); err != nil {
-				return err
-			}
-		}
-
+func (o *Config) ApplyOverrides(from *Config) error {
+	if from == nil {
 		return nil
-	default:
-		return pkg_errors.Errorf("cannot apply overrides from unknown type %T", from)
 	}
+
+	if from.Soak != nil && o.Soak == nil {
+		o.Soak = from.Soak
+	} else if from.Soak != nil && o.Soak != nil {
+		if err := o.Soak.ApplyOverrides(from.Soak); err != nil {
+			return err
+		}
+	}
+
+	if from.Load != nil && o.Load == nil {
+		o.Load = from.Load
+	} else if from.Load != nil && o.Load != nil {
+		if err := o.Load.ApplyOverrides(from.Load); err != nil {
+			return err
+		}
+	}
+
+	if from.Volume != nil && o.Volume == nil {
+		o.Volume = from.Volume
+	} else if from.Volume != nil && o.Volume != nil {
+		if err := o.Volume.ApplyOverrides(from.Volume); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (o *SoakConfig) ApplyOverrides(from interface{}) error {
-	switch asCfg := (from).(type) {
-	case *SoakConfig:
-		if asCfg == nil {
-			return nil
-		}
-
-		if asCfg.TestDuration != nil {
-			o.TestDuration = asCfg.TestDuration
-		}
-
-		if asCfg.NumberOfContracts != nil {
-			o.NumberOfContracts = asCfg.NumberOfContracts
-		}
-
-		if asCfg.ChainlinkNodeFunding != nil {
-			o.ChainlinkNodeFunding = asCfg.ChainlinkNodeFunding
-		}
-
-		if asCfg.TimeBetweenRounds != nil {
-			o.TimeBetweenRounds = asCfg.TimeBetweenRounds
-		}
-
+func (o *SoakConfig) ApplyOverrides(from *SoakConfig) error {
+	if from == nil {
 		return nil
-	default:
-		return pkg_errors.Errorf("cannot apply overrides from unknown type %T", from)
 	}
+
+	if from.TestDuration != nil {
+		o.TestDuration = from.TestDuration
+	}
+
+	if from.NumberOfContracts != nil {
+		o.NumberOfContracts = from.NumberOfContracts
+	}
+
+	if from.ChainlinkNodeFunding != nil {
+		o.ChainlinkNodeFunding = from.ChainlinkNodeFunding
+	}
+
+	if from.TimeBetweenRounds != nil {
+		o.TimeBetweenRounds = from.TimeBetweenRounds
+	}
+
+	return nil
+}
+
+func (o *Volume) ApplyOverrides(from *Volume) error {
+	if from == nil {
+		return nil
+	}
+	if from.TestDuration != nil {
+		o.TestDuration = from.TestDuration
+	}
+	if from.Rate != 0 {
+		o.Rate = from.Rate
+	}
+	if from.VURequestsPerUnit != 0 {
+		o.VURequestsPerUnit = from.VURequestsPerUnit
+	}
+	if from.RateLimitUnitDuration != nil {
+		o.RateLimitUnitDuration = from.RateLimitUnitDuration
+	}
+	if from.VerificationInterval != nil {
+		o.VerificationInterval = from.VerificationInterval
+	}
+	if from.VerificationTimeout != nil {
+		o.VerificationTimeout = from.VerificationTimeout
+	}
+	if from.EAChangeInterval != nil {
+		o.EAChangeInterval = from.EAChangeInterval
+	}
+
+	return nil
 }
 
 func (o *Config) Validate() error {

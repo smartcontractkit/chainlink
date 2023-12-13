@@ -51,7 +51,7 @@ type S4SecretsCfg struct {
 }
 
 func SetupLocalLoadTestEnv(config *tc.TestConfig) (*FunctionsTest, error) {
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+	selectedNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 	bc, err := blockchain.NewEVMClientFromNetwork(selectedNetwork, log.Logger)
 	if err != nil {
 		return nil, err

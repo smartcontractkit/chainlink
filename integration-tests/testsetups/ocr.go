@@ -122,7 +122,7 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
 func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, testConfig *tc.TestConfig) {
-	network := networks.MustGetSelectedNetworkConfig(testConfig.NetworkConfig)[0] // Environment currently being used to soak test on
+	network := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0] // Environment currently being used to soak test on
 	nsPre := "soak-ocr-"
 	if o.OperatorForwarderFlow {
 		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
@@ -137,7 +137,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, testC
 
 	cd := chainlink.New(0, map[string]any{
 		"replicas": 6,
-		"toml":     networks.AddNetworkDetailedConfig(config.BaseOCR1Config, testConfig.PyroscopeConfig, customChainlinkNetworkTOML, network),
+		"toml":     networks.AddNetworkDetailedConfig(config.BaseOCR1Config, testConfig.Pyroscope, customChainlinkNetworkTOML, network),
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
@@ -161,7 +161,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, testC
 // LoadEnvironment loads an existing test environment using the provided URLs
 func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, mockServerURL string, testConfig *tc.TestConfig) {
 	var (
-		network = networks.MustGetSelectedNetworkConfig(testConfig.NetworkConfig)[0]
+		network = networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
 		err     error
 	)
 	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
@@ -181,7 +181,7 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 func (o *OCRSoakTest) Setup(testConfig *tc.TestConfig) {
 	var (
 		err     error
-		network = networks.MustGetSelectedNetworkConfig(testConfig.NetworkConfig)[0]
+		network = networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
 	)
 
 	// Environment currently being used to soak test on
@@ -383,7 +383,7 @@ func (o *OCRSoakTest) LoadState() error {
 	o.startTime = testState.StartTime
 	o.startingBlockNum = testState.StartingBlockNum
 
-	network := networks.MustGetSelectedNetworkConfig(o.Config.NetworkConfig)[0]
+	network := networks.MustGetSelectedNetworkConfig(o.Config.Network)[0]
 	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
 	if err != nil {
 		return err

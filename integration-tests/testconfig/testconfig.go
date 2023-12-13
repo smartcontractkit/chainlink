@@ -2,14 +2,14 @@ package testconfig
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/pelletier/go-toml/v2"
-	pkg_errors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"
@@ -22,71 +22,77 @@ import (
 )
 
 type TestConfig struct {
-	*ctf_config.ChainlinkImageConfig
-	*ctf_config.LoggingConfig
-	*ctf_config.NetworkConfig
-	*ctf_config.PyroscopeConfig
+	ChainlinkImage         *ctf_config.ChainlinkImageConfig `toml:"ChainlinkImage"`
+	ChainlinkUpgradeImage  *ctf_config.ChainlinkImageConfig `toml:"ChainlinkUpgradeImage"`
+	Logging                *ctf_config.LoggingConfig        `toml:"Logging"`
+	Network                *ctf_config.NetworkConfig        `toml:"Network"`
+	Pyroscope              *ctf_config.PyroscopeConfig      `toml:"Pyroscope"`
+	PrivateEthereumNetwork *ctf_test_env.EthereumNetwork    `toml:"PrivateEthereumNetwork"`
 
 	Common     *Common                  `toml:"Common"`
+	Automation *a_config.Config         `toml:"Automation"`
+	Functions  *f_config.Config         `toml:"Functions"`
+	Keeper     *keeper_config.Config    `toml:"Keeper"`
+	LogPoller  *lp_config.Config        `toml:"LogPoller"`
 	OCR        *ocr_config.Config       `toml:"OCR"`
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
-	Keeper     *keeper_config.Config    `toml:"Keeper"`
-	Automation *a_config.Config         `toml:"Automation"`
-	LogPoller  *lp_config.Config        `toml:"LogPoller"`
-	Functions  *f_config.Config         `toml:"Functions"`
-	TestType   TestType
+
+	TestType TestType
 }
 
 func (c *TestConfig) GetGrafanaURL() (string, error) {
-	if c.LoggingConfig.Logging.Grafana == nil || c.LoggingConfig.Logging.Grafana.GrafanaUrl == nil {
+	if c.Logging.Grafana == nil || c.Logging.Grafana.GrafanaUrl == nil {
 		return "", errors.New("grafana url not set")
 	}
 
-	return *c.LoggingConfig.Logging.Grafana.GrafanaUrl, nil
+	return *c.Logging.Grafana.GrafanaUrl, nil
 }
 
 type Common struct {
 	ChainlinkNodeFunding *float64 `toml:"chainlink_node_funding"`
 }
 
-func (a *Common) ApplyOverrides(from interface{}) error {
-	switch asCfg := (from).(type) {
-	case *Common:
-		if asCfg == nil {
-			return nil
-		}
-
-		if asCfg.ChainlinkNodeFunding != nil {
-			a.ChainlinkNodeFunding = asCfg.ChainlinkNodeFunding
-		}
-
-		return nil
-	default:
-		return pkg_errors.Errorf("cannot apply overrides from unsupported type %T to common config", from)
+func (c *Common) Validate() error {
+	if c.ChainlinkNodeFunding != nil && *c.ChainlinkNodeFunding < 0 {
+		return fmt.Errorf("chainlink node funding must be positive")
 	}
+
+	return nil
+}
+
+func (c *Common) ApplyOverrides(from *Common) error {
+	if from == nil {
+		return nil
+	}
+
+	if from.ChainlinkNodeFunding != nil {
+		c.ChainlinkNodeFunding = from.ChainlinkNodeFunding
+	}
+
+	return nil
 }
 
 type Product string
 
 const (
+	Automation    Product = "automation"
+	Cron          Product = "cron"
+	DirectRequest Product = "direct_request"
+	Flux          Product = "flux"
+	ForwarderOcr  Product = "forwarder_ocr"
+	ForwarderOcr2 Product = "forwarder_ocr2"
+	Functions     Product = "functions"
+	Keeper        Product = "keeper"
+	LogPoller     Product = "log_poller"
 	OCR           Product = "ocr"
 	OCR2          Product = "ocr2"
+	OCR2VRF       Product = "ocr2vrf"
+	RunLog        Product = "run_log"
 	VRF           Product = "vrf"
 	VRFv2         Product = "vrfv2"
 	VRFv2Plus     Product = "vrfv2plus"
-	OCR2VRF       Product = "ocr2vrf"
-	LogPoller     Product = "log_poller"
-	Automation    Product = "automation"
-	Functions     Product = "functions"
-	DirectRequest Product = "direct_request"
-	Cron          Product = "cron"
-	Flux          Product = "flux"
-	Keeper        Product = "keeper"
-	ForwarderOcr  Product = "forwarder_ocr"
-	ForwarderOcr2 Product = "forwarder_ocr2"
-	RunLog        Product = "run_log"
 )
 
 type TestType string
@@ -123,8 +129,7 @@ const (
 	Base64OverrideEnvVarName = "BASE64_CONFIG_OVERRIDE"
 )
 
-// TODO add also testname, so that we allow individual tests to override it?
-// TODO at the very end add base64 override for the final config
+// TODO should I  also add testname, so that we allow individual tests to override it?
 func GetConfig(testType TestType, product Product) (TestConfig, error) {
 	fileNames := []string{
 		"default.toml",
@@ -133,13 +138,7 @@ func GetConfig(testType TestType, product Product) (TestConfig, error) {
 		"overrides.toml",
 	}
 
-	// imageCfg := ctf_config.ChainlinkImageConfig{}
-	// loggingCfg := ctf_config.LoggingConfig{}
-	// networkCfg := ctf_config.NetworkConfig{}
-	// ocrCfg := ocr_config.Config{}
-	// commonCfg := Common{}
 	testConfig := TestConfig{}
-
 	maybeTestConfigs := []TestConfig{}
 
 	for _, fileName := range fileNames {
@@ -151,7 +150,7 @@ func GetConfig(testType TestType, product Product) (TestConfig, error) {
 		var readConfig TestConfig
 		err = toml.Unmarshal(content, &readConfig)
 		if err != nil {
-			return TestConfig{}, pkg_errors.Wrapf(err, "error unmarshaling config")
+			return TestConfig{}, errors.Wrapf(err, "error unmarshaling config")
 		}
 
 		maybeTestConfigs = append(maybeTestConfigs, readConfig)
@@ -167,388 +166,272 @@ func GetConfig(testType TestType, product Product) (TestConfig, error) {
 		var base64override TestConfig
 		err = toml.Unmarshal(decoded, &base64override)
 		if err != nil {
-			return TestConfig{}, pkg_errors.Wrapf(err, "error unmarshaling base64 config")
+			return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
 		}
 
 		maybeTestConfigs = append(maybeTestConfigs, base64override)
 	}
 
 	for _, maybeConfig := range maybeTestConfigs {
-		err := testConfig.ApplyOverrides(maybeConfig)
+		err := testConfig.ApplyOverrides(&maybeConfig)
 		if err != nil {
-			return TestConfig{}, pkg_errors.Wrapf(err, "error applying overrides to test config")
+			return TestConfig{}, errors.Wrapf(err, "error applying overrides to test config")
 		}
-
-		// err := commonCfg.ApplyOverrides(config.Common)
-		// if err != nil {
-		// 	return TestConfig{}, pkg_errors.Wrapf(err, fmt.Sprintf("error applying overrides from %s config file to common config", fileName))
-		// }
-
-		// err = imageCfg.ApplyOverrides(config.ChainlinkImageConfig)
-		// if err != nil {
-		// 	return TestConfig{}, pkg_errors.Wrapf(err, fmt.Sprintf("error applying overrides from %s config file to image config", fileName))
-		// }
-
-		// err = loggingCfg.ApplyOverrides(config.LoggingConfig)
-		// if err != nil {
-		// 	return TestConfig{}, pkg_errors.Wrapf(err, fmt.Sprintf("error applying overrides from %s config file to logging config", fileName))
-		// }
-
-		// err = networkCfg.ApplyOverrides(config.NetworkConfig)
-		// if err != nil {
-		// 	return TestConfig{}, pkg_errors.Wrapf(err, fmt.Sprintf("error applying overrides from %s config file to network config", fileName))
-		// }
-
-		// err = ocrCfg.ApplyOverrides(config.OCR)
-		// if err != nil {
-		// 	return TestConfig{}, pkg_errors.Wrapf(err, fmt.Sprintf("error applying overrides from %s config file to ocr config", fileName))
-		// }
 	}
 
 	err := testConfig.Validate()
 	if err != nil {
-		return TestConfig{}, pkg_errors.Wrapf(err, "error validating test config")
+		return TestConfig{}, errors.Wrapf(err, "error validating test config")
 	}
 
 	return testConfig, nil
-
-	// err := imageCfg.Validate()
-	// if err != nil {
-	// 	return TestConfig{}, pkg_errors.Wrapf(err, "error validating image config")
-	// }
-
-	// err = loggingCfg.Validate()
-	// if err != nil {
-	// 	return TestConfig{}, pkg_errors.Wrapf(err, "error validating logging config")
-	// }
-
-	// err = networkCfg.Validate()
-	// if err != nil {
-	// 	return TestConfig{}, pkg_errors.Wrapf(err, "error validating network config")
-	// }
-
-	// err = ocrCfg.Validate()
-	// if err != nil {
-	// 	return TestConfig{}, pkg_errors.Wrapf(err, "error validating ocr config")
-	// }
-
-	// err = vrfCfg.Validate()
-	// if err != nil {
-	// 	return TestConfig{}, pkg_errors.Wrapf(err, "error validating vrf config")
-	// }
-
-	// return TestConfig{
-	// 	Common:               &commonCfg,
-	// 	ChainlinkImageConfig: &imageCfg,
-	// 	LoggingConfig:        &loggingCfg,
-	// 	NetworkConfig:        &networkCfg,
-	// 	OCR:                  &ocrCfg,
-	// 	// VRF:                  &vrfCfg,
-	// 	TestType: testType,
-	// }, nil
 }
 
-func (c *TestConfig) ApplyOverrides(from interface{}) error {
-	switch asCfg := (from).(type) {
-	case *TestConfig:
-		if asCfg == nil {
-			return nil
-		}
-
-		if asCfg.ChainlinkImageConfig != nil {
-			if c.Common == nil {
-				c.Common = asCfg.Common
-			} else {
-				err := c.Common.ApplyOverrides(asCfg.Common)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to common config")
-				}
-			}
-		}
-
-		if asCfg.LoggingConfig != nil {
-			if c.LoggingConfig == nil {
-				c.LoggingConfig = asCfg.LoggingConfig
-			} else {
-				err := c.LoggingConfig.ApplyOverrides(asCfg.LoggingConfig)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to logging config")
-				}
-			}
-		}
-
-		if asCfg.NetworkConfig != nil {
-			if c.NetworkConfig == nil {
-				c.NetworkConfig = asCfg.NetworkConfig
-			} else {
-				err := c.NetworkConfig.ApplyOverrides(asCfg.NetworkConfig)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to network config")
-				}
-			}
-		}
-
-		if asCfg.PyroscopeConfig != nil {
-			if c.PyroscopeConfig == nil {
-				c.PyroscopeConfig = asCfg.PyroscopeConfig
-			} else {
-				err := c.PyroscopeConfig.ApplyOverrides(asCfg.PyroscopeConfig)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to pyroscope config")
-				}
-			}
-		}
-
-		if asCfg.Common != nil {
-			if c.Common == nil {
-				c.Common = asCfg.Common
-			} else {
-				err := c.Common.ApplyOverrides(asCfg.Common)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to common config")
-				}
-			}
-		}
-
-		if asCfg.OCR != nil {
-			if c.OCR == nil {
-				c.OCR = asCfg.OCR
-			} else {
-				err := c.OCR.ApplyOverrides(asCfg.OCR)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to OCR config")
-				}
-			}
-		}
-
-		if asCfg.VRF != nil {
-			if c.VRF == nil {
-				c.VRF = asCfg.VRF
-			} else {
-				err := c.VRF.ApplyOverrides(asCfg.VRF)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to VRF config")
-				}
-			}
-		}
-
-		if asCfg.VRFv2 != nil {
-			if c.VRFv2 == nil {
-				c.VRFv2 = asCfg.VRFv2
-			} else {
-				err := c.VRFv2.ApplyOverrides(asCfg.VRFv2)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to VRFv2 config")
-				}
-			}
-		}
-
-		if asCfg.VRFv2Plus != nil {
-			if c.VRFv2Plus == nil {
-				c.VRFv2Plus = asCfg.VRFv2Plus
-			} else {
-				err := c.VRFv2Plus.ApplyOverrides(asCfg.VRFv2Plus)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to VRFv2Plus config")
-				}
-			}
-		}
-
-		if asCfg.Keeper != nil {
-			if c.Keeper == nil {
-				c.Keeper = asCfg.Keeper
-			} else {
-				err := c.Keeper.ApplyOverrides(asCfg.Keeper)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to Keeper config")
-				}
-			}
-		}
-
-		if asCfg.Automation != nil {
-			if c.Automation == nil {
-				c.Automation = asCfg.Automation
-			} else {
-				err := c.Automation.ApplyOverrides(asCfg.Automation)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to Automation config")
-				}
-			}
-		}
-
-		if asCfg.LogPoller != nil {
-			if c.LogPoller == nil {
-				c.LogPoller = asCfg.LogPoller
-			} else {
-				err := c.LogPoller.ApplyOverrides(asCfg.LogPoller)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to LogPoller config")
-				}
-			}
-		}
-
-		if asCfg.Functions != nil {
-			if c.Functions == nil {
-				c.Functions = asCfg.Functions
-			} else {
-				err := c.Functions.ApplyOverrides(asCfg.Functions)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to Functions config")
-				}
-			}
-		}
-
+func (c *TestConfig) ApplyOverrides(from *TestConfig) error {
+	if from == nil {
 		return nil
-	case TestConfig:
-		if asCfg.ChainlinkImageConfig != nil {
-			if c.ChainlinkImageConfig == nil {
-				c.ChainlinkImageConfig = asCfg.ChainlinkImageConfig
-			} else {
-				err := c.ChainlinkImageConfig.ApplyOverrides(asCfg.ChainlinkImageConfig)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to ChainlinkImageConfig config")
-				}
-			}
-		}
-
-		if asCfg.LoggingConfig != nil {
-			if c.LoggingConfig == nil {
-				c.LoggingConfig = asCfg.LoggingConfig
-			} else {
-				err := c.LoggingConfig.ApplyOverrides(asCfg.LoggingConfig)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to logging config")
-				}
-			}
-		}
-
-		if asCfg.NetworkConfig != nil {
-			if c.NetworkConfig == nil {
-				c.NetworkConfig = asCfg.NetworkConfig
-			} else {
-				err := c.NetworkConfig.ApplyOverrides(asCfg.NetworkConfig)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to network config")
-				}
-			}
-		}
-
-		if asCfg.PyroscopeConfig != nil {
-			if c.PyroscopeConfig == nil {
-				c.PyroscopeConfig = asCfg.PyroscopeConfig
-			} else {
-				err := c.PyroscopeConfig.ApplyOverrides(asCfg.PyroscopeConfig)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to pyroscope config")
-				}
-			}
-		}
-
-		if asCfg.Common != nil {
-			if c.Common == nil {
-				c.Common = asCfg.Common
-			} else {
-				err := c.Common.ApplyOverrides(asCfg.Common)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to common config")
-				}
-			}
-		}
-
-		if asCfg.OCR != nil {
-			if c.OCR == nil {
-				c.OCR = asCfg.OCR
-			} else {
-				err := c.OCR.ApplyOverrides(asCfg.OCR)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to OCR config")
-				}
-			}
-		}
-
-		if asCfg.VRF != nil {
-			if c.VRF == nil {
-				c.VRF = asCfg.VRF
-			} else {
-				err := c.VRF.ApplyOverrides(asCfg.VRF)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to VRF config")
-				}
-			}
-		}
-
-		if asCfg.VRFv2 != nil {
-			if c.VRFv2 == nil {
-				c.VRFv2 = asCfg.VRFv2
-			} else {
-				err := c.VRFv2.ApplyOverrides(asCfg.VRFv2)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to VRFv2 config")
-				}
-			}
-		}
-
-		if asCfg.VRFv2Plus != nil {
-			if c.VRFv2Plus == nil {
-				c.VRFv2Plus = asCfg.VRFv2Plus
-			} else {
-				err := c.VRFv2Plus.ApplyOverrides(asCfg.VRFv2Plus)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to VRFv2Plus config")
-				}
-			}
-		}
-
-		if asCfg.Keeper != nil {
-			if c.Keeper == nil {
-				c.Keeper = asCfg.Keeper
-			} else {
-				err := c.Keeper.ApplyOverrides(asCfg.Keeper)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to Keeper config")
-				}
-			}
-		}
-
-		if asCfg.Automation != nil {
-			if c.Automation == nil {
-				c.Automation = asCfg.Automation
-			} else {
-				err := c.Automation.ApplyOverrides(asCfg.Automation)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to Automation config")
-				}
-			}
-		}
-
-		if asCfg.LogPoller != nil {
-			if c.LogPoller == nil {
-				c.LogPoller = asCfg.LogPoller
-			} else {
-				err := c.LogPoller.ApplyOverrides(asCfg.LogPoller)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to LogPoller config")
-				}
-			}
-		}
-
-		if asCfg.Functions != nil {
-			if c.Functions == nil {
-				c.Functions = asCfg.Functions
-			} else {
-				err := c.Functions.ApplyOverrides(asCfg.Functions)
-				if err != nil {
-					return pkg_errors.Wrapf(err, "error applying overrides to Functions config")
-				}
-			}
-		}
-		return nil
-	default:
-		return pkg_errors.Errorf("cannot apply overrides from unsupported type %T to test config", from)
 	}
+
+	if from.ChainlinkImage != nil {
+		if c.ChainlinkImage == nil {
+			c.ChainlinkImage = from.ChainlinkImage
+		} else {
+			err := c.ChainlinkImage.ApplyOverrides(from.ChainlinkImage)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to chainlink image config")
+			}
+		}
+	}
+
+	if from.ChainlinkUpgradeImage != nil {
+		if c.ChainlinkUpgradeImage == nil {
+			c.ChainlinkUpgradeImage = from.ChainlinkUpgradeImage
+		} else {
+			err := c.ChainlinkUpgradeImage.ApplyOverrides(from.ChainlinkUpgradeImage)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to chainlink image config")
+			}
+		}
+	}
+
+	if from.Logging != nil {
+		if c.Logging == nil {
+			c.Logging = from.Logging
+		} else {
+			err := c.Logging.ApplyOverrides(from.Logging)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to logging config")
+			}
+		}
+	}
+
+	if from.Network != nil {
+		if c.Network == nil {
+			c.Network = from.Network
+		} else {
+			err := c.Network.ApplyOverrides(from.Network)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to network config")
+			}
+		}
+	}
+
+	if from.Pyroscope != nil {
+		if c.Pyroscope == nil {
+			c.Pyroscope = from.Pyroscope
+		} else {
+			err := c.Pyroscope.ApplyOverrides(from.Pyroscope)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to pyroscope config")
+			}
+		}
+	}
+
+	if from.Common != nil {
+		if c.Common == nil {
+			c.Common = from.Common
+		} else {
+			err := c.Common.ApplyOverrides(from.Common)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to common config")
+			}
+		}
+	}
+
+	if from.OCR != nil {
+		if c.OCR == nil {
+			c.OCR = from.OCR
+		} else {
+			err := c.OCR.ApplyOverrides(from.OCR)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to OCR config")
+			}
+		}
+	}
+
+	if from.VRF != nil {
+		if c.VRF == nil {
+			c.VRF = from.VRF
+		} else {
+			err := c.VRF.ApplyOverrides(from.VRF)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to VRF config")
+			}
+		}
+	}
+
+	if from.VRFv2 != nil {
+		if c.VRFv2 == nil {
+			c.VRFv2 = from.VRFv2
+		} else {
+			err := c.VRFv2.ApplyOverrides(from.VRFv2)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to VRFv2 config")
+			}
+		}
+	}
+
+	if from.VRFv2Plus != nil {
+		if c.VRFv2Plus == nil {
+			c.VRFv2Plus = from.VRFv2Plus
+		} else {
+			err := c.VRFv2Plus.ApplyOverrides(from.VRFv2Plus)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to VRFv2Plus config")
+			}
+		}
+	}
+
+	if from.Keeper != nil {
+		if c.Keeper == nil {
+			c.Keeper = from.Keeper
+		} else {
+			err := c.Keeper.ApplyOverrides(from.Keeper)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to Keeper config")
+			}
+		}
+	}
+
+	if from.Automation != nil {
+		if c.Automation == nil {
+			c.Automation = from.Automation
+		} else {
+			err := c.Automation.ApplyOverrides(from.Automation)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to Automation config")
+			}
+		}
+	}
+
+	if from.LogPoller != nil {
+		if c.LogPoller == nil {
+			c.LogPoller = from.LogPoller
+		} else {
+			err := c.LogPoller.ApplyOverrides(from.LogPoller)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to LogPoller config")
+			}
+		}
+	}
+
+	if from.Functions != nil {
+		if c.Functions == nil {
+			c.Functions = from.Functions
+		} else {
+			err := c.Functions.ApplyOverrides(from.Functions)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to Functions config")
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *TestConfig) Validate() error {
-	//TODO implement me
+	if c.ChainlinkImage == nil {
+		return fmt.Errorf("chainlink image config must be set")
+	}
+	if err := c.ChainlinkImage.Validate(); err != nil {
+		return errors.Wrapf(err, "chainlink image config validation failed")
+	}
+	if err := c.Network.Validate(); err != nil {
+		return errors.Wrapf(err, "network config validation failed")
+	}
+
+	if c.Logging == nil {
+		return fmt.Errorf("logging config must be set")
+	}
+
+	if err := c.Logging.Validate(); err != nil {
+		return errors.Wrapf(err, "logging config validation failed")
+	}
+
+	if c.Pyroscope != nil {
+		if err := c.Pyroscope.Validate(); err != nil {
+			return errors.Wrapf(err, "pyroscope config validation failed")
+		}
+	}
+
+	if c.PrivateEthereumNetwork != nil {
+		if err := c.PrivateEthereumNetwork.Validate(); err != nil {
+			return errors.Wrapf(err, "private ethereum network config validation failed")
+		}
+	}
+
+	if c.Common != nil {
+		if err := c.Common.Validate(); err != nil {
+		}
+	}
+
+	if c.Automation != nil {
+		if err := c.Automation.Validate(); err != nil {
+			return errors.Wrapf(err, "Automation config validation failed")
+		}
+	}
+
+	if c.Functions != nil {
+		if err := c.Functions.Validate(); err != nil {
+			return errors.Wrapf(err, "Functions config validation failed")
+		}
+	}
+
+	if c.Keeper != nil {
+		if err := c.Keeper.Validate(); err != nil {
+			return errors.Wrapf(err, "Keeper config validation failed")
+		}
+	}
+
+	if c.LogPoller != nil {
+		if err := c.LogPoller.Validate(); err != nil {
+			return errors.Wrapf(err, "LogPoller config validation failed")
+		}
+	}
+
+	if c.OCR != nil {
+		if err := c.OCR.Validate(); err != nil {
+			return errors.Wrapf(err, "OCR config validation failed")
+		}
+	}
+
+	if c.VRF != nil {
+		if err := c.VRF.Validate(); err != nil {
+			return errors.Wrapf(err, "VRF config validation failed")
+		}
+	}
+
+	if c.VRFv2 != nil {
+		if err := c.VRFv2.Validate(); err != nil {
+			return errors.Wrapf(err, "VRFv2 config validation failed")
+		}
+	}
+
+	if c.VRFv2Plus != nil {
+		if err := c.VRFv2Plus.Validate(); err != nil {
+			return errors.Wrapf(err, "VRFv2Plus config validation failed")
+		}
+	}
+
 	return nil
 }

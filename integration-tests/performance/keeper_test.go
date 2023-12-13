@@ -141,7 +141,7 @@ func setupKeeperTest(
 	contracts.ContractDeployer,
 	contracts.LinkToken,
 ) {
-	network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+	network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 	evmConfig := eth.New(nil)
 	if !network.Simulated {
 		evmConfig = eth.New(&eth.Props{
@@ -162,7 +162,7 @@ PerformGasOverhead = 150_000`
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 5,
-		"toml":     networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, network),
+		"toml":     networks.AddNetworksConfig(baseTOML, config.Pyroscope, network),
 	})
 
 	testEnvironment := environment.New(

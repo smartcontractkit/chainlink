@@ -143,10 +143,10 @@ func TestAutomationReorg(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+			network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 
 			defaultAutomationSettings["replicas"] = numberOfNodes
-			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.PyroscopeConfig, networkTOML, network)
+			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
 			cd := chainlink.New(0, defaultAutomationSettings)
 
 			ethSetting := defaultReorgEthereumSettings

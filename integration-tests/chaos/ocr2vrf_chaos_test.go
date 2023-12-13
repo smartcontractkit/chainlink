@@ -37,13 +37,13 @@ func TestOCR2VRFChaos(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	loadedNetwork := networks.MustGetSelectedNetworkConfig(testconfig.NetworkConfig)[0]
+	loadedNetwork := networks.MustGetSelectedNetworkConfig(testconfig.Network)[0]
 
 	defaultOCR2VRFSettings := map[string]interface{}{
 		"replicas": 6,
 		"toml": networks.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
-			testconfig.PyroscopeConfig,
+			testconfig.Pyroscope,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
 			loadedNetwork,
 		),
@@ -126,7 +126,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		testCase := tc
 		t.Run(fmt.Sprintf("OCR2VRF_%s", testCaseName), func(t *testing.T) {
 			t.Parallel()
-			testNetwork := networks.MustGetSelectedNetworkConfig(testconfig.NetworkConfig)[0] // Need a new copy of the network for each test
+			testNetwork := networks.MustGetSelectedNetworkConfig(testconfig.Network)[0] // Need a new copy of the network for each test
 			testEnvironment := environment.
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf(

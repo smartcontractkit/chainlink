@@ -57,3 +57,8 @@ func (c *Config) ApplyOverrides(from *Config) error {
 
 	return nil
 }
+
+func (c *Config) Validate() error {
+	//TODO implement me
+	return nil
+}

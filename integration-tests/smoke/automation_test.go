@@ -72,9 +72,9 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Running Smoke Test on %s\n", networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0].Name) // Print to get around disabled logging
-	fmt.Printf("Chainlink Image %v\n", config.ChainlinkImage.Image)                                               // Print to get around disabled logging
-	fmt.Printf("Chainlink Version %v\n", config.ChainlinkImage.Version)                                           // Print to get around disabled logging
+	fmt.Printf("Running Smoke Test on %s\n", networks.MustGetSelectedNetworkConfig(config.Network)[0].Name) // Print to get around disabled logging
+	fmt.Printf("Chainlink Image %v\n", config.ChainlinkImage.Image)                                         // Print to get around disabled logging
+	fmt.Printf("Chainlink Version %v\n", config.ChainlinkImage.Version)                                     // Print to get around disabled logging
 	os.Exit(m.Run())
 }
 
@@ -1115,7 +1115,7 @@ func setupAutomationTestDocker(
 	l := logging.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-	network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+	network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())

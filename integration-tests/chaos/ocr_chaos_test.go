@@ -51,7 +51,7 @@ var (
 )
 
 func getDefaultOcrSettings(config *tc.TestConfig) map[string]interface{} {
-	defaultOCRSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0])
+	defaultOCRSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.Pyroscope, networks.MustGetSelectedNetworkConfig(config.Network)[0])
 	return defaultAutomationSettings
 }
 

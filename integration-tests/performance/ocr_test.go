@@ -95,7 +95,7 @@ func TestOCRBasic(t *testing.T) {
 }
 
 func setupOCRTest(t *testing.T, config *tc.TestConfig) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+	testNetwork = networks.MustGetSelectedNetworkConfig(config.Network)[0]
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -114,7 +114,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 6,
-		"toml":     networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, testNetwork),
+		"toml":     networks.AddNetworksConfig(baseTOML, config.Pyroscope, testNetwork),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

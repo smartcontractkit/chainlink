@@ -326,7 +326,7 @@ var networkConfig = map[string]NetworkConfig{
 
 func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*environment.Environment, blockchain.EVMNetwork) {
 	l := logging.GetTestLogger(t)
-	testNetwork := networks.MustGetSelectedNetworkConfig(testConfig.NetworkConfig)[0] // Environment currently being used to run benchmark test on
+	testNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0] // Environment currently being used to run benchmark test on
 	blockTime := "1"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 
@@ -452,7 +452,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 		testNetwork.HTTPURLs = []string{internalHttpURLs[i]}
 		testNetwork.URLs = []string{internalWsURLs[i]}
 		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-			"toml":      networks.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, testConfig.PyroscopeConfig, networkDetailTOML, testNetwork),
+			"toml":      networks.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, testConfig.Pyroscope, networkDetailTOML, testNetwork),
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
 		}))

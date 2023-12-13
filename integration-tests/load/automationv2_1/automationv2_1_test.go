@@ -138,8 +138,8 @@ func TestLogTrigger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	image := *loadedTestConfig.ChainlinkImageConfig.ChainlinkImage.Image
-	version := *loadedTestConfig.ChainlinkImageConfig.ChainlinkImage.Version
+	image := *loadedTestConfig.ChainlinkImage.Image
+	version := *loadedTestConfig.ChainlinkImage.Version
 
 	l.Info().Msg("Starting automation v2.1 log trigger load test")
 	l.Info().Str("TEST_INPUTS", os.Getenv("TEST_INPUTS")).Int("Number of Nodes", *loadedTestConfig.Automation.Common.NumberOfNodes).
@@ -157,7 +157,7 @@ func TestLogTrigger(t *testing.T) {
 		"Number of Events: %d\nSpec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\n", *loadedTestConfig.Automation.Common.NumberOfNodes, *loadedTestConfig.Automation.Common.NumberOfUpkeeps, *loadedTestConfig.Automation.Common.Duration,
 		*loadedTestConfig.Automation.Common.BlockTime, *loadedTestConfig.Automation.Common.NumberOfEvents, *loadedTestConfig.Automation.Common.SpecType, *loadedTestConfig.Automation.Common.ChainlinkNodeLogLevel, image, version)
 
-	testNetwork := networks.MustGetSelectedNetworkConfig(loadedTestConfig.NetworkConfig)[0]
+	testNetwork := networks.MustGetSelectedNetworkConfig(loadedTestConfig.Network)[0]
 	testType := "load"
 	loadDuration := time.Duration(*loadedTestConfig.Automation.Common.Duration) * time.Second
 	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
@@ -278,7 +278,7 @@ func TestLogTrigger(t *testing.T) {
 		} else {
 			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"info\"", baseTOML)
 		}
-		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.PyroscopeConfig, testNetwork)
+		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
 		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
 			"toml":      nodeTOML,
 			"chainlink": nodeSpec,

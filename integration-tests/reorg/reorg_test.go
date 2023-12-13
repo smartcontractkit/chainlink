@@ -132,7 +132,7 @@ func TestDirectRequestReorg(t *testing.T) {
 	netCfg := fmt.Sprintf(networkDRTOML, EVMFinalityDepth, EVMTrackerHistoryDepth)
 	chainlinkDeployment := chainlink.New(0, map[string]interface{}{
 		"replicas": 1,
-		"toml":     networks.AddNetworkDetailedConfig(baseDRTOML, config.PyroscopeConfig, netCfg, network),
+		"toml":     networks.AddNetworkDetailedConfig(baseDRTOML, config.Pyroscope, netCfg, network),
 	})
 
 	err = testEnvironment.AddHelm(chainlinkDeployment).Run()

@@ -232,7 +232,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	var err error
 	if b.hasLogStream {
-		b.te.LogStream, err = logstream.NewLogStream(b.t, b.testConfig.LoggingConfig)
+		b.te.LogStream, err = logstream.NewLogStream(b.t, b.testConfig.Logging)
 		if err != nil {
 			return nil, err
 		}
@@ -315,7 +315,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		return b.te, nil
 	}
 
-	networkConfig := networks.MustGetSelectedNetworkConfig(b.testConfig.NetworkConfig)[0]
+	networkConfig := networks.MustGetSelectedNetworkConfig(b.testConfig.Network)[0]
 	var rpcProvider test_env.RpcProvider
 	if b.ethereumNetwork != nil && networkConfig.Simulated {
 		// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point

@@ -1006,7 +1006,7 @@ func setupLogPollerTestDocker(
 
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-	network := networks.MustGetSelectedNetworkConfig(testConfig.NetworkConfig)[0]
+	network := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
 
 	finalityDepth, err := GetFinalityDepth(network.ChainID)
 	require.NoError(t, err, "Error getting finality depth")

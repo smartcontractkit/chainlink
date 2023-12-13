@@ -92,7 +92,7 @@ type Common struct {
 	CancelSubsAfterTestRun bool `toml:"cancel_subs_after_test_run"`
 }
 
-func (c *Config) ApplyOverrides(from interface{}) error {
+func (c *Config) ApplyOverrides(_ *Config) error {
 	//TODO implement me
 	return nil
 }

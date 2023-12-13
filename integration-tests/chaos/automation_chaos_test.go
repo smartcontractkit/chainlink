@@ -95,12 +95,12 @@ ListenAddresses = ["0.0.0.0:6690"]`
 )
 
 func getDefaultAutomationSettings(config *tc.TestConfig) map[string]interface{} {
-	defaultAutomationSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.PyroscopeConfig, networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0])
+	defaultAutomationSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.Pyroscope, networks.MustGetSelectedNetworkConfig(config.Network)[0])
 	return defaultAutomationSettings
 }
 
 func getDefaultEthereumSettings(config *tc.TestConfig) *ethereum.Props {
-	network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0]
+	network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 	defaultEthereumSettings.NetworkName = network.Name
 	defaultEthereumSettings.Simulated = network.Simulated
 	defaultEthereumSettings.WsURLs = network.URLs
@@ -199,7 +199,7 @@ func TestAutomationChaos(t *testing.T) {
 				testCase := testCase
 				t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 					t.Parallel()
-					network := networks.MustGetSelectedNetworkConfig(config.NetworkConfig)[0] // Need a new copy of the network for each test
+					network := networks.MustGetSelectedNetworkConfig(config.Network)[0] // Need a new copy of the network for each test
 
 					testEnvironment := environment.
 						New(&environment.Config{
