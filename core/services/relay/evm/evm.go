@@ -13,6 +13,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
@@ -121,11 +122,12 @@ func (r *Relayer) Close() error {
 
 // Ready does noop: always ready
 func (r *Relayer) Ready() error {
-	return nil
+	return r.chain.Ready()
 }
 
 func (r *Relayer) HealthReport() (report map[string]error) {
 	report = make(map[string]error)
+	maps.Copy(report, r.chain.HealthReport())
 	return
 }
 
