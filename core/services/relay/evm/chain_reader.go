@@ -91,11 +91,12 @@ func (cr *chainReader) getLatestValueFromLogPoller(ctx context.Context, contract
 
 	log, err := cr.lp.LatestLogByEventSigWithConfs(hash, ae.addr, logpoller.Finalized)
 	if err != nil {
-		cr.lggr.Errorf("!!!!!!!!!!\nNo sig err:\n%v\n!!!!!!!!!!\n", err)
 		errStr := err.Error()
 		if strings.Contains(errStr, "not found") || strings.Contains(errStr, "no rows") {
+			cr.lggr.Infof("!!!!!!!!!!\nReturning no error when nothing is found\n!!!!!!!!!!\n")
 			return nil
 		}
+		cr.lggr.Errorf("!!!!!!!!!!\nNo sig err:\n%v\n!!!!!!!!!!\n", err)
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 	err = cr.codec.Decode(ctx, log.Data, returnVal, wrapItemType(contractName, method, false))
