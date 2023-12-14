@@ -111,8 +111,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	if (upkeepInfo.Target == gethcommon.Address{}) {
 		failCheckArgs("this upkeep does not exist on this registry", nil)
 	}
-	addLink("upkeep", common.UpkeepLink(chainID, upkeepID))
-	addLink("target", common.ContractExplorerLink(chainID, upkeepInfo.Target))
+	addLink("upkeep link", common.UpkeepLink(chainID, upkeepID))
+	addLink("upkeep contract address", common.ContractExplorerLink(chainID, upkeepInfo.Target))
 	if upkeepInfo.Paused {
 		resolveIneligible("upkeep is paused")
 	}
@@ -180,7 +180,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failCheckArgs("failed to fetch tx receipt", err)
 		}
-		addLink("trigger", common.ExplorerLink(chainID, txHash))
+		addLink("trigger transaction", common.ExplorerLink(chainID, txHash))
 		blockNum = receipt.BlockNumber.Uint64()
 		// find matching log event in tx
 		var triggeringEvent *types.Log
