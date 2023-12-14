@@ -133,7 +133,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	defer ms.addressStatesLock.Unlock()
 	for _, as := range ms.addressStates {
 		if tx := as.findTxWithIdempotencyKey(idempotencyKey); tx != nil {
-			return tx, nil
+			return ms.deepCopyTx(tx), nil
 		}
 	}
 
@@ -271,7 +271,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTx
 			"Your database is in an inconsistent state and this node will not function correctly until the problem is resolved", tx.ID)
 	}
 
-	return tx, nil
+	return ms.deepCopyTx(tx), nil
 }
 
 // UpdateTxAttemptInProgressToBroadcast updates a transaction attempt from in_progress to broadcast.
@@ -548,4 +548,12 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID) (finalized bool, err error) {
 	return ms.txStore.IsTxFinalized(ctx, blockHeight, txID, chainID)
+}
+
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deepCopyTx(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	etx := *tx
+	etx.TxAttempts = make([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(tx.TxAttempts))
+	copy(etx.TxAttempts, tx.TxAttempts)
+
+	return &etx
 }
