@@ -110,7 +110,7 @@ type noChecker struct{}
 // Check satisfies the TransmitChecker interface.
 func (noChecker) Check(
 	_ context.Context,
-	_ logger.Logger,
+	_ logger.SugaredLogger,
 	_ Tx,
 	_ TxAttempt,
 ) error {
@@ -125,7 +125,7 @@ type SimulateChecker struct {
 // Check satisfies the TransmitChecker interface.
 func (s *SimulateChecker) Check(
 	ctx context.Context,
-	l logger.Logger,
+	l logger.SugaredLogger,
 	tx Tx,
 	a TxAttempt,
 ) error {
@@ -148,7 +148,7 @@ func (s *SimulateChecker) Check(
 	err := s.Client.CallContext(ctx, &b, "eth_call", callArg, evmclient.ToBlockNumArg(nil))
 	if err != nil {
 		if jErr := evmclient.ExtractRPCErrorOrNil(err); jErr != nil {
-			logger.Criticalw(l, "Transaction reverted during simulation",
+			l.Criticalw("Transaction reverted during simulation",
 				"ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "rpcErr", jErr.String(), "returnValue", b.String())
 			return errors.Errorf("transaction reverted during simulation: %s", jErr.String())
 		}
@@ -175,7 +175,7 @@ type VRFV1Checker struct {
 // Check satisfies the TransmitChecker interface.
 func (v *VRFV1Checker) Check(
 	ctx context.Context,
-	l logger.Logger,
+	l logger.SugaredLogger,
 	tx Tx,
 	_ TxAttempt,
 ) error {
@@ -284,7 +284,7 @@ type VRFV2Checker struct {
 // Check satisfies the TransmitChecker interface.
 func (v *VRFV2Checker) Check(
 	ctx context.Context,
-	l logger.Logger,
+	l logger.SugaredLogger,
 	tx Tx,
 	_ TxAttempt,
 ) error {
