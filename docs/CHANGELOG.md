@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ...
 
 <!-- unreleasedstop -->
-## 2.7.2 - 2023-12-7
+## 2.7.2 - 2023-12-14
 
 ### Fixed
 
