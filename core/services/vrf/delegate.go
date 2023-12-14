@@ -142,6 +142,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			if vrfOwner != nil {
 				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
 			}
+			if jb.VRFSpec.CustomRevertsPipelineEnabled {
+				return nil, errors.New("Custom Reverted Txns Pipeline is not supported for VRF V2 Plus")
+			}
 
 			// Get the LINKNATIVEFEED address with retries
 			// This is needed because the RPC endpoint may be down so we need to
