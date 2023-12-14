@@ -125,7 +125,7 @@ jobs:
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu20.04-16cores-64GB
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Collect Metrics
@@ -228,7 +228,7 @@ jobs:
           fi
 
   eth-smoke-tests-matrix-automation:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')) }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
     environment: integration
     permissions:
       checks: write
@@ -297,7 +297,7 @@ jobs:
         continue-on-error: true
 
   eth-smoke-tests-matrix:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')) }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
     environment: integration
     permissions:
       checks: write
@@ -636,7 +636,7 @@ jobs:
   eth-smoke-go-mod-cache:
     environment: integration
     needs: [eth-smoke-tests]
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu20.04-16cores-64GB
     name: ETH Smoke Tests Go Mod Cache
     continue-on-error: true
     steps:
@@ -820,7 +820,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Artifacts
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu20.04-16cores-64GB
     needs:
       [
         changes,
@@ -864,7 +864,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Test Image
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu20.04-16cores-64GB
     needs:
       [
         solana-build-contracts,
@@ -911,7 +911,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu20.04-16cores-64GB
     needs:
       [
         build-chainlink,
