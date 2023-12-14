@@ -267,6 +267,7 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 type VRFSpec struct {
 	BatchCoordinatorAddress       *ethkey.EIP55Address  `json:"batchCoordinatorAddress"`
 	BatchFulfillmentEnabled       bool                  `json:"batchFulfillmentEnabled"`
+	CustomRevertsPipelineEnabled  *bool                 `json:"customRevertsPipelineEnabled,omitempty"`
 	BatchFulfillmentGasMultiplier float64               `json:"batchFulfillmentGasMultiplier"`
 	CoordinatorAddress            ethkey.EIP55Address   `json:"coordinatorAddress"`
 	PublicKey                     secp256k1.PublicKey   `json:"publicKey"`
@@ -281,26 +282,31 @@ type VRFSpec struct {
 	BackoffInitialDelay           models.Duration       `json:"backoffInitialDelay"`
 	BackoffMaxDelay               models.Duration       `json:"backoffMaxDelay"`
 	GasLanePrice                  *assets.Wei           `json:"gasLanePrice"`
-	VRFOwnerAddress               *ethkey.EIP55Address  `json:"vrfOwnerAddress"`
+	RequestedConfsDelay           int64                 `json:"requestedConfsDelay"`
+	VRFOwnerAddress               *ethkey.EIP55Address  `json:"vrfOwnerAddress,omitempty"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 	return &VRFSpec{
-		BatchCoordinatorAddress:  spec.BatchCoordinatorAddress,
-		BatchFulfillmentEnabled:  spec.BatchFulfillmentEnabled,
-		CoordinatorAddress:       spec.CoordinatorAddress,
-		PublicKey:                spec.PublicKey,
-		FromAddresses:            spec.FromAddresses,
-		PollPeriod:               models.MustMakeDuration(spec.PollPeriod),
-		MinIncomingConfirmations: spec.MinIncomingConfirmations,
-		CreatedAt:                spec.CreatedAt,
-		UpdatedAt:                spec.UpdatedAt,
-		EVMChainID:               spec.EVMChainID,
-		ChunkSize:                spec.ChunkSize,
-		RequestTimeout:           models.MustMakeDuration(spec.RequestTimeout),
-		BackoffInitialDelay:      models.MustMakeDuration(spec.BackoffInitialDelay),
-		BackoffMaxDelay:          models.MustMakeDuration(spec.BackoffMaxDelay),
-		GasLanePrice:             spec.GasLanePrice,
+		BatchCoordinatorAddress:       spec.BatchCoordinatorAddress,
+		BatchFulfillmentEnabled:       spec.BatchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: float64(spec.BatchFulfillmentGasMultiplier),
+		CustomRevertsPipelineEnabled:  &spec.CustomRevertsPipelineEnabled,
+		CoordinatorAddress:            spec.CoordinatorAddress,
+		PublicKey:                     spec.PublicKey,
+		FromAddresses:                 spec.FromAddresses,
+		PollPeriod:                    models.MustMakeDuration(spec.PollPeriod),
+		MinIncomingConfirmations:      spec.MinIncomingConfirmations,
+		CreatedAt:                     spec.CreatedAt,
+		UpdatedAt:                     spec.UpdatedAt,
+		EVMChainID:                    spec.EVMChainID,
+		ChunkSize:                     spec.ChunkSize,
+		RequestTimeout:                models.MustMakeDuration(spec.RequestTimeout),
+		BackoffInitialDelay:           models.MustMakeDuration(spec.BackoffInitialDelay),
+		BackoffMaxDelay:               models.MustMakeDuration(spec.BackoffMaxDelay),
+		GasLanePrice:                  spec.GasLanePrice,
+		RequestedConfsDelay:           spec.RequestedConfsDelay,
+		VRFOwnerAddress:               spec.VRFOwnerAddress,
 	}
 }
 

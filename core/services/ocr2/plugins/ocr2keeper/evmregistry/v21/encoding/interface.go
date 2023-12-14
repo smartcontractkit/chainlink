@@ -1,13 +1,10 @@
 package encoding
 
 import (
-	"math/big"
-
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 )
 
 const (
@@ -51,12 +48,8 @@ type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
 
 type Packer interface {
 	UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error)
-	UnpackCheckCallbackResult(callbackResp []byte) (uint8, bool, []byte, uint8, *big.Int, error)
 	UnpackPerformResult(raw string) (uint8, bool, error)
 	UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error)
 	PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error)
 	UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error)
-	PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error)
-	UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error)
-	DecodeStreamsLookupRequest(data []byte) (*mercury.StreamsLookupError, error)
 }
