@@ -12,10 +12,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -40,17 +40,17 @@ type HeadTracker[
 	BLOCK_HASH types.Hashable,
 ] struct {
 	services.StateMachine
-	log             logger.Logger
+	log             logger.SugaredLogger
 	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH]
 	headSaver       types.HeadSaver[HTH, BLOCK_HASH]
-	mailMon         *utils.MailboxMonitor
+	mailMon         *mailbox.Monitor
 	client          htrktypes.Client[HTH, S, ID, BLOCK_HASH]
 	chainID         ID
 	config          htrktypes.Config
 	htConfig        htrktypes.HeadTrackerConfig
 
-	backfillMB   *utils.Mailbox[HTH]
-	broadcastMB  *utils.Mailbox[HTH]
+	backfillMB   *mailbox.Mailbox[HTH]
+	broadcastMB  *mailbox.Mailbox[HTH]
 	headListener types.HeadListener[HTH, BLOCK_HASH]
 	chStop       services.StopChan
 	wgDone       sync.WaitGroup
@@ -70,7 +70,7 @@ func NewHeadTracker[
 	htConfig htrktypes.HeadTrackerConfig,
 	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH],
 	headSaver types.HeadSaver[HTH, BLOCK_HASH],
-	mailMon *utils.MailboxMonitor,
+	mailMon *mailbox.Monitor,
 	getNilHead func() HTH,
 ) types.HeadTracker[HTH, BLOCK_HASH] {
 	chStop := make(chan struct{})
@@ -81,9 +81,9 @@ func NewHeadTracker[
 		chainID:         client.ConfiguredChainID(),
 		config:          config,
 		htConfig:        htConfig,
-		log:             lggr,
-		backfillMB:      utils.NewSingleMailbox[HTH](),
-		broadcastMB:     utils.NewMailbox[HTH](HeadsBufferSize),
+		log:             logger.Sugared(lggr),
+		backfillMB:      mailbox.NewSingle[HTH](),
+		broadcastMB:     mailbox.New[HTH](HeadsBufferSize),
 		chStop:          chStop,
 		headListener:    NewHeadListener[HTH, S, ID, BLOCK_HASH](lggr, client, config, chStop),
 		headSaver:       headSaver,
@@ -227,7 +227,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		prevUnFinalizedHead := prevHead.BlockNumber() - int64(ht.config.FinalityDepth())
 		if head.BlockNumber() < prevUnFinalizedHead {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
-			logger.Criticalf(ht.log, "Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
+			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
 			ht.SvcErrBuffer.Append(errors.New("got very old block"))
 		}
 	}
@@ -310,7 +310,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 	}
 	mark := time.Now()
 	fetched := 0
-	l := logger.With(ht.log, "blockNumber", headBlockNumber,
+	l := ht.log.With("blockNumber", headBlockNumber,
 		"n", headBlockNumber-baseHeight,
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", headBlockNumber-1)

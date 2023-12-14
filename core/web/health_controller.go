@@ -1,7 +1,10 @@
 package web
 
 import (
+	"cmp"
 	"net/http"
+	"slices"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 
@@ -94,6 +97,12 @@ func (hc *HealthController) Health(c *gin.Context) {
 		})
 	}
 
+	if testing.Testing() {
+		slices.SortFunc(checks, func(a, b presenters.Check) int {
+			return cmp.Compare(a.Name, b.Name)
+		})
+	}
+
 	// return a json description of all the checks
-	jsonAPIResponse(c, checks, "checks")
+	jsonAPIResponseWithStatus(c, checks, "checks", status)
 }

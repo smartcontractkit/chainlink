@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -149,7 +150,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := servicetest.Run(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
 
 	vd := vrf.NewDelegate(
 		db,
@@ -675,7 +676,7 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := servicetest.Run(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
 
 	vd := vrf.NewDelegate(
 		db,

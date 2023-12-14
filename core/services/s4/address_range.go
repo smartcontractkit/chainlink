@@ -5,23 +5,23 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/ethereum/go-ethereum/common"
+
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 // AddressRange represents a range of Ethereum addresses.
 type AddressRange struct {
 	// MinAddress (inclusive).
-	MinAddress *utils.Big
+	MinAddress *ubig.Big
 	// MaxAddress (inclusive).
-	MaxAddress *utils.Big
+	MaxAddress *ubig.Big
 }
 
 var (
 	ErrInvalidIntervals = errors.New("invalid intervals value")
-	MinAddress          = utils.NewBig(common.BytesToAddress(bytes.Repeat([]byte{0x00}, common.AddressLength)).Big())
-	MaxAddress          = utils.NewBig(common.BytesToAddress(bytes.Repeat([]byte{0xff}, common.AddressLength)).Big())
+	MinAddress          = ubig.New(common.BytesToAddress(bytes.Repeat([]byte{0x00}, common.AddressLength)).Big())
+	MaxAddress          = ubig.New(common.BytesToAddress(bytes.Repeat([]byte{0xff}, common.AddressLength)).Big())
 )
 
 // NewFullAddressRange creates AddressRange for all address space: 0x00..-0xFF..
@@ -33,7 +33,7 @@ func NewFullAddressRange() *AddressRange {
 }
 
 // NewSingleAddressRange creates AddressRange for a single address.
-func NewSingleAddressRange(address *utils.Big) (*AddressRange, error) {
+func NewSingleAddressRange(address *ubig.Big) (*AddressRange, error) {
 	if address == nil || address.Cmp(MinAddress) < 0 || address.Cmp(MaxAddress) > 0 {
 		return nil, errors.New("invalid address")
 	}
@@ -56,12 +56,12 @@ func NewInitialAddressRangeForIntervals(intervals uint) (*AddressRange, error) {
 	}
 
 	divisor := big.NewInt(int64(intervals))
-	maxPlusOne := MaxAddress.Add(utils.NewBigI(1))
-	interval := utils.NewBig(new(big.Int).Div(maxPlusOne.ToInt(), divisor))
+	maxPlusOne := MaxAddress.Add(ubig.NewI(1))
+	interval := ubig.New(new(big.Int).Div(maxPlusOne.ToInt(), divisor))
 
 	return &AddressRange{
 		MinAddress: MinAddress,
-		MaxAddress: MinAddress.Add(interval).Sub(utils.NewBigI(1)),
+		MaxAddress: MinAddress.Add(interval).Sub(ubig.NewI(1)),
 	}, nil
 }
 
@@ -80,7 +80,7 @@ func (r *AddressRange) Advance() {
 
 	if r.MinAddress.Cmp(MaxAddress) >= 0 {
 		r.MinAddress = MinAddress
-		r.MaxAddress = MinAddress.Add(interval).Sub(utils.NewBigI(1))
+		r.MaxAddress = MinAddress.Add(interval).Sub(ubig.NewI(1))
 	}
 
 	if r.MaxAddress.Cmp(MaxAddress) > 0 {
@@ -89,7 +89,7 @@ func (r *AddressRange) Advance() {
 }
 
 // Contains returns true if the given address belongs to the range.
-func (r *AddressRange) Contains(address *utils.Big) bool {
+func (r *AddressRange) Contains(address *ubig.Big) bool {
 	if r == nil {
 		return false
 	}
@@ -97,9 +97,9 @@ func (r *AddressRange) Contains(address *utils.Big) bool {
 }
 
 // Interval returns the interval between max and min address plus one.
-func (r *AddressRange) Interval() *utils.Big {
+func (r *AddressRange) Interval() *ubig.Big {
 	if r == nil {
 		return nil
 	}
-	return r.MaxAddress.Sub(r.MinAddress).Add(utils.NewBigI(1))
+	return r.MaxAddress.Sub(r.MinAddress).Add(ubig.NewI(1))
 }
