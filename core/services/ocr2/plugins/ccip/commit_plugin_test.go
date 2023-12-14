@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
@@ -57,7 +57,7 @@ func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			chainSet := &evmmocks.LegacyChainContainer{}
+			chainSet := &legacyEvmORMMocks.LegacyChainContainer{}
 			prMock := &pipelinemocks.Runner{}
 
 			if tc.spec != nil {

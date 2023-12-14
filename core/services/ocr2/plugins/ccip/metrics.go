@@ -50,6 +50,8 @@ var (
 		Help:    "Duration of building single batch in Execution Plugin",
 		Buckets: execPluginDurationBuckets,
 	}, execPluginLabels)
+
+	//nolint unused
 	execPluginReportsIterationDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ccip_execution_reports_iteration_build_batch",
 		Help:    "Duration of iterating over all unexpired reports in Execution Plugin",
@@ -67,10 +69,12 @@ func measureObservationBuildDuration(timestamp types.ReportTimestamp, duration t
 	measureExecPluginDuration(execPluginObservationBuildDuration, timestamp, duration)
 }
 
+// nolint unused
 func measureBatchBuildDuration(timestamp types.ReportTimestamp, duration time.Duration) {
 	measureExecPluginDuration(execPluginBatchBuildDuration, timestamp, duration)
 }
 
+// nolint unused
 func measureReportsIterationDuration(timestamp types.ReportTimestamp, duration time.Duration) {
 	measureExecPluginDuration(execPluginReportsIterationDuration, timestamp, duration)
 }

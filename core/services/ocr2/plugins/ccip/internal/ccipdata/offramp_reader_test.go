@@ -1,11 +1,12 @@
 package ccipdata_test
 
 import (
-	"github.com/stretchr/testify/mock"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/mock"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

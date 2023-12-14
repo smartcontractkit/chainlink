@@ -2,10 +2,12 @@ package ccip
 
 import (
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
 	"math/big"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"

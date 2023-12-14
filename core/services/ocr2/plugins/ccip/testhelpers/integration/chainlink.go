@@ -2,10 +2,10 @@ package integrationtesthelpers
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -19,24 +19,27 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	types3 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"k8s.io/utils/pointer"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	ctfClient "github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmUtils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
@@ -85,12 +88,18 @@ const (
 		relay = "evm"
 		pluginType = "ccip-execution"
 		transmitterID = "%s"
-		
+
 		[relayConfig]
 		chainID = 1_337
-		
+
 		[pluginConfig]
 		destStartBlock = 50
+
+	    [pluginConfig.USDCConfig]
+	    AttestationAPI = "http://blah.com"
+	    SourceMessageTransmitterAddress = "%s"
+	    SourceTokenAddress = "%s"
+		AttestationAPITimeoutSeconds = 10
 	`
 	commitSpecTemplate = `
 		type = "offchainreporting2"
@@ -106,10 +115,10 @@ const (
 		relay = "evm"
 		pluginType = "ccip-commit"
 		transmitterID = "%s"
-		
+
 		[relayConfig]
 		chainID = 1_337
-		
+
 		[pluginConfig]
 		destStartBlock = 50
 		offRamp = "%s"
@@ -291,7 +300,7 @@ func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContrac
 	return log
 }
 
-func (node *Node) AddJob(t *testing.T, spec *ctfClient.OCR2TaskJobSpec) {
+func (node *Node) AddJob(t *testing.T, spec *OCR2TaskJobSpec) {
 	specString, err := spec.String()
 	require.NoError(t, err)
 	ccipJob, err := validate.ValidatedOracleSpecToml(node.App.GetConfig().OCR2(), node.App.GetConfig().Insecure(), specString)
@@ -300,7 +309,7 @@ func (node *Node) AddJob(t *testing.T, spec *ctfClient.OCR2TaskJobSpec) {
 	require.NoError(t, err)
 }
 
-func (node *Node) AddBootstrapJob(t *testing.T, spec *ctfClient.OCR2TaskJobSpec) {
+func (node *Node) AddBootstrapJob(t *testing.T, spec *OCR2TaskJobSpec) {
 	specString, err := spec.String()
 	require.NoError(t, err)
 	ccipJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(specString)
@@ -309,7 +318,7 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec *ctfClient.OCR2TaskJobSpec)
 	require.NoError(t, err)
 }
 
-func (node *Node) AddJobsWithSpec(t *testing.T, jobSpec *ctfClient.OCR2TaskJobSpec) {
+func (node *Node) AddJobsWithSpec(t *testing.T, jobSpec *OCR2TaskJobSpec) {
 	// set node specific values
 	jobSpec.OCR2OracleSpec.OCRKeyBundleID.SetValid(node.KeyBundle.ID())
 	jobSpec.OCR2OracleSpec.TransmitterID.SetValid(node.Transmitter.Hex())
@@ -330,7 +339,7 @@ func setupNodeCCIP(
 
 	// Do not want to load fixtures as they contain a dummy chainID.
 	loglevel := configv2.LogLevel(zap.DebugLevel)
-	config, db := heavyweight.FullTestDBNoFixturesV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, _ *chainlink.Secrets) {
+	config, db := heavyweight.FullTestDBNoFixturesV2(t, func(c *chainlink.Config, _ *chainlink.Secrets) {
 		p2pAddresses := []string{
 			fmt.Sprintf("127.0.0.1:%d", port),
 		}
@@ -342,7 +351,6 @@ func setupNodeCCIP(
 		c.OCR.DefaultTransactionQueueDepth = pointer.Uint32(200)
 		c.OCR2.Enabled = &trueRef
 		c.Feature.LogPoller = &trueRef
-		c.P2P.V1.Enabled = &falseRef
 		c.P2P.V2.Enabled = &trueRef
 		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
@@ -386,9 +394,9 @@ func setupNodeCCIP(
 		ETHKS: keyStore.Eth(),
 		CSAKS: keyStore.CSA(),
 	}
-	mailMon := utils.NewMailboxMonitor("CCIP")
+	mailMon := mailbox.NewMonitor("CCIP")
 	evmOpts := chainlink.EVMFactoryConfig{
-		ChainOpts: evm.ChainOpts{
+		ChainOpts: legacyevm.ChainOpts{
 			AppConfig:        config,
 			EventBroadcaster: eventBroadcaster,
 			GenEthClient: func(chainID *big.Int) client.Client {
@@ -476,7 +484,7 @@ func createConfigV2Chain(chainId *big.Int) *v2.EVMConfig {
 	defaultGasLimit := uint32(5000000)
 	tr := true
 
-	sourceC := v2.Defaults((*utils.Big)(chainId))
+	sourceC := v2.Defaults((*evmUtils.Big)(chainId))
 	sourceC.GasEstimator.LimitDefault = &defaultGasLimit
 	fixedPrice := "FixedPrice"
 	sourceC.GasEstimator.Mode = &fixedPrice
@@ -485,7 +493,7 @@ func createConfigV2Chain(chainId *big.Int) *v2.EVMConfig {
 	fd := uint32(2)
 	sourceC.FinalityDepth = &fd
 	return &v2.EVMConfig{
-		ChainID: (*utils.Big)(chainId),
+		ChainID: (*evmUtils.Big)(chainId),
 		Enabled: &tr,
 		Chain:   sourceC,
 		Nodes:   v2.EVMNodes{&v2.Node{}},
@@ -544,7 +552,7 @@ func (c *CCIPIntegrationTestHarness) AddAllJobs(t *testing.T, jobParams CCIPJobS
 	}
 }
 
-func (c *CCIPIntegrationTestHarness) jobSpecProposal(t *testing.T, specTemplate string, f func() (*ctfClient.OCR2TaskJobSpec, error), feedsManagerId int64, version int32, opts ...any) feeds2.ProposeJobArgs {
+func (c *CCIPIntegrationTestHarness) jobSpecProposal(t *testing.T, specTemplate string, f func() (*OCR2TaskJobSpec, error), feedsManagerId int64, version int32, opts ...any) feeds2.ProposeJobArgs {
 	spec, err := f()
 	require.NoError(t, err)
 
@@ -609,6 +617,8 @@ func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams CCI
 			1,
 			node.KeyBundle.ID(),
 			node.Transmitter.Hex(),
+			utils.RandomAddress().String(),
+			utils.RandomAddress().String(),
 		)
 		execId, err := f.ProposeJob(ctx, &execSpec)
 		require.NoError(t, err)
@@ -871,13 +881,13 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 	return bootstrapNode, nodes, configBlock
 }
 
-func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string) CCIPJobSpecParams {
+func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string, usdcAttestationAPI string) CCIPJobSpecParams {
 	// setup Jobs
 	ctx := context.Background()
 	// Starts nodes and configures them in the OCR contracts.
 	bootstrapNode, _, configBlock := c.SetupAndStartNodes(ctx, t, generateRandomBootstrapPort())
 
-	jobParams := c.NewCCIPJobSpecParams(pricePipeline, configBlock)
+	jobParams := c.NewCCIPJobSpecParams(pricePipeline, configBlock, usdcAttestationAPI)
 
 	// Add the bootstrap job
 	c.Bootstrap.AddBootstrapJob(t, jobParams.BootstrapJob(c.Dest.CommitStore.Address().Hex()))
@@ -961,7 +971,8 @@ func generateRandomBootstrapPort() int64 {
 	minPort := int64(10000)
 	maxPort := int64(65500)
 	for {
-		port := rand.Int63n(maxPort-minPort+1) + minPort
+		i, _ := rand.Int(rand.Reader, big.NewInt(maxPort-minPort))
+		port := i.Int64() + minPort
 		if isPortAvailable(port) {
 			return port
 		}

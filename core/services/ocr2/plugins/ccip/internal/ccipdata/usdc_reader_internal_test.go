@@ -26,11 +26,11 @@ func TestLogPollerClient_GetLastUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 
 	t.Run("multiple found", func(t *testing.T) {
 		lp := lpmocks.NewLogPoller(t)
-		lp.On("RegisterFilter", mock.Anything).Return(nil)
 		u, err := NewUSDCReader(lggr, utils.RandomAddress(), lp)
 		require.NoError(t, err)
 		lp.On("IndexedLogsByTxHash",
 			u.usdcMessageSent,
+			u.transmitterAddress,
 			txHash,
 			mock.Anything,
 		).Return([]logpoller.Log{
@@ -48,11 +48,11 @@ func TestLogPollerClient_GetLastUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 
 	t.Run("none found", func(t *testing.T) {
 		lp := lpmocks.NewLogPoller(t)
-		lp.On("RegisterFilter", mock.Anything).Return(nil)
 		u, err := NewUSDCReader(lggr, utils.RandomAddress(), lp)
 		require.NoError(t, err)
 		lp.On("IndexedLogsByTxHash",
 			u.usdcMessageSent,
+			u.transmitterAddress,
 			txHash,
 			mock.Anything,
 		).Return([]logpoller.Log{}, nil)
