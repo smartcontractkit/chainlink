@@ -2,7 +2,6 @@ package logpoller
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
@@ -28,69 +27,58 @@ type Config struct {
 	LoopedConfig *LoopedConfig `toml:"looped"`
 }
 
-type LoopedConfig struct {
-	ContractConfig `toml:"contract"`
-	FuzzConfig     `toml:"fuzz"`
-}
+func (c *Config) ApplyOverrides(from *Config) error {
+	if from == nil {
+		return nil
+	}
+	if c.General == nil {
+		c.General = from.General
+	} else {
+		if err := c.General.ApplyOverrides(from.General); err != nil {
+			return err
+		}
+	}
+	if c.ChaosConfig == nil {
+		c.ChaosConfig = from.ChaosConfig
+	} else {
+		if err := c.ChaosConfig.ApplyOverrides(from.ChaosConfig); err != nil {
+			return err
+		}
+	}
+	if c.Wasp == nil {
+		c.Wasp = from.Wasp
+	} else {
+		if err := c.Wasp.ApplyOverrides(from.Wasp); err != nil {
+			return err
+		}
+	}
+	if c.LoopedConfig == nil {
+		c.LoopedConfig = from.LoopedConfig
+	} else {
+		if err := c.LoopedConfig.ApplyOverrides(from.LoopedConfig); err != nil {
+			return err
+		}
+	}
 
-type ContractConfig struct {
-	ExecutionCount int `toml:"execution_count"`
-}
-
-type FuzzConfig struct {
-	MinEmitWaitTimeMs int `toml:"min_emit_wait_time_ms"`
-	MaxEmitWaitTimeMs int `toml:"max_emit_wait_time_ms"`
-}
-
-type General struct {
-	Generator      string      `toml:"generator"`
-	EventsToEmit   []abi.Event `toml:"-"`
-	Contracts      int         `toml:"contracts"`
-	EventsPerTx    int         `toml:"events_per_tx"`
-	UseFinalityTag bool        `toml:"use_finality_tag"`
-}
-
-type ChaosConfig struct {
-	ExperimentCount int `toml:"experiment_count"`
-}
-
-type WaspConfig struct {
-	Load *Load `toml:"load"`
-}
-
-type Load struct {
-	RPS                   int64            `toml:"rps"`
-	LPS                   int64            `toml:"lps"`
-	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
-	Duration              *models.Duration `toml:"duration"`
-	CallTimeout           *models.Duration `toml:"call_timeout"`
-}
-
-func (c *Config) ApplyOverrides(_ *Config) error {
-	//TODO implement me
 	return nil
 }
 
 func (c *Config) Validate() error {
 	if c.General == nil {
-		return fmt.Errorf("General config is nil")
+		return fmt.Errorf("General config must be set")
 	}
 
-	err := c.General.validate()
+	err := c.General.Validate()
 	if err != nil {
 		return fmt.Errorf("General config validation failed: %w", err)
 	}
 
-	switch c.General.Generator {
+	switch *c.General.Generator {
 	case GeneratorType_WASP:
 		if c.Wasp == nil {
 			return fmt.Errorf("wasp config is nil")
 		}
-		if c.Wasp.Load == nil {
-			return fmt.Errorf("wasp load config is nil")
-		}
-
-		err = c.Wasp.validate()
+		err = c.Wasp.Validate()
 		if err != nil {
 			return fmt.Errorf("wasp config validation failed: %w", err)
 		}
@@ -99,97 +87,176 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("looped config is nil")
 		}
 
-		err = c.LoopedConfig.validate()
+		err = c.LoopedConfig.Validate()
 		if err != nil {
 			return fmt.Errorf("looped config validation failed: %w", err)
 		}
 	default:
-		return fmt.Errorf("unknown generator type: %s", c.General.Generator)
+		return fmt.Errorf("unknown generator type: %s", *c.General.Generator)
+	}
+
+	if err := c.ChaosConfig.Validate(); err != nil {
+		return fmt.Errorf("chaos config validation failed: %w", err)
 	}
 
 	return nil
 }
 
-func (g *General) validate() error {
-	if g.Generator == "" {
+type LoopedConfig struct {
+	ExecutionCount    *int `toml:"execution_count"`
+	MinEmitWaitTimeMs *int `toml:"min_emit_wait_time_ms"`
+	MaxEmitWaitTimeMs *int `toml:"max_emit_wait_time_ms"`
+}
+
+func (l *LoopedConfig) ApplyOverrides(from *LoopedConfig) error {
+	if from == nil {
+		return nil
+	}
+	if from.ExecutionCount != nil {
+		l.ExecutionCount = from.ExecutionCount
+	}
+	if from.MinEmitWaitTimeMs != nil {
+		l.MinEmitWaitTimeMs = from.MinEmitWaitTimeMs
+	}
+	if from.MaxEmitWaitTimeMs != nil {
+		l.MaxEmitWaitTimeMs = from.MaxEmitWaitTimeMs
+	}
+
+	return nil
+}
+
+func (l *LoopedConfig) Validate() error {
+	if l.ExecutionCount == nil || *l.ExecutionCount == 0 {
+		return fmt.Errorf("execution_count must be set and > 0")
+	}
+
+	if l.MinEmitWaitTimeMs == nil || *l.MinEmitWaitTimeMs == 0 {
+		return fmt.Errorf("min_emit_wait_time_ms must be set and > 0")
+	}
+
+	if l.MaxEmitWaitTimeMs == nil || *l.MaxEmitWaitTimeMs == 0 {
+		return fmt.Errorf("max_emit_wait_time_ms must be set and > 0")
+	}
+
+	return nil
+}
+
+type General struct {
+	Generator      *string     `toml:"generator"`
+	EventsToEmit   []abi.Event `toml:"-"`
+	Contracts      *int        `toml:"contracts"`
+	EventsPerTx    *int        `toml:"events_per_tx"`
+	UseFinalityTag *bool       `toml:"use_finality_tag"`
+}
+
+func (g *General) ApplyOverrides(from *General) error {
+	if from == nil {
+		return nil
+	}
+	if from.Generator != nil {
+		g.Generator = from.Generator
+	}
+	if from.Contracts != nil {
+		g.Contracts = from.Contracts
+	}
+	if from.EventsPerTx != nil {
+		g.EventsPerTx = from.EventsPerTx
+	}
+	if from.UseFinalityTag != nil {
+		g.UseFinalityTag = from.UseFinalityTag
+	}
+
+	return nil
+}
+
+func (g *General) Validate() error {
+	if g.Generator == nil || *g.Generator == "" {
 		return fmt.Errorf("generator is empty")
 	}
 
-	if g.Contracts == 0 {
+	if g.Contracts == nil || *g.Contracts == 0 {
 		return fmt.Errorf("contracts is 0, but must be > 0")
 	}
 
-	if g.EventsPerTx == 0 {
+	if g.EventsPerTx == nil || *g.EventsPerTx == 0 {
 		return fmt.Errorf("events_per_tx is 0, but must be > 0")
 	}
 
 	return nil
 }
 
-func (w *WaspConfig) validate() error {
-	if w.Load == nil {
-		return fmt.Errorf("Load config is nil")
-	}
+type ChaosConfig struct {
+	ExperimentCount *int `toml:"experiment_count"`
+}
 
-	err := w.Load.validate()
-	if err != nil {
-		return fmt.Errorf("Load config validation failed: %w", err)
+func (c *ChaosConfig) ApplyOverrides(from *ChaosConfig) error {
+	if from == nil {
+		return nil
+	}
+	if from.ExperimentCount != nil {
+		c.ExperimentCount = from.ExperimentCount
 	}
 
 	return nil
 }
 
-func (l *Load) validate() error {
-	if l.RPS == 0 && l.LPS == 0 {
+func (c *ChaosConfig) Validate() error {
+	if c.ExperimentCount != nil && *c.ExperimentCount == 0 {
+		return fmt.Errorf("experiment_count must be > 0")
+	}
+
+	return nil
+}
+
+type WaspConfig struct {
+	RPS                   *int64           `toml:"rps"`
+	LPS                   *int64           `toml:"lps"`
+	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
+	Duration              *models.Duration `toml:"duration"`
+	CallTimeout           *models.Duration `toml:"call_timeout"`
+}
+
+func (w *WaspConfig) ApplyOverrides(from *WaspConfig) error {
+	if from == nil {
+		return nil
+	}
+	if from.RPS != nil {
+		w.RPS = from.RPS
+	}
+	if from.LPS != nil {
+		w.LPS = from.LPS
+	}
+	if from.RateLimitUnitDuration != nil {
+		w.RateLimitUnitDuration = from.RateLimitUnitDuration
+	}
+	if from.Duration != nil {
+		w.Duration = from.Duration
+	}
+	if from.CallTimeout != nil {
+		w.CallTimeout = from.CallTimeout
+	}
+	return nil
+}
+
+func (w *WaspConfig) Validate() error {
+	if w.RPS == nil && w.LPS == nil {
 		return fmt.Errorf("either RPS or LPS needs to be set")
 	}
-
-	if l.RPS != 0 && l.LPS != 0 {
+	if *w.RPS == 0 && *w.LPS == 0 {
+		return fmt.Errorf("either RPS or LPS needs to be a positive integer")
+	}
+	if *w.RPS != 0 && *w.LPS != 0 {
 		return fmt.Errorf("only one of RPS or LPS can be set")
 	}
-
-	if l.Duration == nil {
-		return fmt.Errorf("duration is nil")
+	if w.Duration == nil || w.Duration.Duration() == 0 {
+		return fmt.Errorf("duration must be set and > 0")
 	}
-
-	if l.CallTimeout == nil {
-		return fmt.Errorf("call_timeout is nil")
+	if w.CallTimeout == nil || w.CallTimeout.Duration() == 0 {
+		return fmt.Errorf("call_timeout must be set and > 0")
 	}
-	if l.RateLimitUnitDuration == nil {
-		return fmt.Errorf("rate_limit_unit_duration is nil")
-	}
-
-	return nil
-}
-
-func (l *LoopedConfig) validate() error {
-	if l.ExecutionCount == 0 {
-		return fmt.Errorf("execution_count is 0, but must be > 0")
-	}
-
-	if l.MinEmitWaitTimeMs == 0 {
-		return fmt.Errorf("min_emit_wait_time_ms is 0, but must be > 0")
-	}
-
-	if l.MaxEmitWaitTimeMs == 0 {
-		return fmt.Errorf("max_emit_wait_time_ms is 0, but must be > 0")
+	if w.RateLimitUnitDuration == nil || w.RateLimitUnitDuration.Duration() == 0 {
+		return fmt.Errorf("rate_limit_unit_duration  must be set and > 0")
 	}
 
 	return nil
-}
-
-func mustParseInt(s string) int {
-	i, err := strconv.Atoi(s)
-	if err != nil {
-		panic(err)
-	}
-	return i
-}
-
-func mustParseBool(s string) bool {
-	b, err := strconv.ParseBool(s)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }

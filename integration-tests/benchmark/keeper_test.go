@@ -152,7 +152,7 @@ func TestAutomationBenchmark(t *testing.T) {
 		return
 	}
 	networkName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
-	testName := fmt.Sprintf("%s%s", networkName, config.Keeper.Common.RegistryVersion)
+	testName := fmt.Sprintf("%s%s", networkName, *config.Keeper.Common.RegistryToTest)
 	l.Info().Str("Test Name", testName).Strs("Test Inputs", config.Keeper.Common.TestInputs).Msg("Running Benchmark Test")
 	benchmarkTestNetwork := networkConfig[networkName]
 
@@ -257,7 +257,7 @@ func getNetworkConfig(networkName string, config *tc.TestConfig) NetworkConfig {
 		return nc
 	}
 
-	nc.funding = big.NewFloat(*config.Keeper.Common.ChainlinkNodeFunding)
+	nc.funding = big.NewFloat(*config.Common.ChainlinkNodeFunding)
 
 	return nc
 }
@@ -312,18 +312,6 @@ var networkConfig = map[string]NetworkConfig{
 	},
 }
 
-// func getEnv(key, fallback string) string {
-// 	if inputs, ok := os.LookupEnv("TEST_INPUTS"); ok {
-// 		values := strings.Split(inputs, ",")
-// 		for _, value := range values {
-// 			if strings.Contains(value, key) {
-// 				return strings.Split(value, "=")[1]
-// 			}
-// 		}
-// 	}
-// 	return fallback
-// }
-
 func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*environment.Environment, blockchain.EVMNetwork) {
 	l := logging.GetTestLogger(t)
 	testNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0] // Environment currently being used to run benchmark test on
@@ -336,8 +324,6 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 		numberOfNodes++
 	}
 
-	//TODO this will be problematic, but maybe we could keep it? most tests do net have dynamic type
-	// and if so, we shoudn't pass test type to parent method, but get it here and then get config
 	testEnvironment := environment.New(&environment.Config{
 		TTL: time.Hour * 720, // 30 days,
 		NamespacePrefix: fmt.Sprintf(
@@ -349,16 +335,6 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 		Test:               t,
 		PreventPodEviction: true,
 	})
-
-	// propagate TEST_INPUTS to remote runner
-	// if testEnvironment.WillUseRemoteRunner() {
-	// 	key := "TEST_INPUTS"
-	// 	err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-	// 	require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
-	// 	key = "GRAFANA_DASHBOARD_URL"
-	// 	err = os.Setenv(fmt.Sprintf("TEST_%s", key), getEnv(key, ""))
-	// 	require.NoError(t, err, "failed to set the environment variable GRAFANA_DASHBOARD_URL for remote runner")
-	// }
 
 	dbResources := performanceDbResources
 	chainlinkResources := performanceChainlinkResources

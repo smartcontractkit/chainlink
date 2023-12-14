@@ -28,7 +28,7 @@ func TestBase64ConfigRead(t *testing.T) {
 
 	testConfig := TestConfig{
 		Automation: &a_config.Config{
-			Common: &a_config.Common{
+			Performance: &a_config.Performance{
 				NumberOfNodes: ptr.Ptr(7),
 			},
 		},

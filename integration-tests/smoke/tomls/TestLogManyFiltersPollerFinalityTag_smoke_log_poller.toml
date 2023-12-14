@@ -1,0 +1,7 @@
+[general]
+use_finality_tag = true
+contracts = 300
+events_per_tx = 3
+
+[looped]
+execution_count = 30

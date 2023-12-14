@@ -32,16 +32,16 @@ func TestOCRLoad(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := config.OCR
-	SimulateEAActivity(l, cfg.Load.EAChangeInterval.Duration(), ocrInstances, workerNodes, msClient)
+	SimulateEAActivity(l, cfg.Volume.EAChangeInterval.Duration(), ocrInstances, workerNodes, msClient)
 
 	p := wasp.NewProfile()
 	p.Add(wasp.NewGenerator(&wasp.Config{
 		T:                     t,
 		GenName:               "ocr",
 		LoadType:              wasp.RPS,
-		CallTimeout:           cfg.Load.VerificationTimeout.Duration(),
-		RateLimitUnitDuration: cfg.Load.RateLimitUnitDuration.Duration(),
-		Schedule:              wasp.Plain(cfg.Load.Rate, cfg.Load.TestDuration.Duration()),
+		CallTimeout:           cfg.Volume.VerificationTimeout.Duration(),
+		RateLimitUnitDuration: cfg.Volume.RateLimitUnitDuration.Duration(),
+		Schedule:              wasp.Plain(*cfg.Volume.Rate, cfg.Common.TestDuration.Duration),
 		Gun:                   NewGun(l, cc, ocrInstances),
 		Labels:                CommonTestLabels,
 		LokiConfig:            wasp.NewEnvLokiConfig(),
@@ -56,7 +56,7 @@ func TestOCRVolume(t *testing.T) {
 	require.NoError(t, err)
 	lt, err := SetupCluster(cc, cd, workerNodes)
 	require.NoError(t, err)
-	config, err := tc.GetConfig(t.Name(), tc.Load, tc.OCR)
+	config, err := tc.GetConfig(t.Name(), tc.Volume, tc.OCR)
 	require.NoError(t, err)
 
 	cfg := config.OCR
@@ -67,8 +67,8 @@ func TestOCRVolume(t *testing.T) {
 		GenName:     "ocr",
 		LoadType:    wasp.VU,
 		CallTimeout: cfg.Volume.VerificationTimeout.Duration(),
-		Schedule:    wasp.Plain(cfg.Volume.Rate, cfg.Volume.TestDuration.Duration()),
-		VU:          NewVU(l, cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration(), cc, lt, cd, bootstrapNode, workerNodes, msClient),
+		Schedule:    wasp.Plain(*cfg.Volume.Rate, cfg.Common.TestDuration.Duration),
+		VU:          NewVU(l, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration(), cc, lt, cd, bootstrapNode, workerNodes, msClient),
 		Labels:      CommonTestLabels,
 		LokiConfig:  wasp.NewEnvLokiConfig(),
 	}))

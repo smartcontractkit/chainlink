@@ -3,7 +3,7 @@ package testreporters
 import (
 	"fmt"
 	"math/big"
-	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -43,7 +43,7 @@ func (o *VRFV2PlusTestReporter) SetReportData(
 }
 
 // SendSlackNotification sends a slack message to a slack webhook
-func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client) error {
+func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client, testConfig *tc.TestConfig) error {
 	if slackClient == nil {
 		slackClient = slack.New(testreporters.SlackAPIKey)
 	}
@@ -55,8 +55,7 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 	}
 
 	vrfv2lusConfig := o.testConfig.VRFv2Plus.Common
-
-	messageBlocks := testreporters.SlackNotifyBlocks(headerText, os.Getenv("SELECTED_NETWORKS"), []string{
+	messageBlocks := testreporters.SlackNotifyBlocks(headerText, strings.Join(testConfig.Network.SelectedNetworks, ","), []string{
 		fmt.Sprintf(
 			"Summary\n"+
 				"Perf Test Type: %s\n"+

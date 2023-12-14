@@ -4,6 +4,7 @@ package actions
 import (
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -417,8 +418,8 @@ func UpgradeChainlinkNodeVersions(
 	newImage, newVersion string,
 	nodes ...*client.ChainlinkK8sClient,
 ) error {
-	if newImage == "" && newVersion == "" {
-		return fmt.Errorf("unable to upgrade node version, found empty image and version, must provide either a new image or a new version")
+	if newImage == "" || newVersion == "" {
+		return errors.New("New image and new version is needed to upgrade the node")
 	}
 	for _, node := range nodes {
 		if err := node.UpgradeVersion(testEnvironment, newImage, newVersion); err != nil {

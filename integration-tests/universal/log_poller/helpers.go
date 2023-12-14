@@ -235,17 +235,17 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 		return
 	default:
 		defer wg.Done()
-		for i := 0; i < cfg.LoopedConfig.ExecutionCount; i++ {
+		for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
 			for _, event := range cfg.General.EventsToEmit {
 				l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", (i+1), cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
 				var err error
 				switch event.Name {
 				case "Log1":
-					_, err = (*logEmitter).EmitLogInts(getIntSlice(cfg.General.EventsPerTx))
+					_, err = (*logEmitter).EmitLogInts(getIntSlice(*cfg.General.EventsPerTx))
 				case "Log2":
-					_, err = (*logEmitter).EmitLogIntsIndexed(getIntSlice(cfg.General.EventsPerTx))
+					_, err = (*logEmitter).EmitLogIntsIndexed(getIntSlice(*cfg.General.EventsPerTx))
 				case "Log3":
-					_, err = (*logEmitter).EmitLogStrings(getStringSlice(cfg.General.EventsPerTx))
+					_, err = (*logEmitter).EmitLogStrings(getStringSlice(*cfg.General.EventsPerTx))
 				default:
 					err = fmt.Errorf("unknown event name: %s", event.Name)
 				}
@@ -257,9 +257,9 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 					}
 					return
 				}
-				localCounter += cfg.General.EventsPerTx
+				localCounter += *cfg.General.EventsPerTx
 
-				randomWait(cfg.LoopedConfig.FuzzConfig.MinEmitWaitTimeMs, cfg.LoopedConfig.FuzzConfig.MaxEmitWaitTimeMs)
+				randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
 			}
 
 			if (i+1)%10 == 0 {
@@ -714,7 +714,7 @@ var getEVMLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEm
 }
 
 func executeGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contracts.LogEmitter) (int, error) {
-	if cfg.General.Generator == lp_config.GeneratorType_WASP {
+	if *cfg.General.Generator == lp_config.GeneratorType_WASP {
 		return runWaspGenerator(t, cfg, logEmitters)
 	}
 
@@ -727,8 +727,8 @@ func runWaspGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contra
 	var RPSprime int64
 
 	// if LPS is set, we need to calculate based on countract count and events per transaction
-	if cfg.Wasp.Load.LPS > 0 {
-		RPSprime = cfg.Wasp.Load.LPS / int64(cfg.General.Contracts) / int64(cfg.General.EventsPerTx) / int64(len(cfg.General.EventsToEmit))
+	if *cfg.Wasp.LPS > 0 {
+		RPSprime = *cfg.Wasp.LPS / int64(*cfg.General.Contracts) / int64(*cfg.General.EventsPerTx) / int64(len(cfg.General.EventsToEmit))
 
 		if RPSprime < 1 {
 			return 0, fmt.Errorf("invalid load configuration, effective RPS would have been zero. Adjust LPS, contracts count, events per tx or events to emit")
@@ -736,8 +736,8 @@ func runWaspGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contra
 	}
 
 	// if RPS is set simply split it between contracts
-	if cfg.Wasp.Load.RPS > 0 {
-		RPSprime = cfg.Wasp.Load.RPS / int64(cfg.General.Contracts)
+	if *cfg.Wasp.RPS > 0 {
+		RPSprime = *cfg.Wasp.RPS / int64(*cfg.General.Contracts)
 	}
 
 	counter := &Counter{
@@ -752,16 +752,16 @@ func runWaspGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contra
 			T:                     t,
 			LoadType:              wasp.RPS,
 			GenName:               fmt.Sprintf("log_poller_gen_%s", (*logEmitter).Address().String()),
-			RateLimitUnitDuration: cfg.Wasp.Load.RateLimitUnitDuration.Duration(),
-			CallTimeout:           cfg.Wasp.Load.CallTimeout.Duration(),
+			RateLimitUnitDuration: cfg.Wasp.RateLimitUnitDuration.Duration(),
+			CallTimeout:           cfg.Wasp.CallTimeout.Duration(),
 			Schedule: wasp.Plain(
 				RPSprime,
-				cfg.Wasp.Load.Duration.Duration(),
+				cfg.Wasp.Duration.Duration(),
 			),
 			Gun: NewLogEmitterGun(
 				logEmitter,
 				cfg.General.EventsToEmit,
-				cfg.General.EventsPerTx,
+				*cfg.General.EventsPerTx,
 				l,
 			),
 			SharedData: counter,
@@ -825,14 +825,14 @@ func runLoopedGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*cont
 }
 
 func getExpectedLogCount(cfg *lp_config.Config) int64 {
-	if cfg.General.Generator == lp_config.GeneratorType_WASP {
-		if cfg.Wasp.Load.RPS != 0 {
-			return cfg.Wasp.Load.RPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds()) * int64(cfg.General.EventsPerTx)
+	if *cfg.General.Generator == lp_config.GeneratorType_WASP {
+		if *cfg.Wasp.RPS != 0 {
+			return *cfg.Wasp.RPS * int64(cfg.Wasp.Duration.Duration().Seconds()) * int64(*cfg.General.EventsPerTx)
 		}
-		return cfg.Wasp.Load.LPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds())
+		return *cfg.Wasp.LPS * int64(cfg.Wasp.Duration.Duration().Seconds())
 	}
 
-	return int64(len(cfg.General.EventsToEmit) * cfg.LoopedConfig.ExecutionCount * cfg.General.Contracts * cfg.General.EventsPerTx)
+	return int64(len(cfg.General.EventsToEmit) * *cfg.LoopedConfig.ExecutionCount * *cfg.General.Contracts * *cfg.General.EventsPerTx)
 }
 
 var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv) error {
@@ -862,12 +862,12 @@ var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 }
 
 var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, cfg *lp_config.Config, errorCh chan error) {
-	if cfg.ChaosConfig == nil || cfg.ChaosConfig.ExperimentCount == 0 {
+	if cfg.ChaosConfig == nil || *cfg.ChaosConfig.ExperimentCount == 0 {
 		errorCh <- nil
 		return
 	}
 
-	chaosChan := make(chan error, cfg.ChaosConfig.ExperimentCount)
+	chaosChan := make(chan error, *cfg.ChaosConfig.ExperimentCount)
 
 	wg := &sync.WaitGroup{}
 
@@ -875,7 +875,7 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 		// if we wanted to have more than 1 container paused, we'd need to make sure we aren't trying to pause an already paused one
 		guardChan := make(chan struct{}, 1)
 
-		for i := 0; i < cfg.ChaosConfig.ExperimentCount; i++ {
+		for i := 0; i < *cfg.ChaosConfig.ExperimentCount; i++ {
 			i := i
 			wg.Add(1)
 			guardChan <- struct{}{}
@@ -883,7 +883,7 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 				defer func() {
 					<-guardChan
 					wg.Done()
-					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", i, cfg.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
+					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", i, *cfg.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
 				}()
 				chaosChan <- chaosPauseSyncFn(l, testEnv)
 			}()
@@ -933,7 +933,7 @@ var GetFinalityDepth = func(chainId int64) (int64, error) {
 }
 
 var GetEndBlockToWaitFor = func(endBlock, chainId int64, cfg *lp_config.Config) (int64, error) {
-	if cfg.General.UseFinalityTag {
+	if *cfg.General.UseFinalityTag {
 		return endBlock + 1, nil
 	}
 

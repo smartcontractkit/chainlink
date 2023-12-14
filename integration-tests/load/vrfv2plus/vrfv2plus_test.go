@@ -352,7 +352,7 @@ func teardown(
 	)
 
 	// send Slack notification
-	err := testReporter.SendSlackNotification(t, nil)
+	err := testReporter.SendSlackNotification(t, nil, testConfig)
 	if err != nil {
 		log.Warn().Err(err).Msg("Error sending Slack notification")
 	}

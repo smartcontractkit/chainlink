@@ -1,38 +1,16 @@
 package ocr
 
 import (
+	"errors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type Config struct {
-	Soak   *SoakConfig `toml:"soak"`
-	Load   *Volume     `toml:"Load"`
+	Soak   *SoakConfig `toml:"Soak"`
 	Volume *Volume     `toml:"Volume"`
 	Common *Common     `toml:"Common"`
-}
-
-// TODO extract common fields from SoakConfig and VolumeConfig and Load to Common
-// this came from env config!
-type SoakConfig struct {
-	TestDuration         *blockchain.JSONStrDuration `toml:"test_duration"`          //default:"15m
-	NumberOfContracts    *int                        `toml:"number_of_contracts"`    //default:"2"
-	ChainlinkNodeFunding *float64                    `toml:"chainlink_node_funding"` //default:".1"
-	TimeBetweenRounds    *blockchain.JSONStrDuration `toml:"time_between_rounds"`    //default:"1m"
-}
-
-type Common struct {
-	ETHFunds int `toml:"eth_funds"`
-}
-
-type Volume struct {
-	TestDuration          *models.Duration `toml:"test_duration"`
-	Rate                  int64            `toml:"rate"`
-	VURequestsPerUnit     int              `toml:"vu_requests_per_unit"`
-	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
-	VerificationInterval  *models.Duration `toml:"verification_interval"`
-	VerificationTimeout   *models.Duration `toml:"verification_timeout"`
-	EAChangeInterval      *models.Duration `toml:"ea_change_interval"`
 }
 
 func (o *Config) ApplyOverrides(from *Config) error {
@@ -40,18 +18,16 @@ func (o *Config) ApplyOverrides(from *Config) error {
 		return nil
 	}
 
+	if from.Common != nil && o.Common == nil {
+		o.Common = from.Common
+	} else if err := o.Common.ApplyOverrides(from.Common); err != nil {
+		return err
+	}
+
 	if from.Soak != nil && o.Soak == nil {
 		o.Soak = from.Soak
 	} else if from.Soak != nil && o.Soak != nil {
 		if err := o.Soak.ApplyOverrides(from.Soak); err != nil {
-			return err
-		}
-	}
-
-	if from.Load != nil && o.Load == nil {
-		o.Load = from.Load
-	} else if from.Load != nil && o.Load != nil {
-		if err := o.Load.ApplyOverrides(from.Load); err != nil {
 			return err
 		}
 	}
@@ -67,41 +43,71 @@ func (o *Config) ApplyOverrides(from *Config) error {
 	return nil
 }
 
-func (o *SoakConfig) ApplyOverrides(from *SoakConfig) error {
+func (o *Config) Validate() error {
+	if o.Common != nil {
+		if err := o.Common.Validate(); err != nil {
+			return err
+		}
+	}
+	if o.Soak != nil {
+		if err := o.Soak.Validate(); err != nil {
+			return err
+		}
+	}
+	if o.Volume != nil {
+		if err := o.Volume.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type Common struct {
+	ETHFunds     *int                        `toml:"eth_funds"`
+	TestDuration *blockchain.JSONStrDuration `toml:"test_duration"` //default:"15m
+}
+
+func (o *Common) ApplyOverrides(from *Common) error {
 	if from == nil {
 		return nil
 	}
-
+	if from.ETHFunds != nil {
+		o.ETHFunds = from.ETHFunds
+	}
 	if from.TestDuration != nil {
 		o.TestDuration = from.TestDuration
 	}
+	return nil
+}
 
-	if from.NumberOfContracts != nil {
-		o.NumberOfContracts = from.NumberOfContracts
+func (o *Common) Validate() error {
+	if o.ETHFunds != nil && *o.ETHFunds < 0 {
+		return errors.New("eth_funds must be set and cannot be negative")
 	}
-
-	if from.ChainlinkNodeFunding != nil {
-		o.ChainlinkNodeFunding = from.ChainlinkNodeFunding
-	}
-
-	if from.TimeBetweenRounds != nil {
-		o.TimeBetweenRounds = from.TimeBetweenRounds
+	if o.TestDuration == nil || o.TestDuration.Duration == 0 {
+		return errors.New("test_duration must be set and be a positive integer")
 	}
 
 	return nil
+}
+
+type Volume struct {
+	Rate                  *int64           `toml:"rate"`
+	VURequestsPerUnit     *int             `toml:"vu_requests_per_unit"`
+	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
+	VerificationInterval  *models.Duration `toml:"verification_interval"`
+	VerificationTimeout   *models.Duration `toml:"verification_timeout"`
+	EAChangeInterval      *models.Duration `toml:"ea_change_interval"`
 }
 
 func (o *Volume) ApplyOverrides(from *Volume) error {
 	if from == nil {
 		return nil
 	}
-	if from.TestDuration != nil {
-		o.TestDuration = from.TestDuration
-	}
-	if from.Rate != 0 {
+	if from.Rate != nil {
 		o.Rate = from.Rate
 	}
-	if from.VURequestsPerUnit != 0 {
+	if from.VURequestsPerUnit != nil {
 		o.VURequestsPerUnit = from.VURequestsPerUnit
 	}
 	if from.RateLimitUnitDuration != nil {
@@ -120,6 +126,57 @@ func (o *Volume) ApplyOverrides(from *Volume) error {
 	return nil
 }
 
-func (o *Config) Validate() error {
+func (o *Volume) Validate() error {
+	if o.Rate == nil || *o.Rate <= 0 {
+		return errors.New("rate must be set and be a positive integer")
+	}
+	if o.VURequestsPerUnit == nil || *o.VURequestsPerUnit <= 0 {
+		return errors.New("vu_requests_per_unit must be set and be a positive integer")
+	}
+	if o.RateLimitUnitDuration == nil || o.RateLimitUnitDuration.Duration() == 0 {
+		return errors.New("rate_limit_unit_duration must be set and be a positive integer")
+	}
+	if o.VerificationInterval == nil || o.VerificationInterval.Duration() == 0 {
+		return errors.New("verification_interval must be set and be a positive integer")
+	}
+	if o.VerificationTimeout == nil || o.VerificationTimeout.Duration() == 0 {
+		return errors.New("verification_timeout must be set and be a positive integer")
+	}
+	if o.EAChangeInterval == nil || o.EAChangeInterval.Duration() == 0 {
+		return errors.New("ea_change_interval must be set and be a positive integer")
+	}
+
+	return nil
+}
+
+// this came from env config!
+type SoakConfig struct {
+	NumberOfContracts *int                        `toml:"number_of_contracts"` //default:"2"
+	TimeBetweenRounds *blockchain.JSONStrDuration `toml:"time_between_rounds"` //default:"1m"
+}
+
+func (o *SoakConfig) ApplyOverrides(from *SoakConfig) error {
+	if from == nil {
+		return nil
+	}
+
+	if from.NumberOfContracts != nil {
+		o.NumberOfContracts = from.NumberOfContracts
+	}
+
+	if from.TimeBetweenRounds != nil {
+		o.TimeBetweenRounds = from.TimeBetweenRounds
+	}
+
+	return nil
+}
+
+func (o *SoakConfig) Validate() error {
+	if o.NumberOfContracts == nil || *o.NumberOfContracts <= 1 {
+		return errors.New("number_of_contracts must be set and be greater than 1")
+	}
+	if o.TimeBetweenRounds == nil || o.TimeBetweenRounds.Duration == 0 {
+		return errors.New("time_between_rounds must be set and be a positive integer")
+	}
 	return nil
 }

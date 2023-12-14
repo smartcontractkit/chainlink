@@ -11,10 +11,10 @@ import (
 )
 
 func TestFunctionsLoad(t *testing.T) {
-	config, err := tc.GetConfig(t.Name(), tc.Load, tc.Functions)
-	require.NoError(t, err)
+	generalConfig, err := tc.GetConfig(t.Name(), tc.Load, tc.Functions)
+	require.NoError(t, err, "failed to get config")
 
-	ft, err := SetupLocalLoadTestEnv(&config)
+	ft, err := SetupLocalLoadTestEnv(&generalConfig)
 	require.NoError(t, err)
 	ft.EVMClient.ParallelTransactions(false)
 
@@ -26,8 +26,10 @@ func TestFunctionsLoad(t *testing.T) {
 	MonitorLoadStats(t, ft, labels)
 
 	t.Run("mumbai functions soak test http", func(t *testing.T) {
+		config, err := tc.GetConfig(t.Name(), tc.Soak, tc.Functions)
+		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
-		_, err := wasp.NewProfile().
+		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
 				LoadType:              wasp.RPS,
@@ -35,19 +37,19 @@ func TestFunctionsLoad(t *testing.T) {
 				RateLimitUnitDuration: 5 * time.Second,
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
-					cfg.Soak.RPS,
-					cfg.Soak.Duration.Duration(),
+					*cfg.Performance.RPS,
+					cfg.Performance.Duration.Duration(),
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
 					ModeHTTPPayload,
-					cfg.Soak.RequestsPerCall,
-					cfg.Common.FunctionsCallPayloadHTTP,
-					cfg.Common.SecretsSlotID,
-					cfg.Common.SecretsVersionID,
+					*cfg.Performance.RequestsPerCall,
+					*cfg.Common.FunctionsCallPayloadHTTP,
+					*cfg.Common.SecretsSlotID,
+					*cfg.Common.SecretsVersionID,
 					[]string{},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					*cfg.Common.SubscriptionID,
+					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
@@ -57,6 +59,8 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test http", func(t *testing.T) {
+		config, err := tc.GetConfig(t.Name(), tc.Stress, tc.Functions)
+		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
@@ -66,19 +70,19 @@ func TestFunctionsLoad(t *testing.T) {
 				RateLimitUnitDuration: 5 * time.Second,
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
-					cfg.Stress.RPS,
-					cfg.Stress.Duration.Duration(),
+					*cfg.Performance.RPS,
+					cfg.Performance.Duration.Duration(),
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
 					ModeHTTPPayload,
-					cfg.Stress.RequestsPerCall,
-					cfg.Common.FunctionsCallPayloadHTTP,
-					cfg.Common.SecretsSlotID,
-					cfg.Common.SecretsVersionID,
+					*cfg.Performance.RequestsPerCall,
+					*cfg.Common.FunctionsCallPayloadHTTP,
+					*cfg.Common.SecretsSlotID,
+					*cfg.Common.SecretsVersionID,
 					[]string{},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					*cfg.Common.SubscriptionID,
+					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
@@ -88,8 +92,10 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions soak test only secrets", func(t *testing.T) {
+		config, err := tc.GetConfig(t.Name(), "secrets_soak", tc.Functions)
+		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
-		_, err := wasp.NewProfile().
+		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
 				LoadType:              wasp.RPS,
@@ -97,19 +103,19 @@ func TestFunctionsLoad(t *testing.T) {
 				RateLimitUnitDuration: 5 * time.Second,
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
-					cfg.SecretsSoak.RPS,
-					cfg.SecretsSoak.Duration.Duration(),
+					*cfg.Performance.RPS,
+					cfg.Performance.Duration.Duration(),
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
 					ModeSecretsOnlyPayload,
-					cfg.SecretsSoak.RequestsPerCall,
-					cfg.Common.FunctionsCallPayloadWithSecrets,
-					cfg.Common.SecretsSlotID,
-					cfg.Common.SecretsVersionID,
+					*cfg.Performance.RequestsPerCall,
+					*cfg.Common.FunctionsCallPayloadWithSecrets,
+					*cfg.Common.SecretsSlotID,
+					*cfg.Common.SecretsVersionID,
 					[]string{},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					*cfg.Common.SubscriptionID,
+					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
@@ -119,6 +125,8 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test only secrets", func(t *testing.T) {
+		config, err := tc.GetConfig(t.Name(), "secrets_stress", tc.Functions)
+		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
@@ -128,19 +136,19 @@ func TestFunctionsLoad(t *testing.T) {
 				RateLimitUnitDuration: 5 * time.Second,
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
-					cfg.SecretsStress.RPS,
-					cfg.SecretsStress.Duration.Duration(),
+					*cfg.Performance.RPS,
+					cfg.Performance.Duration.Duration(),
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
 					ModeSecretsOnlyPayload,
-					cfg.SecretsStress.RequestsPerCall,
-					cfg.Common.FunctionsCallPayloadWithSecrets,
-					cfg.Common.SecretsSlotID,
-					cfg.Common.SecretsVersionID,
+					*cfg.Performance.RequestsPerCall,
+					*cfg.Common.FunctionsCallPayloadWithSecrets,
+					*cfg.Common.SecretsSlotID,
+					*cfg.Common.SecretsVersionID,
 					[]string{},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					*cfg.Common.SubscriptionID,
+					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
@@ -150,8 +158,10 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions soak test real", func(t *testing.T) {
+		config, err := tc.GetConfig(t.Name(), "real_soak", tc.Functions)
+		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
-		_, err := wasp.NewProfile().
+		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
 				LoadType:              wasp.RPS,
@@ -159,19 +169,19 @@ func TestFunctionsLoad(t *testing.T) {
 				RateLimitUnitDuration: 5 * time.Second,
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
-					cfg.RealSoak.RPS,
-					cfg.RealSoak.Duration.Duration(),
+					*cfg.Performance.RPS,
+					cfg.Performance.Duration.Duration(),
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
 					ModeReal,
-					cfg.RealSoak.RequestsPerCall,
-					cfg.Common.FunctionsCallPayloadReal,
-					cfg.Common.SecretsSlotID,
-					cfg.Common.SecretsVersionID,
+					*cfg.Performance.RequestsPerCall,
+					*cfg.Common.FunctionsCallPayloadReal,
+					*cfg.Common.SecretsSlotID,
+					*cfg.Common.SecretsVersionID,
 					[]string{"1", "2", "3", "4"},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					*cfg.Common.SubscriptionID,
+					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
@@ -181,6 +191,8 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test real", func(t *testing.T) {
+		config, err := tc.GetConfig(t.Name(), "real_stress", tc.Functions)
+		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
@@ -190,19 +202,19 @@ func TestFunctionsLoad(t *testing.T) {
 				RateLimitUnitDuration: 5 * time.Second,
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
-					cfg.RealStress.RPS,
-					cfg.RealStress.Duration.Duration(),
+					*cfg.Performance.RPS,
+					cfg.Performance.Duration.Duration(),
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
 					ModeReal,
-					cfg.RealStress.RequestsPerCall,
-					cfg.Common.FunctionsCallPayloadReal,
-					cfg.Common.SecretsSlotID,
-					cfg.Common.SecretsVersionID,
+					*cfg.Performance.RequestsPerCall,
+					*cfg.Common.FunctionsCallPayloadReal,
+					*cfg.Common.SecretsSlotID,
+					*cfg.Common.SecretsVersionID,
 					[]string{"1", "2", "3", "4"},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					*cfg.Common.SubscriptionID,
+					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),

@@ -7,10 +7,7 @@ events_per_tx = 10
 experiment_count = 10
 
 [looped]
-[looped.contract]
 execution_count = 300
-
-[looped.fuzz]
 min_emit_wait_time_ms = 100
 max_emit_wait_time_ms = 500
 

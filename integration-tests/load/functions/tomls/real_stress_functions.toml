@@ -1,0 +1,4 @@
+[Performance]
+rps = 1
+requests_per_call = 40
+duration = "10m"

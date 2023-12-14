@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -142,24 +141,24 @@ func TestLogTrigger(t *testing.T) {
 	version := *loadedTestConfig.ChainlinkImage.Version
 
 	l.Info().Msg("Starting automation v2.1 log trigger load test")
-	l.Info().Str("TEST_INPUTS", os.Getenv("TEST_INPUTS")).Int("Number of Nodes", *loadedTestConfig.Automation.Common.NumberOfNodes).
-		Int("Number of Upkeeps", *loadedTestConfig.Automation.Common.NumberOfUpkeeps).
-		Int("Duration", *loadedTestConfig.Automation.Common.Duration).
-		Int("Block Time", *loadedTestConfig.Automation.Common.BlockTime).
-		Int("Number of Events", *loadedTestConfig.Automation.Common.NumberOfEvents).
-		Str("Spec Type", *loadedTestConfig.Automation.Common.SpecType).
-		Str("Log Level", *loadedTestConfig.Automation.Common.ChainlinkNodeLogLevel).
+	l.Info().Str("TEST_INPUTS", strings.Join(*loadedTestConfig.Automation.Performance.TestInputs, ",")).Int("Number of Nodes", *loadedTestConfig.Automation.Performance.NumberOfNodes).
+		Int("Number of Upkeeps", *loadedTestConfig.Automation.Performance.NumberOfUpkeeps).
+		Int("Duration", *loadedTestConfig.Automation.Performance.Duration).
+		Int("Block Time", *loadedTestConfig.Automation.Performance.BlockTime).
+		Int("Number of Events", *loadedTestConfig.Automation.Performance.NumberOfEvents).
+		Str("Spec Type", *loadedTestConfig.Automation.Performance.SpecType).
+		Str("Log Level", *loadedTestConfig.Automation.Performance.ChainlinkNodeLogLevel).
 		Str("Image", image).
 		Str("Tag", version).
 		Msg("Test Config")
 
 	testConfig := fmt.Sprintf("Number of Nodes: %d\nNumber of Upkeeps: %d\nDuration: %d\nBlock Time: %d\n"+
-		"Number of Events: %d\nSpec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\n", *loadedTestConfig.Automation.Common.NumberOfNodes, *loadedTestConfig.Automation.Common.NumberOfUpkeeps, *loadedTestConfig.Automation.Common.Duration,
-		*loadedTestConfig.Automation.Common.BlockTime, *loadedTestConfig.Automation.Common.NumberOfEvents, *loadedTestConfig.Automation.Common.SpecType, *loadedTestConfig.Automation.Common.ChainlinkNodeLogLevel, image, version)
+		"Number of Events: %d\nSpec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\n", *loadedTestConfig.Automation.Performance.NumberOfNodes, *loadedTestConfig.Automation.Performance.NumberOfUpkeeps, *loadedTestConfig.Automation.Performance.Duration,
+		*loadedTestConfig.Automation.Performance.BlockTime, *loadedTestConfig.Automation.Performance.NumberOfEvents, *loadedTestConfig.Automation.Performance.SpecType, *loadedTestConfig.Automation.Performance.ChainlinkNodeLogLevel, image, version)
 
 	testNetwork := networks.MustGetSelectedNetworkConfig(loadedTestConfig.Network)[0]
 	testType := "load"
-	loadDuration := time.Duration(*loadedTestConfig.Automation.Common.Duration) * time.Second
+	loadDuration := time.Duration(*loadedTestConfig.Automation.Performance.Duration) * time.Second
 	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
 	automationDefaultUpkeepGasLimit := uint32(1_000_000)
 
@@ -191,24 +190,24 @@ func TestLogTrigger(t *testing.T) {
 	})
 
 	//TODO this whole part needs reworking
-	if testEnvironment.WillUseRemoteRunner() {
-		// key := "TEST_INPUTS"
-		// err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-		// require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
+	// if testEnvironment.WillUseRemoteRunner() {
+	// key := "TEST_INPUTS"
+	// err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+	// require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
 
-		// key = config.EnvVarPyroscopeServer
-		// err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-		// require.NoError(t, err, "failed to set the environment variable PYROSCOPE_SERVER for remote runner")
+	// key = config.EnvVarPyroscopeServer
+	// err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+	// require.NoError(t, err, "failed to set the environment variable PYROSCOPE_SERVER for remote runner")
 
-		// key = config.EnvVarPyroscopeKey
-		// err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-		// require.NoError(t, err, "failed to set the environment variable PYROSCOPE_KEY for remote runner")
+	// key = config.EnvVarPyroscopeKey
+	// err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+	// require.NoError(t, err, "failed to set the environment variable PYROSCOPE_KEY for remote runner")
 
-		//TODO how is this used?
-		key := "GRAFANA_DASHBOARD_URL"
-		err = os.Setenv(fmt.Sprintf("TEST_%s", key), getEnv(key, ""))
-		require.NoError(t, err, "failed to set the environment variable GRAFANA_DASHBOARD_URL for remote runner")
-	}
+	//TODO how is this used?
+	// key := "GRAFANA_DASHBOARD_URL"
+	// err = os.Setenv(fmt.Sprintf("TEST_%s", key), getEnv(key, ""))
+	// require.NoError(t, err, "failed to set the environment variable GRAFANA_DASHBOARD_URL for remote runner")
+	// }
 
 	testEnvironment.
 		AddHelm(ethereum.New(&ethereum.Props{
@@ -227,7 +226,7 @@ func TestLogTrigger(t *testing.T) {
 					},
 				},
 				"geth": map[string]interface{}{
-					"blocktime": *loadedTestConfig.Automation.Common.BlockTime,
+					"blocktime": *loadedTestConfig.Automation.Performance.BlockTime,
 					"capacity":  "10Gi",
 				},
 			},
@@ -245,7 +244,7 @@ func TestLogTrigger(t *testing.T) {
 		dbSpec   = minimumDbSpec
 	)
 
-	switch *loadedTestConfig.Automation.Common.SpecType {
+	switch *loadedTestConfig.Automation.Performance.SpecType {
 	case "recommended":
 		nodeSpec = recNodeSpec
 		dbSpec = recDbSpec
@@ -269,12 +268,12 @@ func TestLogTrigger(t *testing.T) {
 	// err = os.Setenv(config.EnvVarPyroscopeEnvironment, testEnvironment.Cfg.Namespace)
 	// require.NoError(t, err, "Error setting pyroscope environment env var")
 
-	numberOfUpkeeps := *loadedTestConfig.Automation.Common.NumberOfNodes
+	numberOfUpkeeps := *loadedTestConfig.Automation.Performance.NumberOfNodes
 
 	for i := 0; i < numberOfUpkeeps+1; i++ { // +1 for the OCR boot node
 		var nodeTOML string
 		if i == 1 || i == 3 {
-			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, *loadedTestConfig.Automation.Common.ChainlinkNodeLogLevel)
+			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, *loadedTestConfig.Automation.Performance.ChainlinkNodeLogLevel)
 		} else {
 			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"info\"", baseTOML)
 		}
@@ -443,7 +442,7 @@ func TestLogTrigger(t *testing.T) {
 				triggerContract,
 				consumerContracts[i],
 				l,
-				*loadedTestConfig.Automation.Common.NumberOfEvents,
+				*loadedTestConfig.Automation.Performance.NumberOfEvents,
 			),
 			CallResultBufLen: 1000000,
 		})
@@ -452,7 +451,7 @@ func TestLogTrigger(t *testing.T) {
 
 	l.Info().Msg("Starting load generators")
 	startTime := time.Now()
-	err = sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.Common.NumberOfNodes),
+	err = sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.Performance.NumberOfNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), "now",
 		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, &loadedTestConfig)
 	if err != nil {
@@ -479,7 +478,7 @@ func TestLogTrigger(t *testing.T) {
 	for _, gen := range p.Generators {
 		numberOfEventsEmitted += len(gen.GetData().OKData.Data)
 	}
-	numberOfEventsEmitted = numberOfEventsEmitted * *loadedTestConfig.Automation.Common.NumberOfEvents
+	numberOfEventsEmitted = numberOfEventsEmitted * *loadedTestConfig.Automation.Performance.NumberOfEvents
 	l.Info().Int("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
 	if endBlock-startBlock < batchSize {
@@ -573,7 +572,7 @@ func TestLogTrigger(t *testing.T) {
 		avg, median, ninetyPct, ninetyNinePct, maximum, len(allUpkeepDelays), numberOfEventsEmitted,
 		eventsMissed, percentMissed, testDuration.String())
 
-	err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.Common.NumberOfNodes),
+	err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.Performance.NumberOfNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(endTime.UnixMilli(), 10),
 		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")}, &loadedTestConfig)
 	if err != nil {

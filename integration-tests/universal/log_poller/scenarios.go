@@ -35,11 +35,11 @@ func ExecuteBasicLogPollerTest(t *testing.T, testConfig *tc.TestConfig) {
 
 	var (
 		err           error
-		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
+		upKeepsNeeded = *cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(500*time.Millisecond), cfg.General.UseFinalityTag, testConfig,
+		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(500*time.Millisecond), *cfg.General.UseFinalityTag, testConfig,
 	)
 
 	_, upkeepIDs := actions.DeployConsumers(
@@ -58,7 +58,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, testConfig *tc.TestConfig) {
 
 	// Deploy Log Emitter contracts
 	logEmitters := make([]*contracts.LogEmitter, 0)
-	for i := 0; i < cfg.General.Contracts; i++ {
+	for i := 0; i < *cfg.General.Contracts; i++ {
 		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
 		logEmitters = append(logEmitters, &logEmitter)
 		require.NoError(t, err, "Error deploying log emitter contract")
@@ -69,7 +69,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, testConfig *tc.TestConfig) {
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
 	for i := 0; i < len(upkeepIDs); i++ {
-		emitterAddress := (*logEmitters[i%cfg.General.Contracts]).Address()
+		emitterAddress := (*logEmitters[i%*cfg.General.Contracts]).Address()
 		upkeepID := upkeepIDs[i]
 		topicId := cfg.General.EventsToEmit[i%len(cfg.General.EventsToEmit)].ID
 
@@ -199,12 +199,12 @@ func ExecuteLogPollerReplay(t *testing.T, testConfig *tc.TestConfig, consistency
 
 	var (
 		err           error
-		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
+		upKeepsNeeded = *cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	// we set blockBackfillDepth to 0, to make sure nothing will be backfilled and won't interfere with our test
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
-		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag, testConfig)
+		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), *cfg.General.UseFinalityTag, testConfig)
 
 	_, upkeepIDs := actions.DeployConsumers(
 		t,
@@ -222,7 +222,7 @@ func ExecuteLogPollerReplay(t *testing.T, testConfig *tc.TestConfig, consistency
 
 	// Deploy Log Emitter contracts
 	logEmitters := make([]*contracts.LogEmitter, 0)
-	for i := 0; i < cfg.General.Contracts; i++ {
+	for i := 0; i < *cfg.General.Contracts; i++ {
 		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
 		logEmitters = append(logEmitters, &logEmitter)
 		require.NoError(t, err, "Error deploying log emitter contract")
@@ -264,7 +264,7 @@ func ExecuteLogPollerReplay(t *testing.T, testConfig *tc.TestConfig, consistency
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
 	for i := 0; i < len(upkeepIDs); i++ {
-		emitterAddress := (*logEmitters[i%cfg.General.Contracts]).Address()
+		emitterAddress := (*logEmitters[i%*cfg.General.Contracts]).Address()
 		upkeepID := upkeepIDs[i]
 		topicId := cfg.General.EventsToEmit[i%len(cfg.General.EventsToEmit)].ID
 

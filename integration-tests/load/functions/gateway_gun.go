@@ -4,12 +4,12 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/rand"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/smartcontractkit/wasp"
 
@@ -61,13 +61,18 @@ func callSecretsSet(m *GatewaySecretsSetGun) *wasp.CallResult {
 	if err != nil {
 		return &wasp.CallResult{Error: err.Error(), Failed: true}
 	}
+	network := networks.MustGetSelectedNetworkConfig(m.Cfg.Network)[0].Name
+	if len(m.Cfg.Network.WalletKeys[network]) < 1 {
+		panic(fmt.Sprintf("no wallet keys found for %s", network))
+	}
+
 	cfg := m.Cfg.Functions
 	_, _, err = UploadS4Secrets(m.Resty, &S4SecretsCfg{
-		GatewayURL:            cfg.Common.GatewayURL,
-		PrivateKey:            os.Getenv("MUMBAI_KEYS"),
+		GatewayURL:            *cfg.Common.GatewayURL,
+		PrivateKey:            m.Cfg.Network.WalletKeys[network][0],
 		MessageID:             randNum,
 		Method:                "secrets_set",
-		DonID:                 cfg.Common.DONID,
+		DonID:                 *cfg.Common.DONID,
 		S4SetSlotID:           randSlot,
 		S4SetVersion:          version,
 		S4SetExpirationPeriod: expiration,
@@ -84,14 +89,18 @@ func callSecretsList(m *GatewaySecretsSetGun) *wasp.CallResult {
 	randSlot := uint(rand.Intn(5))
 	version := uint64(time.Now().UnixNano())
 	expiration := int64(60 * 60 * 1000)
+	network := networks.MustGetSelectedNetworkConfig(m.Cfg.Network)[0].Name
+	if len(m.Cfg.Network.WalletKeys[network]) < 1 {
+		panic(fmt.Sprintf("no wallet keys found for %s", network))
+	}
 	cfg := m.Cfg.Functions
 	if err := ListS4Secrets(m.Resty, &S4SecretsCfg{
-		GatewayURL:            fmt.Sprintf(cfg.Common.GatewayURL),
-		RecieverAddr:          cfg.Common.Receiver,
-		PrivateKey:            os.Getenv("MUMBAI_KEYS"),
+		GatewayURL:            *cfg.Common.GatewayURL,
+		RecieverAddr:          *cfg.Common.Receiver,
+		PrivateKey:            m.Cfg.Network.WalletKeys[network][0],
 		MessageID:             randNum,
 		Method:                m.Method,
-		DonID:                 cfg.Common.DONID,
+		DonID:                 *cfg.Common.DONID,
 		S4SetSlotID:           randSlot,
 		S4SetVersion:          version,
 		S4SetExpirationPeriod: expiration,

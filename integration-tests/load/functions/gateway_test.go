@@ -11,11 +11,11 @@ import (
 )
 
 func TestGatewayLoad(t *testing.T) {
-	config, err := tc.GetConfig(t.Name(), tc.Load, tc.Functions)
+	listConfig, err := tc.GetConfig(t.Name(), "gateway_list", tc.Functions)
 	require.NoError(t, err)
 
 	require.NoError(t, err)
-	ft, err := SetupLocalLoadTestEnv(&config)
+	ft, err := SetupLocalLoadTestEnv(&listConfig)
 	require.NoError(t, err)
 	ft.EVMClient.ParallelTransactions(false)
 
@@ -24,17 +24,15 @@ func TestGatewayLoad(t *testing.T) {
 		"commit": "gateway_healthcheck",
 	}
 
-	cfg := config.Functions
-
 	secretsListCfg := &wasp.Config{
 		LoadType: wasp.RPS,
 		GenName:  functions.MethodSecretsList,
 		Schedule: wasp.Plain(
-			cfg.GatewayListSoak.RPS,
-			cfg.GatewayListSoak.Duration.Duration(),
+			*listConfig.Functions.Performance.RPS,
+			listConfig.Functions.Performance.Duration.Duration(),
 		),
 		Gun: NewGatewaySecretsSetGun(
-			&config,
+			&listConfig,
 			functions.MethodSecretsList,
 			ft.EthereumPrivateKey,
 			ft.ThresholdPublicKey,
@@ -44,15 +42,18 @@ func TestGatewayLoad(t *testing.T) {
 		LokiConfig: wasp.NewEnvLokiConfig(),
 	}
 
+	setConfig, err := tc.GetConfig(t.Name(), "gateway_set", tc.Functions)
+	require.NoError(t, err)
+
 	secretsSetCfg := &wasp.Config{
 		LoadType: wasp.RPS,
 		GenName:  functions.MethodSecretsSet,
 		Schedule: wasp.Plain(
-			cfg.GatewaySetSoak.RPS,
-			cfg.GatewaySetSoak.Duration.Duration(),
+			*setConfig.Functions.Performance.RPS,
+			setConfig.Functions.Performance.Duration.Duration(),
 		),
 		Gun: NewGatewaySecretsSetGun(
-			&config,
+			&setConfig,
 			functions.MethodSecretsSet,
 			ft.EthereumPrivateKey,
 			ft.ThresholdPublicKey,

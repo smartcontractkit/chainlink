@@ -1,0 +1,12 @@
+[Automation]
+[Automation.Common]
+number_of_nodes=6
+number_of_upkeeps=100
+duration=900
+block_time=1
+number_of_events=1
+spec_type="minimum"
+chainlink_node_log_level="info"
+
+[Pyroscope]
+enabled=false

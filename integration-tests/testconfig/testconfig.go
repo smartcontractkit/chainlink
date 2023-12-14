@@ -87,6 +87,7 @@ const (
 	Functions     Product = "functions"
 	Keeper        Product = "keeper"
 	LogPoller     Product = "log_poller"
+	Node          Product = "node"
 	OCR           Product = "ocr"
 	OCR2          Product = "ocr2"
 	OCR2VRF       Product = "ocr2vrf"
@@ -99,15 +100,17 @@ const (
 type TestType string
 
 const (
-	Smoke       TestType = "smoke"
-	Load        TestType = "load"
-	Soak        TestType = "soak"
-	Performance TestType = "performance"
 	Benchmark   TestType = "benchmark"
-	Reorg       TestType = "reorg"
 	Chaos       TestType = "chaos"
+	Load        TestType = "load"
+	Migration   TestType = "migration"
+	Performance TestType = "performance"
+	Reorg       TestType = "reorg"
+	Smoke       TestType = "smoke"
+	Soak        TestType = "soak"
 	Stress      TestType = "stress"
 	Spike       TestType = "spike"
+	Volume      TestType = "volume"
 )
 
 const TestTypeEnvVarName = "TEST_TYPE"
@@ -143,7 +146,7 @@ func GetConfig(testName string, testType TestType, product Product) (TestConfig,
 	}
 
 	if testName != NoTest {
-		fileNames = append(fileNames, fmt.Sprintf("%s_%s_%s.toml", testName, testType, product))
+		fileNames = append(fileNames, fmt.Sprintf("%s.toml", testName, testType, product))
 	}
 
 	testConfig := TestConfig{}
