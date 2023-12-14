@@ -11,6 +11,7 @@ import (
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"
@@ -133,8 +134,9 @@ const (
 	NoTest                   = "NO_TEST"
 )
 
-// TODO should I  also add testname, so that we allow individual tests to override it?
 func GetConfig(testName string, testType TestType, product Product) (TestConfig, error) {
+	logger := logging.GetTestLogger(nil)
+
 	testName = strings.ReplaceAll(testName, "/", "_")
 	testName = strings.ReplaceAll(testName, " ", "_")
 	fileNames := []string{
@@ -144,17 +146,35 @@ func GetConfig(testName string, testType TestType, product Product) (TestConfig,
 		"overrides.toml",
 	}
 
+	var insert = func(slice []string, element string, position int) []string {
+		if position < 0 || position > len(slice) {
+			return slice
+		}
+
+		slice = append(slice[:position], append([]string{element}, slice[position:]...)...)
+		return slice
+	}
+
 	if testName != NoTest {
-		fileNames = append(fileNames, fmt.Sprintf("%s_%s.toml", testName, testType))
+		fileNames = insert(fileNames, fmt.Sprintf("%s_%s.toml", testName, testType), 3)
 	}
 
 	testConfig := TestConfig{}
 	maybeTestConfigs := []TestConfig{}
 
 	for _, fileName := range fileNames {
-		content, err := osutil.FindFile(fileName, osutil.DEFAULT_STOP_FILE_NAME)
+		logger.Debug().Msgf("Looking for config file %s", fileName)
+		filePath, err := osutil.FindFile(fileName, osutil.DEFAULT_STOP_FILE_NAME)
+
 		if err != nil && errors.Is(err, os.ErrNotExist) {
+			logger.Debug().Msgf("Config file %s not found", fileName)
 			continue
+		}
+		logger.Debug().Str("location", filePath).Msgf("Found config file %s", fileName)
+
+		content, err := readFile(filePath)
+		if err != nil {
+			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
 
 		var readConfig TestConfig
@@ -179,6 +199,7 @@ func GetConfig(testName string, testType TestType, product Product) (TestConfig,
 			return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
 		}
 
+		logger.Debug().Msgf("Applying base64 config override from environment variable %s", Base64OverrideEnvVarName)
 		maybeTestConfigs = append(maybeTestConfigs, base64override)
 	}
 
@@ -457,4 +478,13 @@ func (c *TestConfig) Validate() error {
 	}
 
 	return nil
+}
+
+func readFile(filePath string) ([]byte, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error reading file %s", filePath)
+	}
+
+	return content, nil
 }

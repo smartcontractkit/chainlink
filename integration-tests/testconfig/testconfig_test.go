@@ -29,7 +29,13 @@ func TestBase64ConfigRead(t *testing.T) {
 	testConfig := TestConfig{
 		Automation: &a_config.Config{
 			Performance: &a_config.Performance{
-				NumberOfNodes: ptr.Ptr(7),
+				NumberOfNodes:         ptr.Ptr(7),
+				NumberOfUpkeeps:       ptr.Ptr(8),
+				Duration:              ptr.Ptr(9),
+				BlockTime:             ptr.Ptr(10),
+				NumberOfEvents:        ptr.Ptr(11),
+				SpecType:              ptr.Ptr("minimum"),
+				ChainlinkNodeLogLevel: ptr.Ptr("debug"),
 			},
 		},
 		Network: &ctf_config.NetworkConfig{
