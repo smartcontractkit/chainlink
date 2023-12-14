@@ -14,9 +14,9 @@ const (
 type Config struct {
 	Common            *Common            `toml:"Common"`
 	General           *General           `toml:"General"`
-	ExistingEnvConfig *ExistingEnvConfig `toml:"ExistingEnvConfig"`
-	NewEnvConfig      *NewEnvConfig      `toml:"NewEnvConfig"`
-	Performance       *PerformanceConfig `toml:"PerformanceConfig"`
+	ExistingEnvConfig *ExistingEnvConfig `toml:"ExistingEnv"`
+	NewEnvConfig      *NewEnvConfig      `toml:"NewEnv"`
+	Performance       *PerformanceConfig `toml:"Performance"`
 }
 
 func (c *Config) ApplyOverrides(from *Config) error {

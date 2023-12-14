@@ -9,8 +9,8 @@ import (
 type Config struct {
 	Common            *Common                  `toml:"Common"`
 	General           *General                 `toml:"General"`
-	ExistingEnvConfig *ExistingEnvConfig       `toml:"ExistingEnvConfig"`
-	NewEnvConfig      *NewEnvConfig            `toml:"NewEnvConfig"`
+	ExistingEnvConfig *ExistingEnvConfig       `toml:"ExistingEnv"`
+	NewEnvConfig      *NewEnvConfig            `toml:"NewEnv"`
 	Performance       *vrfv2.PerformanceConfig `toml:"Performance"`
 }
 
