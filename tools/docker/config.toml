@@ -20,3 +20,10 @@ MinContractPayment = '0.000001 link'
 Name = 'primary-0-34055'
 WSURL = 'ws://devnet:8546'
 HTTPURL = 'http://devnet:8545'
+
+[[Solana]]
+ChainID = 'localnet'
+
+[[Solana.Nodes]]
+Name = 'sol-node'
+URL = 'http://solana:8899'
