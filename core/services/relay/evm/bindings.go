@@ -3,48 +3,59 @@ package evm
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-type Bindings map[string]methodBindings
+// key is contract name
+type contractBindings map[string]readBindings
 
-func (b Bindings) addEvent(contractName, typeName string, evt common.Hash) error {
-	ae, err := b.getBinding(contractName, typeName, true)
-	if err != nil {
-		return err
+// key is read name
+type readBindings map[string]readBinding
+
+func (b contractBindings) GetReadBinding(contractName, readName string) (readBinding, error) {
+	rb, rbExists := b[contractName]
+	if !rbExists {
+		return nil, fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidType, contractName)
 	}
 
-	ae.evt = &evt
+	reader, readerExists := rb[readName]
+	if !readerExists {
+		return nil, fmt.Errorf("%w: no readName named %s in contract %s", commontypes.ErrInvalidType, readName, contractName)
+	}
+	return reader, nil
+}
+
+func (b contractBindings) AddReadBinding(contractName, readName string, reader readBinding) {
+	rbs, rbsExists := b[contractName]
+	if !rbsExists {
+		rbs = readBindings{}
+		b[contractName] = rbs
+	}
+	rbs[readName] = reader
+}
+
+func (b contractBindings) Bind(boundContracts []commontypes.BoundContract) error {
+	for _, bc := range boundContracts {
+		rbs, rbsExist := b[bc.Name]
+		if !rbsExist {
+			return fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidConfig, bc.Name)
+		}
+		for _, r := range rbs {
+			if err := r.Bind(bc); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
-func (b Bindings) getBinding(contractName, methodName string, isConfig bool) (*addrEvtBinding, error) {
-	errType := types.ErrInvalidType
-	if isConfig {
-		errType = types.ErrInvalidConfig
+func (b contractBindings) ForEach(fn func(readBinding) error) error {
+	for _, rbs := range b {
+		for _, rb := range rbs {
+			if err := fn(rb); err != nil {
+				return err
+			}
+		}
 	}
-	methodNames, ok := b[contractName]
-	if !ok {
-		return nil, fmt.Errorf("%w: contract %s not found", errType, contractName)
-	}
-
-	ae, ok := methodNames[methodName]
-	if !ok {
-		return nil, fmt.Errorf("%w: method %s not found in contract %s", errType, methodName, contractName)
-	}
-
-	return ae, nil
-}
-
-type methodBindings map[string]*addrEvtBinding
-
-func NewAddrEvtFromAddress(address common.Address) *addrEvtBinding {
-	return &addrEvtBinding{addr: address}
-}
-
-type addrEvtBinding struct {
-	addr common.Address
-	evt  *common.Hash
+	return nil
 }

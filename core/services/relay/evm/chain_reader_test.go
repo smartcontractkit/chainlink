@@ -140,27 +140,12 @@ func (it *chainReaderInterfaceTester) GetChainReader(ctx context.Context, t *tes
 		return it.cr
 	}
 
-	addr := common.HexToAddress(it.address)
-	addr2 := common.HexToAddress(it.address2)
 	lggr := logger.NullLogger
 	db := pgtest.NewSqlxDB(t)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), it.chain.Client(), lggr, time.Millisecond, false, 0, 1, 1, 10000)
 	require.NoError(t, lp.Start(ctx))
 	it.chain.On("LogPoller").Return(lp)
-	b := evm.Bindings{
-		AnyContractName: {
-			MethodTakingLatestParamsReturningTestStruct: evm.NewAddrEvtFromAddress(addr),
-			MethodReturningUint64:                       evm.NewAddrEvtFromAddress(addr),
-			DifferentMethodReturningUint64:              evm.NewAddrEvtFromAddress(addr2),
-			MethodReturningUint64Slice:                  evm.NewAddrEvtFromAddress(addr),
-			EventName:                                   evm.NewAddrEvtFromAddress(addr),
-			MethodReturningSeenStruct:                   evm.NewAddrEvtFromAddress(addr),
-		},
-		AnySecondContractName: {
-			MethodReturningUint64: evm.NewAddrEvtFromAddress(addr2),
-		},
-	}
-	cr, err := evm.NewChainReaderService(lggr, lp, b, it.chain, it.chainConfig)
+	cr, err := evm.NewChainReaderService(lggr, lp, it.chain, it.chainConfig)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr
@@ -173,6 +158,13 @@ func (it *chainReaderInterfaceTester) SetLatestValue(t *testing.T, testStruct *T
 
 func (it *chainReaderInterfaceTester) TriggerEvent(t *testing.T, testStruct *TestStruct) {
 	it.sendTxWithTestStruct(t, testStruct, (*testfiles.TestfilesTransactor).TriggerEvent)
+}
+
+func (it *chainReaderInterfaceTester) GetBindings(t *testing.T) []clcommontypes.BoundContract {
+	return []clcommontypes.BoundContract{
+		{Name: AnyContractName, Address: it.address, Pending: true},
+		{Name: AnySecondContractName, Address: it.address2, Pending: true},
+	}
 }
 
 type testStructFn = func(*testfiles.TestfilesTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, testfiles.MidLevelTestStruct) (*evmtypes.Transaction, error)
