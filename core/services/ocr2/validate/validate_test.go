@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -14,6 +15,7 @@ import (
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -580,10 +582,154 @@ KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c
 				require.Contains(t, err.Error(), "validation error for keyID")
 			},
 		},
+		{
+			name: "Valid ccip-execute",
+			toml: `
+type = "offchainreporting2"
+schemaVersion = 1
+relay = "evm"
+contractID = "0x1234567"
+pluginType = "ccip-execution"
+
+[relayConfig]
+chainID = 1337
+
+[pluginConfig]
+SourceStartBlock = 1
+DestStartBlock = 2
+USDCConfig.SourceTokenAddress = "0x1234567890123456789012345678901234567890"
+USDCConfig.SourceMessageTransmitterAddress = "0x0987654321098765432109876543210987654321"
+USDCConfig.AttestationAPI = "some api"
+USDCConfig.AttestationAPITimeoutSeconds = 12
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.NoError(t, err)
+				expected := config.ExecutionPluginJobSpecConfig{
+					SourceStartBlock: 1,
+					DestStartBlock:   2,
+					USDCConfig: config.USDCConfig{
+						SourceTokenAddress:              common.HexToAddress("0x1234567890123456789012345678901234567890"),
+						SourceMessageTransmitterAddress: common.HexToAddress("0x0987654321098765432109876543210987654321"),
+						AttestationAPI:                  "some api",
+						AttestationAPITimeoutSeconds:    12,
+					},
+				}
+				var cfg config.ExecutionPluginJobSpecConfig
+				err = json.Unmarshal(os.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
+				require.NoError(t, err)
+				require.Equal(t, expected, cfg)
+			},
+		},
+		{
+			name: "ccip-execute non hex address unmarshalling",
+			toml: `
+type = "offchainreporting2"
+schemaVersion = 1
+relay = "evm"
+contractID = "0x1234567"
+pluginType = "ccip-execution"
+
+[relayConfig]
+chainID = 1337
+
+[pluginConfig]
+SourceStartBlock = 1
+DestStartBlock = 2
+USDCConfig.SourceTokenAddress = "non-hex"
+USDCConfig.SourceMessageTransmitterAddress = "0x0987654321098765432109876543210987654321"
+USDCConfig.AttestationAPI = "some api"
+USDCConfig.AttestationAPITimeoutSeconds = 12
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "cannot unmarshal hex string without 0x prefix into Go struct field USDCConfig.USDCConfig.SourceTokenAddress of type common.Address")
+			},
+		},
+		{
+			name: "ccip-execute usdcconfig validation failure",
+			toml: `
+type = "offchainreporting2"
+schemaVersion = 1
+relay = "evm"
+contractID = "0x1234567"
+pluginType = "ccip-execution"
+
+[relayConfig]
+chainID = 1337
+
+[pluginConfig]
+SourceStartBlock = 1
+DestStartBlock = 2
+USDCConfig.SourceTokenAddress = "0x1234567890123456789012345678901234567890"
+USDCConfig.SourceMessageTransmitterAddress = "0x0987654321098765432109876543210987654321"
+USDCConfig.AttestationAPI = "some api"
+USDCConfig.AttestationAPITimeoutSeconds = -12
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "AttestationAPITimeoutSeconds must be non-negative")
+			},
+		},
+		{
+			name: "Valid ccip-commit",
+			toml: `
+type = "offchainreporting2"
+schemaVersion = 1
+relay = "evm"
+contractID = "0x1234567"
+pluginType = "ccip-commit"
+
+[relayConfig]
+chainID = 1337
+
+[pluginConfig]
+SourceStartBlock = 1
+DestStartBlock = 2
+offRamp = "0x1234567890123456789012345678901234567890"
+tokenPricesUSDPipeline = "merge [type=merge left=\"{}\" right=\"{\\\"0xC79b96044906550A5652BCf20a6EA02f139B9Ae5\\\":\\\"1000000000000000000\\\"}\"];"
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.NoError(t, err)
+				expected := config.CommitPluginJobSpecConfig{
+					SourceStartBlock:       1,
+					DestStartBlock:         2,
+					OffRamp:                common.HexToAddress("0x1234567890123456789012345678901234567890"),
+					TokenPricesUSDPipeline: `merge [type=merge left="{}" right="{\"0xC79b96044906550A5652BCf20a6EA02f139B9Ae5\":\"1000000000000000000\"}"];`,
+				}
+				var cfg config.CommitPluginJobSpecConfig
+				err = json.Unmarshal(os.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
+				require.NoError(t, err)
+				require.Equal(t, expected, cfg)
+			},
+		},
+		{
+			name: "ccip-commit invalid pipeline",
+			toml: `
+type = "offchainreporting2"
+schemaVersion = 1
+relay = "evm"
+contractID = "0x1234567"
+pluginType = "ccip-commit"
+
+[relayConfig]
+chainID = 1337
+
+[pluginConfig]
+SourceStartBlock = 1
+DestStartBlock = 2
+offRamp = "0x1234567890123456789012345678901234567890"
+tokenPricesUSDPipeline = "this is not a pipeline"
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+				require.ErrorContains(t, err, "invalid token prices pipeline")
+			},
+		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			c := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Insecure.OCRDevelopmentMode = testutils.Ptr(false) // tests run with OCRDevelopmentMode by default.
 				if tc.overrides != nil {

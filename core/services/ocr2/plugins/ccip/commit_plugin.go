@@ -33,7 +33,7 @@ import (
 
 type BackfillArgs struct {
 	sourceLP, destLP                 logpoller.LogPoller
-	sourceStartBlock, destStartBlock int64
+	sourceStartBlock, destStartBlock uint64
 }
 
 func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Runner, chainSet evm.LegacyChainContainer, qopts ...pg.QOpt) (*CommitPluginStaticConfig, *BackfillArgs, error) {
@@ -80,7 +80,7 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed onramp reader")
 	}
-	offRampReader, err := factory.NewOffRampReader(commitLggr, common.HexToAddress(pluginConfig.OffRamp), destChain.Client(), destChain.LogPoller(), destChain.GasEstimator())
+	offRampReader, err := factory.NewOffRampReader(commitLggr, pluginConfig.OffRamp, destChain.Client(), destChain.LogPoller(), destChain.GasEstimator())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed offramp reader")
 	}

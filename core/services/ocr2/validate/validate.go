@@ -15,10 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
@@ -115,7 +117,10 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		return nil
 	case types.Mercury:
 		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
-	case types.CCIPExecution, types.CCIPCommit:
+	case types.CCIPExecution:
+		return validateOCR2CCIPExecutionSpec(spec.OCR2OracleSpec.PluginConfig)
+	case types.CCIPCommit:
+		return validateOCR2CCIPCommitSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -132,7 +137,7 @@ func validateDKGSpec(jsonConfig job.JSONConfig) error {
 	var pluginConfig dkgconfig.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	if err != nil {
-		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
 	}
 	err = validateHexString(pluginConfig.EncryptionPublicKey, 32)
 	if err != nil {
@@ -195,7 +200,39 @@ func validateOCR2MercurySpec(jsonConfig job.JSONConfig, feedId [32]byte) error {
 	var pluginConfig mercuryconfig.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	if err != nil {
-		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
 	}
 	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedId), "Mercury PluginConfig is invalid")
+}
+
+func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var cfg config.ExecutionPluginJobSpecConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
+	}
+	if cfg.USDCConfig != (config.USDCConfig{}) {
+		return cfg.USDCConfig.ValidateUSDCConfig()
+	}
+
+	return nil
+}
+
+func validateOCR2CCIPCommitSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var cfg config.CommitPluginJobSpecConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
+	}
+	_, err = pipeline.Parse(cfg.TokenPricesUSDPipeline)
+	if err != nil {
+		return pkgerrors.Wrap(err, "invalid token prices pipeline")
+	}
+	return nil
 }

@@ -14,7 +14,7 @@ import (
 )
 
 type BackfilledOracle struct {
-	srcStartBlock, dstStartBlock int64
+	srcStartBlock, dstStartBlock uint64
 	oracleStarted                atomic.Bool
 	cancelFn                     context.CancelFunc
 	src, dst                     logpoller.LogPoller
@@ -22,7 +22,7 @@ type BackfilledOracle struct {
 	lggr                         logger.Logger
 }
 
-func NewBackfilledOracle(lggr logger.Logger, src, dst logpoller.LogPoller, srcStartBlock, dstStartBlock int64, oracle job.ServiceCtx) *BackfilledOracle {
+func NewBackfilledOracle(lggr logger.Logger, src, dst logpoller.LogPoller, srcStartBlock, dstStartBlock uint64, oracle job.ServiceCtx) *BackfilledOracle {
 	return &BackfilledOracle{
 		srcStartBlock: srcStartBlock,
 		dstStartBlock: dstStartBlock,
@@ -57,7 +57,7 @@ func (r *BackfilledOracle) Run() {
 			defer wg.Done()
 			s := time.Now()
 			r.lggr.Infow("start replaying src chain", "fromBlock", r.srcStartBlock)
-			srcReplayErr := r.src.Replay(ctx, r.srcStartBlock)
+			srcReplayErr := r.src.Replay(ctx, int64(r.srcStartBlock))
 			errMu.Lock()
 			err = multierr.Combine(err, srcReplayErr)
 			errMu.Unlock()
@@ -70,7 +70,7 @@ func (r *BackfilledOracle) Run() {
 			defer wg.Done()
 			s := time.Now()
 			r.lggr.Infow("start replaying dst chain", "fromBlock", r.dstStartBlock)
-			dstReplayErr := r.dst.Replay(ctx, r.dstStartBlock)
+			dstReplayErr := r.dst.Replay(ctx, int64(r.dstStartBlock))
 			errMu.Lock()
 			err = multierr.Combine(err, dstReplayErr)
 			errMu.Unlock()
