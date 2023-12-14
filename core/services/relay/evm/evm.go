@@ -493,15 +493,12 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	// allow fallback until chain reader is default and median contract is removed, but still log just in case
 	var chainReaderService ChainReaderService
 	if relayConfig.ChainReader != nil {
-		b := Bindings{
-			// TODO BCF-2837: clean up the hard-coded values.
-			"median": {
-				"LatestTransmissionDetails": &addrEvtBinding{addr: contractID},
-				"LatestRoundRequested":      &addrEvtBinding{addr: contractID},
-			},
+		if chainReaderService, err = NewChainReaderService(lggr, r.chain.LogPoller(), r.chain, *relayConfig.ChainReader); err != nil {
+			return nil, err
 		}
 
-		if chainReaderService, err = NewChainReaderService(lggr, r.chain.LogPoller(), b, r.chain, *relayConfig.ChainReader); err != nil {
+		boundContracts := []commontypes.BoundContract{{Name: "median", Pending: true, Address: contractID.String()}}
+		if err = chainReaderService.Bind(context.Background(), boundContracts); err != nil {
 			return nil, err
 		}
 	} else {
