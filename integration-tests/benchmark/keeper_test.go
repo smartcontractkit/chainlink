@@ -144,7 +144,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	testType, err := tc.GetTestTypeFromEnv()
 	require.NoError(t, err, "Error getting test type")
 
-	config, err := tc.GetConfig(testType, tc.Keeper)
+	config, err := tc.GetConfig(t.Name(), testType, tc.Keeper)
 	require.NoError(t, err, "Error getting test config")
 
 	testEnvironment, benchmarkNetwork := SetupAutomationBenchmarkEnv(t, &config)

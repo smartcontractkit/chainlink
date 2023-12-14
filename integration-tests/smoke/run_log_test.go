@@ -23,7 +23,7 @@ func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(tc.Smoke, tc.RunLog)
+	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.RunLog)
 	if err != nil {
 		t.Fatal(err)
 	}

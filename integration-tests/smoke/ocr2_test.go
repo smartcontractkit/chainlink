@@ -23,7 +23,7 @@ import (
 func TestOCRv2Basic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(tc.Smoke, tc.OCR2)
+	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestOCRv2Basic(t *testing.T) {
 func TestOCRv2JobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(tc.Smoke, tc.OCR2)
+	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}

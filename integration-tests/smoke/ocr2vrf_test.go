@@ -33,7 +33,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig(tc.Smoke, tc.OCR2)
+	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig(tc.Smoke, tc.OCR2)
+	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 
 func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	if ocr2vrfSmokeConfig == nil {
-		c, err := testconfig.GetConfig(tc.Smoke, tc.OCR2VRF)
+		c, err := testconfig.GetConfig(t.Name(), tc.Smoke, tc.OCR2VRF)
 		if err != nil {
 			t.Fatal(err)
 		}

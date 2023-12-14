@@ -50,7 +50,7 @@ func CleanupPerformanceTest(
 }
 
 func TestCronPerformance(t *testing.T) {
-	config, err := tc.GetConfig(tc.Performance, tc.Cron)
+	config, err := tc.GetConfig(t.Name(), tc.Performance, tc.Cron)
 	if err != nil {
 		t.Fatal(err)
 	}

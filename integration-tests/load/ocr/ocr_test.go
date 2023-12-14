@@ -28,7 +28,7 @@ func TestOCRLoad(t *testing.T) {
 	ocrInstances, err := SetupFeed(cc, msClient, cd, bootstrapNode, workerNodes, lt)
 	require.NoError(t, err)
 
-	config, err := tc.GetConfig(tc.Load, tc.OCR)
+	config, err := tc.GetConfig(t.Name(), tc.Load, tc.OCR)
 	require.NoError(t, err)
 
 	cfg := config.OCR
@@ -56,7 +56,7 @@ func TestOCRVolume(t *testing.T) {
 	require.NoError(t, err)
 	lt, err := SetupCluster(cc, cd, workerNodes)
 	require.NoError(t, err)
-	config, err := tc.GetConfig(tc.Load, tc.OCR)
+	config, err := tc.GetConfig(t.Name(), tc.Load, tc.OCR)
 	require.NoError(t, err)
 
 	cfg := config.OCR

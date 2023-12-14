@@ -19,7 +19,7 @@ func TestOCRBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(tc.Smoke, tc.OCR)
+	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.OCR)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestOCRJobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(tc.Smoke, tc.OCR)
+	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.OCR)
 	if err != nil {
 		t.Fatal(err)
 	}

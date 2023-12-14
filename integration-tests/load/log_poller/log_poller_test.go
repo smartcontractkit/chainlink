@@ -12,7 +12,7 @@ import (
 )
 
 func TestLoadTestLogPoller(t *testing.T) {
-	config, err := tc.GetConfig(tc.Load, tc.LogPoller)
+	config, err := tc.GetConfig(t.Name(), tc.Load, tc.LogPoller)
 	require.NoError(t, err)
 
 	eventsToEmit := []abi.Event{}

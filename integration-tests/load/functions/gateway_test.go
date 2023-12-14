@@ -11,7 +11,7 @@ import (
 )
 
 func TestGatewayLoad(t *testing.T) {
-	config, err := tc.GetConfig(tc.Load, tc.Functions)
+	config, err := tc.GetConfig(t.Name(), tc.Load, tc.Functions)
 	require.NoError(t, err)
 
 	require.NoError(t, err)

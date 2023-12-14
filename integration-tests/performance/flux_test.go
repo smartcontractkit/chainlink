@@ -31,7 +31,7 @@ import (
 
 func TestFluxPerformance(t *testing.T) {
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig(tc.Performance, tc.DirectRequest)
+	config, err := tc.GetConfig(t.Name(), tc.Performance, tc.DirectRequest)
 	if err != nil {
 		t.Fatal(err)
 	}

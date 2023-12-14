@@ -37,7 +37,7 @@ func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
 	}
 
 	lpCfg.General.EventsToEmit = eventsToEmit
-	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	cfg, err := tc.GetConfig(t.Name(), tc.Smoke, tc.LogPoller)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
 	}
 
 	lpCfg.General.EventsToEmit = eventsToEmit
-	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	cfg, err := tc.GetConfig(t.Name(), tc.Smoke, tc.LogPoller)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
 	}
 
 	lpCfg.General.EventsToEmit = eventsToEmit
-	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	cfg, err := tc.GetConfig(t.Name(), tc.Smoke, tc.LogPoller)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
 	}
 
 	lpCfg.General.EventsToEmit = eventsToEmit
-	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	cfg, err := tc.GetConfig(t.Name(), tc.Smoke, tc.LogPoller)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestLogPollerWithChaosFixedDepth(t *testing.T) {
 	}
 
 	lpCfg.General.EventsToEmit = eventsToEmit
-	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	cfg, err := tc.GetConfig(t.Name(), tc.Smoke, tc.LogPoller)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 	}
 
 	lpCfg.General.EventsToEmit = eventsToEmit
-	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	cfg, err := tc.GetConfig(t.Name(), tc.Smoke, tc.LogPoller)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +257,7 @@ func TestLogPollerReplayFixedDepth(t *testing.T) {
 	}
 
 	lpCfg.General.EventsToEmit = eventsToEmit
-	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	cfg, err := tc.GetConfig(t.Name(), tc.Smoke, tc.LogPoller)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +291,7 @@ func TestLogPollerReplayFinalityTag(t *testing.T) {
 	}
 
 	lpCfg.General.EventsToEmit = eventsToEmit
-	cfg, err := tc.GetConfig(tc.Smoke, tc.LogPoller)
+	cfg, err := tc.GetConfig(t.Name(), tc.Smoke, tc.LogPoller)
 	if err != nil {
 		t.Fatal(err)
 	}

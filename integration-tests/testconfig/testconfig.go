@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -127,15 +128,22 @@ func GetTestTypeFromEnv() (TestType, error) {
 
 const (
 	Base64OverrideEnvVarName = "BASE64_CONFIG_OVERRIDE"
+	NoTest                   = "NO_TEST"
 )
 
 // TODO should I  also add testname, so that we allow individual tests to override it?
-func GetConfig(testType TestType, product Product) (TestConfig, error) {
+func GetConfig(testName string, testType TestType, product Product) (TestConfig, error) {
+	testName = strings.ReplaceAll(testName, "/", "_")
+	testName = strings.ReplaceAll(testName, " ", "_")
 	fileNames := []string{
 		"default.toml",
 		fmt.Sprintf("%s.toml", product),
 		fmt.Sprintf("%s_%s.toml", testType, product),
 		"overrides.toml",
+	}
+
+	if testName != NoTest {
+		fileNames = append(fileNames, fmt.Sprintf("%s_%s_%s.toml", testName, testType, product))
 	}
 
 	testConfig := TestConfig{}
@@ -172,14 +180,21 @@ func GetConfig(testType TestType, product Product) (TestConfig, error) {
 		maybeTestConfigs = append(maybeTestConfigs, base64override)
 	}
 
-	for _, maybeConfig := range maybeTestConfigs {
-		err := testConfig.ApplyOverrides(&maybeConfig)
+	// currently we need to read that kind of secrets only for network configuration
+	testConfig.Network = &ctf_config.NetworkConfig{}
+	err := testConfig.Network.ApplySecrets()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error applying secrets to network config")
+	}
+
+	for i := range maybeTestConfigs {
+		err := testConfig.ApplyOverrides(&maybeTestConfigs[i])
 		if err != nil {
 			return TestConfig{}, errors.Wrapf(err, "error applying overrides to test config")
 		}
 	}
 
-	err := testConfig.Validate()
+	err = testConfig.Validate()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error validating test config")
 	}
@@ -355,6 +370,11 @@ func (c *TestConfig) Validate() error {
 	}
 	if err := c.ChainlinkImage.Validate(); err != nil {
 		return errors.Wrapf(err, "chainlink image config validation failed")
+	}
+	if c.ChainlinkUpgradeImage != nil {
+		if err := c.ChainlinkUpgradeImage.Validate(); err != nil {
+			return errors.Wrapf(err, "chainlink upgrade image config validation failed")
+		}
 	}
 	if err := c.Network.Validate(); err != nil {
 		return errors.Wrapf(err, "network config validation failed")

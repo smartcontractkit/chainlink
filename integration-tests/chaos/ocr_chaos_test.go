@@ -58,7 +58,7 @@ func getDefaultOcrSettings(config *tc.TestConfig) map[string]interface{} {
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig(tc.Chaos, tc.OCR)
+	config, err := tc.GetConfig(t.Name(), tc.Chaos, tc.OCR)
 	if err != nil {
 		t.Fatal(err)
 	}
