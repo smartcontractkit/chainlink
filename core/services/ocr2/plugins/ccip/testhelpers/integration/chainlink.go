@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -958,6 +959,21 @@ func (n NoopFeedsClient) CancelledJob(context.Context, *pb.CancelledJobRequest) 
 
 func generateRandomBootstrapPort() int64 {
 	minPort := int64(10000)
-	maxPort := int64(30000)
-	return rand.Int63n(maxPort-minPort+1) + minPort
+	maxPort := int64(65500)
+	for {
+		port := rand.Int63n(maxPort-minPort+1) + minPort
+		if isPortAvailable(port) {
+			return port
+		}
+	}
+}
+
+func isPortAvailable(port int64) bool {
+	address := fmt.Sprintf(":%d", port)
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return false
+	}
+	listener.Close()
+	return true
 }
