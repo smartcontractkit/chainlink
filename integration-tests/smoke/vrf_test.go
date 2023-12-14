@@ -30,7 +30,7 @@ func TestVRFBasic(t *testing.T) {
 	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithTestConfig(&config).
 		WithGeth().
 		WithCLNodes(1).
@@ -125,7 +125,7 @@ func TestVRFJobReplacement(t *testing.T) {
 	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithTestConfig(&config).
 		WithGeth().
 		WithCLNodes(1).

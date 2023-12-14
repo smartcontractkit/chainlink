@@ -8,11 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
-	mocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -162,7 +163,7 @@ func Test_Client_LatestReport(t *testing.T) {
 		// simulate start without dialling
 		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
 		var err error
-		require.NoError(t, cacheSet.Start(ctx))
+		servicetest.Run(t, cacheSet)
 		c.cache, err = cacheSet.Get(ctx, c)
 		require.NoError(t, err)
 
@@ -200,7 +201,7 @@ func Test_Client_LatestReport(t *testing.T) {
 		// simulate start without dialling
 		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
 		var err error
-		require.NoError(t, cacheSet.Start(ctx))
+		servicetest.Run(t, cacheSet)
 		c.cache, err = cacheSet.Get(ctx, c)
 		require.NoError(t, err)
 

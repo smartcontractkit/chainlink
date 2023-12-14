@@ -14,10 +14,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // For more information about the Txm architecture, see the design doc:
@@ -80,7 +82,7 @@ type Txm[
 	FEE feetypes.Fee,
 ] struct {
 	services.StateMachine
-	logger         logger.Logger
+	logger         logger.SugaredLogger
 	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	config         txmgrtypes.TransactionManagerChainConfig
 	txConfig       txmgrtypes.TransactionManagerTransactionsConfig
@@ -140,7 +142,7 @@ func NewTxm[
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 ) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		logger:           lggr,
+		logger:           logger.Sugared(lggr),
 		txStore:          txStore,
 		config:           cfg,
 		txConfig:         txCfg,
@@ -342,12 +344,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			ctx, cancel := b.chStop.NewCtx()
 			defer cancel()
 			// Retry indefinitely on failure
-			backoff := utils.NewRedialBackoff()
+			backoff := iutils.NewRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
 					if err := b.broadcaster.startInternal(ctx); err != nil {
-						logger.Criticalw(b.logger, "Failed to start Broadcaster", "err", err)
+						b.logger.Criticalw("Failed to start Broadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
@@ -361,12 +363,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
-			backoff := utils.NewRedialBackoff()
+			backoff := iutils.NewRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
 					if err := b.confirmer.startInternal(); err != nil {
-						logger.Criticalw(b.logger, "Failed to start Confirmer", "err", err)
+						b.logger.Criticalw("Failed to start Confirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
@@ -431,7 +433,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			}
 			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(b.chainID)
 			if err != nil {
-				logger.Criticalf(b.logger, "Failed to reload key states after key change")
+				b.logger.Critical("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
 				continue
 			}

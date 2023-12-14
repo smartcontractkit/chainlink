@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/test-go/testify/require"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
-	"github.com/test-go/testify/require"
 )
 
 func TestBase64ConfigRead(t *testing.T) {
@@ -38,7 +38,7 @@ func TestBase64ConfigRead(t *testing.T) {
 				"OPTIMISM_GOERLI": {"http://localhost:8545"},
 			},
 			WalletKeys: map[string][]string{
-				"OPTIMISM_GOERLI": []string{"0x3333333333333333333333333333333333333333"},
+				"OPTIMISM_GOERLI": {"0x3333333333333333333333333333333333333333"},
 			},
 		},
 	}

@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -51,7 +51,7 @@ func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confimed bool) *s4_svc.Row {
 	priv, addr := testutils.NewPrivateKeyAndAddress(t)
 	row := &s4_svc.Row{
-		Address:    utils.NewBig(addr.Big()),
+		Address:    big.New(addr.Big()),
 		SlotId:     0,
 		Version:    version,
 		Confirmed:  confimed,
@@ -296,7 +296,7 @@ func TestPlugin_Query(t *testing.T) {
 		for i := 0; i < 256; i++ {
 			var thisAddress common.Address
 			thisAddress[0] = byte(i)
-			ormRows[i].Address = utils.NewBig(thisAddress.Big())
+			ormRows[i].Address = big.New(thisAddress.Big())
 		}
 		versions := rowsToShapshotRows(ormRows)
 
@@ -322,7 +322,7 @@ func TestPlugin_Query(t *testing.T) {
 			assert.Len(t, qq.Rows, 16)
 			for _, r := range qq.Rows {
 				thisAddress := s4.UnmarshalAddress(r.Address)
-				assert.True(t, ar.Contains((*utils.Big)(thisAddress)))
+				assert.True(t, ar.Contains((*big.Big)(thisAddress)))
 			}
 
 			ar.Advance()

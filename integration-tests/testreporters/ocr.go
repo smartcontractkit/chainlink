@@ -21,6 +21,7 @@ import (
 type OCRSoakTestReporter struct {
 	StartTime         time.Time
 	AnomaliesDetected bool
+	OCRVersion        string
 
 	anomalies   [][]string
 	timeLine    [][]string
@@ -159,7 +160,7 @@ func (o *OCRSoakTestReporter) SetNamespace(namespace string) {
 
 // WriteReport writes OCR Soak test report to a CSV file and final report
 func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
-	log.Debug().Msg("Writing OCR Soak Test Report")
+	log.Debug().Msgf("Writing OCRv%s Soak Test Report", o.OCRVersion)
 	reportLocation := filepath.Join(folderLocation, "./ocr_soak_report.csv")
 	o.csvLocation = reportLocation
 	ocrReportFile, err := os.Create(reportLocation)
@@ -170,7 +171,7 @@ func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 
 	ocrReportWriter := csv.NewWriter(ocrReportFile)
 
-	err = ocrReportWriter.Write([]string{"OCR Soak Test Report"})
+	err = ocrReportWriter.Write([]string{fmt.Sprintf("OCRv%s Soak Test Report", o.OCRVersion)})
 	if err != nil {
 		return err
 	}
@@ -240,7 +241,7 @@ func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *s
 	}
 
 	testFailed := t.Failed()
-	headerText := ":white_check_mark: OCR Soak Test PASSED :white_check_mark:"
+	headerText := fmt.Sprintf(":white_check_mark: OCRv%s Soak Test PASSED :white_check_mark:", o.OCRVersion)
 	if testFailed {
 		headerText = ":x: OCR Soak Test FAILED :x:"
 	} else if o.AnomaliesDetected {

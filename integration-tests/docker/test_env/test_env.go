@@ -71,7 +71,7 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 	return te
 }
 
-func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
+func (te *CLClusterTestEnv) WithTestInstance(t *testing.T) *CLClusterTestEnv {
 	te.t = t
 	te.l = logging.GetTestLogger(t)
 	if te.MockAdapter != nil {

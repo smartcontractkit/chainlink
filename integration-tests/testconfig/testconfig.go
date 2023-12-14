@@ -91,7 +91,6 @@ const (
 	OCR           Product = "ocr"
 	OCR2          Product = "ocr2"
 	OCR2VRF       Product = "ocr2vrf"
-	RunLog        Product = "run_log"
 	VRF           Product = "vrf"
 	VRFv2         Product = "vrfv2"
 	VRFv2Plus     Product = "vrfv2plus"
@@ -146,7 +145,7 @@ func GetConfig(testName string, testType TestType, product Product) (TestConfig,
 	}
 
 	if testName != NoTest {
-		fileNames = append(fileNames, fmt.Sprintf("%s.toml", testName, testType, product))
+		fileNames = append(fileNames, fmt.Sprintf("%s_%s.toml", testName, testType))
 	}
 
 	testConfig := TestConfig{}
@@ -405,6 +404,7 @@ func (c *TestConfig) Validate() error {
 
 	if c.Common != nil {
 		if err := c.Common.Validate(); err != nil {
+			return errors.Wrapf(err, "Common config validation failed")
 		}
 	}
 

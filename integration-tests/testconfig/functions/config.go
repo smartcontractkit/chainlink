@@ -5,9 +5,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/net"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (

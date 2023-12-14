@@ -43,7 +43,7 @@ func (c *evmTxmClient) BatchSendTransactions(
 	ctx context.Context,
 	attempts []TxAttempt,
 	batchSize int,
-	lggr logger.Logger,
+	lggr logger.SugaredLogger,
 ) (
 	codes []commonclient.SendTxReturnCode,
 	txErrs []error,
@@ -62,7 +62,7 @@ func (c *evmTxmClient) BatchSendTransactions(
 	if len(reqs) != len(attempts) {
 		lenErr := fmt.Errorf("Returned request data length (%d) != number of tx attempts (%d)", len(reqs), len(attempts))
 		err = errors.Join(err, lenErr)
-		logger.Criticalw(lggr, "Mismatched length", "err", err)
+		lggr.Criticalw("Mismatched length", "err", err)
 		return
 	}
 
@@ -88,10 +88,10 @@ func (c *evmTxmClient) BatchSendTransactions(
 	return
 }
 
-func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.Logger) (commonclient.SendTxReturnCode, error) {
+func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.SugaredLogger) (commonclient.SendTxReturnCode, error) {
 	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
 	if err != nil {
-		logger.Criticalw(lggr, "Fatal error signing transaction", "err", err, "etx", etx)
+		lggr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
 		return commonclient.Fatal, err
 	}
 	return c.client.SendTransactionReturnCode(ctx, signedTx, etx.FromAddress)

@@ -21,7 +21,7 @@ func TestVersionUpgrade(t *testing.T) {
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&config).
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithStandardCleanup().

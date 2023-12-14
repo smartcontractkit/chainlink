@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestInsertSelectDelete(t *testing.T) {
@@ -23,7 +23,7 @@ func TestInsertSelectDelete(t *testing.T) {
 
 	inserted := []persistedStateRecord{
 		{
-			UpkeepID:            utils.NewBig(big.NewInt(2)),
+			UpkeepID:            ubig.New(big.NewInt(2)),
 			WorkID:              "0x1",
 			CompletionState:     100,
 			BlockNumber:         2,

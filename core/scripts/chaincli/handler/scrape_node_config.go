@@ -279,5 +279,5 @@ func writeJSON(data interface{}, path string) error {
 		return err
 	}
 
-	return os.WriteFile(path, dataBytes, 0644)
+	return os.WriteFile(path, dataBytes, 0644) //nolint:gosec
 }

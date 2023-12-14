@@ -20,6 +20,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -32,7 +33,7 @@ type Head struct {
 	L1BlockNumber    null.Int64
 	ParentHash       common.Hash
 	Parent           *Head
-	EVMChainID       *utils.Big
+	EVMChainID       *ubig.Big
 	Timestamp        time.Time
 	CreatedAt        time.Time
 	BaseFeePerGas    *assets.Wei
@@ -47,7 +48,7 @@ var _ commontypes.Head[common.Hash] = &Head{}
 var _ htrktypes.Head[common.Hash, *big.Int] = &Head{}
 
 // NewHead returns a Head instance.
-func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *utils.Big) Head {
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *ubig.Big) Head {
 	return Head{
 		Number:     number.Int64(),
 		Hash:       blockHash,

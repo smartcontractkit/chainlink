@@ -88,7 +88,7 @@ func TestVRFV2Performance(t *testing.T) {
 		vrfv2Config.KeyHash = cfg.ExistingEnvConfig.KeyHash
 
 		env, err = test_env.NewCLTestEnvBuilder().
-			WithTestLogger(t).
+			WithTestInstance(t).
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfv2Contracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, string(testType), &testConfig)
@@ -116,6 +116,12 @@ func TestVRFV2Performance(t *testing.T) {
 			require.NoError(t, err)
 			consumers, err = vrfv2_actions.DeployVRFV2Consumers(env.ContractDeployer, coordinator, 1)
 			require.NoError(t, err)
+			err = env.EVMClient.WaitForEvents()
+			require.NoError(t, err, vrfv2_actions.ErrWaitTXsComplete)
+			l.Info().
+				Str("Coordinator", cfg.ExistingEnvConfig.CoordinatorAddress).
+				Int("Number of Subs to create", vrfv2Config.NumberOfSubToCreate).
+				Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 			subIDs, err = vrfv2_actions.CreateFundSubsAndAddConsumers(
 				env,
 				&testConfig,
@@ -157,7 +163,7 @@ func TestVRFV2Performance(t *testing.T) {
 		testConfig.Common.ChainlinkNodeFunding = &testConfig.VRFv2.NewEnvConfig.NodeSendingKeyFunding
 		vrfv2Config.SubscriptionFundingAmountLink = testConfig.VRFv2.NewEnvConfig.Funding.SubFundsLink
 		env, err = test_env.NewCLTestEnvBuilder().
-			WithTestLogger(t).
+			WithTestInstance(t).
 			WithGeth().
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).

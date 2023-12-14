@@ -151,6 +151,7 @@ func (o *Volume) Validate() error {
 
 // this came from env config!
 type SoakConfig struct {
+	OCRVersion        *string                     `toml:"ocr_version"`         // Version of OCR to use (1 or 2)
 	NumberOfContracts *int                        `toml:"number_of_contracts"` //default:"2"
 	TimeBetweenRounds *blockchain.JSONStrDuration `toml:"time_between_rounds"` //default:"1m"
 }
@@ -158,6 +159,10 @@ type SoakConfig struct {
 func (o *SoakConfig) ApplyOverrides(from *SoakConfig) error {
 	if from == nil {
 		return nil
+	}
+
+	if from.OCRVersion != nil {
+		o.OCRVersion = from.OCRVersion
 	}
 
 	if from.NumberOfContracts != nil {
@@ -172,6 +177,9 @@ func (o *SoakConfig) ApplyOverrides(from *SoakConfig) error {
 }
 
 func (o *SoakConfig) Validate() error {
+	if o.OCRVersion == nil || *o.OCRVersion == "" {
+		return errors.New("ocr_version must be set to either 1 or 2")
+	}
 	if o.NumberOfContracts == nil || *o.NumberOfContracts <= 1 {
 		return errors.New("number_of_contracts must be set and be greater than 1")
 	}

@@ -14,11 +14,12 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -147,7 +148,7 @@ func TestGetChainID(t *testing.T) {
 	}
 
 	j.Type = job.Type(pipeline.OffchainReportingJobType)
-	j.OCROracleSpec.EVMChainID = (*utils.Big)(big.NewInt(1234567890))
+	j.OCROracleSpec.EVMChainID = (*ubig.Big)(big.NewInt(1234567890))
 	assert.Equal(t, "1234567890", e.getChainID())
 
 	j.Type = job.Type(pipeline.OffchainReporting2JobType)
@@ -206,14 +207,14 @@ func TestSendEATelemetry(t *testing.T) {
 		OCROracleSpec: &job.OCROracleSpec{
 			ContractAddress:    ethkey.EIP55AddressFromAddress(feedAddress),
 			CaptureEATelemetry: true,
-			EVMChainID:         (*utils.Big)(big.NewInt(9)),
+			EVMChainID:         (*ubig.Big)(big.NewInt(9)),
 		},
 	}
 
 	lggr, _ := logger.TestLoggerObserved(t, zap.WarnLevel)
 	doneCh := make(chan struct{})
 	enhancedTelemService := NewEnhancedTelemetryService(&jb, enhancedTelemChan, doneCh, monitoringEndpoint, lggr.Named("Enhanced Telemetry Mercury"))
-	require.NoError(t, enhancedTelemService.Start(testutils.Context(t)))
+	servicetest.Run(t, enhancedTelemService)
 	trrs := pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
@@ -324,7 +325,7 @@ func TestCollectAndSend(t *testing.T) {
 	doneCh := make(chan struct{})
 
 	enhancedTelemService := NewEnhancedTelemetryService(&jb, enhancedTelemChan, doneCh, monitoringEndpoint, lggr.Named("Enhanced Telemetry"))
-	require.NoError(t, enhancedTelemService.Start(testutils.Context(t)))
+	servicetest.Run(t, enhancedTelemService)
 	finalResult := &pipeline.FinalResult{
 		Values:      []interface{}{"123456"},
 		AllErrors:   nil,
@@ -574,7 +575,7 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 		lggr:               lggr,
 		monitoringEndpoint: monitoringEndpoint,
 	}
-	require.NoError(t, e.Start(testutils.Context(t)))
+	servicetest.Run(t, &e)
 
 	wg.Add(1)
 
@@ -690,7 +691,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 		lggr:               lggr,
 		monitoringEndpoint: monitoringEndpoint,
 	}
-	require.NoError(t, e.Start(testutils.Context(t)))
+	servicetest.Run(t, &e)
 
 	wg.Add(1)
 

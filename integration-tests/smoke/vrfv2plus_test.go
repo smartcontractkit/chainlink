@@ -33,10 +33,13 @@ func TestVRFv2Plus(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithGeth().
+		WithPrivateEthereumNetwork(network).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
@@ -119,6 +122,7 @@ func TestVRFv2Plus(t *testing.T) {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
 	})
+
 	t.Run("Native Billing", func(t *testing.T) {
 		testConfig := config.VRFv2Plus.Common.Common
 		var isNativeBilling = true
@@ -612,7 +616,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithTestConfig(&config).
 		WithGeth().
 		WithCLNodes(1).
@@ -705,7 +709,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithTestConfig(&config).
 		WithGeth().
 		WithCLNodes(1).

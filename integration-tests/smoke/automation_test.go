@@ -1134,7 +1134,7 @@ func setupAutomationTestDocker(
 	clNodesCount := 5
 	if isMercuryV02 || isMercuryV03 {
 		env, err = test_env.NewCLTestEnvBuilder().
-			WithTestLogger(t).
+			WithTestInstance(t).
 			WithTestConfig(config).
 			WithGeth().
 			WithMockAdapter().
@@ -1172,7 +1172,7 @@ func setupAutomationTestDocker(
 
 	} else {
 		env, err = test_env.NewCLTestEnvBuilder().
-			WithTestLogger(t).
+			WithTestInstance(t).
 			WithTestConfig(config).
 			WithGeth().
 			WithMockAdapter().

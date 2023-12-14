@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -87,7 +86,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		vrfv2PlusConfig.KeyHash = testConfig.VRFv2Plus.ExistingEnvConfig.KeyHash
 
 		env, err = test_env.NewCLTestEnvBuilder().
-			WithTestLogger(t).
+			WithTestInstance(t).
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, string(testType), &testConfig)
@@ -115,6 +114,12 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			require.NoError(t, err)
 			consumers, err = vrfv2plus.DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, 1)
 			require.NoError(t, err)
+			err = env.EVMClient.WaitForEvents()
+			require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+			l.Info().
+				Str("Coordinator", vrfv2PlusConfig.CoordinatorAddress).
+				Int("Number of Subs to create", vrfv2PlusConfig.NumberOfSubToCreate).
+				Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 			subIDs, err = vrfv2plus.CreateFundSubsAndAddConsumers(
 				env,
 				&testConfig,
@@ -159,7 +164,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		vrfv2PlusConfig.SubscriptionFundingAmountLink = testConfig.VRFv2Plus.NewEnvConfig.Funding.SubFundsLink
 		vrfv2PlusConfig.SubscriptionFundingAmountNative = testConfig.VRFv2Plus.NewEnvConfig.Funding.SubFundsNative
 		env, err = test_env.NewCLTestEnvBuilder().
-			WithTestLogger(t).
+			WithTestInstance(t).
 			WithGeth().
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
@@ -306,13 +311,7 @@ func FundNodesIfNeeded(config *tc.TestConfig, client blockchain.EVMClient, l zer
 					Str("Should have at least", fundingAtLeast.String()).
 					Str("Funding Amount in ETH", fundingToSendEth.String()).
 					Msg("Funding Node's Sending Key")
-				gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
-					To: &address,
-				})
-				if err != nil {
-					return err
-				}
-				err = client.Fund(sendingKey, fundingToSendEth, gasEstimates)
+				err := actions.FundAddress(client, sendingKey, fundingToSendEth)
 				if err != nil {
 					return err
 				}

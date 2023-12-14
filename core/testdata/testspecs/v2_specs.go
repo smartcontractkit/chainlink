@@ -234,6 +234,7 @@ type VRFSpecParams struct {
 	BatchCoordinatorAddress       string
 	VRFOwnerAddress               string
 	BatchFulfillmentEnabled       bool
+	CustomRevertsPipelineEnabled  bool
 	BatchFulfillmentGasMultiplier float64
 	MinIncomingConfirmations      int
 	FromAddresses                 []string
@@ -403,6 +404,7 @@ evmChainID         =  "%s"
 batchCoordinatorAddress = "%s"
 batchFulfillmentEnabled = %v
 batchFulfillmentGasMultiplier = %s
+customRevertsPipelineEnabled = %v
 minIncomingConfirmations = %d
 requestedConfsDelay = %d
 requestTimeout = "%s"
@@ -419,6 +421,7 @@ observationSource = """
 	toml := fmt.Sprintf(template,
 		jobID, name, coordinatorAddress, params.EVMChainID, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
+		params.CustomRevertsPipelineEnabled,
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
 		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(),
 		pollPeriod.String(), observationSource)

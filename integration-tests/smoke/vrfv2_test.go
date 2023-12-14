@@ -28,10 +28,13 @@ func TestVRFv2Basic(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithGeth().
+		WithPrivateEthereumNetwork(network).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
@@ -122,7 +125,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).

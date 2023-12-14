@@ -1160,7 +1160,7 @@ func setupKeeperTest(t *testing.T, config *tc.TestConfig) (
 	clNodeConfig.Keeper.Registry.PerformGasOverhead = &performGasOverhead
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithTestConfig(config).
 		WithGeth().
 		WithCLNodes(5).

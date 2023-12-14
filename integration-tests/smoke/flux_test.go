@@ -32,7 +32,7 @@ func TestFluxBasic(t *testing.T) {
 	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithTestConfig(&config).
 		WithGeth().
 		WithMockAdapter().
