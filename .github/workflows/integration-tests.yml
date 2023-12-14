@@ -82,7 +82,7 @@ jobs:
 
   build-lint-integration-tests:
     name: Build and Lint integration-tests
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu20.04-16cores-64GB
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -160,7 +160,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Test Image
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
     steps:
       - name: Collect Metrics
