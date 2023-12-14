@@ -16,10 +16,10 @@ type encoder struct {
 var _ commontypes.Encoder = &encoder{}
 
 func (e *encoder) Encode(ctx context.Context, item any, itemType string) ([]byte, error) {
-	fmt.Printf("!!!!!!!!!!\\nEncode: %#v\\n%s\\n!!!!!!!!!!\\n", item, itemType)
+	fmt.Printf("!!!!!!!!!!\nEncode: %#v\n%s\n!!!!!!!!!!\n", item, itemType)
 	info, ok := e.Definitions[itemType]
 	if !ok {
-		fmt.Printf("!!!!!!!!!!\\nEncode error not found\\n%s\\n!!!!!!!!!!\\n", itemType)
+		fmt.Printf("!!!!!!!!!!\nEncode error not found\n%s\n!!!!!!!!!!\n", itemType)
 		return nil, commontypes.ErrInvalidType
 	}
 
@@ -31,9 +31,9 @@ func (e *encoder) Encode(ctx context.Context, item any, itemType string) ([]byte
 
 	b, err := encode(reflect.ValueOf(item), info)
 	if err == nil {
-		fmt.Printf("!!!!!!!!!!\\nEncode success\\n%s\\n!!!!!!!!!!\\n", itemType)
+		fmt.Printf("!!!!!!!!!!\nEncode success\n%s\n!!!!!!!!!!\n", itemType)
 	} else {
-		fmt.Printf("!!!!!!!!!!\\nEncode error\\n%v\\n%s\\n!!!!!!!!!!\\n", err, itemType)
+		fmt.Printf("!!!!!!!!!!\nEncode error\n%v\n%s\n!!!!!!!!!!\n", err, itemType)
 	}
 	return b, err
 }
@@ -42,7 +42,7 @@ func (e *encoder) GetMaxEncodingSize(ctx context.Context, n int, itemType string
 	b := make([]byte, 2048) // adjust buffer size to be larger than expected stack
 	nb := runtime.Stack(b, false)
 	s := string(b[:nb])
-	fmt.Printf("!!!!!!!!!!\\nGetMaxEncodingSize\\n%s\\n\\n%v\\n%s!!!!!!!!!!\\n", itemType, e.Definitions, s)
+	fmt.Printf("!!!!!!!!!!\nGetMaxEncodingSize\n%s\n\n%v\n%s!!!!!!!!!!\n", itemType, e.Definitions, s)
 	return e.Definitions[itemType].GetMaxSize(n)
 }
 

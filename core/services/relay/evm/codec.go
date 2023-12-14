@@ -25,7 +25,7 @@ import (
 // SliceToArrayVerifySizeHook verifies that slices have the correct size when converting to an array
 // sizeVerifyBigIntHook allows our custom types that verify the number fits in the on-chain type to be converted as-if
 // it was a *big.Int
-var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountHook, codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook}
+var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountHook, codec.EpochToTimeHook, codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook}
 
 func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 	fmt.Printf("!!!!!!!!!!\nNewCodec\n%#v\n!!!!!!!!!!\n", conf.ChainCodecConfigs)

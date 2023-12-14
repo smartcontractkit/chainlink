@@ -199,17 +199,17 @@ type medianContract struct {
 }
 
 type latestTransmissionDetailsResponse struct {
-	configDigest    ocr2types.ConfigDigest
-	epoch           uint32
-	round           uint8
-	latestAnswer    *big.Int
-	latestTimestamp time.Time
+	ConfigDigest    ocr2types.ConfigDigest
+	Epoch           uint32
+	Round           uint8
+	LatestAnswer    *big.Int
+	LatestTimestamp time.Time
 }
 
 type latestRoundRequested struct {
-	configDigest ocr2types.ConfigDigest
-	epoch        uint32
-	round        uint8
+	ConfigDigest ocr2types.ConfigDigest
+	Epoch        uint32
+	Round        uint8
 }
 
 func (m *medianContract) LatestTransmissionDetails(ctx context.Context) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, latestAnswer *big.Int, latestTimestamp time.Time, err error) {
@@ -220,7 +220,7 @@ func (m *medianContract) LatestTransmissionDetails(ctx context.Context) (configD
 		return
 	}
 
-	return resp.configDigest, resp.epoch, resp.round, resp.latestAnswer, resp.latestTimestamp, err
+	return resp.ConfigDigest, resp.Epoch, resp.Round, resp.LatestAnswer, resp.LatestTimestamp, err
 }
 
 func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, err error) {
@@ -231,7 +231,7 @@ func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time
 		return
 	}
 
-	return resp.configDigest, resp.epoch, resp.round, err
+	return resp.ConfigDigest, resp.Epoch, resp.Round, err
 }
 
 func newMedianContract(chainReader types.ChainReader, address common.Address) *medianContract {
