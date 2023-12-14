@@ -40,10 +40,13 @@ func batchSendTransactions(
 	for i, attempt := range attempts {
 		ethTxIDs[i] = attempt.TxID
 		hashes[i] = attempt.Hash.String()
+		// Decode the signed raw tx back into a Transaction object
 		signedTx, decodeErr := GetGethSignedTx(attempt.SignedRawTx)
 		if decodeErr != nil {
 			return reqs, now, successfulBroadcast, fmt.Errorf("failed to decode signed raw tx into Transaction object: %w", decodeErr)
 		}
+		// Get the canonical encoding of the Transaction object needed for the eth_sendRawTransaction request
+		// The signed raw tx cannot be used directly because it uses a different encoding
 		txBytes, marshalErr := signedTx.MarshalBinary()
 		if marshalErr != nil {
 			return reqs, now, successfulBroadcast, fmt.Errorf("failed to marshal tx into canonical encoding: %w", marshalErr)
