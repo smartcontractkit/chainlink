@@ -29,8 +29,8 @@ type DelegateConfig struct {
 	Runner  Runner
 
 	// Streams
-	ChannelDefinitionCache streams.ChannelDefinitionCache
-	ORM                    ORM
+	ChannelDefinitionCache commontypes.ChannelDefinitionCache
+	// ORM                    ORM
 
 	// OCR3
 	BinaryNetworkEndpointFactory ocr2types.BinaryNetworkEndpointFactory
@@ -58,7 +58,9 @@ func (d *delegate) Start(ctx context.Context) error {
 	// TODO: Do these services need starting?
 	prrc := streams.NewPredecessorRetirementReportCache()
 	src := streams.NewShouldRetireCache()
-	sc := NewStreamCache(d.cfg.ORM)
+
+	// FIXME: orm here? or wait for resolution on streams proposal
+	sc := NewStreamCache(nil)
 	if err := sc.Load(ctx, d.cfg.Logger.Named("StreamCache"), d.cfg.Runner); err != nil {
 		return err
 	}

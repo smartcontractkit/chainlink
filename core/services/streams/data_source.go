@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-data-streams/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -48,7 +49,7 @@ func NewDataSource(lggr logger.Logger, streamCache StreamCache) streams.DataSour
 	return &dataSource{lggr, streamCache}
 }
 
-func (d *dataSource) Observe(ctx context.Context, streamIDs map[streams.StreamID]struct{}) (streams.StreamValues, error) {
+func (d *dataSource) Observe(ctx context.Context, streamIDs map[commontypes.StreamID]struct{}) (streams.StreamValues, error) {
 	// There is no "observationSource" (AKA pipeline)
 	// Need a concept of "streams"
 	// Streams are referenced by ID from the on-chain config
@@ -61,7 +62,7 @@ func (d *dataSource) Observe(ctx context.Context, streamIDs map[streams.StreamID
 	var mu sync.Mutex
 
 	for streamID := range streamIDs {
-		go func(streamID streams.StreamID) {
+		go func(streamID commontypes.StreamID) {
 			defer wg.Done()
 
 			var res streams.ObsResult[*big.Int]

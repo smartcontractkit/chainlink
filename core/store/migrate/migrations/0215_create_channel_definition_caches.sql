@@ -8,7 +8,7 @@ CREATE TABLE streams_channel_definitions (
     updated_at timestamp with time zone NOT NULL
 );
 
-CREATE INDEX idx_streams_channel_definitions_evm_chain_id_addr ON streams_channel_definitions (evm_chain_id, addr);
+CREATE UNIQUE INDEX idx_streams_channel_definitions_evm_chain_id_addr ON streams_channel_definitions (evm_chain_id, addr);
 
 -- +goose Down
 DROP TABLE streams_channel_definitions;

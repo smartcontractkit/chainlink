@@ -10,13 +10,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-data-streams/streams"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/stream_config_store"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -30,8 +29,8 @@ import (
 
 type ChannelDefinitionCacheORM interface {
 	// TODO: What about delete/cleanup?
-	LoadChannelDefinitions(ctx context.Context) (cd streams.ChannelDefinitions, blockNum int64, err error)
-	StoreChannelDefinitions(ctx context.Context, cd streams.ChannelDefinitions) (err error)
+	LoadChannelDefinitions(ctx context.Context, addr common.Address) (cd commontypes.ChannelDefinitions, blockNum int64, err error)
+	StoreChannelDefinitions(ctx context.Context, cd commontypes.ChannelDefinitions) (err error)
 }
 
 var streamConfigStoreABI abi.ABI
@@ -44,7 +43,7 @@ func init() {
 	}
 }
 
-var _ streams.ChannelDefinitionCache = &channelDefinitionCache{}
+var _ commontypes.ChannelDefinitionCache = &channelDefinitionCache{}
 
 type channelDefinitionCache struct {
 	services.StateMachine
@@ -58,7 +57,7 @@ type channelDefinitionCache struct {
 	lggr       logger.Logger
 
 	definitionsMu       sync.RWMutex
-	definitions         streams.ChannelDefinitions
+	definitions         commontypes.ChannelDefinitions
 	definitionsBlockNum int64
 
 	wg     sync.WaitGroup
@@ -75,7 +74,7 @@ var (
 	allTopics = []common.Hash{topicNewChannelDefinition, topicChannelDefinitionRemoved, topicNewProductionConfig, topicNewStagingConfig, topicPromoteStagingConfig}
 )
 
-func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM, lp logpoller.LogPoller, addr common.Address, fromBlock int64) streams.ChannelDefinitionCache {
+func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM, lp logpoller.LogPoller, addr common.Address, fromBlock int64) commontypes.ChannelDefinitionCache {
 	filterName := logpoller.FilterName("OCR3 Streams ChannelDefinitionCachePoller", addr.String())
 	return &channelDefinitionCache{
 		services.StateMachine{},
@@ -86,7 +85,7 @@ func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM
 		addr,
 		lggr.Named("ChannelDefinitionCache").With("addr", addr),
 		sync.RWMutex{},
-		make(streams.ChannelDefinitions),
+		make(commontypes.ChannelDefinitions),
 		fromBlock,
 		sync.WaitGroup{},
 		make(chan struct{}),
@@ -103,7 +102,7 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		c.definitions, c.definitionsBlockNum, err = c.orm.LoadChannelDefinitions(ctx)
+		c.definitions, c.definitionsBlockNum, err = c.orm.LoadChannelDefinitions(ctx, c.addr)
 		if err != nil {
 			return err
 		}
@@ -185,13 +184,13 @@ func (c *channelDefinitionCache) applyLog(log logpoller.Log) error {
 
 func (c *channelDefinitionCache) applyNewChannelDefinition(log *stream_config_store.StreamConfigStoreNewChannelDefinition) {
 	rf := string(log.ChannelDefinition.ReportFormat[:])
-	streamIDs := make([]streams.StreamID, len(log.ChannelDefinition.StreamIDs))
+	streamIDs := make([]commontypes.StreamID, len(log.ChannelDefinition.StreamIDs))
 	for i, streamID := range log.ChannelDefinition.StreamIDs {
-		streamIDs[i] = streams.StreamID(string(streamID[:]))
+		streamIDs[i] = commontypes.StreamID(string(streamID[:]))
 	}
 	c.definitionsMu.Lock()
 	defer c.definitionsMu.Unlock()
-	c.definitions[log.ChannelId] = streams.ChannelDefinition{
+	c.definitions[log.ChannelId] = commontypes.ChannelDefinition{
 		ReportFormat:  commontypes.StreamsReportFormat(rf),
 		ChainSelector: log.ChannelDefinition.ChainSelector,
 		StreamIDs:     streamIDs,
@@ -221,7 +220,7 @@ func (c *channelDefinitionCache) HealthReport() map[string]error {
 
 func (c *channelDefinitionCache) Name() string { return c.lggr.Name() }
 
-func (c *channelDefinitionCache) Definitions() streams.ChannelDefinitions {
+func (c *channelDefinitionCache) Definitions() commontypes.ChannelDefinitions {
 	c.definitionsMu.RLock()
 	defer c.definitionsMu.RUnlock()
 	return maps.Clone(c.definitions)

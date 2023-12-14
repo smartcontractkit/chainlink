@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 
+	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -17,6 +18,9 @@ import (
 type PluginConfig struct {
 	RawServerURL string              `json:"serverURL" toml:"serverURL"`
 	ServerPubKey utils.PlainHexBytes `json:"serverPubKey" toml:"serverPubKey"`
+
+	ChannelDefinitionsContractAddress   common.Address `json:"channelDefinitionsContractAddress" toml:"channelDefinitionsContractAddress"`
+	ChannelDefinitionsContractFromBlock int64          `json:"channelDefinitionsContractFromBlock" toml:"channelDefinitionsContractFromBlock"`
 }
 
 func (p PluginConfig) Validate() (merr error) {

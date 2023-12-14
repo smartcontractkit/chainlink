@@ -2,8 +2,11 @@ package streams
 
 import (
 	"context"
+	"encoding/json"
+	"math/big"
 
-	"github.com/smartcontractkit/chainlink-data-streams/streams"
+	"github.com/ethereum/go-ethereum/common"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -17,14 +20,16 @@ type ORM interface {
 var _ ORM = &orm{}
 
 type orm struct {
-	q pg.Queryer
+	q          pg.Queryer
+	evmChainID *big.Int
 }
 
-func NewORM(q pg.Queryer) ORM {
-	return &orm{q}
+func NewORM(q pg.Queryer, evmChainID *big.Int) ORM {
+	return &orm{q, evmChainID}
+	// TODO: make sure to scope by chain ID everywhere
 }
 
-func (o *orm) LoadStreams(ctx context.Context, lggr logger.Logger, runner Runner, m map[streams.StreamID]Stream) error {
+func (o *orm) LoadStreams(ctx context.Context, lggr logger.Logger, runner Runner, m map[commontypes.StreamID]Stream) error {
 	rows, err := o.q.QueryContext(ctx, "SELECT s.id, ps.id, ps.dot_dag_source, ps.max_task_duration FROM streams s JOIN pipeline_specs ps ON ps.id = s.pipeline_spec_id")
 	if err != nil {
 		// TODO: retries?
@@ -44,10 +49,23 @@ func (o *orm) LoadStreams(ctx context.Context, lggr logger.Logger, runner Runner
 	return rows.Err()
 }
 
-func (o *orm) LoadChannelDefinitions(ctx context.Context) (cd streams.ChannelDefinitions, blockNum int64, err error) {
-	panic("TODO")
+func (o *orm) LoadChannelDefinitions(ctx context.Context, addr common.Address) (cd commontypes.ChannelDefinitions, blockNum int64, err error) {
+	type scd struct {
+		definitions []byte
+		blockNum    int64
+	}
+	var scanned scd
+	if err = o.q.GetContext(ctx, scanned, "SELECT definitions, block_num FROM streams_channel_definitions WHERE evm_chain_id = $1 AND addr = $2", o.evmChainID.String(), addr); err != nil {
+		return nil, 0, err
+	}
+
+	if err = json.Unmarshal(scanned.definitions, &cd); err != nil {
+		return nil, 0, err
+	}
+
+	return cd, scanned.blockNum, nil
 }
 
-func (o *orm) StoreChannelDefinitions(ctx context.Context, cd streams.ChannelDefinitions) error {
+func (o *orm) StoreChannelDefinitions(ctx context.Context, cd commontypes.ChannelDefinitions) error {
 	panic("TODO")
 }

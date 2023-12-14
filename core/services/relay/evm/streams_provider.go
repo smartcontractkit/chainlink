@@ -20,7 +20,7 @@ type streamsProvider struct {
 	configWatcher          *configWatcher
 	transmitter            streams.Transmitter
 	logger                 logger.Logger
-	channelDefinitionCache datastreams.ChannelDefinitionCache
+	channelDefinitionCache commontypes.ChannelDefinitionCache
 
 	ms services.MultiStart
 }
@@ -29,7 +29,7 @@ func NewStreamsProvider(
 	configWatcher *configWatcher,
 	transmitter streams.Transmitter,
 	lggr logger.Logger,
-	channelDefinitionCache datastreams.ChannelDefinitionCache,
+	channelDefinitionCache commontypes.ChannelDefinitionCache,
 ) relaytypes.StreamsProvider {
 	return &streamsProvider{
 		configWatcher,
@@ -81,6 +81,6 @@ func (p *streamsProvider) ContractTransmitter() commontypes.StreamsTransmitter {
 	return p.transmitter
 }
 
-func (p *streamsProvider) ChannelDefinitionCache() datastreams.ChannelDefinitionCache {
+func (p *streamsProvider) ChannelDefinitionCache() commontypes.ChannelDefinitionCache {
 	return p.channelDefinitionCache
 }

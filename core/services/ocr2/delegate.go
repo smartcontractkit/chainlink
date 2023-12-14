@@ -799,14 +799,11 @@ func (d *Delegate) newServicesStreams(
 
 	kr := streams.NewOnchainKeyring(kb)
 
-	orm := NewORM(d.cfg.Queryer)
-
 	cfg := streams.DelegateConfig{
 		Logger:  lggr,
 		Queryer: pg.NewQ(d.db, d.lggr, d.cfg.Database()),
 		Runner:  d.pipelineRunner,
 
-		ORM:                    orm,
 		ChannelDefinitionCache: streamsProvider.ChannelDefinitionCache(),
 
 		// TODO
@@ -823,7 +820,7 @@ func (d *Delegate) newServicesStreams(
 		OCRLogger:                    ocrLogger,
 	}
 	oracle := streams.NewDelegate(cfg)
-	return []job.ServiceCtx{cdc, oracle}, nil
+	return []job.ServiceCtx{provider, oracle}, nil
 }
 
 func (d *Delegate) newServicesMedian(

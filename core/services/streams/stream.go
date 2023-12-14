@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink-data-streams/streams"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -23,17 +23,17 @@ type Stream interface {
 }
 
 type stream struct {
-	id     streams.StreamID
+	id     commontypes.StreamID
 	lggr   logger.Logger
 	spec   pipeline.Spec
 	runner Runner
 }
 
-func NewStream(lggr logger.Logger, id streams.StreamID, spec pipeline.Spec, runner Runner) Stream {
+func NewStream(lggr logger.Logger, id commontypes.StreamID, spec pipeline.Spec, runner Runner) Stream {
 	return newStream(lggr, id, spec, runner)
 }
 
-func newStream(lggr logger.Logger, id streams.StreamID, spec pipeline.Spec, runner Runner) *stream {
+func newStream(lggr logger.Logger, id commontypes.StreamID, spec pipeline.Spec, runner Runner) *stream {
 	return &stream{id, lggr, spec, runner}
 }
 

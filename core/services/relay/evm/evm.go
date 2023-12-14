@@ -56,6 +56,9 @@ type Relayer struct {
 	eventBroadcaster pg.EventBroadcaster
 	pgCfg            pg.QConfig
 	chainReader      commontypes.ChainReader
+	// streams
+	cdcFactory streams.ChannelDefinitionCacheFactory
+	orm        streams.ORM
 }
 
 type CSAETHKeystore interface {
@@ -98,6 +101,9 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
 	}
 	lggr = lggr.Named("Relayer")
+
+	orm := streams.NewORM(pg.NewQ(opts.DB, lggr, opts.QConfig), chain.ID())
+	cdcFactory := streams.NewChannelDefinitionCacheFactory(lggr, orm, chain.LogPoller())
 	return &Relayer{
 		db:               opts.DB,
 		chain:            chain,
@@ -106,6 +112,8 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		mercuryPool:      opts.MercuryPool,
 		eventBroadcaster: opts.EventBroadcaster,
 		pgCfg:            opts.QConfig,
+		cdcFactory:       cdcFactory,
+		orm:              orm,
 	}, nil
 }
 
@@ -235,8 +243,8 @@ func (r *Relayer) NewStreamsProvider(rargs commontypes.RelayArgs, pargs commonty
 	// FIXME
 	// transmitter := streamsNewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, r.db, r.pgCfg)
 	transmitter := streams.NewTransmitter(r.lggr, client, privKey.PublicKey)
-	cdc := streams.NewChannelDefinitionCache(r.lggr, orm, d.logpoller)
 
+	cdc := r.cdcFactory.NewCache(streamsConfig.ChannelDefinitionsContractAddress, streamsConfig.ChannelDefinitionsContractFromBlock)
 	return NewStreamsProvider(configWatcher, transmitter, r.lggr, cdc), nil
 }
 

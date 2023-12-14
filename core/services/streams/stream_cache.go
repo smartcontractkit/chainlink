@@ -3,23 +3,23 @@ package streams
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink-data-streams/streams"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type StreamCacheORM interface {
-	LoadStreams(ctx context.Context, lggr logger.Logger, runner Runner, m map[streams.StreamID]Stream) error
+	LoadStreams(ctx context.Context, lggr logger.Logger, runner Runner, m map[commontypes.StreamID]Stream) error
 }
 
 type StreamCache interface {
-	Get(streamID streams.StreamID) (Stream, bool)
+	Get(streamID commontypes.StreamID) (Stream, bool)
 	Load(ctx context.Context, lggr logger.Logger, runner Runner) error
 }
 
 type streamCache struct {
 	orm     StreamCacheORM
-	streams map[streams.StreamID]Stream
+	streams map[commontypes.StreamID]Stream
 }
 
 func NewStreamCache(orm StreamCacheORM) StreamCache {
@@ -29,11 +29,11 @@ func NewStreamCache(orm StreamCacheORM) StreamCache {
 func newStreamCache(orm StreamCacheORM) *streamCache {
 	return &streamCache{
 		orm,
-		make(map[streams.StreamID]Stream),
+		make(map[commontypes.StreamID]Stream),
 	}
 }
 
-func (s *streamCache) Get(streamID streams.StreamID) (Stream, bool) {
+func (s *streamCache) Get(streamID commontypes.StreamID) (Stream, bool) {
 	strm, exists := s.streams[streamID]
 	return strm, exists
 }
