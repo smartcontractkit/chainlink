@@ -62,7 +62,7 @@ func DeployVRFV08TestHelper(auth *bind.TransactOpts, backend bind.ContractBacken
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV08TestHelper{VRFV08TestHelperCaller: VRFV08TestHelperCaller{contract: contract}, VRFV08TestHelperTransactor: VRFV08TestHelperTransactor{contract: contract}, VRFV08TestHelperFilterer: VRFV08TestHelperFilterer{contract: contract}}, nil
+	return address, tx, &VRFV08TestHelper{address: address, abi: *parsed, VRFV08TestHelperCaller: VRFV08TestHelperCaller{contract: contract}, VRFV08TestHelperTransactor: VRFV08TestHelperTransactor{contract: contract}, VRFV08TestHelperFilterer: VRFV08TestHelperFilterer{contract: contract}}, nil
 }
 
 type VRFV08TestHelper struct {

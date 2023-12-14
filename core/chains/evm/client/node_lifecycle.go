@@ -4,14 +4,19 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 var (
@@ -46,10 +51,10 @@ func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
 	if interval <= 0 || interval > queryTimeout {
 		interval = queryTimeout
 	}
-	return utils.WithJitter(interval)
+	return cutils.WithJitter(interval)
 }
 
-func (n *node) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
+func (n *node) setLatestReceived(blockNumber int64, totalDifficulty *big.Int) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	n.stateLatestBlockNumber = blockNumber
@@ -87,7 +92,7 @@ func (n *node) aliveLoop() {
 	pollFailureThreshold := n.nodePoolCfg.PollFailureThreshold()
 	pollInterval := n.nodePoolCfg.PollInterval()
 
-	lggr := n.lfcLog.Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
+	lggr := logger.Sugared(n.lfcLog).Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
 	lggr.Tracew("Alive loop starting", "nodeState", n.State())
 
 	headsC := make(chan *evmtypes.Head)
@@ -213,13 +218,13 @@ func (n *node) aliveLoop() {
 					continue
 				}
 			}
-			n.declareOutOfSync(func(num int64, td *utils.Big) bool { return num < highestReceivedBlockNumber })
+			n.declareOutOfSync(func(num int64, td *big.Int) bool { return num < highestReceivedBlockNumber })
 			return
 		}
 	}
 }
 
-func (n *node) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
+func (n *node) isOutOfSync(num int64, td *big.Int) (outOfSync bool) {
 	outOfSync, _ = n.syncStatus(num, td)
 	return
 }
@@ -227,7 +232,7 @@ func (n *node) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
 // syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
 // Always returns outOfSync false for SyncThreshold 0.
 // liveNodes is only included when outOfSync is true.
-func (n *node) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
+func (n *node) syncStatus(num int64, td *big.Int) (outOfSync bool, liveNodes int) {
 	if n.nLiveNodes == nil {
 		return // skip for tests
 	}
@@ -242,8 +247,8 @@ func (n *node) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes i
 	case NodeSelectionMode_HighestHead, NodeSelectionMode_RoundRobin, NodeSelectionMode_PriorityLevel:
 		return num < highest-int64(threshold), ln
 	case NodeSelectionMode_TotalDifficulty:
-		bigThreshold := utils.NewBigI(int64(threshold))
-		return td.Cmp(greatest.Sub(bigThreshold)) < 0, ln
+		bigThreshold := big.NewInt(int64(threshold))
+		return td.Cmp(bigmath.Sub(greatest, bigThreshold)) < 0, ln
 	default:
 		panic("unrecognized NodeSelectionMode: " + mode)
 	}
@@ -255,7 +260,7 @@ const (
 )
 
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
-func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
+func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *big.Int) bool) {
 	defer n.wg.Done()
 
 	{
@@ -272,7 +277,7 @@ func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
 
 	outOfSyncAt := time.Now()
 
-	lggr := n.lfcLog.Named("OutOfSync")
+	lggr := logger.Sugared(logger.Named(n.lfcLog, "OutOfSync"))
 	lggr.Debugw("Trying to revive out-of-sync RPC node", "nodeState", n.State())
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
@@ -354,7 +359,7 @@ func (n *node) unreachableLoop() {
 
 	unreachableAt := time.Now()
 
-	lggr := n.lfcLog.Named("Unreachable")
+	lggr := logger.Sugared(logger.Named(n.lfcLog, "Unreachable"))
 	lggr.Debugw("Trying to revive unreachable RPC node", "nodeState", n.State())
 
 	dialRetryBackoff := utils.NewRedialBackoff()
@@ -410,7 +415,7 @@ func (n *node) invalidChainIDLoop() {
 
 	invalidAt := time.Now()
 
-	lggr := n.lfcLog.Named("InvalidChainID")
+	lggr := logger.Named(n.lfcLog, "InvalidChainID")
 	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with invalid chain ID", n.String()), "nodeState", n.State())
 
 	chainIDRecheckBackoff := utils.NewRedialBackoff()

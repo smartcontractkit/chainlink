@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"time"
 
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 )
 
 var (

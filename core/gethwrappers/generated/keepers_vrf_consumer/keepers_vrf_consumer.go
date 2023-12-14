@@ -50,7 +50,7 @@ func DeployKeepersVRFConsumer(auth *bind.TransactOpts, backend bind.ContractBack
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &KeepersVRFConsumer{KeepersVRFConsumerCaller: KeepersVRFConsumerCaller{contract: contract}, KeepersVRFConsumerTransactor: KeepersVRFConsumerTransactor{contract: contract}, KeepersVRFConsumerFilterer: KeepersVRFConsumerFilterer{contract: contract}}, nil
+	return address, tx, &KeepersVRFConsumer{address: address, abi: *parsed, KeepersVRFConsumerCaller: KeepersVRFConsumerCaller{contract: contract}, KeepersVRFConsumerTransactor: KeepersVRFConsumerTransactor{contract: contract}, KeepersVRFConsumerFilterer: KeepersVRFConsumerFilterer{contract: contract}}, nil
 }
 
 type KeepersVRFConsumer struct {

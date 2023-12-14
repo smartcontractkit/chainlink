@@ -14,7 +14,7 @@ type Config interface {
 }
 
 func toLocalConfig(cfg ValidationConfig, evmOcrConfig evmconfig.OCR, insecureCfg insecureConfig, spec job.OCROracleSpec, ocrConfig job.OCRConfig) ocrtypes.LocalConfig {
-	concreteSpec := job.LoadEnvConfigVarsLocalOCR(evmOcrConfig, spec, ocrConfig)
+	concreteSpec := job.LoadConfigVarsLocalOCR(evmOcrConfig, spec, ocrConfig)
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      concreteSpec.BlockchainTimeout.Duration(),
 		ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,

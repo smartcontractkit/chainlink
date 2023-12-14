@@ -2,6 +2,7 @@ exec chainlink node -c config.toml -s secrets.toml validate
 cmp stdout out.txt
 
 -- config.toml --
+<<<<<<< HEAD
 [P2P.V1]
 Enabled = true
 AnnounceIP = ''
@@ -14,6 +15,14 @@ ListenIP = '0.0.0.0'
 ListenPort = 0
 NewStreamTimeout = '10s'
 PeerstoreWriteInterval = '5m0s'
+=======
+
+[Tracing]
+Enabled = true
+CollectorTarget = 'otel-collector:4317'
+TLSCertPath = 'something'
+Mode = 'unencrypted'
+>>>>>>> develop
 
 -- secrets.toml --
 [Database]
@@ -32,6 +41,7 @@ AllowSimplePasswords = false
 Keystore = 'xxxxx'
 
 # Input Configuration:
+<<<<<<< HEAD
 [P2P]
 [P2P.V1]
 Enabled = true
@@ -45,6 +55,13 @@ ListenIP = '0.0.0.0'
 ListenPort = 0
 NewStreamTimeout = '10s'
 PeerstoreWriteInterval = '5m0s'
+=======
+[Tracing]
+Enabled = true
+CollectorTarget = 'otel-collector:4317'
+Mode = 'unencrypted'
+TLSCertPath = 'something'
+>>>>>>> develop
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
@@ -55,7 +72,10 @@ ShutdownGracePeriod = '5s'
 FeedsManager = true
 LogPoller = false
 UICSAKeys = false
+<<<<<<< HEAD
 CCIP = false
+=======
+>>>>>>> develop
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'
@@ -111,6 +131,10 @@ MaxAgeDays = 0
 MaxBackups = 1
 
 [WebServer]
+<<<<<<< HEAD
+=======
+AuthenticationMethod = 'local'
+>>>>>>> develop
 AllowOrigins = 'http://localhost:3000,http://localhost:6688'
 BridgeResponseURL = ''
 BridgeCacheTTL = '0s'
@@ -123,6 +147,28 @@ HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
 ListenIP = '0.0.0.0'
 
+<<<<<<< HEAD
+=======
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = ''
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = ''
+ActiveAttributeAllowedValue = ''
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
+
+>>>>>>> develop
 [WebServer.MFA]
 RPID = ''
 RPOrigin = ''
@@ -167,7 +213,11 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
+<<<<<<< HEAD
 CaptureAutomationCustomTelemetry = false
+=======
+CaptureAutomationCustomTelemetry = true
+>>>>>>> develop
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
@@ -191,6 +241,7 @@ OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
 
+<<<<<<< HEAD
 [P2P.V1]
 Enabled = true
 AnnounceIP = ''
@@ -204,6 +255,8 @@ ListenPort = 0
 NewStreamTimeout = '10s'
 PeerstoreWriteInterval = '5m0s'
 
+=======
+>>>>>>> develop
 [P2P.V2]
 Enabled = true
 AnnounceAddresses = []
@@ -258,6 +311,7 @@ InfiniteDepthQueries = false
 DisableRateLimiting = false
 
 [Tracing]
+<<<<<<< HEAD
 Enabled = false
 CollectorTarget = ''
 NodeID = ''
@@ -277,4 +331,21 @@ SamplingRatio = 0.0
 		- ListenPort: is deprecated and will be removed in a future version
 		- NewStreamTimeout: is deprecated and will be removed in a future version
 		- PeerstoreWriteInterval: is deprecated and will be removed in a future version
+=======
+Enabled = true
+CollectorTarget = 'otel-collector:4317'
+NodeID = ''
+SamplingRatio = 0.0
+Mode = 'unencrypted'
+TLSCertPath = 'something'
+
+[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1s'
+MaxStaleAge = '1h0m0s'
+LatestReportDeadline = '5s'
+
+# Configuration warning:
+Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'
+>>>>>>> develop
 Valid configuration.

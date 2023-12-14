@@ -1,7 +1,6 @@
 package transmission_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
@@ -398,7 +397,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(context.Background(), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
 	require.NoError(t, err)
 
 	// Generate encoded paymaster data to fund the VRF consumer.

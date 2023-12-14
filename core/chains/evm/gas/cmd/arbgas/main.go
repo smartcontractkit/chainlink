@@ -9,12 +9,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
-	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func main() {
@@ -22,9 +21,10 @@ func main() {
 		log.Fatal("Expected one URL argument but got", l-1)
 	}
 	url := os.Args[1]
-	lggr, sync := logger.NewLogger()
-	defer func() { _ = sync() }()
-	lggr.SetLogLevel(zapcore.DebugLevel)
+	lggr, err := logger.New()
+	if err != nil {
+		log.Fatal("Failed to create logger:", err)
+	}
 
 	ctx := context.Background()
 	withEstimator(ctx, logger.Sugared(lggr), url, func(e gas.EvmEstimator) {

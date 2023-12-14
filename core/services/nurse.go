@@ -17,13 +17,14 @@ import (
 
 	"github.com/google/pprof/profile"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Nurse struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	cfg Config
 	log logger.Logger

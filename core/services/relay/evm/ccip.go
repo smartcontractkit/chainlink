@@ -4,7 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 // CCIPCommitProvider provides all components needed for a CCIP Relay OCR2 plugin.
@@ -30,7 +30,7 @@ type ccipCommitProvider struct {
 	contractTransmitter *contractTransmitter
 }
 
-func NewCCIPCommitProvider(lggr logger.Logger, chainSet evm.Chain, rargs relaytypes.RelayArgs, transmitterID string, ks keystore.Eth, eventBroadcaster pg.EventBroadcaster) (CCIPCommitProvider, error) {
+func NewCCIPCommitProvider(lggr logger.Logger, chainSet legacyevm.Chain, rargs relaytypes.RelayArgs, transmitterID string, ks keystore.Eth, eventBroadcaster pg.EventBroadcaster) (CCIPCommitProvider, error) {
 	relayOpts := types.NewRelayOpts(rargs)
 	configWatcher, err := newConfigProvider(lggr, chainSet, relayOpts, eventBroadcaster)
 	if err != nil {
@@ -45,7 +45,7 @@ func NewCCIPCommitProvider(lggr logger.Logger, chainSet evm.Chain, rargs relayty
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(lggr, rargs, transmitterID, configWatcher, ks, fn)
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, transmitterID, ks, configWatcher, fn)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ type ccipExecutionProvider struct {
 
 var _ relaytypes.Plugin = (*ccipExecutionProvider)(nil)
 
-func NewCCIPExecutionProvider(lggr logger.Logger, chainSet evm.Chain, rargs relaytypes.RelayArgs, transmitterID string, ks keystore.Eth, eventBroadcaster pg.EventBroadcaster) (CCIPExecutionProvider, error) {
+func NewCCIPExecutionProvider(lggr logger.Logger, chainSet legacyevm.Chain, rargs relaytypes.RelayArgs, transmitterID string, ks keystore.Eth, eventBroadcaster pg.EventBroadcaster) (CCIPExecutionProvider, error) {
 	relayOpts := types.NewRelayOpts(rargs)
 
 	configWatcher, err := newConfigProvider(lggr, chainSet, relayOpts, eventBroadcaster)
@@ -82,7 +82,7 @@ func NewCCIPExecutionProvider(lggr logger.Logger, chainSet evm.Chain, rargs rela
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(lggr, rargs, transmitterID, configWatcher, ks, fn)
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, transmitterID, ks, configWatcher, fn)
 	if err != nil {
 		return nil, err
 	}

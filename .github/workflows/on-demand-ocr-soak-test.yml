@@ -20,10 +20,16 @@ on:
           - "BSC_TESTNET"
           - "SCROLL_SEPOLIA"
           - "SCROLL_MAINNET"
-          - "MUMBAI"
+          - "POLYGON_MUMBAI"
           - "POLYGON_MAINNET"   
           - "LINEA_GOERLI"
           - "LINEA_MAINNET"  
+          - "FANTOM_TESTNET"   
+          - "FANTOM_MAINNET"   
+          - "KROMA_MAINNET"
+          - "KROMA_SEPOLIA"
+          - "WEMIX_TESTNET"
+          - "WEMIX_MAINNET"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
@@ -48,19 +54,17 @@ on:
       chainlinkVersion:
         description: Container image version for the Chainlink nodes
         required: true
-        default: "1.11.0"
-      testDuration:
-        description: Duration of the test (time string)
+        default: "2.7.0"
+      ocrVersion:
+        description: Version of OCR to Use
+        type: choice
+        options:
+          - 1
+          - 2
+      testInputs:
+        description: Duration;Funding;TimeBetweenRounds
         required: false
-        default: 15m
-      chainlinkNodeFunding:
-        description: How much to fund each Chainlink node (in ETH)
-        required: false
-        default: ".001"
-      timeBetweenRounds:
-        description: How long to wait before starting a new round
-        required: false
-        default: 1m
+        default: "10m;.1;1m"
 
 jobs:
   ocr_soak_test:
@@ -78,16 +82,14 @@ jobs:
       SELECTED_NETWORKS: ${{ inputs.network }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
-      OCR_TEST_DURATION: ${{ inputs.testDuration }}
-      OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
-      OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
+      OCR_VERSION: ${{ inputs.ocrVersion }}
       TEST_LOG_LEVEL: debug
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -95,6 +97,7 @@ jobs:
         continue-on-error: true
       - name: Get Inputs
         run: |
+          # Mask the sensitive inputs
           EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
           EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
           EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
@@ -109,8 +112,28 @@ jobs:
           echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
           echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
           echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
+
+          # Read in our test inputs
+          IFS=';' read -ra parts <<< "${{ inputs.testInputs }}"
+          index=0
+          for part in "${parts[@]}"; do
+              # A little hacky, but good enough for this
+              if [ $index -eq 0 ]; then
+                  echo "OCR_TEST_DURATION=$part"
+                  echo "OCR_TEST_DURATION=$part" >> $GITHUB_ENV
+              elif [ $index -eq 1 ]; then
+                  echo "OCR_CHAINLINK_NODE_FUNDING=$part"
+                  echo "OCR_CHAINLINK_NODE_FUNDING=$part" >> $GITHUB_ENV
+              elif [ $index -eq 2 ]; then
+                  echo "OCR_TIME_BETWEEN_ROUNDS=$part"
+                  echo "OCR_TIME_BETWEEN_ROUNDS=$part" >> $GITHUB_ENV
+              else
+                  echo "Additional Unregistered Input: $part"
+              fi
+              ((index+=1))
+          done
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ env.REF_NAME }}
       - name: Setup Push Tag
@@ -127,7 +150,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak

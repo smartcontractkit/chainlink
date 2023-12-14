@@ -12,7 +12,7 @@ OPTIMIZE_RUNS=1000000
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
-python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
 
 solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION
@@ -20,10 +20,13 @@ export SOLC_VERSION=$SOLC_VERSION
 
 
 compileContract () {
-  solc @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
-      -o $ROOT/contracts/solc/v$SOLC_VERSION \
-      --abi --bin --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/node_modules\
-      $ROOT/contracts/src/v0.8/$1
+  local contract
+  contract=$(basename "$1" ".sol")
+
+  solc @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
+      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8,"$ROOT"/contracts/node_modules\
+      "$ROOT"/contracts/src/v0.8/"$1"
 }
 
 compileContract automation/upkeeps/CronUpkeepFactory.sol
@@ -38,6 +41,7 @@ compileContract automation/v2_0/KeeperRegistryLogic2_0.sol
 compileContract automation/UpkeepTranscoder.sol
 compileContract automation/mocks/MockAggregatorProxy.sol
 compileContract automation/testhelpers/LogUpkeepCounter.sol
+compileContract automation/testhelpers/SimpleLogUpkeepCounter.sol
 
 compileContract automation/mocks/KeeperRegistrar1_2Mock.sol
 compileContract automation/mocks/KeeperRegistryCheckUpkeepGasUsageWrapper1_2Mock.sol
@@ -60,8 +64,6 @@ compileContract automation/v2_1/AutomationForwarderLogic.sol
 compileContract automation/testhelpers/LogTriggeredStreamsLookup.sol
 compileContract automation/testhelpers/DummyProtocol.sol
 
-compileContract automation/testhelpers/KeeperBase.sol
-compileContract automation/testhelpers/KeeperCompatibleInterface.sol
 compileContract automation/testhelpers/KeeperConsumer.sol
 compileContract automation/testhelpers/KeeperConsumerPerformance.sol
 compileContract automation/testhelpers/PerformDataChecker.sol

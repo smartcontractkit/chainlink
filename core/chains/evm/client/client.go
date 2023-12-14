@@ -2,16 +2,19 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strings"
 	"time"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum"
@@ -61,7 +64,7 @@ type Client interface {
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
-	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error)
+	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
 
 	// Wrapped Geth client methods
 	// blockNumber can be specified as `nil` to imply latest block
@@ -99,7 +102,7 @@ func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc
 // client represents an abstract client that manages connections to
 // multiple nodes for a single chain id
 type client struct {
-	logger logger.Logger
+	logger logger.SugaredLogger
 	pool   *Pool
 }
 
@@ -108,10 +111,12 @@ var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.H
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-func NewClientWithNodes(logger logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsThreshold time.Duration, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
-	pool := NewPool(logger, selectionMode, leaseDuration, noNewHeadsThreshold, primaryNodes, sendOnlyNodes, chainID, chainType)
+//
+// Deprecated: use [NewChainClient]
+func NewClientWithNodes(lggr logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsThreshold time.Duration, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
+	pool := NewPool(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaryNodes, sendOnlyNodes, chainID, chainType)
 	return &client{
-		logger: logger,
+		logger: logger.Sugared(lggr),
 		pool:   pool,
 	}, nil
 }
@@ -163,7 +168,9 @@ func (client *client) TokenBalance(ctx context.Context, address common.Address, 
 	if err != nil {
 		return numLinkBigInt, err
 	}
-	numLinkBigInt.SetString(result, 0)
+	if _, ok := numLinkBigInt.SetString(result, 0); !ok {
+		return nil, fmt.Errorf("failed to parse int: %s", result)
+	}
 	return numLinkBigInt, nil
 }
 
@@ -211,9 +218,9 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 	return client.pool.HeaderByHash(ctx, h)
 }
 
-func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
+func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := client.SendTransaction(ctx, tx)
-	return NewSendErrorReturnCode(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
+	return ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
 }
 
 // SendTransaction also uses the sendonly HTTP RPC URLs if set
@@ -280,7 +287,7 @@ func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *
 		err = ethereum.NotFound
 		return
 	}
-	head.EVMChainID = utils.NewBig(client.ConfiguredChainID())
+	head.EVMChainID = ubig.New(client.ConfiguredChainID())
 	return
 }
 
@@ -293,7 +300,7 @@ func (client *client) HeadByHash(ctx context.Context, hash common.Hash) (head *e
 		err = ethereum.NotFound
 		return
 	}
-	head.EVMChainID = utils.NewBig(client.ConfiguredChainID())
+	head.EVMChainID = ubig.New(client.ConfiguredChainID())
 	return
 }
 

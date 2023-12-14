@@ -12,7 +12,7 @@ package secp256k1
 import (
 	"math/big"
 
-	secp256k1BTCD "github.com/btcsuite/btcd/btcec"
+	secp256k1BTCD "github.com/btcsuite/btcd/btcec/v2"
 
 	"go.dedis.ch/kyber/v3"
 )

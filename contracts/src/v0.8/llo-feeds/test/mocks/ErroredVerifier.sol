@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import {IVerifier} from "../../interfaces/IVerifier.sol";
-import {Common} from "../../../libraries/Common.sol";
+import {Common} from "../../libraries/Common.sol";
 
 contract ErroredVerifier is IVerifier {
   function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {

@@ -1107,12 +1107,13 @@ func setupKeeperTest(t *testing.T) (
 	clNodeConfig.Keeper.Registry.PerformGasOverhead = &performGasOverhead
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(5).
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(.5)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 

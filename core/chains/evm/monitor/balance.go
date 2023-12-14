@@ -13,12 +13,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -29,11 +30,11 @@ type (
 	BalanceMonitor interface {
 		httypes.HeadTrackable
 		GetEthBalance(gethCommon.Address) *assets.Eth
-		services.ServiceCtx
+		services.Service
 	}
 
 	balanceMonitor struct {
-		utils.StartStopOnce
+		services.StateMachine
 		logger         logger.Logger
 		ethClient      evmclient.Client
 		chainID        *big.Int
@@ -50,11 +51,11 @@ type (
 var _ BalanceMonitor = (*balanceMonitor)(nil)
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, logger logger.Logger) *balanceMonitor {
+func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, lggr logger.Logger) *balanceMonitor {
 	chainId := ethClient.ConfiguredChainID()
 	bm := &balanceMonitor{
-		utils.StartStopOnce{},
-		logger.Named("BalanceMonitor"),
+		services.StateMachine{},
+		logger.Named(lggr, "BalanceMonitor"),
 		ethClient,
 		chainId,
 		chainId.String(),
@@ -118,7 +119,8 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 	bm.ethBalances[address] = &ethBal
 	bm.ethBalancesMtx.Unlock()
 
-	lgr := bm.logger.Named("BalanceLog").With(
+	lgr := logger.Named(bm.logger, "BalanceLog")
+	lgr = logger.With(lgr,
 		"address", address.Hex(),
 		"ethBalance", ethBal.String(),
 		"weiBalance", ethBal.ToInt())

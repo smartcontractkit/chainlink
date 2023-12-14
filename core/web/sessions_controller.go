@@ -39,7 +39,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	}
 
 	// Does this user have 2FA enabled?
-	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
+	userWebAuthnTokens, err := sc.App.AuthenticationProvider().GetUserWebAuthn(sr.Email)
 	if err != nil {
 		sc.App.GetLogger().Errorf("Error loading user WebAuthn data: %s", err)
 		jsonAPIError(c, http.StatusInternalServerError, errors.New("internal Server Error"))
@@ -53,7 +53,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 		sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
 	}
 
-	sid, err := sc.App.SessionORM().CreateSession(sr)
+	sid, err := sc.App.AuthenticationProvider().CreateSession(sr)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnauthorized, err)
 		return
@@ -78,7 +78,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 		return
 	}
-	if err := sc.App.SessionORM().DeleteUserSession(sessionID); err != nil {
+	if err := sc.App.AuthenticationProvider().DeleteUserSession(sessionID); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

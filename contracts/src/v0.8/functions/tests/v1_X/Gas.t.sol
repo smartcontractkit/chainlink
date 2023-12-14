@@ -154,14 +154,6 @@ contract Gas_SendRequest is FunctionsSubscriptionSetup {
 
 /// @notice #fulfillRequest
 contract FunctionsClient_FulfillRequest is FunctionsClientRequestSetup {
-  struct Report {
-    bytes32[] rs;
-    bytes32[] ss;
-    bytes32 vs;
-    bytes report;
-    bytes32[3] reportContext;
-  }
-
   mapping(uint256 reportNumber => Report) s_reports;
 
   FunctionsClientTestHelper s_functionsClientWithMaximumReturnData;

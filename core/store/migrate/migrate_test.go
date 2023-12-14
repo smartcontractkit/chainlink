@@ -12,14 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -29,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var migrationDir = "migrations"
@@ -73,7 +73,7 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 }
 
 func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
-	cfg, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
+	cfg, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	lggr := logger.TestLogger(t)
 	err := goose.UpTo(db.DB, migrationDir, 99)
 	require.NoError(t, err)
@@ -342,7 +342,7 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 }
 
 func TestMigrate_101_GenericOCR2(t *testing.T) {
-	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
 
@@ -391,32 +391,33 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 }
 
 func TestMigrate(t *testing.T) {
+	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
-	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
 
-	err = migrate.Status(db.DB, lggr)
+	err = migrate.Status(ctx, db.DB, lggr)
 	require.NoError(t, err)
 
-	ver, err := migrate.Current(db.DB, lggr)
+	ver, err := migrate.Current(ctx, db.DB, lggr)
 	require.NoError(t, err)
 	require.Equal(t, int64(100), ver)
 
-	err = migrate.Migrate(db.DB, lggr)
+	err = migrate.Migrate(ctx, db.DB, lggr)
 	require.NoError(t, err)
 
-	err = migrate.Rollback(db.DB, lggr, null.IntFrom(99))
+	err = migrate.Rollback(ctx, db.DB, lggr, null.IntFrom(99))
 	require.NoError(t, err)
 
-	ver, err = migrate.Current(db.DB, lggr)
+	ver, err = migrate.Current(ctx, db.DB, lggr)
 	require.NoError(t, err)
 	require.Equal(t, int64(99), ver)
 }
 
 func TestSetMigrationENVVars(t *testing.T) {
 	t.Run("ValidEVMConfig", func(t *testing.T) {
-		chainID := utils.NewBig(big.NewInt(1337))
+		chainID := ubig.New(big.NewInt(1337))
 		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			evmEnabled := true
 			c.EVM = evmcfg.EVMConfigs{&evmcfg.EVMConfig{
@@ -432,7 +433,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 	})
 
 	t.Run("EVMConfigMissing", func(t *testing.T) {
-		chainID := utils.NewBig(big.NewInt(1337))
+		chainID := ubig.New(big.NewInt(1337))
 		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.EVM = nil })
 
 		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
@@ -443,7 +444,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 }
 
 func TestDatabaseBackFillWithMigration202(t *testing.T) {
-	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 
 	err := goose.UpTo(db.DB, migrationDir, 201)
 	require.NoError(t, err)
@@ -523,7 +524,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	maxLogsSize := 100_000
 	// Disable Goose logging for benchmarking
 	goose.SetLogger(goose.NopLogger())
-	_, db := heavyweight.FullTestDBEmptyV2(b, migrationDir, nil)
+	_, db := heavyweight.FullTestDBEmptyV2(b, nil)
 
 	err := goose.UpTo(db.DB, migrationDir, previousMigration)
 	require.NoError(b, err)
@@ -534,7 +535,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 		var blocks []logpoller.LogPollerBlock
 		for i := 0; i < maxLogsSize; i++ {
 			blocks = append(blocks, logpoller.LogPollerBlock{
-				EvmChainId:           utils.NewBigI(int64(j + 1)),
+				EvmChainId:           ubig.NewI(int64(j + 1)),
 				BlockHash:            testutils.Random32Byte(),
 				BlockNumber:          int64(i + 1000),
 				FinalizedBlockNumber: 0,

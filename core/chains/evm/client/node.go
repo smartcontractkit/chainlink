@@ -19,10 +19,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -82,6 +83,8 @@ var (
 //go:generate mockery --quiet --name Node --output ../mocks/ --case=underscore
 
 // Node represents a client that connects to an ethereum-compatible RPC node
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.Node]
 type Node interface {
 	Start(ctx context.Context) error
 	Close() error
@@ -89,7 +92,7 @@ type Node interface {
 	// State returns NodeState
 	State() NodeState
 	// StateAndLatest returns NodeState with the latest received block number & total difficulty.
-	StateAndLatest() (state NodeState, blockNum int64, totalDifficulty *utils.Big)
+	StateAndLatest() (state NodeState, blockNum int64, totalDifficulty *big.Int)
 	// Name is a unique identifier for this node.
 	Name() string
 	ChainID() *big.Int
@@ -132,9 +135,9 @@ type rawclient struct {
 // Node represents one ethereum node.
 // It must have a ws url and may have a http url
 type node struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lfcLog              logger.Logger
-	rpcLog              logger.Logger
+	rpcLog              logger.SugaredLogger
 	name                string
 	id                  int32
 	chainID             *big.Int
@@ -149,7 +152,7 @@ type node struct {
 	state   NodeState
 	// Each node is tracking the last received head number and total difficulty
 	stateLatestBlockNumber     int64
-	stateLatestTotalDifficulty *utils.Big
+	stateLatestTotalDifficulty *big.Int
 
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
@@ -173,10 +176,12 @@ type node struct {
 	//  1. see how many live nodes there are in total, so we can prevent the last alive node in a pool from being
 	//  moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
 	//  2. compare against the highest head (by number or difficulty) to ensure we don't fall behind too far.
-	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *utils.Big)
+	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *big.Int)
 }
 
 // NewNode returns a new *node as Node
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewNode]
 func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, nodeOrder int32) Node {
 	n := new(node)
 	n.name = name
@@ -191,7 +196,8 @@ func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr lo
 	}
 	n.chStopInFlight = make(chan struct{})
 	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
-	lggr = lggr.Named("Node").With(
+	lggr = logger.Named(lggr, "Node")
+	lggr = logger.With(lggr,
 		"nodeTier", "primary",
 		"nodeName", name,
 		"node", n.String(),
@@ -199,8 +205,8 @@ func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr lo
 		"nodeOrder", n.order,
 		"mode", n.getNodeMode(),
 	)
-	n.lfcLog = lggr.Named("Lifecycle")
-	n.rpcLog = lggr.Named("RPC")
+	n.lfcLog = logger.Named(lggr, "Lifecycle")
+	n.rpcLog = logger.Sugared(lggr).Named("RPC")
 	n.stateLatestBlockNumber = -1
 
 	return n
@@ -258,9 +264,9 @@ func (n *node) dial(callerCtx context.Context) error {
 	defer cancel()
 
 	promEVMPoolRPCNodeDials.WithLabelValues(n.chainID.String(), n.name).Inc()
-	lggr := n.lfcLog.With("wsuri", n.ws.uri.Redacted())
+	lggr := logger.With(n.lfcLog, "wsuri", n.ws.uri.Redacted())
 	if n.http != nil {
-		lggr = lggr.With("httpuri", n.http.uri.Redacted())
+		lggr = logger.With(lggr, "httpuri", n.http.uri.Redacted())
 	}
 	lggr.Debugw("RPC dial: evmclient.Client#dial")
 
@@ -1005,10 +1011,8 @@ func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error
 func (n *node) ChainID() (chainID *big.Int) { return n.chainID }
 
 // newRqLggr generates a new logger with a unique request ID
-func (n *node) newRqLggr() logger.Logger {
-	return n.rpcLog.With(
-		"requestID", uuid.New(),
-	)
+func (n *node) newRqLggr() logger.SugaredLogger {
+	return n.rpcLog.With("requestID", uuid.New())
 }
 
 func (n *node) logResult(
@@ -1019,17 +1023,14 @@ func (n *node) logResult(
 	callName string,
 	results ...interface{},
 ) {
-	lggr = lggr.With("duration", callDuration, "rpcDomain", rpcDomain, "callName", callName)
+	slggr := logger.Sugared(lggr).With("duration", callDuration, "rpcDomain", rpcDomain, "callName", callName)
 	promEVMPoolRPCNodeCalls.WithLabelValues(n.chainID.String(), n.name).Inc()
 	if err == nil {
 		promEVMPoolRPCNodeCallsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
-		lggr.Tracew(
-			fmt.Sprintf("evmclient.Client#%s RPC call success", callName),
-			results...,
-		)
+		slggr.Tracew(fmt.Sprintf("evmclient.Client#%s RPC call success", callName), results...)
 	} else {
 		promEVMPoolRPCNodeCallsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
-		lggr.Debugw(
+		slggr.Debugw(
 			fmt.Sprintf("evmclient.Client#%s RPC call failure", callName),
 			append(results, "err", err)...,
 		)
@@ -1100,7 +1101,7 @@ func (n *node) makeQueryCtx(ctx context.Context) (context.Context, context.Cance
 // 1. Passed in ctx cancels
 // 2. Passed in channel is closed
 // 3. Default timeout is reached (queryTimeout)
-func makeQueryCtx(ctx context.Context, ch utils.StopChan) (context.Context, context.CancelFunc) {
+func makeQueryCtx(ctx context.Context, ch services.StopChan) (context.Context, context.CancelFunc) {
 	var chCancel, timeoutCancel context.CancelFunc
 	ctx, chCancel = ch.Ctx(ctx)
 	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)

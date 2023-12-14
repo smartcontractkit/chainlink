@@ -52,7 +52,7 @@ func DeployKeeperRegistrarMock(auth *bind.TransactOpts, backend bind.ContractBac
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &KeeperRegistrarMock{KeeperRegistrarMockCaller: KeeperRegistrarMockCaller{contract: contract}, KeeperRegistrarMockTransactor: KeeperRegistrarMockTransactor{contract: contract}, KeeperRegistrarMockFilterer: KeeperRegistrarMockFilterer{contract: contract}}, nil
+	return address, tx, &KeeperRegistrarMock{address: address, abi: *parsed, KeeperRegistrarMockCaller: KeeperRegistrarMockCaller{contract: contract}, KeeperRegistrarMockTransactor: KeeperRegistrarMockTransactor{contract: contract}, KeeperRegistrarMockFilterer: KeeperRegistrarMockFilterer{contract: contract}}, nil
 }
 
 type KeeperRegistrarMock struct {

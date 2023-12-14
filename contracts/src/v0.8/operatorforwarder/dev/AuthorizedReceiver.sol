@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {AuthorizedReceiverInterface} from "../../interfaces/AuthorizedReceiverInterface.sol";
+import {AuthorizedReceiverInterface} from "./interfaces/AuthorizedReceiverInterface.sol";
 
 // solhint-disable custom-errors
 abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {

@@ -1,7 +1,6 @@
 package keystore_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -13,7 +12,8 @@ import (
 	"github.com/smartcontractkit/caigo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
@@ -121,13 +121,13 @@ func TestStarknetSigner(t *testing.T) {
 	// on existing sender id
 	t.Run("key exists", func(t *testing.T) {
 		baseKs.On("Get", starknetSenderAddr).Return(starkKey, nil)
-		signed, err := lk.Sign(context.Background(), starknetSenderAddr, nil)
+		signed, err := lk.Sign(testutils.Context(t), starknetSenderAddr, nil)
 		require.Nil(t, signed)
 		require.NoError(t, err)
 	})
 	t.Run("key doesn't exists", func(t *testing.T) {
 		baseKs.On("Get", mock.Anything).Return(starkkey.Key{}, fmt.Errorf("key doesn't exist"))
-		signed, err := lk.Sign(context.Background(), "not an address", nil)
+		signed, err := lk.Sign(testutils.Context(t), "not an address", nil)
 		require.Nil(t, signed)
 		require.Error(t, err)
 	})
@@ -140,7 +140,7 @@ func TestStarknetSigner(t *testing.T) {
 		baseKs.On("Get", starknetSenderAddr).Return(starkKey, nil)
 		hash, err := caigo.Curve.PedersenHash([]*big.Int{big.NewInt(42)})
 		require.NoError(t, err)
-		r, s, err := adapter.Sign(context.Background(), starknetSenderAddr, hash)
+		r, s, err := adapter.Sign(testutils.Context(t), starknetSenderAddr, hash)
 		require.NoError(t, err)
 		require.NotNil(t, r)
 		require.NotNil(t, s)

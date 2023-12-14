@@ -11,11 +11,12 @@ import (
 
 	"github.com/segmentio/ksuid"
 
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
@@ -110,20 +110,6 @@ func WithOCR2() NodeConfigOpt {
 	}
 }
 
-// Deprecated: P2Pv1 is soon to be fully deprecated
-// WithP2Pv1 enables P2Pv1 and disables P2Pv2
-func WithP2Pv1() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.P2P.V1 = toml.P2PV1{
-			Enabled:    ptr.Ptr(true),
-			ListenIP:   it_utils.MustIP("0.0.0.0"),
-			ListenPort: ptr.Ptr[uint16](6690),
-		}
-		// disabled default
-		c.P2P.V2 = toml.P2PV2{Enabled: ptr.Ptr(false)}
-	}
-}
-
 func WithP2Pv2() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V2 = toml.P2PV2{
@@ -138,11 +124,12 @@ func WithTracing() NodeConfigOpt {
 			Enabled:         ptr.Ptr(true),
 			CollectorTarget: ptr.Ptr("otel-collector:4317"),
 			// ksortable unique id
-			NodeID: ptr.Ptr(ksuid.New().String()),
+			NodeID:        ptr.Ptr(ksuid.New().String()),
+			SamplingRatio: ptr.Ptr(1.0),
+			Mode:          ptr.Ptr("unencrypted"),
 			Attributes: map[string]string{
 				"env": "smoke",
 			},
-			SamplingRatio: ptr.Ptr(1.0),
 		}
 	}
 }
@@ -171,12 +158,12 @@ func SetChainConfig(
 			chainConfig = evmcfg.Chain{
 				AutoCreateKey:      ptr.Ptr(true),
 				FinalityDepth:      ptr.Ptr[uint32](1),
-				MinContractPayment: assets.NewLinkFromJuels(0),
+				MinContractPayment: commonassets.NewLinkFromJuels(0),
 			}
 		}
 		cfg.EVM = evmcfg.EVMConfigs{
 			{
-				ChainID: utils.NewBig(big.NewInt(chain.ChainID)),
+				ChainID: ubig.New(big.NewInt(chain.ChainID)),
 				Chain:   chainConfig,
 				Nodes:   nodes,
 			},
@@ -193,11 +180,11 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 	var evmConfigs []*evmcfg.EVMConfig
 	for _, network := range networks {
 		evmConfigs = append(evmConfigs, &evmcfg.EVMConfig{
-			ChainID: utils.NewBig(big.NewInt(network.ChainID)),
+			ChainID: ubig.New(big.NewInt(network.ChainID)),
 			Chain: evmcfg.Chain{
 				AutoCreateKey:      ptr.Ptr(true),
 				FinalityDepth:      ptr.Ptr[uint32](50),
-				MinContractPayment: assets.NewLinkFromJuels(0),
+				MinContractPayment: commonassets.NewLinkFromJuels(0),
 				LogPollInterval:    models.MustNewDuration(1 * time.Second),
 				HeadTracker: evmcfg.HeadTracker{
 					HistoryDepth: ptr.Ptr(uint32(100)),
@@ -223,22 +210,32 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 	}
 }
 
-func WithVRFv2EVMEstimator(addr string) NodeConfigOpt {
-	est := assets.GWei(vrfv2_constants.MaxGasPriceGWei)
-	return func(c *chainlink.Config) {
-		c.EVM[0].KeySpecific = evmcfg.KeySpecificConfig{
-			{
-				Key: ptr.Ptr(ethkey.EIP55Address(addr)),
-				GasEstimator: evmcfg.KeySpecificGasEstimator{
-					PriceMax: est,
-				},
+func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfigOpt {
+	est := assets.GWei(maxGasPriceGWei)
+
+	var keySpecicifArr []evmcfg.KeySpecific
+	for _, addr := range addresses {
+		keySpecicifArr = append(keySpecicifArr, evmcfg.KeySpecific{
+			Key: ptr.Ptr(ethkey.EIP55Address(addr)),
+			GasEstimator: evmcfg.KeySpecificGasEstimator{
+				PriceMax: est,
 			},
-		}
+		})
+	}
+	return func(c *chainlink.Config) {
+		c.EVM[0].KeySpecific = keySpecicifArr
 		c.EVM[0].Chain.GasEstimator = evmcfg.GasEstimator{
 			LimitDefault: ptr.Ptr[uint32](3500000),
 		}
 		c.EVM[0].Chain.Transactions = evmcfg.Transactions{
 			MaxQueued: ptr.Ptr[uint32](10000),
 		}
+
+	}
+}
+
+func WithLogPollInterval(interval time.Duration) NodeConfigOpt {
+	return func(c *chainlink.Config) {
+		c.EVM[0].Chain.LogPollInterval = models.MustNewDuration(interval)
 	}
 }

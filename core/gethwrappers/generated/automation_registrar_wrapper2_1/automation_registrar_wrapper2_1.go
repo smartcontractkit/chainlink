@@ -77,7 +77,7 @@ func DeployAutomationRegistrar(auth *bind.TransactOpts, backend bind.ContractBac
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &AutomationRegistrar{AutomationRegistrarCaller: AutomationRegistrarCaller{contract: contract}, AutomationRegistrarTransactor: AutomationRegistrarTransactor{contract: contract}, AutomationRegistrarFilterer: AutomationRegistrarFilterer{contract: contract}}, nil
+	return address, tx, &AutomationRegistrar{address: address, abi: *parsed, AutomationRegistrarCaller: AutomationRegistrarCaller{contract: contract}, AutomationRegistrarTransactor: AutomationRegistrarTransactor{contract: contract}, AutomationRegistrarFilterer: AutomationRegistrarFilterer{contract: contract}}, nil
 }
 
 type AutomationRegistrar struct {

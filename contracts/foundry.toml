@@ -30,9 +30,9 @@ optimizer_runs = 26_000
 
 [profile.functions]
 solc_version = '0.8.19'
-src = 'src/v0.8/functions'
-test = 'src/v0.8/functions/tests'
-gas_price = 3000000000
+src = 'src/v0.8/functions/dev/v1_X'
+test = 'src/v0.8/functions/tests/v1_X'
+gas_price = 3_000_000_000 # 3 gwei
 
 [profile.vrf]
 optimizer_runs = 1000
@@ -49,7 +49,7 @@ test = 'src/v0.8/automation/test'
 optimizer_runs = 1000000
 src = 'src/v0.8/l2ep'
 test = 'src/v0.8/l2ep/test'
-
+solc_version = '0.8.19'
 
 [profile.llo-feeds]
 optimizer_runs = 1000000

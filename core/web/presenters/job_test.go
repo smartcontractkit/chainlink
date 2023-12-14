@@ -13,13 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	evmassets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -29,7 +31,7 @@ func TestJob(t *testing.T) {
 	contractAddress, err := ethkey.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")
 	require.NoError(t, err)
 	cronSchedule := "0 0 0 1 1 *"
-	evmChainID := utils.NewBigI(42)
+	evmChainID := big.NewI(42)
 	fromAddress, err := ethkey.NewEIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e")
 	require.NoError(t, err)
 
@@ -58,6 +60,7 @@ func TestJob(t *testing.T) {
 	trustedBlockhashStoreBatchSize := int32(20)
 
 	var specGasLimit uint32 = 1000
+	vrfPubKey, _ := secp256k1.NewPublicKeyFromHex("0xede539e216e3a50e69d1c68aa9cc472085876c4002f6e1e6afee0ea63b50a78b00")
 
 	testCases := []struct {
 		name string
@@ -212,7 +215,6 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				OCROracleSpec: &job.OCROracleSpec{
 					ContractAddress:                        contractAddress,
-					P2PBootstrapPeers:                      pq.StringArray{"/dns4/chain.link/tcp/1234/p2p/xxx"},
 					P2PV2Bootstrappers:                     pq.StringArray{"xxx:5001"},
 					IsBootstrapPeer:                        true,
 					EncryptedOCRKeyBundleID:                &ocrKeyID,
@@ -259,7 +261,6 @@ func TestJob(t *testing.T) {
 						},
 						"offChainReportingOracleSpec": {
 							"contractAddress": "%s",
-							"p2pBootstrapPeers": ["/dns4/chain.link/tcp/1234/p2p/xxx"],
 							"p2pv2Bootstrappers": ["xxx:5001"],
 							"isBootstrapPeer": true,
 							"keyBundleID": "%s",
@@ -472,6 +473,90 @@ func TestJob(t *testing.T) {
 			}`,
 		},
 		{
+			name: "vrf job spec",
+			job: job.Job{
+				ID:            1,
+				Name:          null.StringFrom("vrf_test"),
+				Type:          job.VRF,
+				SchemaVersion: 1,
+				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f47"),
+				VRFSpec: &job.VRFSpec{
+					BatchCoordinatorAddress:       &contractAddress,
+					BatchFulfillmentEnabled:       true,
+					CustomRevertsPipelineEnabled:  true,
+					MinIncomingConfirmations:      1,
+					CoordinatorAddress:            contractAddress,
+					CreatedAt:                     timestamp,
+					UpdatedAt:                     timestamp,
+					EVMChainID:                    evmChainID,
+					FromAddresses:                 []ethkey.EIP55Address{fromAddress},
+					PublicKey:                     vrfPubKey,
+					RequestedConfsDelay:           10,
+					ChunkSize:                     25,
+					BatchFulfillmentGasMultiplier: 1,
+					GasLanePrice:                  evmassets.GWei(200),
+					VRFOwnerAddress:               nil,
+				},
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: "",
+				},
+			},
+			want: fmt.Sprintf(`
+			{
+				"data": {
+					"type": "jobs",
+					"id": "1",
+					"attributes": {
+						"name": "vrf_test",
+						"type": "vrf",
+						"schemaVersion": 1,
+						"maxTaskDuration": "0s",
+						"externalJobID": "0eec7e1d-d0d2-476c-a1a8-72dfb6633f47",
+						"directRequestSpec": null,
+						"fluxMonitorSpec": null,
+						"gasLimit": null,
+						"forwardingAllowed": false,
+						"cronSpec": null,
+						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
+						"keeperSpec": null,
+						"vrfSpec": {
+							"batchCoordinatorAddress": "%s",
+							"batchFulfillmentEnabled": true,
+							"customRevertsPipelineEnabled":  true,
+							"confirmations":      1,
+							"coordinatorAddress":            "%s",
+							"createdAt":                     "2000-01-01T00:00:00Z",
+							"updatedAt":                     "2000-01-01T00:00:00Z",
+							"evmChainID":                    "42",
+							"fromAddresses":                 ["%s"],
+							"pollPeriod":                    "0s",
+							"publicKey":                     "%s",
+							"requestedConfsDelay":           10,
+							"requestTimeout":                "0s",
+							"chunkSize":                     25,
+							"batchFulfillmentGasMultiplier": 1,
+							"backoffInitialDelay":           "0s",
+							"backoffMaxDelay":               "0s",
+							"gasLanePrice":                  "200 gwei"
+						},
+						"webhookSpec": null,
+						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
+						"bootstrapSpec": null,
+						"pipelineSpec": {
+							"id": 1,
+							"jobID": 0,
+							"dotDagSource": ""
+						},
+						"gatewaySpec": null,
+						"errors": []
+					}
+				}
+			}`, contractAddress, contractAddress, fromAddress, vrfPubKey.String()),
+		},
+		{
 			name: "blockhash store spec",
 			job: job.Job{
 				ID: 1,
@@ -486,7 +571,7 @@ func TestJob(t *testing.T) {
 					BlockhashStoreAddress:          contractAddress,
 					PollPeriod:                     25 * time.Second,
 					RunTimeout:                     10 * time.Second,
-					EVMChainID:                     utils.NewBigI(4),
+					EVMChainID:                     big.NewI(4),
 					FromAddresses:                  []ethkey.EIP55Address{fromAddress},
 					TrustedBlockhashStoreAddress:   &trustedBlockhashStoreAddress,
 					TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
@@ -566,7 +651,7 @@ func TestJob(t *testing.T) {
 					BatchBlockhashStoreAddress: batchBHSAddress,
 					PollPeriod:                 25 * time.Second,
 					RunTimeout:                 10 * time.Second,
-					EVMChainID:                 utils.NewBigI(4),
+					EVMChainID:                 big.NewI(4),
 					FromAddresses:              []ethkey.EIP55Address{fromAddress},
 					GetBlockhashesBatchSize:    5,
 					StoreBlockhashesBatchSize:  10,

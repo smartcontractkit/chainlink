@@ -13,8 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -32,14 +33,14 @@ const (
 )
 
 type CLTestEnvBuilder struct {
-	hasLogWatch bool
-	// hasGeth                bool
+	hasLogStream           bool
 	hasKillgrave           bool
 	hasForwarders          bool
 	clNodeConfig           *chainlink.Config
 	secretsConfig          string
 	nonDevGethNetworks     []blockchain.EVMNetwork
 	clNodesCount           int
+	clNodesOpts            []func(*ClNode)
 	customNodeCsaKeys      []string
 	defaultNodeCsaKeys     []string
 	l                      zerolog.Logger
@@ -94,19 +95,24 @@ func (b *CLTestEnvBuilder) WithTestEnv(te *CLClusterTestEnv) (*CLTestEnvBuilder,
 
 // WithTestLogger sets the test logger to use for the test.
 // Useful for parallel tests so the logging will be separated correctly in the results views.
-func (b *CLTestEnvBuilder) WithTestLogger(t *testing.T) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder) WithTestInstance(t *testing.T) *CLTestEnvBuilder {
 	b.t = t
 	b.l = logging.GetTestLogger(t)
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
-	b.hasLogWatch = true
+func (b *CLTestEnvBuilder) WithLogStream() *CLTestEnvBuilder {
+	b.hasLogStream = true
 	return b
 }
 
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	b.clNodesCount = clNodesCount
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithCLNodeOptions(opt ...ClNodeOption) *CLTestEnvBuilder {
+	b.clNodesOpts = append(b.clNodesOpts, opt...)
 	return b
 }
 
@@ -215,21 +221,31 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	var err error
 	if b.t != nil {
-		b.te.WithTestLogger(b.t)
+		b.te.WithTestInstance(b.t)
 	}
 
-	if b.hasLogWatch {
-		b.te.LogWatch, err = logwatch.NewLogWatch(nil, nil)
+	if b.hasLogStream {
+		b.te.LogStream, err = logstream.NewLogStream(b.te.t, nil)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if b.hasKillgrave {
+		if b.te.Network == nil {
+			return nil, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("cannot start mock adapter without a network"))
+		}
+
+		b.te.MockAdapter = test_env.NewKillgrave([]string{b.te.Network.Name}, "")
+
 		err = b.te.StartMockAdapter()
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if b.t != nil {
+		b.te.WithTestInstance(b.t)
 	}
 
 	switch b.cleanUpType {
@@ -245,6 +261,24 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.l.Warn().Msg("test environment won't be cleaned up")
 	case "":
 		return b.te, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("explicit cleanup type must be set when building test environment"))
+	}
+
+	if b.te.LogStream != nil {
+		b.t.Cleanup(func() {
+			b.l.Warn().Msg("Shutting down LogStream")
+			logPath, err := osutil.GetAbsoluteFolderPath("logs")
+			if err != nil {
+				b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
+			}
+
+			if b.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
+				// we can't do much if this fails, so we just log the error in logstream
+				_ = b.te.LogStream.FlushAndShutdown()
+				b.te.LogStream.PrintLogTargetsLocations()
+				b.te.LogStream.SaveLogLocationInTestSummary()
+			}
+
+		})
 	}
 
 	if b.nonDevGethNetworks != nil {
@@ -267,7 +301,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, fmt.Errorf("cannot create nodes with custom config without nonDevNetworks")
 		}
 
-		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
+		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -351,7 +385,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 		}
 
-		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig)
+		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
 		}

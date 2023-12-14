@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
+	sqlxTypes "github.com/jmoiron/sqlx/types"
 	"github.com/pkg/errors"
-	sqlxTypes "github.com/smartcontractkit/sqlx/types"
 )
 
 // WebAuthn holds the credentials for API user.
@@ -279,7 +279,7 @@ func (store *WebAuthnSessionStore) GetWebauthnSession(key string) (data webauthn
 	return
 }
 
-func AddCredentialToUser(o ORM, email string, credential *webauthn.Credential) error {
+func AddCredentialToUser(ap AuthenticationProvider, email string, credential *webauthn.Credential) error {
 	credj, err := json.Marshal(credential)
 	if err != nil {
 		return err
@@ -289,5 +289,5 @@ func AddCredentialToUser(o ORM, email string, credential *webauthn.Credential) e
 		Email:         email,
 		PublicKeyData: sqlxTypes.JSONText(credj),
 	}
-	return o.SaveWebAuthn(&token)
+	return ap.SaveWebAuthn(&token)
 }

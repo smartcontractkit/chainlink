@@ -10,29 +10,31 @@ contract Chainable {
   /**
    * @dev addresses of the next contract in the chain **have to be immutable/constant** or the system won't work
    */
-  address private immutable FALLBACK_ADDRESS;
+  address private immutable i_FALLBACK_ADDRESS;
 
   /**
    * @param fallbackAddress the address of the next contract in the chain
    */
   constructor(address fallbackAddress) {
-    FALLBACK_ADDRESS = fallbackAddress;
+    i_FALLBACK_ADDRESS = fallbackAddress;
   }
 
   /**
    * @notice returns the address of the next contract in the chain
    */
   function fallbackTo() external view returns (address) {
-    return FALLBACK_ADDRESS;
+    return i_FALLBACK_ADDRESS;
   }
 
   /**
    * @notice the fallback function routes the call to the next contract in the chain
    * @dev most of the implementation is copied directly from OZ's Proxy contract
    */
+  // solhint-disable payable-fallback
+  // solhint-disable-next-line no-complex-fallback
   fallback() external {
     // copy to memory for assembly access
-    address next = FALLBACK_ADDRESS;
+    address next = i_FALLBACK_ADDRESS;
     // copied directly from OZ's Proxy contract
     assembly {
       // Copy msg.data. We take full control of memory in this inline assembly

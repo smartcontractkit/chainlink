@@ -52,7 +52,7 @@ func DeployVRFLoadTestExternalSubOwner(auth *bind.TransactOpts, backend bind.Con
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFLoadTestExternalSubOwner{VRFLoadTestExternalSubOwnerCaller: VRFLoadTestExternalSubOwnerCaller{contract: contract}, VRFLoadTestExternalSubOwnerTransactor: VRFLoadTestExternalSubOwnerTransactor{contract: contract}, VRFLoadTestExternalSubOwnerFilterer: VRFLoadTestExternalSubOwnerFilterer{contract: contract}}, nil
+	return address, tx, &VRFLoadTestExternalSubOwner{address: address, abi: *parsed, VRFLoadTestExternalSubOwnerCaller: VRFLoadTestExternalSubOwnerCaller{contract: contract}, VRFLoadTestExternalSubOwnerTransactor: VRFLoadTestExternalSubOwnerTransactor{contract: contract}, VRFLoadTestExternalSubOwnerFilterer: VRFLoadTestExternalSubOwnerFilterer{contract: contract}}, nil
 }
 
 type VRFLoadTestExternalSubOwner struct {

@@ -52,7 +52,7 @@ func DeployVRFV2LoadTestWithMetrics(auth *bind.TransactOpts, backend bind.Contra
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV2LoadTestWithMetrics{VRFV2LoadTestWithMetricsCaller: VRFV2LoadTestWithMetricsCaller{contract: contract}, VRFV2LoadTestWithMetricsTransactor: VRFV2LoadTestWithMetricsTransactor{contract: contract}, VRFV2LoadTestWithMetricsFilterer: VRFV2LoadTestWithMetricsFilterer{contract: contract}}, nil
+	return address, tx, &VRFV2LoadTestWithMetrics{address: address, abi: *parsed, VRFV2LoadTestWithMetricsCaller: VRFV2LoadTestWithMetricsCaller{contract: contract}, VRFV2LoadTestWithMetricsTransactor: VRFV2LoadTestWithMetricsTransactor{contract: contract}, VRFV2LoadTestWithMetricsFilterer: VRFV2LoadTestWithMetricsFilterer{contract: contract}}, nil
 }
 
 type VRFV2LoadTestWithMetrics struct {

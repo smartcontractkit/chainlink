@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 var _ ethereum.Subscription = &chainIDSubForwarder{}
@@ -64,7 +64,7 @@ func (c *chainIDSubForwarder) forwardLoop() {
 			return
 
 		case h := <-c.srcCh:
-			h.EVMChainID = utils.NewBig(c.chainID)
+			h.EVMChainID = ubig.New(c.chainID)
 			select {
 			case c.destCh <- h:
 			case <-c.unSub:

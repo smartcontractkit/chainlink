@@ -18,8 +18,9 @@ import (
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -32,22 +33,22 @@ type Head struct {
 	L1BlockNumber    null.Int64
 	ParentHash       common.Hash
 	Parent           *Head
-	EVMChainID       *utils.Big
+	EVMChainID       *ubig.Big
 	Timestamp        time.Time
 	CreatedAt        time.Time
 	BaseFeePerGas    *assets.Wei
 	ReceiptsRoot     common.Hash
 	TransactionsRoot common.Hash
 	StateRoot        common.Hash
-	Difficulty       *utils.Big
-	TotalDifficulty  *utils.Big
+	Difficulty       *big.Int
+	TotalDifficulty  *big.Int
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
 var _ htrktypes.Head[common.Hash, *big.Int] = &Head{}
 
 // NewHead returns a Head instance.
-func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *utils.Big) Head {
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *ubig.Big) Head {
 	return Head{
 		Number:     number.Int64(),
 		Hash:       blockHash,
@@ -74,6 +75,14 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 		return nil
 	}
 	return h.Parent
+}
+
+func (h *Head) GetTimestamp() time.Time {
+	return h.Timestamp
+}
+
+func (h *Head) BlockDifficulty() *big.Int {
+	return h.Difficulty
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
@@ -223,6 +232,21 @@ func (h *Head) NextInt() *big.Int {
 	return new(big.Int).Add(h.ToInt(), big.NewInt(1))
 }
 
+// AsSlice returns a slice of heads up to length k
+// len(heads) may be less than k if the available chain is not long enough
+func (h *Head) AsSlice(k int) (heads []*Head) {
+	if k < 1 || h == nil {
+		return
+	}
+	heads = make([]*Head, 1)
+	heads[0] = h
+	for len(heads) < k && h.Parent != nil {
+		h = h.Parent
+		heads = append(heads, h)
+	}
+	return
+}
+
 func (h *Head) UnmarshalJSON(bs []byte) error {
 	type head struct {
 		Hash             common.Hash    `json:"hash"`
@@ -260,8 +284,8 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.ReceiptsRoot = jsonHead.ReceiptsRoot
 	h.TransactionsRoot = jsonHead.TransactionsRoot
 	h.StateRoot = jsonHead.StateRoot
-	h.Difficulty = utils.NewBig(jsonHead.Difficulty.ToInt())
-	h.TotalDifficulty = utils.NewBig(jsonHead.TotalDifficulty.ToInt())
+	h.Difficulty = jsonHead.Difficulty.ToInt()
+	h.TotalDifficulty = jsonHead.TotalDifficulty.ToInt()
 	return nil
 }
 

@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -46,7 +46,7 @@ type (
 
 		// handlersByConfs maps numConfirmations => *handler
 		handlersByConfs map[uint32]*handler
-		logger          logger.Logger
+		logger          logger.SugaredLogger
 		evmChainID      big.Int
 
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EvmFinalityDepth
@@ -57,7 +57,7 @@ type (
 	handler struct {
 		lookupSubs map[common.Address]map[common.Hash]subscribers // contractAddress => logTopic => *subscriber => topicValueFilters
 		evmChainID big.Int
-		logger     logger.Logger
+		logger     logger.SugaredLogger
 	}
 
 	// The Listener responds to log events through HandleLog.
@@ -70,13 +70,13 @@ type (
 	subscribers map[*subscriber][][]Topic
 )
 
-func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
+func newRegistrations(lggr logger.Logger, evmChainID big.Int) *registrations {
 	return &registrations{
 		registeredSubs:  make(map[*subscriber]struct{}),
 		jobIDAddrs:      make(map[int32]map[common.Address]struct{}),
 		handlersByConfs: make(map[uint32]*handler),
 		evmChainID:      evmChainID,
-		logger:          logger.Named("Registrations"),
+		logger:          logger.Sugared(logger.Named(lggr, "Registrations")),
 	}
 }
 
@@ -263,7 +263,7 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	return true
 }
 
-func newHandler(lggr logger.Logger, evmChainID big.Int) *handler {
+func newHandler(lggr logger.SugaredLogger, evmChainID big.Int) *handler {
 	return &handler{
 		lookupSubs: make(map[common.Address]map[common.Hash]subscribers),
 		evmChainID: evmChainID,

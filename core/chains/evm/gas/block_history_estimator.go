@@ -15,15 +15,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 // MaxStartTime is the maximum amount of time we are allowed to spend
@@ -96,7 +98,7 @@ type estimatorGasEstimatorConfig interface {
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
 	BlockHistoryEstimator struct {
-		utils.StartStopOnce
+		services.StateMachine
 		ethClient evmclient.Client
 		chainID   big.Int
 		config    chainConfig
@@ -107,7 +109,7 @@ type (
 		blocks    []evmtypes.Block
 		blocksMu  sync.RWMutex
 		size      int64
-		mb        *utils.Mailbox[*evmtypes.Head]
+		mb        *mailbox.Mailbox[*evmtypes.Head]
 		wg        *sync.WaitGroup
 		ctx       context.Context
 		ctxCancel context.CancelFunc
@@ -137,11 +139,11 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 		blocks:    make([]evmtypes.Block, 0),
 		// Must have enough blocks for both estimator and connectivity checker
 		size:      int64(mathutil.Max(bhCfg.BlockHistorySize(), bhCfg.CheckInclusionBlocks())),
-		mb:        utils.NewSingleMailbox[*evmtypes.Head](),
+		mb:        mailbox.NewSingle[*evmtypes.Head](),
 		wg:        new(sync.WaitGroup),
 		ctx:       ctx,
 		ctxCancel: cancel,
-		logger:    logger.Sugared(lggr.Named("BlockHistoryEstimator")),
+		logger:    logger.Sugared(logger.Named(lggr, "BlockHistoryEstimator")),
 	}
 
 	return b
@@ -162,7 +164,7 @@ func (b *BlockHistoryEstimator) setLatest(head *evmtypes.Head) {
 	if baseFee := head.BaseFeePerGas; baseFee != nil {
 		promBlockHistoryEstimatorCurrentBaseFee.WithLabelValues(b.chainID.String()).Set(float64(baseFee.Int64()))
 	}
-	b.logger.Debugw("Set latest block", "blockNum", head.Number, "blockHash", head.Hash, "baseFee", head.BaseFeePerGas)
+	b.logger.Debugw("Set latest block", "blockNum", head.Number, "blockHash", head.Hash, "baseFee", head.BaseFeePerGas, "baseFeeWei", head.BaseFeePerGas.ToInt())
 	b.latestMu.Lock()
 	defer b.latestMu.Unlock()
 	b.latest = head

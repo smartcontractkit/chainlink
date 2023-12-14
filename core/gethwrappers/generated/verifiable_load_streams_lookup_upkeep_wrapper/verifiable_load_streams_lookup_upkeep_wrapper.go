@@ -65,7 +65,7 @@ func DeployVerifiableLoadStreamsLookupUpkeep(auth *bind.TransactOpts, backend bi
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VerifiableLoadStreamsLookupUpkeep{VerifiableLoadStreamsLookupUpkeepCaller: VerifiableLoadStreamsLookupUpkeepCaller{contract: contract}, VerifiableLoadStreamsLookupUpkeepTransactor: VerifiableLoadStreamsLookupUpkeepTransactor{contract: contract}, VerifiableLoadStreamsLookupUpkeepFilterer: VerifiableLoadStreamsLookupUpkeepFilterer{contract: contract}}, nil
+	return address, tx, &VerifiableLoadStreamsLookupUpkeep{address: address, abi: *parsed, VerifiableLoadStreamsLookupUpkeepCaller: VerifiableLoadStreamsLookupUpkeepCaller{contract: contract}, VerifiableLoadStreamsLookupUpkeepTransactor: VerifiableLoadStreamsLookupUpkeepTransactor{contract: contract}, VerifiableLoadStreamsLookupUpkeepFilterer: VerifiableLoadStreamsLookupUpkeepFilterer{contract: contract}}, nil
 }
 
 type VerifiableLoadStreamsLookupUpkeep struct {

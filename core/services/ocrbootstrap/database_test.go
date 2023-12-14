@@ -3,7 +3,7 @@ package ocrbootstrap_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"

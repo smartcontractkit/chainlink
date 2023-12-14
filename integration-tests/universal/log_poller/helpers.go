@@ -16,8 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/sqlx"
-
+	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
@@ -29,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -1045,7 +1043,8 @@ func setupLogPollerTestDocker(
 		WithConsensusType(ctf_test_env.ConsensusType_PoS).
 		WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
 		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
-		WithBeaconChainConfig(ctf_test_env.BeaconChainConfig{
+		WithWaitingForFinalization().
+		WithEthereumChainConfig(ctf_test_env.EthereumChainConfig{
 			SecondsPerSlot: 8,
 			SlotsPerEpoch:  2,
 		}).
@@ -1053,7 +1052,7 @@ func setupLogPollerTestDocker(
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err = test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithPrivateEthereumNetwork(cfg).
 		WithCLNodes(clNodesCount).
 		WithCLNodeConfig(clNodeConfig).
@@ -1061,6 +1060,7 @@ func setupLogPollerTestDocker(
 		WithChainOptions(logPolllerSettingsFn).
 		EVMClientNetworkOptions(evmClientSettingsFn).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 

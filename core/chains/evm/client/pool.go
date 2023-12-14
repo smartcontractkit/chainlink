@@ -15,12 +15,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -39,6 +39,8 @@ const (
 )
 
 // NodeSelector represents a strategy to select the next node from the pool.
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NodeSelector]
 type NodeSelector interface {
 	// Select returns a Node, or nil if none can be selected.
 	// Implementation must be thread-safe.
@@ -48,6 +50,8 @@ type NodeSelector interface {
 }
 
 // PoolConfig represents settings for the Pool
+//
+// Deprecated: to be removed
 type PoolConfig interface {
 	NodeSelectionMode() string
 	NodeNoNewHeadsThreshold() time.Duration
@@ -56,13 +60,15 @@ type PoolConfig interface {
 
 // Pool represents an abstraction over one or more primary nodes
 // It is responsible for liveness checking and balancing queries across live nodes
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.MultiNode]
 type Pool struct {
-	utils.StartStopOnce
+	services.StateMachine
 	nodes               []Node
 	sendonlys           []SendOnlyNode
 	chainID             *big.Int
 	chainType           config.ChainType
-	logger              logger.Logger
+	logger              logger.SugaredLogger
 	selectionMode       string
 	noNewHeadsThreshold time.Duration
 	nodeSelector        NodeSelector
@@ -72,11 +78,14 @@ type Pool struct {
 	activeMu   sync.RWMutex
 	activeNode Node
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wg     sync.WaitGroup
 }
 
-func NewPool(logger logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
+// NewPool - creates new instance of [Pool]
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewMultiNode]
+func NewPool(lggr logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
 	}
@@ -96,14 +105,15 @@ func NewPool(logger logger.Logger, selectionMode string, leaseDuration time.Dura
 		}
 	}()
 
-	lggr := logger.Named("Pool").With("evmChainID", chainID.String())
+	lggr = logger.Named(lggr, "Pool")
+	lggr = logger.With(lggr, "evmChainID", chainID.String())
 
 	p := &Pool{
 		nodes:               nodes,
 		sendonlys:           sendonlys,
 		chainID:             chainID,
 		chainType:           chainType,
-		logger:              lggr,
+		logger:              logger.Sugared(lggr),
 		selectionMode:       selectionMode,
 		noNewHeadsThreshold: noNewHeadsTreshold,
 		nodeSelector:        nodeSelector,
@@ -168,8 +178,8 @@ func (p *Pool) Dial(ctx context.Context) error {
 
 // nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
 // totalDifficulty will be 0 if all nodes return nil.
-func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
-	totalDifficulty = utils.NewBigI(0)
+func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *big.Int) {
+	totalDifficulty = big.NewInt(0)
 	for _, n := range p.nodes {
 		if s, num, td := n.StateAndLatest(); s == NodeStateAlive {
 			nLiveNodes++

@@ -12,7 +12,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -34,11 +36,11 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	var (
 		address        = "0x5431F5F973781809D18643b87B44921b11355d81"
 		ethBalance     = assets.NewEth(1)
-		linkBalance    = assets.NewLinkFromJuels(2)
+		linkBalance    = commonassets.NewLinkFromJuels(2)
 		isDisabled     = true
 		createdAt      = time.Now()
 		updatedAt      = time.Now().Add(time.Second)
-		maxGasPriceWei = utils.NewBigI(12345)
+		maxGasPriceWei = ubig.NewI(12345)
 		bundleID       = cltest.DefaultOCRKeyBundleID
 		buffer         = bytes.NewBufferString("")
 		r              = cmd.RendererTable{Writer: buffer}
@@ -89,7 +91,7 @@ func TestShell_ListETHKeys(t *testing.T) {
 
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(13), nil)
+	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(commonassets.NewLinkFromJuels(13), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -168,7 +170,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(commonassets.NewLinkFromJuels(42), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -190,7 +192,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	id := big.NewInt(0)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.CreateETHKey, set, "")
+	flagSetApplyFromAction(client.CreateETHKey, set, "")
 
 	require.NoError(t, set.Set("evm-chain-id", testutils.FixtureChainID.String()))
 
@@ -223,7 +225,7 @@ func TestShell_DeleteETHKey(t *testing.T) {
 
 	// Delete the key
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteETHKey, set, "")
+	flagSetApplyFromAction(client.DeleteETHKey, set, "")
 
 	require.NoError(t, set.Set("yes", "true"))
 	require.NoError(t, set.Parse([]string{key.Address.Hex()}))
@@ -243,7 +245,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(commonassets.NewLinkFromJuels(42), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -256,7 +258,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	ethKeyStore := app.GetKeyStore().Eth()
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("file", "internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -280,7 +282,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	defer os.RemoveAll(testdir)
 	keyfilepath := filepath.Join(testdir, "key")
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
+	flagSetApplyFromAction(client.ExportETHKey, set, "")
 
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyfilepath))
@@ -292,7 +294,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 
 	// Delete the key
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteETHKey, set, "")
+	flagSetApplyFromAction(client.DeleteETHKey, set, "")
 
 	require.NoError(t, set.Set("yes", "true"))
 	require.NoError(t, set.Parse([]string{address}))
@@ -307,7 +309,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ImportETHKey, set, "")
+	flagSetApplyFromAction(client.ImportETHKey, set, "")
 
 	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
@@ -320,7 +322,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	r.Renders = nil
 
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ListETHKeys, set, "")
+	flagSetApplyFromAction(client.ListETHKeys, set, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.ListETHKeys(c)
 	require.NoError(t, err)
@@ -331,7 +333,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	// Export test invalid id
 	keyName := keyNameForTest(t)
 	set = flag.NewFlagSet("test Eth export invalid id", 0)
-	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
+	flagSetApplyFromAction(client.ExportETHKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"999"}))
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/apicredentials"))
@@ -361,10 +363,10 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 
 	ethClient.On("Dial", mock.Anything).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(commonassets.NewLinkFromJuels(42), nil)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("file", "internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -388,7 +390,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	defer os.RemoveAll(testdir)
 	keyfilepath := filepath.Join(testdir, "key")
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
+	flagSetApplyFromAction(client.ExportETHKey, set, "")
 
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyfilepath))
@@ -400,7 +402,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 
 	// Delete the key
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteETHKey, set, "")
+	flagSetApplyFromAction(client.DeleteETHKey, set, "")
 
 	require.NoError(t, set.Set("yes", "true"))
 	require.NoError(t, set.Parse([]string{address}))
@@ -413,7 +415,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ImportETHKey, set, "")
+	flagSetApplyFromAction(client.ImportETHKey, set, "")
 
 	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
@@ -427,7 +429,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	r.Renders = nil
 
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ListETHKeys, set, "")
+	flagSetApplyFromAction(client.ListETHKeys, set, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.ListETHKeys(c)
 	require.NoError(t, err)
@@ -438,7 +440,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	// Export test invalid id
 	keyName := keyNameForTest(t)
 	set = flag.NewFlagSet("test Eth export invalid id", 0)
-	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
+	flagSetApplyFromAction(client.ExportETHKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"999"}))
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/apicredentials"))
