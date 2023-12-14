@@ -62,7 +62,7 @@ func (g *deleteJobs) Run(args []string) {
 		output.Reset()
 
 		fileFs := flag.NewFlagSet("test", flag.ExitOnError)
-		client.ListJobs(cli.NewContext(app, fileFs, nil))
+		err = client.ListJobs(cli.NewContext(app, fileFs, nil))
 		helpers.PanicErr(err)
 
 		var parsed []JobSpec
@@ -73,7 +73,8 @@ func (g *deleteJobs) Run(args []string) {
 			if jobSpec.BootstrapSpec.ContractID == *contractAddress || jobSpec.OffChainReporting2OracleSpec.ContractID == *contractAddress {
 				fmt.Println("Deleting job ID:", jobSpec.Id, "name:", jobSpec.Name)
 				set := flag.NewFlagSet("test", flag.ExitOnError)
-				set.Parse([]string{jobSpec.Id})
+				err = set.Parse([]string{jobSpec.Id})
+				helpers.PanicErr(err)
 				err = client.DeleteJob(cli.NewContext(app, set, nil))
 				helpers.PanicErr(err)
 			}

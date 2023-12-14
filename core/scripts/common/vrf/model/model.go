@@ -21,7 +21,6 @@ type Node struct {
 	NumberOfSendingKeysToCreate int
 	SendingKeyFundingAmount     *big.Int
 	VrfKeys                     []string
-	jobSpec                     string
 }
 
 type SendingKey struct {
