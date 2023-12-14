@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -41,6 +42,8 @@ type PersistentTxStore[
 
 	UnstartedTransactions(limit, offset int, fromAddress ADDR, chainID CHAIN_ID) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)
 	UnconfirmedTransactions(limit, offset int, fromAddress ADDR, chainID CHAIN_ID) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)
+	ConfirmedTransactions(limit, offset int, fromAddress ADDR, chainID CHAIN_ID) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)
+	ConfirmedMissingReceiptTransactions(limit, offset int, fromAddress ADDR, chainID CHAIN_ID) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)
 }
 
 type InMemoryStore[
@@ -438,6 +441,123 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 	return nil
 }
 
+// SetBroadcastBeforeBlockNum sets the broadcast_before_block_num for a given chain ID
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID CHAIN_ID) error {
+	if ms.chainID.String() != chainID.String() {
+		return fmt.Errorf("set_broadcast_before_block_num: %w", ErrInvalidChainID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.SetBroadcastBeforeBlockNum(ctx, blockNum, chainID); err != nil {
+		return fmt.Errorf("set_broadcast_before_block_num: %w", err)
+	}
+
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return
+		}
+		// TODO(jtw): how many tx_attempts are actually stored in the db for each tx? It looks like its only 1
+		attempt := tx.TxAttempts[0]
+		if attempt.State == txmgrtypes.TxAttemptBroadcast && attempt.BroadcastBeforeBlockNum == nil &&
+			tx.ChainID.String() == chainID.String() {
+			tx.TxAttempts[0].BroadcastBeforeBlockNum = &blockNum
+		}
+	}
+	for _, as := range ms.addressStates {
+		as.applyToUnconfirmed(fn)
+	}
+
+	return nil
+}
+
+// FindTxAttemptsConfirmedMissingReceipt returns all transactions that are confirmed but missing a receipt
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	if ms.chainID.String() != chainID.String() {
+		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrInvalidChainID)
+	}
+
+	attempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	for _, as := range ms.addressStates {
+		attempts = append(attempts, as.txAttemptsWIthConfirmedMissingReceiptTx()...)
+	}
+	// sort by tx_id ASC, gas_price DESC, gas_tip_cap DESC
+	sort.SliceStable(attempts, func(i, j int) bool {
+		/*
+			// TODO: THIS IS CURRENTLY TIED TO ETHEREUM WE MIGHT WANT TO MAKE METHODS ON FEE FOR PRICE AND TIP CAP
+				if attempts[i].TxID == attempts[j].TxID {
+					if attempts[i].TxFee.GasPrice == attempts[j].TxFee.GasPrice {
+						return attempts[i].TxFee.GasTipCap > attempts[j].TxFee.GasTipCap
+					}
+					return attempts[i].TxFee.GasPrice > attempts[j].TxFee.GasPrice
+				}
+		*/
+		return attempts[i].TxID < attempts[j].TxID
+	})
+
+	return attempts, nil
+}
+
+// UpdateBroadcastAts updates the broadcast_at time for a given set of attempts
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateBroadcastAts(ctx context.Context, now time.Time, txIDs []int64) error {
+	// Persist to persistent storage
+	if err := ms.txStore.UpdateBroadcastAts(ctx, now, txIDs); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.BroadcastAt != nil {
+			tx.BroadcastAt = &now
+		}
+	}
+
+	for _, as := range ms.addressStates {
+		as.applyToUnconfirmed(fn, txIDs...)
+	}
+
+	return nil
+}
+
+// UpdateTxsUnconfirmed updates the unconfirmed transactions for a given set of ids
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUnconfirmed(ctx context.Context, txIDs []int64) error {
+	// Persist to persistent storage
+	if err := ms.txStore.UpdateTxsUnconfirmed(ctx, txIDs); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		tx.State = TxUnconfirmed
+	}
+
+	for _, as := range ms.addressStates {
+		as.applyToAll(fn, txIDs...)
+	}
+
+	return nil
+}
+
+// FindTxAttemptsRequiringReceiptFetch returns all transactions that are missing a receipt
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringReceiptFetch(ctx context.Context, chainID CHAIN_ID) (attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	if ms.chainID.String() != chainID.String() {
+		return attempts, fmt.Errorf("find_tx_attempts_requiring_receipt_fetch: %w", ErrInvalidChainID)
+	}
+
+	states := []txmgrtypes.TxState{TxConfirmed, TxConfirmedMissingReceipt}
+	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if tx.TxAttempts != nil && len(tx.TxAttempts) > 0 {
+			attempt := tx.TxAttempts[0]
+			return attempt.State == txmgrtypes.TxAttemptInsufficientFunds
+		}
+
+		return false
+	}
+	attempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	for _, as := range ms.addressStates {
+		attempts = append(as.fetchTxAttempts(states, filterFn), attempts...)
+	}
+}
+
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) (receiptsPlus []txmgrtypes.ReceiptPlus[R], err error) {
 	return ms.txStore.FindTxesPendingCallback(ctx, blockNum, chainID)
 }
@@ -476,12 +596,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxsRequiringResubmissionDueToInsufficientFunds(ctx context.Context, address ADDR, chainID CHAIN_ID) (etxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	return ms.txStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, address, chainID)
-}
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) (attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
-	return ms.txStore.FindTxAttemptsConfirmedMissingReceipt(ctx, chainID)
-}
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringReceiptFetch(ctx context.Context, chainID CHAIN_ID) (attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
-	return ms.txStore.FindTxAttemptsRequiringReceiptFetch(ctx, chainID)
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringResend(ctx context.Context, olderThan time.Time, maxInFlightTransactions uint32, chainID CHAIN_ID, address ADDR) (attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	return ms.txStore.FindTxAttemptsRequiringResend(ctx, olderThan, maxInFlightTransactions, chainID, address)
@@ -533,15 +647,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
 	return ms.txStore.SaveSentAttempt(ctx, timeout, attempt, broadcastAt)
-}
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID CHAIN_ID) error {
-	return ms.txStore.SetBroadcastBeforeBlockNum(ctx, blockNum, chainID)
-}
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateBroadcastAts(ctx context.Context, now time.Time, etxIDs []int64) error {
-	return ms.txStore.UpdateBroadcastAts(ctx, now, etxIDs)
-}
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUnconfirmed(ctx context.Context, ids []int64) error {
-	return ms.txStore.UpdateTxsUnconfirmed(ctx, ids)
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	return ms.txStore.UpdateTxForRebroadcast(ctx, etx, etxAttempt)

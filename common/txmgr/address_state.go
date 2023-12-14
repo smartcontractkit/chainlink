@@ -28,7 +28,10 @@ type AddressState[
 	unstarted          *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	inprogress         *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	// NOTE: currently the unconfirmed map's key is the transaction ID that is assigned via the postgres DB
-	unconfirmed map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	unconfirmed             map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	confirmedMissingReceipt map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	confirmed               map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	allTransactions         map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 }
 
 // NewAddressState returns a new AddressState instance
@@ -49,10 +52,13 @@ func NewAddressState[
 		fromAddress: fromAddress,
 		txStore:     txStore,
 
-		idempotencyKeyToTx: map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
-		unstarted:          NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
-		inprogress:         nil,
-		unconfirmed:        map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
+		idempotencyKeyToTx:      map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
+		unstarted:               NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
+		inprogress:              nil,
+		unconfirmed:             map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
+		confirmedMissingReceipt: map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
+		confirmed:               map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
+		allTransactions:         map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 	}
 
 	as.Lock()
@@ -69,6 +75,7 @@ func NewAddressState[
 		for i := 0; i < len(txs); i++ {
 			tx := txs[i]
 			as.unstarted.AddTx(&tx)
+			as.allTransactions[tx.ID] = &tx
 			if tx.IdempotencyKey != nil {
 				as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
 			}
@@ -86,8 +93,11 @@ func NewAddressState[
 		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
 	as.inprogress = tx
-	if tx != nil && tx.IdempotencyKey != nil {
-		as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
+	if tx != nil {
+		if tx.IdempotencyKey != nil {
+			as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
+		}
+		as.allTransactions[tx.ID] = tx
 	}
 
 	// Load all unconfirmed transactions from persistent storage
@@ -101,6 +111,51 @@ func NewAddressState[
 		for i := 0; i < len(txs); i++ {
 			tx := txs[i]
 			as.unconfirmed[tx.ID] = &tx
+			as.allTransactions[tx.ID] = &tx
+			if tx.IdempotencyKey != nil {
+				as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
+			}
+		}
+		if count <= offset+limit {
+			break
+		}
+		offset += limit
+	}
+
+	// Load all confirmed transactions from persistent storage
+	offset = 0
+	limit = 50
+	for {
+		txs, count, err := txStore.ConfirmedTransactions(offset, limit, as.fromAddress, as.chainID)
+		if err != nil {
+			return nil, fmt.Errorf("address_state: initialization: %w", err)
+		}
+		for i := 0; i < len(txs); i++ {
+			tx := txs[i]
+			as.confirmed[tx.ID] = &tx
+			as.allTransactions[tx.ID] = &tx
+			if tx.IdempotencyKey != nil {
+				as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
+			}
+		}
+		if count <= offset+limit {
+			break
+		}
+		offset += limit
+	}
+
+	// Load all unconfirmed transactions from persistent storage
+	offset = 0
+	limit = 50
+	for {
+		txs, count, err := txStore.ConfirmedMissingReceiptTransactions(offset, limit, as.fromAddress, as.chainID)
+		if err != nil {
+			return nil, fmt.Errorf("address_state: initialization: %w", err)
+		}
+		for i := 0; i < len(txs); i++ {
+			tx := txs[i]
+			as.confirmedMissingReceipt[tx.ID] = &tx
+			as.allTransactions[tx.ID] = &tx
 			if tx.IdempotencyKey != nil {
 				as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
 			}
@@ -112,7 +167,6 @@ func NewAddressState[
 	}
 
 	return &as, nil
-
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) close() {
@@ -146,6 +200,18 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 	return as.idempotencyKeyToTx[key]
 }
 
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) confirmedMissingReceiptTxs() []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.RLock()
+	defer as.RUnlock()
+
+	var txAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, tx := range as.confirmedMissingReceipt {
+		txAttempts = append(txAttempts, tx.TxAttempts...)
+	}
+
+	return txAttempts
+}
+
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findLatestSequence() SEQ {
 	as.RLock()
 	defer as.RUnlock()
@@ -166,6 +232,65 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findLa
 	}
 
 	return maxSeq
+}
+
+// TODO(jtw): THIS MIGHT BE ABLE TO BE MERGED WITH OTHER FILTER AND APPLY FUNCTIONS
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToAll(
+	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
+	txIDs ...int64,
+) {
+	as.Lock()
+	defer as.Unlock()
+
+	// if txIDs is not empty then only apply the filter to those transactions
+	if len(txIDs) > 0 {
+		for _, txID := range txIDs {
+			tx := as.allTransactions[txID]
+			if tx != nil {
+				fn(tx)
+			}
+		}
+		return
+	}
+
+	// if txIDs is empty then apply the filter to all transactions
+	for _, tx := range as.allTransactions {
+		fn(tx)
+	}
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToUnconfirmed(
+	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
+	txIDs ...int64,
+) {
+	as.Lock()
+	defer as.Unlock()
+
+	// if txIDs is not empty then only apply the filter to those transactions
+	if len(txIDs) > 0 {
+		for _, txID := range txIDs {
+			tx := as.unconfirmed[txID]
+			if tx != nil {
+				fn(tx)
+			}
+		}
+		return
+	}
+
+	// if txIDs is empty then apply the filter to all transactions
+	for _, tx := range as.unconfirmed {
+		fn(tx)
+	}
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchTxAttempts(
+	txStates []txmgrtypes.TxState,
+	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
+	txIDs ...int64,
+) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.RLock()
+	defer as.RUnlock()
+	// TODO: this is a naive implementation
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
@@ -201,6 +326,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxT
 	}
 
 	as.unstarted.AddTx(tx)
+	as.allTransactions[tx.ID] = tx
 	if tx.IdempotencyKey != nil {
 		as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
 	}
