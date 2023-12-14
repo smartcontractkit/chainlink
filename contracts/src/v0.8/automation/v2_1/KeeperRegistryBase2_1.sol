@@ -340,7 +340,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   /// @dev Report transmitted by OCR to transmit function
   struct Report {
-    ChainConfig[] cfgs;
+    uint256[] l1GasCosts; // if we query L1 gas cost for every upkeep from precompiles or chain APIs
+    uint256 l1GasPrice; // if we use a general l1GasPrice to estimate L1 gas cost
+    uint256 fastGas;
     uint256 linkNative;
     uint256[] upkeepIds;
     uint256[] gasLimits;
@@ -402,11 +404,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint32 logIndex;
     uint32 blockNum;
     bytes32 blockHash;
-  }
-
-  struct ChainConfig {
-    uint256 fastGas;
-    uint256 l1GasCost;
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
@@ -551,25 +548,34 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    */
   function _calculatePaymentAmount(
     HotVars memory hotVars,
-    ChainConfig memory cfg,
+    uint256 l1GasPrice,
+    uint256 l1GasCost,
+    uint256 performDataLength,
+    uint256 fastGas,
     uint256 linkNative,
     uint256 gasLimit,
     uint256 gasOverhead,
     bool isExecution
   ) internal view returns (uint96, uint96) {
     // since tx.gasprice is from txm, should we remove these logic??
-    uint256 gasWei = cfg.fastGas * hotVars.gasCeilingMultiplier;
+    uint256 gasWei = fastGas * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) { // can we remove this?
       gasWei = tx.gasprice;
     }
 
     uint256 l1CostWei;
+    if use l1 gas price {
+      l1CostWei = L1PosterOverhead + scalar * l1GasPrice * (performDataLength + configurable overhead);
+    } else {
+      l1CostWei = l1GasCost;
+    }
+
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
-      l1CostWei = hotVars.gasCeilingMultiplier * cfg.l1GasCost;
+      l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
     } else {
-      l1CostWei = cfg.l1GasCost;
+      l1CostWei = l1CostWei;
     }
 
     // this calculation was for splitting the L1 gas cost evenly because the old way of calculation depends on msg.data
@@ -594,17 +600,22 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    */
   function _getMaxLinkPayment(
     HotVars memory hotVars,
-    ChainConfig memory cfg,
     Trigger triggerType,
     uint32 performGas,
     uint32 performDataLength,
+    uint256 l1GasPrice,
+    uint256 l1GasCost,
+    uint256 fastGas,
     uint256 linkNative,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (uint96) {
     uint256 gasOverhead = _getMaxGasOverhead(triggerType, performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
-      cfg,
+      l1GasPrice,
+      l1GasCost,
+      performDataLength,
+      fastGas,
       linkNative,
       performGas,
       gasOverhead,
@@ -692,7 +703,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     if (
       report.gasLimits.length != expectedLength ||
       report.triggers.length != expectedLength ||
-      report.performDatas.length != expectedLength
+      report.performDatas.length != expectedLength ||
+      report.l1GasCosts.length != expectedLength
     ) {
       revert InvalidReport();
     }
@@ -845,14 +857,20 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    */
   function _postPerformPayment(
     HotVars memory hotVars,
-    ChainConfig memory cfg,
+    uint256 l1GasPrice,
+    uint256 l1GasCost,
+    uint256 performDataLength,
     uint256 upkeepId,
+    uint256 fastGas,
     uint256 linkNative,
     UpkeepTransmitInfo memory upkeepTransmitInfo
   ) internal returns (uint96 gasReimbursement, uint96 premium) {
     (gasReimbursement, premium) = _calculatePaymentAmount(
       hotVars,
-      cfg,
+      l1GasPrice,
+      l1GasCost,
+      performDataLength,
+      fastGas,
       upkeepTransmitInfo.gasUsed,
       upkeepTransmitInfo.gasOverhead,
       linkNative,

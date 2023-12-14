@@ -93,6 +93,9 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
         upkeepTransmitInfo[i].triggerType,
         uint32(report.gasLimits[i]),
         uint32(report.performDatas[i].length),
+        report.l1GasPrice,
+        report.l1GasCosts[i],
+        report.fastGas,
         report.linkNative,
         true
       );
@@ -151,8 +154,11 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
 
           (reimbursement, premium) = _postPerformPayment(
             hotVars,
-            report.cfgs[i],
+            report.l1GasPrice,
+            report.l1GasCosts[i],
+            report.performDatas[i].length,
             report.upkeepIds[i],
+            report.fastGas,
             report.linkNative,
             upkeepTransmitInfo[i]
           );

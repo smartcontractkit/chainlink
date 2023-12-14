@@ -454,8 +454,8 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    * @notice calculates the minimum balance required for an upkeep to remain eligible
    * @param id the upkeep id to calculate minimum balance for
    */
-  function getMinBalance(uint256 id, ChainConfig memory cfg) external view returns (uint96) {
-    return getMinBalanceForUpkeep(id, cfg);
+  function getMinBalance(uint256 id, uint256 l1GasPrice, uint256 l1GasCost, uint256 fastGas) external view returns (uint96) {
+    return getMinBalanceForUpkeep(id, l1GasPrice, l1GasCost, fastGas);
   }
 
   /**
@@ -463,19 +463,19 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    * @param id the upkeep id to calculate minimum balance for
    * @dev this will be deprecated in a future version in favor of getMinBalance
    */
-  function getMinBalanceForUpkeep(uint256 id, ChainConfig memory cfg) public view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(_getTriggerType(id), cfg, s_upkeep[id].performGas);
+  function getMinBalanceForUpkeep(uint256 id, uint256 l1GasPrice, uint256 l1GasCost, uint256 fastGas) public view returns (uint96 minBalance) {
+    return getMaxPaymentForGas(_getTriggerType(id), l1GasPrice, l1GasCost, fastGas, s_upkeep[id].performGas);
   }
 
   /**
    * @notice calculates the maximum payment for a given gas limit
    * @param gasLimit the gas to calculate payment for
    */
-  function getMaxPaymentForGas(Trigger triggerType, ChainConfig memory cfg, uint32 gasLimit) public view returns (uint96 maxPayment) {
+  function getMaxPaymentForGas(Trigger triggerType, uint256 l1GasPrice, uint256 l1GasCost, uint256 fastGas, uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     uint256 linkNative = _getFeedData(hotVars);
     return
-      _getMaxLinkPayment(hotVars, cfg, triggerType, gasLimit, s_storage.maxPerformDataSize, linkNative, false);
+      _getMaxLinkPayment(hotVars, triggerType, gasLimit, s_storage.maxPerformDataSize, l1GasPrice, l1GasCost, fastGas, linkNative, false);
   }
 
   /**

@@ -49,7 +49,6 @@ type BlockSubscriber struct {
 	unsubscribe      func()
 	subscribers      map[int]chan ocr2keepers.BlockHistory
 	blocks           map[int64]string
-	fastGas          map[int64]int64
 	maxSubId         int
 	lastClearedBlock int64
 	lastSentBlock    int64
@@ -74,7 +73,6 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, fina
 		headC:            make(chan *evmtypes.Head, channelSize),
 		subscribers:      map[int]chan ocr2keepers.BlockHistory{},
 		blocks:           map[int64]string{},
-		fastGas:          map[int64]int64{},
 		blockHistorySize: blockHistorySize,
 		blockSize:        lookbackDepth,
 		finalityDepth:    finalityDepth,
@@ -277,15 +275,6 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 			bs.lggr.Warnf("subscriber channel is full, dropping block history with length %d", len(history))
 		}
 	}
-
-	//fee, _, err := bs.ge.GetFee(ctx, _, feeLimit, maxFeeWei)
-	//var fg int64
-	//if fee.ValidDynamic() {
-	//	fg = fee.DynamicFeeCap.Int64() + fee.DynamicTipCap.Int64()
-	//} else {
-	//	fg = fee.Legacy.Int64()
-	//}
-	//bs.fastGas[h.Number] = fg
 
 	bs.lggr.Debugf("published block history with length %d and latestBlock %d to %d subscriber(s)", len(history), bs.latestBlock.Load(), len(bs.subscribers))
 }

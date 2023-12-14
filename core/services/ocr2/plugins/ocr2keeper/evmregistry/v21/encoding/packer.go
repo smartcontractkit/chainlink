@@ -146,19 +146,21 @@ func (p *abiPacker) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistr
 		return automation_utils_2_1.KeeperRegistryBase21Report{}, fmt.Errorf("failed to convert type")
 	}
 	report := automation_utils_2_1.KeeperRegistryBase21Report{
+		L1GasPrice:   converted.L1GasPrice,
+		FastGas:      converted.FastGas,
 		LinkNative:   converted.LinkNative,
 		UpkeepIds:    make([]*big.Int, len(converted.UpkeepIds)),
 		GasLimits:    make([]*big.Int, len(converted.GasLimits)),
 		Triggers:     make([][]byte, len(converted.Triggers)),
 		PerformDatas: make([][]byte, len(converted.PerformDatas)),
-		Cfgs:         make([]automation_utils_2_1.KeeperRegistryBase21ChainConfig, len(converted.Cfgs)),
+		L1GasCosts:   make([]*big.Int, len(converted.GasLimits)),
 	}
 	if len(report.UpkeepIds) > 0 {
 		copy(report.UpkeepIds, converted.UpkeepIds)
 		copy(report.GasLimits, converted.GasLimits)
 		copy(report.Triggers, converted.Triggers)
 		copy(report.PerformDatas, converted.PerformDatas)
-		copy(report.Cfgs, converted.Cfgs)
+		copy(report.L1GasCosts, converted.L1GasCosts)
 	}
 
 	return report, nil
@@ -193,6 +195,7 @@ func GetIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, rea
 		WorkID:                 p.WorkID,
 		FastGasWei:             big.NewInt(0),
 		LinkNative:             big.NewInt(0),
-		// L1GasCost:           big.NewInt(0),
+		L1GasPrice:             big.NewInt(0),
+		L1GasCost:              big.NewInt(0),
 	}
 }

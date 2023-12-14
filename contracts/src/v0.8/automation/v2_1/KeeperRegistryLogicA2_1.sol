@@ -46,7 +46,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   function checkUpkeep(
     uint256 id,
     bytes memory triggerData,
-    ChainConfig memory cfg
+    uint256 l1GasPrice,
+    uint256 l1GasCost,
+    uint256 fastGas
   )
     public
     cannotExecute
@@ -75,6 +77,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       triggerType,
       upkeep.performGas,
       s_storage.maxPerformDataSize,
+      l1GasPrice,
+      l1GasCost,
+      fastGas,
       linkNative,
       false
     );
@@ -140,7 +145,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
    */
   function checkUpkeep(
     uint256 id,
-    ChainConfig memory cfg
+    uint256 l1GasPrice,
+    uint256 l1GasCost,
+    uint256 fastGas
   )
     external
     returns (
@@ -152,7 +159,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       uint256 linkNative
     )
   {
-    return checkUpkeep(id, bytes(""), cfg);
+    return checkUpkeep(id, bytes(""), l1GasPrice, l1GasCost, fastGas);
   }
 
   /**
