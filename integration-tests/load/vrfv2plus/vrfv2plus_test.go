@@ -68,14 +68,14 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 	l.Info().
 		Str("Test Type", string(testType)).
 		Str("Test Duration", vrfv2PlusConfig.Performance.TestDuration.Truncate(time.Second).String()).
-		Int64("RPS", vrfv2PlusConfig.Performance.RPS).
+		Int64("RPS", *vrfv2PlusConfig.Performance.RPS).
 		Str("RateLimitUnitDuration", vrfv2PlusConfig.Performance.RateLimitUnitDuration.String()).
-		Uint16("RandomnessRequestCountPerRequest", vrfv2PlusConfig.General.RandomnessRequestCountPerRequest).
-		Uint16("RandomnessRequestCountPerRequestDeviation", vrfv2PlusConfig.General.RandomnessRequestCountPerRequestDeviation).
-		Bool("UseExistingEnv", vrfv2PlusConfig.Performance.UseExistingEnv).
+		Uint16("RandomnessRequestCountPerRequest", *vrfv2PlusConfig.General.RandomnessRequestCountPerRequest).
+		Uint16("RandomnessRequestCountPerRequestDeviation", *vrfv2PlusConfig.General.RandomnessRequestCountPerRequestDeviation).
+		Bool("UseExistingEnv", *vrfv2PlusConfig.Performance.UseExistingEnv).
 		Msg("Performance Test Configuration")
 
-	if vrfv2PlusConfig.Performance.UseExistingEnv {
+	if *vrfv2PlusConfig.Performance.UseExistingEnv {
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		vrfv2PlusConfig.Performance.CoordinatorAddress = testConfig.VRFv2Plus.ExistingEnvConfig.CoordinatorAddress
 		vrfv2PlusConfig.Performance.ConsumerAddress = testConfig.VRFv2Plus.ExistingEnvConfig.ConsumerAddress
@@ -105,20 +105,20 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 		require.NoError(t, err, "error creating test env")
 
-		coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2_5(vrfv2PlusConfig.Performance.CoordinatorAddress)
+		coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2_5(*vrfv2PlusConfig.Performance.CoordinatorAddress)
 		require.NoError(t, err)
 
 		var consumers []contracts.VRFv2PlusLoadTestConsumer
-		if testConfig.VRFv2Plus.ExistingEnvConfig.CreateFundSubsAndAddConsumers {
-			linkToken, err := env.ContractLoader.LoadLINKToken(vrfv2PlusConfig.Performance.LinkAddress)
+		if *testConfig.VRFv2Plus.ExistingEnvConfig.CreateFundSubsAndAddConsumers {
+			linkToken, err := env.ContractLoader.LoadLINKToken(*vrfv2PlusConfig.Performance.LinkAddress)
 			require.NoError(t, err)
 			consumers, err = vrfv2plus.DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, 1)
 			require.NoError(t, err)
 			err = env.EVMClient.WaitForEvents()
 			require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 			l.Info().
-				Str("Coordinator", vrfv2PlusConfig.Performance.CoordinatorAddress).
-				Int("Number of Subs to create", vrfv2PlusConfig.General.NumberOfSubToCreate).
+				Str("Coordinator", *vrfv2PlusConfig.Performance.CoordinatorAddress).
+				Int("Number of Subs to create", *vrfv2PlusConfig.General.NumberOfSubToCreate).
 				Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 			subIDs, err = vrfv2plus.CreateFundSubsAndAddConsumers(
 				env,
@@ -126,15 +126,15 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 				linkToken,
 				coordinator,
 				consumers,
-				vrfv2PlusConfig.General.NumberOfSubToCreate,
+				*vrfv2PlusConfig.General.NumberOfSubToCreate,
 			)
 			require.NoError(t, err)
 		} else {
-			consumer, err := env.ContractLoader.LoadVRFv2PlusLoadTestConsumer(vrfv2PlusConfig.Performance.ConsumerAddress)
+			consumer, err := env.ContractLoader.LoadVRFv2PlusLoadTestConsumer(*vrfv2PlusConfig.Performance.ConsumerAddress)
 			require.NoError(t, err)
 			consumers = append(consumers, consumer)
 			var ok bool
-			subID := big.NewInt(int64(vrfv2PlusConfig.Performance.SubID))
+			subID := big.NewInt(int64(*vrfv2PlusConfig.Performance.SubID))
 			require.True(t, ok)
 			subIDs = append(subIDs, subID)
 		}
@@ -152,7 +152,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			VRFV2PlusKeyData: vrfv2plus.VRFV2PlusKeyData{
 				VRFKey:            nil,
 				EncodedProvingKey: [2]*big.Int{},
-				KeyHash:           common.HexToHash(vrfv2PlusConfig.Performance.KeyHash),
+				KeyHash:           common.HexToHash(*vrfv2PlusConfig.Performance.KeyHash),
 			},
 			VRFJob:            nil,
 			PrimaryEthAddress: "",
@@ -193,7 +193,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 		env.ParallelTransactions(true)
 
-		mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(vrfv2PlusConfig.General.LinkNativeFeedResponse))
+		mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*vrfv2PlusConfig.General.LinkNativeFeedResponse))
 		require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 		linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
@@ -208,7 +208,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			env.EVMClient.GetDefaultWallet().Address(),
 			0,
 			1,
-			vrfv2PlusConfig.General.NumberOfSubToCreate,
+			*vrfv2PlusConfig.General.NumberOfSubToCreate,
 			l,
 		)
 		require.NoError(t, err, "error setting up VRF v2_5 env")
@@ -226,7 +226,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		T:                     t,
 		LoadType:              wasp.RPS,
 		GenName:               "gun",
-		RateLimitUnitDuration: vrfv2PlusConfig.Performance.RateLimitUnitDuration,
+		RateLimitUnitDuration: *vrfv2PlusConfig.Performance.RateLimitUnitDuration,
 		Gun: NewSingleHashGun(
 			vrfv2PlusContracts,
 			vrfv2PlusData.KeyHash,
@@ -248,8 +248,8 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 	t.Run("vrfv2plus performance test", func(t *testing.T) {
 
 		singleFeedConfig.Schedule = wasp.Plain(
-			vrfv2PlusConfig.Performance.RPS,
-			vrfv2PlusConfig.Performance.TestDuration,
+			*vrfv2PlusConfig.Performance.RPS,
+			*vrfv2PlusConfig.Performance.TestDuration,
 		)
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(singleFeedConfig)).
@@ -294,14 +294,14 @@ func cancelSubsAndReturnFunds(subIDs []*big.Int, l zerolog.Logger) {
 
 func FundNodesIfNeeded(config *tc.TestConfig, client blockchain.EVMClient, l zerolog.Logger) error {
 	cfg := config.VRFv2Plus
-	if cfg.ExistingEnvConfig.NodeSendingKeyFundingMin > 0 {
+	if *cfg.ExistingEnvConfig.NodeSendingKeyFundingMin > 0 {
 		for _, sendingKey := range cfg.ExistingEnvConfig.NodeSendingKeys {
 			address := common.HexToAddress(sendingKey)
 			sendingKeyBalance, err := client.BalanceAt(context.Background(), address)
 			if err != nil {
 				return err
 			}
-			fundingAtLeast := conversions.EtherToWei(big.NewFloat(cfg.ExistingEnvConfig.NodeSendingKeyFundingMin))
+			fundingAtLeast := conversions.EtherToWei(big.NewFloat(*cfg.ExistingEnvConfig.NodeSendingKeyFundingMin))
 			fundingToSendWei := new(big.Int).Sub(fundingAtLeast, sendingKeyBalance)
 			fundingToSendEth := conversions.WeiToEther(fundingToSendWei)
 			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {

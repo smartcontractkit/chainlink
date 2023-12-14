@@ -202,23 +202,23 @@ func SetupVRFV2Environment(
 	}
 	vrfv2Config := testConfig.VRFv2.General
 	vrfCoordinatorV2FeeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-		FulfillmentFlatFeeLinkPPMTier1: vrfv2Config.FulfillmentFlatFeeLinkPPMTier1,
-		FulfillmentFlatFeeLinkPPMTier2: vrfv2Config.FulfillmentFlatFeeLinkPPMTier2,
-		FulfillmentFlatFeeLinkPPMTier3: vrfv2Config.FulfillmentFlatFeeLinkPPMTier3,
-		FulfillmentFlatFeeLinkPPMTier4: vrfv2Config.FulfillmentFlatFeeLinkPPMTier4,
-		FulfillmentFlatFeeLinkPPMTier5: vrfv2Config.FulfillmentFlatFeeLinkPPMTier5,
-		ReqsForTier2:                   big.NewInt(vrfv2Config.ReqsForTier2),
-		ReqsForTier3:                   big.NewInt(vrfv2Config.ReqsForTier3),
-		ReqsForTier4:                   big.NewInt(vrfv2Config.ReqsForTier4),
-		ReqsForTier5:                   big.NewInt(vrfv2Config.ReqsForTier5)}
+		FulfillmentFlatFeeLinkPPMTier1: *vrfv2Config.FulfillmentFlatFeeLinkPPMTier1,
+		FulfillmentFlatFeeLinkPPMTier2: *vrfv2Config.FulfillmentFlatFeeLinkPPMTier2,
+		FulfillmentFlatFeeLinkPPMTier3: *vrfv2Config.FulfillmentFlatFeeLinkPPMTier3,
+		FulfillmentFlatFeeLinkPPMTier4: *vrfv2Config.FulfillmentFlatFeeLinkPPMTier4,
+		FulfillmentFlatFeeLinkPPMTier5: *vrfv2Config.FulfillmentFlatFeeLinkPPMTier5,
+		ReqsForTier2:                   big.NewInt(*vrfv2Config.ReqsForTier2),
+		ReqsForTier3:                   big.NewInt(*vrfv2Config.ReqsForTier3),
+		ReqsForTier4:                   big.NewInt(*vrfv2Config.ReqsForTier4),
+		ReqsForTier5:                   big.NewInt(*vrfv2Config.ReqsForTier5)}
 
 	l.Info().Str("Coordinator", vrfv2Contracts.Coordinator.Address()).Msg("Setting Coordinator Config")
 	err = vrfv2Contracts.Coordinator.SetConfig(
-		vrfv2Config.MinimumConfirmations,
-		vrfv2Config.CallbackGasLimit,
-		vrfv2Config.StalenessSeconds,
-		vrfv2Config.GasAfterPaymentCalculation,
-		big.NewInt(vrfv2Config.LinkNativeFeedResponse),
+		*vrfv2Config.MinimumConfirmations,
+		*vrfv2Config.CallbackGasLimit,
+		*vrfv2Config.StalenessSeconds,
+		*vrfv2Config.GasAfterPaymentCalculation,
+		big.NewInt(*vrfv2Config.LinkNativeFeedResponse),
 		vrfCoordinatorV2FeeConfig,
 	)
 	if err != nil {
@@ -275,7 +275,7 @@ func SetupVRFV2Environment(
 		allNativeTokenKeyAddresses,
 		pubKeyCompressed,
 		chainID.String(),
-		vrfv2Config.MinimumConfirmations,
+		*vrfv2Config.MinimumConfirmations,
 	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreateVRFV2Jobs, err)
@@ -285,7 +285,7 @@ func SetupVRFV2Environment(
 	// [[EVM.KeySpecific]]
 	//	Key = '...'
 	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
-		node.WithVRFv2EVMEstimator(allNativeTokenKeyAddresses, vrfv2Config.CLNodeMaxGasPriceGWei),
+		node.WithVRFv2EVMEstimator(allNativeTokenKeyAddresses, *vrfv2Config.CLNodeMaxGasPriceGWei),
 	)
 	l.Info().Msg("Restarting Node with new sending key PriceMax configuration")
 	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
@@ -447,7 +447,7 @@ func FundSubscriptions(
 ) error {
 	for _, subID := range subIDs {
 		//Link Billing
-		amountJuels := conversions.EtherToWei(big.NewFloat(testConfig.VRFv2.General.SubscriptionFundingAmountLink))
+		amountJuels := conversions.EtherToWei(big.NewFloat(*testConfig.VRFv2.General.SubscriptionFundingAmountLink))
 		err := FundVRFCoordinatorV2Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
@@ -475,9 +475,9 @@ func RequestRandomnessAndWaitForFulfillment(
 	_, err := consumer.RequestRandomness(
 		vrfv2Data.KeyHash,
 		subID,
-		vrfv2Config.MinimumConfirmations,
-		vrfv2Config.CallbackGasLimit,
-		vrfv2Config.NumberOfWords,
+		*vrfv2Config.MinimumConfirmations,
+		*vrfv2Config.CallbackGasLimit,
+		*vrfv2Config.NumberOfWords,
 		randomnessRequestCountPerRequest,
 	)
 	if err != nil {
@@ -624,9 +624,9 @@ func logRandRequest(
 		Str("Consumer", consumer).
 		Str("Coordinator", coordinator).
 		Uint64("SubID", subID).
-		Uint16("MinimumConfirmations", vrfv2Config.MinimumConfirmations).
-		Uint32("CallbackGasLimit", vrfv2Config.CallbackGasLimit).
-		Uint16("RandomnessRequestCountPerRequest", vrfv2Config.RandomnessRequestCountPerRequest).
-		Uint16("RandomnessRequestCountPerRequestDeviation", vrfv2Config.RandomnessRequestCountPerRequestDeviation).
+		Uint16("MinimumConfirmations", *vrfv2Config.MinimumConfirmations).
+		Uint32("CallbackGasLimit", *vrfv2Config.CallbackGasLimit).
+		Uint16("RandomnessRequestCountPerRequest", *vrfv2Config.RandomnessRequestCountPerRequest).
+		Uint16("RandomnessRequestCountPerRequestDeviation", *vrfv2Config.RandomnessRequestCountPerRequestDeviation).
 		Msg("Requesting randomness")
 }

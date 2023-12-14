@@ -42,7 +42,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
 
 	vrfv2Config := m.testConfig.VRFv2.General
 	//randomly increase/decrease randomness request count per TX
-	randomnessRequestCountPerRequest := deviateValue(vrfv2Config.RandomnessRequestCountPerRequest, vrfv2Config.RandomnessRequestCountPerRequestDeviation)
+	randomnessRequestCountPerRequest := deviateValue(*vrfv2Config.RandomnessRequestCountPerRequest, *vrfv2Config.RandomnessRequestCountPerRequestDeviation)
 	_, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.LoadTestConsumers[0],
@@ -52,7 +52,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		randomnessRequestCountPerRequest,
 		m.testConfig,
-		vrfv2Config.RandomWordsFulfilledEventTimeout,
+		*vrfv2Config.RandomWordsFulfilledEventTimeout,
 		m.logger,
 	)
 	if err != nil {

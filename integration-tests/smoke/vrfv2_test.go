@@ -44,7 +44,7 @@ func TestVRFv2Basic(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.General.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2.General.LinkNativeFeedResponse))
 	require.NoError(t, err)
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err)
@@ -85,9 +85,9 @@ func TestVRFv2Basic(t *testing.T) {
 			vrfv2Contracts.Coordinator,
 			vrfv2Data,
 			subID,
-			config.VRFv2.General.RandomnessRequestCountPerRequest,
+			*config.VRFv2.General.RandomnessRequestCountPerRequest,
 			&config,
-			config.VRFv2.General.RandomWordsFulfilledEventTimeout,
+			*config.VRFv2.General.RandomWordsFulfilledEventTimeout,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -136,7 +136,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.General.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2.General.LinkNativeFeedResponse))
 	require.NoError(t, err)
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err)
@@ -178,9 +178,9 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 				vrfv2Contracts.Coordinator,
 				vrfv2Data,
 				subID,
-				config.VRFv2.General.RandomnessRequestCountPerRequest,
+				*config.VRFv2.General.RandomnessRequestCountPerRequest,
 				&config,
-				config.VRFv2.General.RandomWordsFulfilledEventTimeout,
+				*config.VRFv2.General.RandomWordsFulfilledEventTimeout,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")

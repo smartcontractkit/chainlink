@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 
@@ -49,7 +50,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.General.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2.General.LinkNativeFeedResponse))
 	require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
@@ -94,9 +95,9 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			testConfig.RandomnessRequestCountPerRequest,
+			*testConfig.RandomnessRequestCountPerRequest,
 			&config,
-			testConfig.RandomWordsFulfilledEventTimeout,
+			*testConfig.RandomWordsFulfilledEventTimeout,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -138,9 +139,9 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			testConfig.RandomnessRequestCountPerRequest,
+			*testConfig.RandomnessRequestCountPerRequest,
 			&config,
-			testConfig.RandomWordsFulfilledEventTimeout,
+			*testConfig.RandomWordsFulfilledEventTimeout,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -195,7 +196,7 @@ func TestVRFv2Plus(t *testing.T) {
 				wrapperSubID,
 				isNativeBilling,
 				&config,
-				testConfig.RandomWordsFulfilledEventTimeout,
+				*testConfig.RandomWordsFulfilledEventTimeout,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -244,7 +245,7 @@ func TestVRFv2Plus(t *testing.T) {
 				wrapperSubID,
 				isNativeBilling,
 				&config,
-				testConfig.RandomWordsFulfilledEventTimeout,
+				*testConfig.RandomWordsFulfilledEventTimeout,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -370,8 +371,8 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
 		testConfig := config.VRFv2Plus.General
 		//underfund subs in order rand fulfillments to fail
-		testConfig.SubscriptionFundingAmountNative = float64(0.000000000000000001) //1 Wei
-		testConfig.SubscriptionFundingAmountLink = float64(0.000000000000000001)   //1 Juels
+		testConfig.SubscriptionFundingAmountNative = ptr.Ptr(float64(0.000000000000000001)) //1 Wei
+		testConfig.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001))   //1 Juels
 
 		subIDsForCancelling, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
@@ -406,7 +407,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForCancelling,
 			false,
-			testConfig.RandomnessRequestCountPerRequest,
+			*testConfig.RandomnessRequestCountPerRequest,
 			&config,
 			randomWordsFulfilledEventTimeout,
 			l,
@@ -420,7 +421,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForCancelling,
 			true,
-			testConfig.RandomnessRequestCountPerRequest,
+			*testConfig.RandomnessRequestCountPerRequest,
 			&config,
 			randomWordsFulfilledEventTimeout,
 			l,
@@ -541,9 +542,9 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForOracleWithdraw,
 			false,
-			testConfig.RandomnessRequestCountPerRequest,
+			*testConfig.RandomnessRequestCountPerRequest,
 			&config,
-			testConfig.RandomWordsFulfilledEventTimeout,
+			*testConfig.RandomWordsFulfilledEventTimeout,
 			l,
 		)
 		require.NoError(t, err)
@@ -554,9 +555,9 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForOracleWithdraw,
 			true,
-			testConfig.RandomnessRequestCountPerRequest,
+			*testConfig.RandomnessRequestCountPerRequest,
 			&config,
-			testConfig.RandomWordsFulfilledEventTimeout,
+			*testConfig.RandomWordsFulfilledEventTimeout,
 			l,
 		)
 		require.NoError(t, err)
@@ -628,7 +629,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2Plus.General.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2Plus.General.LinkNativeFeedResponse))
 	require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
@@ -674,9 +675,9 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 				vrfv2PlusData,
 				subID,
 				isNativeBilling,
-				testConfig.RandomnessRequestCountPerRequest,
+				*testConfig.RandomnessRequestCountPerRequest,
 				&config,
-				testConfig.RandomWordsFulfilledEventTimeout,
+				*testConfig.RandomWordsFulfilledEventTimeout,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -720,7 +721,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.NoError(t, err, "error creating test env")
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2Plus.General.LinkNativeFeedResponse))
+	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2Plus.General.LinkNativeFeedResponse))
 	require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
@@ -769,14 +770,14 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	vrfv2PlusConfig := config.VRFv2Plus.General
 	err = newCoordinator.SetConfig(
-		vrfv2PlusConfig.MinimumConfirmations,
-		vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
-		vrfv2PlusConfig.StalenessSeconds,
-		vrfv2PlusConfig.GasAfterPaymentCalculation,
-		big.NewInt(vrfv2PlusConfig.LinkNativeFeedResponse),
+		*vrfv2PlusConfig.MinimumConfirmations,
+		*vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
+		*vrfv2PlusConfig.StalenessSeconds,
+		*vrfv2PlusConfig.GasAfterPaymentCalculation,
+		big.NewInt(*vrfv2PlusConfig.LinkNativeFeedResponse),
 		vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig{
-			FulfillmentFlatFeeLinkPPM:   vrfv2PlusConfig.FulfillmentFlatFeeLinkPPM,
-			FulfillmentFlatFeeNativePPM: vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
+			FulfillmentFlatFeeLinkPPM:   *vrfv2PlusConfig.FulfillmentFlatFeeLinkPPM,
+			FulfillmentFlatFeeNativePPM: *vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
 		},
 	)
 	require.NoError(t, err)
@@ -792,7 +793,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		[]string{vrfv2PlusData.PrimaryEthAddress},
 		vrfv2PlusData.VRFKey.Data.ID,
 		vrfv2PlusData.ChainID.String(),
-		vrfv2PlusConfig.MinimumConfirmations,
+		*vrfv2PlusConfig.MinimumConfirmations,
 	)
 	require.NoError(t, err, vrfv2plus.ErrCreateVRFV2PlusJobs)
 
