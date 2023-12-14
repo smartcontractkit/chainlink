@@ -114,4 +114,5 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 		roundData.Answer.Int64(),
 	)
 	fmt.Println("values equal")
+	require.Fail(t, "Capture logs")
 }
