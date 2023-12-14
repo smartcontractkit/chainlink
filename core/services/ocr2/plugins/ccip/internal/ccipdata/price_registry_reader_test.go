@@ -2,11 +2,12 @@ package ccipdata_test
 
 import (
 	"context"
-	"github.com/stretchr/testify/mock"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/mock"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"

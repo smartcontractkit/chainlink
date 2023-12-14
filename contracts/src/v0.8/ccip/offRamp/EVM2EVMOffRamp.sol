@@ -18,9 +18,9 @@ import {OCR2BaseNoChecks} from "../ocr/OCR2BaseNoChecks.sol";
 import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
 import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
 
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
-import {Address} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
-import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/ERC165Checker.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {Address} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Address.sol";
+import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 
 /// @notice EVM2EVMOffRamp enables OCR networks to execute multiple messages
 /// in an OffRamp in a single transaction.

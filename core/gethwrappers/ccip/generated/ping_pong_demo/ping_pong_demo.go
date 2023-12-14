@@ -65,7 +65,7 @@ func DeployPingPongDemo(auth *bind.TransactOpts, backend bind.ContractBackend, r
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &PingPongDemo{PingPongDemoCaller: PingPongDemoCaller{contract: contract}, PingPongDemoTransactor: PingPongDemoTransactor{contract: contract}, PingPongDemoFilterer: PingPongDemoFilterer{contract: contract}}, nil
+	return address, tx, &PingPongDemo{address: address, abi: *parsed, PingPongDemoCaller: PingPongDemoCaller{contract: contract}, PingPongDemoTransactor: PingPongDemoTransactor{contract: contract}, PingPongDemoFilterer: PingPongDemoFilterer{contract: contract}}, nil
 }
 
 type PingPongDemo struct {

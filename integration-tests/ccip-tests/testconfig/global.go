@@ -7,9 +7,13 @@ import (
 	"fmt"
 
 	"github.com/AlekSi/pointer"
+
 	"github.com/pelletier/go-toml/v2"
+
 	"github.com/pkg/errors"
+
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
@@ -29,16 +33,16 @@ const (
 
 var (
 	//go:embed tomls/default.toml
-	DefaultConfig    []byte
-	GlobalTestConfig *Config
+	DefaultConfig []byte
 )
 
-func init() {
+func GlobalTestConfig() *Config {
 	var err error
-	GlobalTestConfig, err = NewConfig()
+	cfg, err := NewConfig()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to load config")
 	}
+	return cfg
 }
 
 // GenericConfig is an interface for all product based config types to implement
@@ -80,6 +84,9 @@ func NewConfig() (*Config, error) {
 	if rawConfig != "" {
 		log.Info().Msg("Found BASE64_TEST_CONFIG_OVERRIDE env var, overriding default config")
 		d, err := base64.StdEncoding.DecodeString(rawConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, ErrReadConfig)
+		}
 		err = toml.Unmarshal(d, &override)
 		if err != nil {
 			return nil, errors.Wrap(err, ErrUnmarshalConfig)
@@ -283,7 +290,6 @@ func (n *Node) ApplyOverrides(from *Node) {
 		return
 	}
 	if n == nil {
-		n = from
 		return
 	}
 	if from.Name != "" {
@@ -311,8 +317,8 @@ func (n *Node) ApplyOverrides(from *Node) {
 		if n.ChainConfigTOMLByChain == nil {
 			n.ChainConfigTOMLByChain = from.ChainConfigTOMLByChain
 		} else {
-			for chainID, toml := range from.ChainConfigTOMLByChain {
-				n.ChainConfigTOMLByChain[chainID] = toml
+			for chainID, cfg := range from.ChainConfigTOMLByChain {
+				n.ChainConfigTOMLByChain[chainID] = cfg
 			}
 		}
 

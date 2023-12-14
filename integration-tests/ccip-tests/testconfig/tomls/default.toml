@@ -72,10 +72,6 @@ DefaultTransactionQueueDepth = 0
 Enabled = false
 DefaultTransactionQueueDepth = 0
 
-[P2P.V1]
-Enabled = false
-ListenPort = 0
-
 [P2P]
 [P2P.V2]
 Enabled = true

@@ -7,7 +7,7 @@ import {IBurnMintERC20} from "../../shared/token/ERC20/IBurnMintERC20.sol";
 import {TokenPool} from "./TokenPool.sol";
 import {BurnMintTokenPoolAbstract} from "./BurnMintTokenPoolAbstract.sol";
 
-import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @notice This pool mints and burns a 3rd-party token.
 /// @dev Pool whitelisting mode is set in the constructor and cannot be modified later.

@@ -1,7 +1,7 @@
 # Structure
 
-This guide is split into two sections: [Guidelines](#guidelines) and [Rules](#rules). 
-Guidelines are recommendations that should be followed but are hard to enforce in an automated way. 
+This guide is split into two sections: [Guidelines](#guidelines) and [Rules](#rules).
+Guidelines are recommendations that should be followed but are hard to enforce in an automated way.
 Rules are all enforced through CI, this can be through Solhint rules or other tools.
 
 ## Background
@@ -27,7 +27,7 @@ We will be looking into `forge fmt`, but for now we still use `prettier`.
   - This `dev` folder also has implications for when code is valid for bug bounties, so be extra careful to move functionality out of a `dev` folder.
 
 
-## comments 
+## comments
 - Besides comment above functions/structs, comments should live everywhere a reader might be confused.
   Don’t overestimate the reader of your contract, expect confusion in many places and document accordingly.
   This will help massively during audits and onboarding new team members.
@@ -78,11 +78,11 @@ uint256 networkFeeUSDCents; // good
 struct FeeTokenConfigArgs {
   address token; // ────────────╮ Token address
   uint32 networkFeeUSD; //      │ Flat network fee to charge for messages, multiples of 0.01 USD
-  //                            │ multiline comments should work like this. More fee info 
+  //                            │ multiline comments should work like this. More fee info
   uint64 gasMultiplier; // ─────╯ Price multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost
   uint64 premiumMultiplier; // ─╮ Multiplier for fee-token-specific premiums
   bool enabled; // ─────────────╯ Whether this fee token is enabled
-  uint256 fee; //                 The flat fee the user pays in juels        
+  uint256 fee; //                 The flat fee the user pays in juels
 }
 ```
 ## Functions
@@ -134,7 +134,7 @@ assembly {
   // call and return whether we succeeded. ignore return data
   // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
   success := call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0, 0)
-  
+
   // limit our copy to maxReturnBytes bytes
   let toCopy := returndatasize()
   if gt(toCopy, maxReturnBytes) {
@@ -246,7 +246,7 @@ contract AccessControlledFoo is Foo {
 contract OffchainAggregator is ITypeAndVersion {
    // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
    string public constant override typeAndVersion = "OffchainAggregator 1.0.0";
-  
+
     function getData() public returns(uint256) {
         return 4;
     }
@@ -256,7 +256,7 @@ contract OffchainAggregator is ITypeAndVersion {
 contract SuperDuperAggregator is ITypeAndVersion {
     /// This is a new contract that has not been released yet, so we
     /// add a `-dev` suffix to the typeAndVersion.
-	
+
     // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
     string public constant override typeAndVersion = "SuperDuperAggregator 1.1.0-dev";
 
@@ -316,8 +316,8 @@ import {IPool} from "../interfaces/pools/IPool.sol";
 import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
 import {Client} from "../libraries/Client.sol";
 
-import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 ```
 
 ## Variables
@@ -386,6 +386,6 @@ rule: `custom-errors`
 
 ## Interfaces
 
-Interfaces should be named `IFoo` instead of `FooInterface`. This follows the patterns of popular [libraries like OpenZeppelin’s](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol#L9). 
+Interfaces should be named `IFoo` instead of `FooInterface`. This follows the patterns of popular [libraries like OpenZeppelin’s](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol#L9).
 
 rule: `tbd`

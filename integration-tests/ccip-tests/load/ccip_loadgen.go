@@ -137,8 +137,8 @@ func (c *CCIPE2ELoad) CCIPMsg() (router.ClientEVM2AnyMessage, *testreporters.Req
 	return msg, stats
 }
 
-func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
-	res := &wasp.CallResult{}
+func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
+	res := &wasp.Response{}
 	sourceCCIP := c.Lane.Source
 
 	msg, stats := c.CCIPMsg()

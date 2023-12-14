@@ -22,6 +22,8 @@ flowchart LR
 
   chainlink/v2 --> caigo
   click caigo href "https://github.com/smartcontractkit/caigo"
+  chainlink/v2 --> chain-selectors
+  click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
   chainlink/v2 --> chainlink-automation
   click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
   chainlink/v2 --> chainlink-common
@@ -32,6 +34,8 @@ flowchart LR
   click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
   chainlink/v2 --> chainlink-feeds
   click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
+  chainlink/v2 --> chainlink-relay
+  click chainlink-relay href "https://github.com/smartcontractkit/chainlink-relay"
   chainlink/v2 --> chainlink-solana
   click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
   chainlink/v2 --> chainlink-starknet/relayer
@@ -54,6 +58,7 @@ flowchart LR
   chainlink-data-streams --> libocr
   chainlink-feeds --> chainlink-common
   chainlink-feeds --> libocr
+  chainlink-relay --> libocr
   chainlink-solana --> chainlink-common
   chainlink-solana --> libocr
   chainlink-starknet/relayer --> caigo

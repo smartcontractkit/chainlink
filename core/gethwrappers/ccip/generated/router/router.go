@@ -83,7 +83,7 @@ func DeployRouter(auth *bind.TransactOpts, backend bind.ContractBackend, wrapped
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &Router{RouterCaller: RouterCaller{contract: contract}, RouterTransactor: RouterTransactor{contract: contract}, RouterFilterer: RouterFilterer{contract: contract}}, nil
+	return address, tx, &Router{address: address, abi: *parsed, RouterCaller: RouterCaller{contract: contract}, RouterTransactor: RouterTransactor{contract: contract}, RouterFilterer: RouterFilterer{contract: contract}}, nil
 }
 
 type Router struct {

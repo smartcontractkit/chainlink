@@ -1,11 +1,13 @@
 package ccipdata_test
 
 import (
-	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	"github.com/stretchr/testify/mock"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/mock"
+
+	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

@@ -9,14 +9,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+
+	ocrconfighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"golang.org/x/crypto/curve25519"
 
@@ -585,7 +588,7 @@ func OffChainAggregatorV2ConfigWithNodes(numberNodes int, inflightExpiry time.Du
 		RMax:                                    3,
 		S:                                       s,
 		F:                                       faultyNodes,
-		Oracles:                                 []ocrConfigHelper2.OracleIdentityExtra{},
+		Oracles:                                 []ocrconfighelper2.OracleIdentityExtra{},
 		MaxDurationQuery:                        cfg.MaxDurationQuery,
 		MaxDurationObservation:                  cfg.MaxDurationObservation,
 		MaxDurationReport:                       cfg.MaxDurationReport,
@@ -618,7 +621,7 @@ func NewOffChainAggregatorV2ConfigForCCIPPlugin[T ccipconfig.OffchainConfig](
 	offchainConfig []byte,
 	err error,
 ) {
-	oracleIdentities := make([]ocrConfigHelper2.OracleIdentityExtra, 0)
+	oracleIdentities := make([]ocrconfighelper2.OracleIdentityExtra, 0)
 	ocrConfig := OffChainAggregatorV2ConfigWithNodes(len(nodes), inflightExpiry, ocr2Params)
 	var onChainKeys []ocrtypes2.OnchainPublicKey
 	for i, nodeWithKeys := range nodes {
@@ -639,8 +642,8 @@ func NewOffChainAggregatorV2ConfigForCCIPPlugin[T ccipconfig.OffchainConfig](
 		ethAddress := nodeWithKeys.KeysBundle.EthAddress
 		p2pKeys := nodeWithKeys.KeysBundle.P2PKeys
 		peerID := p2pKeys.Data[0].Attributes.PeerID
-		oracleIdentities = append(oracleIdentities, ocrConfigHelper2.OracleIdentityExtra{
-			OracleIdentity: ocrConfigHelper2.OracleIdentity{
+		oracleIdentities = append(oracleIdentities, ocrconfighelper2.OracleIdentityExtra{
+			OracleIdentity: ocrconfighelper2.OracleIdentity{
 				OffchainPublicKey: offChainPubKey,
 				OnchainPublicKey:  common.HexToAddress(formattedOnChainPubKey).Bytes(),
 				PeerID:            peerID,
@@ -665,7 +668,7 @@ func NewOffChainAggregatorV2ConfigForCCIPPlugin[T ccipconfig.OffchainConfig](
 		return nil, nil, 0, nil, 0, nil, err
 	}
 
-	_, _, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err = ocrConfigHelper2.ContractSetConfigArgsForTests(
+	_, _, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err = ocrconfighelper2.ContractSetConfigArgsForTests(
 		ocrConfig.DeltaProgress,
 		ocrConfig.DeltaResend,
 		ocrConfig.DeltaRound,

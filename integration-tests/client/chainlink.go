@@ -92,6 +92,11 @@ func (c *ChainlinkClient) URL() string {
 	return c.Config.URL
 }
 
+func (c *ChainlinkClient) WithRetryCount(retryCount int) *ChainlinkClient {
+	c.APIClient.SetRetryCount(retryCount)
+	return c
+}
+
 // CreateJobRaw creates a Chainlink job based on the provided spec string
 func (c *ChainlinkClient) CreateJobRaw(spec string) (*Job, *http.Response, error) {
 	job := &Job{}

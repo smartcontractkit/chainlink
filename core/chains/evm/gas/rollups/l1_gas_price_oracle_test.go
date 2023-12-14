@@ -92,7 +92,7 @@ func TestL1GasPriceOracle(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		oracle := NewL1GasPriceOracle(logger.TestLogger(t), ethClient, config.ChainKroma)
+		oracle := NewL1GasPriceOracle(logger.Test(t), ethClient, config.ChainKroma)
 		require.NoError(t, oracle.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, oracle.Close()) })
 

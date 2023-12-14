@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -1340,7 +1341,7 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 	t.Run("returns false if transaction is of type 0x16 only on WeMix", func(t *testing.T) {
 		cfg.ChainTypeF = "wemix"
 		tx := evmtypes.Transaction{Type: 0x16, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
-		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 	})
 
 	t.Run("returns false if transaction has base fee higher than the gas price only on Celo", func(t *testing.T) {

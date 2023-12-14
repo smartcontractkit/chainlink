@@ -65,7 +65,7 @@ func DeployMaybeRevertMessageReceiver(auth *bind.TransactOpts, backend bind.Cont
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &MaybeRevertMessageReceiver{MaybeRevertMessageReceiverCaller: MaybeRevertMessageReceiverCaller{contract: contract}, MaybeRevertMessageReceiverTransactor: MaybeRevertMessageReceiverTransactor{contract: contract}, MaybeRevertMessageReceiverFilterer: MaybeRevertMessageReceiverFilterer{contract: contract}}, nil
+	return address, tx, &MaybeRevertMessageReceiver{address: address, abi: *parsed, MaybeRevertMessageReceiverCaller: MaybeRevertMessageReceiverCaller{contract: contract}, MaybeRevertMessageReceiverTransactor: MaybeRevertMessageReceiverTransactor{contract: contract}, MaybeRevertMessageReceiverFilterer: MaybeRevertMessageReceiverFilterer{contract: contract}}, nil
 }
 
 type MaybeRevertMessageReceiver struct {

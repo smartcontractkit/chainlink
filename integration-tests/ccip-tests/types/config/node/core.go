@@ -2,18 +2,18 @@ package node
 
 import (
 	"bytes"
-	_ "embed"
 	"fmt"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -41,7 +41,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 			})
 		}
 		evmConfig := &evmcfg.EVMConfig{
-			ChainID: utils.NewBig(big.NewInt(network.ChainID)),
+			ChainID: ubig.New(big.NewInt(network.ChainID)),
 			Nodes:   evmNodes,
 		}
 		if commonChainConfig != nil {

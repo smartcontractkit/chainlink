@@ -7,13 +7,14 @@ import (
 	"testing"
 
 	"github.com/AlekSi/pointer"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -47,19 +48,17 @@ func setNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 		}
 	}
 	configByChainMap := make(map[int64]evmcfg.Chain)
-	if configByChain != nil {
-		for k, v := range configByChain {
-			var chain evmcfg.Chain
-			err = config.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
-			if err != nil {
-				return nil, "", err
-			}
-			chainId, err := strconv.ParseInt(k, 10, 64)
-			if err != nil {
-				return nil, "", err
-			}
-			configByChainMap[chainId] = chain
+	for k, v := range configByChain {
+		var chain evmcfg.Chain
+		err = config.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
+		if err != nil {
+			return nil, "", err
 		}
+		chainId, err := strconv.ParseInt(k, 10, 64)
+		if err != nil {
+			return nil, "", err
+		}
+		configByChainMap[chainId] = chain
 	}
 	if nodeConfig == "" {
 		tomlCfg = integrationnodes.NewConfig(
@@ -166,7 +165,7 @@ func DeployLocalCluster(
 ) (*test_env.CLClusterTestEnv, func() error) {
 	selectedNetworks := testInputs.SelectedNetworks
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithPrivateGethChains(selectedNetworks).
 		WithoutCleanup().
 		Build()

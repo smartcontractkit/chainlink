@@ -378,7 +378,7 @@ type configTransmitterOpts struct {
 	pluginGasLimit *uint32
 }
 
-func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts) (*contractTransmitter, error) {
+func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, reportToEthMeta ReportToEthMetadata) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -446,7 +446,7 @@ func newContractTransmitter(lggr logger.Logger, rargs commontypes.RelayArgs, tra
 		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
-		nil,
+		reportToEthMeta,
 	)
 }
 
@@ -472,7 +472,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 
 	reportCodec := evmreportcodec.ReportCodec{}
-	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{})
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, nil)
 	if err != nil {
 		return nil, err
 	}

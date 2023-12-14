@@ -15,6 +15,7 @@ func TestUSDCReaderFilters(t *testing.T) {
 	ccipdata.AssertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
 		c, err := ccipdata.NewUSDCReader(logger.TestLogger(t), addr, lp)
 		require.NoError(t, err)
+		require.NoError(t, c.RegisterFilters())
 		return c
 	}, 1)
 }

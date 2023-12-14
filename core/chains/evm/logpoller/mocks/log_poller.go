@@ -383,13 +383,10 @@ func (_m *LogPoller) LatestBlock(qopts ...pg.QOpt) (logpoller.LogPollerBlock, er
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-<<<<<<< HEAD
-=======
 	if len(ret) == 0 {
 		panic("no return value specified for LatestBlock")
 	}
 
->>>>>>> develop
 	var r0 logpoller.LogPollerBlock
 	var r1 error
 	if rf, ok := ret.Get(0).(func(...pg.QOpt) (logpoller.LogPollerBlock, error)); ok {
@@ -604,13 +601,10 @@ func (_m *LogPoller) LogsDataWordBetween(eventSig common.Hash, address common.Ad
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-<<<<<<< HEAD
-=======
 	if len(ret) == 0 {
 		panic("no return value specified for LogsDataWordBetween")
 	}
 
->>>>>>> develop
 	var r0 []logpoller.Log
 	var r1 error
 	if rf, ok := ret.Get(0).(func(common.Hash, common.Address, int, int, common.Hash, logpoller.Confirmations, ...pg.QOpt) ([]logpoller.Log, error)); ok {
