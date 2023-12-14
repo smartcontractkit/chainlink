@@ -1,7 +1,6 @@
 package performance
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -12,32 +11,33 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 func TestFluxPerformance(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	testEnvironment, testNetwork := setupFluxTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -83,7 +83,7 @@ func TestFluxPerformance(t *testing.T) {
 	require.NoError(t, err, "Setting oracle options in the Flux Aggregator contract shouldn't fail")
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
-	oracles, err := fluxInstance.GetOracles(context.Background())
+	oracles, err := fluxInstance.GetOracles(testcontext.Get(t))
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
@@ -99,6 +99,7 @@ func TestFluxPerformance(t *testing.T) {
 		fluxSpec := &client.FluxMonitorJobSpec{
 			Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
 			ContractAddress:   fluxInstance.Address(),
+			EVMChainID:        chainClient.GetChainID().String(),
 			Threshold:         0,
 			AbsoluteThreshold: 0,
 			PollTimerPeriod:   15 * time.Second, // min 15s
@@ -115,11 +116,11 @@ func TestFluxPerformance(t *testing.T) {
 			return
 		}
 		fluxRoundTimeout := 2 * time.Minute
-		fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
+		fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout, l)
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
-		data, err := fluxInstance.GetContractData(context.Background())
+		data, err := fluxInstance.GetContractData(testcontext.Get(t))
 		require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
 		l.Info().Interface("Data", data).Msg("Round data")
 		require.Equal(t, int64(1e5), data.LatestRoundData.Answer.Int64(),
@@ -133,13 +134,13 @@ func TestFluxPerformance(t *testing.T) {
 		require.Equal(t, int64(3), data.AllocatedFunds.Int64(),
 			"Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 
-		fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
+		fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout, l)
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 		err = mockServer.SetValuePath(adapterPath, 1e10)
 		require.NoError(t, err, "Setting value path in mock server shouldn't fail")
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
-		data, err = fluxInstance.GetContractData(context.Background())
+		data, err = fluxInstance.GetContractData(testcontext.Get(t))
 		require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
 		require.Equal(t, int64(1e10), data.LatestRoundData.Answer.Int64(),
 			"Expected latest round answer to be %d, but found %d", int64(1e10), data.LatestRoundData.Answer.Int64())
@@ -152,7 +153,7 @@ func TestFluxPerformance(t *testing.T) {
 		l.Info().Interface("data", data).Msg("Round data")
 
 		for _, oracleAddr := range nodeAddresses {
-			payment, _ := fluxInstance.WithdrawablePayment(context.Background(), oracleAddr)
+			payment, _ := fluxInstance.WithdrawablePayment(testcontext.Get(t), oracleAddr)
 			require.Equal(t, int64(2), payment.Int64(),
 				"Expected flux aggregator contract's withdrawable payment to be %d, but found %d", int64(2), payment.Int64())
 		}
@@ -172,7 +173,7 @@ func TestFluxPerformance(t *testing.T) {
 }
 
 func setupFluxTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConf := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConf = ethereum.New(&ethereum.Props{
@@ -186,19 +187,21 @@ HTTPWriteTimout = '300s'
 
 [OCR]
 Enabled = true`
-	cd, err := chainlink.NewDeployment(3, map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
+	cd := chainlink.New(0, map[string]interface{}{
+		"replicas": 3,
+		"toml":     networks.AddNetworksConfig(baseTOML, testNetwork),
 	})
-	require.NoError(t, err, "Error creating chainlink deployment")
+
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("performance-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
+		NamespacePrefix:    fmt.Sprintf("performance-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:               t,
+		PreventPodEviction: true,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConf).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(cd)
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 const (
@@ -50,15 +50,15 @@ func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, un
 	t.unrestrictedHTTPClient = unrestrictedHTTPClient
 }
 
-func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet, config Config, specGasLimit *uint32, jobType string) {
-	t.chainSet = cc
+func (t *ETHCallTask) HelperSetDependencies(legacyChains legacyevm.LegacyChainContainer, config Config, specGasLimit *uint32, jobType string) {
+	t.legacyChains = legacyChains
 	t.config = config
 	t.specGasLimit = specGasLimit
 	t.jobType = jobType
 }
 
-func (t *ETHTxTask) HelperSetDependencies(cc evm.ChainSet, keyStore ETHKeyStore, specGasLimit *uint32, jobType string) {
-	t.chainSet = cc
+func (t *ETHTxTask) HelperSetDependencies(legacyChains legacyevm.LegacyChainContainer, keyStore ETHKeyStore, specGasLimit *uint32, jobType string) {
+	t.legacyChains = legacyChains
 	t.keyStore = keyStore
 	t.specGasLimit = specGasLimit
 	t.jobType = jobType

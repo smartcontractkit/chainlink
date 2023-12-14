@@ -8,11 +8,12 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type (
@@ -111,7 +112,7 @@ func newWebhookJobRunner(runner pipeline.Runner, lggr logger.Logger) *webhookJob
 
 type registeredJob struct {
 	job.Job
-	chRemove utils.StopChan
+	chRemove services.StopChan
 }
 
 func (r *webhookJobRunner) addSpec(spec job.Job) error {
@@ -172,7 +173,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 
 	run := pipeline.NewRun(*spec.PipelineSpec, vars)
 
-	_, err := r.runner.Run(ctx, &run, jobLggr, true, nil)
+	_, err := r.runner.Run(ctx, run, jobLggr, true, nil)
 	if err != nil {
 		jobLggr.Errorw("Error running pipeline for webhook job", "err", err)
 		return 0, err

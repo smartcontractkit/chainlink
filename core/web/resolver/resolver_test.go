@@ -15,9 +15,11 @@ import (
 	evmConfigMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	chainlinkMocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
@@ -26,36 +28,37 @@ import (
 	pipelineMocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
-	sessionsMocks "github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
+	authProviderMocks "github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 	"github.com/smartcontractkit/chainlink/v2/core/web/schema"
 )
 
 type mocks struct {
-	bridgeORM   *bridgeORMMocks.ORM
-	evmORM      *evmtest.TestConfigs
-	jobORM      *jobORMMocks.ORM
-	sessionsORM *sessionsMocks.ORM
-	pipelineORM *pipelineMocks.ORM
-	feedsSvc    *feedsMocks.Service
-	cfg         *chainlinkMocks.GeneralConfig
-	scfg        *evmConfigMocks.ChainScopedConfig
-	ocr         *keystoreMocks.OCR
-	ocr2        *keystoreMocks.OCR2
-	csa         *keystoreMocks.CSA
-	keystore    *keystoreMocks.Master
-	ethKs       *keystoreMocks.Eth
-	p2p         *keystoreMocks.P2P
-	vrf         *keystoreMocks.VRF
-	solana      *keystoreMocks.Solana
-	chain       *evmORMMocks.Chain
-	chainSet    *evmORMMocks.ChainSet
-	ethClient   *evmClientMocks.Client
-	eIMgr       *webhookmocks.ExternalInitiatorManager
-	balM        *evmORMMocks.BalanceMonitor
-	txmStore    *evmtxmgrmocks.EvmTxStore
-	auditLogger *audit.AuditLoggerService
+	bridgeORM            *bridgeORMMocks.ORM
+	evmORM               *evmtest.TestConfigs
+	jobORM               *jobORMMocks.ORM
+	authProvider         *authProviderMocks.AuthenticationProvider
+	pipelineORM          *pipelineMocks.ORM
+	feedsSvc             *feedsMocks.Service
+	cfg                  *chainlinkMocks.GeneralConfig
+	scfg                 *evmConfigMocks.ChainScopedConfig
+	ocr                  *keystoreMocks.OCR
+	ocr2                 *keystoreMocks.OCR2
+	csa                  *keystoreMocks.CSA
+	keystore             *keystoreMocks.Master
+	ethKs                *keystoreMocks.Eth
+	p2p                  *keystoreMocks.P2P
+	vrf                  *keystoreMocks.VRF
+	solana               *keystoreMocks.Solana
+	chain                *legacyEvmORMMocks.Chain
+	legacyEVMChains      *legacyEvmORMMocks.LegacyChainContainer
+	relayerChainInterops *chainlinkMocks.FakeRelayerChainInteroperators
+	ethClient            *evmClientMocks.Client
+	eIMgr                *webhookmocks.ExternalInitiatorManager
+	balM                 *evmORMMocks.BalanceMonitor
+	txmStore             *evmtxmgrmocks.EvmTxStore
+	auditLogger          *audit.AuditLoggerService
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -63,7 +66,7 @@ type mocks struct {
 type gqlTestFramework struct {
 	t *testing.T
 
-	// The mocked chainlf.Mocks.chainSetink.Application
+	// The mocked chainlink.Application
 	App *coremocks.Application
 
 	// The root GQL schema
@@ -91,32 +94,35 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 	// Setup mocks
 	// Note - If you add a new mock make sure you assert it's expectation below.
 	m := &mocks{
-		bridgeORM:   bridgeORMMocks.NewORM(t),
-		evmORM:      evmtest.NewTestConfigs(),
-		jobORM:      jobORMMocks.NewORM(t),
-		feedsSvc:    feedsMocks.NewService(t),
-		sessionsORM: sessionsMocks.NewORM(t),
-		pipelineORM: pipelineMocks.NewORM(t),
-		cfg:         chainlinkMocks.NewGeneralConfig(t),
-		scfg:        evmConfigMocks.NewChainScopedConfig(t),
-		ocr:         keystoreMocks.NewOCR(t),
-		ocr2:        keystoreMocks.NewOCR2(t),
-		csa:         keystoreMocks.NewCSA(t),
-		keystore:    keystoreMocks.NewMaster(t),
-		ethKs:       keystoreMocks.NewEth(t),
-		p2p:         keystoreMocks.NewP2P(t),
-		vrf:         keystoreMocks.NewVRF(t),
-		solana:      keystoreMocks.NewSolana(t),
-		chain:       evmORMMocks.NewChain(t),
-		chainSet:    evmORMMocks.NewChainSet(t),
-		ethClient:   evmClientMocks.NewClient(t),
-		eIMgr:       webhookmocks.NewExternalInitiatorManager(t),
-		balM:        evmORMMocks.NewBalanceMonitor(t),
-		txmStore:    evmtxmgrmocks.NewEvmTxStore(t),
-		auditLogger: &audit.AuditLoggerService{},
+		bridgeORM:            bridgeORMMocks.NewORM(t),
+		evmORM:               evmtest.NewTestConfigs(),
+		jobORM:               jobORMMocks.NewORM(t),
+		feedsSvc:             feedsMocks.NewService(t),
+		authProvider:         authProviderMocks.NewAuthenticationProvider(t),
+		pipelineORM:          pipelineMocks.NewORM(t),
+		cfg:                  chainlinkMocks.NewGeneralConfig(t),
+		scfg:                 evmConfigMocks.NewChainScopedConfig(t),
+		ocr:                  keystoreMocks.NewOCR(t),
+		ocr2:                 keystoreMocks.NewOCR2(t),
+		csa:                  keystoreMocks.NewCSA(t),
+		keystore:             keystoreMocks.NewMaster(t),
+		ethKs:                keystoreMocks.NewEth(t),
+		p2p:                  keystoreMocks.NewP2P(t),
+		vrf:                  keystoreMocks.NewVRF(t),
+		solana:               keystoreMocks.NewSolana(t),
+		chain:                legacyEvmORMMocks.NewChain(t),
+		legacyEVMChains:      legacyEvmORMMocks.NewLegacyChainContainer(t),
+		relayerChainInterops: &chainlinkMocks.FakeRelayerChainInteroperators{},
+		ethClient:            evmClientMocks.NewClient(t),
+		eIMgr:                webhookmocks.NewExternalInitiatorManager(t),
+		balM:                 evmORMMocks.NewBalanceMonitor(t),
+		txmStore:             evmtxmgrmocks.NewEvmTxStore(t),
+		auditLogger:          &audit.AuditLoggerService{},
 	}
 
+	lggr := logger.TestLogger(t)
 	app.Mock.On("GetAuditLogger", mock.Anything, mock.Anything).Return(audit.NoopLogger).Maybe()
+	app.Mock.On("GetLogger").Return(lggr).Maybe()
 
 	f := &gqlTestFramework{
 		t:          t,

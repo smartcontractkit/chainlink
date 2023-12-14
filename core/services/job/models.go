@@ -14,8 +14,13 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -145,6 +150,10 @@ type Job struct {
 	BootstrapSpecID               *int32
 	GatewaySpec                   *GatewaySpec
 	GatewaySpecID                 *int32
+	EALSpec                       *EALSpec
+	EALSpecID                     *int32
+	LiquidityBalancerSpec         *LiquidityBalancerSpec
+	LiquidityBalancerSpecID       *int32
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError
@@ -229,35 +238,24 @@ func (pr *PipelineRun) SetID(value string) error {
 
 // OCROracleSpec defines the job spec for OCR jobs.
 type OCROracleSpec struct {
-	ID                                        int32               `toml:"-"`
-	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
-	P2PBootstrapPeers                         pq.StringArray      `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
-	P2PV2Bootstrappers                        pq.StringArray      `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
-	IsBootstrapPeer                           bool                `toml:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                   *models.Sha256Hash  `toml:"keyBundleID"`
-	EncryptedOCRKeyBundleIDEnv                bool
-	TransmitterAddress                        *ethkey.EIP55Address `toml:"transmitterAddress"`
-	TransmitterAddressEnv                     bool
-	ObservationTimeout                        models.Interval `toml:"observationTimeout"`
-	ObservationTimeoutEnv                     bool
-	BlockchainTimeout                         models.Interval `toml:"blockchainTimeout"`
-	BlockchainTimeoutEnv                      bool
-	ContractConfigTrackerSubscribeInterval    models.Interval `toml:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerSubscribeIntervalEnv bool
-	ContractConfigTrackerPollInterval         models.Interval `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigTrackerPollIntervalEnv      bool
-	ContractConfigConfirmations               uint16 `toml:"contractConfigConfirmations"`
-	ContractConfigConfirmationsEnv            bool
-	EVMChainID                                *utils.Big       `toml:"evmChainID" db:"evm_chain_id"`
-	DatabaseTimeout                           *models.Interval `toml:"databaseTimeout"`
-	DatabaseTimeoutEnv                        bool
-	ObservationGracePeriod                    *models.Interval `toml:"observationGracePeriod"`
-	ObservationGracePeriodEnv                 bool
-	ContractTransmitterTransmitTimeout        *models.Interval `toml:"contractTransmitterTransmitTimeout"`
-	ContractTransmitterTransmitTimeoutEnv     bool
-	CaptureEATelemetry                        bool      `toml:"captureEATelemetry"`
-	CreatedAt                                 time.Time `toml:"-"`
-	UpdatedAt                                 time.Time `toml:"-"`
+	ID                                     int32                `toml:"-"`
+	ContractAddress                        ethkey.EIP55Address  `toml:"contractAddress"`
+	P2PV2Bootstrappers                     pq.StringArray       `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
+	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                *models.Sha256Hash   `toml:"keyBundleID"`
+	TransmitterAddress                     *ethkey.EIP55Address `toml:"transmitterAddress"`
+	ObservationTimeout                     models.Interval      `toml:"observationTimeout"`
+	BlockchainTimeout                      models.Interval      `toml:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
+	EVMChainID                             *big.Big             `toml:"evmChainID" db:"evm_chain_id"`
+	DatabaseTimeout                        *models.Interval     `toml:"databaseTimeout"`
+	ObservationGracePeriod                 *models.Interval     `toml:"observationGracePeriod"`
+	ContractTransmitterTransmitTimeout     *models.Interval     `toml:"contractTransmitterTransmitTimeout"`
+	CaptureEATelemetry                     bool                 `toml:"captureEATelemetry"`
+	CreatedAt                              time.Time            `toml:"-"`
+	UpdatedAt                              time.Time            `toml:"-"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -298,18 +296,6 @@ func (r *JSONConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, &r)
 }
 
-func (r JSONConfig) EVMChainID() (int64, error) {
-	i, ok := r["chainID"]
-	if !ok {
-		return -1, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
-	}
-	f, ok := i.(float64)
-	if !ok {
-		return -1, fmt.Errorf("expected float64 chain id but got: %T", i)
-	}
-	return int64(f), nil
-}
-
 func (r JSONConfig) MercuryCredentialName() (string, error) {
 	url, ok := r["mercuryCredentialName"]
 	if !ok {
@@ -322,50 +308,84 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
-var ForwardersSupportedPlugins = []OCR2PluginType{Median, DKG, OCR2VRF, OCR2Keeper, OCR2Functions}
-
-// OCR2PluginType defines supported OCR2 plugin types.
-type OCR2PluginType string
-
-const (
-	// Median refers to the median.Median type
-	Median OCR2PluginType = "median"
-
-	DKG OCR2PluginType = "dkg"
-
-	OCR2VRF OCR2PluginType = "ocr2vrf"
-
-	// Keeper was rebranded to automation. For now the plugin type required in job spec points
-	// to the new name (automation) but in code we refer it to keepers
-	// TODO: sc-55296 to rename ocr2keeper to ocr2automation in code
-	OCR2Keeper OCR2PluginType = "ocr2automation"
-
-	OCR2Functions OCR2PluginType = "functions"
-
-	Mercury OCR2PluginType = "mercury"
-)
+var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG, types.OCR2VRF, types.OCR2Keeper, types.Functions}
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID                                int32           `toml:"-"`
-	ContractID                        string          `toml:"contractID"`
-	FeedID                            *common.Hash    `toml:"feedID"`
-	Relay                             relay.Network   `toml:"relay"`
-	RelayConfig                       JSONConfig      `toml:"relayConfig"`
-	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
-	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String     `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
-	PluginConfig                      JSONConfig      `toml:"pluginConfig"`
-	PluginType                        OCR2PluginType  `toml:"pluginType"`
-	CreatedAt                         time.Time       `toml:"-"`
-	UpdatedAt                         time.Time       `toml:"-"`
-	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
-	CaptureAutomationCustomTelemetry  bool            `toml:"captureAutomationCustomTelemetry"`
+	ID         int32         `toml:"-"`
+	ContractID string        `toml:"contractID"`
+	FeedID     *common.Hash  `toml:"feedID"`
+	Relay      relay.Network `toml:"relay"`
+	// TODO BCF-2442 implement ChainID as top level parameter rathe than buried in RelayConfig.
+	ChainID                           string               `toml:"chainID"`
+	RelayConfig                       JSONConfig           `toml:"relayConfig"`
+	P2PV2Bootstrappers                pq.StringArray       `toml:"p2pv2Bootstrappers"`
+	OCRKeyBundleID                    null.String          `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String          `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String          `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval      `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval      `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16               `toml:"contractConfigConfirmations"`
+	PluginConfig                      JSONConfig           `toml:"pluginConfig"`
+	PluginType                        types.OCR2PluginType `toml:"pluginType"`
+	CreatedAt                         time.Time            `toml:"-"`
+	UpdatedAt                         time.Time            `toml:"-"`
+	CaptureEATelemetry                bool                 `toml:"captureEATelemetry"`
+	CaptureAutomationCustomTelemetry  bool                 `toml:"captureAutomationCustomTelemetry"`
+}
+
+func validateRelayID(id relay.ID) error {
+	// only the EVM has specific requirements
+	if id.Network == relay.EVM {
+		_, err := toml.ChainIDInt64(id.ChainID)
+		if err != nil {
+			return fmt.Errorf("invalid EVM chain id %s: %w", id.ChainID, err)
+		}
+	}
+	return nil
+}
+
+func (s *OCR2OracleSpec) RelayID() (relay.ID, error) {
+	cid, err := s.getChainID()
+	if err != nil {
+		return relay.ID{}, err
+	}
+	rid := relay.NewID(s.Relay, cid)
+	err = validateRelayID(rid)
+	if err != nil {
+		return relay.ID{}, err
+	}
+	return rid, nil
+}
+
+func (s *OCR2OracleSpec) getChainID() (relay.ChainID, error) {
+	if s.ChainID != "" {
+		return relay.ChainID(s.ChainID), nil
+	}
+	// backward compatible job spec
+	return s.getChainIdFromRelayConfig()
+}
+
+func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (relay.ChainID, error) {
+
+	v, exists := s.RelayConfig["chainID"]
+	if !exists {
+		return "", fmt.Errorf("chainID does not exist")
+	}
+	switch t := v.(type) {
+	case string:
+		return relay.ChainID(t), nil
+	case int, int64, int32:
+		return relay.ChainID(fmt.Sprintf("%d", v)), nil
+	case float64:
+		// backward compatibility with JSONConfig.EVMChainID
+		i := int64(t)
+		return relay.ChainID(strconv.FormatInt(i, 10)), nil
+
+	default:
+		return "", fmt.Errorf("unable to parse chainID: unexpected type %T", t)
+	}
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -412,15 +432,14 @@ func (w *WebhookSpec) SetID(value string) error {
 }
 
 type DirectRequestSpec struct {
-	ID                          int32                    `toml:"-"`
-	ContractAddress             ethkey.EIP55Address      `toml:"contractAddress"`
-	MinIncomingConfirmations    clnull.Uint32            `toml:"minIncomingConfirmations"`
-	MinIncomingConfirmationsEnv bool                     `toml:"minIncomingConfirmationsEnv"`
-	Requesters                  models.AddressCollection `toml:"requesters"`
-	MinContractPayment          *assets.Link             `toml:"minContractPaymentLinkJuels"`
-	EVMChainID                  *utils.Big               `toml:"evmChainID"`
-	CreatedAt                   time.Time                `toml:"-"`
-	UpdatedAt                   time.Time                `toml:"-"`
+	ID                       int32                    `toml:"-"`
+	ContractAddress          ethkey.EIP55Address      `toml:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
+	Requesters               models.AddressCollection `toml:"requesters"`
+	MinContractPayment       *commonassets.Link       `toml:"minContractPaymentLinkJuels"`
+	EVMChainID               *big.Big                 `toml:"evmChainID"`
+	CreatedAt                time.Time                `toml:"-"`
+	UpdatedAt                time.Time                `toml:"-"`
 }
 
 type CronSpec struct {
@@ -458,10 +477,10 @@ type FluxMonitorSpec struct {
 	DrumbeatSchedule    string
 	DrumbeatRandomDelay time.Duration
 	DrumbeatEnabled     bool
-	MinPayment          *assets.Link
-	EVMChainID          *utils.Big `toml:"evmChainID"`
-	CreatedAt           time.Time  `toml:"-"`
-	UpdatedAt           time.Time  `toml:"-"`
+	MinPayment          *commonassets.Link
+	EVMChainID          *big.Big  `toml:"evmChainID"`
+	CreatedAt           time.Time `toml:"-"`
+	UpdatedAt           time.Time `toml:"-"`
 }
 
 type KeeperSpec struct {
@@ -469,7 +488,7 @@ type KeeperSpec struct {
 	ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
 	MinIncomingConfirmations *uint32             `toml:"minIncomingConfirmations"`
 	FromAddress              ethkey.EIP55Address `toml:"fromAddress"`
-	EVMChainID               *utils.Big          `toml:"evmChainID"`
+	EVMChainID               *big.Big            `toml:"evmChainID"`
 	CreatedAt                time.Time           `toml:"-"`
 	UpdatedAt                time.Time           `toml:"-"`
 }
@@ -484,6 +503,9 @@ type VRFSpec struct {
 	// for fulfilling requests. If set to true, batchCoordinatorAddress must be set in
 	// the job spec.
 	BatchFulfillmentEnabled bool `toml:"batchFulfillmentEnabled"`
+	// CustomRevertsPipelineEnabled indicates to the vrf job to run the
+	// custom reverted txns pipeline along with VRF listener
+	CustomRevertsPipelineEnabled bool `toml:"customRevertsPipelineEnabled"`
 	// BatchFulfillmentGasMultiplier is used to determine the final gas estimate for the batch
 	// fulfillment.
 	BatchFulfillmentGasMultiplier tomlutils.Float64 `toml:"batchFulfillmentGasMultiplier"`
@@ -496,13 +518,11 @@ type VRFSpec struct {
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
 	MinIncomingConfirmations uint32                `toml:"minIncomingConfirmations"`
-	ConfirmationsEnv         bool                  `toml:"-"`
-	EVMChainID               *utils.Big            `toml:"evmChainID"`
+	EVMChainID               *big.Big              `toml:"evmChainID"`
 	FromAddresses            []ethkey.EIP55Address `toml:"fromAddresses"`
-	PollPeriod               time.Duration         `toml:"pollPeriod"` // For v2 jobs
-	PollPeriodEnv            bool
-	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
-	RequestTimeout           time.Duration `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
+	PollPeriod               time.Duration         `toml:"pollPeriod"`          // For v2 jobs
+	RequestedConfsDelay      int64                 `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
+	RequestTimeout           time.Duration         `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
 
 	// GasLanePrice specifies the gas lane price for this VRF job.
 	// If the specified keys in FromAddresses do not have the provided gas price the job
@@ -549,6 +569,12 @@ type BlockhashStoreSpec struct {
 	// WaitBlocks defines the minimum age of blocks whose hashes should be stored.
 	WaitBlocks int32 `toml:"waitBlocks"`
 
+	// HeartbeatPeriodTime defines the number of seconds by which we "heartbeat store"
+	// a blockhash into the blockhash store contract.
+	// This is so that we always have a blockhash to anchor to in the event we need to do a
+	// backwards mode on the contract.
+	HeartbeatPeriod time.Duration `toml:"heartbeatPeriod"`
+
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.
 	BlockhashStoreAddress ethkey.EIP55Address `toml:"blockhashStoreAddress"`
@@ -566,7 +592,7 @@ type BlockhashStoreSpec struct {
 	RunTimeout time.Duration `toml:"runTimeout"`
 
 	// EVMChainID defines the chain ID for monitoring and storing of blockhashes.
-	EVMChainID *utils.Big `toml:"evmChainID"`
+	EVMChainID *big.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
 	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
@@ -615,7 +641,7 @@ type BlockHeaderFeederSpec struct {
 	RunTimeout time.Duration `toml:"runTimeout"`
 
 	// EVMChainID defines the chain ID for monitoring and storing of blockhashes.
-	EVMChainID *utils.Big `toml:"evmChainID"`
+	EVMChainID *big.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
 	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
@@ -642,11 +668,11 @@ type LegacyGasStationServerSpec struct {
 	ForwarderAddress ethkey.EIP55Address `toml:"forwarderAddress"`
 
 	// EVMChainID defines the chain ID from which the meta-transaction request originates.
-	EVMChainID *utils.Big `toml:"evmChainID"`
+	EVMChainID *big.Big `toml:"evmChainID"`
 
 	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param.
 	// This selector is equivalent to (source) chainID specified in SendTransaction request
-	CCIPChainSelector *utils.Big `toml:"ccipChainSelector"`
+	CCIPChainSelector *big.Big `toml:"ccipChainSelector"`
 
 	// FromAddress is the sender address that should be used to send meta-transactions
 	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
@@ -679,10 +705,10 @@ type LegacyGasStationSidecarSpec struct {
 	RunTimeout time.Duration `toml:"runTimeout"`
 
 	// EVMChainID defines the chain ID for the on-chain events tracked by sidecar
-	EVMChainID *utils.Big `toml:"evmChainID"`
+	EVMChainID *big.Big `toml:"evmChainID"`
 
 	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param
-	CCIPChainSelector *utils.Big `toml:"ccipChainSelector"`
+	CCIPChainSelector *big.Big `toml:"ccipChainSelector"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`
@@ -741,4 +767,40 @@ func (s *GatewaySpec) SetID(value string) error {
 	}
 	s.ID = int32(ID)
 	return nil
+}
+
+// EALSpec defines the job spec for the gas station.
+type EALSpec struct {
+	ID int32
+
+	// ForwarderAddress is the address of EIP2771 forwarder that verifies signature
+	// and forwards requests to target contracts
+	ForwarderAddress ethkey.EIP55Address `toml:"forwarderAddress"`
+
+	// EVMChainID defines the chain ID from which the meta-transaction request originates.
+	EVMChainID *big.Big `toml:"evmChainID"`
+
+	// FromAddress is the sender address that should be used to send meta-transactions
+	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
+
+	// LookbackBlocks defines the maximum age of blocks to lookback in status tracker
+	LookbackBlocks int32 `toml:"lookbackBlocks"`
+
+	// PollPeriod defines how frequently EAL status tracker runs
+	PollPeriod time.Duration `toml:"pollPeriod"`
+
+	// RunTimeout defines the timeout for a single run of EAL status tracker
+	RunTimeout time.Duration `toml:"runTimeout"`
+
+	// CreatedAt is the time this job was created.
+	CreatedAt time.Time `toml:"-"`
+
+	// UpdatedAt is the time this job was last updated.
+	UpdatedAt time.Time `toml:"-"`
+}
+
+type LiquidityBalancerSpec struct {
+	ID int32
+
+	LiquidityBalancerConfig string `toml:"liquidityBalancerConfig" db:"liquidity_balancer_config"`
 }

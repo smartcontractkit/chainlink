@@ -9,22 +9,39 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	gencfg "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
-func NewTOMLChainScopedConfig(genCfg gencfg.AppConfig, chain *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
-	return &ChainScoped{AppConfig: genCfg, cfg: chain, lggr: lggr}
+func NewTOMLChainScopedConfig(appCfg config.AppConfig, tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
+	return &ChainScoped{
+		AppConfig: appCfg,
+		evmConfig: &evmConfig{c: tomlConfig},
+		lggr:      lggr}
 }
 
 // ChainScoped implements config.ChainScopedConfig with a gencfg.BasicConfig and EVMConfig.
 type ChainScoped struct {
-	gencfg.AppConfig
+	config.AppConfig
 	lggr logger.Logger
 
-	cfg *toml.EVMConfig
+	evmConfig *evmConfig
+}
+
+func (c *ChainScoped) EVM() EVM {
+	return c.evmConfig
+}
+
+func (c *ChainScoped) Nodes() toml.EVMNodes {
+	return c.evmConfig.c.Nodes
+}
+
+func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
+	return c.EVM().NodeNoNewHeadsThreshold()
 }
 
 func (c *ChainScoped) Validate() (err error) {
@@ -47,6 +64,14 @@ func (c *ChainScoped) Validate() (err error) {
 
 type evmConfig struct {
 	c *toml.EVMConfig
+}
+
+func (e *evmConfig) IsEnabled() bool {
+	return e.c.IsEnabled()
+}
+
+func (e *evmConfig) TOMLString() (string, error) {
+	return e.c.TOMLString()
 }
 
 func (e *evmConfig) BalanceMonitor() BalanceMonitor {
@@ -117,11 +142,11 @@ func (e *evmConfig) BlockEmissionIdleWarningThreshold() time.Duration {
 	return e.c.NoNewHeadsThreshold.Duration()
 }
 
-func (e *evmConfig) ChainType() gencfg.ChainType {
+func (e *evmConfig) ChainType() commonconfig.ChainType {
 	if e.c.ChainType == nil {
 		return ""
 	}
-	return gencfg.ChainType(*e.c.ChainType)
+	return commonconfig.ChainType(*e.c.ChainType)
 }
 
 func (e *evmConfig) ChainID() *big.Int {
@@ -138,14 +163,6 @@ func (e *evmConfig) NodePool() NodePool {
 
 func (e *evmConfig) NodeNoNewHeadsThreshold() time.Duration {
 	return e.c.NoNewHeadsThreshold.Duration()
-}
-
-func (c *ChainScoped) EVM() EVM {
-	return &evmConfig{c: c.cfg}
-}
-
-func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
-	return c.EVM().NodeNoNewHeadsThreshold()
 }
 
 func (e *evmConfig) MinContractPayment() *assets.Link {

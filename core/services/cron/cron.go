@@ -6,10 +6,11 @@ import (
 
 	"github.com/robfig/cron/v3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Cron runs a cron jobSpec from a CronSpec
@@ -18,7 +19,7 @@ type Cron struct {
 	logger         logger.Logger
 	jobSpec        job.Job
 	pipelineRunner pipeline.Runner
-	chStop         utils.StopChan
+	chStop         services.StopChan
 }
 
 // NewCronFromJobSpec instantiates a job that executes on a predefined schedule.
@@ -79,7 +80,7 @@ func (cr *Cron) runPipeline() {
 
 	run := pipeline.NewRun(*cr.jobSpec.PipelineSpec, vars)
 
-	_, err := cr.pipelineRunner.Run(ctx, &run, cr.logger, false, nil)
+	_, err := cr.pipelineRunner.Run(ctx, run, cr.logger, false, nil)
 	if err != nil {
 		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobSpec.ID)
 	}

@@ -89,7 +89,7 @@ func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keysto
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 

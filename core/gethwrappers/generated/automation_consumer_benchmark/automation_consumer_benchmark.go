@@ -52,7 +52,7 @@ func DeployAutomationConsumerBenchmark(auth *bind.TransactOpts, backend bind.Con
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &AutomationConsumerBenchmark{AutomationConsumerBenchmarkCaller: AutomationConsumerBenchmarkCaller{contract: contract}, AutomationConsumerBenchmarkTransactor: AutomationConsumerBenchmarkTransactor{contract: contract}, AutomationConsumerBenchmarkFilterer: AutomationConsumerBenchmarkFilterer{contract: contract}}, nil
+	return address, tx, &AutomationConsumerBenchmark{address: address, abi: *parsed, AutomationConsumerBenchmarkCaller: AutomationConsumerBenchmarkCaller{contract: contract}, AutomationConsumerBenchmarkTransactor: AutomationConsumerBenchmarkTransactor{contract: contract}, AutomationConsumerBenchmarkFilterer: AutomationConsumerBenchmarkFilterer{contract: contract}}, nil
 }
 
 type AutomationConsumerBenchmark struct {

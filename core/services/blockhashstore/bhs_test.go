@@ -1,7 +1,6 @@
 package blockhashstore_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,13 +11,15 @@ import (
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -28,8 +29,9 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
-	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
-	chain, err := chainSet.Get(&cltest.FixtureChainID)
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	chain, err := legacyChains.Get(cltest.FixtureChainID.String())
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
@@ -56,17 +58,19 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.TxRequest) bool {
+	txm.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k1.Address.String()
-	}), mock.Anything).Once().Return(txmgr.Tx{}, nil)
+	})).Once().Return(txmgr.Tx{}, nil)
 
-	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.TxRequest) bool {
+	txm.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k2.Address.String()
-	}), mock.Anything).Once().Return(txmgr.Tx{}, nil)
+	})).Once().Return(txmgr.Tx{}, nil)
+
+	ctx := testutils.Context(t)
 
 	// store 2 blocks
-	err = bhs.Store(context.Background(), 1)
+	err = bhs.Store(ctx, 1)
 	require.NoError(t, err)
-	err = bhs.Store(context.Background(), 2)
+	err = bhs.Store(ctx, 2)
 	require.NoError(t, err)
 }

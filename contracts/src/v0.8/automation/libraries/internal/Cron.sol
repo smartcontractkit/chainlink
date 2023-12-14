@@ -84,6 +84,7 @@ struct Field {
  * abstraction called a Spec. The library also includes a spec function, nextTick(), which
  * determines the next time a cron job should fire based on the current block timestamp.
  */
+// solhint-disable chainlink-solidity/prefix-internal-functions-with-underscore, no-global-import
 library Cron {
   using strings for *;
 

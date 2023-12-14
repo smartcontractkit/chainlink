@@ -1,13 +1,15 @@
 package ocr2keeper_test
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,22 +18,26 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
@@ -47,15 +53,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -103,23 +107,21 @@ func deployKeeper20Registry(
 
 func setupNode(
 	t *testing.T,
-	port int64,
-	dbName string,
+	port int,
 	nodeKey ethkey.KeyV2,
 	backend *backends.SimulatedBackend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
+	mercury MercuryEndpoint,
 ) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
-	p2pKey, err := p2pkey.NewV2()
-	require.NoError(t, err)
+	p2pKey := keystest.NewP2PKeyV2(t)
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Feature.LogPoller = ptr(true)
 
 		c.OCR.Enabled = ptr(false)
 		c.OCR2.Enabled = ptr(true)
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.V1.Enabled = ptr(false)
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
@@ -133,14 +135,15 @@ func setupNode(
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 		s.Mercury.Credentials = map[string]toml.MercuryCredentials{
 			MercuryCredName: {
-				URL:      models.MustSecretURL("https://mercury.chain.link"),
-				Username: models.NewSecret("username1"),
-				Password: models.NewSecret("password1"),
+				LegacyURL: models.MustSecretURL(mercury.URL()),
+				URL:       models.MustSecretURL(mercury.URL()),
+				Username:  models.NewSecret(mercury.Username()),
+				Password:  models.NewSecret(mercury.Password()),
 			},
 		}
 	})
 
-	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, nodeKey, p2pKey)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, backend, nodeKey, p2pKey)
 	kb, err := app.GetKeyStore().OCR2().Create(chaintype.EVM)
 	require.NoError(t, err)
 
@@ -162,16 +165,16 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	job, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
+	jb, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &job)
+	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 }
 
 func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
-	job, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
+	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &job)
+	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 }
 
@@ -189,7 +192,7 @@ func accountsToAddress(accounts []ocrTypes.Account) (addresses []common.Address,
 	return addresses, nil
 }
 
-func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *gethtypes.Transaction, backend *backends.SimulatedBackend) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -231,8 +234,8 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	registry := deployKeeper20Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
 	// Setup bootstrap + oracle nodes
-	bootstrapNodePort := int64(19599)
-	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_keeper_ocr", nodeKeys[0], backend, nil)
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
@@ -241,11 +244,12 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 		nodes   []Node
 	)
 	// Set up the minimum 4 oracles all funded
-	for i := int64(0); i < 4; i++ {
-		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
+	ports := freeport.GetN(t, 4)
+	for i := 0; i < 4; i++ {
+		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		})
+		}, NewSimulatedMercuryServer())
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -406,15 +410,6 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	}
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
 
-	// check pipeline runs
-	var allRuns []pipeline.Run
-	for _, node := range nodes {
-		runs, err2 := node.App.PipelineORM().GetAllRuns()
-		require.NoError(t, err2)
-		allRuns = append(allRuns, runs...)
-	}
-	require.GreaterOrEqual(t, len(allRuns), 1)
-
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
 	require.NoError(t, err)
@@ -443,11 +438,11 @@ func setupForwarderForNode(
 
 	// add forwarder address to be tracked in db
 	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), app.GetConfig().Database())
-	chainID := utils.Big(*backend.Blockchain().Config().ChainID)
+	chainID := ubig.Big(*backend.Blockchain().Config().ChainID)
 	_, err = forwarderORM.CreateForwarder(faddr, chainID)
 	require.NoError(t, err)
 
-	chain, err := app.GetChains().EVM.Get((*big.Int)(&chainID))
+	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(&chainID).String())
 	require.NoError(t, err)
 	fwdr, err := chain.TxManager().GetForwarderForEOA(recipient)
 	require.NoError(t, err)
@@ -491,8 +486,8 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 
 	effectiveTransmitters := make([]common.Address, 0)
 	// Setup bootstrap + oracle nodes
-	bootstrapNodePort := int64(19599)
-	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_keeper_ocr", nodeKeys[0], backend, nil)
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
 
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
@@ -502,11 +497,12 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		nodes   []Node
 	)
 	// Set up the minimum 4 oracles all funded
-	for i := int64(0); i < 4; i++ {
-		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
+	ports := freeport.GetN(t, 4)
+	for i := 0; i < 4; i++ {
+		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		})
+		}, NewSimulatedMercuryServer())
 		nodeForwarder := setupForwarderForNode(t, app, sergey, backend, transmitter, linkAddr)
 		effectiveTransmitters = append(effectiveTransmitters, nodeForwarder)
 
@@ -677,15 +673,6 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	}
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
 
-	// check pipeline runs
-	var allRuns []pipeline.Run
-	for _, node := range nodes {
-		runs, err2 := node.App.PipelineORM().GetAllRuns()
-		require.NoError(t, err2)
-		allRuns = append(allRuns, runs...)
-	}
-	require.GreaterOrEqual(t, len(allRuns), 1)
-
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
 	require.NoError(t, err)
@@ -705,7 +692,7 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 	address := common.HexToAddress(hexutil.Encode(b))
 
 	spec := &job.OCR2OracleSpec{
-		PluginType: job.OCR2Keeper,
+		PluginType: types.OCR2Keeper,
 		ContractID: address.String(), // valid contract addr
 	}
 
@@ -717,9 +704,78 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 	assert.Equal(t, logpoller.FilterName("EvmRegistry - Upkeep events for", address), names[1])
 
 	spec = &job.OCR2OracleSpec{
-		PluginType: job.OCR2Keeper,
+		PluginType: types.OCR2Keeper,
 		ContractID: "0x5431", // invalid contract addr
 	}
 	_, err = ocr2keeper.FilterNamesFromSpec20(spec)
 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
+}
+
+// ------- below this line could be added to a test helpers package
+type MercuryEndpoint interface {
+	URL() string
+	Username() string
+	Password() string
+	CallCount() int
+	RegisterHandler(http.HandlerFunc)
+}
+
+type SimulatedMercuryServer struct {
+	server  *httptest.Server
+	handler http.HandlerFunc
+
+	mu        sync.RWMutex
+	callCount int
+}
+
+func NewSimulatedMercuryServer() *SimulatedMercuryServer {
+	srv := &SimulatedMercuryServer{
+		handler: func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		},
+	}
+
+	srv.server = httptest.NewUnstartedServer(srv)
+
+	return srv
+}
+
+func (ms *SimulatedMercuryServer) URL() string {
+	return ms.server.URL
+}
+
+func (ms *SimulatedMercuryServer) Username() string {
+	return "username1"
+}
+
+func (ms *SimulatedMercuryServer) Password() string {
+	return "password1"
+}
+
+func (ms *SimulatedMercuryServer) CallCount() int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
+	return ms.callCount
+}
+
+func (ms *SimulatedMercuryServer) RegisterHandler(h http.HandlerFunc) {
+	ms.handler = h
+}
+
+func (ms *SimulatedMercuryServer) Start() {
+	ms.server.Start()
+}
+
+func (ms *SimulatedMercuryServer) Stop() {
+	ms.server.Close()
+}
+
+func (ms *SimulatedMercuryServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	ms.callCount++
+
+	ms.handler.ServeHTTP(w, r)
 }

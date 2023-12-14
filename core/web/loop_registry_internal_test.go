@@ -38,7 +38,7 @@ func TestLoopRegistryServer_CantWriteToResponse(t *testing.T) {
 	l, o := logger.TestLoggerObserved(t, zap.ErrorLevel)
 	s := &LoopRegistryServer{
 		exposedPromPort: 1,
-		registry:        plugins.NewLoopRegistry(l),
+		registry:        plugins.NewLoopRegistry(l, nil),
 		logger:          l.(logger.SugaredLogger),
 		jsonMarshalFn:   json.Marshal,
 	}
@@ -53,7 +53,7 @@ func TestLoopRegistryServer_CantMarshal(t *testing.T) {
 	l, o := logger.TestLoggerObserved(t, zap.ErrorLevel)
 	s := &LoopRegistryServer{
 		exposedPromPort: 1,
-		registry:        plugins.NewLoopRegistry(l),
+		registry:        plugins.NewLoopRegistry(l, nil),
 		logger:          l.(logger.SugaredLogger),
 		jsonMarshalFn: func(any) ([]byte, error) {
 			return []byte(""), errors.New("can't unmarshal")

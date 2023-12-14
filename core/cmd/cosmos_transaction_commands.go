@@ -21,8 +21,8 @@ func initCosmosTxSubCmd(s *Shell) cli.Command {
 		Subcommands: []cli.Command{
 			{
 				Name:   "create",
-				Usage:  "Send <amount> Atom from node Cosmos account <fromAddress> to destination <toAddress>.",
-				Action: s.CosmosSendAtom,
+				Usage:  "Send <amount> of <token> from node Cosmos account <fromAddress> to destination <toAddress>.",
+				Action: s.CosmosSendNativeToken,
 				Flags: []cli.Flag{
 					cli.BoolFlag{
 						Name:  "force",
@@ -61,18 +61,24 @@ func (p *CosmosMsgPresenter) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-// CosmosSendAtom transfers coins from the node's account to a specified address.
-func (s *Shell) CosmosSendAtom(c *cli.Context) (err error) {
+// CosmosSendNativeToken transfers coins from the node's account to a specified address.
+func (s *Shell) CosmosSendNativeToken(c *cli.Context) (err error) {
 	if c.NArg() < 3 {
-		return s.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
+		return s.errorOut(errors.New("four arguments expected: token, amount, fromAddress and toAddress"))
 	}
 
-	amount, err := sdk.NewDecFromStr(c.Args().Get(0))
+	err = sdk.ValidateDenom(c.Args().Get(0))
 	if err != nil {
-		return s.errorOut(fmt.Errorf("invalid coin: %w", err))
+		return s.errorOut(fmt.Errorf("invalid native token: %w", err))
 	}
 
-	unparsedFromAddress := c.Args().Get(1)
+	amount, err := sdk.NewDecFromStr(c.Args().Get(1))
+	if err != nil {
+		return s.errorOut(multierr.Combine(
+			fmt.Errorf("invalid coin: %w", err)))
+	}
+
+	unparsedFromAddress := c.Args().Get(2)
 	fromAddress, err := sdk.AccAddressFromBech32(unparsedFromAddress)
 	if err != nil {
 		return s.errorOut(multierr.Combine(
@@ -80,7 +86,7 @@ func (s *Shell) CosmosSendAtom(c *cli.Context) (err error) {
 				unparsedFromAddress), err))
 	}
 
-	unparsedDestinationAddress := c.Args().Get(2)
+	unparsedDestinationAddress := c.Args().Get(3)
 	destinationAddress, err := sdk.AccAddressFromBech32(unparsedDestinationAddress)
 	if err != nil {
 		return s.errorOut(multierr.Combine(
@@ -98,6 +104,7 @@ func (s *Shell) CosmosSendAtom(c *cli.Context) (err error) {
 		FromAddress:        fromAddress,
 		Amount:             amount,
 		CosmosChainID:      chainID,
+		Token:              c.Args().Get(0),
 		AllowHigherAmounts: c.IsSet("force"),
 	}
 

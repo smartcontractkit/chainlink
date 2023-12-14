@@ -18,15 +18,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -41,7 +43,7 @@ func newBlockHistoryConfig() *gas.MockBlockHistoryConfig {
 }
 
 func newBlockHistoryEstimatorWithChainID(t *testing.T, c evmclient.Client, cfg gas.Config, gCfg gas.GasEstimatorConfig, bhCfg gas.BlockHistoryConfig, cid big.Int) gas.EvmEstimator {
-	return gas.NewBlockHistoryEstimator(logger.TestLogger(t), c, cfg, gCfg, bhCfg, cid)
+	return gas.NewBlockHistoryEstimator(logger.Test(t), c, cfg, gCfg, bhCfg, cid)
 }
 
 func newBlockHistoryEstimator(t *testing.T, c evmclient.Client, cfg gas.Config, gCfg gas.GasEstimatorConfig, bhCfg gas.BlockHistoryConfig) *gas.BlockHistoryEstimator {
@@ -83,8 +85,8 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x29" && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x29" && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &evmtypes.Block{
@@ -108,28 +110,28 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("starts and loads partial history if fetch context times out", func(t *testing.T) {
-		geCfg := &gas.MockGasEstimatorConfig{}
-		geCfg.EIP1559DynamicFeesF = true
-		geCfg.LimitMultiplierF = float32(1)
-		geCfg.PriceMinF = minGasPrice
+		geCfg2 := &gas.MockGasEstimatorConfig{}
+		geCfg2.EIP1559DynamicFeesF = true
+		geCfg2.LimitMultiplierF = float32(1)
+		geCfg2.PriceMinF = minGasPrice
 
-		bhCfg := newBlockHistoryConfig()
-		bhCfg.BatchSizeF = uint32(1)
-		bhCfg.BlockDelayF = blockDelay
-		bhCfg.BlockHistorySizeF = historySize
-		bhCfg.TransactionPercentileF = percentile
+		bhCfg2 := newBlockHistoryConfig()
+		bhCfg2.BatchSizeF = uint32(1)
+		bhCfg2.BlockDelayF = blockDelay
+		bhCfg2.BlockHistorySizeF = historySize
+		bhCfg2.TransactionPercentileF = percentile
 
-		cfg := gas.NewMockConfig()
+		cfg2 := gas.NewMockConfig()
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg)
+		bhe := newBlockHistoryEstimator(t, ethClient, cfg2, geCfg2, bhCfg2)
 
 		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: assets.NewWeiI(420)}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		// First succeeds (42)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &evmtypes.Block{
@@ -140,7 +142,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		// Second fails (41)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(41) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(41) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Return(errors.Wrap(context.DeadlineExceeded, "some error message")).Once()
 
 		err := bhe.Start(testutils.Context(t))
@@ -382,8 +384,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(43) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(43) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b43
@@ -392,7 +394,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		})
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(41) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(41) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b41
@@ -420,15 +422,15 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		// 43 is skipped because it was already in the history
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(44) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(44) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b44
 			elems[1].Result = &b42
 		})
 
-		head := evmtypes.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head := evmtypes.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		err = bhe.FetchBlocks(testutils.Context(t), &head)
 		require.NoError(t, err)
 
@@ -484,16 +486,16 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(3) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(2) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(3) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(2) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b3
 			elems[1].Result = &b2
 		})
 
-		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		head3.Parent = &head2
 		err := bhe.FetchBlocks(testutils.Context(t), &head3)
 		require.NoError(t, err)
@@ -545,14 +547,14 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		// RE-ORG, head2 and head3 have different hash than saved b2 and b3
-		head2 := evmtypes.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		head3.Parent = &head2
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(3) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(2) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(3) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(2) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			b2New := b2
@@ -616,8 +618,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		// head2 and head3 have identical hash to saved blocks
-		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		head3.Parent = &head2
 
 		err := bhe.FetchBlocks(testutils.Context(t), &head3)
@@ -663,8 +665,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(43) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(43) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b43
@@ -1299,44 +1301,69 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 	}
 	t.Run("returns false if transaction has 0 gas limit", func(t *testing.T) {
 		tx := evmtypes.Transaction{Type: 0x0, GasPrice: assets.NewWeiI(10), GasLimit: 0, Hash: utils.NewHash()}
-		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 	})
 
 	t.Run("returns false if transaction gas limit is nil and tx type is 0x0", func(t *testing.T) {
 		tx := evmtypes.Transaction{Type: 0x0, GasPrice: nil, GasLimit: 42, Hash: utils.NewHash()}
-		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 	})
 
 	t.Run("returns false if transaction is of type 0x7e only on Optimism", func(t *testing.T) {
 		cfg.ChainTypeF = "optimismBedrock"
 		tx := evmtypes.Transaction{Type: 0x7e, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
-		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 
 		cfg.ChainTypeF = ""
-		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 	})
 
-	t.Run("returns false if transaction is of type 0x7c only on Celo", func(t *testing.T) {
+	t.Run("returns false if transaction is of type 0x7c or 0x7b only on Celo", func(t *testing.T) {
 		cfg.ChainTypeF = "celo"
 		tx := evmtypes.Transaction{Type: 0x7c, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
-		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+
+		tx2 := evmtypes.Transaction{Type: 0x7b, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 
 		cfg.ChainTypeF = ""
-		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+		assert.Equal(t, true, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+	})
+
+	t.Run("returns false if transaction is of type 0x16 only on WeMix", func(t *testing.T) {
+		cfg.ChainTypeF = "wemix"
+		tx := evmtypes.Transaction{Type: 0x16, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 	})
 
 	t.Run("returns false if transaction has base fee higher than the gas price only on Celo", func(t *testing.T) {
 		cfg.ChainTypeF = "celo"
 		tx := evmtypes.Transaction{Type: 0x0, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
-		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 
 		tx2 := evmtypes.Transaction{Type: 0x2, MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(250),
 			GasPrice: assets.NewWeiI(50), GasLimit: 42, Hash: utils.NewHash()}
-		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 
 		cfg.ChainTypeF = ""
-		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
-		assert.Equal(t, true, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+		assert.Equal(t, true, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+	})
+
+	t.Run("returns false if transaction is of type 0x71 or 0xff only on zkSync", func(t *testing.T) {
+		cfg.ChainTypeF = string(config.ChainZkSync)
+		tx := evmtypes.Transaction{Type: 0x71, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+
+		tx.Type = 0x02
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+
+		tx.Type = 0xff
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+
+		cfg.ChainTypeF = ""
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 	})
 }
 
@@ -1816,9 +1843,9 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(41) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == gas.Int64ToHex(40) && b[1].Args[1] == true && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(41) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == gas.Int64ToHex(40) && b[1].Args[1].(bool) && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &evmtypes.Block{
@@ -1868,9 +1895,9 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(41) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == gas.Int64ToHex(40) && b[1].Args[1] == true && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(41) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == gas.Int64ToHex(40) && b[1].Args[1].(bool) && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &evmtypes.Block{
@@ -2014,7 +2041,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	cfg := gas.NewMockConfig()
 	bhCfg := newBlockHistoryConfig()
 	bhCfg.CheckInclusionBlocksF = uint16(4)
-	lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 	geCfg := &gas.MockGasEstimatorConfig{}
 	geCfg.EIP1559DynamicFeesF = false
 
@@ -2355,7 +2382,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			gasPrice, gasLimit, err := bhe.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
 			require.NoError(t, err)
 
-			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(geCfg, logger.TestLogger(t), nil, assets.NewWeiI(42), 100000, maxGasPrice)
+			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(geCfg, logger.TestSugared(t), nil, assets.NewWeiI(42), 100000, maxGasPrice)
 			require.NoError(t, err)
 
 			assert.Equal(t, expectedGasLimit, gasLimit)
@@ -2369,7 +2396,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			massive := assets.NewWeiI(100000000000000)
 			gas.SetGasPrice(bhe, massive)
 
-			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(geCfg, logger.TestLogger(t), massive, assets.NewWeiI(42), 100000, maxGasPrice)
+			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(geCfg, logger.TestSugared(t), massive, assets.NewWeiI(42), 100000, maxGasPrice)
 			require.NoError(t, err)
 
 			assert.Equal(t, expectedGasLimit, gasLimit)

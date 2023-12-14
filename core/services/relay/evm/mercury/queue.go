@@ -1,20 +1,21 @@
 package mercury
 
 import (
-	"container/heap"
 	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	heap "github.com/esote/minmaxheap"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -24,7 +25,7 @@ type asyncDeleter interface {
 	AsyncDelete(req *pb.TransmitRequest)
 }
 
-var _ services.ServiceCtx = (*TransmitQueue)(nil)
+var _ services.Service = (*TransmitQueue)(nil)
 
 var transmitQueueLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "mercury_transmit_queue_load",
@@ -40,7 +41,7 @@ const promInterval = 6500 * time.Millisecond
 // TransmitQueue is the high-level package that everything outside of this file should be using
 // It stores pending transmissions, yielding the latest (highest priority) first to the caller
 type TransmitQueue struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	cond         sync.Cond
 	lggr         logger.Logger
@@ -59,11 +60,6 @@ type TransmitQueue struct {
 type Transmission struct {
 	Req       *pb.TransmitRequest    // the payload to transmit
 	ReportCtx ocrtypes.ReportContext // contains priority information (latest epoch/round wins)
-
-	// The index is needed by update and is maintained by the heap.Interface
-	// methods
-	// It should NOT be set manually
-	index int // the index of the item in the heap
 }
 
 // maxlen controls how many items will be stored in the queue
@@ -73,7 +69,7 @@ func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int, transmissio
 	heap.Init(&pq) // ensure the heap is ordered
 	mu := new(sync.RWMutex)
 	return &TransmitQueue{
-		utils.StartStopOnce{},
+		services.StateMachine{},
 		sync.Cond{L: mu},
 		lggr.Named("TransmitQueue"),
 		asyncDeleter,
@@ -97,13 +93,13 @@ func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.Report
 	if tq.maxlen != 0 && tq.pq.Len() == tq.maxlen {
 		// evict oldest entry to make room
 		tq.lggr.Criticalf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen)
-		removed := heap.Remove(tq.pq, tq.pq.Len()-1)
+		removed := heap.PopMax(tq.pq)
 		if transmission, ok := removed.(*Transmission); ok {
 			tq.asyncDeleter.AsyncDelete(transmission.Req)
 		}
 	}
 
-	heap.Push(tq.pq, &Transmission{req, reportCtx, -1})
+	heap.Push(tq.pq, &Transmission{req, reportCtx})
 	tq.cond.Signal()
 
 	return true
@@ -231,6 +227,10 @@ func (pq priorityQueue) Less(i, j int) bool {
 		pq[i].ReportCtx.ReportTimestamp.Round > pq[j].ReportCtx.ReportTimestamp.Round
 }
 
+func (pq priorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+}
+
 func (pq *priorityQueue) Pop() any {
 	n := len(*pq)
 	if n == 0 {
@@ -238,21 +238,11 @@ func (pq *priorityQueue) Pop() any {
 	}
 	old := *pq
 	item := old[n-1]
-	old[n-1] = nil  // avoid memory leak
-	item.index = -1 // for safety
+	old[n-1] = nil // avoid memory leak
 	*pq = old[0 : n-1]
 	return item
 }
 
 func (pq *priorityQueue) Push(x any) {
-	n := len(*pq)
-	item := x.(*Transmission)
-	item.index = n
-	*pq = append(*pq, item)
-}
-
-func (pq priorityQueue) Swap(i, j int) {
-	pq[i], pq[j] = pq[j], pq[i]
-	pq[i].index = i
-	pq[j].index = j
+	*pq = append(*pq, x.(*Transmission))
 }

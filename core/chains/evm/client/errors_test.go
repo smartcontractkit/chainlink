@@ -40,6 +40,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"call failed: nonce too low: address 0x0499BEA33347cb62D79A9C0b1EDA01d8d329894c current nonce (5833) > tx nonce (5511)", true, "Avalanche"},
 			{"call failed: OldNonce", true, "Nethermind"},
 			{"call failed: OldNonce, Current nonce: 22, nonce of rejected tx: 17", true, "Nethermind"},
+			{"nonce too low. allowed nonce range: 427 - 447, actual: 426", true, "zkSync"},
 		}
 
 		for _, test := range tests {
@@ -60,6 +61,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"nonce too high: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 			{"nonce too high", true, "Geth"},
 			{"nonce too high", true, "Erigon"},
+			{"nonce too high. allowed nonce range: 427 - 477, actual: 527", true, "zkSync"},
 		}
 
 		for _, test := range tests {
@@ -152,6 +154,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"FeeTooLowToCompete", true, "Nethermind"},
 			{"transaction underpriced", true, "Klaytn"},
 			{"intrinsic gas too low", true, "Klaytn"},
+			{"max fee per gas less than block base fee", true, "zkSync"},
 		}
 
 		for _, test := range tests {
@@ -194,6 +197,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"call failed: InsufficientFunds, Account balance: 4740799397601480913, cumulative cost: 22019342038993800000", true, "Nethermind"},
 			{"insufficient funds", true, "Klaytn"},
 			{"insufficient funds for gas * price + value + gatewayFee", true, "celo"},
+			{"insufficient balance for transfer", true, "zkSync"},
+			{"insufficient funds for gas + value. balance: 42719769622667482000, fee: 48098250000000, value: 42719769622667482000", true, "celo"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -213,6 +218,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"invalid gas fee cap", true, "Klaytn"},
 			{"max fee per gas higher than max priority fee per gas", true, "Klaytn"},
 			{"tx fee (1.10 of currency celo) exceeds the configured cap (1.00 celo)", true, "celo"},
+			{"max priority fee per gas higher than max fee per gas", true, "zkSync"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -329,6 +335,16 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"`to` address of transaction in blacklist", true, "Harmony"},
 		{"`from` address of transaction in blacklist", true, "Harmony"},
 		{"staking message does not match directive message", true, "Harmony"},
+
+		{"intrinsic gas too low", true, "zkSync"},
+		{"failed to validate the transaction. reason: Validation revert: Account validation error: Not enough gas for transaction validation", true, "zkSync"},
+		{"failed to validate the transaction. reason: Validation revert: Failed to pay for the transaction: Failed to pay the fee to the operator", true, "zkSync"},
+		{"failed to validate the transaction. reason: Validation revert: Account validation error: Error function_selector = 0x, data = 0x", true, "zkSync"},
+		{"invalid sender. can't start a transaction from a non-account", true, "zkSync"},
+		{"Failed to serialize transaction: max fee per gas higher than 2^64-1", true, "zkSync"},
+		{"Failed to serialize transaction: max fee per pubdata byte higher than 2^64-1", true, "zkSync"},
+		{"Failed to serialize transaction: max priority fee per gas higher than 2^64-1", true, "zkSync"},
+		{"Failed to serialize transaction: oversized data. max: 1000000; actual: 1000000", true, "zkSync"},
 	}
 
 	for _, test := range tests {

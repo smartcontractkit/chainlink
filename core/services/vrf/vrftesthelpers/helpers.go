@@ -17,7 +17,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
@@ -51,6 +51,7 @@ func CreateAndStartBHSJob(
 	app *cltest.TestApplication,
 	bhsAddress, coordinatorV1Address, coordinatorV2Address, coordinatorV2PlusAddress string,
 	trustedBlockhashStoreAddress string, trustedBlockhashStoreBatchSize int32, lookback int,
+	heartbeatPeriod time.Duration, waitBlocks int,
 ) job.Job {
 	jid := uuid.New()
 	s := testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{
@@ -59,13 +60,14 @@ func CreateAndStartBHSJob(
 		CoordinatorV1Address:           coordinatorV1Address,
 		CoordinatorV2Address:           coordinatorV2Address,
 		CoordinatorV2PlusAddress:       coordinatorV2PlusAddress,
-		WaitBlocks:                     100,
+		WaitBlocks:                     waitBlocks,
 		LookbackBlocks:                 lookback,
+		HeartbeatPeriod:                heartbeatPeriod,
 		BlockhashStoreAddress:          bhsAddress,
 		TrustedBlockhashStoreAddress:   trustedBlockhashStoreAddress,
 		TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
 		PollPeriod:                     time.Second,
-		RunTimeout:                     100 * time.Millisecond,
+		RunTimeout:                     10 * time.Second,
 		EVMChainID:                     1337,
 		FromAddresses:                  fromAddresses,
 	})

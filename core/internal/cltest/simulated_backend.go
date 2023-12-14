@@ -11,11 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32) *backends.SimulatedBackend {
@@ -36,9 +37,9 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
-	defID := cfg.DefaultChainID()
-	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
-	chainID := utils.NewBig(testutils.SimulatedChainID)
+
+	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
+	chainID := big.New(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
 
@@ -61,9 +62,9 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
-	defID := cfg.DefaultChainID()
-	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
-	chainID := utils.NewBig(testutils.SimulatedChainID)
+
+	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
+	chainID := big.New(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
 
@@ -73,7 +74,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
 }
 
-// Mine forces the simulated backend to produce a new block every 2 seconds
+// Mine forces the simulated backend to produce a new block every X seconds
 func Mine(backend *backends.SimulatedBackend, blockTime time.Duration) (stopMining func()) {
 	timer := time.NewTicker(blockTime)
 	chStop := make(chan struct{})

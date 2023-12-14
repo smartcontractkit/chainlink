@@ -17,7 +17,7 @@ let consumer: Contract
 before(async () => {
   personas = (await getUsers()).personas
   controllerFactory = await ethers.getContractFactory(
-    'src/v0.8/SimpleWriteAccessController.sol:SimpleWriteAccessController',
+    'src/v0.8/shared/access/SimpleWriteAccessController.sol:SimpleWriteAccessController',
     personas.Nelly,
   )
   consumerFactory = await ethers.getContractFactory(

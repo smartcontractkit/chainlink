@@ -4,24 +4,24 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestORM_IdempotentInsertHead(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	logger := logger.TestLogger(t)
+	logger := logger.Test(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := headtracker.NewORM(db, logger, cfg.Database(), cltest.FixtureChainID)
 
@@ -47,7 +47,7 @@ func TestORM_TrimOldHeads(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	logger := logger.TestLogger(t)
+	logger := logger.Test(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := headtracker.NewORM(db, logger, cfg.Database(), cltest.FixtureChainID)
 
@@ -72,7 +72,7 @@ func TestORM_HeadByHash(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	logger := logger.TestLogger(t)
+	logger := logger.Test(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := headtracker.NewORM(db, logger, cfg.Database(), cltest.FixtureChainID)
 
@@ -95,7 +95,7 @@ func TestORM_HeadByHash_NotFound(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	logger := logger.TestLogger(t)
+	logger := logger.Test(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := headtracker.NewORM(db, logger, cfg.Database(), cltest.FixtureChainID)
 
@@ -110,7 +110,7 @@ func TestORM_LatestHeads_NoRows(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	logger := logger.TestLogger(t)
+	logger := logger.Test(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := headtracker.NewORM(db, logger, cfg.Database(), cltest.FixtureChainID)
 

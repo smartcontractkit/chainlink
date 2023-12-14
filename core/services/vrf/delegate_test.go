@@ -6,22 +6,31 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,8 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	vrf_mocks "github.com/smartcontractkit/chainlink/v2/core/services/vrf/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
@@ -39,69 +48,68 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 type vrfUniverse struct {
-	jrm       job.ORM
-	pr        pipeline.Runner
-	prm       pipeline.ORM
-	lb        *log_mocks.Broadcaster
-	ec        *evmclimocks.Client
-	ks        keystore.Master
-	vrfkey    vrfkey.KeyV2
-	submitter common.Address
-	txm       *txmmocks.MockEvmTxManager
-	hb        httypes.HeadBroadcaster
-	cc        evm.ChainSet
-	cid       big.Int
+	jrm          job.ORM
+	pr           pipeline.Runner
+	prm          pipeline.ORM
+	lb           *log_mocks.Broadcaster
+	ec           *evmclimocks.Client
+	ks           keystore.Master
+	vrfkey       vrfkey.KeyV2
+	submitter    common.Address
+	txm          *txmgr.TxManager
+	hb           httypes.HeadBroadcaster
+	legacyChains legacyevm.LegacyChainContainer
+	cid          big.Int
 }
 
 func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
+	lb.On("Register", mock.Anything, mock.Anything).Return(func() {}).Maybe()
 	ec := evmclimocks.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.FixtureChainID)
+	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(51), nil).Maybe()
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
-	txm := txmmocks.NewMockEvmTxManager(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg.Database())
-	t.Cleanup(func() { jrm.Close() })
-	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
+	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)
+	orm := headtracker.NewORM(db, lggr, cfg.Database(), *testutils.FixtureChainID)
+	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
+	jrm := job.NewORM(db, prm, btORM, ks, lggr, cfg.Database())
+	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
-	k, err := ks.Eth().Create(testutils.FixtureChainID)
-	require.NoError(t, err)
+	k, err2 := ks.Eth().Create(testutils.FixtureChainID)
+	require.NoError(t, err2)
 	submitter := k.Address
 	require.NoError(t, err)
-	vrfkey, err := ks.VRF().Create()
-	require.NoError(t, err)
+	vrfkey, err3 := ks.VRF().Create()
+	require.NoError(t, err3)
 
 	return vrfUniverse{
-		jrm:       jrm,
-		pr:        pr,
-		prm:       prm,
-		lb:        lb,
-		ec:        ec,
-		ks:        ks,
-		vrfkey:    vrfkey,
-		submitter: submitter,
-		txm:       txm,
-		hb:        hb,
-		cc:        cc,
-		cid:       *ec.ConfiguredChainID(),
+		jrm:          jrm,
+		pr:           pr,
+		prm:          prm,
+		lb:           lb,
+		ec:           ec,
+		ks:           ks,
+		vrfkey:       vrfkey,
+		submitter:    submitter,
+		txm:          &txm,
+		hb:           hb,
+		legacyChains: legacyChains,
+		cid:          *ec.ConfiguredChainID(),
 	}
 }
 
@@ -114,11 +122,11 @@ func generateCallbackReturnValues(t *testing.T, fulfilled bool) []byte {
 	var args abi.Arguments = []abi.Argument{{Type: callback}}
 	if fulfilled {
 		// Empty callback
-		b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
+		b, err2 := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
 			RandomnessFee:   big.NewInt(10),
 			SeedAndBlockNum: utils.EmptyHash,
 		})
-		require.NoError(t, err)
+		require.NoError(t, err2)
 		return b
 	}
 	b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
@@ -142,18 +150,18 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
 
 	vd := vrf.NewDelegate(
 		db,
 		vuni.ks,
 		vuni.pr,
 		vuni.prm,
-		vuni.cc,
+		vuni.legacyChains,
 		logger.TestLogger(t),
 		cfg.Database(),
 		mailMon)
-	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
+	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String(), EVMChainID: testutils.FixtureChainID.String()})
 	jb, err := vrfcommon.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
@@ -169,7 +177,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	go func() {
 		listener.RunHeadListener(func() {})
 	}()
-	t.Cleanup(func() { listener.Stop(t) })
+	servicetest.Run(t, listener)
 	return vuni, listener, jb
 }
 
@@ -300,19 +308,6 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Expect a call to check if the req is already fulfilled.
 		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
 
-		// Ensure we queue up a valid eth transaction
-		// Linked to requestID
-		vuni.txm.On("CreateTransaction",
-			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
-				meta := txRequest.Meta
-				return txRequest.FromAddress == vuni.submitter &&
-					txRequest.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					txRequest.FeeLimit == uint32(500000) &&
-					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
-					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
-			}),
-		).Once().Return(txmgr.Tx{}, nil)
-
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
 		waitForChannel(t, added, time.Second, "request not added to the queue")
@@ -411,7 +406,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 
 	// Ensure we have NOT queued up an eth transaction
 	var ethTxes []txmgr.DbEthTx
-	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
+	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM evm.txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
 }
@@ -562,7 +557,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -590,7 +585,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -679,18 +674,18 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
 
 	vd := vrf.NewDelegate(
 		db,
 		vuni.ks,
 		vuni.pr,
 		vuni.prm,
-		vuni.cc,
+		vuni.legacyChains,
 		logger.TestLogger(t),
 		cfg.Database(),
 		mailMon)
-	chain, err := vuni.cc.Get(testutils.FixtureChainID)
+	chain, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
 	require.NoError(t, err)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		VRFVersion:    vrfcommon.V2Plus,

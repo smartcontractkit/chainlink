@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/logs"
 	"github.com/K-Phoen/grabana/row"
@@ -11,7 +13,7 @@ import (
 )
 
 func main() {
-	lokiDS := "grafanacloud-logs"
+	lokiDS := os.Getenv("DATA_SOURCE_NAME")
 	d, err := wasp.NewDashboard(nil,
 		[]dashboard.Option{
 			dashboard.Row("LoadContractMetrics",

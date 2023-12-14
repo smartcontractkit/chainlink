@@ -1,14 +1,16 @@
 package s4_test
 
 import (
+	"crypto/ecdsa"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,6 +57,32 @@ func Test_MarshalUnmarshalQuery(t *testing.T) {
 	require.Equal(t, addressRange, ar)
 }
 
+func signRow(t *testing.T, row *s4.Row, address common.Address, pk *ecdsa.PrivateKey) {
+	t.Helper()
+
+	env := &s4_svc.Envelope{
+		Address:    address.Bytes(),
+		SlotID:     uint(row.Slotid),
+		Version:    row.Version,
+		Expiration: row.Expiration,
+		Payload:    row.Payload,
+	}
+	sig, err := env.Sign(pk)
+	require.NoError(t, err)
+	row.Signature = sig
+}
+
+func marshalUnmarshal(t *testing.T, row *s4.Row) *s4.Row {
+	t.Helper()
+
+	data, err := s4.MarshalRows([]*s4.Row{row})
+	require.NoError(t, err)
+	rows, err := s4.UnmarshalRows(data)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	return rows[0]
+}
+
 func Test_VerifySignature(t *testing.T) {
 	t.Parallel()
 
@@ -71,20 +99,24 @@ func Test_VerifySignature(t *testing.T) {
 		for addr[0] != 0 {
 			pk, addr = testutils.NewPrivateKeyAndAddress(t)
 		}
-		rows := generateTestRows(t, 1, time.Minute)
-		rows[0].Address = addr.Big().Bytes()
-		env := &s4_svc.Envelope{
-			Address:    addr.Bytes(),
-			SlotID:     uint(rows[0].Slotid),
-			Version:    rows[0].Version,
-			Expiration: rows[0].Expiration,
-			Payload:    rows[0].Payload,
-		}
-		sig, err := env.Sign(pk)
-		assert.NoError(t, err)
-		rows[0].Signature = sig
+		row := generateTestRows(t, 1, time.Minute)[0]
+		row.Address = addr.Big().Bytes()
+		signRow(t, row, addr, pk)
 
-		err = rows[0].VerifySignature()
-		require.NoError(t, err)
+		require.NoError(t, row.VerifySignature())
+		sameRow := marshalUnmarshal(t, row)
+		require.NoError(t, sameRow.VerifySignature())
+	})
+
+	t.Run("empty payload", func(t *testing.T) {
+		pk, addr := testutils.NewPrivateKeyAndAddress(t)
+		row := generateTestRows(t, 1, time.Minute)[0]
+		row.Payload = []byte{}
+		row.Address = addr.Big().Bytes()
+		signRow(t, row, addr, pk)
+
+		require.NoError(t, row.VerifySignature())
+		sameRow := marshalUnmarshal(t, row)
+		require.NoError(t, sameRow.VerifySignature())
 	})
 }

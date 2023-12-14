@@ -23,5 +23,6 @@ func init() {
 func CoreDefaults() (c toml.Core) {
 	c.SetFrom(&defaults)
 	c.Database.Dialect = dialects.Postgres // not user visible - overridden for tests only
+	c.Tracing.Attributes = make(map[string]string)
 	return
 }

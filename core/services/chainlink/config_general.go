@@ -3,8 +3,6 @@ package chainlink
 import (
 	_ "embed"
 	"fmt"
-	"math/big"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,12 +13,11 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -36,10 +33,12 @@ import (
 type generalConfig struct {
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
-	secretsTOML   string // with env overdies includes, redacted
+	secretsTOML   string // with env overrides includes, redacted
 
 	c       *Config // all fields non-nil (unless the legacy method signature return a pointer)
 	secrets *Secrets
+
+	warning error // warnings about inputTOML, e.g. deprecated fields
 
 	logLevelDefault zapcore.Level
 
@@ -124,7 +123,7 @@ func (o *GeneralConfigOpts) parseSecrets(secrets string) error {
 	return nil
 }
 
-// New returns a coreconfig.GeneralConfig for the given options.
+// New returns a GeneralConfig for the given options.
 func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 	err := o.parse()
 	if err != nil {
@@ -135,6 +134,8 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	_, warning := utils.MultiErrorList(o.Config.warnings())
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
@@ -164,6 +165,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		secretsTOML:   secrets,
 		c:             &o.Config,
 		secrets:       &o.Secrets,
+		warning:       warning,
 	}
 	if lvl := o.Config.Log.Level; lvl != nil {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
@@ -195,15 +197,15 @@ func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
 	return g.c.EVM
 }
 
-func (g *generalConfig) CosmosConfigs() cosmos.CosmosConfigs {
+func (g *generalConfig) CosmosConfigs() coscfg.TOMLConfigs {
 	return g.c.Cosmos
 }
 
-func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
+func (g *generalConfig) SolanaConfigs() solana.TOMLConfigs {
 	return g.c.Solana
 }
 
-func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
+func (g *generalConfig) StarknetConfigs() starknet.TOMLConfigs {
 	return g.c.Starknet
 }
 
@@ -254,10 +256,13 @@ func validateEnv() (err error) {
 	return
 }
 
-func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
+func (g *generalConfig) LogConfiguration(log, warn coreconfig.LogfFn) {
 	log("# Secrets:\n%s\n", g.secretsTOML)
 	log("# Input Configuration:\n%s\n", g.inputTOML)
 	log("# Effective Configuration, with defaults applied:\n%s\n", g.effectiveTOML)
+	if g.warning != nil {
+		warn("# Configuration warning:\n%s\n", g.warning)
+	}
 }
 
 // ConfigTOML implements chainlink.ConfigV2
@@ -313,15 +318,6 @@ func (g *generalConfig) EVMRPCEnabled() bool {
 	return false
 }
 
-func (g *generalConfig) DefaultChainID() *big.Int {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			return (*big.Int)(c.ChainID)
-		}
-	}
-	return nil
-}
-
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
 		if c.IsEnabled() {
@@ -350,7 +346,7 @@ func (g *generalConfig) StarkNetEnabled() bool {
 }
 
 func (g *generalConfig) WebServer() config.WebServer {
-	return &webServerConfig{c: g.c.WebServer, rootDir: g.RootDir}
+	return &webServerConfig{c: g.c.WebServer, s: g.secrets.WebServer, rootDir: g.RootDir}
 }
 
 func (g *generalConfig) AutoPprofBlockProfileRate() int {
@@ -409,18 +405,6 @@ func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 	return g.c.ShutdownGracePeriod.Duration()
 }
 
-func (g *generalConfig) Explorer() config.Explorer {
-	return &explorerConfig{s: g.secrets.Explorer, explorerURL: g.c.ExplorerURL}
-}
-
-func (g *generalConfig) ExplorerURL() *url.URL {
-	u := (*url.URL)(g.c.ExplorerURL)
-	if *u == zeroURL {
-		u = nil
-	}
-	return u
-}
-
 func (g *generalConfig) FluxMonitor() config.FluxMonitor {
 	return &fluxMonitorConfig{c: g.c.FluxMonitor}
 }
@@ -455,14 +439,6 @@ func (g *generalConfig) OCR2() config.OCR2 {
 
 func (g *generalConfig) P2P() config.P2P {
 	return &p2p{c: g.c.P2P}
-}
-
-func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
-	return g.c.P2P.NetworkStack()
-}
-
-func (g *generalConfig) P2PNetworkingStackRaw() string {
-	return g.c.P2P.NetworkStack().String()
 }
 
 func (g *generalConfig) P2PPeerID() p2pkey.PeerID {
@@ -521,14 +497,15 @@ func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 }
 
 func (g *generalConfig) Mercury() coreconfig.Mercury {
-	return &mercuryConfig{s: g.secrets.Mercury}
+	return &mercuryConfig{c: g.c.Mercury, s: g.secrets.Mercury}
 }
 
 func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
-var (
-	zeroURL        = url.URL{}
-	zeroSha256Hash = models.Sha256Hash{}
-)
+func (g *generalConfig) Tracing() coreconfig.Tracing {
+	return &tracingConfig{s: g.c.Tracing}
+}
+
+var zeroSha256Hash = models.Sha256Hash{}

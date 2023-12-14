@@ -2,7 +2,6 @@ package performance
 
 //revive:disable:dot-imports
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -12,19 +11,20 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	eth "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
@@ -44,7 +44,7 @@ var keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 }
 
 func TestKeeperPerformance(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	testEnvironment, chainClient, chainlinkNodes, contractDeployer, linkToken := setupKeeperTest(t, "basic-smoke")
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -67,14 +67,14 @@ func TestKeeperPerformance(t *testing.T) {
 			// Not the last node, hence not all nodes started profiling yet.
 			return
 		}
-		actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+		actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{}, chainClient.GetChainID().String())
 		err := chainClient.WaitForEvents()
 		require.NoError(t, err, "Error creating keeper jobs")
 
 		gom.Eventually(func(g gomega.Gomega) {
 			// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
 			for i := 0; i < len(upkeepIDs); i++ {
-				counter, err := consumers[i].Counter(context.Background())
+				counter, err := consumers[i].Counter(testcontext.Get(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
 					"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
@@ -84,7 +84,7 @@ func TestKeeperPerformance(t *testing.T) {
 
 		// Cancel all the registered upkeeps via the registry
 		for i := 0; i < len(upkeepIDs); i++ {
-			err := registry.CancelUpkeep(upkeepIDs[i])
+			err = registry.CancelUpkeep(upkeepIDs[i])
 			require.NoError(t, err, "Could not cancel upkeep at index %d", i)
 		}
 
@@ -95,7 +95,7 @@ func TestKeeperPerformance(t *testing.T) {
 
 		for i := 0; i < len(upkeepIDs); i++ {
 			// Obtain the amount of times the upkeep has been executed so far
-			countersAfterCancellation[i], err = consumers[i].Counter(context.Background())
+			countersAfterCancellation[i], err = consumers[i].Counter(testcontext.Get(t))
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			l.Info().Int("Index", i).Int64("Upkeeps Performed", countersAfterCancellation[i].Int64()).Msg("Cancelled Upkeep")
 		}
@@ -103,7 +103,7 @@ func TestKeeperPerformance(t *testing.T) {
 		gom.Consistently(func(g gomega.Gomega) {
 			for i := 0; i < len(upkeepIDs); i++ {
 				// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
-				latestCounter, err := consumers[i].Counter(context.Background())
+				latestCounter, err := consumers[i].Counter(testcontext.Get(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 				g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterCancellation[i].Int64()),
 					"Expected consumer counter to remain constant at %d, but got %d",
@@ -134,7 +134,7 @@ func setupKeeperTest(
 	contracts.ContractDeployer,
 	contracts.LinkToken,
 ) {
-	network := networks.SelectedNetwork
+	network := networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConfig := eth.New(nil)
 	if !network.Simulated {
 		evmConfig = eth.New(&eth.Props{
@@ -153,29 +153,32 @@ TurnLookBack = 0
 SyncInterval = '5s'
 PerformGasOverhead = 150_000`
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
-	cd, err := chainlink.NewDeployment(5, map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, network),
+	cd := chainlink.New(0, map[string]interface{}{
+		"replicas": 5,
+		"toml":     networks.AddNetworksConfig(baseTOML, network),
 	})
-	require.NoError(t, err, "Error creating chainlink deployment")
+
 	testEnvironment := environment.New(
 		&environment.Config{
-			NamespacePrefix: fmt.Sprintf("performance-keeper-%s-%s", testName, networkName),
-			Test:            t,
+			NamespacePrefix:    fmt.Sprintf("performance-keeper-%s-%s", testName, networkName),
+			Test:               t,
+			PreventPodEviction: true,
 		},
 	).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(cd)
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
 	if testEnvironment.WillUseRemoteRunner() {
 		return testEnvironment, nil, nil, nil, nil
 	}
 
-	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
+	l := logging.GetTestLogger(t)
+	chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")

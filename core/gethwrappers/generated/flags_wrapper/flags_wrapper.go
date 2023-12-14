@@ -52,7 +52,7 @@ func DeployFlags(auth *bind.TransactOpts, backend bind.ContractBackend, racAddre
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &Flags{FlagsCaller: FlagsCaller{contract: contract}, FlagsTransactor: FlagsTransactor{contract: contract}, FlagsFilterer: FlagsFilterer{contract: contract}}, nil
+	return address, tx, &Flags{address: address, abi: *parsed, FlagsCaller: FlagsCaller{contract: contract}, FlagsTransactor: FlagsTransactor{contract: contract}, FlagsFilterer: FlagsFilterer{contract: contract}}, nil
 }
 
 type Flags struct {

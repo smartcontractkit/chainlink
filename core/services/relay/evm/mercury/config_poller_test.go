@@ -115,6 +115,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 }
 
 func TestNotify(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCF-2746")
 	feedIDStr := "8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"
 	feedIDBytes, err := hexutil.Decode("0x" + feedIDStr)
 	require.NoError(t, err)

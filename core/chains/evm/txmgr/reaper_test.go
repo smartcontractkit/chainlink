@@ -8,18 +8,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	txmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig, cid *big.Int) *txmgr.Reaper {
-	return txmgr.NewEvmReaper(logger.TestLogger(t), db, cfg, txConfig, cid)
+	return txmgr.NewEvmReaper(logger.Test(t), db, cfg, txConfig, cid)
 }
 
 func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig) *txmgr.Reaper {
@@ -47,7 +47,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
 	var nonce int64
 	oneDayAgo := time.Now().Add(-24 * time.Hour)
 
@@ -64,7 +64,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 	})
 
 	// Confirmed in block number 5
-	cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
@@ -76,7 +76,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 	})
 
 	t.Run("doesn't touch ethtxes with different chain ID", func(t *testing.T) {
@@ -90,10 +90,10 @@ func TestReaper_ReapTxes(t *testing.T) {
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx has chain ID of 0
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 	})
 
-	t.Run("deletes confirmed eth_txes that exceed the age threshold with at least EVM.FinalityDepth blocks above their receipt", func(t *testing.T) {
+	t.Run("deletes confirmed evm.txes that exceed the age threshold with at least EVM.FinalityDepth blocks above their receipt", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
 		config.On("FinalityDepth").Return(uint32(10))
 
@@ -104,24 +104,24 @@ func TestReaper_ReapTxes(t *testing.T) {
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET created_at=$1`, oneDayAgo)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET created_at=$1`, oneDayAgo)
 
 		err = r.ReapTxes(12)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx although old enough, was still within EVM.FinalityDepth of the current head
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 
 		err = r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Now it deleted because the eth_tx was past EVM.FinalityDepth
-		cltest.AssertCount(t, db, "eth_txes", 0)
+		cltest.AssertCount(t, db, "evm.txes", 0)
 	})
 
-	cltest.MustInsertFatalErrorEthTx(t, txStore, from)
+	mustInsertFatalErrorEthTx(t, txStore, from)
 
-	t.Run("deletes errored eth_txes that exceed the age threshold", func(t *testing.T) {
+	t.Run("deletes errored evm.txes that exceed the age threshold", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
 		config.On("FinalityDepth").Return(uint32(10))
 
@@ -132,13 +132,13 @@ func TestReaper_ReapTxes(t *testing.T) {
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 
-		require.NoError(t, utils.JustError(db.Exec(`UPDATE eth_txes SET created_at=$1`, oneDayAgo)))
+		require.NoError(t, utils.JustError(db.Exec(`UPDATE evm.txes SET created_at=$1`, oneDayAgo)))
 
 		err = r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Deleted because it is old enough now
-		cltest.AssertCount(t, db, "eth_txes", 0)
+		cltest.AssertCount(t, db, "evm.txes", 0)
 	})
 }

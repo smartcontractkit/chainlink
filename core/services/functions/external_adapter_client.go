@@ -129,6 +129,7 @@ func (ea *externalAdapterClient) RunComputation(
 	nodeProvidedSecrets string,
 	requestData *RequestData,
 ) (userResult, userError []byte, domains []string, err error) {
+	requestData.Secrets = nil // secrets are passed in nodeProvidedSecrets
 
 	payload := requestPayload{
 		Endpoint:            "lambda",

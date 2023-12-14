@@ -8,10 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper/mocks"
 )
 
@@ -194,14 +196,16 @@ func TestPlugin_GetLatencies(t *testing.T) {
 	).(*promPlugin)
 	require.NotEqual(t, nil, promPlugin)
 
+	ctx := testutils.Context(t)
+
 	// Run OCR methods.
-	_, err := promPlugin.Query(context.Background(), reportTimestamp)
+	_, err := promPlugin.Query(ctx, reportTimestamp)
 	require.NoError(t, err)
 	_, ok := promPlugin.queryEndTimes.Load(reportTimestamp)
 	require.Equal(t, true, ok)
 	time.Sleep(qToOLatency)
 
-	_, err = promPlugin.Observation(context.Background(), reportTimestamp, nil)
+	_, err = promPlugin.Observation(ctx, reportTimestamp, nil)
 	require.NoError(t, err)
 	_, ok = promPlugin.queryEndTimes.Load(reportTimestamp)
 	require.Equal(t, false, ok)
@@ -209,7 +213,7 @@ func TestPlugin_GetLatencies(t *testing.T) {
 	require.Equal(t, true, ok)
 	time.Sleep(oToRLatency)
 
-	_, _, err = promPlugin.Report(context.Background(), reportTimestamp, nil, nil)
+	_, _, err = promPlugin.Report(ctx, reportTimestamp, nil, nil)
 	require.NoError(t, err)
 	_, ok = promPlugin.observationEndTimes.Load(reportTimestamp)
 	require.Equal(t, false, ok)
@@ -217,7 +221,7 @@ func TestPlugin_GetLatencies(t *testing.T) {
 	require.Equal(t, true, ok)
 	time.Sleep(rToALatency)
 
-	_, err = promPlugin.ShouldAcceptFinalizedReport(context.Background(), reportTimestamp, nil)
+	_, err = promPlugin.ShouldAcceptFinalizedReport(ctx, reportTimestamp, nil)
 	require.NoError(t, err)
 	_, ok = promPlugin.reportEndTimes.Load(reportTimestamp)
 	require.Equal(t, false, ok)
@@ -225,7 +229,7 @@ func TestPlugin_GetLatencies(t *testing.T) {
 	require.Equal(t, true, ok)
 	time.Sleep(aToTLatency)
 
-	_, err = promPlugin.ShouldTransmitAcceptedReport(context.Background(), reportTimestamp, nil)
+	_, err = promPlugin.ShouldTransmitAcceptedReport(ctx, reportTimestamp, nil)
 	require.NoError(t, err)
 	_, ok = promPlugin.acceptFinalizedReportEndTimes.Load(reportTimestamp)
 	require.Equal(t, false, ok)

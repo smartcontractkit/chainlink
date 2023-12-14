@@ -2,7 +2,8 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 // ChainResolver resolves the Chain type.

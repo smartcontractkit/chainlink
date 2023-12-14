@@ -10,7 +10,8 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
@@ -133,7 +134,7 @@ func (s *Shell) ShowTransaction(c *cli.Context) (err error) {
 // SendEther transfers ETH from the node's account to a specified address.
 func (s *Shell) SendEther(c *cli.Context) (err error) {
 	if c.NArg() < 3 {
-		return s.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
+		return s.errorOut(errors.New("the following arguments expected: (chain) id (in multi-chain setup), amount, fromAddress and toAddress"))
 	}
 
 	var amount assets.Eth
@@ -186,7 +187,7 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 		DestinationAddress: destinationAddress,
 		FromAddress:        fromAddress,
 		Amount:             amount,
-		EVMChainID:         (*utils.Big)(evmChainID),
+		EVMChainID:         (*ubig.Big)(evmChainID),
 		AllowHigherAmounts: c.IsSet("force"),
 	}
 

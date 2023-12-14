@@ -119,21 +119,15 @@ func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*z
 
 	go lggr.pollDiskSpace()
 
-	var once sync.Once
-	closeLogger := func() error {
-		var innerErr error
-		once.Do(func() {
-			defer defaultCloseFn()
-			defer diskCloseFn()
+	closeLogger := sync.OnceValue(func() error {
+		defer defaultCloseFn()
+		defer diskCloseFn()
 
-			close(lggr.pollDiskSpaceStop)
-			<-lggr.pollDiskSpaceDone
+		close(lggr.pollDiskSpaceStop)
+		<-lggr.pollDiskSpaceDone
 
-			innerErr = lggr.Sync()
-		})
-
-		return innerErr
-	}
+		return lggr.Sync()
+	})
 
 	return lggr, closeLogger, err
 }

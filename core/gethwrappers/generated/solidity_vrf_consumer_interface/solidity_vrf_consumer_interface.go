@@ -50,7 +50,7 @@ func DeployVRFConsumer(auth *bind.TransactOpts, backend bind.ContractBackend, _v
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFConsumer{VRFConsumerCaller: VRFConsumerCaller{contract: contract}, VRFConsumerTransactor: VRFConsumerTransactor{contract: contract}, VRFConsumerFilterer: VRFConsumerFilterer{contract: contract}}, nil
+	return address, tx, &VRFConsumer{address: address, abi: *parsed, VRFConsumerCaller: VRFConsumerCaller{contract: contract}, VRFConsumerTransactor: VRFConsumerTransactor{contract: contract}, VRFConsumerFilterer: VRFConsumerFilterer{contract: contract}}, nil
 }
 
 type VRFConsumer struct {

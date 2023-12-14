@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,16 +18,17 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type poolConfig struct {
 	selectionMode       string
 	noNewHeadsThreshold time.Duration
+	leaseDuration       time.Duration
 }
 
 func (c poolConfig) NodeSelectionMode() string {
@@ -37,9 +39,14 @@ func (c poolConfig) NodeNoNewHeadsThreshold() time.Duration {
 	return c.noNewHeadsThreshold
 }
 
+func (c poolConfig) LeaseDuration() time.Duration {
+	return c.leaseDuration
+}
+
 var defaultConfig evmclient.PoolConfig = &poolConfig{
 	selectionMode:       evmclient.NodeSelectionMode_RoundRobin,
 	noNewHeadsThreshold: 0,
+	leaseDuration:       time.Second * 0,
 }
 
 func TestPool_Dial(t *testing.T) {
@@ -157,7 +164,7 @@ func TestPool_Dial(t *testing.T) {
 			for i, n := range test.sendNodes {
 				sendNodes[i] = n.newSendOnlyNode(t, test.sendNodeChainID)
 			}
-			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig.NodeSelectionMode(), time.Second*0, nodes, sendNodes, test.poolChainID, "")
+			p := evmclient.NewPool(logger.Test(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendNodes, test.poolChainID, "")
 			err := p.Dial(ctx)
 			if err == nil {
 				t.Cleanup(func() { assert.NoError(t, p.Close()) })
@@ -181,7 +188,7 @@ type chainIDResp struct {
 
 func (r *chainIDResp) newSendOnlyNode(t *testing.T, nodeChainID int64) evmclient.SendOnlyNode {
 	httpURL := r.newHTTPServer(t)
-	return evmclient.NewSendOnlyNode(logger.TestLogger(t), *httpURL, t.Name(), big.NewInt(nodeChainID))
+	return evmclient.NewSendOnlyNode(logger.Test(t), *httpURL, t.Name(), big.NewInt(nodeChainID))
 }
 
 func (r *chainIDResp) newHTTPServer(t *testing.T) *url.URL {
@@ -204,7 +211,7 @@ type chainIDResps struct {
 }
 
 func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
-	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+	ws := testutils.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		switch method {
 		case "eth_subscribe":
 			resp.Result = `"0x00"`
@@ -216,7 +223,7 @@ func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
 		}
 		t.Errorf("Unexpected method call: %s(%s)", method, params)
 		return
-	})
+	}).WSURL().String()
 
 	wsURL, err := url.Parse(ws)
 	require.NoError(t, err)
@@ -227,7 +234,7 @@ func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
 	}
 
 	defer func() { r.id++ }()
-	return evmclient.NewNode(evmclient.TestNodePoolConfig{}, time.Second*0, logger.TestLogger(t), *wsURL, httpURL, t.Name(), r.id, big.NewInt(nodeChainID), 0)
+	return evmclient.NewNode(evmclient.TestNodePoolConfig{}, time.Second*0, logger.Test(t), *wsURL, httpURL, t.Name(), r.id, big.NewInt(nodeChainID), 0)
 }
 
 type chainIDService struct {
@@ -249,8 +256,8 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	n3 := evmmocks.NewNode(t)
 	nodes := []evmclient.Node{n1, n2, n3}
 
-	lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-	p := evmclient.NewPool(lggr, defaultConfig.NodeSelectionMode(), time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
+	lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
+	p := evmclient.NewPool(lggr, defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
 
 	n1.On("String").Maybe().Return("n1")
 	n2.On("String").Maybe().Return("n2")
@@ -324,9 +331,66 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 		sendonlys = append(sendonlys, s)
 	}
 
-	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig.NodeSelectionMode(), time.Second*0, nodes, sendonlys, &cltest.FixtureChainID, "")
+	p := evmclient.NewPool(logger.Test(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendonlys, &cltest.FixtureChainID, "")
 
 	assert.True(t, p.ChainType().IsValid())
 	assert.False(t, p.ChainType().IsL2())
 	require.NoError(t, p.BatchCallContextAll(ctx, b))
+}
+
+func TestUnit_Pool_LeaseDuration(t *testing.T) {
+	t.Parallel()
+
+	n1 := evmmocks.NewNode(t)
+	n2 := evmmocks.NewNode(t)
+	nodes := []evmclient.Node{n1, n2}
+	type nodeStateSwitch struct {
+		isAlive bool
+		mu      sync.RWMutex
+	}
+
+	nodeSwitch := nodeStateSwitch{
+		isAlive: true,
+		mu:      sync.RWMutex{},
+	}
+
+	n1.On("String").Maybe().Return("n1")
+	n2.On("String").Maybe().Return("n2")
+	n1.On("Close").Maybe().Return(nil)
+	n2.On("Close").Maybe().Return(nil)
+	n2.On("UnsubscribeAllExceptAliveLoop").Return()
+	n2.On("SubscribersCount").Return(int32(2))
+
+	n1.On("Start", mock.Anything).Return(nil).Once()
+	n1.On("State").Return(func() evmclient.NodeState {
+		nodeSwitch.mu.RLock()
+		defer nodeSwitch.mu.RUnlock()
+		if nodeSwitch.isAlive {
+			return evmclient.NodeStateAlive
+		}
+		return evmclient.NodeStateOutOfSync
+	})
+	n1.On("Order").Return(int32(1))
+	n1.On("ChainID").Return(testutils.FixtureChainID).Once()
+
+	n2.On("Start", mock.Anything).Return(nil).Once()
+	n2.On("State").Return(evmclient.NodeStateAlive)
+	n2.On("Order").Return(int32(2))
+	n2.On("ChainID").Return(testutils.FixtureChainID).Once()
+
+	lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
+	p := evmclient.NewPool(lggr, "PriorityLevel", time.Second*2, time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
+	require.NoError(t, p.Dial(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, p.Close()) })
+
+	testutils.WaitForLogMessage(t, observedLogs, "The pool will switch to best node every 2s")
+	nodeSwitch.mu.Lock()
+	nodeSwitch.isAlive = false
+	nodeSwitch.mu.Unlock()
+	testutils.WaitForLogMessage(t, observedLogs, "At least one EVM primary node is dead")
+	nodeSwitch.mu.Lock()
+	nodeSwitch.isAlive = true
+	nodeSwitch.mu.Unlock()
+	testutils.WaitForLogMessage(t, observedLogs, `Switching to best node from "n2" to "n1"`)
+
 }

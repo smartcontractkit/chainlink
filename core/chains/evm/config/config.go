@@ -6,7 +6,9 @@ import (
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
@@ -24,7 +26,7 @@ type EVM interface {
 	BlockBackfillSkip() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	ChainID() *big.Int
-	ChainType() config.ChainType
+	ChainType() commonconfig.ChainType
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FlagsContractAddress() string
@@ -32,12 +34,15 @@ type EVM interface {
 	LogBackfillBatchSize() uint32
 	LogKeepBlocksDepth() uint32
 	LogPollInterval() time.Duration
-	MinContractPayment() *assets.Link
+	MinContractPayment() *commonassets.Link
 	MinIncomingConfirmations() uint32
 	NonceAutoSync() bool
 	OperatorFactoryAddress() string
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
+
+	IsEnabled() bool
+	TOMLString() (string, error)
 }
 
 type OCR interface {
@@ -45,6 +50,8 @@ type OCR interface {
 	ContractTransmitterTransmitTimeout() time.Duration
 	ObservationGracePeriod() time.Duration
 	DatabaseTimeout() time.Duration
+	DeltaCOverride() time.Duration
+	DeltaCJitterOverride() time.Duration
 }
 
 type OCR2 interface {
@@ -122,8 +129,11 @@ type NodePool interface {
 	PollInterval() time.Duration
 	SelectionMode() string
 	SyncThreshold() uint32
+	LeaseDuration() time.Duration
 }
 
+// TODO BCF-2509 does the chainscopedconfig really need the entire app config?
+//
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
 	config.AppConfig

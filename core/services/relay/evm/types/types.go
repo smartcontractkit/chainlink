@@ -2,6 +2,9 @@ package types
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -10,21 +13,81 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+)
+
+type ChainReaderConfig struct {
+	// ChainContractReaders key is contract name
+	ChainContractReaders map[string]ChainContractReader `json:"chainContractReaders"`
+}
+
+type ChainContractReader struct {
+	ContractABI string `json:"contractABI"`
+	// ChainReaderDefinitions key is chainAgnostic read name.
+	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions"`
+}
+
+type ChainReaderDefinition struct {
+	ChainSpecificName string         `json:"chainSpecificName"` // chain specific contract method name or event type.
+	Params            map[string]any `json:"params"`
+	ReturnValues      []string       `json:"returnValues"`
+	CacheEnabled      bool           `json:"cacheEnabled"`
+	ReadType          ReadType       `json:"readType"`
+}
+
+type ReadType int64
+
+const (
+	Method ReadType = 0
+	Event  ReadType = 1
 )
 
 type RelayConfig struct {
-	ChainID                *utils.Big  `json:"chainID"`
-	FromBlock              uint64      `json:"fromBlock"`
-	EffectiveTransmitterID null.String `json:"effectiveTransmitterID"`
+	ChainID                *big.Big           `json:"chainID"`
+	FromBlock              uint64             `json:"fromBlock"`
+	EffectiveTransmitterID null.String        `json:"effectiveTransmitterID"`
+	ConfigContractAddress  *common.Address    `json:"configContractAddress"`
+	ChainReader            *ChainReaderConfig `json:"chainReader"`
 
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`
 
 	// Mercury-specific
 	FeedID *common.Hash `json:"feedID"`
+}
+
+type RelayOpts struct {
+	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
+	// make this private and wrap the arg fields with funcs on RelayOpts
+	commontypes.RelayArgs
+	c *RelayConfig
+}
+
+var ErrBadRelayConfig = errors.New("bad relay config")
+
+func NewRelayOpts(args types.RelayArgs) *RelayOpts {
+	return &RelayOpts{
+		RelayArgs: args,
+		c:         nil, // lazy initialization
+	}
+}
+
+func (o *RelayOpts) RelayConfig() (RelayConfig, error) {
+	var empty RelayConfig
+	//TODO this should be done once and the error should be cached
+	if o.c == nil {
+		var c RelayConfig
+		err := json.Unmarshal(o.RelayArgs.RelayConfig, &c)
+		if err != nil {
+			return empty, fmt.Errorf("%w: failed to deserialize relay config: %w", ErrBadRelayConfig, err)
+		}
+		o.c = &c
+	}
+	return *o.c, nil
 }
 
 type ConfigPoller interface {
@@ -35,9 +98,9 @@ type ConfigPoller interface {
 	Replay(ctx context.Context, fromBlock int64) error
 }
 
-// TODO(FUN-668): Migrate this fully into relaytypes.FunctionsProvider
+// TODO(FUN-668): Migrate this fully into commontypes.FunctionsProvider
 type FunctionsProvider interface {
-	relaytypes.FunctionsProvider
+	commontypes.FunctionsProvider
 	LogPollerWrapper() LogPollerWrapper
 }
 
@@ -68,7 +131,7 @@ type RouteUpdateSubscriber interface {
 //
 //go:generate mockery --quiet --name LogPollerWrapper --output ./mocks/ --case=underscore
 type LogPollerWrapper interface {
-	relaytypes.Service
+	services.Service
 	LatestEvents() ([]OracleRequest, []OracleResponse, error)
 
 	// TODO (FUN-668): Remove from the LOOP interface and only use internally within the EVM relayer

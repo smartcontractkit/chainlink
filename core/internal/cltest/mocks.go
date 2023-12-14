@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -12,14 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/jmoiron/sqlx"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -28,6 +29,7 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // MockSubscription a mock subscription
@@ -135,7 +137,9 @@ type MockCountingPrompter struct {
 }
 
 // Prompt returns an entered string
-func (p *MockCountingPrompter) Prompt(string) string {
+func (p *MockCountingPrompter) Prompt(string) string { return p.prompt() }
+
+func (p *MockCountingPrompter) prompt() string {
 	i := p.Count
 	p.Count++
 	if len(p.EnteredStrings)-1 < i {
@@ -146,15 +150,7 @@ func (p *MockCountingPrompter) Prompt(string) string {
 }
 
 // PasswordPrompt returns an entered string
-func (p *MockCountingPrompter) PasswordPrompt(string) string {
-	i := p.Count
-	p.Count++
-	if len(p.EnteredStrings)-1 < i {
-		p.T.Errorf("Not enough passwords supplied to MockCountingPrompter, wanted %d", i)
-		p.T.FailNow()
-	}
-	return p.EnteredStrings[i]
-}
+func (p *MockCountingPrompter) PasswordPrompt(string) string { return p.prompt() }
 
 // IsTerminal always returns true in tests
 func (p *MockCountingPrompter) IsTerminal() bool {
@@ -315,35 +311,16 @@ func MustRandomUser(t testing.TB) sessions.User {
 	return r
 }
 
-// CreateUserWithRole inserts a new user with specified role and associated test DB email into the test DB
-func CreateUserWithRole(t testing.TB, role sessions.UserRole) sessions.User {
-	email := ""
-	switch role {
-	case sessions.UserRoleAdmin:
-		email = APIEmailAdmin
-	case sessions.UserRoleEdit:
-		email = APIEmailEdit
-	case sessions.UserRoleRun:
-		email = APIEmailRun
-	case sessions.UserRoleView:
-		email = APIEmailViewOnly
-	default:
-		t.Fatal("Unexpected role for CreateUserWithRole")
-	}
+func NewUserWithSession(t testing.TB, orm sessions.AuthenticationProvider) sessions.User {
+	u := MustRandomUser(t)
+	require.NoError(t, orm.CreateUser(&u))
 
-	r, err := sessions.NewUser(email, Password, role)
-	if err != nil {
-		logger.TestLogger(t).Panic(err)
-	}
-	return r
-}
-
-func MustNewUser(t *testing.T, email, password string) sessions.User {
-	r, err := sessions.NewUser(email, password, sessions.UserRoleAdmin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return r
+	_, err := orm.CreateSession(sessions.SessionRequest{
+		Email:    u.Email,
+		Password: Password,
+	})
+	require.NoError(t, err)
+	return u
 }
 
 type MockAPIInitializer struct {
@@ -355,7 +332,7 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 	return &MockAPIInitializer{t: t}
 }
 
-func (m *MockAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (m *MockAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
 	if user, err := orm.FindUser(APIEmailAdmin); err == nil {
 		return user, err
 	}
@@ -422,15 +399,31 @@ func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }
 
-func NewChainSetMockWithOneChain(t testing.TB, ethClient evmclient.Client, cfg evmconfig.ChainScopedConfig) evm.ChainSet {
-	cc := new(evmmocks.ChainSet)
+func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig) legacyevm.LegacyChainContainer {
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
-	ch.On("Config").Return(cfg)
 	ch.On("Logger").Return(logger.TestLogger(t))
-	ch.On("ID").Return(cfg.EVM().ChainID())
-	cc.On("Default").Return(ch, nil)
-	cc.On("Get", (*big.Int)(nil)).Return(ch, nil)
-	cc.On("Chains").Return([]evm.Chain{ch})
-	return cc
+	scopedCfg := evmtest.NewChainScopedConfig(t, cfg)
+	ch.On("ID").Return(scopedCfg.EVM().ChainID())
+	ch.On("Config").Return(scopedCfg)
+
+	return NewLegacyChainsWithChain(ch, cfg)
+
+}
+
+func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig, txm txmgr.TxManager) legacyevm.LegacyChainContainer {
+	ch := new(evmmocks.Chain)
+	ch.On("Client").Return(ethClient)
+	ch.On("Logger").Return(logger.TestLogger(t))
+	scopedCfg := evmtest.NewChainScopedConfig(t, cfg)
+	ch.On("ID").Return(scopedCfg.EVM().ChainID())
+	ch.On("Config").Return(scopedCfg)
+	ch.On("TxManager").Return(txm)
+
+	return NewLegacyChainsWithChain(ch, cfg)
+}
+
+func NewLegacyChainsWithChain(ch legacyevm.Chain, cfg legacyevm.AppConfig) legacyevm.LegacyChainContainer {
+	m := map[string]legacyevm.Chain{ch.ID().String(): ch}
+	return legacyevm.NewLegacyChains(m, cfg.EVMConfigs())
 }

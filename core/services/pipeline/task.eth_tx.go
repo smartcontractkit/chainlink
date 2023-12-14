@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -12,11 +13,11 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -41,7 +42,7 @@ type ETHTxTask struct {
 	forwardingAllowed bool
 	specGasLimit      *uint32
 	keyStore          ETHKeyStore
-	chainSet          evm.ChainSet
+	legacyChains      legacyevm.LegacyChainContainer
 	jobType           string
 }
 
@@ -55,25 +56,34 @@ func (t *ETHTxTask) Type() TaskType {
 	return TaskTypeETHTx
 }
 
-func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *ETHTxTask) getEvmChainID() string {
+	if t.EVMChainID == "" {
+		t.EVMChainID = "$(jobSpec.evmChainID)"
+	}
+	return t.EVMChainID
+}
+
+func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var chainID StringParam
-	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID")
+	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID")
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
 
-	chain, err := getChainByString(t.chainSet, string(chainID))
+	chain, err := t.legacyChains.Get(string(chainID))
 	if err != nil {
-		return Result{Error: errors.Wrapf(err, "failed to get chain by id: %v", t.EVMChainID)}, retryableRunInfo()
+		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, chainID, err)
+		return Result{Error: err}, retryableRunInfo()
 	}
-	cfg := chain.Config()
+
+	cfg := chain.Config().EVM()
 	txManager := chain.TxManager()
 	_, err = CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
-	maximumGasLimit := SelectGasLimit(cfg, t.jobType, t.specGasLimit)
+	maximumGasLimit := SelectGasLimit(cfg.GasEstimator(), t.jobType, t.specGasLimit)
 
 	var (
 		fromAddrs             AddressSliceParam
@@ -102,7 +112,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
 		minOutgoingConfirmations = min
 	} else {
-		minOutgoingConfirmations = uint64(cfg.EVM().FinalityDepth())
+		minOutgoingConfirmations = uint64(cfg.FinalityDepth())
 	}
 
 	txMeta, err := decodeMeta(txMetaMap)
@@ -145,6 +155,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		ForwarderAddress: forwarderAddress,
 		Strategy:         strategy,
 		Checker:          transmitChecker,
+		SignalCallback:   true,
 	}
 
 	if minOutgoingConfirmations > 0 {
@@ -153,7 +164,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		txRequest.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
 	}
 
-	_, err = txManager.CreateTransaction(txRequest)
+	_, err = txManager.CreateTransaction(ctx, txRequest)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}

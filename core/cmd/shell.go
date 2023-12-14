@@ -23,25 +23,20 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -49,7 +44,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -67,12 +63,21 @@ var (
 	grpcOpts        loop.GRPCOpts
 )
 
-func initGlobals(cfg config.Prometheus) {
-	// Avoid double initializations.
+func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, logger logger.Logger) error {
+	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
+	var err error
 	initGlobalsOnce.Do(func() {
-		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.AuthToken()))
-		grpcOpts = loop.SetupTelemetry(nil) // default prometheus.Registerer
+		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfgProm.AuthToken()))
+		grpcOpts = loop.NewGRPCOpts(nil) // default prometheus.Registerer
+		err = loop.SetupTracing(loop.TracingConfig{
+			Enabled:         cfgTracing.Enabled(),
+			CollectorTarget: cfgTracing.CollectorTarget(),
+			NodeAttributes:  cfgTracing.Attributes(),
+			SamplingRatio:   cfgTracing.SamplingRatio(),
+			OnDialError:     func(error) { logger.Errorw("Failed to dial", "err", err) },
+		})
 	})
+	return err
 }
 
 var (
@@ -133,74 +138,78 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	initGlobals(cfg.Prometheus())
+	err = initGlobals(cfg.Prometheus(), cfg.Tracing(), appLggr)
+	if err != nil {
+		appLggr.Errorf("Failed to initialize globals: %v", err)
+	}
 
-	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
+	err = migrate.SetMigrationENVVars(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	err = handleNodeVersioning(ctx, db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
 	if err != nil {
 		return nil, err
 	}
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg.Database())
-	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+	mailMon := mailbox.NewMonitor(cfg.AppID().String())
 
 	dbListener := cfg.Database().Listener()
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
-	ccOpts := evm.ChainSetOpts{
-		Config:           cfg,
-		Logger:           appLggr,
-		DB:               db,
-		KeyStore:         keyStore.Eth(),
-		EventBroadcaster: eventBroadcaster,
-		MailMon:          mailMon,
+	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing())
+
+	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
+		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
+		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
+		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
+	})
+
+	// create the relayer-chain interoperators from application configuration
+	relayerFactory := chainlink.RelayerFactory{
+		Logger:       appLggr,
+		LoopRegistry: loopRegistry,
+		GRPCOpts:     grpcOpts,
+		MercuryPool:  mercuryPool,
 	}
 
-	loopRegistry := plugins.NewLoopRegistry(appLggr.Named("LoopRegistry"))
-
-	var chains chainlink.Chains
-	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load EVM chainset")
+	evmFactoryCfg := chainlink.EVMFactoryConfig{
+		CSAETHKeystore: keyStore,
+		ChainOpts:      legacyevm.ChainOpts{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon, DB: db},
 	}
+	// evm always enabled for backward compatibility
+	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(ctx, relayerFactory, evmFactoryCfg)}
 
 	if cfg.CosmosEnabled() {
-		cosmosLggr := appLggr.Named("Cosmos")
-		opts := cosmos.ChainSetOpts{
-			Config:           cfg,
-			Logger:           cosmosLggr,
-			DB:               db,
-			KeyStore:         keyStore.Cosmos(),
-			EventBroadcaster: eventBroadcaster,
+		cosmosCfg := chainlink.CosmosFactoryConfig{
+			Keystore:    keyStore.Cosmos(),
+			TOMLConfigs: cfg.CosmosConfigs(),
+			DB:          db,
+			QConfig:     cfg.Database(),
 		}
-		cfgs := cfg.CosmosConfigs()
-		opts.Configs = cosmos.NewConfigs(cfgs)
-		chains.Cosmos, err = cosmos.NewChainSet(opts, cfgs)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to load Cosmos chainset")
-		}
+		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
 	}
-
-	rf := relayerFactory{
-		Logger:        appLggr,
-		DB:            db,
-		GeneralConfig: cfg,
-		LoopRegistry:  loopRegistry,
-		GRPCOpts:      grpcOpts,
-	}
-
 	if cfg.SolanaEnabled() {
-		var err2 error
-		chains.Solana, err2 = rf.NewSolana(keyStore.Solana())
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to setup Solana relayer: %w", err2)
+		solanaCfg := chainlink.SolanaFactoryConfig{
+			Keystore:    keyStore.Solana(),
+			TOMLConfigs: cfg.SolanaConfigs(),
 		}
+		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
+	}
+	if cfg.StarkNetEnabled() {
+		starkCfg := chainlink.StarkNetFactoryConfig{
+			Keystore:    keyStore.StarkNet(),
+			TOMLConfigs: cfg.StarknetConfigs(),
+		}
+		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
+
 	}
 
-	if cfg.StarkNetEnabled() {
-		var err2 error
-		chains.StarkNet, err2 = rf.NewStarkNet(keyStore.StarkNet())
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
-		}
+	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
+	if err != nil {
+		return nil, err
 	}
 
 	// Configure and optionally start the audit log forwarder service
@@ -213,129 +222,27 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, unrestrictedClient, appLggr, cfg.Database())
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:                   cfg,
-		SqlxDB:                   db,
-		KeyStore:                 keyStore,
-		Chains:                   chains,
-		EventBroadcaster:         eventBroadcaster,
-		MailMon:                  mailMon,
-		Logger:                   appLggr,
-		AuditLogger:              auditLogger,
-		ExternalInitiatorManager: externalInitiatorManager,
-		Version:                  static.Version,
-		RestrictedHTTPClient:     restrictedClient,
-		UnrestrictedHTTPClient:   unrestrictedClient,
-		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
-		LoopRegistry:             loopRegistry,
-		GRPCOpts:                 grpcOpts,
+		Config:                     cfg,
+		SqlxDB:                     db,
+		KeyStore:                   keyStore,
+		RelayerChainInteroperators: relayChainInterops,
+		EventBroadcaster:           eventBroadcaster,
+		MailMon:                    mailMon,
+		Logger:                     appLggr,
+		AuditLogger:                auditLogger,
+		ExternalInitiatorManager:   externalInitiatorManager,
+		Version:                    static.Version,
+		RestrictedHTTPClient:       restrictedClient,
+		UnrestrictedHTTPClient:     unrestrictedClient,
+		SecretGenerator:            chainlink.FilePersistedSecretGenerator{},
+		LoopRegistry:               loopRegistry,
+		GRPCOpts:                   grpcOpts,
+		MercuryPool:                mercuryPool,
 	})
 }
 
-type relayerFactory struct {
-	logger.Logger
-	*sqlx.DB
-	chainlink.GeneralConfig
-	*plugins.LoopRegistry
-	loop.GRPCOpts
-}
-
-func (r relayerFactory) NewSolana(ks keystore.Solana) (loop.Relayer, error) {
-	var (
-		solanaRelayer loop.Relayer
-		ids           []string
-		solLggr       = r.Logger.Named("Solana")
-		cfgs          = r.SolanaConfigs()
-		signer        = &keystore.SolanaSigner{ks}
-	)
-	for _, c := range cfgs {
-		c := c
-		ids = append(ids, *c.ChainID)
-	}
-
-	if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
-		// setup the solana relayer to be a LOOP
-		tomls, err := toml.Marshal(struct {
-			Solana solana.SolanaConfigs
-		}{Solana: cfgs})
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
-		}
-
-		solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-			ID:  solLggr.Name(),
-			Cmd: cmdName,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
-		}
-		solanaRelayer = loop.NewRelayerService(solLggr, r.GRPCOpts, solCmdFn, string(tomls), signer)
-	} else {
-		// fallback to embedded chainset
-		opts := solana.ChainSetOpts{
-			Logger:   solLggr,
-			KeyStore: signer,
-			Configs:  solana.NewConfigs(cfgs),
-		}
-		chainSet, err := solana.NewChainSet(opts, cfgs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load Solana chainset: %w", err)
-		}
-		solanaRelayer = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
-	}
-	return solanaRelayer, nil
-}
-
-func (r relayerFactory) NewStarkNet(ks keystore.StarkNet) (loop.Relayer, error) {
-	var (
-		starknetRelayer loop.Relayer
-		ids             []string
-		starkLggr       = r.Logger.Named("StarkNet")
-		cfgs            = r.StarknetConfigs()
-		loopKs          = &keystore.StarknetLooppSigner{StarkNet: ks}
-	)
-	for _, c := range cfgs {
-		c := c
-		ids = append(ids, *c.ChainID)
-	}
-
-	if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
-		// setup the starknet relayer to be a LOOP
-		tomls, err := toml.Marshal(struct {
-			Starknet starknet.StarknetConfigs
-		}{Starknet: cfgs})
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
-		}
-
-		starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-			ID:  starkLggr.Name(),
-			Cmd: cmdName,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
-		}
-		// the starknet relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
-		// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
-		starknetRelayer = loop.NewRelayerService(starkLggr, r.GRPCOpts, starknetCmdFn, string(tomls), loopKs)
-	} else {
-		// fallback to embedded chainset
-		opts := starknet.ChainSetOpts{
-			Logger:   starkLggr,
-			KeyStore: loopKs,
-			Configs:  starknet.NewConfigs(cfgs),
-		}
-		chainSet, err := starknet.NewChainSet(opts, cfgs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load StarkNet chainset: %w", err)
-		}
-		starknetRelayer = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
-	}
-	return starknetRelayer, nil
-
-}
-
 // handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
-func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error {
+func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error {
 	var err error
 	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DefaultQueryTimeout())
@@ -366,7 +273,7 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cf
 
 	// Migrate the database
 	if cfg.MigrateDatabase() {
-		if err = migrate.Migrate(db.DB, appLggr); err != nil {
+		if err = migrate.Migrate(ctx, db.DB, appLggr); err != nil {
 			return fmt.Errorf("initializeORM#Migrate: %w", err)
 		}
 	}
@@ -883,8 +790,8 @@ func (f *fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest,
 // APIInitializer is the interface used to create the API User credentials
 // needed to access the API. Does nothing if API user already exists.
 type APIInitializer interface {
-	// Initialize creates a new user for API access, or does nothing if one exists.
-	Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error)
+	// Initialize creates a new local Admin user for API access, or does nothing if one exists.
+	Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error)
 }
 
 type promptingAPIInitializer struct {
@@ -898,11 +805,11 @@ func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
 }
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
-func (t *promptingAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (t *promptingAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, err
+		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, prompt for initial admin user creation
@@ -952,7 +859,7 @@ func NewFileAPIInitializer(file string) APIInitializer {
 	return fileAPIInitializer{file: file}
 }
 
-func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (f fileAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
 	request, err := credentialsFromFile(f.file, lggr)
 	if err != nil {
 		return sessions.User{}, err
@@ -961,7 +868,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (se
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, err
+		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, create initial admin user from session request from file creds
@@ -1114,8 +1021,7 @@ func confirmAction(c *cli.Context) bool {
 			return true
 		} else if answer == "no" {
 			return false
-		} else {
-			fmt.Printf("%s is not valid. Please type yes or no\n", answer)
 		}
+		fmt.Printf("%s is not valid. Please type yes or no\n", answer)
 	}
 }

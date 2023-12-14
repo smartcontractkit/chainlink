@@ -6,6 +6,7 @@ import { BigNumber, Signer } from 'ethers'
 import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
+import { AutomationRegistrar2_1__factory as AutomationRegistrarFactory } from '../../../typechain/factories/AutomationRegistrar2_1__factory'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
@@ -13,6 +14,26 @@ import { toWei } from '../../test-helpers/helpers'
 import { IKeeperRegistryMaster as IKeeperRegistry } from '../../../typechain/IKeeperRegistryMaster'
 import { AutomationRegistrar2_1 as Registrar } from '../../../typechain/AutomationRegistrar2_1'
 import { deployRegistry21 } from './helpers'
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*********************************** REGISTRAR v2.1 IS FROZEN ************************************/
+
+// We are leaving the original tests enabled, however as 2.1 is still actively being deployed
+
+describe('AutomationRegistrar2_1 - Frozen [ @skip-coverage ]', () => {
+  it('has not changed', () => {
+    assert.equal(
+      ethers.utils.id(AutomationRegistrarFactory.bytecode),
+      '0x9633058bd81e8479f88baaee9bda533406295c80ccbc43d4509701001bbea6e3',
+      'KeeperRegistry bytecode has changed',
+    )
+  })
+})
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 // copied from KeeperRegistryBase2_1.sol
 enum Trigger {
@@ -29,7 +50,9 @@ let personas: Personas
 before(async () => {
   personas = (await getUsers()).personas
 
-  linkTokenFactory = await ethers.getContractFactory('LinkToken')
+  linkTokenFactory = await ethers.getContractFactory(
+    'src/v0.4/LinkToken.sol:LinkToken',
+  )
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory

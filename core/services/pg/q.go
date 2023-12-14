@@ -15,9 +15,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -118,7 +118,7 @@ type Q struct {
 	Queryer
 	ParentCtx    context.Context
 	db           *sqlx.DB
-	logger       logger.Logger
+	logger       logger.SugaredLogger
 	config       QConfig
 	QueryTimeout time.Duration
 }
@@ -130,7 +130,7 @@ func NewQ(db *sqlx.DB, lggr logger.Logger, config QConfig, qopts ...QOpt) (q Q) 
 
 	q.db = db
 	// skip two levels since we use internal helpers and also want to point up the stack to the caller of the Q method.
-	q.logger = logger.Helper(lggr, 2)
+	q.logger = logger.Sugared(logger.Helper(lggr, 2))
 	q.config = config
 
 	if q.Queryer == nil {
@@ -165,7 +165,7 @@ func (q Q) Context() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(q.ParentCtx, q.QueryTimeout)
 }
 
-func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
+func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOption) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 	return SqlxTransaction(ctx, q.Queryer, q.originalLogger(), fc, txOpts...)
@@ -237,6 +237,15 @@ func (q Q) Select(dest interface{}, query string, args ...interface{}) error {
 
 	return ql.withLogError(q.Queryer.SelectContext(ctx, dest, query, args...))
 }
+
+func (q Q) SelectNamed(dest interface{}, query string, arg interface{}) error {
+	query, args, err := q.BindNamed(query, arg)
+	if err != nil {
+		return errors.Wrap(err, "error binding arg")
+	}
+	return q.Select(dest, query, args...)
+}
+
 func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
@@ -247,6 +256,7 @@ func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 
 	return ql.withLogError(q.Queryer.GetContext(ctx, dest, query, args...))
 }
+
 func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	query, args, err := q.BindNamed(sql, arg)
 	if err != nil {
@@ -263,7 +273,9 @@ func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 }
 
 func (q Q) newQueryLogger(query string, args []interface{}) *queryLogger {
-	return &queryLogger{Q: q, query: query, args: args}
+	return &queryLogger{Q: q, query: query, args: args, str: sync.OnceValue(func() string {
+		return sprintQ(query, args)
+	})}
 }
 
 // sprintQ formats the query with the given args and returns the resulting string.
@@ -305,15 +317,11 @@ type queryLogger struct {
 	query string
 	args  []interface{}
 
-	str     string
-	strOnce sync.Once
+	str func() string
 }
 
 func (q *queryLogger) String() string {
-	q.strOnce.Do(func() {
-		q.str = sprintQ(q.query, q.args)
-	})
-	return q.str
+	return q.str()
 }
 
 func (q *queryLogger) logSqlQuery() {
@@ -348,7 +356,7 @@ func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 	kvs := []any{"ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "percent", strconv.FormatFloat(pct, 'f', 1, 64), "sql", q}
 
 	if elapsed >= timeout {
-		logger.Criticalw(q.logger, "SLOW SQL QUERY", kvs...)
+		q.logger.Criticalw("SLOW SQL QUERY", kvs...)
 	} else if errThreshold := timeout / 5; errThreshold > 0 && elapsed > errThreshold {
 		q.logger.Errorw("SLOW SQL QUERY", kvs...)
 	} else if warnThreshold := timeout / 10; warnThreshold > 0 && elapsed > warnThreshold {

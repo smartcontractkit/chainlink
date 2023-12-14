@@ -12,6 +12,7 @@ import (
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
@@ -98,25 +99,83 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 	}
 
 	switch spec.OCR2OracleSpec.PluginType {
-	case job.Median:
+	case types.Median:
 		if spec.Pipeline.Source == "" {
 			return errors.New("no pipeline specified")
 		}
-	case job.DKG:
+	case types.DKG:
 		return validateDKGSpec(spec.OCR2OracleSpec.PluginConfig)
-	case job.OCR2VRF:
+	case types.OCR2VRF:
 		return validateOCR2VRFSpec(spec.OCR2OracleSpec.PluginConfig)
-	case job.OCR2Keeper:
+	case types.OCR2Keeper:
 		return validateOCR2KeeperSpec(spec.OCR2OracleSpec.PluginConfig)
-	case job.OCR2Functions:
+	case types.Functions:
 		// TODO validator for DR-OCR spec: https://app.shortcut.com/chainlinklabs/story/54054/ocr-plugin-for-directrequest-ocr
 		return nil
-	case job.Mercury:
-		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig)
+	case types.Mercury:
+		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
+	case types.GenericPlugin:
+		return validateOCR2GenericPluginSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
 		return pkgerrors.Errorf("invalid pluginType %s", spec.OCR2OracleSpec.PluginType)
+	}
+
+	return nil
+}
+
+type PipelineSpec struct {
+	Name string `json:"name"`
+	Spec string `json:"spec"`
+}
+
+type Config struct {
+	Pipelines    []PipelineSpec `json:"pipelines"`
+	PluginConfig map[string]any `json:"pluginConfig"`
+}
+
+type innerConfig struct {
+	Command       string `json:"command"`
+	ProviderType  string `json:"providerType"`
+	PluginName    string `json:"pluginName"`
+	TelemetryType string `json:"telemetryType"`
+	Config
+}
+
+type OCR2GenericPluginConfig struct {
+	innerConfig
+}
+
+func (o *OCR2GenericPluginConfig) UnmarshalJSON(data []byte) error {
+	err := json.Unmarshal(data, &o.innerConfig)
+	if err != nil {
+		return nil
+	}
+
+	m := map[string]any{}
+	err = json.Unmarshal(data, &m)
+	if err != nil {
+		return err
+	}
+
+	o.PluginConfig = m
+	return nil
+}
+
+func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {
+	p := OCR2GenericPluginConfig{}
+	err := json.Unmarshal(jsonConfig.Bytes(), &p)
+	if err != nil {
+		return err
+	}
+
+	if p.PluginName == "" {
+		return errors.New("generic config invalid: must provide plugin name")
+	}
+
+	if p.TelemetryType == "" {
+		return errors.New("generic config invalid: must provide telemetry type")
 	}
 
 	return nil
@@ -188,11 +247,11 @@ func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 	return nil
 }
 
-func validateOCR2MercurySpec(jsonConfig job.JSONConfig) error {
+func validateOCR2MercurySpec(jsonConfig job.JSONConfig, feedId [32]byte) error {
 	var pluginConfig mercuryconfig.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
 	}
-	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig), "Mercury PluginConfig is invalid")
+	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedId), "Mercury PluginConfig is invalid")
 }

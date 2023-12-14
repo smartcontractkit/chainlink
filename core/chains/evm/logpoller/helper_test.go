@@ -19,12 +19,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -36,7 +36,7 @@ type TestHarness struct {
 	Lggr logger.Logger
 	// Chain2/ORM2 is just a dummy second chain, doesn't have a client.
 	ChainID, ChainID2                *big.Int
-	ORM, ORM2                        *logpoller.ORM
+	ORM, ORM2                        *logpoller.DbORM
 	LogPoller                        logpoller.LogPollerTest
 	Client                           *backends.SimulatedBackend
 	Owner                            *bind.TransactOpts
@@ -45,8 +45,8 @@ type TestHarness struct {
 	EthDB                            ethdb.Database
 }
 
-func SetupTH(t testing.TB, finalityDepth, backfillBatchSize, rpcBatchSize int64) TestHarness {
-	lggr := logger.TestLogger(t)
+func SetupTH(t testing.TB, useFinalityTag bool, finalityDepth, backfillBatchSize, rpcBatchSize, keepFinalizedBlocksDepth int64) TestHarness {
+	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
@@ -63,7 +63,10 @@ func SetupTH(t testing.TB, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
 	esc := client.NewSimulatedBackendClient(t, ec, chainID)
-	lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, finalityDepth, backfillBatchSize, rpcBatchSize, 1000)
+	// Mark genesis block as finalized to avoid any nulls in the tests
+	head := esc.Backend().Blockchain().CurrentHeader()
+	esc.Backend().Blockchain().SetFinalized(head)
+	lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, useFinalityTag, finalityDepth, backfillBatchSize, rpcBatchSize, keepFinalizedBlocksDepth)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
@@ -89,7 +92,7 @@ func SetupTH(t testing.TB, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 func (th *TestHarness) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) int64 {
 	th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber)
 	latest, _ := th.LogPoller.LatestBlock(pg.WithParentCtx(ctx))
-	return latest + 1
+	return latest.BlockNumber + 1
 }
 
 func (th *TestHarness) assertDontHave(t *testing.T, start, end int) {

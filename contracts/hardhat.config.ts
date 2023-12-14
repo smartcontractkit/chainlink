@@ -54,6 +54,7 @@ let config = {
       allowUnlimitedContractSize: Boolean(
         process.env.ALLOW_UNLIMITED_CONTRACT_SIZE,
       ),
+      hardfork: 'merge',
     },
   },
   solidity: {
@@ -98,6 +99,18 @@ let config = {
           optimizer: {
             enabled: true,
             runs: 10000, // see native_solc_compile_all
+          },
+          metadata: {
+            bytecodeHash: 'none',
+          },
+        },
+      },
+      'src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol': {
+        version: '0.8.6',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 50, // see native_solc_compile_all_vrf
           },
           metadata: {
             bytecodeHash: 'none',

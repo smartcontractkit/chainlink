@@ -2,6 +2,7 @@ package loader
 
 import (
 	"database/sql"
+	"math/big"
 	"testing"
 
 	"github.com/google/uuid"
@@ -10,17 +11,17 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -35,9 +36,9 @@ func TestLoader_Chains(t *testing.T) {
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	one := utils.NewBigI(1)
+	one := ubig.NewI(1)
 	chain := toml.EVMConfig{ChainID: one, Chain: toml.Defaults(one)}
-	two := utils.NewBigI(2)
+	two := ubig.NewI(2)
 	chain2 := toml.EVMConfig{ChainID: two, Chain: toml.Defaults(two)}
 	evmORM := evmtest.NewTestConfigs(&chain, &chain2)
 	app.On("EVMORM").Return(evmORM)
@@ -50,12 +51,12 @@ func TestLoader_Chains(t *testing.T) {
 	assert.Len(t, results, 3)
 	config2, err := chain2.TOMLString()
 	require.NoError(t, err)
-	want2 := relaytypes.ChainStatus{ID: "2", Enabled: true, Config: config2}
-	assert.Equal(t, want2, results[0].Data.(relaytypes.ChainStatus))
+	want2 := commontypes.ChainStatus{ID: "2", Enabled: true, Config: config2}
+	assert.Equal(t, want2, results[0].Data.(commontypes.ChainStatus))
 	config1, err := chain.TOMLString()
 	require.NoError(t, err)
-	want1 := relaytypes.ChainStatus{ID: "1", Enabled: true, Config: config1}
-	assert.Equal(t, want1, results[1].Data.(relaytypes.ChainStatus))
+	want1 := commontypes.ChainStatus{ID: "1", Enabled: true, Config: config1}
+	assert.Equal(t, want1, results[1].Data.(commontypes.ChainStatus))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
 	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
@@ -64,33 +65,31 @@ func TestLoader_Chains(t *testing.T) {
 func TestLoader_Nodes(t *testing.T) {
 	t.Parallel()
 
-	evmChainSet := evmmocks.NewChainSet(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	node1 := relaytypes.NodeStatus{
-		Name:    "test-node-1",
-		ChainID: "1",
-	}
-	node2 := relaytypes.NodeStatus{
-		Name:    "test-node-1",
-		ChainID: "2",
-	}
+	chainID1, chainID2, notAnID := big.NewInt(1), big.NewInt(2), big.NewInt(3)
 
-	evmChainSet.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, "2", "1", "3").Return([]relaytypes.NodeStatus{
-		node1, node2,
-	}, 2, nil)
-	app.On("GetChains").Return(chainlink.Chains{EVM: evmChainSet})
+	genNodeStat := func(id string) commontypes.NodeStatus {
+		return commontypes.NodeStatus{
+			Name:    "test-node-" + id,
+			ChainID: id,
+		}
+	}
+	rcInterops := &chainlinkmocks.FakeRelayerChainInteroperators{Nodes: []commontypes.NodeStatus{
+		genNodeStat(chainID2.String()), genNodeStat(chainID1.String()),
+	}}
 
+	app.On("GetRelayers").Return(rcInterops)
 	batcher := nodeBatcher{app}
 
-	keys := dataloader.NewKeysFromStrings([]string{"2", "1", "3"})
+	keys := dataloader.NewKeysFromStrings([]string{chainID2.String(), chainID1.String(), notAnID.String()})
 	found := batcher.loadByChainIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []relaytypes.NodeStatus{node2}, found[0].Data)
-	assert.Equal(t, []relaytypes.NodeStatus{node1}, found[1].Data)
-	assert.Equal(t, []relaytypes.NodeStatus{}, found[2].Data)
+	assert.Equal(t, []commontypes.NodeStatus{genNodeStat(chainID2.String())}, found[0].Data)
+	assert.Equal(t, []commontypes.NodeStatus{genNodeStat(chainID1.String())}, found[1].Data)
+	assert.Equal(t, []commontypes.NodeStatus{}, found[2].Data)
 }
 
 func TestLoader_FeedsManagers(t *testing.T) {

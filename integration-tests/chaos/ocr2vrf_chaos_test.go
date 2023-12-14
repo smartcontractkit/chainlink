@@ -10,13 +10,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/chaos"
-	"github.com/smartcontractkit/chainlink-env/environment"
-	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
@@ -24,17 +26,16 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 func TestOCR2VRFChaos(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-	loadedNetwork := networks.SelectedNetwork
+	l := logging.GetTestLogger(t)
+	loadedNetwork := networks.MustGetSelectedNetworksFromEnv()[0]
 
 	defaultOCR2VRFSettings := map[string]interface{}{
-		"replicas": "6",
-		"toml": client.AddNetworkDetailedConfig(
+		"replicas": 6,
+		"toml": networks.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
 			loadedNetwork,
@@ -67,7 +68,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			chainlink.New(0, defaultOCR2VRFSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
 				DurationStr:    "1m",
 			},
 		},
@@ -77,7 +78,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
-		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
 		//		DurationStr:    "1m",
 		//	},
 		//},
@@ -87,9 +88,9 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
-		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
 		//		DurationStr:    "1m",
-		//		ContainerNames: &[]*string{a.Str("chainlink-db")},
+		//		ContainerNames: &[]*string{ptr.Ptr("chainlink-db")},
 		//	},
 		//},
 		//NetworkChaosFailMajorityNetwork: {
@@ -97,8 +98,8 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewNetworkPartition,
 		//	&chaos.Props{
-		//		FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-		//		ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+		//		FromLabels:  &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
+		//		ToLabels:    &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
 		//		DurationStr: "1m",
 		//	},
 		//},
@@ -107,8 +108,8 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewNetworkPartition,
 		//	&chaos.Props{
-		//		FromLabels:  &map[string]*string{"app": a.Str("geth")},
-		//		ToLabels:    &map[string]*string{ChaosGroupMajority: a.Str("1")},
+		//		FromLabels:  &map[string]*string{"app": ptr.Ptr("geth")},
+		//		ToLabels:    &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
 		//		DurationStr: "1m",
 		//	},
 		//},
@@ -118,7 +119,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		testCase := tc
 		t.Run(fmt.Sprintf("OCR2VRF_%s", testCaseName), func(t *testing.T) {
 			t.Parallel()
-			testNetwork := networks.SelectedNetwork // Need a new copy of the network for each test
+			testNetwork := networks.MustGetSelectedNetworksFromEnv()[0] // Need a new copy of the network for each test
 			testEnvironment := environment.
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf(
@@ -134,14 +135,14 @@ func TestOCR2VRFChaos(t *testing.T) {
 				return
 			}
 
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 1, 2, ChaosGroupMinority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=node-", 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 3, 5, ChaosGroupMajority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=node-", 3, 5, ChaosGroupMajority)
 			require.NoError(t, err)
 
-			chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+			chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 			require.NoError(t, err, "Error connecting to blockchain")
-			contractDeployer, err := contracts.NewContractDeployer(chainClient)
+			contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 			require.NoError(t, err, "Error building contract deployer")
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -149,7 +150,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
@@ -185,7 +186,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+				randomness, err := consumerContract.GetRandomnessByRequestId(testcontext.Get(t), requestID, big.NewInt(int64(i)))
 				require.NoError(t, err)
 				l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
@@ -212,7 +213,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+				randomness, err := consumerContract.GetRandomnessByRequestId(testcontext.Get(t), requestID, big.NewInt(int64(i)))
 				require.NoError(t, err, "Error getting Randomness result from Consumer Contract")
 				l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")

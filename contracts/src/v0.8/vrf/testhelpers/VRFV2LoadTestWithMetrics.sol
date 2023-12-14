@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/VRFCoordinatorV2Interface.sol";
-import "../VRFConsumerBaseV2.sol";
-import "../../shared/access/ConfirmedOwner.sol";
-import "../../ChainSpecificUtil.sol";
+import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFConsumerBaseV2} from "../VRFConsumerBaseV2.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
 
 /**
  * @title The VRFLoadTestExternalSubOwner contract.
@@ -19,7 +19,7 @@ contract VRFV2LoadTestWithMetrics is VRFConsumerBaseV2, ConfirmedOwner {
   uint256 public s_slowestFulfillment = 0;
   uint256 public s_fastestFulfillment = 999;
   uint256 public s_lastRequestId;
-  mapping(uint256 => uint256) requestHeights; // requestIds to block number when rand request was made
+  mapping(uint256 => uint256) internal requestHeights; // requestIds to block number when rand request was made
 
   struct RequestStatus {
     bool fulfilled;
@@ -37,7 +37,7 @@ contract VRFV2LoadTestWithMetrics is VRFConsumerBaseV2, ConfirmedOwner {
   }
 
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-    uint256 fulfilmentBlockNumber = ChainSpecificUtil.getBlockNumber();
+    uint256 fulfilmentBlockNumber = ChainSpecificUtil._getBlockNumber();
     uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
     uint256 requestDelayInMillions = requestDelay * 1_000_000;
 
@@ -74,7 +74,7 @@ contract VRFV2LoadTestWithMetrics is VRFConsumerBaseV2, ConfirmedOwner {
         _numWords
       );
       s_lastRequestId = requestId;
-      uint256 requestBlockNumber = ChainSpecificUtil.getBlockNumber();
+      uint256 requestBlockNumber = ChainSpecificUtil._getBlockNumber();
       s_requests[requestId] = RequestStatus({
         randomWords: new uint256[](0),
         fulfilled: false,

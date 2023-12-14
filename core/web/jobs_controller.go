@@ -71,7 +71,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(externalJobID, pg.WithParentCtx(c.Request.Context()))
 	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {
 		// Find a job by job ID
-		jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
+		jobSpec, err = jc.App.JobORM().FindJobTx(c, jobSpec.ID)
 	} else {
 		jsonAPIError(c, http.StatusUnprocessableEntity, pErr)
 		return
@@ -221,7 +221,7 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, tomlString)
+		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetRelayers().LegacyEVMChains(), tomlString)
 		if !config.OCR().Enabled() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}

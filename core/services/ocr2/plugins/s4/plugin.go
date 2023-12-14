@@ -4,13 +4,28 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
+)
+
+var (
+	promStoragePluginUpdatesCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "storage_plugin_updates",
+		Help: "Number of storage updates fetched from other nodes",
+	}, []string{})
+
+	promStorageTotalByteSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "storage_total_byte_size",
+		Help: "Current byte size of data stored in S4",
+	}, []string{})
 )
 
 type plugin struct {
@@ -59,6 +74,7 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 		return nil, errors.Wrap(err, "failed to GetVersions in Query()")
 	}
 
+	var storageTotalByteSize uint64
 	rows := make([]*SnapshotRow, len(snapshot))
 	for i, v := range snapshot {
 		rows[i] = &SnapshotRow{
@@ -66,6 +82,8 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 			Slotid:  uint32(v.SlotId),
 			Version: v.Version,
 		}
+
+		storageTotalByteSize += v.PayloadSize
 	}
 
 	queryBytes, err := MarshalQuery(rows, c.addressRange)
@@ -76,12 +94,14 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(rows)))
 	promReportingPluginsQueryByteSize.WithLabelValues(c.config.ProductName).Set(float64(len(queryBytes)))
 
+	promStorageTotalByteSize.WithLabelValues().Set(float64(storageTotalByteSize))
+
 	c.addressRange.Advance()
 
 	c.logger.Debug("S4StorageReporting Query", commontypes.LogFields{
-		"epoch": ts.Epoch,
-		"round": ts.Round,
-		"nRows": len(rows),
+		"epoch":         ts.Epoch,
+		"round":         ts.Round,
+		"nSnapshotRows": len(rows),
 	})
 
 	return queryBytes, err
@@ -123,24 +143,26 @@ func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, quer
 			c.logger.Error("ORM GetSnapshot error", commontypes.LogFields{"err": err})
 		} else {
 			type rkey struct {
-				address *utils.Big
+				address *big.Big
 				slotID  uint
 			}
 
 			snapshotVersionsMap := snapshotToVersionMap(snapshot)
 			toBeAdded := make([]rkey, 0)
+			// Add rows from query snapshot that have a higher version locally.
 			for _, qr := range queryRows {
 				address := UnmarshalAddress(qr.Address)
 				k := key{address: address.String(), slotID: uint(qr.Slotid)}
 				if version, ok := snapshotVersionsMap[k]; ok && version > qr.Version {
 					toBeAdded = append(toBeAdded, rkey{address: address, slotID: uint(qr.Slotid)})
-					delete(snapshotVersionsMap, k)
 				}
+				delete(snapshotVersionsMap, k)
 			}
 
 			if len(toBeAdded) > maxRemainingRows {
 				toBeAdded = toBeAdded[:maxRemainingRows]
 			} else {
+				// Add rows from query address range that exist locally but are missing from query snapshot.
 				for _, sr := range snapshot {
 					if !sr.Confirmed {
 						continue
@@ -180,6 +202,7 @@ func (c *plugin) Report(_ context.Context, ts types.ReportTimestamp, _ types.Que
 	promReportingPluginReport.WithLabelValues(c.config.ProductName).Inc()
 
 	reportMap := make(map[key]*Row)
+	reportKeys := []key{}
 
 	for _, ao := range aos {
 		observationRows, err := UnmarshalRows(ao.Observation)
@@ -202,11 +225,13 @@ func (c *plugin) Report(_ context.Context, ts types.ReportTimestamp, _ types.Que
 				continue
 			}
 			reportMap[mkey] = row
+			reportKeys = append(reportKeys, mkey)
 		}
 	}
 
 	reportRows := make([]*Row, 0)
-	for _, row := range reportMap {
+	for _, key := range reportKeys {
+		row := reportMap[key]
 		reportRows = append(reportRows, row)
 
 		if len(reportRows) >= int(c.config.MaxReportEntries) {
@@ -221,9 +246,10 @@ func (c *plugin) Report(_ context.Context, ts types.ReportTimestamp, _ types.Que
 
 	promReportingPluginsReportRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(reportRows)))
 	c.logger.Debug("S4StorageReporting Report", commontypes.LogFields{
-		"epoch":       ts.Epoch,
-		"round":       ts.Round,
-		"nReportRows": len(reportRows),
+		"epoch":         ts.Epoch,
+		"round":         ts.Round,
+		"nReportRows":   len(reportRows),
+		"nObservations": len(aos),
 	})
 
 	return true, report, nil
@@ -247,11 +273,22 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, ts types.Repor
 			Confirmed:  true,
 			Signature:  row.Signature,
 		}
+
+		now := time.Now().UnixMilli()
+		if now > ormRow.Expiration {
+			c.logger.Error("Received an expired entry in a report, not saving", commontypes.LogFields{
+				"expirationTs": ormRow.Expiration,
+				"nowTs":        now,
+			})
+			continue
+		}
+
 		err = c.orm.Update(ormRow, pg.WithParentCtx(ctx))
 		if err != nil && !errors.Is(err, s4.ErrVersionTooLow) {
 			c.logger.Error("Failed to Update a row in ShouldAcceptFinalizedReport()", commontypes.LogFields{"err": err})
 			continue
 		}
+		promStoragePluginUpdatesCount.WithLabelValues().Inc()
 	}
 
 	c.logger.Debug("S4StorageReporting ShouldAcceptFinalizedReport", commontypes.LogFields{

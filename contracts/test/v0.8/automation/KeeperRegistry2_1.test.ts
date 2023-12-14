@@ -4,17 +4,17 @@ import { assert, expect } from 'chai'
 import {
   BigNumber,
   BigNumberish,
-  Signer,
-  Wallet,
-  ContractTransaction,
   BytesLike,
   ContractReceipt,
+  ContractTransaction,
+  Signer,
+  Wallet,
 } from 'ethers'
 import { evmRevert } from '../../test-helpers/matchers'
 import { getUsers, Personas } from '../../test-helpers/setup'
-import { toWei, randomAddress } from '../../test-helpers/helpers'
+import { randomAddress, toWei } from '../../test-helpers/helpers'
 import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
-import { MercuryUpkeep__factory as MercuryUpkeepFactory } from '../../../typechain/factories/MercuryUpkeep__factory'
+import { StreamsLookupUpkeep__factory as StreamsLookupUpkeepFactory } from '../../../typechain/factories/StreamsLookupUpkeep__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
@@ -22,9 +22,13 @@ import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typec
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
+import { KeeperRegistry2_1__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry2_1__factory'
+import { KeeperRegistryLogicA2_1__factory as KeeperRegistryLogicAFactory } from '../../../typechain/factories/KeeperRegistryLogicA2_1__factory'
+import { KeeperRegistryLogicB2_1__factory as KeeperRegistryLogicBFactory } from '../../../typechain/factories/KeeperRegistryLogicB2_1__factory'
+import { AutomationForwarderLogic__factory as AutomationForwarderLogicFactory } from '../../../typechain/factories/AutomationForwarderLogic__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { AutomationUtils2_1 as AutomationUtils } from '../../../typechain/AutomationUtils2_1'
-import { MercuryUpkeep } from '../../../typechain/MercuryUpkeep'
+import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
@@ -33,12 +37,12 @@ import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 import { UpkeepAutoFunder } from '../../../typechain'
 import {
+  CancelledUpkeepReportEvent,
   IKeeperRegistryMaster as IKeeperRegistry,
-  UpkeepPerformedEvent,
+  InsufficientFundsUpkeepReportEvent,
   ReorgedUpkeepReportEvent,
   StaleUpkeepReportEvent,
-  InsufficientFundsUpkeepReportEvent,
-  CancelledUpkeepReportEvent,
+  UpkeepPerformedEvent,
 } from '../../../typechain/IKeeperRegistryMaster'
 import {
   deployMockContract,
@@ -48,6 +52,41 @@ import { deployRegistry21 } from './helpers'
 
 const describeMaybe = process.env.SKIP_SLOW ? describe.skip : describe
 const itMaybe = process.env.SKIP_SLOW ? it.skip : it
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*********************************** REGISTRY v2.1 IS FROZEN ************************************/
+
+// We are leaving the original tests enabled, however as 2.1 is still actively being deployed
+
+describe('KeeperRegistry2_1 - Frozen [ @skip-coverage ]', () => {
+  it('has not changed', () => {
+    assert.equal(
+      ethers.utils.id(KeeperRegistryFactory.bytecode),
+      '0xd8dfe20e746039e8420349326becc0a15dcd8fa3cd6aa0924d214328a7c45206',
+      'KeeperRegistry bytecode has changed',
+    )
+    assert.equal(
+      ethers.utils.id(KeeperRegistryLogicAFactory.bytecode),
+      '0xe69d334fa75af0d6d8572996d815c93b8be1c8546670510b0d20ef349e57b2df',
+      'KeeperRegistryLogicA bytecode has changed',
+    )
+    assert.equal(
+      ethers.utils.id(KeeperRegistryLogicBFactory.bytecode),
+      '0x891c26ba35b9b13afc9400fac5471d15842828ab717cbdc70ee263210c542563',
+      'KeeperRegistryLogicB bytecode has changed',
+    )
+    assert.equal(
+      ethers.utils.id(AutomationForwarderLogicFactory.bytecode),
+      '0x195e2d7ecc26c75206820a5d3bd16e3a0214dc9764cc335f5d2c457cda90fe84',
+      'AutomationForwarderLogic bytecode has changed',
+    )
+  })
+})
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 // copied from AutomationRegistryInterface2_1.sol
 enum UpkeepFailureReason {
@@ -142,7 +181,7 @@ let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
 let mockArbGasInfoFactory: MockArbGasInfoFactory
 let mockOVMGasPriceOracleFactory: MockOVMGasPriceOracleFactory
-let mercuryUpkeepFactory: MercuryUpkeepFactory
+let streamsLookupUpkeepFactory: StreamsLookupUpkeepFactory
 let personas: Personas
 
 // contracts
@@ -160,7 +199,7 @@ let ltUpkeep: MockContract
 let transcoder: UpkeepTranscoder
 let mockArbGasInfo: MockArbGasInfo
 let mockOVMGasPriceOracle: MockOVMGasPriceOracle
-let mercuryUpkeep: MercuryUpkeep
+let streamsLookupUpkeep: StreamsLookupUpkeep
 let automationUtils: AutomationUtils
 
 function now() {
@@ -411,7 +450,7 @@ describe('KeeperRegistry2_1', () => {
   let upkeepId: BigNumber // conditional upkeep
   let afUpkeepId: BigNumber // auto funding upkeep
   let logUpkeepId: BigNumber // log trigger upkeepID
-  let mercuryUpkeepId: BigNumber // mercury upkeep
+  let streamsLookupUpkeepId: BigNumber // streams lookup upkeep
   const numUpkeeps = 4 // see above
   let keeperAddresses: string[]
   let payees: string[]
@@ -427,20 +466,23 @@ describe('KeeperRegistry2_1', () => {
     const utilsFactory = await ethers.getContractFactory('AutomationUtils2_1')
     automationUtils = await utilsFactory.deploy()
 
-    linkTokenFactory = await ethers.getContractFactory('LinkToken')
+    linkTokenFactory = await ethers.getContractFactory(
+      'src/v0.4/LinkToken.sol:LinkToken',
+    )
     // need full path because there are two contracts with name MockV3Aggregator
     mockV3AggregatorFactory = (await ethers.getContractFactory(
       'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     )) as unknown as MockV3AggregatorFactory
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
-    upkeepAutoFunderFactory = await ethers.getContractFactory(
-      'UpkeepAutoFunder',
-    )
+    upkeepAutoFunderFactory =
+      await ethers.getContractFactory('UpkeepAutoFunder')
     mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
     mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
       'MockOVMGasPriceOracle',
     )
-    mercuryUpkeepFactory = await ethers.getContractFactory('MercuryUpkeep')
+    streamsLookupUpkeepFactory = await ethers.getContractFactory(
+      'StreamsLookupUpkeep',
+    )
 
     owner = personas.Default
     keeper1 = personas.Carol
@@ -662,17 +704,17 @@ describe('KeeperRegistry2_1', () => {
   const verifyConsistentAccounting = async (
     maxAllowedSpareChange: BigNumber,
   ) => {
-    let expectedLinkBalance = (await registry.getState()).state
+    const expectedLinkBalance = (await registry.getState()).state
       .expectedLinkBalance
-    let linkTokenBalance = await linkToken.balanceOf(registry.address)
-    let upkeepIdBalance = (await registry.getUpkeep(upkeepId)).balance
+    const linkTokenBalance = await linkToken.balanceOf(registry.address)
+    const upkeepIdBalance = (await registry.getUpkeep(upkeepId)).balance
     let totalKeeperBalance = BigNumber.from(0)
     for (let i = 0; i < keeperAddresses.length; i++) {
       totalKeeperBalance = totalKeeperBalance.add(
         (await registry.getTransmitterInfo(keeperAddresses[i])).balance,
       )
     }
-    let ownerBalance = (await registry.getState()).state.ownerLinkBalance
+    const ownerBalance = (await registry.getState()).state.ownerLinkBalance
     assert.isTrue(expectedLinkBalance.eq(linkTokenBalance))
     assert.isTrue(
       upkeepIdBalance
@@ -698,6 +740,7 @@ describe('KeeperRegistry2_1', () => {
     performData?: string
     checkBlockNum?: number
     checkBlockHash?: string
+    logBlockHash?: BytesLike
     txHash?: BytesLike
     logIndex?: number
     timestamp?: number
@@ -720,6 +763,7 @@ describe('KeeperRegistry2_1', () => {
       checkBlockHash: latestBlock.hash,
       logIndex: 0,
       txHash: undefined, // assigned uniquely below
+      logBlockHash: undefined, // assigned uniquely below
       timestamp: now(),
       gasLimit: undefined,
       gasPrice: undefined,
@@ -737,6 +781,7 @@ describe('KeeperRegistry2_1', () => {
           break
         case Trigger.LOG:
           trigger = encodeLogTrigger({
+            logBlockHash: config.logBlockHash || ethers.utils.randomBytes(32),
             txHash: config.txHash || ethers.utils.randomBytes(32),
             logIndex: config.logIndex,
             blockNum: config.checkBlockNum,
@@ -823,12 +868,14 @@ describe('KeeperRegistry2_1', () => {
     mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
       .connect(owner)
       .deploy()
-    mercuryUpkeep = await mercuryUpkeepFactory
+    streamsLookupUpkeep = await streamsLookupUpkeepFactory
       .connect(owner)
       .deploy(
         BigNumber.from('10000'),
         BigNumber.from('100'),
-        true /* set to true so it uses block.number */,
+        false /* useArbBlock */,
+        true /* staging */,
+        false /* verify mercury response */,
       )
 
     const arbOracleCode = await ethers.provider.send('eth_getCode', [
@@ -989,13 +1036,13 @@ describe('KeeperRegistry2_1', () => {
     tx = await registry
       .connect(owner)
       ['registerUpkeep(address,uint32,address,bytes,bytes)'](
-        mercuryUpkeep.address,
+        streamsLookupUpkeep.address,
         performGas,
         await admin.getAddress(),
         randomBytes,
         '0x',
       )
-    mercuryUpkeepId = await getUpkeepID(tx)
+    streamsLookupUpkeepId = await getUpkeepID(tx)
   }
 
   const getMultipleUpkeepsDeployedAndFunded = async (
@@ -1003,9 +1050,9 @@ describe('KeeperRegistry2_1', () => {
     numPassingLogUpkeeps: number,
     numFailingUpkeeps: number,
   ) => {
-    let passingConditionalUpkeepIds = []
-    let passingLogUpkeepIds = []
-    let failingUpkeepIds = []
+    const passingConditionalUpkeepIds = []
+    const passingLogUpkeepIds = []
+    const failingUpkeepIds = []
     for (let i = 0; i < numPassingConditionalUpkeeps; i++) {
       const mock = await upkeepMockFactory.deploy()
       await mock.setCanPerform(true)
@@ -1193,18 +1240,19 @@ describe('KeeperRegistry2_1', () => {
       })
 
       it('handles duplicate log triggers', async () => {
+        const logBlockHash = ethers.utils.randomBytes(32)
         const txHash = ethers.utils.randomBytes(32)
         const logIndex = 0
         const expectedDedupKey = ethers.utils.solidityKeccak256(
-          ['uint256', 'bytes32', 'uint32'],
-          [logUpkeepId, txHash, logIndex],
+          ['uint256', 'bytes32', 'bytes32', 'uint32'],
+          [logUpkeepId, logBlockHash, txHash, logIndex],
         )
         assert.isFalse(await registry.hasDedupKey(expectedDedupKey))
         const tx = await getTransmitTx(
           registry,
           keeper1,
           [logUpkeepId, logUpkeepId],
-          { txHash, logIndex }, // will result in the same dedup key
+          { logBlockHash, txHash, logIndex }, // will result in the same dedup key
         )
         const receipt = await tx.wait()
         const staleUpkeepReport = parseStaleUpkeepReportLogs(receipt)
@@ -2124,15 +2172,15 @@ describe('KeeperRegistry2_1', () => {
                 numFailingUpkeeps +
                 '] performs successful upkeeps and does not charge failing upkeeps',
               async () => {
-                let allUpkeeps = await getMultipleUpkeepsDeployedAndFunded(
+                const allUpkeeps = await getMultipleUpkeepsDeployedAndFunded(
                   numPassingConditionalUpkeeps,
                   numPassingLogUpkeeps,
                   numFailingUpkeeps,
                 )
-                let passingConditionalUpkeepIds =
+                const passingConditionalUpkeepIds =
                   allUpkeeps.passingConditionalUpkeepIds
-                let passingLogUpkeepIds = allUpkeeps.passingLogUpkeepIds
-                let failingUpkeepIds = allUpkeeps.failingUpkeepIds
+                const passingLogUpkeepIds = allUpkeeps.passingLogUpkeepIds
+                const failingUpkeepIds = allUpkeeps.failingUpkeepIds
 
                 const keeperBefore = await registry.getTransmitterInfo(
                   await keeper1.getAddress(),
@@ -2351,15 +2399,15 @@ describe('KeeperRegistry2_1', () => {
                 numFailingUpkeeps +
                 '] splits gas overhead appropriately among performed upkeeps [ @skip-coverage ]',
               async () => {
-                let allUpkeeps = await getMultipleUpkeepsDeployedAndFunded(
+                const allUpkeeps = await getMultipleUpkeepsDeployedAndFunded(
                   numPassingConditionalUpkeeps,
                   numPassingLogUpkeeps,
                   numFailingUpkeeps,
                 )
-                let passingConditionalUpkeepIds =
+                const passingConditionalUpkeepIds =
                   allUpkeeps.passingConditionalUpkeepIds
-                let passingLogUpkeepIds = allUpkeeps.passingLogUpkeepIds
-                let failingUpkeepIds = allUpkeeps.failingUpkeepIds
+                const passingLogUpkeepIds = allUpkeeps.passingLogUpkeepIds
+                const failingUpkeepIds = allUpkeeps.failingUpkeepIds
 
                 // Perform the upkeeps once to remove non-zero storage slots and have predictable gas measurement
                 let tx = await getTransmitTx(
@@ -2863,6 +2911,18 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
+    describe('after the registration is paused, then cancelled', () => {
+      it('allows the admin to withdraw', async () => {
+        const balance = await registry.getBalance(upkeepId)
+        const payee = await payee1.getAddress()
+        await registry.connect(admin).pauseUpkeep(upkeepId)
+        await registry.connect(owner).cancelUpkeep(upkeepId)
+        await expect(() =>
+          registry.connect(admin).withdrawFunds(upkeepId, payee),
+        ).to.changeTokenBalance(linkToken, payee1, balance)
+      })
+    })
+
     describe('after the registration is cancelled', () => {
       beforeEach(async () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
@@ -3178,7 +3238,7 @@ describe('KeeperRegistry2_1', () => {
       it('calls checkLog for log-trigger upkeeps', async () => {
         const log: Log = {
           index: 0,
-          txIndex: 0,
+          timestamp: 0,
           txHash: ethers.utils.randomBytes(32),
           blockNumber: 100,
           blockHash: ethers.utils.randomBytes(32),
@@ -3279,7 +3339,7 @@ describe('KeeperRegistry2_1', () => {
       expect(upkeepIds).to.deep.equal([
         afUpkeepId,
         logUpkeepId,
-        mercuryUpkeepId,
+        streamsLookupUpkeepId,
       ])
     })
 
@@ -3538,6 +3598,46 @@ describe('KeeperRegistry2_1', () => {
             offchainBytes,
           ),
         'Only callable by owner',
+      )
+    })
+
+    it('reverts if signers or transmitters are the zero address', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfigTypeSafe(
+            [randomAddress(), randomAddress(), randomAddress(), zeroAddress],
+            [
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+            ],
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          ),
+        'InvalidSigner()',
+      )
+
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfigTypeSafe(
+            [
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+            ],
+            [randomAddress(), randomAddress(), randomAddress(), zeroAddress],
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          ),
+        'InvalidTransmitter()',
       )
     })
 
@@ -5381,12 +5481,12 @@ describe('KeeperRegistry2_1', () => {
 
   describe('#checkCallback', () => {
     it('returns false with appropriate failure reason when target callback reverts', async () => {
-      await mercuryUpkeep.setShouldRevertCallback(true)
+      await streamsLookupUpkeep.setShouldRevertCallback(true)
 
       const values: any[] = ['0x1234', '0xabcd']
       const res = await registry
         .connect(zeroAddress)
-        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
+        .callStatic.checkCallback(streamsLookupUpkeepId, values, '0x')
 
       assert.isFalse(res.upkeepNeeded)
       assert.equal(res.performData, '0x')
@@ -5405,7 +5505,7 @@ describe('KeeperRegistry2_1', () => {
       const values: any[] = [longBytes, longBytes]
       const res = await registry
         .connect(zeroAddress)
-        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
+        .callStatic.checkCallback(streamsLookupUpkeepId, values, '0x')
 
       assert.isFalse(res.upkeepNeeded)
       assert.equal(res.performData, '0x')
@@ -5417,11 +5517,11 @@ describe('KeeperRegistry2_1', () => {
     })
 
     it('returns false with appropriate failure reason when target callback returns false', async () => {
-      await mercuryUpkeep.setCallbackReturnBool(false)
+      await streamsLookupUpkeep.setCallbackReturnBool(false)
       const values: any[] = ['0x1234', '0xabcd']
       const res = await registry
         .connect(zeroAddress)
-        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
+        .callStatic.checkCallback(streamsLookupUpkeepId, values, '0x')
 
       assert.isFalse(res.upkeepNeeded)
       assert.equal(res.performData, '0x')
@@ -5437,7 +5537,7 @@ describe('KeeperRegistry2_1', () => {
 
       const res = await registry
         .connect(zeroAddress)
-        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
+        .callStatic.checkCallback(streamsLookupUpkeepId, values, '0x')
       const expectedPerformData = ethers.utils.defaultAbiCoder.encode(
         ['bytes[]', 'bytes'],
         [values, '0x'],
@@ -5564,8 +5664,8 @@ describe('KeeperRegistry2_1', () => {
       await getTransmitTx(registry, keeper1, [upkeepId])
 
       const registryPremium = (await registry.getState()).state.totalPremium
-      let k1 = await registry.getTransmitterInfo(await keeper1.getAddress())
-      let k2 = await registry.getTransmitterInfo(await keeper2.getAddress())
+      const k1 = await registry.getTransmitterInfo(await keeper1.getAddress())
+      const k2 = await registry.getTransmitterInfo(await keeper2.getAddress())
 
       // Withdrawing for first time, last collected = 0
       assert.isTrue(k1.lastCollected.eq(BigNumber.from(0)))

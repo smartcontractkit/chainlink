@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -14,18 +15,18 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"golang.org/x/exp/maps"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/sqlx"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -33,6 +34,7 @@ import (
 
 var (
 	maxTransmitQueueSize = 10_000
+	maxDeleteQueueSize   = 10_000
 	transmitTimeout      = 5 * time.Second
 )
 
@@ -60,6 +62,24 @@ var (
 	},
 		[]string{"feedID"},
 	)
+	transmitQueueDeleteErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_queue_delete_error_count",
+		Help: "Running count of DB errors when trying to delete an item from the queue DB",
+	},
+		[]string{"feedID"},
+	)
+	transmitQueueInsertErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_queue_insert_error_count",
+		Help: "Running count of DB errors when trying to insert an item into the queue DB",
+	},
+		[]string{"feedID"},
+	)
+	transmitQueuePushErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_queue_push_error_count",
+		Help: "Running count of DB errors when trying to push an item onto the queue",
+	},
+		[]string{"feedID"},
+	)
 	transmitServerErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "mercury_transmit_server_error_count",
 		Help: "Number of errored transmissions that failed due to an error returned by the mercury server",
@@ -69,34 +89,44 @@ var (
 )
 
 type Transmitter interface {
-	relaymercury.Transmitter
-	services.ServiceCtx
+	mercury.Transmitter
+	services.Service
 }
 
 type ConfigTracker interface {
 	LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error)
 }
 
-var _ Transmitter = &mercuryTransmitter{}
+type TransmitterReportDecoder interface {
+	BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int, error)
+}
+
+var _ Transmitter = (*mercuryTransmitter)(nil)
 
 type mercuryTransmitter struct {
-	utils.StartStopOnce
+	services.StateMachine
 	lggr               logger.Logger
 	rpcClient          wsrpc.Client
 	cfgTracker         ConfigTracker
 	persistenceManager *PersistenceManager
+	codec              TransmitterReportDecoder
 
-	feedID      [32]byte
-	feedIDHex   string
+	feedID      mercuryutils.FeedID
+	jobID       int32
 	fromAccount string
 
-	stopCh utils.StopChan
+	stopCh services.StopChan
 	queue  *TransmitQueue
 	wg     sync.WaitGroup
 
-	transmitSuccessCount         prometheus.Counter
-	transmitDuplicateCount       prometheus.Counter
-	transmitConnectionErrorCount prometheus.Counter
+	deleteQueue chan *pb.TransmitRequest
+
+	transmitSuccessCount          prometheus.Counter
+	transmitDuplicateCount        prometheus.Counter
+	transmitConnectionErrorCount  prometheus.Counter
+	transmitQueueDeleteErrorCount prometheus.Counter
+	transmitQueueInsertErrorCount prometheus.Counter
+	transmitQueuePushErrorCount   prometheus.Counter
 }
 
 var PayloadTypes = getPayloadTypes()
@@ -118,24 +148,29 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig, codec TransmitterReportDecoder) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
-	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg))
+	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg), jobID, maxTransmitQueueSize, flushDeletesFrequency, pruneFrequency)
 	return &mercuryTransmitter{
-		utils.StartStopOnce{},
+		services.StateMachine{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
 		cfgTracker,
 		persistenceManager,
+		codec,
 		feedID,
-		feedIDHex,
+		jobID,
 		fmt.Sprintf("%x", fromAccount),
-		make(chan (struct{})),
-		NewTransmitQueue(lggr, feedIDHex, maxTransmitQueueSize, nil, persistenceManager),
+		make(services.StopChan),
+		nil,
 		sync.WaitGroup{},
+		make(chan *pb.TransmitRequest, maxDeleteQueueSize),
 		transmitSuccessCount.WithLabelValues(feedIDHex),
 		transmitDuplicateCount.WithLabelValues(feedIDHex),
 		transmitConnectionErrorCount.WithLabelValues(feedIDHex),
+		transmitQueueDeleteErrorCount.WithLabelValues(feedIDHex),
+		transmitQueueInsertErrorCount.WithLabelValues(feedIDHex),
+		transmitQueuePushErrorCount.WithLabelValues(feedIDHex),
 	}
 }
 
@@ -149,7 +184,7 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
-		mt.queue = NewTransmitQueue(mt.lggr, mt.feedIDHex, maxTransmitQueueSize, transmissions, mt.persistenceManager)
+		mt.queue = NewTransmitQueue(mt.lggr, mt.feedID.String(), maxTransmitQueueSize, transmissions, mt.persistenceManager)
 
 		if err := mt.rpcClient.Start(ctx); err != nil {
 			return err
@@ -157,6 +192,8 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 		if err := mt.queue.Start(ctx); err != nil {
 			return err
 		}
+		mt.wg.Add(1)
+		go mt.runDeleteQueueLoop()
 		mt.wg.Add(1)
 		go mt.runQueueLoop()
 		return nil
@@ -177,15 +214,53 @@ func (mt *mercuryTransmitter) Close() error {
 	})
 }
 
-func (mt *mercuryTransmitter) Ready() error { return mt.StartStopOnce.Ready() }
-
 func (mt *mercuryTransmitter) Name() string { return mt.lggr.Name() }
 
 func (mt *mercuryTransmitter) HealthReport() map[string]error {
-	report := map[string]error{mt.Name(): mt.StartStopOnce.Healthy()}
-	maps.Copy(report, mt.rpcClient.HealthReport())
-	maps.Copy(report, mt.queue.HealthReport())
+	report := map[string]error{mt.Name(): mt.Healthy()}
+	services.CopyHealth(report, mt.rpcClient.HealthReport())
+	services.CopyHealth(report, mt.queue.HealthReport())
 	return report
+}
+
+func (mt *mercuryTransmitter) runDeleteQueueLoop() {
+	defer mt.wg.Done()
+	runloopCtx, cancel := mt.stopCh.Ctx(context.Background())
+	defer cancel()
+
+	// Exponential backoff for very rarely occurring errors (DB disconnect etc)
+	b := backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    120 * time.Second,
+		Factor: 2,
+		Jitter: true,
+	}
+
+	for {
+		select {
+		case req := <-mt.deleteQueue:
+			for {
+				if err := mt.persistenceManager.Delete(runloopCtx, req); err != nil {
+					mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "req", req)
+					mt.transmitQueueDeleteErrorCount.Inc()
+					select {
+					case <-time.After(b.Duration()):
+						// Wait a backoff duration before trying to delete again
+						continue
+					case <-mt.stopCh:
+						// abort and return immediately on stop even if items remain in queue
+						return
+					}
+				}
+				break
+			}
+			// success
+			b.Reset()
+		case <-mt.stopCh:
+			// abort and return immediately on stop even if items remain in queue
+			return
+		}
+	}
 }
 
 func (mt *mercuryTransmitter) runQueueLoop() {
@@ -244,31 +319,15 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 				mt.transmitDuplicateCount.Inc()
 				mt.lggr.Tracew("Transmit report succeeded; duplicate report", "code", res.Code)
 			default:
-				elems := map[string]interface{}{}
-				var validFrom int64
-				var currentBlock int64
-				var unpackErr error
-				if err = PayloadTypes.UnpackIntoMap(elems, t.Req.Payload); err != nil {
-					unpackErr = err
-				} else {
-					report := elems["report"].([]byte)
-					validFrom, err = (&reportcodec.EVMReportCodec{}).ValidFromBlockNumFromReport(report)
-					if err != nil {
-						unpackErr = err
-					}
-					currentBlock, err = (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(report)
-					if err != nil {
-						unpackErr = errors.Join(unpackErr, err)
-					}
-				}
-				transmitServerErrorCount.WithLabelValues(mt.feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
-				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
+				transmitServerErrorCount.WithLabelValues(mt.feedID.String(), fmt.Sprintf("%d", res.Code)).Inc()
+				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
 
-		if err := mt.persistenceManager.Delete(runloopCtx, t.Req); err != nil {
-			mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "reportCtx", t.ReportCtx)
-			return
+		select {
+		case mt.deleteQueue <- t.Req:
+		default:
+			mt.lggr.Criticalw("Delete queue is full", "reportCtx", t.ReportCtx)
 		}
 	}
 }
@@ -301,9 +360,11 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 	mt.lggr.Tracew("Transmit enqueue", "req", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
 
 	if err := mt.persistenceManager.Insert(ctx, req, reportCtx); err != nil {
+		mt.transmitQueueInsertErrorCount.Inc()
 		return err
 	}
 	if ok := mt.queue.Push(req, reportCtx); !ok {
+		mt.transmitQueuePushErrorCount.Inc()
 		return errors.New("transmit queue is closed")
 	}
 	return nil
@@ -321,29 +382,92 @@ func (mt *mercuryTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (c
 
 func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Context) (*int64, error) {
 	mt.lggr.Trace("FetchInitialMaxFinalizedBlockNumber")
+
+	report, err := mt.latestReport(ctx, mt.feedID)
+	if err != nil {
+		return nil, err
+	}
+
+	if report == nil {
+		mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success; got nil report")
+		return nil, nil
+	}
+
+	mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success", "currentBlockNum", report.CurrentBlockNumber)
+
+	return &report.CurrentBlockNumber, nil
+}
+
+func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error) {
+	mt.lggr.Trace("LatestPrice")
+
+	fullReport, err := mt.latestReport(ctx, feedID)
+	if err != nil {
+		return nil, err
+	}
+	if fullReport == nil {
+		return nil, nil
+	}
+	payload := fullReport.Payload
+	m := make(map[string]interface{})
+	if err := PayloadTypes.UnpackIntoMap(m, payload); err != nil {
+		return nil, err
+	}
+	report, is := m["report"].([]byte)
+	if !is {
+		return nil, fmt.Errorf("expected report to be []byte, but it was %T", m["report"])
+	}
+	return mt.codec.BenchmarkPriceFromReport(report)
+}
+
+// LatestTimestamp will return -1, nil if the feed is missing
+func (mt *mercuryTransmitter) LatestTimestamp(ctx context.Context) (int64, error) {
+	mt.lggr.Trace("LatestTimestamp")
+
+	report, err := mt.latestReport(ctx, mt.feedID)
+	if err != nil {
+		return 0, err
+	}
+
+	if report == nil {
+		mt.lggr.Debugw("LatestTimestamp success; got nil report")
+		return -1, nil
+	}
+
+	mt.lggr.Debugw("LatestTimestamp success", "timestamp", report.ObservationsTimestamp)
+
+	return report.ObservationsTimestamp, nil
+}
+
+func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte) (*pb.Report, error) {
+	mt.lggr.Trace("latestReport")
+
 	req := &pb.LatestReportRequest{
-		FeedId: mt.feedID[:],
+		FeedId: feedID[:],
 	}
 	resp, err := mt.rpcClient.LatestReport(ctx, req)
 	if err != nil {
-		mt.lggr.Errorw("FetchInitialMaxFinalizedBlockNumber failed", "err", err)
-		return nil, pkgerrors.Wrap(err, "FetchInitialMaxFinalizedBlockNumber failed to fetch LatestReport")
+		mt.lggr.Warnw("latestReport failed", "err", err)
+		return nil, pkgerrors.Wrap(err, "latestReport failed")
 	}
 	if resp == nil {
-		return nil, errors.New("FetchInitialMaxFinalizedBlockNumber expected LatestReport to return non-nil response")
+		return nil, errors.New("latestReport expected non-nil response")
 	}
 	if resp.Error != "" {
 		err = errors.New(resp.Error)
-		mt.lggr.Errorw("FetchInitialMaxFinalizedBlockNumber failed; mercury server returned error", "err", err)
+		mt.lggr.Warnw("latestReport failed; mercury server returned error", "err", err)
 		return nil, err
 	}
 	if resp.Report == nil {
+		mt.lggr.Tracew("latestReport success: returned nil")
 		return nil, nil
-	} else if !bytes.Equal(resp.Report.FeedId, mt.feedID[:]) {
-		return nil, fmt.Errorf("FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID, resp.Report.FeedId)
+	} else if !bytes.Equal(resp.Report.FeedId, feedID[:]) {
+		err = fmt.Errorf("latestReport failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID[:], resp.Report.FeedId[:])
+		mt.lggr.Errorw("latestReport failed", "err", err)
+		return nil, err
 	}
 
-	mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success", "currentBlockNum", resp.Report.CurrentBlockNumber)
+	mt.lggr.Tracew("latestReport success", "currentBlockNum", resp.Report.CurrentBlockNumber)
 
-	return &resp.Report.CurrentBlockNumber, nil
+	return resp.Report, nil
 }

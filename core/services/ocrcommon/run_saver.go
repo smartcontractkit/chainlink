@@ -3,30 +3,46 @@ package ocrcommon
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type RunResultSaver struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	maxSuccessfulRuns uint64
-	runResults        <-chan pipeline.Run
+	runResults        chan *pipeline.Run
 	pipelineRunner    pipeline.Runner
 	done              chan struct{}
 	logger            logger.Logger
 }
 
-func NewResultRunSaver(runResults <-chan pipeline.Run, pipelineRunner pipeline.Runner, done chan struct{},
-	logger logger.Logger, maxSuccessfulRuns uint64,
+func (r *RunResultSaver) HealthReport() map[string]error {
+	return map[string]error{r.Name(): r.Healthy()}
+}
+
+func (r *RunResultSaver) Name() string { return r.logger.Name() }
+
+func NewResultRunSaver(pipelineRunner pipeline.Runner,
+	logger logger.Logger, maxSuccessfulRuns uint64, resultsWriteDepth uint64,
 ) *RunResultSaver {
 	return &RunResultSaver{
 		maxSuccessfulRuns: maxSuccessfulRuns,
-		runResults:        runResults,
+		runResults:        make(chan *pipeline.Run, resultsWriteDepth),
 		pipelineRunner:    pipelineRunner,
-		done:              done,
-		logger:            logger,
+		done:              make(chan struct{}),
+		logger:            logger.Named("RunResultSaver"),
+	}
+}
+
+// Save sends the run on the internal `runResults` channel for saving.
+// IMPORTANT: if the `runResults` pipeline is full, the run will be dropped.
+func (r *RunResultSaver) Save(run *pipeline.Run) {
+	select {
+	case r.runResults <- run:
+	default:
+		r.logger.Warnw("RunSaver: the write queue was full, dropping run")
 	}
 }
 
@@ -45,7 +61,7 @@ func (r *RunResultSaver) Start(context.Context) error {
 					r.logger.Tracew("RunSaver: saving job run", "run", run)
 					// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
 					// are produced and the successful TaskRuns do not provide value.
-					if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {
+					if err := r.pipelineRunner.InsertFinishedRun(run, false); err != nil {
 						r.logger.Errorw("error inserting finished results", "err", err)
 					}
 				case <-r.done:
@@ -67,7 +83,7 @@ func (r *RunResultSaver) Close() error {
 			select {
 			case run := <-r.runResults:
 				r.logger.Infow("RunSaver: saving job run before exiting", "run", run)
-				if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {
+				if err := r.pipelineRunner.InsertFinishedRun(run, false); err != nil {
 					r.logger.Errorw("error inserting finished results", "err", err)
 				}
 			default:

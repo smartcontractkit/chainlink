@@ -20,18 +20,11 @@ HTTPURL = 'https://foo.bar' # Required
 
 ## Global
 ```toml
-ExplorerURL = 'ws://explorer.url' # Example
 InsecureFastScrypt = false # Default
 RootDir = '~/.chainlink' # Default
 ShutdownGracePeriod = '5s' # Default
 ```
 
-
-### ExplorerURL
-```toml
-ExplorerURL = 'ws://explorer.url' # Example
-```
-ExplorerURL is the websocket URL used by the node to push stats. This variable is required to deliver telemetry.
 
 ### InsecureFastScrypt
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -277,13 +270,13 @@ Logging toggles verbose logging of the raw telemetry messages being sent.
 ```toml
 ServerPubKey = 'test-pub-key' # Example
 ```
-ServerPubKey is the public key of the telemetry server.
+ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
 
 ### URL
 ```toml
 URL = 'https://prom.test' # Example
 ```
-URL is where to send telemetry.
+URL is where to send telemetry. This field will be removed in a furture version
 
 ### BufferSize
 ```toml
@@ -314,6 +307,40 @@ SendTimeout is the max duration to wait for the request to complete when sending
 UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+
+## TelemetryIngress.Endpoints
+```toml
+[[TelemetryIngress.Endpoints]] # Example
+Network = 'EVM' # Example
+ChainID = '111551111' # Example
+ServerPubKey = 'test-pub-key-111551111-evm' # Example
+URL = 'localhost-111551111-evm:9000' # Example
+```
+
+
+### Network
+```toml
+Network = 'EVM' # Example
+```
+Network aka EVM, Solana, Starknet
+
+### ChainID
+```toml
+ChainID = '111551111' # Example
+```
+ChainID of the network
+
+### ServerPubKey
+```toml
+ServerPubKey = 'test-pub-key-111551111-evm' # Example
+```
+ServerPubKey is the public key of the telemetry server.
+
+### URL
+```toml
+URL = 'localhost-111551111-evm:9000' # Example
+```
+URL is where to send telemetry.
 
 ## AuditLogger
 ```toml
@@ -432,6 +459,7 @@ MaxBackups determines the maximum number of old log files to retain. Keeping thi
 ## WebServer
 ```toml
 [WebServer]
+AuthenticationMethod = 'local' # Default
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
 BridgeCacheTTL = '0s' # Default
 BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
@@ -445,6 +473,12 @@ StartTimeout = '15s' # Default
 ListenIP = '0.0.0.0' # Default
 ```
 
+
+### AuthenticationMethod
+```toml
+AuthenticationMethod = 'local' # Default
+```
+AuthenticationMethod defines which pluggable auth interface to use for user login and role assumption. Options include 'local' and 'ldap'. See docs for more details
 
 ### AllowOrigins
 ```toml
@@ -518,6 +552,132 @@ StartTimeout defines the maximum amount of time the node will wait for a server 
 ListenIP = '0.0.0.0' # Default
 ```
 ListenIP specifies the IP to bind the HTTP server to
+
+## WebServer.LDAP
+```toml
+[WebServer.LDAP]
+ServerTLS = true # Default
+SessionTimeout = '15m0s' # Default
+QueryTimeout = '2m0s' # Default
+BaseUserAttr = 'uid' # Default
+BaseDN = 'dc=custom,dc=example,dc=com' # Example
+UsersDN = 'ou=users' # Default
+GroupsDN = 'ou=groups' # Default
+ActiveAttribute = '' # Default
+ActiveAttributeAllowedValue = '' # Default
+AdminUserGroupCN = 'NodeAdmins' # Default
+EditUserGroupCN = 'NodeEditors' # Default
+RunUserGroupCN = 'NodeRunners' # Default
+ReadUserGroupCN = 'NodeReadOnly' # Default
+UserApiTokenEnabled = false # Default
+UserAPITokenDuration = '240h0m0s' # Default
+UpstreamSyncInterval = '0s' # Default
+UpstreamSyncRateLimit = '2m0s' # Default
+```
+Optional LDAP config if WebServer.AuthenticationMethod is set to 'ldap'
+LDAP queries are all parameterized to support custom LDAP 'dn', 'cn', and attributes
+
+### ServerTLS
+```toml
+ServerTLS = true # Default
+```
+ServerTLS defines the option to require the secure ldaps
+
+### SessionTimeout
+```toml
+SessionTimeout = '15m0s' # Default
+```
+SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
+
+### QueryTimeout
+```toml
+QueryTimeout = '2m0s' # Default
+```
+QueryTimeout defines how long queries should wait before timing out, defined in seconds
+
+### BaseUserAttr
+```toml
+BaseUserAttr = 'uid' # Default
+```
+BaseUserAttr defines the base attribute used to populate LDAP queries such as "uid=$", default is example
+
+### BaseDN
+```toml
+BaseDN = 'dc=custom,dc=example,dc=com' # Example
+```
+BaseDN defines the base LDAP 'dn' search filter to apply to every LDAP query, replace example,com with the appropriate LDAP server's structure
+
+### UsersDN
+```toml
+UsersDN = 'ou=users' # Default
+```
+UsersDN defines the 'dn' query to use when querying for the 'users' 'ou' group
+
+### GroupsDN
+```toml
+GroupsDN = 'ou=groups' # Default
+```
+GroupsDN defines the 'dn' query to use when querying for the 'groups' 'ou' group
+
+### ActiveAttribute
+```toml
+ActiveAttribute = '' # Default
+```
+ActiveAttribute is an optional user field to check truthiness for if a user is valid/active. This is only required if the LDAP provider lists inactive users as members of groups
+
+### ActiveAttributeAllowedValue
+```toml
+ActiveAttributeAllowedValue = '' # Default
+```
+ActiveAttributeAllowedValue is the value to check against for the above optional user attribute
+
+### AdminUserGroupCN
+```toml
+AdminUserGroupCN = 'NodeAdmins' # Default
+```
+AdminUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Admin' role
+
+### EditUserGroupCN
+```toml
+EditUserGroupCN = 'NodeEditors' # Default
+```
+EditUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Edit' role
+
+### RunUserGroupCN
+```toml
+RunUserGroupCN = 'NodeRunners' # Default
+```
+RunUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Run' role
+
+### ReadUserGroupCN
+```toml
+ReadUserGroupCN = 'NodeReadOnly' # Default
+```
+ReadUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Read' role
+
+### UserApiTokenEnabled
+```toml
+UserApiTokenEnabled = false # Default
+```
+UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
+
+### UserAPITokenDuration
+```toml
+UserAPITokenDuration = '240h0m0s' # Default
+```
+UserAPITokenDuration is the duration of time an API token is active for before expiring
+
+### UpstreamSyncInterval
+```toml
+UpstreamSyncInterval = '0s' # Default
+```
+UpstreamSyncInterval is the interval at which the background LDAP sync task will be called. A '0s' value disables the background sync being run on an interval. This check is already performed during login/logout actions, all sessions and API tokens stored in the local ldap tables are updated to match the remote server
+
+### UpstreamSyncRateLimit
+```toml
+UpstreamSyncRateLimit = '2m0s' # Default
+```
+UpstreamSyncRateLimit defines a duration to limit the number of query/API calls to the upstream LDAP provider. It prevents the sync functionality from being called multiple times within the defined duration
 
 ## WebServer.RateLimit
 ```toml
@@ -730,7 +890,7 @@ ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 CaptureEATelemetry = false # Default
-CaptureAutomationCustomTelemetry = false # Default
+CaptureAutomationCustomTelemetry = true # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 TraceLogging = false # Default
@@ -827,7 +987,7 @@ CaptureEATelemetry toggles collecting extra information from External Adaptares
 
 ### CaptureAutomationCustomTelemetry
 ```toml
-CaptureAutomationCustomTelemetry = false # Default
+CaptureAutomationCustomTelemetry = true # Default
 ```
 CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
 
@@ -949,11 +1109,7 @@ OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
 ```
-P2P supports multiple networking stack versions. You may configure `[P2P.V1]`, `[P2P.V2]`, or both to run simultaneously.
-If both are configured, then for each link with another peer, V2 networking will be preferred. If V2 does not work, the link will
-automatically fall back to V1. If V2 starts working again later, it will automatically be preferred again. This is useful
-for migrating networks without downtime. Note that the two networking stacks _must not_ be configured to bind to the same IP/port.
-
+P2P has a versioned networking stack. Currenly only `[P2P.V2]` is supported.
 All nodes in the OCR network should share the same networking stack.
 
 ### IncomingMessageBufferSize
@@ -987,112 +1143,10 @@ TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
 
-## P2P.V1
-```toml
-[P2P.V1]
-Enabled = true # Default
-AnnounceIP = '1.2.3.4' # Example
-AnnouncePort = 1337 # Example
-BootstrapCheckInterval = '20s' # Default
-DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
-DHTAnnouncementCounterUserPrefix = 0 # Default
-DHTLookupInterval = 10 # Default
-ListenIP = '0.0.0.0' # Default
-ListenPort = 1337 # Example
-NewStreamTimeout = '10s' # Default
-PeerstoreWriteInterval = '5m' # Default
-```
-
-
-### Enabled
-```toml
-Enabled = true # Default
-```
-Enabled enables P2P V1.
-
-### AnnounceIP
-```toml
-AnnounceIP = '1.2.3.4' # Example
-```
-AnnounceIP should be set as the externally reachable IP address of the Chainlink node.
-
-### AnnouncePort
-```toml
-AnnouncePort = 1337 # Example
-```
-AnnouncePort should be set as the externally reachable port of the Chainlink node.
-
-### BootstrapCheckInterval
-```toml
-BootstrapCheckInterval = '20s' # Default
-```
-BootstrapCheckInterval is the interval at which nodes check connections to bootstrap nodes and reconnect if any of them is lost.
-Setting this to a small value would allow newly joined bootstrap nodes to get more connectivity
-more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively
-cheap. We set this to 1 minute during our test.
-
-### DefaultBootstrapPeers
-```toml
-DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
-```
-DefaultBootstrapPeers is the default set of bootstrap peers.
-
-### DHTAnnouncementCounterUserPrefix
-```toml
-DHTAnnouncementCounterUserPrefix = 0 # Default
-```
-DHTAnnouncementCounterUserPrefix can be used to restore the node's
-ability to announce its IP/port on the P2P network after a database
-rollback. Make sure to only increase this value, and *never* decrease it.
-Don't use this variable unless you really know what you're doing, since you
-could semi-permanently exclude your node from the P2P network by
-misconfiguring it.
-
-### DHTLookupInterval
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-DHTLookupInterval = 10 # Default
-```
-DHTLookupInterval is the interval between which we do the expensive peer
-lookup using DHT.
-
-Every DHTLookupInterval failures to open a stream to a peer, we will
-attempt to lookup its IP from DHT
-
-### ListenIP
-```toml
-ListenIP = '0.0.0.0' # Default
-```
-ListenIP is the default IP address to bind to.
-
-### ListenPort
-```toml
-ListenPort = 1337 # Example
-```
-ListenPort is the port to listen on. If left blank, the node randomly selects a different port each time it boots. It is highly recommended to set this to a static value to avoid network instability.
-
-### NewStreamTimeout
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-NewStreamTimeout = '10s' # Default
-```
-NewStreamTimeout is the maximum length of time to wait to open a
-stream before we give up.
-We shouldn't hit this in practice since libp2p will give up fast if
-it can't get a connection, but it is here anyway as a failsafe.
-Set to 0 to disable any timeout on top of what libp2p gives us by default.
-
-### PeerstoreWriteInterval
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-PeerstoreWriteInterval = '5m' # Default
-```
-PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networking stack is persisted to the database.
-
 ## P2P.V2
 ```toml
 [P2P.V2]
-Enabled = false # Default
+Enabled = true # Default
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
 DeltaDial = '15s' # Default
@@ -1103,7 +1157,7 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 
 ### Enabled
 ```toml
-Enabled = false # Default
+Enabled = true # Default
 ```
 Enabled enables P2P V2.
 Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
@@ -1429,6 +1483,112 @@ DisableRateLimiting = false # Default
 ```
 DisableRateLimiting skips ratelimiting on asset requests.
 
+## Tracing
+```toml
+[Tracing]
+Enabled = false # Default
+CollectorTarget = 'localhost:4317' # Example
+NodeID = 'NodeID' # Example
+SamplingRatio = 1.0 # Example
+Mode = 'tls' # Default
+TLSCertPath = '/path/to/cert.pem' # Example
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled turns trace collection on or off. On requires an OTEL Tracing Collector.
+
+### CollectorTarget
+```toml
+CollectorTarget = 'localhost:4317' # Example
+```
+CollectorTarget is the logical address of the OTEL Tracing Collector.
+
+### NodeID
+```toml
+NodeID = 'NodeID' # Example
+```
+NodeID is an unique name for this node relative to any other node traces are collected for.
+
+### SamplingRatio
+```toml
+SamplingRatio = 1.0 # Example
+```
+SamplingRatio is the ratio of traces to sample for this node.
+
+### Mode
+```toml
+Mode = 'tls' # Default
+```
+Mode is a string value. `tls` or `unencrypted` are the only values allowed. If set to `unencrypted`, `TLSCertPath` can be unset, meaning traces will be sent over plaintext to the collector.
+
+### TLSCertPath
+```toml
+TLSCertPath = '/path/to/cert.pem' # Example
+```
+TLSCertPath is the file path to the TLS certificate used for secure communication with an OTEL Tracing Collector.
+
+## Tracing.Attributes
+```toml
+[Tracing.Attributes]
+env = 'test' # Example
+```
+Tracing.Attributes are user specified key-value pairs to associate in the context of the traces
+
+### env
+```toml
+env = 'test' # Example
+```
+env is an example user specified key-value pair
+
+## Mercury
+```toml
+[Mercury]
+```
+
+
+## Mercury.Cache
+```toml
+[Mercury.Cache]
+LatestReportTTL = "1s" # Default
+MaxStaleAge = "1h" # Default
+LatestReportDeadline = "5s" # Default
+```
+Mercury.Cache controls settings for the price retrieval cache querying a mercury server
+
+### LatestReportTTL
+```toml
+LatestReportTTL = "1s" # Default
+```
+LatestReportTTL controls how "stale" we will allow a price to be e.g. if
+set to 1s, a new price will always be fetched if the last result was
+from 1 second ago or older.
+
+Another way of looking at it is such: the cache will _never_ return a
+price that was queried from now-LatestReportTTL or before.
+
+Setting to zero disables caching entirely.
+
+### MaxStaleAge
+```toml
+MaxStaleAge = "1h" # Default
+```
+MaxStaleAge is that maximum amount of time that a value can be stale
+before it is deleted from the cache (a form of garbage collection).
+
+This should generally be set to something much larger than
+LatestReportTTL. Setting to zero disables garbage collection.
+
+### LatestReportDeadline
+```toml
+LatestReportDeadline = "5s" # Default
+```
+LatestReportDeadline controls how long to wait for a response from the
+mercury server before retrying. Setting this to zero will wait indefinitely.
+
 ## EVM
 EVM defaults depend on ChainID:
 
@@ -1497,11 +1657,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -1575,11 +1738,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -1653,11 +1819,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -1731,11 +1900,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -1810,11 +1982,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -1888,11 +2063,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -1966,11 +2144,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2045,11 +2226,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2123,11 +2307,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
 
 [OCR2]
@@ -2200,11 +2387,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2277,11 +2467,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2355,11 +2548,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
 
 [OCR2]
@@ -2434,11 +2630,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2512,11 +2711,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
 
 [OCR2]
@@ -2590,11 +2792,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2635,8 +2840,8 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '15 gwei'
+Mode = 'SuggestedPrice'
+PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
@@ -2668,16 +2873,262 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
 GasLimit = 3800000
+```
+
+</p></details>
+
+<details><summary>Kroma Mainnet (255)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'kroma'
+FinalityDepth = 400
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '40s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '30s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 wei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '100 wei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 400
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>zkSync Goerli (280)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'zksync'
+FinalityDepth = 1
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '5s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '18.446744073709551615 ether'
+PriceMin = '0'
+LimitDefault = 3500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 5
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>zkSync Mainnet (324)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'zksync'
+FinalityDepth = 1
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '5s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '18.446744073709551615 ether'
+PriceMin = '0'
+LimitDefault = 3500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 5
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2747,11 +3198,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2792,7 +3246,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
@@ -2825,11 +3279,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2869,7 +3326,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '750 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
@@ -2902,11 +3359,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -2947,7 +3407,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
@@ -2980,11 +3440,176 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>WeMix Mainnet (1111)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'wemix'
+FinalityDepth = 1
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '100 gwei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>WeMix Testnet (1112)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'wemix'
+FinalityDepth = 1
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '100 gwei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3057,11 +3682,95 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>Kroma Sepolia (2358)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'kroma'
+FinalityDepth = 400
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '40s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '30s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 wei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '100 wei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 400
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3102,8 +3811,8 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '15 gwei'
+Mode = 'SuggestedPrice'
+PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
@@ -3135,11 +3844,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3179,7 +3891,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '750 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
@@ -3212,11 +3924,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3290,11 +4005,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3369,16 +4087,19 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 14500000
 ```
 
 </p></details>
@@ -3447,11 +4168,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3525,11 +4249,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3603,11 +4330,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3681,11 +4411,174 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>Linea Goerli (59140)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 15
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '3m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 40
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>Linea Mainnet (59144)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 300
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '3m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '400 mwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 40
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 350
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3759,11 +4652,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3837,11 +4733,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3916,11 +4815,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -3995,16 +4897,100 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 14500000
+```
+
+</p></details>
+
+<details><summary>Arbitrum Sepolia (421614)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'arbitrum'
+FinalityDepth = 50
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'Arbitrum'
+PriceDefault = '100 mwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMax = 1000000000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+EIP1559DynamicFees = false
+FeeCapDefault = '1 micro'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 14500000
 ```
 
 </p></details>
@@ -4039,7 +5025,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
@@ -4072,11 +5058,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4116,7 +5105,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
@@ -4149,11 +5138,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4171,7 +5163,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
 FinalityTagEnabled = false
-LinkContractAddress = '0xb227f007804c16546Bd054dfED2E7A1fD5437678'
+LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -4227,11 +5219,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4305,11 +5300,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4383,11 +5381,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [OCR2]
@@ -4434,7 +5435,7 @@ BlockBackfillSkip enables skipping of very long backfills.
 ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-Available types: arbitrum, metis, optimismBedrock, xdai
+Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync
 
 ### FinalityDepth
 ```toml
@@ -4655,7 +5656,8 @@ Mode controls what type of gas estimator is used.
 
 - `FixedPrice` uses static configured values for gas price (can be set via API call).
 - `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
-- `L2Suggested` is a special mode only for use with L2 blockchains. This mode will use the gas price suggested by the rpc endpoint via `eth_gasPrice`.
+- `L2Suggested` mode is deprecated and replaced with `SuggestedPrice`.
+- `SuggestedPrice` is a mode which uses the gas price suggested by the rpc endpoint via `eth_gasPrice`.
 - `Arbitrum` is a special mode only for use with Arbitrum blockchains. It uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
 
 Chainlink nodes decide what gas price to use using an `Estimator`. It ships with several simple and battle-hardened built-in estimators that should work well for almost all use-cases. Note that estimators will change their behaviour slightly depending on if you are in EIP-1559 mode or not.
@@ -5003,6 +6005,7 @@ PollFailureThreshold = 5 # Default
 PollInterval = '10s' # Default
 SelectionMode = 'HighestHead' # Default
 SyncThreshold = 5 # Default
+LeaseDuration = '0s' # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -5031,6 +6034,7 @@ SelectionMode = 'HighestHead' # Default
 SelectionMode controls node selection strategy:
 - HighestHead: use the node with the highest head number
 - RoundRobin: rotate through nodes, per-request
+- PriorityLevel: use the node with the smallest order number
 - TotalDifficulty: use the node with the greatest total difficulty
 
 ### SyncThreshold
@@ -5042,12 +6046,25 @@ Depending on `SelectionMode`, this represents a difference in the number of bloc
 
 Set to 0 to disable this check.
 
+### LeaseDuration
+```toml
+LeaseDuration = '0s' # Default
+```
+LeaseDuration is the minimum duration that the selected "best" node (as defined by SelectionMode) will be used,
+before switching to a better one if available. It also controls how often the lease check is done.
+Setting this to a low value (under 1m) might cause RPC to switch too aggressively.
+Recommended value is over 5m
+
+Set to '0s' to disable
+
 ## EVM.OCR
 ```toml
 [EVM.OCR]
 ContractConfirmations = 4 # Default
 ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
+DeltaCOverride = "168h" # Default
+DeltaCJitterOverride = "1h" # Default
 ObservationGracePeriod = '1s' # Default
 ```
 
@@ -5069,6 +6086,22 @@ ContractTransmitterTransmitTimeout sets `OCR.ContractTransmitterTransmitTimeout`
 DatabaseTimeout = '10s' # Default
 ```
 DatabaseTimeout sets `OCR.DatabaseTimeout` for this EVM chain.
+
+### DeltaCOverride
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+DeltaCOverride = "168h" # Default
+```
+DeltaCOverride (and `DeltaCJitterOverride`) determine the config override DeltaC.
+DeltaC is the maximum age of the latest report in the contract. If the maximum age is exceeded, a new report will be
+created by the report generation protocol.
+
+### DeltaCJitterOverride
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+DeltaCJitterOverride = "1h" # Default
+```
+DeltaCJitterOverride is the range for jitter to add to `DeltaCOverride`.
 
 ### ObservationGracePeriod
 ```toml
@@ -5135,11 +6168,12 @@ GasLimit controls the gas limit for transmit transactions from ocr2automation jo
 [[Cosmos]]
 ChainID = 'Malaga-420' # Example
 Enabled = true # Default
+Bech32Prefix = 'wasm' # Default
 BlockRate = '6s' # Default
 BlocksUntilTxTimeout = 30 # Default
 ConfirmPollPeriod = '1s' # Default
 FallbackGasPrice = '0.015' # Default
-FCDURL = 'http://cosmos.com' # Example
+GasToken = 'ucosm' # Default
 GasLimitMultiplier = '1.5' # Default
 MaxMsgsPerBatch = 100 # Default
 OCR2CachePollPeriod = '4s' # Default
@@ -5159,6 +6193,12 @@ ChainID is the Cosmos chain ID. Mandatory.
 Enabled = true # Default
 ```
 Enabled enables this chain.
+
+### Bech32Prefix
+```toml
+Bech32Prefix = 'wasm' # Default
+```
+Bech32Prefix is the human-readable prefix for addresses on this Cosmos chain. See https://docs.cosmos.network/v0.47/spec/addresses/bech32.
 
 ### BlockRate
 ```toml
@@ -5184,11 +6224,11 @@ FallbackGasPrice = '0.015' # Default
 ```
 FallbackGasPrice sets a fallback gas price to use when the estimator is not available.
 
-### FCDURL
+### GasToken
 ```toml
-FCDURL = 'http://cosmos.com' # Example
+GasToken = 'ucosm' # Default
 ```
-FCDURL sets the FCD (Full Client Daemon) URL.
+GasToken is the token denomination which is being used to pay gas fees on this chain.
 
 ### GasLimitMultiplier
 ```toml

@@ -15,12 +15,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -39,6 +39,8 @@ const (
 )
 
 // NodeSelector represents a strategy to select the next node from the pool.
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NodeSelector]
 type NodeSelector interface {
 	// Select returns a Node, or nil if none can be selected.
 	// Implementation must be thread-safe.
@@ -48,32 +50,42 @@ type NodeSelector interface {
 }
 
 // PoolConfig represents settings for the Pool
+//
+// Deprecated: to be removed
 type PoolConfig interface {
 	NodeSelectionMode() string
 	NodeNoNewHeadsThreshold() time.Duration
+	LeaseDuration() time.Duration
 }
 
 // Pool represents an abstraction over one or more primary nodes
 // It is responsible for liveness checking and balancing queries across live nodes
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.MultiNode]
 type Pool struct {
-	utils.StartStopOnce
+	services.StateMachine
 	nodes               []Node
 	sendonlys           []SendOnlyNode
 	chainID             *big.Int
 	chainType           config.ChainType
-	logger              logger.Logger
+	logger              logger.SugaredLogger
 	selectionMode       string
 	noNewHeadsThreshold time.Duration
 	nodeSelector        NodeSelector
+	leaseDuration       time.Duration
+	leaseTicker         *time.Ticker
 
 	activeMu   sync.RWMutex
 	activeNode Node
 
-	chStop utils.StopChan
+	chStop services.StopChan
 	wg     sync.WaitGroup
 }
 
-func NewPool(logger logger.Logger, selectionMode string, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
+// NewPool - creates new instance of [Pool]
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewMultiNode]
+func NewPool(lggr logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
 	}
@@ -93,18 +105,20 @@ func NewPool(logger logger.Logger, selectionMode string, noNewHeadsTreshold time
 		}
 	}()
 
-	lggr := logger.Named("Pool").With("evmChainID", chainID.String())
+	lggr = logger.Named(lggr, "Pool")
+	lggr = logger.With(lggr, "evmChainID", chainID.String())
 
 	p := &Pool{
 		nodes:               nodes,
 		sendonlys:           sendonlys,
 		chainID:             chainID,
 		chainType:           chainType,
-		logger:              lggr,
+		logger:              logger.Sugared(lggr),
 		selectionMode:       selectionMode,
 		noNewHeadsThreshold: noNewHeadsTreshold,
 		nodeSelector:        nodeSelector,
 		chStop:              make(chan struct{}),
+		leaseDuration:       leaseDuration,
 	}
 
 	p.logger.Debugf("The pool is configured to use NodeSelectionMode: %s", selectionMode)
@@ -150,14 +164,22 @@ func (p *Pool) Dial(ctx context.Context) error {
 		p.wg.Add(1)
 		go p.runLoop()
 
+		if p.leaseDuration.Seconds() > 0 && p.selectionMode != NodeSelectionMode_RoundRobin {
+			p.logger.Infof("The pool will switch to best node every %s", p.leaseDuration.String())
+			p.wg.Add(1)
+			go p.checkLeaseLoop()
+		} else {
+			p.logger.Info("Best node switching is disabled")
+		}
+
 		return nil
 	})
 }
 
 // nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
 // totalDifficulty will be 0 if all nodes return nil.
-func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
-	totalDifficulty = utils.NewBigI(0)
+func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *big.Int) {
+	totalDifficulty = big.NewInt(0)
 	for _, n := range p.nodes {
 		if s, num, td := n.StateAndLatest(); s == NodeStateAlive {
 			nLiveNodes++
@@ -170,6 +192,39 @@ func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty 
 		}
 	}
 	return
+}
+
+func (p *Pool) checkLease() {
+	bestNode := p.nodeSelector.Select()
+	for _, n := range p.nodes {
+		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
+		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
+		if n.State() == NodeStateAlive && n != bestNode && n.SubscribersCount() > 1 {
+			p.logger.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
+			n.UnsubscribeAllExceptAliveLoop()
+		}
+	}
+
+	if bestNode != p.activeNode {
+		p.activeMu.Lock()
+		p.activeNode = bestNode
+		p.activeMu.Unlock()
+	}
+}
+
+func (p *Pool) checkLeaseLoop() {
+	defer p.wg.Done()
+	p.leaseTicker = time.NewTicker(p.leaseDuration)
+	defer p.leaseTicker.Stop()
+
+	for {
+		select {
+		case <-p.leaseTicker.C:
+			p.checkLease()
+		case <-p.chStop:
+			return
+		}
+	}
 }
 
 func (p *Pool) runLoop() {
@@ -271,6 +326,9 @@ func (p *Pool) selectNode() (node Node) {
 		return &erroringNode{errMsg: errmsg.Error()}
 	}
 
+	if p.leaseTicker != nil {
+		p.leaseTicker.Reset(p.leaseDuration)
+	}
 	return p.activeNode
 }
 
@@ -317,7 +375,7 @@ func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 	return main.BatchCallContext(ctx, b)
 }
 
-// Wrapped Geth client methods
+// SendTransaction wrapped Geth client methods
 func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	main := p.selectNode()
 	var all []SendOnlyNode

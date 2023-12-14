@@ -6,6 +6,7 @@
     "MaxRequestBatchSize": 10,
     "DefaultAggregationMethod": 0,
     "UniqueReports": true,
+    "MaxReportTotalCallbackGas": 2000000,
 
     "ThresholdOffchainConfig": {
       "MaxQueryLengthBytes": 10000,
@@ -13,7 +14,8 @@
       "MaxReportLengthBytes": 10000,
       "RequestCountLimit": 100,
       "RequestTotalBytesLimit": 100000,
-      "RequireLocalRequestCheck": true
+      "RequireLocalRequestCheck": true,
+      "K": 3
     },
 
     "S4ReportingPluginConfig": {

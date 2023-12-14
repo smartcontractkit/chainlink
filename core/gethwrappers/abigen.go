@@ -159,9 +159,17 @@ func getContractName(fileNode *ast.File) string {
 	return contractName
 }
 
+// Add the `.address` and `.abi` fields to the contract struct.
 func addContractStructFields(contractName string, fileNode *ast.File) *ast.File {
-	// Add the `.address` and `.abi` fields to the contract struct
-	fileNode = astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
+	fileNode = addContractStructFieldsToStruct(contractName, fileNode)
+	fileNode = addContractStructFieldsToConstructor(contractName, fileNode)
+	fileNode = addContractStructFieldsToDeployMethod(contractName, fileNode)
+	return fileNode
+}
+
+// Add the fields to the contract struct.
+func addContractStructFieldsToStruct(contractName string, fileNode *ast.File) *ast.File {
+	return astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
 		x, is := cursor.Node().(*ast.StructType)
 		if !is {
 			return true
@@ -188,14 +196,14 @@ func addContractStructFields(contractName string, fileNode *ast.File) *ast.File 
 				Sel: ast.NewIdent("ABI"),
 			},
 		}
-
 		x.Fields.List = append([]*ast.Field{addrField, abiField}, x.Fields.List...)
-
 		return false
 	}, nil).(*ast.File)
+}
 
-	// Add the fields to the return value of the constructor
-	fileNode = astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
+// Add the fields to the return value of the constructor.
+func addContractStructFieldsToConstructor(contractName string, fileNode *ast.File) *ast.File {
+	return astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
 		x, is := cursor.Node().(*ast.FuncDecl)
 		if !is {
 			return true
@@ -260,11 +268,48 @@ func addContractStructFields(contractName string, fileNode *ast.File) *ast.File 
 		}
 
 		x.Body.List = append([]ast.Stmt{parseABIStmt, checkParseABIErrStmt}, x.Body.List...)
-
 		return false
 	}, nil).(*ast.File)
+}
 
-	return fileNode
+// Add the fields to the returned struct in the 'Deploy<contractName>' method.
+func addContractStructFieldsToDeployMethod(contractName string, fileNode *ast.File) *ast.File {
+	return astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
+		x, is := cursor.Node().(*ast.FuncDecl)
+		if !is {
+			return true
+		} else if x.Name.Name != "Deploy"+contractName {
+			return false
+		}
+
+		for _, stmt := range x.Body.List {
+			returnStmt, is := stmt.(*ast.ReturnStmt)
+			if !is {
+				continue
+			}
+			if len(returnStmt.Results) < 3 {
+				continue
+			}
+			rs, is := returnStmt.Results[2].(*ast.UnaryExpr)
+			if !is {
+				return true
+			}
+			lit, is := rs.X.(*ast.CompositeLit)
+			if !is {
+				continue
+			}
+			addressExpr := &ast.KeyValueExpr{
+				Key:   ast.NewIdent("address"),
+				Value: ast.NewIdent("address"),
+			}
+			abiExpr := &ast.KeyValueExpr{
+				Key:   ast.NewIdent("abi"),
+				Value: ast.NewIdent("*parsed"),
+			}
+			lit.Elts = append([]ast.Expr{addressExpr, abiExpr}, lit.Elts...)
+		}
+		return false
+	}, nil).(*ast.File)
 }
 
 func getLogNames(fileNode *ast.File) []string {

@@ -1,5 +1,0 @@
-AutomationForwarder_forward:testBasicSuccess() (gas: 87630)
-AutomationForwarder_forward:testNotAuthorizedReverts() (gas: 21681)
-AutomationForwarder_forward:testWrongFunctionSelectorSuccess() (gas: 17958)
-AutomationForwarder_updateRegistry:testBasicSuccess() (gas: 14577)
-AutomationForwarder_updateRegistry:testNotFromRegistryNotAuthorizedReverts() (gas: 13893)

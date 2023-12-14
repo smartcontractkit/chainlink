@@ -31,6 +31,10 @@ func (d Duration) Value() time.Duration {
 	return time.Duration(d)
 }
 
+// NOTE: This plugin config is shared among different versions of keepers
+// Any changes to this config should keep in mind existing production
+// deployments of all versions of keepers and should be backwards compatible
+// with existing job specs.
 type PluginConfig struct {
 	// CacheExpiration is the duration of time a cached key is available. Use
 	// this value to balance memory usage and RPC calls. A new set of keys is
@@ -54,6 +58,8 @@ type PluginConfig struct {
 	ServiceQueueLength int `json:"serviceQueueLength"`
 	// ContractVersion is the contract version
 	ContractVersion string `json:"contractVersion"`
+	// CaptureAutomationCustomTelemetry is a bool flag to toggle Custom Telemetry Service
+	CaptureAutomationCustomTelemetry *bool `json:"captureAutomationCustomTelemetry,omitempty"`
 }
 
 func ValidatePluginConfig(cfg PluginConfig) error {

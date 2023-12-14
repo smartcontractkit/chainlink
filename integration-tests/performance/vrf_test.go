@@ -1,7 +1,6 @@
 package performance
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -12,30 +11,31 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	testEnvironment, testNetwork := setupVRFTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Connecting client shouldn't fail")
-	cd, err := contracts.NewContractDeployer(chainClient)
+	cd, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -97,7 +97,7 @@ func TestVRFBasic(t *testing.T) {
 		encodedProvingKeys := make([][2]*big.Int, 0)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 
-		requestHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
+		requestHash, err := coordinator.HashOfKey(testcontext.Get(t), encodedProvingKeys[0])
 		require.NoError(t, err, "Getting Hash of encoded proving keys shouldn't fail")
 		err = consumer.RequestRandomness(requestHash, big.NewInt(1))
 		require.NoError(t, err, "Requesting randomness shouldn't fail")
@@ -108,7 +108,7 @@ func TestVRFBasic(t *testing.T) {
 			jobRuns, err := chainlinkNodes[0].MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Job execution shouldn't fail")
 
-			out, err := consumer.RandomnessOutput(context.Background())
+			out, err := consumer.RandomnessOutput(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting the randomness output of the consumer shouldn't fail")
 			// Checks that the job has actually run
 			g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 1),
@@ -135,7 +135,7 @@ func TestVRFBasic(t *testing.T) {
 }
 
 func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -146,17 +146,18 @@ func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testN
 	}
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'`
-	cd, err := chainlink.NewDeployment(0, map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
+	cd := chainlink.New(0, map[string]interface{}{
+		"toml": networks.AddNetworksConfig(baseTOML, testNetwork),
 	})
-	require.NoError(t, err, "Error creating chainlink deployment")
+
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
+		NamespacePrefix:    fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:               t,
+		PreventPodEviction: true,
 	}).
 		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(cd)
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

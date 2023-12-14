@@ -12,11 +12,10 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func standardHandler(method string, _ gjson.Result) (resp testutils.JSONRPCResponse) {
@@ -34,7 +33,7 @@ func newTestNode(t *testing.T, cfg config.NodePool, noNewHeadsThresholds time.Du
 
 func newTestNodeWithCallback(t *testing.T, cfg config.NodePool, noNewHeadsThreshold time.Duration, callback testutils.JSONRPCHandler) *node {
 	s := testutils.NewWSServer(t, testutils.FixtureChainID, callback)
-	iN := NewNode(cfg, noNewHeadsThreshold, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+	iN := NewNode(cfg, noNewHeadsThreshold, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 	n := iN.(*node)
 	return n
 }
@@ -161,7 +160,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			}
 			return
 		})
-		n.nLiveNodes = func() (int, int64, *utils.Big) { return 1, 0, nil }
+		n.nLiveNodes = func() (int, int64, *big.Int) { return 1, 0, nil }
 		dial(t, n)
 		defer func() { assert.NoError(t, n.Close()) }()
 
@@ -222,7 +221,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, testutils.WaitTimeout(t), logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		iN := NewNode(cfg, testutils.WaitTimeout(t), logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
 
 		dial(t, n)
@@ -268,7 +267,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, 1*time.Second, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		iN := NewNode(cfg, 1*time.Second, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
 
 		dial(t, n)
@@ -288,7 +287,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 
 	t.Run("when no new heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		pollDisabledCfg := TestNodePoolConfig{}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
 			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
@@ -308,7 +307,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 		iN := NewNode(pollDisabledCfg, testutils.TestInterval, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (int, int64, *utils.Big) { return 1, 0, nil }
+		n.nLiveNodes = func() (int, int64, *big.Int) { return 1, 0, nil }
 		dial(t, n)
 		defer func() { assert.NoError(t, n.Close()) }()
 
@@ -351,9 +350,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, 0*time.Second, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		iN := NewNode(cfg, 0*time.Second, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
 			return 2, highestHead.Load(), nil
 		}
 
@@ -413,9 +412,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, 0*time.Second, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		iN := NewNode(cfg, 0*time.Second, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
 			return 2, highestHead.Load(), nil
 		}
 
@@ -439,7 +438,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 
 	t.Run("when behind more than SyncThreshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		cfg := TestNodePoolConfig{NodeSyncThreshold: 5, NodePollFailureThreshold: 2, NodePollInterval: 100 * time.Millisecond, NodeSelectionMode: NodeSelectionMode_HighestHead}
 		chSubbed := make(chan struct{}, 1)
 		var highestHead atomic.Int64
@@ -474,7 +473,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 		iN := NewNode(cfg, 0*time.Second, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
 			return 1, highestHead.Load(), nil
 		}
 
@@ -521,7 +520,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		n.wg.Add(1)
 		go func() {
 			defer close(ch)
-			n.aliveLoop()
+			n.outOfSyncLoop(func(num int64, td *big.Int) bool { return false })
 		}()
 		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected outOfSyncLoop to exit")
@@ -536,7 +535,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		n.wg.Add(1)
 
-		n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num == 0 })
+		n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num == 0 })
 		assert.Equal(t, NodeStateUnreachable, n.State())
 	})
 
@@ -557,7 +556,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, time.Duration(time.Second), logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		iN := NewNode(cfg, time.Duration(time.Second), logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
 
 		dial(t, n)
@@ -565,7 +564,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
-		go n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num == 0 })
+		go n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num == 0 })
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
@@ -584,7 +583,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		// NoNewHeadsThreshold needs to be positive but must be very large so
 		// we don't time out waiting for a new head before we have a chance to
 		// handle the server disconnect
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		cfg := TestNodePoolConfig{}
 		chSubbed := make(chan struct{}, 1)
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
@@ -612,7 +611,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
-		go n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num < 43 })
+		go n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num < 43 })
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
@@ -638,7 +637,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 
 	t.Run("transitions to alive if back in-sync", func(t *testing.T) {
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		cfg := TestNodePoolConfig{NodeSyncThreshold: 5, NodeSelectionMode: NodeSelectionMode_HighestHead}
 		chSubbed := make(chan struct{}, 1)
 		const stall = 42
@@ -661,7 +660,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		iN := NewNode(cfg, time.Second*0, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
 			return 2, stall + int64(cfg.SyncThreshold()), nil
 		}
 
@@ -715,16 +714,16 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, testutils.TestInterval, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		iN := NewNode(cfg, testutils.TestInterval, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() (int, int64, *utils.Big) { return 0, 0, nil }
+		n.nLiveNodes = func() (int, int64, *big.Int) { return 0, 0, nil }
 
 		dial(t, n)
 		n.setState(NodeStateOutOfSync)
 		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
-		go n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num == 0 })
+		go n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num == 0 })
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
@@ -771,7 +770,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	t.Run("on successful redial but failed verify, transitions to invalid chain ID", func(t *testing.T) {
 		cfg := TestNodePoolConfig{}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID, standardHandler)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		iN := NewNode(cfg, time.Second*0, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42), 1)
 		n := iN.(*node)
 		defer func() { assert.NoError(t, n.Close()) }()
@@ -790,7 +789,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 
 	t.Run("on failed redial, keeps trying to redial", func(t *testing.T) {
 		cfg := TestNodePoolConfig{}
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		iN := NewNode(cfg, time.Second*0, lggr, *testutils.MustParseURL(t, "ws://test.invalid"), nil, "test node", 0, big.NewInt(42), 1)
 		n := iN.(*node)
 		defer func() { assert.NoError(t, n.Close()) }()
@@ -842,7 +841,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 	t.Run("on failed verify, keeps checking", func(t *testing.T) {
 		cfg := TestNodePoolConfig{}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID, standardHandler)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		iN := NewNode(cfg, time.Second*0, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42), 1)
 		n := iN.(*node)
 		defer func() { assert.NoError(t, n.Close()) }()

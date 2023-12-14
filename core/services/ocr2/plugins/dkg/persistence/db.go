@@ -9,13 +9,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
-	"github.com/smartcontractkit/ocr2vrf/types/hash"
-	"github.com/smartcontractkit/sqlx"
+
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
+	"github.com/smartcontractkit/chainlink-vrf/types/hash"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"

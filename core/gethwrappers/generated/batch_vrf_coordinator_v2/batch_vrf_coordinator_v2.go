@@ -72,7 +72,7 @@ func DeployBatchVRFCoordinatorV2(auth *bind.TransactOpts, backend bind.ContractB
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &BatchVRFCoordinatorV2{BatchVRFCoordinatorV2Caller: BatchVRFCoordinatorV2Caller{contract: contract}, BatchVRFCoordinatorV2Transactor: BatchVRFCoordinatorV2Transactor{contract: contract}, BatchVRFCoordinatorV2Filterer: BatchVRFCoordinatorV2Filterer{contract: contract}}, nil
+	return address, tx, &BatchVRFCoordinatorV2{address: address, abi: *parsed, BatchVRFCoordinatorV2Caller: BatchVRFCoordinatorV2Caller{contract: contract}, BatchVRFCoordinatorV2Transactor: BatchVRFCoordinatorV2Transactor{contract: contract}, BatchVRFCoordinatorV2Filterer: BatchVRFCoordinatorV2Filterer{contract: contract}}, nil
 }
 
 type BatchVRFCoordinatorV2 struct {

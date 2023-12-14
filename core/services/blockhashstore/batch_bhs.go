@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type batchBHSConfig interface {
@@ -66,13 +65,13 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 		return errors.Wrap(err, "packing args")
 	}
 
-	_, err = b.txm.CreateTransaction(txmgr.TxRequest{
+	_, err = b.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      b.batchbhs.Address(),
 		EncodedPayload: payload,
 		FeeLimit:       b.config.LimitDefault(),
 		Strategy:       txmgrcommon.NewSendEveryStrategy(),
-	}, pg.WithParentCtx(ctx))
+	})
 
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")

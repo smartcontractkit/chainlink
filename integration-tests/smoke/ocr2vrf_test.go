@@ -9,11 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	eth "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
@@ -21,21 +23,20 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -43,7 +44,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -79,7 +80,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	)
 
 	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-		randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+		randomness, err := consumerContract.GetRandomnessByRequestId(testcontext.Get(t), requestID, big.NewInt(int64(i)))
 		require.NoError(t, err)
 		l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 		require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
@@ -89,15 +90,15 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -105,7 +106,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -140,7 +141,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	)
 
 	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-		randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+		randomness, err := consumerContract.GetRandomnessByRequestId(testcontext.Get(t), requestID, big.NewInt(int64(i)))
 		require.NoError(t, err, "Error getting Randomness result from Consumer Contract")
 		l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness Fulfillment retrieved from Consumer contract")
 		require.NotEqual(t, 0, randomness.Uint64(), "Randomness Fulfillment retrieved from Consumer contract give an answer other than 0")
@@ -148,7 +149,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 }
 
 func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = eth.New(&eth.Props{
@@ -158,21 +159,22 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 		})
 	}
 
-	cd, err := chainlink.NewDeployment(6, map[string]interface{}{
-		"toml": client.AddNetworkDetailedConfig(
+	cd := chainlink.New(0, map[string]interface{}{
+		"replicas": 6,
+		"toml": networks.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
 			testNetwork,
 		),
 	})
-	require.NoError(t, err, "Error creating Chainlink deployment")
+
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr2vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(cd)
+	err := testEnvironment.Run()
 
 	require.NoError(t, err, "Error running test environment")
 

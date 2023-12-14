@@ -1,4 +1,4 @@
-name: 'Build Chainlink'
+name: "Build Chainlink"
 
 on:
   pull_request:
@@ -7,22 +7,23 @@ on:
       - master
 
 jobs:
-
   build-chainlink:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Build chainlink image
         uses: ./.github/actions/build-sign-publish-chainlink
         with:
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           publish: false
           sign-images: false
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@6f41029bc7f0d0db5827f6804a2322e2a89e3b32
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

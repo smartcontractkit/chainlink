@@ -15,9 +15,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
@@ -30,7 +33,6 @@ import (
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -98,7 +100,7 @@ type Service interface {
 }
 
 type service struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	orm          ORM
 	jobORM       job.ORM
@@ -113,7 +115,7 @@ type service struct {
 	ocrCfg       OCRConfig
 	ocr2cfg      OCR2Config
 	connMgr      ConnectionsManager
-	chainSet     evm.ChainSet
+	legacyChains legacyevm.LegacyChainContainer
 	lggr         logger.Logger
 	version      string
 }
@@ -130,7 +132,7 @@ func NewService(
 	ocrCfg OCRConfig,
 	ocr2Cfg OCR2Config,
 	dbCfg pg.QConfig,
-	chainSet evm.ChainSet,
+	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 	version string,
 ) *service {
@@ -149,7 +151,7 @@ func NewService(
 		ocrCfg:       ocrCfg,
 		ocr2cfg:      ocr2Cfg,
 		connMgr:      newConnectionsManager(lggr),
-		chainSet:     chainSet,
+		legacyChains: legacyChains,
 		lggr:         lggr,
 		version:      version,
 	}
@@ -184,7 +186,7 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 	}
 
 	var id int64
-	q := s.q.WithOpts(pg.WithParentCtx(context.Background()))
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Transaction(func(tx pg.Queryer) error {
 		var txerr error
 
@@ -450,6 +452,10 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 		return 0, errors.Wrap(err, "DeleteProposal failed")
 	}
 
+	if err = s.observeJobProposalCounts(); err != nil {
+		return 0, err
+	}
+
 	return proposal.ID, nil
 }
 
@@ -492,6 +498,10 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 		s.lggr.Errorw("Failed to revoke the proposal", "err", err)
 
 		return 0, errors.Wrap(err, "RevokeSpec failed")
+	}
+
+	if err = s.observeJobProposalCounts(); err != nil {
+		return 0, err
 	}
 
 	return proposal.ID, nil
@@ -1017,7 +1027,7 @@ func (s *service) observeJobProposalCounts() error {
 
 	// Set the prometheus gauge metrics.
 	for _, status := range []JobProposalStatus{JobProposalStatusPending, JobProposalStatusApproved,
-		JobProposalStatusCancelled, JobProposalStatusRejected} {
+		JobProposalStatusCancelled, JobProposalStatusRejected, JobProposalStatusDeleted, JobProposalStatusRevoked} {
 
 		status := status
 
@@ -1063,7 +1073,7 @@ func (s *service) findExistingJobForOCR2(j *job.Job, qopts pg.QOpt) (int32, erro
 // findExistingJobForOCRFlux looks for existing job for OCR or flux
 func (s *service) findExistingJobForOCRFlux(j *job.Job, qopts pg.QOpt) (int32, error) {
 	var address ethkey.EIP55Address
-	var evmChainID *utils.Big
+	var evmChainID *big.Big
 
 	switch j.Type {
 	case job.OffchainReporting:
@@ -1094,7 +1104,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		if !s.ocrCfg.Enabled() {
 			return nil, ErrOCRDisabled
 		}
-		js, err = ocr.ValidatedOracleSpecToml(s.chainSet, spec)
+		js, err = ocr.ValidatedOracleSpecToml(s.legacyChains, spec)
 	case job.OffchainReporting2:
 		if !s.ocr2cfg.Enabled() {
 			return nil, ErrOCR2Disabled
@@ -1207,9 +1217,10 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) 
 	}
 
 	msg := &pb.OCR2Config{
-		Enabled:     true,
-		IsBootstrap: cfg.IsBootstrap,
-		Multiaddr:   cfg.Multiaddr.ValueOrZero(),
+		Enabled:          true,
+		IsBootstrap:      cfg.IsBootstrap,
+		Multiaddr:        cfg.Multiaddr.ValueOrZero(),
+		ForwarderAddress: cfg.ForwarderAddress.Ptr(),
 		Plugins: &pb.OCR2Config_Plugins{
 			Commit:  cfg.Plugins.Commit,
 			Execute: cfg.Plugins.Execute,

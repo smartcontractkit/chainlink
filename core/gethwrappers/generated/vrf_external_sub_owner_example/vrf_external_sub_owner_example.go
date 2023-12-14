@@ -50,7 +50,7 @@ func DeployVRFExternalSubOwnerExample(auth *bind.TransactOpts, backend bind.Cont
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFExternalSubOwnerExample{VRFExternalSubOwnerExampleCaller: VRFExternalSubOwnerExampleCaller{contract: contract}, VRFExternalSubOwnerExampleTransactor: VRFExternalSubOwnerExampleTransactor{contract: contract}, VRFExternalSubOwnerExampleFilterer: VRFExternalSubOwnerExampleFilterer{contract: contract}}, nil
+	return address, tx, &VRFExternalSubOwnerExample{address: address, abi: *parsed, VRFExternalSubOwnerExampleCaller: VRFExternalSubOwnerExampleCaller{contract: contract}, VRFExternalSubOwnerExampleTransactor: VRFExternalSubOwnerExampleTransactor{contract: contract}, VRFExternalSubOwnerExampleFilterer: VRFExternalSubOwnerExampleFilterer{contract: contract}}, nil
 }
 
 type VRFExternalSubOwnerExample struct {

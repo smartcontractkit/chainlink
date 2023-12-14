@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../shared/interfaces/LinkTokenInterface.sol";
-import "../interfaces/VRFV2WrapperInterface.sol";
+import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
+import {VRFV2WrapperInterface} from "./interfaces/VRFV2WrapperInterface.sol";
 
 /** *******************************************************************************
  * @notice Interface for contracts using VRF randomness through the VRF V2 wrapper
@@ -28,7 +28,9 @@ import "../interfaces/VRFV2WrapperInterface.sol";
  * @dev fulfillment with the randomness result.
  */
 abstract contract VRFV2WrapperConsumerBase {
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   LinkTokenInterface internal immutable LINK;
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   VRFV2WrapperInterface internal immutable VRF_V2_WRAPPER;
 
   /**
@@ -52,6 +54,7 @@ abstract contract VRFV2WrapperConsumerBase {
    *
    * @return requestId is the VRF V2 request ID of the newly created randomness request.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function requestRandomness(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
@@ -72,9 +75,11 @@ abstract contract VRFV2WrapperConsumerBase {
    * @param _requestId is the VRF V2 request ID.
    * @param _randomWords is the randomness result.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal virtual;
 
   function rawFulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) external {
+    // solhint-disable-next-line custom-errors
     require(msg.sender == address(VRF_V2_WRAPPER), "only VRF V2 wrapper can fulfill");
     fulfillRandomWords(_requestId, _randomWords);
   }

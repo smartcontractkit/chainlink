@@ -6,15 +6,15 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -32,7 +32,7 @@ func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink
 	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, overrideFn))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	return &TestEVMForwardersController{
 		app:    app,
@@ -43,7 +43,7 @@ func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink
 func Test_EVMForwardersController_Track(t *testing.T) {
 	t.Parallel()
 
-	chainId := utils.NewBig(testutils.NewRandomEVMChainID())
+	chainId := big.New(testutils.NewRandomEVMChainID())
 	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM = evmcfg.EVMConfigs{
 			{ChainID: chainId, Enabled: ptr(true), Chain: evmcfg.Defaults(chainId)},
@@ -51,7 +51,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 	})
 
 	// Build EVMForwarderRequest
-	address := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
+	address := utils.RandomAddress()
 	body, err := json.Marshal(web.TrackEVMForwarderRequest{
 		EVMChainID: chainId,
 		Address:    address,
@@ -69,7 +69,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 
 	assert.Equal(t, resource.Address, address)
 
-	require.Len(t, controller.app.Chains.EVM.Chains(), 1)
+	require.Len(t, controller.app.GetRelayers().LegacyEVMChains().Slice(), 1)
 
 	resp, cleanup = controller.client.Delete("/v2/nodes/evm/forwarders/" + resource.ID)
 	t.Cleanup(cleanup)
@@ -80,7 +80,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 func Test_EVMForwardersController_Index(t *testing.T) {
 	t.Parallel()
 
-	chainId := utils.NewBig(testutils.NewRandomEVMChainID())
+	chainId := big.New(testutils.NewRandomEVMChainID())
 	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM = evmcfg.EVMConfigs{
 			{ChainID: chainId, Enabled: ptr(true), Chain: evmcfg.Defaults(chainId)},
@@ -91,11 +91,11 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 	fwdrs := []web.TrackEVMForwarderRequest{
 		{
 			EVMChainID: chainId,
-			Address:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+			Address:    utils.RandomAddress(),
 		},
 		{
 			EVMChainID: chainId,
-			Address:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d82"),
+			Address:    utils.RandomAddress(),
 		},
 	}
 	for _, fwdr := range fwdrs {

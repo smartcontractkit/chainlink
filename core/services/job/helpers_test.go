@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -34,10 +35,8 @@ const (
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
-p2pBootstrapPeers  = [
-    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-]
-p2pv2Bootstrappers = []
+evmChainID		   = "0"
+p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 isBootstrapPeer    = false
 keyBundleID        = "%s"
 monitoringEndpoint = "chain.link:4321"
@@ -106,11 +105,12 @@ ds1 -> ds1_parse -> ds1_multiply;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+		p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 		isBootstrapPeer    = false
 		transmitterAddress = "%s"
 		keyBundleID = "%s"
 		observationTimeout = "10s"
+		evmChainID		   = "0"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
@@ -121,18 +121,16 @@ ds1 -> ds1_parse;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		p2pBootstrapPeers  = []
+		evmChainID		   = "0"
 		isBootstrapPeer    = true
 `
 	ocrJobSpecText = `
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
+evmChainID		   = "0"
 p2pPeerID          = "%s"
-p2pBootstrapPeers  = [
-    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-]
-p2pv2Bootstrappers = []
+p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 isBootstrapPeer    = false
 keyBundleID        = "%s"
 monitoringEndpoint = "chain.link:4321"
@@ -189,7 +187,7 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 stri
 func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.NotNil(t, expected.OCROracleSpec)
 	require.Equal(t, expected.OCROracleSpec.ContractAddress, actual.OCROracleSpec.ContractAddress)
-	require.Equal(t, expected.OCROracleSpec.P2PBootstrapPeers, actual.OCROracleSpec.P2PBootstrapPeers)
+	require.Equal(t, expected.OCROracleSpec.P2PV2Bootstrappers, actual.OCROracleSpec.P2PV2Bootstrappers)
 	require.Equal(t, expected.OCROracleSpec.IsBootstrapPeer, actual.OCROracleSpec.IsBootstrapPeer)
 	require.Equal(t, expected.OCROracleSpec.EncryptedOCRKeyBundleID, actual.OCROracleSpec.EncryptedOCRKeyBundleID)
 	require.Equal(t, expected.OCROracleSpec.TransmitterAddress, actual.OCROracleSpec.TransmitterAddress)
@@ -202,7 +200,6 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 
 func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
 	var ocrSpec = job.OCROracleSpec{
-		P2PBootstrapPeers:                      pq.StringArray{},
 		P2PV2Bootstrappers:                     pq.StringArray{},
 		ObservationTimeout:                     models.Interval(10 * time.Second),
 		BlockchainTimeout:                      models.Interval(20 * time.Second),
@@ -218,8 +215,9 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout)
 	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg, KeyStore: keyStore.Eth()})
-	_, err := ocr.ValidatedOracleSpecToml(cc, s)
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	_, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
 	require.NoError(t, err)

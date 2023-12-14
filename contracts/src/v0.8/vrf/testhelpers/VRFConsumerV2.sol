@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../shared/interfaces/LinkTokenInterface.sol";
-import "../../interfaces/VRFCoordinatorV2Interface.sol";
-import "../VRFConsumerBaseV2.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFConsumerBaseV2} from "../VRFConsumerBaseV2.sol";
 
 contract VRFConsumerV2 is VRFConsumerBaseV2 {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
-  VRFCoordinatorV2Interface COORDINATOR;
-  LinkTokenInterface LINKTOKEN;
+  VRFCoordinatorV2Interface internal COORDINATOR;
+  LinkTokenInterface internal LINKTOKEN;
   uint64 public s_subId;
   uint256 public s_gasAvailable;
 

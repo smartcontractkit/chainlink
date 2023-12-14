@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
+// solhint-disable-next-line one-contract-per-file
 pragma solidity 0.8.6;
 
-import "../ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
 
 /**
  * @title BatchBlockhashStore
@@ -11,6 +12,7 @@ import "../ChainSpecificUtil.sol";
  *   in times of high network congestion.
  */
 contract BatchBlockhashStore {
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   BlockhashStore public immutable BHS;
 
   constructor(address blockhashStoreAddr) {
@@ -27,7 +29,7 @@ contract BatchBlockhashStore {
     for (uint256 i = 0; i < blockNumbers.length; i++) {
       // skip the block if it's not storeable, the caller will have to check
       // after the transaction is mined to see if the blockhash was truly stored.
-      if (!storeableBlock(blockNumbers[i])) {
+      if (!_storeableBlock(blockNumbers[i])) {
         continue;
       }
       BHS.store(blockNumbers[i]);
@@ -40,6 +42,7 @@ contract BatchBlockhashStore {
    * @param headers the rlp-encoded block headers of blockNumbers[i] + 1.
    */
   function storeVerifyHeader(uint256[] memory blockNumbers, bytes[] memory headers) public {
+    // solhint-disable-next-line custom-errors
     require(blockNumbers.length == headers.length, "input array arg lengths mismatch");
     for (uint256 i = 0; i < blockNumbers.length; i++) {
       BHS.storeVerifyHeader(blockNumbers[i], headers[i]);
@@ -70,9 +73,10 @@ contract BatchBlockhashStore {
    *   using the blockhash() instruction.
    * @param blockNumber the block number to check if it's storeable with blockhash()
    */
-  function storeableBlock(uint256 blockNumber) private view returns (bool) {
+  function _storeableBlock(uint256 blockNumber) private view returns (bool) {
     // handle edge case on simulated chains which possibly have < 256 blocks total.
-    return ChainSpecificUtil.getBlockNumber() <= 256 ? true : blockNumber >= (ChainSpecificUtil.getBlockNumber() - 256);
+    return
+      ChainSpecificUtil._getBlockNumber() <= 256 ? true : blockNumber >= (ChainSpecificUtil._getBlockNumber() - 256);
   }
 }
 

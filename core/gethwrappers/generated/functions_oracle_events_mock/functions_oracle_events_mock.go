@@ -52,7 +52,7 @@ func DeployFunctionsOracleEventsMock(auth *bind.TransactOpts, backend bind.Contr
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &FunctionsOracleEventsMock{FunctionsOracleEventsMockCaller: FunctionsOracleEventsMockCaller{contract: contract}, FunctionsOracleEventsMockTransactor: FunctionsOracleEventsMockTransactor{contract: contract}, FunctionsOracleEventsMockFilterer: FunctionsOracleEventsMockFilterer{contract: contract}}, nil
+	return address, tx, &FunctionsOracleEventsMock{address: address, abi: *parsed, FunctionsOracleEventsMockCaller: FunctionsOracleEventsMockCaller{contract: contract}, FunctionsOracleEventsMockTransactor: FunctionsOracleEventsMockTransactor{contract: contract}, FunctionsOracleEventsMockFilterer: FunctionsOracleEventsMockFilterer{contract: contract}}, nil
 }
 
 type FunctionsOracleEventsMock struct {

@@ -2,38 +2,52 @@ package cmd_test
 
 import (
 	"crypto/rand"
+	"flag"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
+	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	t.Parallel()
 
+	app := cltest.NewApplicationEVMDisabled(t)
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
+
 	tests := []struct {
 		name, email, pwd string
 	}{
 		{"bad email", "notreal", cltest.Password},
-		{"bad pwd", cltest.APIEmailAdmin, "mostcommonwrongpwdever"},
+		{"bad pwd", u.Email, "mostcommonwrongpwdever"},
 		{"bad both", "notreal", "mostcommonwrongpwdever"},
-		{"correct", cltest.APIEmailAdmin, cltest.Password},
+		{"correct", u.Email, cltest.Password},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -57,14 +71,16 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
+
 	tests := []struct {
 		name, email, pwd string
 		wantError        bool
 	}{
 		{"bad email", "notreal", cltest.Password, true},
-		{"bad pwd", cltest.APIEmailAdmin, "mostcommonwrongpwdever", true},
+		{"bad pwd", u.Email, "mostcommonwrongpwdever", true},
 		{"bad both", "notreal", "mostcommonwrongpwdever", true},
-		{"success", cltest.APIEmailAdmin, cltest.Password, false},
+		{"success", u.Email, cltest.Password, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -145,7 +161,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			lggr := logger.TestLogger(t)
-			orm := sessions.NewORM(db, time.Minute, lggr, pgtest.NewQConfig(true), audit.NoopLogger)
+			orm := localauth.NewORM(db, time.Minute, lggr, pgtest.NewQConfig(true), audit.NoopLogger)
 
 			mock := &cltest.MockCountingPrompter{T: t, EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock)
@@ -176,7 +192,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
-	orm := sessions.NewORM(db, time.Minute, lggr, cfg.Database(), audit.NoopLogger)
+	orm := localauth.NewORM(db, time.Minute, lggr, cfg.Database(), audit.NoopLogger)
 
 	// Clear out fixture users/users created from the other test cases
 	// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -213,7 +229,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			lggr := logger.TestLogger(t)
-			orm := sessions.NewORM(db, time.Minute, lggr, pgtest.NewQConfig(true), audit.NoopLogger)
+			orm := localauth.NewORM(db, time.Minute, lggr, pgtest.NewQConfig(true), audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -238,7 +254,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
+	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 	tests := []struct {
 		name      string
@@ -334,20 +350,45 @@ func TestNewUserCache(t *testing.T) {
 
 func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := plugins.NewLoopRegistry(lggr)
+	reg := plugins.NewLoopRegistry(lggr, nil)
 	ks := mocks.NewSolana(t)
-	rf := cmd.RelayerFactory{
-		Logger:        lggr,
-		DB:            pgtest.NewSqlxDB(t),
-		GeneralConfig: configtest.NewGeneralConfig(t, nil),
-		LoopRegistry:  reg,
+
+	// config 3 chains but only enable 2 => should only be 2 relayer
+	nEnabledChains := 2
+	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Solana = solana.TOMLConfigs{
+			&solana.TOMLConfig{
+				ChainID: ptr[string]("solana-id-1"),
+				Enabled: ptr(true),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+			&solana.TOMLConfig{
+				ChainID: ptr[string]("solana-id-2"),
+				Enabled: ptr(true),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+			&solana.TOMLConfig{
+				ChainID: ptr[string]("disabled-solana-id-1"),
+				Enabled: ptr(false),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+		}
+	})
+
+	rf := chainlink.RelayerFactory{
+		Logger:       lggr,
+		LoopRegistry: reg,
 	}
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayer, err := rf.NewSolana(ks)
+		relayers, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, nEnabledChains)
 		// no using plugin, so registry should be empty
 		require.Len(t, reg.List(), 0)
 	})
@@ -355,31 +396,84 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 
-		relayer, err := rf.NewSolana(ks)
+		relayers, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, nEnabledChains)
 		// make sure registry has the plugin
-		require.Len(t, reg.List(), 1)
+		require.Len(t, reg.List(), nEnabledChains)
 	})
 
+	// test that duplicate enabled chains is an error when
+	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Solana = solana.TOMLConfigs{
+			&solana.TOMLConfig{
+				ChainID: ptr[string]("dupe"),
+				Enabled: ptr(true),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+			&solana.TOMLConfig{
+				ChainID: ptr[string]("dupe"),
+				Enabled: ptr(true),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+		}
+	})
+
+	// not parallel; shared state
+	t.Run("no plugin, duplicate chains", func(t *testing.T) {
+		_, err := rf.NewSolana(ks, duplicateConfig.SolanaConfigs())
+		require.Error(t, err)
+	})
+
+	t.Run("plugin, duplicate chains", func(t *testing.T) {
+		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
+		_, err := rf.NewSolana(ks, duplicateConfig.SolanaConfigs())
+		require.Error(t, err)
+	})
 }
 
 func TestSetupStarkNetRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := plugins.NewLoopRegistry(lggr)
+	reg := plugins.NewLoopRegistry(lggr, nil)
 	ks := mocks.NewStarkNet(t)
-	rf := cmd.RelayerFactory{
-		Logger:        lggr,
-		DB:            pgtest.NewSqlxDB(t),
-		GeneralConfig: configtest.NewGeneralConfig(t, nil),
-		LoopRegistry:  reg,
+	// config 3 chains but only enable 2 => should only be 2 relayer
+	nEnabledChains := 2
+	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Starknet = stkcfg.TOMLConfigs{
+			&stkcfg.TOMLConfig{
+				ChainID: ptr[string]("starknet-id-1"),
+				Enabled: ptr(true),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+			&stkcfg.TOMLConfig{
+				ChainID: ptr[string]("starknet-id-2"),
+				Enabled: ptr(true),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+			&stkcfg.TOMLConfig{
+				ChainID: ptr[string]("disabled-starknet-id-1"),
+				Enabled: ptr(false),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+		}
+	})
+	rf := chainlink.RelayerFactory{
+		Logger:       lggr,
+		LoopRegistry: reg,
 	}
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayer, err := rf.NewStarkNet(ks)
+		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, nEnabledChains)
 		// no using plugin, so registry should be empty
 		require.Len(t, reg.List(), 0)
 	})
@@ -387,11 +481,85 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
 
-		relayer, err := rf.NewStarkNet(ks)
+		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, nEnabledChains)
 		// make sure registry has the plugin
-		require.Len(t, reg.List(), 1)
+		require.Len(t, reg.List(), nEnabledChains)
 	})
 
+	// test that duplicate enabled chains is an error when
+	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Starknet = stkcfg.TOMLConfigs{
+			&stkcfg.TOMLConfig{
+				ChainID: ptr[string]("dupe"),
+				Enabled: ptr(true),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+			&stkcfg.TOMLConfig{
+				ChainID: ptr[string]("dupe"),
+				Enabled: ptr(true),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+		}
+	})
+
+	// not parallel; shared state
+	t.Run("no plugin, duplicate chains", func(t *testing.T) {
+		_, err := rf.NewStarkNet(ks, duplicateConfig.StarknetConfigs())
+		require.Error(t, err)
+	})
+
+	t.Run("plugin, duplicate chains", func(t *testing.T) {
+		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
+		_, err := rf.NewStarkNet(ks, duplicateConfig.StarknetConfigs())
+		require.Error(t, err)
+	})
+}
+
+// flagSetApplyFromAction applies the flags from action to the flagSet.
+// `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
+func flagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
+	cliApp := cmd.Shell{}
+	app := cmd.NewApp(&cliApp)
+
+	foundName := parentCommand == ""
+	actionFuncName := getFuncName(action)
+
+	for _, command := range app.Commands {
+		flags := recursiveFindFlagsWithName(actionFuncName, command, parentCommand, foundName)
+
+		for _, flag := range flags {
+			flag.Apply(flagSet)
+		}
+	}
+
+}
+
+func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, parent string, foundName bool) []cli.Flag {
+
+	if command.Action != nil {
+		if actionFuncName == getFuncName(command.Action) && foundName {
+			return command.Flags
+		}
+	}
+
+	for _, subcommand := range command.Subcommands {
+		if !foundName {
+			foundName = strings.EqualFold(subcommand.Name, parent)
+		}
+
+		found := recursiveFindFlagsWithName(actionFuncName, subcommand, parent, foundName)
+		if found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func getFuncName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }

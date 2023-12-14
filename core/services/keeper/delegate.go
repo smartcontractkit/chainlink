@@ -2,26 +2,27 @@ package keeper
 
 import (
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // To make sure Delegate struct implements job.Delegate interface
 var _ job.Delegate = (*Delegate)(nil)
 
 type Delegate struct {
-	logger   logger.Logger
-	db       *sqlx.DB
-	jrm      job.ORM
-	pr       pipeline.Runner
-	chainSet evm.ChainSet
-	mailMon  *utils.MailboxMonitor
+	logger       logger.Logger
+	db           *sqlx.DB
+	jrm          job.ORM
+	pr           pipeline.Runner
+	legacyChains legacyevm.LegacyChainContainer
+	mailMon      *mailbox.Monitor
 }
 
 // NewDelegate is the constructor of Delegate
@@ -30,16 +31,16 @@ func NewDelegate(
 	jrm job.ORM,
 	pr pipeline.Runner,
 	logger logger.Logger,
-	chainSet evm.ChainSet,
-	mailMon *utils.MailboxMonitor,
+	legacyChains legacyevm.LegacyChainContainer,
+	mailMon *mailbox.Monitor,
 ) *Delegate {
 	return &Delegate{
-		logger:   logger,
-		db:       db,
-		jrm:      jrm,
-		pr:       pr,
-		chainSet: chainSet,
-		mailMon:  mailMon,
+		logger:       logger,
+		db:           db,
+		jrm:          jrm,
+		pr:           pr,
+		legacyChains: legacyChains,
+		mailMon:      mailMon,
 	}
 }
 
@@ -58,7 +59,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}
-	chain, err := d.chainSet.Get(spec.KeeperSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(spec.KeeperSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}

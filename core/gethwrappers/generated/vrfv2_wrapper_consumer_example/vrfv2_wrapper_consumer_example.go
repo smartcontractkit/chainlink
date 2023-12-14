@@ -52,7 +52,7 @@ func DeployVRFV2WrapperConsumerExample(auth *bind.TransactOpts, backend bind.Con
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV2WrapperConsumerExample{VRFV2WrapperConsumerExampleCaller: VRFV2WrapperConsumerExampleCaller{contract: contract}, VRFV2WrapperConsumerExampleTransactor: VRFV2WrapperConsumerExampleTransactor{contract: contract}, VRFV2WrapperConsumerExampleFilterer: VRFV2WrapperConsumerExampleFilterer{contract: contract}}, nil
+	return address, tx, &VRFV2WrapperConsumerExample{address: address, abi: *parsed, VRFV2WrapperConsumerExampleCaller: VRFV2WrapperConsumerExampleCaller{contract: contract}, VRFV2WrapperConsumerExampleTransactor: VRFV2WrapperConsumerExampleTransactor{contract: contract}, VRFV2WrapperConsumerExampleFilterer: VRFV2WrapperConsumerExampleFilterer{contract: contract}}, nil
 }
 
 type VRFV2WrapperConsumerExample struct {

@@ -2,11 +2,12 @@ package fluxmonitorv2
 
 import (
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
+
+	"github.com/jmoiron/sqlx"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -21,7 +22,7 @@ type Delegate struct {
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
 	pipelineRunner pipeline.Runner
-	chainSet       evm.ChainSet
+	legacyChains   legacyevm.LegacyChainContainer
 	lggr           logger.Logger
 }
 
@@ -34,17 +35,17 @@ func NewDelegate(
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
 	db *sqlx.DB,
-	chainSet evm.ChainSet,
+	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
-		db,
-		ethKeyStore,
-		jobORM,
-		pipelineORM,
-		pipelineRunner,
-		chainSet,
-		lggr.Named("FluxMonitor"),
+		db:             db,
+		ethKeyStore:    ethKeyStore,
+		jobORM:         jobORM,
+		pipelineORM:    pipelineORM,
+		pipelineRunner: pipelineRunner,
+		legacyChains:   legacyChains,
+		lggr:           lggr.Named("FluxMonitor"),
 	}
 }
 
@@ -63,7 +64,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if jb.FluxMonitorSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", jb)
 	}
-	chain, err := d.chainSet.Get(jb.FluxMonitorSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.FluxMonitorSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}

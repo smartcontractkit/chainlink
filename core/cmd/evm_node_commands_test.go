@@ -76,7 +76,7 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	//Render table and check the fields order
 	b := new(bytes.Buffer)
 	rt := cmd.RendererTable{b}
-	nodes.RenderTable(rt)
+	require.NoError(t, nodes.RenderTable(rt))
 	renderLines := strings.Split(b.String(), "\n")
 	assert.Equal(t, 23, len(renderLines))
 	assert.Contains(t, renderLines[2], "Name")

@@ -41,7 +41,7 @@ func initEthKeysSubCmd(s *Shell) cli.Command {
 			},
 			{
 				Name:   "list",
-				Usage:  "List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata",
+				Usage:  "List available Ethereum accounts with their ETH & LINK balances and other metadata",
 				Action: s.ListETHKeys,
 			},
 			{
@@ -100,10 +100,6 @@ func initEthKeysSubCmd(s *Shell) cli.Command {
 						Usage:    "chain ID of the key",
 						Required: true,
 					},
-					cli.Uint64Flag{
-						Name:  "set-next-nonce, setNextNonce",
-						Usage: "manually set the next nonce for the key on the given chain. This should not be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node",
-					},
 					cli.BoolFlag{
 						Name:  "enable",
 						Usage: "enable the key for the given chain",
@@ -130,7 +126,6 @@ func (p *EthKeyPresenter) ToRow() []string {
 	return []string{
 		p.Address,
 		p.EVMChainID.String(),
-		fmt.Sprintf("%d", p.NextNonce),
 		p.EthBalance.String(),
 		p.LinkBalance.String(),
 		fmt.Sprintf("%v", p.Disabled),
@@ -140,7 +135,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 	}
 }
 
-var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "Next Nonce", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
+var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
@@ -169,7 +164,7 @@ func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
 // ListETHKeys renders the active account address with its ETH & LINK balance
 func (s *Shell) ListETHKeys(_ *cli.Context) (err error) {
 	resp, err := s.HTTP.Get("/v2/keys/evm")
-	
+
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -368,9 +363,6 @@ func (s *Shell) UpdateChainEVMKey(c *cli.Context) (err error) {
 	abandon := c.String("abandon")
 	query.Set("abandon", abandon)
 
-	if c.IsSet("set-next-nonce") {
-		query.Set("nextNonce", c.String("set-next-nonce"))
-	}
 	if c.IsSet("enable") && c.IsSet("disable") {
 		return s.errorOut(errors.New("cannot set both --enable and --disable simultaneously"))
 	} else if c.Bool("enable") {

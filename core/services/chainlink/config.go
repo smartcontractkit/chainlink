@@ -1,25 +1,24 @@
 package chainlink
 
 import (
-	"fmt"
-
 	"errors"
+	"fmt"
 
 	"go.uber.org/multierr"
 
 	gotoml "github.com/pelletier/go-toml/v2"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 // Config is the root type used for TOML configuration.
@@ -29,19 +28,19 @@ import (
 // When adding a new field:
 //   - consider including a unit suffix with the field name
 //   - TOML is limited to int64/float64, so fields requiring greater range/precision must use non-standard types
-//     implementing encoding.TextMarshaler/TextUnmarshaler, like utils.Big and decimal.Decimal
+//     implementing encoding.TextMarshaler/TextUnmarshaler, like big.Big and decimal.Decimal
 //   - std lib types that don't implement encoding.TextMarshaler/TextUnmarshaler (time.Duration, url.URL, big.Int) won't
-//     work as expected, and require wrapper types. See models.Duration, models.URL, utils.Big.
+//     work as expected, and require wrapper types. See models.Duration, models.URL, big.Big.
 type Config struct {
 	toml.Core
 
 	EVM evmcfg.EVMConfigs `toml:",omitempty"`
 
-	Cosmos cosmos.CosmosConfigs `toml:",omitempty"`
+	Cosmos coscfg.TOMLConfigs `toml:",omitempty"`
 
-	Solana solana.SolanaConfigs `toml:",omitempty"`
+	Solana solana.TOMLConfigs `toml:",omitempty"`
 
-	Starknet starknet.StarknetConfigs `toml:",omitempty"`
+	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
 }
 
 // TOMLString returns a TOML encoded string.
@@ -53,6 +52,36 @@ func (c *Config) TOMLString() (string, error) {
 	return string(b), nil
 }
 
+// warnings aggregates warnings from valueWarnings and deprecationWarnings
+func (c *Config) warnings() (err error) {
+	deprecationErr := c.deprecationWarnings()
+	warningErr := c.valueWarnings()
+	err = multierr.Append(deprecationErr, warningErr)
+	_, list := utils.MultiErrorList(err)
+	return list
+}
+
+// valueWarnings returns an error if the Config contains values that hint at misconfiguration before defaults are applied.
+func (c *Config) valueWarnings() (err error) {
+	if c.Tracing.Enabled != nil && *c.Tracing.Enabled {
+		if c.Tracing.Mode != nil && *c.Tracing.Mode == "unencrypted" {
+			if c.Tracing.TLSCertPath != nil {
+				err = multierr.Append(err, config.ErrInvalid{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
+			}
+		}
+	}
+	return
+}
+
+// deprecationWarnings returns an error if the Config contains deprecated fields.
+// This is typically used before defaults have been applied, with input from the user.
+func (c *Config) deprecationWarnings() (err error) {
+	// none
+	return
+}
+
+// Validate returns an error if the Config is not valid for use, as-is.
+// This is typically used after defaults have been applied.
 func (c *Config) Validate() error {
 	if err := config.Validate(c); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
@@ -76,21 +105,21 @@ func (c *Config) setDefaults() {
 
 	for i := range c.Cosmos {
 		if c.Cosmos[i] == nil {
-			c.Cosmos[i] = new(cosmos.CosmosConfig)
+			c.Cosmos[i] = new(coscfg.TOMLConfig)
 		}
 		c.Cosmos[i].Chain.SetDefaults()
 	}
 
 	for i := range c.Solana {
 		if c.Solana[i] == nil {
-			c.Solana[i] = new(solana.SolanaConfig)
+			c.Solana[i] = new(solana.TOMLConfig)
 		}
 		c.Solana[i].Chain.SetDefaults()
 	}
 
 	for i := range c.Starknet {
 		if c.Starknet[i] == nil {
-			c.Starknet[i] = new(starknet.StarknetConfig)
+			c.Starknet[i] = new(stkcfg.TOMLConfig)
 		}
 		c.Starknet[i].Chain.SetDefaults()
 	}
@@ -125,32 +154,32 @@ type Secrets struct {
 }
 
 func (s *Secrets) SetFrom(f *Secrets) (err error) {
-	if err1 := s.Database.SetFrom(&f.Database); err1 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err1, "Database"))
+	if err2 := s.Database.SetFrom(&f.Database); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Database"))
 	}
 
-	if err2 := s.Explorer.SetFrom(&f.Explorer); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Explorer"))
+	if err2 := s.Password.SetFrom(&f.Password); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Password"))
 	}
 
-	if err3 := s.Password.SetFrom(&f.Password); err3 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Password"))
+	if err2 := s.WebServer.SetFrom(&f.WebServer); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "WebServer"))
 	}
 
-	if err4 := s.Pyroscope.SetFrom(&f.Pyroscope); err4 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Pyroscope"))
+	if err2 := s.Pyroscope.SetFrom(&f.Pyroscope); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Pyroscope"))
 	}
 
-	if err5 := s.Prometheus.SetFrom(&f.Prometheus); err5 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err5, "Prometheus"))
+	if err2 := s.Prometheus.SetFrom(&f.Prometheus); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Prometheus"))
 	}
 
-	if err6 := s.Mercury.SetFrom(&f.Mercury); err6 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err6, "Mercury"))
+	if err2 := s.Mercury.SetFrom(&f.Mercury); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Mercury"))
 	}
 
-	if err7 := s.Threshold.SetFrom(&f.Threshold); err7 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err7, "Threshold"))
+	if err2 := s.Threshold.SetFrom(&f.Threshold); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Threshold"))
 	}
 
 	_, err = utils.MultiErrorList(err)
@@ -222,12 +251,6 @@ func (s *Secrets) setEnv() error {
 	if env.DatabaseAllowSimplePasswords.IsTrue() {
 		s.Database.AllowSimplePasswords = new(bool)
 		*s.Database.AllowSimplePasswords = true
-	}
-	if explorerKey := env.ExplorerAccessKey.Get(); explorerKey != "" {
-		s.Explorer.AccessKey = &explorerKey
-	}
-	if explorerSecret := env.ExplorerSecret.Get(); explorerSecret != "" {
-		s.Explorer.Secret = &explorerSecret
 	}
 	if keystorePassword := env.PasswordKeystore.Get(); keystorePassword != "" {
 		s.Password.Keystore = &keystorePassword

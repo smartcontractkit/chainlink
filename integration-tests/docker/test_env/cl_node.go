@@ -2,35 +2,36 @@ package test_env
 
 import (
 	"context"
-	"crypto/ed25519"
-	"encoding/hex"
 	"fmt"
+	"math/big"
 	"net/url"
 	"os"
 	"strings"
-	"sync"
+	"testing"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
-
-	"math/big"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 )
 
 var (
@@ -39,15 +40,25 @@ var (
 )
 
 type ClNode struct {
-	EnvComponent
-	API                   *client.ChainlinkClient
-	NodeConfig            *chainlink.Config
-	NodeSecretsConfigTOML string
-	PostgresDb            *PostgresDb
-	lw                    *logwatch.LogWatch
+	test_env.EnvComponent
+	API                   *client.ChainlinkClient `json:"-"`
+	NodeConfig            *chainlink.Config       `json:"-"`
+	NodeSecretsConfigTOML string                  `json:"-"`
+	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
+	UserEmail             string                  `json:"userEmail"`
+	UserPassword          string                  `json:"userPassword"`
+	t                     *testing.T
+	l                     zerolog.Logger
+	ls                    *logstream.LogStream
 }
 
 type ClNodeOption = func(c *ClNode)
+
+func WithSecrets(secretsTOML string) ClNodeOption {
+	return func(c *ClNode) {
+		c.NodeSecretsConfigTOML = secretsTOML
+	}
+}
 
 // Sets custom node container name if name is not empty
 func WithNodeContainerName(name string) ClNodeOption {
@@ -67,46 +78,95 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
+func WithLogStream(ls *logstream.LogStream) ClNodeOption {
 	return func(c *ClNode) {
-		c.lw = lw
+		c.ls = ls
 	}
 }
 
-func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
+func WithImage(image string) ClNodeOption {
+	return func(c *ClNode) {
+		c.ContainerImage = image
+	}
+}
+
+func WithVersion(version string) ClNodeOption {
+	return func(c *ClNode) {
+		c.ContainerVersion = version
+	}
+}
+
+func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
+	return func(c *ClNode) {
+		var err error
+		c.PostgresDb, err = test_env.NewPostgresDb(c.EnvComponent.Networks, opts...)
+		if err != nil {
+			c.t.Fatalf("failed to create postgres db: %v", err)
+		}
+	}
+}
+
+func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) (*ClNode, error) {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
-	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
+	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
+	if err != nil {
+		return nil, err
+	}
 	n := &ClNode{
-		EnvComponent: EnvComponent{
-			ContainerName: nodeDefaultCName,
-			Networks:      networks,
+		EnvComponent: test_env.EnvComponent{
+			ContainerName:    nodeDefaultCName,
+			ContainerImage:   imageName,
+			ContainerVersion: imageVersion,
+			Networks:         networks,
 		},
-		NodeConfig: nodeConfig,
-		PostgresDb: pgDb,
+		UserEmail:    "local@local.com",
+		UserPassword: "localdevpassword",
+		NodeConfig:   nodeConfig,
+		PostgresDb:   pgDb,
+		l:            log.Logger,
 	}
 	for _, opt := range opts {
 		opt(n)
 	}
-	return n
+	return n, nil
+}
+
+func (n *ClNode) SetTestLogger(t *testing.T) {
+	n.l = logging.GetTestLogger(t)
+	n.t = t
+	n.PostgresDb.WithTestInstance(t)
 }
 
 // Restart restarts only CL node, DB container is reused
 func (n *ClNode) Restart(cfg *chainlink.Config) error {
-	if err := n.Container.Terminate(context.Background()); err != nil {
+	if err := n.Container.Terminate(testcontext.Get(n.t)); err != nil {
 		return err
 	}
 	n.NodeConfig = cfg
 	return n.StartContainer()
 }
 
+// UpgradeVersion restarts the cl node with new image and version
+func (n *ClNode) UpgradeVersion(newImage, newVersion string) error {
+	if newVersion == "" {
+		return fmt.Errorf("new version is empty")
+	}
+	if newImage == "" {
+		return fmt.Errorf("new image name is empty")
+	}
+	n.ContainerImage = newImage
+	n.ContainerVersion = newVersion
+	return n.Restart(n.NodeConfig)
+}
+
 func (n *ClNode) PrimaryETHAddress() (string, error) {
 	return n.API.PrimaryEthAddress()
 }
 
-func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
+func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, chainId int64,
 	feedId [32]byte) (*client.Job, error) {
-	spec := utils.BuildBootstrapSpec(verifierAddr, chainId, fromBlock, feedId)
+	spec := it_utils.BuildBootstrapSpec(verifierAddr, chainId, feedId)
 	return n.API.MustCreateJob(spec)
 }
 
@@ -134,9 +194,9 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 		}
 	}
 
-	bridges := utils.BuildBridges(eaUrls)
-	for _, b := range bridges {
-		err = n.API.MustCreateBridge(&b)
+	bridges := it_utils.BuildBridges(eaUrls)
+	for index := range bridges {
+		err = n.API.MustCreateBridge(&bridges[index])
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +209,7 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 		allowedFaults = 2
 	}
 
-	spec := utils.BuildOCRSpec(
+	spec := it_utils.BuildOCRSpec(
 		verifierAddr, chainId, fromBlock, feedId, bridges,
 		csaPubKey, mercuryServerUrl, mercuryServerPubKey, nodeOCRKeyId[0],
 		bootstrapUrl, allowedFaults)
@@ -158,11 +218,15 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 }
 
 func (n *ClNode) GetContainerName() string {
-	name, err := n.Container.Name(context.Background())
+	name, err := n.Container.Name(testcontext.Get(n.t))
 	if err != nil {
 		return ""
 	}
 	return strings.Replace(name, "/", "", -1)
+}
+
+func (n *ClNode) GetAPIClient() *client.ChainlinkClient {
+	return n.API
 }
 
 func (n *ClNode) GetPeerUrl() (string, error) {
@@ -196,7 +260,10 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	if err != nil {
 		return err
 	}
-	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{})
+	toAddr := common.HexToAddress(toAddress)
+	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
+		To: &toAddr,
+	})
 	if err != nil {
 		return err
 	}
@@ -208,62 +275,76 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
+
+	// If the node secrets TOML is not set, generate it with the default template
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
-		PgDbName:   n.PostgresDb.DbName,
-		PgHost:     n.PostgresDb.ContainerName,
-		PgPort:     n.PostgresDb.Port,
-		PgPassword: n.PostgresDb.Password,
+		PgDbName:      n.PostgresDb.DbName,
+		PgHost:        n.PostgresDb.ContainerName,
+		PgPort:        n.PostgresDb.InternalPort,
+		PgPassword:    n.PostgresDb.Password,
+		CustomSecrets: n.NodeSecretsConfigTOML,
 	}.String()
 	if err != nil {
 		return err
 	}
-	n.NodeSecretsConfigTOML = nodeSecretsToml
-	cReq, err := n.getContainerRequest()
+
+	cReq, err := n.getContainerRequest(nodeSecretsToml)
 	if err != nil {
 		return err
 	}
-	container, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
+
+	l := tc.Logger
+	if n.t != nil {
+		l = logging.CustomT{
+			T: n.t,
+			L: n.l,
+		}
+	}
+	container, err := docker.StartContainerWithRetry(n.l, tc.GenericContainerRequest{
 		ContainerRequest: *cReq,
 		Started:          true,
 		Reuse:            true,
+		Logger:           l,
 	})
 	if err != nil {
-		return errors.Wrap(err, ErrStartCLNodeContainer)
+		return fmt.Errorf("%s err: %w", ErrStartCLNodeContainer, err)
 	}
-	if n.lw != nil {
-		if err := n.lw.ConnectContainer(context.Background(), container, "cl-node", true); err != nil {
-			return err
-		}
-	}
-	clEndpoint, err := container.Endpoint(context.Background(), "http")
+
+	clEndpoint, err := test_env.GetEndpoint(testcontext.Get(n.t), container, "http")
 	if err != nil {
 		return err
 	}
-	ip, err := container.ContainerIP(context.Background())
+	ip, err := container.ContainerIP(testcontext.Get(n.t))
 	if err != nil {
 		return err
 	}
-	log.Info().Str("containerName", n.ContainerName).
+	n.l.Info().
+		Str("containerName", n.ContainerName).
+		Str("containerImage", n.ContainerImage).
+		Str("containerVersion", n.ContainerVersion).
 		Str("clEndpoint", clEndpoint).
 		Str("clInternalIP", ip).
+		Str("userEmail", n.UserEmail).
+		Str("userPassword", n.UserPassword).
 		Msg("Started Chainlink Node container")
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
 		URL:        clEndpoint,
-		Email:      "local@local.com",
-		Password:   "localdevpassword",
+		Email:      n.UserEmail,
+		Password:   n.UserPassword,
 		InternalIP: ip,
-	})
+	},
+		n.l)
 	if err != nil {
-		return errors.Wrap(err, ErrConnectNodeClient)
+		return fmt.Errorf("%s err: %w", ErrConnectNodeClient, err)
 	}
-
+	clClient.Config.InternalIP = n.ContainerName
 	n.Container = container
 	n.API = clClient
 
 	return nil
 }
 
-func (n *ClNode) getContainerRequest() (
+func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
@@ -281,7 +362,7 @@ func (n *ClNode) getContainerRequest() (
 	if err != nil {
 		return nil, err
 	}
-	_, err = secretsFile.WriteString(n.NodeSecretsConfigTOML)
+	_, err = secretsFile.WriteString(secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -311,18 +392,9 @@ func (n *ClNode) getContainerRequest() (
 	adminCredsPath := "/home/admin-credentials.txt"
 	apiCredsPath := "/home/api-credentials.txt"
 
-	image, ok := os.LookupEnv("CHAINLINK_IMAGE")
-	if !ok {
-		return nil, errors.New("CHAINLINK_IMAGE env must be set")
-	}
-	tag, ok := os.LookupEnv("CHAINLINK_VERSION")
-	if !ok {
-		return nil, errors.New("CHAINLINK_VERSION env must be set")
-	}
-
 	return &tc.ContainerRequest{
 		Name:         n.ContainerName,
-		Image:        fmt.Sprintf("%s:%s", image, tag),
+		Image:        fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
 		ExposedPorts: []string{"6688/tcp"},
 		Entrypoint: []string{"chainlink",
 			"-c", configPath,
@@ -331,7 +403,7 @@ func (n *ClNode) getContainerRequest() (
 			"-p", adminCredsPath,
 			"-a", apiCredsPath,
 		},
-		Networks: n.Networks,
+		Networks: append(n.Networks, "tracing"),
 		WaitingFor: tcwait.ForHTTP("/health").
 			WithPort("6688/tcp").
 			WithStartupTimeout(90 * time.Second).
@@ -358,85 +430,23 @@ func (n *ClNode) getContainerRequest() (
 				FileMode:          0644,
 			},
 		},
-	}, nil
-}
-
-func GetOracleIdentities(chainlinkNodes []*ClNode) ([]int, []confighelper.OracleIdentityExtra) {
-	S := make([]int, len(chainlinkNodes))
-	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
-	sharedSecretEncryptionPublicKeys := make([]ocrtypes.ConfigEncryptionPublicKey, len(chainlinkNodes))
-	var wg sync.WaitGroup
-	for i, cl := range chainlinkNodes {
-		wg.Add(1)
-		go func(i int, cl *ClNode) error {
-			defer wg.Done()
-
-			ocr2Keys, err := cl.API.MustReadOCR2Keys()
-			if err != nil {
-				return err
-			}
-			var ocr2Config client.OCR2KeyAttributes
-			for _, key := range ocr2Keys.Data {
-				if key.Attributes.ChainType == string(chaintype.EVM) {
-					ocr2Config = key.Attributes
-					break
-				}
-			}
-
-			keys, err := cl.API.MustReadP2PKeys()
-			if err != nil {
-				return err
-			}
-			p2pKeyID := keys.Data[0].Attributes.PeerID
-
-			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
-			if err != nil {
-				return err
-			}
-
-			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			copy(offchainPkBytesFixed[:], offchainPkBytes)
-			if err != nil {
-				return err
-			}
-
-			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
-			if err != nil {
-				return err
-			}
-
-			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			copy(configPkBytesFixed[:], configPkBytes)
-			if err != nil {
-				return err
-			}
-
-			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
-			if err != nil {
-				return err
-			}
-
-			csaKeys, _, err := cl.API.ReadCSAKeys()
-			if err != nil {
-				return err
-			}
-
-			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
-			oracleIdentities[i] = confighelper.OracleIdentityExtra{
-				OracleIdentity: confighelper.OracleIdentity{
-					OnchainPublicKey:  onchainPkBytes,
-					OffchainPublicKey: offchainPkBytesFixed,
-					PeerID:            p2pKeyID,
-					TransmitAccount:   ocrtypes.Account(csaKeys.Data[0].ID),
+		LifecycleHooks: []tc.ContainerLifecycleHooks{
+			{PostStarts: []tc.ContainerHook{
+				func(ctx context.Context, c tc.Container) error {
+					if n.ls != nil {
+						return n.ls.ConnectContainer(ctx, c, "cl-node")
+					}
+					return nil
 				},
-				ConfigEncryptionPublicKey: configPkBytesFixed,
-			}
-			S[i] = 1
-
-			return nil
-		}(i, cl)
-	}
-	wg.Wait()
-
-	return S, oracleIdentities
+			},
+				PostStops: []tc.ContainerHook{
+					func(ctx context.Context, c tc.Container) error {
+						if n.ls != nil {
+							return n.ls.DisconnectContainer(c)
+						}
+						return nil
+					},
+				}},
+		},
+	}, nil
 }

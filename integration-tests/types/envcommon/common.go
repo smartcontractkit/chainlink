@@ -2,7 +2,7 @@ package envcommon
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"os"
 )
 
@@ -12,7 +12,7 @@ func ParseJSONFile(path string, v any) error {
 		return err
 	}
 	defer jsonFile.Close()
-	b, _ := ioutil.ReadAll(jsonFile)
+	b, _ := io.ReadAll(jsonFile)
 	err = json.Unmarshal(b, v)
 	if err != nil {
 		return err

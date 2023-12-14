@@ -101,7 +101,7 @@ func setupOCR2KeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keyst
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	require.NoError(t, app.KeyStore.OCR2().Add(cltest.DefaultOCR2Key))
 

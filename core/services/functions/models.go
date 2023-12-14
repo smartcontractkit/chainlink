@@ -109,7 +109,7 @@ func CheckStateTransition(prev RequestState, next RequestState) error {
 		},
 		FINALIZED: {
 			IN_PROGRESS:  errors.New("cannot go back from FINALIZED to IN_PROGRESS"),
-			RESULT_READY: errors.New("cannot go back from FINALIZED to RESULT_READY"),
+			RESULT_READY: errors.New("cannot go back from FINALIZED to RESULT_READY, result was already finalized by DON before this request was picked up"),
 			TIMED_OUT:    nil, // timed out while in transmission - no reason to attempt sending it any more
 			FINALIZED:    sameStateError,
 			CONFIRMED:    nil, // received an on-chain result confirmation

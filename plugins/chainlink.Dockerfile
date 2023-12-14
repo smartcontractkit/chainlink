@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.20-buster as buildgo
+FROM golang:1.21-bullseye as buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -16,9 +16,31 @@ COPY . .
 
 # Build the golang binaries
 RUN make install-chainlink
-RUN make install-solana
-RUN make install-median
-RUN make install-starknet
+
+# Install medianpoc binary
+RUN make install-medianpoc
+
+# Link LOOP Plugin source dirs with simple names
+RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds | xargs -I % ln -s % /chainlink-feeds
+RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xargs -I % ln -s % /chainlink-solana
+RUN mkdir /chainlink-starknet
+RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer | xargs -I % ln -s % /chainlink-starknet/relayer
+
+# Build image: Plugins
+FROM golang:1.21-bullseye as buildplugins
+RUN go version
+
+WORKDIR /chainlink-feeds
+COPY --from=buildgo /chainlink-feeds .
+RUN go install ./cmd/chainlink-feeds
+
+WORKDIR /chainlink-solana
+COPY --from=buildgo /chainlink-solana .
+RUN go install ./pkg/solana/cmd/chainlink-solana
+
+WORKDIR /chainlink-starknet/relayer
+COPY --from=buildgo /chainlink-starknet/relayer .
+RUN go install ./pkg/chainlink/cmd/chainlink-starknet
 
 # Final image: ubuntu with chainlink binary
 FROM ubuntu:20.04
@@ -34,11 +56,13 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && apt-get clean all
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
-COPY --from=buildgo /go/bin/chainlink-solana /usr/local/bin/
+COPY --from=buildgo /go/bin/chainlink-medianpoc /usr/local/bin/
+
+COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
+ENV CL_MEDIAN_CMD chainlink-feeds
+COPY --from=buildplugins /go/bin/chainlink-solana /usr/local/bin/
 ENV CL_SOLANA_CMD chainlink-solana
-COPY --from=buildgo /go/bin/chainlink-median /usr/local/bin/
-ENV CL_MEDIAN_CMD chainlink-median
-COPY --from=buildgo /go/bin/chainlink-starknet /usr/local/bin/
+COPY --from=buildplugins /go/bin/chainlink-starknet /usr/local/bin/
 ENV CL_STARKNET_CMD chainlink-starknet
 
 # Dependency of CosmWasm/wasmd

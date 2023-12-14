@@ -17,3 +17,7 @@ func (n Nonce) Int64() int64 {
 func (n Nonce) String() string {
 	return strconv.FormatInt(n.Int64(), 10)
 }
+
+func GenerateNextNonce(prev Nonce) Nonce {
+	return Nonce(prev + 1)
+}

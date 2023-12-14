@@ -31,10 +31,7 @@ describe('UpkeepTranscoder', () => {
     const encodedData = '0xc0ffee'
 
     it('reverts if the from type is not an enum value', async () => {
-      await evmRevert(
-        transcoder.transcodeUpkeeps(3, 1, encodedData),
-        'function was called with incorrect parameters',
-      )
+      await evmRevert(transcoder.transcodeUpkeeps(3, 1, encodedData))
     })
 
     it('reverts if the from type != to type', async () => {

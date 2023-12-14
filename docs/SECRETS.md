@@ -51,29 +51,32 @@ AllowSimplePasswords skips the password complexity check normally enforced on UR
 
 Environment variable: `CL_DATABASE_ALLOW_SIMPLE_PASSWORDS`
 
-## Explorer
+## WebServer.LDAP
 ```toml
-[Explorer]
-AccessKey = "access_key" # Example
-Secret = "secret" # Example
+[WebServer.LDAP]
+ServerAddress = 'ldaps://127.0.0.1' # Example
+ReadOnlyUserLogin = 'viewer@example.com' # Example
+ReadOnlyUserPass = 'password' # Example
 ```
+Optional LDAP config
 
-
-### AccessKey
+### ServerAddress
 ```toml
-AccessKey = "access_key" # Example
+ServerAddress = 'ldaps://127.0.0.1' # Example
 ```
-AccessKey is the access key for authenticating with the Explorer.
+ServerAddress is the full ldaps:// address of the ldap server to authenticate with and query
 
-Environment variable: `CL_EXPLORER_ACCESS_KEY`
-
-### Secret
+### ReadOnlyUserLogin
 ```toml
-Secret = "secret" # Example
+ReadOnlyUserLogin = 'viewer@example.com' # Example
 ```
-Secret is the secret for authenticating with the Explorer.
+ReadOnlyUserLogin is the username of the read only root user used to authenticate the requested LDAP queries
 
-Environment variable: `CL_EXPLORER_SECRET`
+### ReadOnlyUserPass
+```toml
+ReadOnlyUserPass = 'password' # Example
+```
+ReadOnlyUserPass is the password for the above account
 
 ## Password
 ```toml
@@ -135,6 +138,7 @@ Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 Username = "A-Mercury-Username" # Example
 Password = "A-Mercury-Password" # Example
 URL = "https://example.com" # Example
+LegacyURL = "https://example.v1.com" # Example
 ```
 
 
@@ -154,7 +158,13 @@ Password is used for basic auth of the Mercury endpoint
 ```toml
 URL = "https://example.com" # Example
 ```
-URL is the Mercury endpoint URL which is used by OCR2 Automation to access Mercury price feed
+URL is the Mercury endpoint base URL used to access Mercury price feed
+
+### LegacyURL
+```toml
+LegacyURL = "https://example.v1.com" # Example
+```
+LegacyURL is the Mercury legacy endpoint base URL used to access Mercury v0.2 price feed
 
 ## Threshold
 ```toml
