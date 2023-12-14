@@ -77,24 +77,30 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
 	uniqueFilters := make(map[string]bool)
-	for i := 0; i < len(upkeepIDs); i++ {
-		emitterAddress := (*logEmitters[i%cfg.General.Contracts]).Address()
-		upkeepID := upkeepIDs[i]
-		topicId := cfg.General.EventsToEmit[i%len(cfg.General.EventsToEmit)].ID
 
-		l.Debug().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
-		if i%10 == 0 {
-			l.Info().Msgf("Registered log trigger for log emitter %d/%d", i, len(upkeepIDs))
-		}
-		err = registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
-		randomWait(150, 300)
-		require.NoError(t, err, "Error registering log trigger for log emitter")
+	upkeepIdIndex := 0
+	for i := 0; i < len(logEmitters); i++ {
+		for j := 0; j < len(cfg.General.EventsToEmit); j++ {
+			emitterAddress := (*logEmitters[i]).Address()
+			topicId := cfg.General.EventsToEmit[j].ID
 
-		key := fmt.Sprintf("%d-%s-%s", upkeepID.Int64(), emitterAddress.String(), topicId.Hex())
-		if _, ok := uniqueFilters[key]; ok {
-			t.Fatalf("Duplicate filter %s", key)
+			upkeepID := upkeepIDs[upkeepIdIndex]
+			l.Debug().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
+			err = registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
+			randomWait(150, 300)
+			require.NoError(t, err, "Error registering log trigger for log emitter")
+
+			if i%10 == 0 {
+				l.Info().Msgf("Registered log trigger for topic %d for log emitter %d/%d", j, i, len(logEmitters))
+			}
+
+			key := fmt.Sprintf("%s-%s", emitterAddress.String(), topicId.Hex())
+			if _, ok := uniqueFilters[key]; ok {
+				t.Fatalf("Duplicate filter %s", key)
+			}
+			uniqueFilters[key] = true
+			upkeepIdIndex++
 		}
-		uniqueFilters[key] = true
 	}
 
 	require.Equal(t, upKeepsNeeded, len(uniqueFilters), "Number of unique filters should be equal to number of upkeeps")
@@ -119,8 +125,8 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 			} else {
 				l.Info().Str("Node name", nodeName).Msg("Node has expected filters")
 			}
+			g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 		}
-		g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 	}, "20m", "20s").Should(gomega.Succeed())
 	l.Info().Msg("All nodes have expected filters registered")
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
