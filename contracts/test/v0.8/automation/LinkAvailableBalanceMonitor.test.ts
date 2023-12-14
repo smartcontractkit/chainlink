@@ -316,7 +316,7 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
   })
 
-  describe('setWatchList() / addToWatchList() / removeFromWatchlist() / getWatchList()', () => {
+  describe('setWatchList() / addToWatchListOrDecomissionOrDecomission() / removeFromWatchlist() / getWatchList()', () => {
     const watchAddress1 = randAddr()
     const watchAddress2 = randAddr()
     const watchAddress3 = randAddr()
@@ -391,18 +391,24 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
 
     it('Should allow owner to add multiple addresses with dstChainSelector 0 to the watchlist', async () => {
-      let tx = await labm.connect(owner).addToWatchList(watchAddress1, 0)
+      let tx = await labm
+        .connect(owner)
+        .addToWatchListOrDecomission(watchAddress1, 0)
       await tx.wait
       let watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
 
-      tx = await labm.connect(owner).addToWatchList(watchAddress2, 0)
+      tx = await labm
+        .connect(owner)
+        .addToWatchListOrDecomission(watchAddress2, 0)
       await tx.wait
       watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
       assert.deepEqual(watchList[1], watchAddress2)
 
-      tx = await labm.connect(owner).addToWatchList(watchAddress3, 0)
+      tx = await labm
+        .connect(owner)
+        .addToWatchListOrDecomission(watchAddress3, 0)
       await tx.wait
       watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
@@ -411,7 +417,9 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
 
     it('Should allow owner to add only one address with an unique non-zero dstChainSelector 0 to the watchlist', async () => {
-      let tx = await labm.connect(owner).addToWatchList(watchAddress1, 1)
+      let tx = await labm
+        .connect(owner)
+        .addToWatchListOrDecomission(watchAddress1, 1)
       await tx.wait
       let watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
@@ -420,7 +428,9 @@ describe('LinkAvailableBalanceMonitor', () => {
       let report = await labm.getAccountInfo(watchAddress1)
       assert.isTrue(report.isActive)
 
-      tx = await labm.connect(owner).addToWatchList(watchAddress2, 1)
+      tx = await labm
+        .connect(owner)
+        .addToWatchListOrDecomission(watchAddress2, 1)
       await tx.wait
       watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress2)
@@ -431,7 +441,9 @@ describe('LinkAvailableBalanceMonitor', () => {
       report = await labm.getAccountInfo(watchAddress1)
       assert.isFalse(report.isActive)
 
-      tx = await labm.connect(owner).addToWatchList(watchAddress3, 1)
+      tx = await labm
+        .connect(owner)
+        .addToWatchListOrDecomission(watchAddress3, 1)
       await tx.wait
       watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress3)
@@ -446,19 +458,24 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
 
     it('Should not add address 0 to the watchlist', async () => {
-      await labm.connect(owner).addToWatchList(ethers.constants.AddressZero, 1)
+      await labm
+        .connect(owner)
+        .addToWatchListOrDecomission(ethers.constants.AddressZero, 1)
       expect(await labm.getWatchList()).to.not.contain(
         ethers.constants.AddressZero,
       )
     })
 
     it('Should not allow stangers to add addresses to the watchlist', async () => {
-      await expect(labm.connect(stranger).addToWatchList(watchAddress1, 1)).to
-        .be.reverted
+      await expect(
+        labm.connect(stranger).addToWatchListOrDecomission(watchAddress1, 1),
+      ).to.be.reverted
     })
 
     it('Should allow owner to remove addresses from the watchlist', async () => {
-      let tx = await labm.connect(owner).addToWatchList(watchAddress1, 1)
+      let tx = await labm
+        .connect(owner)
+        .addToWatchListOrDecomission(watchAddress1, 1)
       await tx.wait
       let watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
@@ -478,11 +495,11 @@ describe('LinkAvailableBalanceMonitor', () => {
 
     it('Should allow only one address per dstChainSelector', async () => {
       // add address1
-      await labm.connect(owner).addToWatchList(watchAddress1, 1)
+      await labm.connect(owner).addToWatchListOrDecomission(watchAddress1, 1)
       expect(await labm.getWatchList()).to.contain(watchAddress1)
 
       // add address2
-      await labm.connect(owner).addToWatchList(watchAddress2, 1)
+      await labm.connect(owner).addToWatchListOrDecomission(watchAddress2, 1)
 
       // only address2 has to be in the watchlist
       const watchlist = await labm.getWatchList()
@@ -492,11 +509,13 @@ describe('LinkAvailableBalanceMonitor', () => {
 
     it('Should delete the onRamp address on a zero-address with same dstChainSelector', async () => {
       // add address1
-      await labm.connect(owner).addToWatchList(watchAddress1, 1)
+      await labm.connect(owner).addToWatchListOrDecomission(watchAddress1, 1)
       expect(await labm.getWatchList()).to.contain(watchAddress1)
 
       // simulates an onRampSet(zeroAddress, same dstChainSelector)
-      await labm.connect(owner).addToWatchList(ethers.constants.AddressZero, 1)
+      await labm
+        .connect(owner)
+        .addToWatchListOrDecomission(ethers.constants.AddressZero, 1)
 
       // address1 should be cleaned
       const watchlist = await labm.getWatchList()

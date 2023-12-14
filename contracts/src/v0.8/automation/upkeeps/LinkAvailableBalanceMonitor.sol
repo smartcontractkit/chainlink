@@ -66,8 +66,8 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AccessControl,
 
   bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
   bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
-  uint96 private constant DEFAULT_TOP_UP_AMOUNT = 9000000000000000000;
-  uint96 private constant DEFAULT_MIN_BALANCE = 1000000000000000000;
+  uint96 private constant DEFAULT_TOP_UP_AMOUNT_JULES = 9000000000000000000;
+  uint96 private constant DEFAULT_MIN_BALANCE_JULES = 1000000000000000000;
   IERC20 private immutable LINK_TOKEN;
 
   uint256 private s_minWaitPeriodSeconds;
@@ -135,12 +135,15 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AccessControl,
   /// @dev this function has to be compatible with the event onRampSet(address, dstChainSelector) emitted by
   /// the CCIP router. Important detail to know is this event is also emitted when an onRamp is decomissioned,
   /// in which case it will carry the proper dstChainSelector along with the 0x0 address
-  function addToWatchList(address targetAddress, uint64 dstChainSelector) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
+  function addToWatchListOrDecomission(
+    address targetAddress,
+    uint64 dstChainSelector
+  ) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     if (s_targets[targetAddress].isActive) revert DuplicateAddress(targetAddress);
     address oldAddress = s_onRampAddresses[dstChainSelector];
     // if targetAddress is an existing onRamp, there's a need of cleaning the previous onRamp associated to this dstChainSelector
     // there's no need to remove any other address that's not an onRamp
-    if (dstChainSelector > 0 && bytes(abi.encodePacked(oldAddress)).length > 0) {
+    if (dstChainSelector > 0 && oldAddress != address(0)) {
       removeFromWatchList(oldAddress);
     }
     // only add the new address if it's not 0x0
@@ -148,8 +151,8 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AccessControl,
       s_onRampAddresses[dstChainSelector] = targetAddress;
       s_targets[targetAddress] = MonitoredAddress({
         isActive: true,
-        minBalance: DEFAULT_MIN_BALANCE,
-        topUpAmount: DEFAULT_TOP_UP_AMOUNT,
+        minBalance: DEFAULT_MIN_BALANCE_JULES,
+        topUpAmount: DEFAULT_TOP_UP_AMOUNT_JULES,
         lastTopUpTimestamp: 0
       });
       s_watchList.push(targetAddress);
