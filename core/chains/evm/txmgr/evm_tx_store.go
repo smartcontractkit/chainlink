@@ -20,15 +20,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/null"
+
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -74,7 +75,7 @@ type TestEvmTxStore interface {
 
 type evmTxStore struct {
 	q         pg.Q
-	logger    logger.Logger
+	logger    logger.SugaredLogger
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 }
@@ -176,7 +177,7 @@ type DbEthTx struct {
 	Subject           uuid.NullUUID
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  null.Uint32
-	EVMChainID        utils.Big
+	EVMChainID        ubig.Big
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
 	TransmitChecker    *sqlutil.JSON
@@ -209,7 +210,7 @@ func (db *DbEthTx) FromTx(tx *Tx) {
 	db.CallbackCompleted = tx.CallbackCompleted
 
 	if tx.ChainID != nil {
-		db.EVMChainID = *utils.NewBig(tx.ChainID)
+		db.EVMChainID = *ubig.New(tx.ChainID)
 	}
 	if tx.Sequence != nil {
 		n := tx.Sequence.Int64()
@@ -339,7 +340,7 @@ func NewTxStore(
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
 	return &evmTxStore{
 		q:         q,
-		logger:    namedLogger,
+		logger:    logger.Sugared(namedLogger),
 		ctx:       ctx,
 		ctxCancel: cancel,
 	}
@@ -1498,7 +1499,7 @@ GROUP BY e.id
 				txHashesHex[i] = common.BytesToAddress(r.TxHashes[i])
 			}
 
-			logger.Criticalw(o.logger, fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+			o.logger.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
 				"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
 				"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
 				"an external wallet has been used to send a transaction from account %s with nonce %v."+

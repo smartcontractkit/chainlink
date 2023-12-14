@@ -14,6 +14,7 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -43,7 +44,7 @@ type FunctionsServicesConfig struct {
 	Chain             legacyevm.Chain
 	ContractID        string
 	Logger            logger.Logger
-	MailMon           *utils.MailboxMonitor
+	MailMon           *mailbox.Monitor
 	URLsMonEndpoint   commontypes.MonitoringEndpoint
 	EthKeystore       keystore.Eth
 	ThresholdKeyShare []byte

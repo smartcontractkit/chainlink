@@ -14,7 +14,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -136,7 +136,7 @@ func (s *Shell) TrackForwarder(c *cli.Context) (err error) {
 	}
 
 	request, err := json.Marshal(web.TrackEVMForwarderRequest{
-		EVMChainID: (*utils.Big)(chainID),
+		EVMChainID: (*ubig.Big)(chainID),
 		Address:    address,
 	})
 	if err != nil {

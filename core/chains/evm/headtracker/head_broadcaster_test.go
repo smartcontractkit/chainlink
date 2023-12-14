@@ -12,12 +12,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -71,7 +73,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	orm := headtracker.NewORM(db, logger, cfg.Database(), *ethClient.ConfiguredChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg.EVM(), evmCfg.EVM().HeadTracker())
-	mailMon := utils.NewMailboxMonitor(t.Name())
+	mailMon := mailbox.NewMonitor(t.Name())
 	servicetest.Run(t, mailMon)
 	hb := headtracker.NewHeadBroadcaster(logger)
 	servicetest.Run(t, hb)
@@ -83,7 +85,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	assert.Equal(t, (*evmtypes.Head)(nil), latest1)
 
 	headers := <-chchHeaders
-	h := evmtypes.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
+	h := evmtypes.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), EVMChainID: big.New(&cltest.FixtureChainID)}
 	headers <- &h
 	g.Eventually(checker1.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
@@ -94,7 +96,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	unsubscribe1()
 
-	headers <- &evmtypes.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
+	headers <- &evmtypes.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: big.New(&cltest.FixtureChainID)}
 	g.Eventually(checker2.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 }
 
