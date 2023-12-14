@@ -537,8 +537,8 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 		b := Bindings{
 			// TODO BCF-2837: clean up the hard-coded values.
 			"median": {
-				"LatestTransmissionDetails": &addrEvtBinding{addr: contractID},
-				"LatestRoundReported":       &addrEvtBinding{addr: contractID},
+				"LatestTransmissionDetails": contractID,
+				"LatestRoundReported":       contractID,
 			},
 		}
 

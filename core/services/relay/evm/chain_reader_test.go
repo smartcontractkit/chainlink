@@ -73,10 +73,10 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 	testStruct := CreateTestStruct(0, it)
 
 	it.chainConfig = types.ChainReaderConfig{
-		ChainContractReaders: map[string]types.ChainContractReader{
+		ContractReaders: map[string]types.ContractReader{
 			AnyContractName: {
 				ContractABI: testfiles.TestfilesMetaData.ABI,
-				ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
+				ReadingDefinitions: map[string]types.ReadingDefinition{
 					MethodTakingLatestParamsReturningTestStruct: {
 						ChainSpecificName: "GetElementAtIndex",
 					},
@@ -112,7 +112,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 			},
 			AnySecondContractName: {
 				ContractABI: testfiles.TestfilesMetaData.ABI,
-				ChainReaderDefinitions: map[string]types.ChainReaderDefinition{
+				ReadingDefinitions: map[string]types.ReadingDefinition{
 					MethodReturningUint64: {
 						ChainSpecificName: "GetDifferentPrimitiveValue",
 					},
@@ -150,15 +150,15 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 	it.chain.On("LogPoller").Return(lp)
 	b := evm.Bindings{
 		AnyContractName: {
-			MethodTakingLatestParamsReturningTestStruct: evm.NewAddrEvtFromAddress(addr),
-			MethodReturningUint64:                       evm.NewAddrEvtFromAddress(addr),
-			DifferentMethodReturningUint64:              evm.NewAddrEvtFromAddress(addr2),
-			MethodReturningUint64Slice:                  evm.NewAddrEvtFromAddress(addr),
-			EventName:                                   evm.NewAddrEvtFromAddress(addr),
-			MethodReturningSeenStruct:                   evm.NewAddrEvtFromAddress(addr),
+			MethodTakingLatestParamsReturningTestStruct: addr,
+			MethodReturningUint64:                       addr,
+			DifferentMethodReturningUint64:              addr2,
+			MethodReturningUint64Slice:                  addr,
+			MethodReturningSeenStruct:                   addr,
+			EventName:                                   addr,
 		},
 		AnySecondContractName: {
-			MethodReturningUint64: evm.NewAddrEvtFromAddress(addr2),
+			MethodReturningUint64: addr2,
 		},
 	}
 	cr, err := evm.NewChainReaderService(lggr, lp, b, it.chain, it.chainConfig)

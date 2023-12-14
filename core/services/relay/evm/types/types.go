@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -18,9 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+type ContractReaders map[string]ContractReader
 type ChainReaderConfig struct {
-	// ChainContractReaders key is contract name
-	ChainContractReaders map[string]ChainContractReader `json:"chainContractReaders"`
+	// ContractReaders key is contract name
+	ContractReaders `json:"contractReaders"`
 }
 
 type CodecConfig struct {
@@ -33,15 +36,92 @@ type ChainCodedConfig struct {
 	ModifierConfigs codec.ModifiersConfig
 }
 
-type ChainContractReader struct {
-	ContractABI string `json:"contractABI"`
+type ContractReader struct {
+	ContractABI       string `json:"contractABI"`
+	parsedContractABI *abi.ABI
 	// key is genericName from config
-	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions"`
+	ReadingDefinitions map[string]ReadingDefinition `json:"readingDefinitions"`
 }
 
-type ChainReaderDefinition struct {
+func (cr ContractReaders) GetReadingDefinition(contractName, readName string) (ReadingDefinition, error) {
+	contractReader, ok := cr[contractName]
+	if ok {
+		return ReadingDefinition{}, fmt.Errorf("chain reading not defined for contract %q", contractName)
+	}
+
+	readingDefinition, exists := contractReader.ReadingDefinitions[readName]
+	if !exists {
+		return ReadingDefinition{}, fmt.Errorf("chain reading not defined for:%s on contract:%s", readName, contractName)
+	}
+
+	return readingDefinition, nil
+}
+
+func (cr ContractReaders) GetContractABI(contractName string) (abi.ABI, error) {
+	contractReader, ok := cr[contractName]
+	if ok {
+		return abi.ABI{}, fmt.Errorf("chain reading not defined for contract %q", contractName)
+	}
+
+	if contractReader.parsedContractABI == nil {
+		contractABI, err := abi.JSON(strings.NewReader(contractReader.ContractABI))
+		if err != nil {
+			return abi.ABI{}, err
+		}
+		contractReader.parsedContractABI = &contractABI
+	}
+
+	return *contractReader.parsedContractABI, nil
+}
+
+func (cr ContractReaders) GetEventHash(contractName, eventName string) (common.Hash, error) {
+	contractABI, err := cr.GetContractABI(contractName)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	readingDefinition, err := cr.GetReadingDefinition(contractName, eventName)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	event, ok := contractABI.Events[readingDefinition.ChainSpecificName]
+	if !ok {
+		return common.Hash{}, fmt.Errorf("event %q hash doesn't exist in contract %q abi", eventName, contractName)
+	}
+
+	return event.ID, nil
+}
+
+func (cr ContractReaders) GetReadingDefinitionContractAddress(contractName, readName string) (common.Address, error) {
+	readingDefinition, err := cr.GetReadingDefinition(contractName, readName)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	return readingDefinition.ContractAddress, nil
+}
+
+func (cr ContractReaders) GetReadType(contractName, readName string) (ReadType, error) {
+	contractABI, err := cr.GetContractABI(contractName)
+	if err != nil {
+		return 0, err
+	}
+	_, isMethod := contractABI.Methods[readName]
+	_, isEvent := contractABI.Events[readName]
+	if !isMethod && !isEvent {
+		return 0, fmt.Errorf("contract %q doesn't have a method or an event named %q", contractName, readName)
+	}
+	if isMethod {
+		return Method, nil
+	}
+	return Event, nil
+}
+
+type ReadingDefinition struct {
 	ChainSpecificName   string `json:"chainSpecificName"` // chain specific contract method name or event type.
 	CacheEnabled        bool   `json:"cacheEnabled"`
+	ContractAddress     common.Address
 	ReadType            `json:"readType"`
 	InputModifications  codec.ModifiersConfig `json:"input_modifications"`
 	OutputModifications codec.ModifiersConfig `json:"output_modifications"`
