@@ -11,8 +11,28 @@ const (
 
 type Config struct {
 	Common            *Common            `toml:"Common"`
+	General           *General           `toml:"General"`
 	ExistingEnvConfig *ExistingEnvConfig `toml:"ExistingEnvConfig"`
 	NewEnvConfig      *NewEnvConfig      `toml:"NewEnvConfig"`
+	Performance       *PerformanceConfig `toml:"PerformanceConfig"`
+}
+
+type Common struct {
+	CancelSubsAfterTestRun bool `toml:"cancel_subs_after_test_run"`
+}
+
+type PerformanceConfig struct {
+	TestDuration          time.Duration `toml:"test_duration"`            // How long to run the test for  default:"3m"
+	RPS                   int64         `toml:"rps"`                      // How many requests per second to send default:"1"
+	RateLimitUnitDuration time.Duration `toml:"rate_limit_unit_duration"` // default:"1m"
+
+	// Using existing environment and contracts
+	UseExistingEnv     bool   `toml:"use_existing_env"`    // Whether to use an existing environment or create a new one  default:"false"
+	CoordinatorAddress string `toml:"coordinator_address"` // Coordinator address
+	ConsumerAddress    string `toml:"consumer_address"`    // Consumer address
+	LinkAddress        string `toml:"link_address"`        // Link address
+	SubID              uint64 `toml:"sub_id"`              // Subscription ID
+	KeyHash            string `toml:"key_hash"`
 }
 
 type ExistingEnvConfig struct {
@@ -40,9 +60,9 @@ type SubFunding struct {
 	SubFundsLink float64 `toml:"sub_funds_link"`
 }
 
-type Common struct {
-	CLNodeMaxGasPriceGWei          int64   `toml:"max_gas_price_gwei"`                  // Max gas price in GWei for the chainlink node default:"1000"
-	IsNativePayment                bool    `toml:"is_native_payment"`                   // Whether to use native payment or LINK token default:"false"
+type General struct {
+	CLNodeMaxGasPriceGWei int64 `toml:"max_gas_price_gwei"` // Max gas price in GWei for the chainlink node default:"1000"
+	// IsNativePayment                bool    `toml:"is_native_payment"`                   // Whether to use native payment or LINK token default:"false"
 	LinkNativeFeedResponse         int64   `toml:"link_native_feed_response"`           // Response of the LINK/ETH feed default:"1000000000000000000"
 	MinimumConfirmations           uint16  `toml:"minimum_confirmations" `              // Minimum number of confirmations for the VRF Coordinator default:"3"
 	SubscriptionFundingAmountLink  float64 `toml:"subscription_funding_amount_link"`    // Amount of LINK to fund the subscription with default:"5"
@@ -76,20 +96,6 @@ type Common struct {
 	WrapperMaxNumberOfWords                 uint8   `toml:"wrapper_max_number_of_words"`                  // default:"10"
 	WrapperConsumerFundingAmountNativeToken float64 `toml:"wrapper_consumer_funding_amount_native_token"` // default:"1"
 	WrapperConsumerFundingAmountLink        int64   `toml:"wrapper_consumer_funding_amount_link"`         // default:"10"
-
-	// LOAD/SOAK Test Config
-	TestDuration          time.Duration `toml:"test_duration"`            // How long to run the test for  default:"3m"
-	RPS                   int64         `toml:"rps"`                      // How many requests per second to send default:"1"
-	RateLimitUnitDuration time.Duration `toml:"rate_limit_unit_duration"` // default:"1m"
-	// Using existing environment and contracts
-	UseExistingEnv     bool   `toml:"use_existing_env"`    // Whether to use an existing environment or create a new one  default:"false"
-	CoordinatorAddress string `toml:"coordinator_address"` // Coordinator address
-	ConsumerAddress    string `toml:"consumer_address"`    // Consumer address
-	LinkAddress        string `toml:"link_address"`        // Link address
-	SubID              uint64 `toml:"sub_id"`              // Subscription ID
-	KeyHash            string `toml:"key_hash"`
-
-	CancelSubsAfterTestRun bool `toml:"cancel_subs_after_test_run"`
 }
 
 func (c *Config) ApplyOverrides(_ *Config) error {
@@ -98,7 +104,7 @@ func (c *Config) ApplyOverrides(_ *Config) error {
 }
 
 func (c *Config) Validate() error {
-	if c.Common.RandomnessRequestCountPerRequest <= c.Common.RandomnessRequestCountPerRequestDeviation {
+	if c.General.RandomnessRequestCountPerRequest <= c.General.RandomnessRequestCountPerRequestDeviation {
 		return errors.New(ErrDeviationShouldBeLessThanOriginal)
 	}
 

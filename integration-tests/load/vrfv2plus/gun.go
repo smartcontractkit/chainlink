@@ -41,7 +41,7 @@ func NewSingleHashGun(
 func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 
-	vrfv2PlusConfig := m.testConfig.VRFv2Plus.Common
+	vrfv2PlusConfig := m.testConfig.VRFv2Plus.General
 
 	//randomly increase/decrease randomness request count per TX
 	randomnessRequestCountPerRequest := deviateValue(vrfv2PlusConfig.RandomnessRequestCountPerRequest, vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation)

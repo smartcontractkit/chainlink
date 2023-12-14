@@ -49,7 +49,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.Common.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.General.LinkNativeFeedResponse))
 	require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
@@ -80,7 +80,7 @@ func TestVRFv2Plus(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
 	t.Run("Link Billing", func(t *testing.T) {
-		testConfig := config.VRFv2.Common
+		testConfig := config.VRFv2.General
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
@@ -124,7 +124,7 @@ func TestVRFv2Plus(t *testing.T) {
 	})
 
 	t.Run("Native Billing", func(t *testing.T) {
-		testConfig := config.VRFv2Plus.Common.Common
+		testConfig := config.VRFv2Plus.General.General
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
@@ -178,7 +178,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("Link Billing", func(t *testing.T) {
-			testConfig := config.VRFv2Plus.Common
+			testConfig := config.VRFv2Plus.General
 			var isNativeBilling = false
 
 			wrapperConsumerJuelsBalanceBeforeRequest, err := linkToken.BalanceOf(testcontext.Get(t), wrapperContracts.LoadTestConsumers[0].Address())
@@ -227,7 +227,7 @@ func TestVRFv2Plus(t *testing.T) {
 			}
 		})
 		t.Run("Native Billing", func(t *testing.T) {
-			testConfig := config.VRFv2Plus.Common
+			testConfig := config.VRFv2Plus.General
 			var isNativeBilling = true
 
 			wrapperConsumerBalanceBeforeRequestWei, err := env.EVMClient.BalanceAt(testcontext.Get(t), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()))
@@ -368,7 +368,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	})
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
-		testConfig := config.VRFv2Plus.Common
+		testConfig := config.VRFv2Plus.General
 		//underfund subs in order rand fulfillments to fail
 		testConfig.SubscriptionFundingAmountNative = float64(0.000000000000000001) //1 Wei
 		testConfig.SubscriptionFundingAmountLink = float64(0.000000000000000001)   //1 Juels
@@ -523,7 +523,7 @@ func TestVRFv2Plus(t *testing.T) {
 		)
 	})
 	t.Run("Oracle Withdraw", func(t *testing.T) {
-		testConfig := config.VRFv2Plus.Common
+		testConfig := config.VRFv2Plus.General
 		subIDsForOracleWithDraw, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
 			&config,
@@ -628,7 +628,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2Plus.Common.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2Plus.General.LinkNativeFeedResponse))
 	require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
@@ -659,7 +659,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
-		testConfig := config.VRFv2Plus.Common
+		testConfig := config.VRFv2Plus.General
 		var isNativeBilling = false
 		txKeys, _, err := env.ClCluster.Nodes[0].API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
@@ -720,7 +720,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.NoError(t, err, "error creating test env")
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2Plus.Common.LinkNativeFeedResponse))
+	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2Plus.General.LinkNativeFeedResponse))
 	require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
@@ -767,7 +767,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	_, err = vrfv2plus.VRFV2PlusUpgradedVersionRegisterProvingKey(vrfv2PlusData.VRFKey, vrfv2PlusData.PrimaryEthAddress, newCoordinator)
 	require.NoError(t, err, fmt.Errorf("%s, err: %w", vrfv2plus.ErrRegisteringProvingKey, err))
 
-	vrfv2PlusConfig := config.VRFv2Plus.Common
+	vrfv2PlusConfig := config.VRFv2Plus.General
 	err = newCoordinator.SetConfig(
 		vrfv2PlusConfig.MinimumConfirmations,
 		vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,

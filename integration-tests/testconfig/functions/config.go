@@ -196,6 +196,19 @@ func (c *Config) ApplyOverrides(from *Config) error {
 }
 
 func (c *Config) Validate() error {
-	//TODO implement me
+	if c == nil {
+		return nil
+	}
+	if c.Common != nil {
+		if err := c.Common.Validate(); err != nil {
+			return err
+		}
+	}
+	if c.Performance != nil {
+		if err := c.Performance.Validate(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

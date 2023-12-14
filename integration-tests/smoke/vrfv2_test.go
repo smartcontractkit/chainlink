@@ -44,7 +44,7 @@ func TestVRFv2Basic(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.Common.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.General.LinkNativeFeedResponse))
 	require.NoError(t, err)
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err)
@@ -85,9 +85,9 @@ func TestVRFv2Basic(t *testing.T) {
 			vrfv2Contracts.Coordinator,
 			vrfv2Data,
 			subID,
-			config.VRFv2.Common.RandomnessRequestCountPerRequest,
+			config.VRFv2.General.RandomnessRequestCountPerRequest,
 			&config,
-			config.VRFv2.Common.RandomWordsFulfilledEventTimeout,
+			config.VRFv2.General.RandomWordsFulfilledEventTimeout,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -107,7 +107,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		require.Equal(t, config.VRFv2.Common.NumberOfWords, uint32(len(status.RandomWords)))
+		require.Equal(t, config.VRFv2.General.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -136,7 +136,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.Common.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(config.VRFv2.General.LinkNativeFeedResponse))
 	require.NoError(t, err)
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err)
@@ -178,9 +178,9 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 				vrfv2Contracts.Coordinator,
 				vrfv2Data,
 				subID,
-				config.VRFv2.Common.RandomnessRequestCountPerRequest,
+				config.VRFv2.General.RandomnessRequestCountPerRequest,
 				&config,
-				config.VRFv2.Common.RandomWordsFulfilledEventTimeout,
+				config.VRFv2.General.RandomWordsFulfilledEventTimeout,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")

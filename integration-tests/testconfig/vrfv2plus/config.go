@@ -7,13 +7,19 @@ import (
 )
 
 type Config struct {
-	Common            *Common            `toml:"Common"`
-	ExistingEnvConfig *ExistingEnvConfig `toml:"ExistingEnvConfig"`
-	NewEnvConfig      *NewEnvConfig      `toml:"NewEnvConfig"`
+	Common            *Common                 `toml:"Common"`
+	General           *General                `toml:"General"`
+	ExistingEnvConfig *ExistingEnvConfig      `toml:"ExistingEnvConfig"`
+	NewEnvConfig      *NewEnvConfig           `toml:"NewEnvConfig"`
+	Performance       vrfv2.PerformanceConfig `toml:"Performance"`
 }
 
 type Common struct {
 	vrfv2.Common
+}
+
+type General struct {
+	vrfv2.General
 	SubscriptionFundingAmountNative float64 `toml:"subscription_funding_amount_native"` // Amount of LINK to fund the subscription with default:"1"
 	FulfillmentFlatFeeLinkPPM       uint32  `toml:"fulfillment_flat_fee_link_ppm"`      // Flat fee in ppm for LINK for the VRF Coordinator config default:"500"
 	FulfillmentFlatFeeNativePPM     uint32  `toml:"fulfillment_flat_fee_native_ppm"`    // Flat fee in ppm for native currency for the VRF Coordinator config default:"500"
@@ -51,7 +57,7 @@ func (c *Config) ApplyOverrides(_ *Config) error {
 }
 
 func (c *Config) Validate() error {
-	if c.Common.RandomnessRequestCountPerRequest <= c.Common.RandomnessRequestCountPerRequestDeviation {
+	if c.General.RandomnessRequestCountPerRequest <= c.General.RandomnessRequestCountPerRequestDeviation {
 		return errors.New(vrfv2.ErrDeviationShouldBeLessThanOriginal)
 	}
 

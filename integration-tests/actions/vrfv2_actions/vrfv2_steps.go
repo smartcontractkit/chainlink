@@ -200,7 +200,7 @@ func SetupVRFV2Environment(
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrDeployVRFV2Contracts, err)
 	}
-	vrfv2Config := testConfig.VRFv2.Common
+	vrfv2Config := testConfig.VRFv2.General
 	vrfCoordinatorV2FeeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 		FulfillmentFlatFeeLinkPPMTier1: vrfv2Config.FulfillmentFlatFeeLinkPPMTier1,
 		FulfillmentFlatFeeLinkPPMTier2: vrfv2Config.FulfillmentFlatFeeLinkPPMTier2,
@@ -447,7 +447,7 @@ func FundSubscriptions(
 ) error {
 	for _, subID := range subIDs {
 		//Link Billing
-		amountJuels := conversions.EtherToWei(big.NewFloat(testConfig.VRFv2.Common.SubscriptionFundingAmountLink))
+		amountJuels := conversions.EtherToWei(big.NewFloat(testConfig.VRFv2.General.SubscriptionFundingAmountLink))
 		err := FundVRFCoordinatorV2Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
@@ -470,7 +470,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error) {
-	vrfv2Config := config.VRFv2.Common
+	vrfv2Config := config.VRFv2.General
 	logRandRequest(consumer.Address(), coordinator.Address(), subID, config, l)
 	_, err := consumer.RequestRandomness(
 		vrfv2Data.KeyHash,
@@ -619,7 +619,7 @@ func logRandRequest(
 	config *tc.TestConfig,
 	l zerolog.Logger,
 ) {
-	vrfv2Config := config.VRFv2.Common
+	vrfv2Config := config.VRFv2.General
 	l.Debug().
 		Str("Consumer", consumer).
 		Str("Coordinator", coordinator).

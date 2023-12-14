@@ -221,7 +221,7 @@ func SetupVRFV2_5Environment(
 	}
 
 	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Setting Coordinator Config")
-	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
+	vrfv2PlusConfig := testConfig.VRFv2Plus.General
 	err = vrfv2_5Contracts.Coordinator.SetConfig(
 		vrfv2PlusConfig.MinimumConfirmations,
 		vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
@@ -464,7 +464,7 @@ func FundSubscriptions(
 	coordinator contracts.VRFCoordinatorV2_5,
 	subIDs []*big.Int,
 ) error {
-	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
+	vrfv2PlusConfig := testConfig.VRFv2Plus.General
 	for _, subID := range subIDs {
 		//Native Billing
 		amountWei := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountNative))
@@ -524,7 +524,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
-	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
+	vrfv2PlusConfig := testConfig.VRFv2Plus.General
 	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, testConfig, l)
 	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
@@ -559,7 +559,7 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 	testConfig *tc.TestConfig,
 	l zerolog.Logger,
 ) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled, error) {
-	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
+	vrfv2PlusConfig := testConfig.VRFv2Plus.General
 	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, testConfig, l)
 	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
@@ -608,7 +608,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 	keyHash [32]byte,
 	wrapperConsumerContractsAmount int,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
-	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
+	vrfv2PlusConfig := testConfig.VRFv2Plus.General
 	wrapperContracts, err := DeployVRFV2PlusDirectFundingContracts(
 		env.ContractDeployer,
 		env.EVMClient,
@@ -738,7 +738,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
-	vrfv2PlusConfig := testConfig.VRFv2Plus.Common
+	vrfv2PlusConfig := testConfig.VRFv2Plus.General
 	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, testConfig, l)
 	if isNativeBilling {
 		_, err := consumer.RequestRandomnessNative(
@@ -1037,7 +1037,7 @@ func logRandRequest(
 	isNativeBilling bool,
 	config *tc.TestConfig,
 	l zerolog.Logger) {
-	vrfv2PlusConfig := config.VRFv2Plus.Common
+	vrfv2PlusConfig := config.VRFv2Plus.General
 	l.Debug().
 		Str("Consumer", consumer).
 		Str("Coordinator", coordinator).

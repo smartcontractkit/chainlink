@@ -50,7 +50,7 @@ func TestVRFV2Performance(t *testing.T) {
 	require.NoError(t, err)
 
 	testReporter := &testreporters.VRFV2TestReporter{}
-	vrfv2Config := testConfig.VRFv2.Common
+	vrfv2Config := testConfig.VRFv2
 
 	//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 	// vrfv2Config.MinimumConfirmations = cfg.Common.MinimumConfirmations
@@ -66,26 +66,26 @@ func TestVRFV2Performance(t *testing.T) {
 
 	l.Info().
 		Str("Test Type", string(testType)).
-		Str("Test Duration", vrfv2Config.TestDuration.Truncate(time.Second).String()).
-		Int64("RPS", vrfv2Config.RPS).
-		Str("RateLimitUnitDuration", vrfv2Config.RateLimitUnitDuration.String()).
-		Uint16("RandomnessRequestCountPerRequest", vrfv2Config.RandomnessRequestCountPerRequest).
-		Uint16("RandomnessRequestCountPerRequestDeviation", vrfv2Config.RandomnessRequestCountPerRequestDeviation).
-		Bool("UseExistingEnv", vrfv2Config.UseExistingEnv).
+		Str("Test Duration", vrfv2Config.Performance.TestDuration.Truncate(time.Second).String()).
+		Int64("RPS", vrfv2Config.Performance.RPS).
+		Str("RateLimitUnitDuration", vrfv2Config.Performance.RateLimitUnitDuration.String()).
+		Uint16("RandomnessRequestCountPerRequest", vrfv2Config.General.RandomnessRequestCountPerRequest).
+		Uint16("RandomnessRequestCountPerRequestDeviation", vrfv2Config.General.RandomnessRequestCountPerRequestDeviation).
+		Bool("UseExistingEnv", vrfv2Config.Performance.UseExistingEnv).
 		Msg("Performance Test Configuration")
 
-	if vrfv2Config.UseExistingEnv {
+	if vrfv2Config.Performance.UseExistingEnv {
 		//TODO this messes up everything... we need better handling of existing env, or at least some interface
 		//current TOML implementation is not good enough and won't help with that
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		cfg := testConfig.VRFv2
 
-		vrfv2Config.CoordinatorAddress = cfg.ExistingEnvConfig.CoordinatorAddress
-		vrfv2Config.ConsumerAddress = cfg.ExistingEnvConfig.ConsumerAddress
-		vrfv2Config.LinkAddress = cfg.ExistingEnvConfig.LinkAddress
-		vrfv2Config.SubscriptionFundingAmountLink = cfg.ExistingEnvConfig.SubFunding.SubFundsLink
-		vrfv2Config.SubID = cfg.ExistingEnvConfig.SubID
-		vrfv2Config.KeyHash = cfg.ExistingEnvConfig.KeyHash
+		vrfv2Config.Performance.CoordinatorAddress = cfg.ExistingEnvConfig.CoordinatorAddress
+		vrfv2Config.Performance.ConsumerAddress = cfg.ExistingEnvConfig.ConsumerAddress
+		vrfv2Config.Performance.LinkAddress = cfg.ExistingEnvConfig.LinkAddress
+		vrfv2Config.General.SubscriptionFundingAmountLink = cfg.ExistingEnvConfig.SubFunding.SubFundsLink
+		vrfv2Config.Performance.SubID = cfg.ExistingEnvConfig.SubID
+		vrfv2Config.Performance.KeyHash = cfg.ExistingEnvConfig.KeyHash
 
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
@@ -97,7 +97,7 @@ func TestVRFV2Performance(t *testing.T) {
 							Str("Network Name", env.EVMClient.GetNetworkName()).
 							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 					} else {
-						if testConfig.VRFv2.Common.CancelSubsAfterTestRun {
+						if vrfv2Config.Common.CancelSubsAfterTestRun {
 							//cancel subs and return funds to sub owner
 							cancelSubsAndReturnFunds(subIDs, l)
 						}
@@ -107,12 +107,12 @@ func TestVRFV2Performance(t *testing.T) {
 
 		require.NoError(t, err, "error creating test env")
 
-		coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2(vrfv2Config.CoordinatorAddress)
+		coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2(vrfv2Config.Performance.CoordinatorAddress)
 		require.NoError(t, err)
 
 		var consumers []contracts.VRFv2LoadTestConsumer
 		if cfg.ExistingEnvConfig.CreateFundSubsAndAddConsumers {
-			linkToken, err := env.ContractLoader.LoadLINKToken(vrfv2Config.LinkAddress)
+			linkToken, err := env.ContractLoader.LoadLINKToken(vrfv2Config.Performance.LinkAddress)
 			require.NoError(t, err)
 			consumers, err = vrfv2_actions.DeployVRFV2Consumers(env.ContractDeployer, coordinator, 1)
 			require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestVRFV2Performance(t *testing.T) {
 			require.NoError(t, err, vrfv2_actions.ErrWaitTXsComplete)
 			l.Info().
 				Str("Coordinator", cfg.ExistingEnvConfig.CoordinatorAddress).
-				Int("Number of Subs to create", vrfv2Config.NumberOfSubToCreate).
+				Int("Number of Subs to create", vrfv2Config.General.NumberOfSubToCreate).
 				Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 			subIDs, err = vrfv2_actions.CreateFundSubsAndAddConsumers(
 				env,
@@ -128,14 +128,14 @@ func TestVRFV2Performance(t *testing.T) {
 				linkToken,
 				coordinator,
 				consumers,
-				vrfv2Config.NumberOfSubToCreate,
+				vrfv2Config.General.NumberOfSubToCreate,
 			)
 			require.NoError(t, err)
 		} else {
-			consumer, err := env.ContractLoader.LoadVRFv2LoadTestConsumer(vrfv2Config.ConsumerAddress)
+			consumer, err := env.ContractLoader.LoadVRFv2LoadTestConsumer(vrfv2Config.Performance.ConsumerAddress)
 			require.NoError(t, err)
 			consumers = append(consumers, consumer)
-			subIDs = append(subIDs, vrfv2Config.SubID)
+			subIDs = append(subIDs, vrfv2Config.Performance.SubID)
 		}
 
 		err = FundNodesIfNeeded(&testConfig, env.EVMClient, l)
@@ -151,7 +151,7 @@ func TestVRFV2Performance(t *testing.T) {
 			VRFV2KeyData: vrfv2_actions.VRFV2KeyData{
 				VRFKey:            nil,
 				EncodedProvingKey: [2]*big.Int{},
-				KeyHash:           common.HexToHash(vrfv2Config.KeyHash),
+				KeyHash:           common.HexToHash(vrfv2Config.Performance.KeyHash),
 			},
 			VRFJob:            nil,
 			PrimaryEthAddress: "",
@@ -161,7 +161,7 @@ func TestVRFV2Performance(t *testing.T) {
 	} else {
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		testConfig.Common.ChainlinkNodeFunding = &testConfig.VRFv2.NewEnvConfig.NodeSendingKeyFunding
-		vrfv2Config.SubscriptionFundingAmountLink = testConfig.VRFv2.NewEnvConfig.Funding.SubFundsLink
+		vrfv2Config.General.SubscriptionFundingAmountLink = testConfig.VRFv2.NewEnvConfig.Funding.SubFundsLink
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithGeth().
@@ -192,7 +192,7 @@ func TestVRFV2Performance(t *testing.T) {
 
 		env.ParallelTransactions(true)
 
-		mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(vrfv2Config.LinkNativeFeedResponse))
+		mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(vrfv2Config.General.LinkNativeFeedResponse))
 		require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 		linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
@@ -207,7 +207,7 @@ func TestVRFV2Performance(t *testing.T) {
 			env.EVMClient.GetDefaultWallet().Address(),
 			0,
 			1,
-			vrfv2Config.NumberOfSubToCreate,
+			vrfv2Config.General.NumberOfSubToCreate,
 			l,
 		)
 		require.NoError(t, err, "error setting up VRF v2 env")
@@ -225,7 +225,7 @@ func TestVRFV2Performance(t *testing.T) {
 		T:                     t,
 		LoadType:              wasp.RPS,
 		GenName:               "gun",
-		RateLimitUnitDuration: vrfv2Config.RateLimitUnitDuration,
+		RateLimitUnitDuration: vrfv2Config.Performance.RateLimitUnitDuration,
 		Gun: NewSingleHashGun(
 			vrfv2Contracts,
 			vrfv2Data.KeyHash,
@@ -247,8 +247,8 @@ func TestVRFV2Performance(t *testing.T) {
 	t.Run("vrfv2 performance test", func(t *testing.T) {
 
 		singleFeedConfig.Schedule = wasp.Plain(
-			vrfv2Config.RPS,
-			vrfv2Config.TestDuration,
+			vrfv2Config.Performance.RPS,
+			vrfv2Config.Performance.TestDuration,
 		)
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(singleFeedConfig)).

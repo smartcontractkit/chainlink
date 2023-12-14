@@ -54,7 +54,7 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 		headerText = fmt.Sprintf(":x: VRF V2 Plus %s Test FAILED :x:", o.TestType)
 	}
 
-	vrfv2lusConfig := o.testConfig.VRFv2Plus.Common
+	vrfv2lusConfig := o.testConfig.VRFv2Plus.Performance
 	messageBlocks := testreporters.SlackNotifyBlocks(headerText, strings.Join(testConfig.Network.SelectedNetworks, ","), []string{
 		fmt.Sprintf(
 			"Summary\n"+
@@ -80,8 +80,8 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 			o.FastestFulfillment.String(),
 			vrfv2lusConfig.RPS,
 			vrfv2lusConfig.RateLimitUnitDuration.String(),
-			vrfv2lusConfig.RandomnessRequestCountPerRequest,
-			vrfv2lusConfig.RandomnessRequestCountPerRequestDeviation,
+			o.testConfig.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			o.testConfig.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
 		),
 	})
 
