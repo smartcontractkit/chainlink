@@ -1088,9 +1088,8 @@ func main() {
 				return true
 			} else if strings.Contains(err.Error(), "execution reverted") {
 				return false
-			} else {
-				panic(err)
 			}
+			panic(err)
 		}
 
 		result := helpers.BinarySearch(assets.Ether(int64(*start*2)).ToInt(), big.NewInt(0), isWithdrawable)
