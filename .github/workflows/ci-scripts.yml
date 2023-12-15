@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  golangci:
+  lint-scripts:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
@@ -13,14 +13,14 @@ jobs:
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         with:
-          name: scripts-lint
+          name: lint-scripts
           go-directory: core/scripts
           go-version-file: core/scripts/go.mod
           go-module-file: core/scripts/go.sum
           gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
 
-  test:
+  test-scripts:
     if: ${{ github.event_name == 'pull_request' }}
     name: scripts-test
     runs-on: ubuntu-latest
@@ -42,5 +42,5 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: scripts-test
+          this-job-name: test-scripts
         continue-on-error: true
