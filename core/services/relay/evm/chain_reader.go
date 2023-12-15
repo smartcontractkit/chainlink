@@ -82,10 +82,10 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 }
 
 func (cr *chainReader) getLatestValueFromLogPoller(ctx context.Context, contractName, method string, hash common.Hash, returnVal any) error {
-	cr.lggr.Infof("!!!!!!!!!!\nEVM latest from log poller\n!!!!!!!!!!\n")
+	cr.lggr.Infof("!!!!!!!!!!\nlp: EVM latest from log poller\n!!!!!!!!!!\n")
 	ae, err := cr.bindings.getBinding(contractName, method, false)
 	if err != nil {
-		cr.lggr.Errorf("!!!!!!!!!!\nEVM no binding err:\n%v\n!!!!!!!!!!\n", err)
+		cr.lggr.Errorf("!!!!!!!!!!\nlp: EVM no binding err:\n%v\n!!!!!!!!!!\n", err)
 		return err
 	}
 
@@ -93,17 +93,17 @@ func (cr *chainReader) getLatestValueFromLogPoller(ctx context.Context, contract
 	if err != nil {
 		errStr := err.Error()
 		if strings.Contains(errStr, "not found") || strings.Contains(errStr, "no rows") {
-			cr.lggr.Infof("!!!!!!!!!!\nReturning no error when nothing is found\n!!!!!!!!!!\n")
+			cr.lggr.Infof("!!!!!!!!!!\nlp: Returning no error when nothing is found\n!!!!!!!!!!\n")
 			return nil
 		}
-		cr.lggr.Errorf("!!!!!!!!!!\nNo sig err:\n%v\n!!!!!!!!!!\n", err)
+		cr.lggr.Errorf("!!!!!!!!!!\nlp: No sig err:\n%v\n!!!!!!!!!!\n", err)
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 	err = cr.codec.Decode(ctx, log.Data, returnVal, wrapItemType(contractName, method, false))
 	if err != nil {
-		cr.lggr.Errorf("!!!!!!!!!!\nEVM decode err:\n%v\n!!!!!!!!!!\n", err)
+		cr.lggr.Errorf("!!!!!!!!!!\nlp: EVM decode err:\n%v\n!!!!!!!!!!\n", err)
 	} else {
-		cr.lggr.Infof("!!!!!!!!!!\nEVM decode success\n%#v\n!!!!!!!!!!\n", returnVal)
+		cr.lggr.Infof("!!!!!!!!!!\nlp: EVM decode success\n%#v\n!!!!!!!!!!\n", returnVal)
 	}
 	return err
 }

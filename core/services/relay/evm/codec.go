@@ -37,7 +37,7 @@ func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 	for k, v := range conf.ChainCodecConfigs {
 		args := abi.Arguments{}
 		if err := json.Unmarshal(([]byte)(v.TypeAbi), &args); err != nil {
-			fmt.Printf("!!!!!!!!!!\nNewCodec json abi/n%s/n err\n%#v\n!!!!!!!!!!\n%", v.TypeAbi, err)
+			fmt.Printf("!!!!!!!!!!\nNewCodec json abi/n%s/n err\n%#v\n!!!!!!!!!!\n", v.TypeAbi, err)
 			return nil, err
 		}
 
