@@ -964,8 +964,8 @@ github.com/nats-io/nkeys v0.1.0/go.mod h1:xpnFELMwJABBLVhffcfd1MZx6VsNRFpEugbxzi
 github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OSON2c=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nkovacs/streamquote v0.0.0-20170412213628-49af9bddb229/go.mod h1:0aYXnNPJ8l7uZxf45rWW1a/uME32OF0rhiYGNQ2oF2E=
-github.com/nolag/libocr v0.0.0-20231215195532-be85812d7643 h1:pnmSs3bGdaOsHtzpictMoyMESU80JavH+ZfaCyS72Gw=
-github.com/nolag/libocr v0.0.0-20231215195532-be85812d7643/go.mod h1:WcuWFMskcGK0MYZuH5hEhGJOzdJRUFeNEM4PAKlejI4=
+github.com/nolag/libocr v0.0.0-20231215213449-cd7653352251 h1:JdQiA2h8BQDyOHJVA7EhQjZVlkJaww36hV+X+iWyUjs=
+github.com/nolag/libocr v0.0.0-20231215213449-cd7653352251/go.mod h1:WcuWFMskcGK0MYZuH5hEhGJOzdJRUFeNEM4PAKlejI4=
 github.com/nolag/mapstructure v1.5.1 h1:jEMB2AM8NXEosSMTPXlbycOpBsqttEBh5owT0gJs9/I=
 github.com/nolag/mapstructure v1.5.1/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/nsf/jsondiff v0.0.0-20210926074059-1e845ec5d249 h1:NHrXEjTNQY7P0Zfx1aMrNhpgxHmow66XQtm0aQLY0AE=

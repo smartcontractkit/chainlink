@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 
@@ -597,22 +596,4 @@ func (p *medianProvider) ChainReader() commontypes.ChainReader {
 
 func (p *medianProvider) Codec() commontypes.Codec {
 	return p.codec
-}
-
-type loggingCodec struct {
-	c median.ReportCodec
-	l logger.Logger
-}
-
-func (l loggingCodec) BuildReport(observations []median.ParsedAttributedObservation) (ocrtypes.Report, error) {
-	panic("implement me BR")
-}
-
-func (l loggingCodec) MedianFromReport(report ocrtypes.Report) (*big.Int, error) {
-	//TODO implement me
-	panic("implement me MFR")
-}
-
-func (l loggingCodec) MaxReportLength(n int) (int, error) {
-	panic("implement me MRL")
 }

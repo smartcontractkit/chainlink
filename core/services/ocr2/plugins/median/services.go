@@ -148,8 +148,7 @@ func NewMedianServices(ctx context.Context,
 	medianPluginCmd := env.MedianPluginCmd.Get()
 	medianLoopEnabled := medianPluginCmd != ""
 
-	// TODO BCF-2821 handle this properly as this blocks Solana chain reader dev
-	if !medianLoopEnabled && medianProvider.ChainReader() != nil {
+	if medianProvider.ChainReader() != nil {
 		lggr.Info("Chain Reader enabled")
 		medianProvider = medianProviderWrapper{
 			medianProvider, // attach newer MedianContract which uses ChainReader

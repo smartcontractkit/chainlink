@@ -23,7 +23,6 @@ import (
 )
 
 func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
-
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
