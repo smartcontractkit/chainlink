@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 
@@ -23,11 +23,16 @@ import (
 )
 
 func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
+
+	t.Parallel()
 	l := logging.GetTestLogger(t)
+
+	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
-		WithGeth().
+		WithPrivateEthereumNetwork(network).
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
@@ -42,6 +47,7 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 		WithStandardCleanup().
 		WithLogStream().
 		Build()
+	require.NoError(t, err)
 	fmt.Println("Done starting")
 
 	env.ParallelTransactions(true)
@@ -74,7 +80,6 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 	fmt.Println("Jobs done")
 
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
-	require.NoError(t, err)
 	require.NoError(t, err, "Error building OCRv2 config")
 	fmt.Println("built local")
 
@@ -87,7 +92,7 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 	require.NoError(t, err, "Error starting new OCR2 round")
 	fmt.Println("round done")
 
-	roundData, err := aggregatorContracts[0].GetRound(tests.Context(t), big.NewInt(1))
+	roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	fmt.Println("get latest")
 
@@ -105,7 +110,7 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Println("new round 2")
 
-	roundData, err = aggregatorContracts[0].GetRound(tests.Context(t), big.NewInt(2))
+	roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(2))
 	require.NoError(t, err, "Error getting latest OCR answer")
 	fmt.Println("got answer 2")
 
@@ -113,6 +118,7 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 		"Expected latest answer from OCR contract to be 10 but got %d",
 		roundData.Answer.Int64(),
 	)
+
 	fmt.Println("values equal")
 	require.Fail(t, "Capture logs")
 }
