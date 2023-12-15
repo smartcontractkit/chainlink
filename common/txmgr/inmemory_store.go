@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -464,7 +464,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBr
 		}
 	}
 	for _, as := range ms.addressStates {
-		as.applyToUnconfirmed(fn)
+		as.applyToTxs([]txmgrtypes.TxState{txmgr.TxUnconfirmed}, fn)
 	}
 
 	return nil
@@ -476,23 +476,35 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrInvalidChainID)
 	}
 
+	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if tx.TxAttempts != nil && len(tx.TxAttempts) > 0 {
+			if tx.ChainID.String() != chainID.String() {
+				return false
+			}
+			return true
+		}
+
+		return false
+	}
+	states := []txmgrtypes.TxState{TxConfirmedMissingReceipt}
 	attempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, as := range ms.addressStates {
-		attempts = append(attempts, as.txAttemptsWIthConfirmedMissingReceiptTx()...)
+		attempts = append(attempts, as.fetchTxAttempts(states, filter)...)
 	}
 	// sort by tx_id ASC, gas_price DESC, gas_tip_cap DESC
-	sort.SliceStable(attempts, func(i, j int) bool {
-		/*
-			// TODO: THIS IS CURRENTLY TIED TO ETHEREUM WE MIGHT WANT TO MAKE METHODS ON FEE FOR PRICE AND TIP CAP
-				if attempts[i].TxID == attempts[j].TxID {
-					if attempts[i].TxFee.GasPrice == attempts[j].TxFee.GasPrice {
-						return attempts[i].TxFee.GasTipCap > attempts[j].TxFee.GasTipCap
+	// TODO
+	/*
+		sort.SliceStable(attempts, func(i, j int) bool {
+				// TODO: THIS IS CURRENTLY TIED TO ETHEREUM WE MIGHT WANT TO MAKE METHODS ON FEE FOR PRICE AND TIP CAP
+					if attempts[i].TxID == attempts[j].TxID {
+						if attempts[i].TxFee.GasPrice == attempts[j].TxFee.GasPrice {
+							return attempts[i].TxFee.GasTipCap > attempts[j].TxFee.GasTipCap
+						}
+						return attempts[i].TxFee.GasPrice > attempts[j].TxFee.GasPrice
 					}
-					return attempts[i].TxFee.GasPrice > attempts[j].TxFee.GasPrice
-				}
-		*/
-		return attempts[i].TxID < attempts[j].TxID
-	})
+			return attempts[i].TxID < attempts[j].TxID
+		})
+	*/
 
 	return attempts, nil
 }
@@ -512,7 +524,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	}
 
 	for _, as := range ms.addressStates {
-		as.applyToUnconfirmed(fn, txIDs...)
+		as.applyToTxs(txmgr.TxUnconfirmed, fn, txIDs...)
 	}
 
 	return nil
@@ -531,7 +543,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	}
 
 	for _, as := range ms.addressStates {
-		as.applyToAll(fn, txIDs...)
+		as.applyToTxs(nil, fn, txIDs...)
 	}
 
 	return nil
@@ -543,19 +555,23 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return attempts, fmt.Errorf("find_tx_attempts_requiring_receipt_fetch: %w", ErrInvalidChainID)
 	}
 
-	states := []txmgrtypes.TxState{TxConfirmed, TxConfirmedMissingReceipt}
 	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		if tx.TxAttempts != nil && len(tx.TxAttempts) > 0 {
 			attempt := tx.TxAttempts[0]
-			return attempt.State == txmgrtypes.TxAttemptInsufficientFunds
+			return attempt.State != txmgrtypes.TxAttemptInsufficientFunds
 		}
 
 		return false
 	}
+	states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
 	attempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, as := range ms.addressStates {
 		attempts = append(as.fetchTxAttempts(states, filterFn), attempts...)
 	}
+	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
+	// TODO
+
+	return attempts, nil
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) (receiptsPlus []txmgrtypes.ReceiptPlus[R], err error) {

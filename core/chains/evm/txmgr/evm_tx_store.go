@@ -62,7 +62,7 @@ type TxStoreWebApi interface {
 	FindTxWithAttempts(etxID int64) (etx Tx, err error)
 }
 
-// TxStoreInMemory encapsulates the methods that are not used by the txmgr and only used by the in memory tx store.
+// TxStoreInMemory encapsulates the methods that are used by the txmgr to initialize the in memory tx store.
 type TxStoreInMemory interface {
 	UnstartedTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error)
 	UnconfirmedTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error)

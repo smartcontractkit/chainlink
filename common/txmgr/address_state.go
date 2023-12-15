@@ -234,32 +234,38 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findLa
 	return maxSeq
 }
 
-// TODO(jtw): THIS MIGHT BE ABLE TO BE MERGED WITH OTHER FILTER AND APPLY FUNCTIONS
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToAll(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToTxs(
+	txStates []txmgrtypes.TxState,
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
 	txIDs ...int64,
 ) {
 	as.Lock()
 	defer as.Unlock()
 
-	// if txIDs is not empty then only apply the filter to those transactions
-	if len(txIDs) > 0 {
-		for _, txID := range txIDs {
-			tx := as.allTransactions[txID]
-			if tx != nil {
-				fn(tx)
-			}
-		}
+	// if txStates is empty then apply the filter to only the as.allTransactions map
+	if txStates == nil || len(txStates) == 0 {
+		as.applyToStorage(as.allTransactions, fn, txIDs...)
 		return
 	}
 
-	// if txIDs is empty then apply the filter to all transactions
-	for _, tx := range as.allTransactions {
-		fn(tx)
+	for _, txState := range txStates {
+		switch txState {
+		case TxInProgress:
+			if as.inprogress != nil {
+				fn(as.inprogress)
+			}
+		case TxUnconfirmed:
+			as.applyToStorage(as.unconfirmed, fn, txIDs...)
+		case TxConfirmedMissingReceipt:
+			as.applyToStorage(as.confirmedMissingReceipt, fn, txIDs...)
+		case TxConfirmed:
+			as.applyToStorage(as.confirmed, fn, txIDs...)
+		}
 	}
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToUnconfirmed(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToStorage(
+	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
 	txIDs ...int64,
 ) {
@@ -269,7 +275,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyT
 	// if txIDs is not empty then only apply the filter to those transactions
 	if len(txIDs) > 0 {
 		for _, txID := range txIDs {
-			tx := as.unconfirmed[txID]
+			tx := txIDsToTx[txID]
 			if tx != nil {
 				fn(tx)
 			}
@@ -278,7 +284,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyT
 	}
 
 	// if txIDs is empty then apply the filter to all transactions
-	for _, tx := range as.unconfirmed {
+	for _, tx := range txIDsToTx {
 		fn(tx)
 	}
 }
@@ -290,7 +296,59 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchT
 ) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	as.RLock()
 	defer as.RUnlock()
-	// TODO: this is a naive implementation
+
+	// if txStates is empty then apply the filter to only the as.allTransactions map
+	if txStates == nil || len(txStates) == 0 {
+		return as.fetchTxAttemptsFromStorage(as.allTransactions, filter, txIDs...)
+	}
+
+	var txAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, txState := range txStates {
+		switch txState {
+		case TxInProgress:
+			if as.inprogress != nil && filter(as.inprogress) {
+				txAttempts = append(txAttempts, as.inprogress.TxAttempts...)
+			}
+		case TxUnconfirmed:
+			txAttempts = append(txAttempts, as.fetchTxAttemptsFromStorage(as.unconfirmed, filter, txIDs...)...)
+		case TxConfirmedMissingReceipt:
+			txAttempts = append(txAttempts, as.fetchTxAttemptsFromStorage(as.confirmedMissingReceipt, filter, txIDs...)...)
+		case TxConfirmed:
+			txAttempts = append(txAttempts, as.fetchTxAttemptsFromStorage(as.confirmed, filter, txIDs...)...)
+		}
+	}
+
+	return txAttempts
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchTxAttemptsFromStorage(
+	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
+	txIDs ...int64,
+) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.RLock()
+	defer as.RUnlock()
+
+	var txAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	// if txIDs is not empty then only apply the filter to those transactions
+	if len(txIDs) > 0 {
+		for _, txID := range txIDs {
+			tx := txIDsToTx[txID]
+			if tx != nil && filter(tx) {
+				txAttempts = append(txAttempts, tx.TxAttempts...)
+			}
+		}
+		return txAttempts
+	}
+
+	// if txIDs is empty then apply the filter to all transactions
+	for _, tx := range txIDsToTx {
+		if filter(tx) {
+			txAttempts = append(txAttempts, tx.TxAttempts...)
+		}
+	}
+
+	return txAttempts
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
