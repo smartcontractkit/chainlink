@@ -94,7 +94,6 @@ func NewEvmRegistry(
 		AllowListCache:   cache.New(defaultAllowListExpiration, cleanupInterval),
 		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
 	}
-
 	hc := http.DefaultClient
 
 	return &EvmRegistry{
@@ -115,7 +114,7 @@ func NewEvmRegistry(
 		logEventProvider: logEventProvider,
 		bs:               blockSub,
 		finalityDepth:    finalityDepth,
-		streams:          streams.NewStreamsLookup(packer, mercuryConfig, blockSub, client.Client(), registry, lggr),
+		streams:          streams.NewStreamsLookup(mercuryConfig, blockSub, client.Client(), registry, lggr),
 	}
 }
 

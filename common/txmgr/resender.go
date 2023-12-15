@@ -53,7 +53,7 @@ type Resender[
 	interval            time.Duration
 	config              txmgrtypes.ResenderChainConfig
 	txConfig            txmgrtypes.ResenderTransactionsConfig
-	logger              logger.Logger
+	logger              logger.SugaredLogger
 	lastAlertTimestamps map[string]time.Time
 
 	ctx    context.Context
@@ -93,7 +93,7 @@ func NewResender[
 		pollInterval,
 		config,
 		txConfig,
-		logger.Named(lggr, "Resender"),
+		logger.Sugared(logger.Named(lggr, "Resender")),
 		make(map[string]time.Time),
 		ctx,
 		cancel,
