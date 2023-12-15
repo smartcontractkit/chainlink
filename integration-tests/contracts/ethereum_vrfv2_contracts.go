@@ -300,6 +300,26 @@ func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsRequestedEvent(keyHash [][3
 	}
 }
 
+func (v *EthereumVRFCoordinatorV2) WaitForSubscriptionCanceledEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
+	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled)
+	subscription, err := v.coordinator.WatchSubscriptionCanceled(nil, eventsChannel, subID)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for SubscriptionCanceled event")
+		case sub := <-eventsChannel:
+			return sub, nil
+		}
+	}
+}
+
 // GetAllRandomWords get all VRFv2 randomness output words
 func (v *EthereumVRFConsumerV2) GetAllRandomWords(ctx context.Context, num int) ([]*big.Int, error) {
 	words := make([]*big.Int, 0)
