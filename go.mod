@@ -324,8 +324,11 @@ replace (
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/smartcontractkit/go-plugin v0.0.0-20231003134350-e49dad63b306
 
+	// until merged upstream: https://github.com/mitchellh/mapstructure/pull/343
+	github.com/mitchellh/mapstructure v1.5.0 => github.com/nolag/mapstructure v1.5.1
+
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 )
 
-replace github.com/smartcontractkit/libocr v0.0.0-20231130143053-c5102a9c0fb7 => github.com/nolag/libocr v0.0.0-20231215172642-9e4481dcc6cf
+replace github.com/smartcontractkit/libocr v0.0.0-20231130143053-c5102a9c0fb7 => github.com/nolag/libocr v0.0.0-20231215172525-7f3fc7b2c4d1
