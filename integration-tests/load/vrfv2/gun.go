@@ -38,7 +38,7 @@ func NewSingleHashGun(
 }
 
 // Call implements example gun call, assertions on response bodies should be done here
-func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
+func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 
 	//randomly increase/decrease randomness request count per TX
@@ -56,9 +56,9 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
 		m.logger,
 	)
 	if err != nil {
-		return &wasp.CallResult{Error: err.Error(), Failed: true}
+		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
-	return &wasp.CallResult{}
+	return &wasp.Response{}
 }
 
 func deviateValue(requestCountPerTX uint16, deviation uint16) uint16 {
