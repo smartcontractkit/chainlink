@@ -695,7 +695,6 @@ describe('LinkAvailableBalanceMonitor', () => {
       await labm.connect(owner).pause()
       const performTx = labm.connect(keeperRegistry).performUpkeep(validPayload)
       await expect(performTx).to.be.revertedWith(PAUSED_ERR)
-      console.log(performTx)
     })
 
     it('Should fund the appropriate addresses', async () => {

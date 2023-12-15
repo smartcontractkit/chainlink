@@ -4,7 +4,6 @@ pragma solidity 0.8.19;
 
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
 import {AccessControl} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/access/AccessControl.sol";
-import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
 
@@ -34,7 +33,7 @@ interface ILinkAvailable {
 ///  this is a "trusless" upkeep, meaning it does not trust the caller of performUpkeep;
 /// we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
 /// which has significantly different trust assumptions
-contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AccessControl, AutomationCompatibleInterface {
+contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInterface, Pausable {
   event BalanceUpdated(address indexed addr, uint256 oldBalance, uint256 newBalance);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event UpkeepIntervalSet(uint256 oldUpkeepInterval, uint256 newUpkeepInterval);
@@ -68,7 +67,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AccessControl,
   bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
   uint96 private constant DEFAULT_TOP_UP_AMOUNT_JULES = 9000000000000000000;
   uint96 private constant DEFAULT_MIN_BALANCE_JULES = 1000000000000000000;
-  IERC20 private immutable LINK_TOKEN;
+  IERC20 private immutable i_linkToken;
 
   uint256 private s_minWaitPeriodSeconds;
   uint16 private s_maxPerform;
@@ -86,12 +85,13 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AccessControl,
     uint16 maxPerform,
     uint16 maxCheck,
     uint8 upkeepInterval
-  ) ConfirmedOwner(msg.sender) {
+  ) {
     if (linkTokenAddress == address(0)) revert InvalidLinkTokenAddress(linkTokenAddress);
     _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
     _setRoleAdmin(EXECUTOR_ROLE, ADMIN_ROLE);
     _grantRole(ADMIN_ROLE, admin);
-    LINK_TOKEN = IERC20(linkTokenAddress);
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    i_linkToken = IERC20(linkTokenAddress);
     setMinWaitPeriodSeconds(minWaitPeriodSeconds);
     setMaxPerform(maxPerform);
     setMaxCheck(maxCheck);
@@ -216,15 +216,15 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AccessControl,
 
   function topUp(address[] memory targetAddresses) public whenNotPaused {
     MonitoredAddress memory target;
-    uint256 localBalance = LINK_TOKEN.balanceOf(address(this));
+    uint256 localBalance = i_linkToken.balanceOf(address(this));
     for (uint256 idx = 0; idx < targetAddresses.length; idx++) {
       address targetAddress = targetAddresses[idx];
       target = s_targets[targetAddress];
       if (localBalance >= target.topUpAmount && _needsFunding(targetAddress, target.minBalance)) {
-        bool success = LINK_TOKEN.transfer(targetAddress, target.topUpAmount);
+        bool success = i_linkToken.transfer(targetAddress, target.topUpAmount);
         if (success) {
           localBalance -= target.topUpAmount;
-          target.lastTopUpTimestamp = uint56(block.timestamp);
+          s_targets[targetAddress].lastTopUpTimestamp = uint56(block.timestamp);
           emit TopUpSucceeded(targetAddress);
         } else {
           emit TopUpFailed(targetAddress);
@@ -293,7 +293,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AccessControl,
   /// @param payee the address to pay
   function withdraw(uint256 amount, address payable payee) external onlyRoleOrAdminRole(EXECUTOR_ROLE) {
     if (payee == address(0)) revert InvalidAddress(payee);
-    LINK_TOKEN.transfer(payee, amount);
+    i_linkToken.transfer(payee, amount);
     emit FundsWithdrawn(amount, payee);
   }
 
@@ -319,27 +319,27 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AccessControl,
 
   /// @notice Update s_maxPerform
   function setMaxPerform(uint16 maxPerform) public onlyRole(ADMIN_ROLE) {
-    s_maxPerform = maxPerform;
     emit MaxPerformSet(s_maxPerform, maxPerform);
+    s_maxPerform = maxPerform;
   }
 
   /// @notice Update s_maxCheck
   function setMaxCheck(uint16 maxCheck) public onlyRole(ADMIN_ROLE) {
-    s_maxCheck = maxCheck;
     emit MaxCheckSet(s_maxCheck, maxCheck);
+    s_maxCheck = maxCheck;
   }
 
   /// @notice Sets the minimum wait period (in seconds) for addresses between funding
   function setMinWaitPeriodSeconds(uint256 minWaitPeriodSeconds) public onlyRole(ADMIN_ROLE) {
-    s_minWaitPeriodSeconds = minWaitPeriodSeconds;
     emit MinWaitPeriodSet(s_minWaitPeriodSeconds, minWaitPeriodSeconds);
+    s_minWaitPeriodSeconds = minWaitPeriodSeconds;
   }
 
   /// @notice Update s_upkeepInterval
   function setUpkeepInterval(uint8 upkeepInterval) public onlyRole(ADMIN_ROLE) {
     if (upkeepInterval > 255) revert InvalidUpkeepInterval(upkeepInterval);
-    s_upkeepInterval = upkeepInterval;
     emit UpkeepIntervalSet(s_upkeepInterval, upkeepInterval);
+    s_upkeepInterval = upkeepInterval;
   }
 
   /// @notice Gets maxPerform
