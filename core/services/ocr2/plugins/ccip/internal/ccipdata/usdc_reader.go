@@ -2,7 +2,6 @@ package ccipdata
 
 import (
 	"context"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -20,6 +19,7 @@ const (
 
 //go:generate mockery --quiet --name USDCReader --filename usdc_reader_mock.go --case=underscore
 type USDCReader interface {
+	RegisterFilters(qopts ...pg.QOpt) error
 	// GetLastUSDCMessagePriorToLogIndexInTx returns the last USDC message that was sent before the provided log index in the given transaction.
 	GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error)
 	Close(qopts ...pg.QOpt) error
@@ -28,12 +28,16 @@ type USDCReader interface {
 type USDCReaderImpl struct {
 	usdcMessageSent common.Hash
 	lp              logpoller.LogPoller
-	filterName      string
+	filter          logpoller.Filter
 	lggr            logger.Logger
 }
 
 func (u *USDCReaderImpl) Close(qopts ...pg.QOpt) error {
-	return u.lp.UnregisterFilter(u.filterName, qopts...)
+	return u.lp.UnregisterFilter(u.filter.Name, qopts...)
+}
+
+func (u *USDCReaderImpl) RegisterFilters(qopts ...pg.QOpt) error {
+	return u.lp.RegisterFilter(u.filter, qopts...)
 }
 
 // usdcPayload has to match the onchain event emitted by the USDC message transmitter
@@ -79,19 +83,16 @@ func (u *USDCReaderImpl) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Conte
 }
 
 func NewUSDCReader(lggr logger.Logger, transmitter common.Address, lp logpoller.LogPoller) (*USDCReaderImpl, error) {
-	filterName := logpoller.FilterName(MESSAGE_SENT_FILTER_NAME, transmitter.Hex())
 	eventSig := utils.Keccak256Fixed([]byte("MessageSent(bytes)"))
-	if err := lp.RegisterFilter(logpoller.Filter{
-		Name:      filterName,
+	filter := logpoller.Filter{
+		Name:      logpoller.FilterName(MESSAGE_SENT_FILTER_NAME, transmitter.Hex()),
 		EventSigs: []common.Hash{eventSig},
 		Addresses: []common.Address{transmitter},
-	}); err != nil {
-		return nil, err
 	}
 	return &USDCReaderImpl{
 		lggr:            lggr,
 		lp:              lp,
 		usdcMessageSent: eventSig,
-		filterName:      filterName,
+		filter:          filter,
 	}, nil
 }

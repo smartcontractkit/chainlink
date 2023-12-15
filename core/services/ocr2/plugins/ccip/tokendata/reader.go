@@ -20,5 +20,6 @@ var (
 type Reader interface {
 	// ReadTokenData returns the attestation bytes if ready, and throws an error if not ready.
 	ReadTokenData(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) (tokenData []byte, err error)
+	RegisterFilters(qopts ...pg.QOpt) error
 	Close(qopts ...pg.QOpt) error
 }

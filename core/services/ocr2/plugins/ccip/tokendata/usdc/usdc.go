@@ -172,3 +172,7 @@ func (s *TokenDataReader) callAttestationApi(ctx context.Context, usdcMessageHas
 func (s *TokenDataReader) Close(qopts ...pg.QOpt) error {
 	return s.usdcReader.Close(qopts...)
 }
+
+func (s *TokenDataReader) RegisterFilters(qopts ...pg.QOpt) error {
+	return s.usdcReader.RegisterFilters(qopts...)
+}
