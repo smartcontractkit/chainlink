@@ -216,7 +216,8 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
-	return ClassifySendError(err, c.logger, tx, fromAddress, c.IsL2())
+	returnCode := ClassifySendError(err, c.logger, tx, fromAddress, c.IsL2())
+	return returnCode, err
 }
 
 func (c *chainClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {

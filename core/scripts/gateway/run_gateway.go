@@ -56,8 +56,16 @@ func main() {
 	}
 
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt)
-	gw.Start(ctx)
+	err = gw.Start(ctx)
+	if err != nil {
+		fmt.Println("error staring gateway:", err)
+		return
+	}
 
 	<-ctx.Done()
-	gw.Close()
+	err = gw.Close()
+	if err != nil {
+		fmt.Println("error closing gateway:", err)
+		return
+	}
 }
