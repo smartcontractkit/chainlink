@@ -1049,9 +1049,9 @@ func (d *Delegate) newServicesOCR2Keepers(
 	case "v2.1":
 		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	case "v2.0":
-		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	default:
-		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	}
 }
 
@@ -1207,7 +1207,6 @@ func (d *Delegate) newServicesOCR2Keepers21(
 }
 
 func (d *Delegate) newServicesOCR2Keepers20(
-	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1231,36 +1230,9 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
 
-	transmitterID := spec.TransmitterID.String
-	relayer, err := d.RelayGetter.Get(rid)
-	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
-	}
-
-	provider, err := relayer.NewPluginProvider(ctx,
-		types.RelayArgs{
-			ExternalJobID: jb.ExternalJobID,
-			JobID:         jb.ID,
-			ContractID:    spec.ContractID,
-			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
-			ProviderType:  string(spec.PluginType),
-		}, types.PluginArgs{
-			TransmitterID: transmitterID,
-			PluginConfig:  spec.PluginConfig.Bytes(),
-		})
-	if err != nil {
-		return nil, err
-	}
-
-	keeperProvider, ok := provider.(types.AutomationProvider)
-	if !ok {
-		return nil, errors.New("could not coerce PluginProvider to AutomationProvider")
-	}
-
-	rgstry, encoder, logProvider, err := ocr2keeper.EVMDependencies20(jb, lggr, chain)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not build dependencies for ocr2 keepers")
+	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.ethKs)
+	if err2 != nil {
+		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
 
 	w := &logWriter{log: lggr.Named("Automation Dependencies")}

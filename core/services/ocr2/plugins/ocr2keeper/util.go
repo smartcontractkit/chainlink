@@ -2,6 +2,9 @@ package ocr2keeper
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/jmoiron/sqlx"
 
@@ -40,18 +43,49 @@ var (
 	ErrNoChainFromSpec = fmt.Errorf("could not create chain from spec")
 )
 
+func EVMProvider(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, ethKeystore keystore.Eth) (evmrelay.OCR2KeeperProvider, error) {
+	oSpec := spec.OCR2OracleSpec
+	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(db, chain, lggr.Named("OCR2KeeperRelayer"), ethKeystore)
+
+	keeperProvider, err := ocr2keeperRelayer.NewOCR2KeeperProvider(
+		types.RelayArgs{
+			ExternalJobID: spec.ExternalJobID,
+			JobID:         oSpec.ID,
+			ContractID:    oSpec.ContractID,
+			RelayConfig:   oSpec.RelayConfig.Bytes(),
+		},
+		types.PluginArgs{
+			TransmitterID: oSpec.TransmitterID.String,
+			PluginConfig:  oSpec.PluginConfig.Bytes(),
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to create new ocr2keeper provider", err)
+	}
+
+	return keeperProvider, nil
+}
+
 func EVMDependencies20(
 	spec job.Job,
+	db *sqlx.DB,
 	lggr logger.Logger,
 	chain legacyevm.Chain,
-) (*evmregistry20.EvmRegistry, Encoder20, *evmregistry20.LogProvider, error) {
+	ethKeystore keystore.Eth,
+) (evmrelay.OCR2KeeperProvider, *evmregistry20.EvmRegistry, Encoder20, *evmregistry20.LogProvider, error) {
 	var err error
 
+	var keeperProvider evmrelay.OCR2KeeperProvider
 	var registry *evmregistry20.EvmRegistry
+
+	// the provider will be returned as a dependency
+	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, ethKeystore); err != nil {
+		return nil, nil, nil, nil, err
+	}
 
 	rAddr := ethkey.MustEIP55Address(spec.OCR2OracleSpec.ContractID).Address()
 	if registry, err = evmregistry20.NewEVMRegistryService(rAddr, chain, lggr); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	encoder := evmregistry20.EVMAutomationEncoder20{}
@@ -62,7 +96,7 @@ func EVMDependencies20(
 	// TODO: accept a version of the registry contract and use the correct interfaces
 	logProvider, err := evmregistry20.NewLogProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
-	return registry, encoder, logProvider, err
+	return keeperProvider, registry, encoder, logProvider, err
 }
 
 func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error) {
