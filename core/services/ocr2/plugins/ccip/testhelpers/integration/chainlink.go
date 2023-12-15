@@ -91,6 +91,12 @@ const (
 		
 		[pluginConfig]
 		destStartBlock = 50
+
+	    [pluginConfig.USDCConfig]
+	    AttestationAPI = "http://blah.com"
+	    SourceMessageTransmitterAddress = "%s"
+	    SourceTokenAddress = "%s"
+		AttestationAPITimeoutSeconds = 10
 	`
 	commitSpecTemplate = `
 		type = "offchainreporting2"
@@ -609,6 +615,8 @@ func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams CCI
 			1,
 			node.KeyBundle.ID(),
 			node.Transmitter.Hex(),
+			utils.RandomAddress().String(),
+			utils.RandomAddress().String(),
 		)
 		execId, err := f.ProposeJob(ctx, &execSpec)
 		require.NoError(t, err)
@@ -871,13 +879,13 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 	return bootstrapNode, nodes, configBlock
 }
 
-func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string) CCIPJobSpecParams {
+func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string, usdcAttestationAPI string) CCIPJobSpecParams {
 	// setup Jobs
 	ctx := context.Background()
 	// Starts nodes and configures them in the OCR contracts.
 	bootstrapNode, _, configBlock := c.SetupAndStartNodes(ctx, t, generateRandomBootstrapPort())
 
-	jobParams := c.NewCCIPJobSpecParams(pricePipeline, configBlock)
+	jobParams := c.NewCCIPJobSpecParams(pricePipeline, configBlock, usdcAttestationAPI)
 
 	// Add the bootstrap job
 	c.Bootstrap.AddBootstrapJob(t, jobParams.BootstrapJob(c.Dest.CommitStore.Address().Hex()))

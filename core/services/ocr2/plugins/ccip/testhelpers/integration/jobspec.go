@@ -2,6 +2,7 @@ package integrationtesthelpers
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -42,6 +43,7 @@ type CCIPJobSpecParams struct {
 	TokenPricesUSDPipeline string
 	SourceStartBlock       uint64
 	DestStartBlock         uint64
+	USDCAttestationAPI     string
 	P2PV2Bootstrappers     pq.StringArray
 }
 
@@ -137,6 +139,12 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*client.OCR2TaskJobSpec, err
 	if params.SourceStartBlock > 0 {
 		ocrSpec.PluginConfig["sourceStartBlock"] = params.SourceStartBlock
 	}
+	if params.USDCAttestationAPI != "" {
+		ocrSpec.PluginConfig["USDCConfig.AttestationAPI"] = fmt.Sprintf("\"%s\"", params.USDCAttestationAPI)
+		ocrSpec.PluginConfig["USDCConfig.SourceTokenAddress"] = fmt.Sprintf("\"%s\"", utils.RandomAddress().String())
+		ocrSpec.PluginConfig["USDCConfig.SourceMessageTransmitterAddress"] = fmt.Sprintf("\"%s\"", utils.RandomAddress().String())
+		ocrSpec.PluginConfig["USDCConfig.AttestationAPITimeoutSeconds"] = 5
+	}
 	return &client.OCR2TaskJobSpec{
 		OCR2OracleSpec: ocrSpec,
 		JobType:        "offchainreporting2",
@@ -161,7 +169,7 @@ func (params CCIPJobSpecParams) BootstrapJob(contractID string) *client.OCR2Task
 	}
 }
 
-func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline string, configBlock int64) CCIPJobSpecParams {
+func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline string, configBlock int64, usdcAttestationAPI string) CCIPJobSpecParams {
 	return CCIPJobSpecParams{
 		CommitStore:            c.Dest.CommitStore.Address(),
 		OffRamp:                c.Dest.OffRamp.Address(),
@@ -170,5 +178,6 @@ func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline
 		DestChainName:          "SimulatedDest",
 		TokenPricesUSDPipeline: tokenPricesUSDPipeline,
 		DestStartBlock:         uint64(configBlock),
+		USDCAttestationAPI:     usdcAttestationAPI,
 	}
 }

@@ -38,7 +38,7 @@ import (
 )
 
 // TODO pass context?
-func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer, qopts ...pg.QOpt) (*ExecutionPluginStaticConfig, *BackfillArgs, error) {
+func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer) (*ExecutionPluginStaticConfig, *BackfillArgs, error) {
 	if jb.OCR2OracleSpec == nil {
 		return nil, nil, errors.New("spec is nil")
 	}
@@ -151,7 +151,7 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.Lega
 }
 
 func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string), qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
-	execPluginConfig, backfillArgs, err := jobSpecToExecPluginConfig(lggr, jb, chainSet, qopts...)
+	execPluginConfig, backfillArgs, err := jobSpecToExecPluginConfig(lggr, jb, chainSet)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,11 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyCha
 	if err1 := execPluginConfig.commitStoreReader.RegisterFilters(qopts...); err1 != nil {
 		return nil, err1
 	}
-
+	for _, dp := range execPluginConfig.tokenDataProviders {
+		if err1 := dp.RegisterFilters(qopts...); err1 != nil {
+			return nil, err1
+		}
+	}
 	destChainID, err := chainselectors.ChainIdFromSelector(execPluginConfig.destChainSelector)
 	if err != nil {
 		return nil, err
@@ -226,8 +230,9 @@ func getTokenDataProviders(lggr logger.Logger, pluginConfig ccipconfig.Execution
 
 // UnregisterExecPluginLpFilters unregisters all the registered filters for both source and dest chains.
 // See comment in UnregisterCommitPluginLpFilters
+// It MUST mirror the filters registered in NewExecutionServices.
 func UnregisterExecPluginLpFilters(ctx context.Context, lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer, qopts ...pg.QOpt) error {
-	execPluginConfig, _, err := jobSpecToExecPluginConfig(lggr, jb, chainSet, qopts...)
+	execPluginConfig, _, err := jobSpecToExecPluginConfig(lggr, jb, chainSet)
 	if err != nil {
 		return err
 	}

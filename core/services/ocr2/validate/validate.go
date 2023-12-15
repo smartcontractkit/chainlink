@@ -30,7 +30,7 @@ func ValidatedOracleSpecToml(config OCR2Config, insConf InsecureConfig, tomlStri
 	var spec job.OCR2OracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
-		return jb, pkgerrors.Wrap(err, "toml error on load")
+		return jb, pkgerrors.Wrapf(err, "toml error on load %v", tomlString)
 	}
 	// Note this validates all the fields which implement an UnmarshalText
 	// i.e. TransmitterAddress, PeerID...
