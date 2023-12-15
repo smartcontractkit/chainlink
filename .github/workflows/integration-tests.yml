@@ -273,6 +273,7 @@ jobs:
           CHAINLINK_VERSION: ${{ github.sha }}
         run: |
           echo ::add-mask::$CHAINLINK_IMAGE
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
 
           convert_to_toml_array() {
             local IFS=','
@@ -344,6 +345,27 @@ jobs:
           this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
+      - name: Print failed test summary
+        if: always()
+        run: |
+          directory="./integration-tests/smoke/.test_summary"
+          files=("$directory"/*)
+          if [ -d "$directory" ]; then
+            echo "Test summary folder found"
+            if [ ${#files[@]} -gt 0 ]; then
+              first_file="${files[0]}"
+              echo "Name of the first test summary file: $(basename "$first_file")"
+              echo "### Failed Test Execution Logs Dashboard (over VPN):" >> $GITHUB_STEP_SUMMARY
+              cat "$first_file" | jq -r '.loki[] | "* [\(.test_name)](\(.value))"' >> $GITHUB_STEP_SUMMARY
+              if [ ${#files[@]} -gt 1 ]; then
+                echo "Found more than one test summary file. This is incorrect, there should be only one file"
+              fi
+            else
+                echo "Test summary directory is empty. This should not happen"
+            fi
+          else
+            echo "No test summary folder found. If no test failed or log collection wasn't explicitly requested this is correct. Exiting"
+          fi        
 
   eth-smoke-tests-matrix:
     if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
@@ -552,6 +574,7 @@ jobs:
           CHAINLINK_VERSION: ${{ github.sha }}
         run: |
           echo ::add-mask::$CHAINLINK_IMAGE
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
 
           convert_to_toml_array() {
             local IFS=','

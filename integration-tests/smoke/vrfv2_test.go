@@ -125,6 +125,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestConfig(&config).
 		WithTestInstance(t).
 		WithGeth().
 		WithCLNodes(1).
