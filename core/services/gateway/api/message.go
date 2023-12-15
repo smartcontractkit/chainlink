@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -97,7 +98,7 @@ func (m *Message) ExtractSigner() (signerAddress []byte, err error) {
 		return nil, errors.New("nil message")
 	}
 	rawData := getRawMessageBody(&m.Body)
-	signatureBytes, err := utils.TryParseHex(m.Signature)
+	signatureBytes, err := hex.DecodeString(m.Signature)
 	if err != nil {
 		return nil, err
 	}
