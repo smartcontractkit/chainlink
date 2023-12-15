@@ -95,8 +95,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("unknown generator type: %s", *c.General.Generator)
 	}
 
-	if err := c.ChaosConfig.Validate(); err != nil {
-		return fmt.Errorf("chaos config validation failed: %w", err)
+	if c.ChaosConfig != nil {
+		if err := c.ChaosConfig.Validate(); err != nil {
+			return fmt.Errorf("chaos config validation failed: %w", err)
+		}
 	}
 
 	return nil

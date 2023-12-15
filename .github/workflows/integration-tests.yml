@@ -269,7 +269,17 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           RUN_ID: ${{ github.run_id }}
+          TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
+          CHAINLINK_VERSION: ${{ github.sha }}
         run: |
+          echo ::add-mask::$CHAINLINK_IMAGE
+
+          if [ -n "$TEST_LOG_COLLECT" ]; then
+              test_log_collect=true
+          else
+          test_log_collect=false
+          fi       
+
           cat << EOF > config.toml
           [Network]
           selected_networks=["$SELECTED_NETWORKS"]
@@ -282,7 +292,7 @@ jobs:
           enabled=false
 
           [Logging]
-          test_log_collect=$TEST_LOG_COLLECT
+          test_log_collect=$test_log_collect
           run_id="$RUN_ID"
           EOF
           
@@ -332,7 +342,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes, build-lint-integration-tests]
     env:
-      # SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
@@ -423,10 +433,6 @@ jobs:
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-ocr2-evm-simulated
             tag_suffix: "-plugins"
-          - name: runlog
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
           - name: vrf
             nodes: 1
             os: ubuntu-latest
@@ -529,12 +535,21 @@ jobs:
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
           RUN_ID: ${{ github.run_id }}
+          TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
+          CHAINLINK_VERSION: ${{ github.sha }}
         run: |
+          echo ::add-mask::$CHAINLINK_IMAGE
+
           if [ -n "$ETH2_EL_CLIENT" ]; then
             execution_layer="$ETH2_EL_CLIENT"
           else
             execution_layer="geth"
           fi
+          if [ -n "$TEST_LOG_COLLECT" ]; then
+            test_log_collect=true
+          else
+            test_log_collect=false
+          fi              
 
           cat << EOF > config.toml
           [Network]
@@ -551,7 +566,7 @@ jobs:
           execution_layer="$execution_layer"
 
           [Logging]
-          test_log_collect=$TEST_LOG_COLLECT
+          test_log_collect=$test_log_collect
           run_id="$RUN_ID"
           EOF
           
