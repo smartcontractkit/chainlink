@@ -286,7 +286,8 @@ jobs:
           run_id="$RUN_ID"
           EOF
           
-          export BASE64=$(cat config.toml | base64)
+          export BASE64=$(cat config.toml | base64 -w O)
+          echo BASE64
           echo "BASE64_CONFIG_OVERRIDE=${BASE64}" >> $GITHUB_ENV
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
@@ -554,7 +555,8 @@ jobs:
           run_id="$RUN_ID"
           EOF
           
-          export BASE64=$(cat config.toml | base64)
+          export BASE64=$(cat config.toml | base64 -w O)
+          echo BASE64
           echo "BASE64_CONFIG_OVERRIDE=${BASE64}" >> $GITHUB_ENV          
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
