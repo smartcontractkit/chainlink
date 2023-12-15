@@ -63,8 +63,8 @@ func (o *Config) Validate() error {
 }
 
 type Common struct {
-	ETHFunds     *int                        `toml:"eth_funds"`
-	TestDuration *blockchain.JSONStrDuration `toml:"test_duration"` //default:"15m
+	ETHFunds     *int             `toml:"eth_funds"`
+	TestDuration *models.Duration `toml:"test_duration"` //default:"15m
 }
 
 func (o *Common) ApplyOverrides(from *Common) error {
@@ -84,7 +84,7 @@ func (o *Common) Validate() error {
 	if o.ETHFunds != nil && *o.ETHFunds < 0 {
 		return errors.New("eth_funds must be set and cannot be negative")
 	}
-	if o.TestDuration == nil || o.TestDuration.Duration == 0 {
+	if o.TestDuration == nil || o.TestDuration.Duration() == 0 {
 		return errors.New("test_duration must be set and be a positive integer")
 	}
 
@@ -151,9 +151,9 @@ func (o *Volume) Validate() error {
 
 // this came from env config!
 type SoakConfig struct {
-	OCRVersion        *string                     `toml:"ocr_version"`         // Version of OCR to use (1 or 2)
-	NumberOfContracts *int                        `toml:"number_of_contracts"` //default:"2"
-	TimeBetweenRounds *blockchain.JSONStrDuration `toml:"time_between_rounds"` //default:"1m"
+	OCRVersion        *string                 `toml:"ocr_version"`         // Version of OCR to use (1 or 2)
+	NumberOfContracts *int                    `toml:"number_of_contracts"` //default:"2"
+	TimeBetweenRounds *blockchain.StrDuration `toml:"time_between_rounds"` //default:"1m"
 }
 
 func (o *SoakConfig) ApplyOverrides(from *SoakConfig) error {

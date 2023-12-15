@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -116,7 +117,7 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 		},
 		t:                t,
 		startTime:        time.Now(),
-		timeLeft:         config.OCR.Common.TestDuration.Duration,
+		timeLeft:         config.OCR.Common.TestDuration.Duration(),
 		log:              logging.GetTestLogger(t),
 		ocrRoundStates:   make([]*testreporters.OCRRoundState, 0),
 		ocrV1InstanceMap: make(map[string]contracts.OffchainAggregator),
@@ -314,12 +315,12 @@ func (o *OCRSoakTest) Run() {
 	}
 
 	o.log.Info().
-		Str("Test Duration", o.Config.OCR.Common.TestDuration.Duration.Truncate(time.Second).String()).
+		Str("Test Duration", o.Config.OCR.Common.TestDuration.Duration().Truncate(time.Second).String()).
 		Int("Number of OCR Contracts", *config.OCR.Soak.NumberOfContracts).
 		Str("OCR Version", *config.OCR.Soak.OCRVersion).
 		Msg("Starting OCR Soak Test")
 
-	o.testLoop(o.Config.OCR.Common.TestDuration.Duration, startingValue)
+	o.testLoop(o.Config.OCR.Common.TestDuration.Duration(), startingValue)
 	o.complete()
 }
 
@@ -372,7 +373,7 @@ func (o *OCRSoakTest) SaveState() error {
 		StartingBlockNum:     o.startingBlockNum,
 		StartTime:            o.startTime,
 		TimeRunning:          time.Since(o.startTime),
-		TestDuration:         o.Config.OCR.Common.TestDuration.Duration,
+		TestDuration:         o.Config.OCR.Common.TestDuration.Duration(),
 		OCRContractAddresses: ocrAddresses,
 		OCRVersion:           *o.testConfig.OCR.Soak.OCRVersion,
 
@@ -423,9 +424,13 @@ func (o *OCRSoakTest) LoadState() error {
 		OCRVersion: testState.OCRVersion,
 		StartTime:  testState.StartTime,
 	}
+	duration, err := models.MakeDuration(testState.TestDuration)
+	if err != nil {
+		return err
+	}
 	o.ocrRoundStates = testState.OCRRoundStates
 	o.testIssues = testState.TestIssues
-	o.Config.OCR.Common.TestDuration.Duration = testState.TestDuration
+	o.Config.OCR.Common.TestDuration = &duration
 	o.timeLeft = testState.TestDuration - testState.TimeRunning
 	o.startTime = testState.StartTime
 	o.startingBlockNum = testState.StartingBlockNum
@@ -826,7 +831,7 @@ func (o *OCRSoakTest) ensureInputValues() error {
 	if o.Config.Common.ChainlinkNodeFunding != nil && *o.Config.Common.ChainlinkNodeFunding <= 0 {
 		return fmt.Errorf("Chainlink node funding must be greater than 0, found %f", *o.Config.Common.ChainlinkNodeFunding)
 	}
-	if o.Config.OCR.Common.TestDuration != nil && o.Config.OCR.Common.TestDuration.Duration <= time.Minute {
+	if o.Config.OCR.Common.TestDuration != nil && o.Config.OCR.Common.TestDuration.Duration() <= time.Minute {
 		return fmt.Errorf("Test duration must be greater than 1 minute, found %s", o.Config.OCR.Common.TestDuration)
 	}
 	if ocrConfig.TimeBetweenRounds != nil && ocrConfig.TimeBetweenRounds.Duration >= time.Hour {

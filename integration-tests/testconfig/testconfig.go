@@ -285,6 +285,18 @@ func (c *TestConfig) ApplyOverrides(from *TestConfig) error {
 		}
 	}
 
+	if from.PrivateEthereumNetwork != nil {
+		if c.PrivateEthereumNetwork == nil {
+			c.PrivateEthereumNetwork = from.PrivateEthereumNetwork
+		} else {
+			err := c.PrivateEthereumNetwork.ApplyOverrides(from.PrivateEthereumNetwork)
+			if err != nil {
+				return errors.Wrapf(err, "error applying overrides to private ethereum network config")
+			}
+		}
+		c.PrivateEthereumNetwork.EthereumChainConfig.GenerateGenesisTimestamp()
+	}
+
 	if from.Common != nil {
 		if c.Common == nil {
 			c.Common = from.Common

@@ -34,13 +34,14 @@ func TestVRFv2Plus(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
-	require.NoError(t, err, "Error building ethereum network config")
+	// network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	// require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(network).
+		// WithPrivateEthereumNetwork(network).
+		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
@@ -50,7 +51,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2.General.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2Plus.General.LinkNativeFeedResponse))
 	require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
@@ -81,7 +82,8 @@ func TestVRFv2Plus(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
 	t.Run("Link Billing", func(t *testing.T) {
-		testConfig := config.VRFv2.General
+		c := config
+		testConfig := c.VRFv2Plus.General
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
@@ -96,8 +98,8 @@ func TestVRFv2Plus(t *testing.T) {
 			subID,
 			isNativeBilling,
 			*testConfig.RandomnessRequestCountPerRequest,
-			&config,
-			*testConfig.RandomWordsFulfilledEventTimeout,
+			&c,
+			testConfig.RandomWordsFulfilledEventTimeout.Duration(),
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -117,7 +119,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		require.Equal(t, testConfig.NumberOfWords, uint32(len(status.RandomWords)))
+		require.Equal(t, *testConfig.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -125,7 +127,8 @@ func TestVRFv2Plus(t *testing.T) {
 	})
 
 	t.Run("Native Billing", func(t *testing.T) {
-		testConfig := config.VRFv2Plus.General.General
+		c := config
+		testConfig := c.VRFv2Plus.General
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
@@ -140,8 +143,8 @@ func TestVRFv2Plus(t *testing.T) {
 			subID,
 			isNativeBilling,
 			*testConfig.RandomnessRequestCountPerRequest,
-			&config,
-			*testConfig.RandomWordsFulfilledEventTimeout,
+			&c,
+			testConfig.RandomWordsFulfilledEventTimeout.Duration(),
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -160,16 +163,17 @@ func TestVRFv2Plus(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		require.Equal(t, testConfig.NumberOfWords, uint32(len(status.RandomWords)))
+		require.Equal(t, *testConfig.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
 	})
 	t.Run("Direct Funding (VRFV2PlusWrapper)", func(t *testing.T) {
+		co := config
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			env,
-			&config,
+			&co,
 			linkToken,
 			mockETHLinkFeed,
 			vrfv2PlusContracts.Coordinator,
@@ -179,7 +183,8 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("Link Billing", func(t *testing.T) {
-			testConfig := config.VRFv2Plus.General
+			c := config
+			testConfig := c.VRFv2Plus.General
 			var isNativeBilling = false
 
 			wrapperConsumerJuelsBalanceBeforeRequest, err := linkToken.BalanceOf(testcontext.Get(t), wrapperContracts.LoadTestConsumers[0].Address())
@@ -195,8 +200,8 @@ func TestVRFv2Plus(t *testing.T) {
 				vrfv2PlusData,
 				wrapperSubID,
 				isNativeBilling,
-				&config,
-				*testConfig.RandomWordsFulfilledEventTimeout,
+				&c,
+				testConfig.RandomWordsFulfilledEventTimeout.Duration(),
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -221,14 +226,15 @@ func TestVRFv2Plus(t *testing.T) {
 			//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
 			vrfv2plus.LogFulfillmentDetailsLinkBilling(l, wrapperConsumerJuelsBalanceBeforeRequest, wrapperConsumerJuelsBalanceAfterRequest, consumerStatus, randomWordsFulfilledEvent)
 
-			require.Equal(t, testConfig.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
+			require.Equal(t, *testConfig.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
 			for _, w := range consumerStatus.RandomWords {
 				l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 				require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 			}
 		})
 		t.Run("Native Billing", func(t *testing.T) {
-			testConfig := config.VRFv2Plus.General
+			c := config
+			testConfig := c.VRFv2Plus.General
 			var isNativeBilling = true
 
 			wrapperConsumerBalanceBeforeRequestWei, err := env.EVMClient.BalanceAt(testcontext.Get(t), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()))
@@ -244,8 +250,8 @@ func TestVRFv2Plus(t *testing.T) {
 				vrfv2PlusData,
 				wrapperSubID,
 				isNativeBilling,
-				&config,
-				*testConfig.RandomWordsFulfilledEventTimeout,
+				&c,
+				testConfig.RandomWordsFulfilledEventTimeout.Duration(),
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -270,7 +276,7 @@ func TestVRFv2Plus(t *testing.T) {
 			//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
 			vrfv2plus.LogFulfillmentDetailsNativeBilling(l, wrapperConsumerBalanceBeforeRequestWei, wrapperConsumerBalanceAfterRequestWei, consumerStatus, randomWordsFulfilledEvent)
 
-			require.Equal(t, testConfig.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
+			require.Equal(t, *testConfig.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
 			for _, w := range consumerStatus.RandomWords {
 				l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 				require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -278,9 +284,10 @@ func TestVRFv2Plus(t *testing.T) {
 		})
 	})
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
+		c := config
 		subIDsForCancelling, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
-			&config,
+			&c,
 			linkToken,
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
@@ -369,14 +376,15 @@ func TestVRFv2Plus(t *testing.T) {
 
 	})
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
-		testConfig := config.VRFv2Plus.General
+		c := config
+		testConfig := c.VRFv2Plus.General
 		//underfund subs in order rand fulfillments to fail
 		testConfig.SubscriptionFundingAmountNative = ptr.Ptr(float64(0.000000000000000001)) //1 Wei
 		testConfig.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001))   //1 Juels
 
 		subIDsForCancelling, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
-			&config,
+			&c,
 			linkToken,
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
@@ -408,7 +416,7 @@ func TestVRFv2Plus(t *testing.T) {
 			subIDForCancelling,
 			false,
 			*testConfig.RandomnessRequestCountPerRequest,
-			&config,
+			&c,
 			randomWordsFulfilledEventTimeout,
 			l,
 		)
@@ -524,10 +532,11 @@ func TestVRFv2Plus(t *testing.T) {
 		)
 	})
 	t.Run("Oracle Withdraw", func(t *testing.T) {
-		testConfig := config.VRFv2Plus.General
+		c := config
+		testConfig := c.VRFv2Plus.General
 		subIDsForOracleWithDraw, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
-			&config,
+			&c,
 			linkToken,
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
@@ -543,8 +552,8 @@ func TestVRFv2Plus(t *testing.T) {
 			subIDForOracleWithdraw,
 			false,
 			*testConfig.RandomnessRequestCountPerRequest,
-			&config,
-			*testConfig.RandomWordsFulfilledEventTimeout,
+			&c,
+			testConfig.RandomWordsFulfilledEventTimeout.Duration(),
 			l,
 		)
 		require.NoError(t, err)
@@ -556,8 +565,8 @@ func TestVRFv2Plus(t *testing.T) {
 			subIDForOracleWithdraw,
 			true,
 			*testConfig.RandomnessRequestCountPerRequest,
-			&config,
-			*testConfig.RandomWordsFulfilledEventTimeout,
+			&c,
+			testConfig.RandomWordsFulfilledEventTimeout.Duration(),
 			l,
 		)
 		require.NoError(t, err)
@@ -660,7 +669,8 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
-		testConfig := config.VRFv2Plus.General
+		c := config
+		testConfig := c.VRFv2Plus.General
 		var isNativeBilling = false
 		txKeys, _, err := env.ClCluster.Nodes[0].API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
@@ -676,8 +686,8 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 				subID,
 				isNativeBilling,
 				*testConfig.RandomnessRequestCountPerRequest,
-				&config,
-				*testConfig.RandomWordsFulfilledEventTimeout,
+				&c,
+				testConfig.RandomWordsFulfilledEventTimeout.Duration(),
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")

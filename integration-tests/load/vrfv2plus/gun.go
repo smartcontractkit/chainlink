@@ -56,7 +56,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
 		randBool(),
 		randomnessRequestCountPerRequest,
 		m.testConfig,
-		*vrfv2PlusConfig.RandomWordsFulfilledEventTimeout,
+		vrfv2PlusConfig.RandomWordsFulfilledEventTimeout.Duration(),
 		m.logger,
 	)
 	if err != nil {

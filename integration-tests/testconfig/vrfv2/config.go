@@ -2,9 +2,10 @@ package testconfig
 
 import (
 	"errors"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -112,9 +113,9 @@ func (c *Common) Validate() error {
 }
 
 type PerformanceConfig struct {
-	TestDuration          *time.Duration `toml:"test_duration"`            // How long to run the test for  default:"3m"
-	RPS                   *int64         `toml:"rps"`                      // How many requests per second to send default:"1"
-	RateLimitUnitDuration *time.Duration `toml:"rate_limit_unit_duration"` // default:"1m"
+	TestDuration          *models.Duration `toml:"test_duration"`            // How long to run the test for  default:"3m"
+	RPS                   *int64           `toml:"rps"`                      // How many requests per second to send default:"1"
+	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"` // default:"1m"
 
 	// Using existing environment and contracts
 	UseExistingEnv     *bool   `toml:"use_existing_env"`    // Whether to use an existing environment or create a new one  default:"false"
@@ -161,7 +162,7 @@ func (c *PerformanceConfig) ApplyOverrides(from *PerformanceConfig) error {
 }
 
 func (c *PerformanceConfig) Validate() error {
-	if c.TestDuration == nil || *c.TestDuration == 0 {
+	if c.TestDuration == nil || c.TestDuration.Duration() == 0 {
 		return errors.New("test_duration must be set to a positive value")
 	}
 	if c.RPS == nil || *c.RPS == 0 {
@@ -346,11 +347,6 @@ func (c *Funding) Validate() error {
 	if c.NodeSendingKeyFundingMin != nil && *c.NodeSendingKeyFundingMin == 0 {
 		return errors.New("when set node_sending_key_funding_min must be a positive value")
 	}
-	if c.NodeSendingKeyFunding != nil && c.NodeSendingKeyFundingMin != nil {
-		if *c.NodeSendingKeyFunding < *c.NodeSendingKeyFundingMin {
-			return errors.New("node_sending_key_funding must be greater than node_sending_key_funding_min")
-		}
-	}
 
 	return nil
 }
@@ -395,16 +391,16 @@ type General struct {
 	FulfillmentFlatFeeLinkPPMTier4 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_4"` //default:"500"
 	FulfillmentFlatFeeLinkPPMTier5 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_5"` //default:"500"
 	ReqsForTier2                   *int64   `toml:"reqs_for_tier_2"`                     // default:"0"
-	ReqsForTier3                   *int64   `toml:"reqs_for_tier_2"`                     // default:"0"
-	ReqsForTier4                   *int64   `toml:"reqs_for_tier_3"`                     // default:"0"
-	ReqsForTier5                   *int64   `toml:"reqs_for_tier_4"`                     // default:"0"
+	ReqsForTier3                   *int64   `toml:"reqs_for_tier_3"`                     // default:"0"
+	ReqsForTier4                   *int64   `toml:"reqs_for_tier_4"`                     // default:"0"
+	ReqsForTier5                   *int64   `toml:"reqs_for_tier_5"`                     // default:"0"
 
 	NumberOfSubToCreate *int `toml:"number_of_sub_to_create"` // Number of subscriptions to create default:"1"
 
 	RandomnessRequestCountPerRequest          *uint16 `toml:"randomness_request_count_per_request"`           // How many randomness requests to send per request default:"1"
 	RandomnessRequestCountPerRequestDeviation *uint16 `toml:"randomness_request_count_per_request_deviation"` // How many randomness requests to send per request  default:"0"
 
-	RandomWordsFulfilledEventTimeout *time.Duration `toml:"random_words_fulfilled_event_timeout"` // How long to wait for the RandomWordsFulfilled event to be emitted default:"2m"
+	RandomWordsFulfilledEventTimeout *models.Duration `toml:"random_words_fulfilled_event_timeout"` // How long to wait for the RandomWordsFulfilled event to be emitted default:"2m"
 
 	// Wrapper Config
 	WrapperGasOverhead                      *uint32  `toml:"wrapped_gas_overhead"`                         // default:"50000"
@@ -517,7 +513,7 @@ func (c *General) Validate() error {
 	if c.LinkNativeFeedResponse == nil || *c.LinkNativeFeedResponse == 0 {
 		return errors.New("link_native_feed_response must be set to a positive value")
 	}
-	if c.MinimumConfirmations == nil || *c.MinimumConfirmations < 0 {
+	if c.MinimumConfirmations == nil {
 		return errors.New("minimum_confirmations must be set to a non-negative value")
 	}
 	if c.SubscriptionFundingAmountLink == nil || *c.SubscriptionFundingAmountLink == 0 {
@@ -574,13 +570,13 @@ func (c *General) Validate() error {
 	if c.RandomnessRequestCountPerRequest == nil || *c.RandomnessRequestCountPerRequest == 0 {
 		return errors.New("randomness_request_count_per_request must be set to a positive value")
 	}
-	if c.RandomnessRequestCountPerRequestDeviation == nil || *c.RandomnessRequestCountPerRequestDeviation < 0 {
+	if c.RandomnessRequestCountPerRequestDeviation == nil {
 		return errors.New("randomness_request_count_per_request_deviation must be set to a non-negative value")
 	}
-	if c.RandomWordsFulfilledEventTimeout == nil || *c.RandomWordsFulfilledEventTimeout == 0 {
+	if c.RandomWordsFulfilledEventTimeout == nil || c.RandomWordsFulfilledEventTimeout.Duration() == 0 {
 		return errors.New("random_words_fulfilled_event_timeout must be set to a positive value")
 	}
-	if c.WrapperGasOverhead == nil || *c.WrapperGasOverhead < 0 {
+	if c.WrapperGasOverhead == nil {
 		return errors.New("wrapped_gas_overhead must be set to a non-negative value")
 	}
 	if c.CoordinatorGasOverhead == nil || *c.CoordinatorGasOverhead == 0 {
@@ -598,7 +594,6 @@ func (c *General) Validate() error {
 	if c.WrapperConsumerFundingAmountLink == nil || *c.WrapperConsumerFundingAmountLink < 0 {
 		return errors.New("wrapper_consumer_funding_amount_link must be set to a non-negative value")
 	}
-
 	if *c.RandomnessRequestCountPerRequest <= *c.RandomnessRequestCountPerRequestDeviation {
 		return errors.New(ErrDeviationShouldBeLessThanOriginal)
 	}

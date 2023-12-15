@@ -3,7 +3,6 @@ package loadvrfv2plus
 import (
 	"context"
 	"math/big"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -39,8 +38,6 @@ var (
 		"branch": "vrfv2Plus_healthcheck",
 		"commit": "vrfv2Plus_healthcheck",
 	}
-
-	testType = os.Getenv("TEST_TYPE")
 )
 
 func TestVRFV2PlusPerformance(t *testing.T) {
@@ -67,7 +64,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 	l.Info().
 		Str("Test Type", string(testType)).
-		Str("Test Duration", vrfv2PlusConfig.Performance.TestDuration.Truncate(time.Second).String()).
+		Str("Test Duration", vrfv2PlusConfig.Performance.TestDuration.Duration().Truncate(time.Second).String()).
 		Int64("RPS", *vrfv2PlusConfig.Performance.RPS).
 		Str("RateLimitUnitDuration", vrfv2PlusConfig.Performance.RateLimitUnitDuration.String()).
 		Uint16("RandomnessRequestCountPerRequest", *vrfv2PlusConfig.General.RandomnessRequestCountPerRequest).
@@ -226,7 +223,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		T:                     t,
 		LoadType:              wasp.RPS,
 		GenName:               "gun",
-		RateLimitUnitDuration: *vrfv2PlusConfig.Performance.RateLimitUnitDuration,
+		RateLimitUnitDuration: vrfv2PlusConfig.Performance.RateLimitUnitDuration.Duration(),
 		Gun: NewSingleHashGun(
 			vrfv2PlusContracts,
 			vrfv2PlusData.KeyHash,
@@ -249,7 +246,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 		singleFeedConfig.Schedule = wasp.Plain(
 			*vrfv2PlusConfig.Performance.RPS,
-			*vrfv2PlusConfig.Performance.TestDuration,
+			vrfv2PlusConfig.Performance.TestDuration.Duration(),
 		)
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(singleFeedConfig)).

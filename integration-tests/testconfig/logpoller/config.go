@@ -21,10 +21,10 @@ const (
 )
 
 type Config struct {
-	General      *General      `toml:"general"`
-	ChaosConfig  *ChaosConfig  `toml:"chaos"`
-	Wasp         *WaspConfig   `toml:"wasp"`
-	LoopedConfig *LoopedConfig `toml:"looped"`
+	General      *General      `toml:"General"`
+	ChaosConfig  *ChaosConfig  `toml:"Chaos"`
+	Wasp         *WaspConfig   `toml:"Wasp"`
+	LoopedConfig *LoopedConfig `toml:"Looped"`
 }
 
 func (c *Config) ApplyOverrides(from *Config) error {

@@ -1,4 +1,5 @@
-[Common]
+[Functions]
+[Functions.Common]
 # Polygon Mumbai only for now
 receiver = "0x3098B6665589959711A48a6bAe5B7F2908f6a3bE"
 don_id = "fun-staging-mumbai-1"

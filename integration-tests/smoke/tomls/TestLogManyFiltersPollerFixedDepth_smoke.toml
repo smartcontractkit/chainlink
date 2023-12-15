@@ -1,7 +1,8 @@
-[general]
+[LogPoller]
+[LogPoller.General]
 use_finality_tag = false
 contracts = 300
 events_per_tx = 3
 
-[looped]
+[LogPoller.Looped]
 execution_count = 30

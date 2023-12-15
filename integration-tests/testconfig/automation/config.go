@@ -3,7 +3,7 @@ package automation
 import "errors"
 
 type Config struct {
-	Performance *Performance `toml:"Common"`
+	Performance *Performance `toml:"Performance"`
 }
 
 // Performance is a common configuration for all automation performance tests

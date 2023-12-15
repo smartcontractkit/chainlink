@@ -1,3 +1,4 @@
-[Performance]
+[Functions]
+[Functions.Performance]
 rps = 95
 duration = "10m"

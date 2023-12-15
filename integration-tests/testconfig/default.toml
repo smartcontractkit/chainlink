@@ -1,18 +1,13 @@
-[OCR]
-ocrish_field = "stefan"
-
 [Logging]
 test_log_collect=false
-test_log_level="DEBUG"
-log_stream_log_targets=["file"]
-run_id="mietek"
+
+[Logging.LogStream]
+log_targets=["file"]
+log_producer_timeout="10s"
+log_producer_retry_limit=10
 
 [Network]
 selected_networks=["simulated"]
-
-[ChainlinkImage]
-image="public.ecr.aws/chainlink/chainlink"
-version="2.7.0"
 
 [PrivateEthereumNetwork]
 consensus_type="pos"

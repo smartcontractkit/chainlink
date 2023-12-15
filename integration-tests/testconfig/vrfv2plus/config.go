@@ -133,7 +133,7 @@ func (c *General) ApplyOverrides(from *General) error {
 }
 
 func (c *General) Validate() error {
-	if err := c.Validate(); err != nil {
+	if err := c.General.Validate(); err != nil {
 		return err
 	}
 	if c.SubscriptionFundingAmountNative == nil || *c.SubscriptionFundingAmountNative <= 0 {
@@ -240,14 +240,7 @@ func (c *Funding) Validate() error {
 	if c.NodeSendingKeyFundingMin == nil || *c.NodeSendingKeyFundingMin <= 0 {
 		return errors.New("node_sending_key_funding_min must be greater than 0")
 	}
-	if err := c.SubFunding.Validate(); err != nil {
-		return err
-	}
-	if *c.NodeSendingKeyFunding < *c.NodeSendingKeyFundingMin {
-		return errors.New("node_sending_key_funding must be greater than or equal to node_sending_key_funding_min")
-	}
-
-	return nil
+	return c.SubFunding.Validate()
 }
 
 type SubFunding struct {
