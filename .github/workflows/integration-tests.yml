@@ -274,6 +274,21 @@ jobs:
         run: |
           echo ::add-mask::$CHAINLINK_IMAGE
 
+          convert_to_toml_array() {
+            local IFS=','
+            local input_array=($1)
+            local toml_array_format="["
+        
+            for element in "${input_array[@]}"; do
+                toml_array_format+="\"$element\","
+            done
+        
+            toml_array_format="${toml_array_format%,}]"
+            echo "$toml_array_format"
+          }
+          
+          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")          
+
           if [ -n "$TEST_LOG_COLLECT" ]; then
               test_log_collect=true
           else
@@ -282,7 +297,7 @@ jobs:
 
           cat << EOF > config.toml
           [Network]
-          selected_networks=["$SELECTED_NETWORKS"]
+          selected_networks=$selected_networks
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -296,9 +311,7 @@ jobs:
           run_id="$RUN_ID"
           EOF
           
-          export BASE64=$(cat config.toml | base64 -w 0)
-          echo $BASE64
-          echo "BASE64_CONFIG_OVERRIDE=${BASE64}" >> $GITHUB_ENV
+          echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
@@ -540,6 +553,21 @@ jobs:
         run: |
           echo ::add-mask::$CHAINLINK_IMAGE
 
+          convert_to_toml_array() {
+            local IFS=','
+            local input_array=($1)
+            local toml_array_format="["
+        
+            for element in "${input_array[@]}"; do
+                toml_array_format+="\"$element\","
+            done
+        
+            toml_array_format="${toml_array_format%,}]"
+            echo "$toml_array_format"
+          }
+          
+          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")                   
+
           if [ -n "$ETH2_EL_CLIENT" ]; then
             execution_layer="$ETH2_EL_CLIENT"
           else
@@ -553,7 +581,7 @@ jobs:
 
           cat << EOF > config.toml
           [Network]
-          selected_networks=["$SELECTED_NETWORKS"]
+          selected_networks=$selected_networks
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -570,9 +598,7 @@ jobs:
           run_id="$RUN_ID"
           EOF
           
-          export BASE64=$(cat config.toml | base64 -w 0)
-          echo $BASE64
-          echo "BASE64_CONFIG_OVERRIDE=${BASE64}" >> $GITHUB_ENV          
+          echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV       
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
