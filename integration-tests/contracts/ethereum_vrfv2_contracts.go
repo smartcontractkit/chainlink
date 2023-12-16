@@ -224,6 +224,25 @@ func (v *EthereumVRFCoordinatorV2) PendingRequestsExist(ctx context.Context, sub
 	return pendingRequestExists, nil
 }
 
+// OwnerCancelSubscription cancels subscription,
+// return funds to the subscription owner,
+// down not check if pending requests for a sub exist,
+// outstanding requests may fail onchain
+func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*types.Transaction, error) {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := v.coordinator.OwnerCancelSubscription(
+		opts,
+		subID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tx, v.client.ProcessTransaction(tx)
+}
+
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist
