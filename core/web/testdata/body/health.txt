@@ -13,6 +13,7 @@
 -JobSpawner
 -Mailbox.Monitor
 -Mercury.WSRPCPool
+-Mercury.WSRPCPool.CacheSet
 -PipelineORM
 -PipelineRunner
 -PromReporter
