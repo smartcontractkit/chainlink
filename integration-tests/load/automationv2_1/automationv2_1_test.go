@@ -77,12 +77,12 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	minimumDbSpec = map[string]interface{}{
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
-				"cpu":    "1000m",
-				"memory": "1Gi",
+				"cpu":    "2000m",
+				"memory": "4Gi",
 			},
 			"limits": map[string]interface{}{
-				"cpu":    "1000m",
-				"memory": "1Gi",
+				"cpu":    "2000m",
+				"memory": "4Gi",
 			},
 		},
 		"stateful": true,
@@ -105,12 +105,12 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	recDbSpec = map[string]interface{}{
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
-				"cpu":    "2000m",
-				"memory": "2Gi",
+				"cpu":    "4000m",
+				"memory": "8Gi",
 			},
 			"limits": map[string]interface{}{
-				"cpu":    "2000m",
-				"memory": "2Gi",
+				"cpu":    "4000m",
+				"memory": "8Gi",
 			},
 		},
 		"stateful": true,
