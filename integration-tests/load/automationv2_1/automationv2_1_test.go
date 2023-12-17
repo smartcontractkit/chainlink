@@ -211,17 +211,17 @@ func TestLogTrigger(t *testing.T) {
 			Values: map[string]interface{}{
 				"resources": map[string]interface{}{
 					"requests": map[string]interface{}{
-						"cpu":    "4000m",
-						"memory": "4Gi",
-					},
-					"limits": map[string]interface{}{
 						"cpu":    "8000m",
 						"memory": "8Gi",
+					},
+					"limits": map[string]interface{}{
+						"cpu":    "16000m",
+						"memory": "16Gi",
 					},
 				},
 				"geth": map[string]interface{}{
 					"blocktime": blockTime,
-					"capacity":  "10Gi",
+					"capacity":  "20Gi",
 				},
 			},
 		}))
