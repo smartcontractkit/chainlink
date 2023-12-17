@@ -128,6 +128,7 @@ var (
 	specType           = getEnv("SPECTYPE", "minimum")                     // minimum, recommended, local specs for the test
 	logLevel           = getEnv("LOGLEVEL", "info")                        // log level for the chainlink nodes
 	pyroscope, _       = strconv.ParseBool(getEnv("PYROSCOPE", "false"))   // enable pyroscope for the chainlink nodes
+	prometheus, _      = strconv.ParseBool(getEnv("PROMETHEUS", "false"))  // enable prometheus for the chainlink nodes
 )
 
 func TestLogTrigger(t *testing.T) {
@@ -266,9 +267,10 @@ func TestLogTrigger(t *testing.T) {
 		}
 		nodeTOML = networks.AddNetworksConfig(nodeTOML, testNetwork)
 		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-			"toml":      nodeTOML,
-			"chainlink": nodeSpec,
-			"db":        dbSpec,
+			"toml":       nodeTOML,
+			"chainlink":  nodeSpec,
+			"db":         dbSpec,
+			"prometheus": prometheus,
 		}))
 	}
 
