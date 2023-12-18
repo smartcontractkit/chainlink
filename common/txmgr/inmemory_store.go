@@ -684,7 +684,32 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveF
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	return ms.txStore.FindTxesByMetaFieldAndStates(ctx, metaField, metaValue, states, chainID)
+	if ms.chainID.String() != chainID.String() {
+		return nil, fmt.Errorf("find_txes_by_meta_field_and_states: %w", ErrInvalidChainID)
+	}
+
+	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if tx.Meta == nil {
+			return false
+		}
+		meta := map[string]interface{}{}
+		if err := json.Unmarshal(json.RawMessage(*tx.Meta), &meta); err != nil {
+			return false
+		}
+		if v, ok := meta[metaField].(string); ok {
+			return v == metaValue
+		}
+
+		return false
+	}
+	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	for _, as := range ms.addressStates {
+		for _, tx := range as.FetchTxs(states, filterFn) {
+			txs = append(txs, &tx)
+		}
+	}
+
+	return txs, nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	return ms.txStore.FindTxesWithMetaFieldByStates(ctx, metaField, states, chainID)
