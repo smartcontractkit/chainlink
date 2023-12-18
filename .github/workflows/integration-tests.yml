@@ -207,8 +207,8 @@ jobs:
         id: build-test-matrix-list
         run: |
           cd ./integration-tests
-          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu20.04-8cores-32GB 1)
-          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB 1)
+          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu-latest 1)
+          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
 
           # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
@@ -324,12 +324,74 @@ jobs:
             pyroscope_env: ""
           - name: ocr
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
+            run: -run TestOCRJobReplacement
+            file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated
+          - name: ocr-geth
+            nodes: 1
+            os: ubuntu-latest
+            run: -run TestOCRBasic
+            file: ocr
+            client: geth
+            pyroscope_env: ci-smoke-ocr-evm-simulated         
+          # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE
+          # - name: ocr-nethermind
+          #   nodes: 1
+          #   os: ubuntu20.04-8cores-32GB
+          #   run: -run TestOCRBasic
+          #   file: ocr
+          #   client: nethermind
+          #   pyroscope_env: ci-smoke-ocr-evm-simulated                          
+          - name: ocr-besu
+            nodes: 1
+            os: ubuntu20.04-8cores-32GB
+            run: -run TestOCRBasic
+            file: ocr
+            client: besu
+            pyroscope_env: ci-smoke-ocr-evm-simulated        
+          - name: ocr-erigon
+            nodes: 1
+            os: ubuntu20.04-8cores-32GB
+            run: -run TestOCRBasic
+            file: ocr
+            client: erigon
+            pyroscope_env: ci-smoke-ocr-evm-simulated         
           - name: ocr2
             nodes: 1
             os: ubuntu20.04-8cores-32GB
+            run: -run TestOCRv2JobReplacement
+            file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated
+          - name: ocr2-geth
+            nodes: 1
+            os: ubuntu20.04-8cores-32GB
+            run: -run TestOCRv2Basic
+            file: ocr2
+            client: geth
+            pyroscope_env: ci-smoke-ocr2-evm-simulated            
+          # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE            
+          # - name: ocr2-nethermind
+          #   nodes: 1
+          #   os: ubuntu20.04-8cores-32GB
+          #   run: -run TestOCRv2Basic
+          #   file: ocr2
+          #   client: nethermind
+          #   pyroscope_env: ci-smoke-ocr2-evm-simulated                         
+          - name: ocr2-besu
+            nodes: 1
+            os: ubuntu20.04-8cores-32GB
+            run: -run TestOCRv2Basic
+            file: ocr2
+            client: besu            
+            pyroscope_env: ci-smoke-ocr2-evm-simulated      
+          - name: ocr2-erigon
+            nodes: 1
+            os: ubuntu20.04-8cores-32GB
+            run: -run TestOCRv2Basic
+            file: ocr2
+            client: erigon            
+            pyroscope_env: ci-smoke-ocr2-evm-simulated                           
           - name: ocr2
             nodes: 1
             os: ubuntu20.04-8cores-32GB
@@ -341,23 +403,25 @@ jobs:
             pyroscope_env: ""
           - name: vrf
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            run: -run TestVRFv2MultipleSendingKeys
+            file: vrfv2            
+            os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-vrf2plus-evm-simulated                       
           - name: forwarder_ocr
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           - name: forwarders_ocr2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
@@ -435,6 +499,7 @@ jobs:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          ETH2_EL_CLIENT: ${{matrix.product.client}}
           LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
           LOKI_URL: ${{ secrets.LOKI_URL }}
           LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}

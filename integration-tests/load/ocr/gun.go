@@ -30,7 +30,7 @@ func NewGun(l zerolog.Logger, cc blockchain.EVMClient, ocrInstances []contracts.
 	}
 }
 
-func (m *Gun) Call(_ *wasp.Generator) *wasp.CallResult {
+func (m *Gun) Call(_ *wasp.Generator) *wasp.Response {
 	m.roundNum.Add(1)
 	requestedRound := m.roundNum.Load()
 	m.l.Info().
@@ -39,17 +39,17 @@ func (m *Gun) Call(_ *wasp.Generator) *wasp.CallResult {
 		Msg("starting new round")
 	err := m.ocrInstances[0].RequestNewRound()
 	if err != nil {
-		return &wasp.CallResult{Error: err.Error(), Failed: true}
+		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
 	for {
 		time.Sleep(5 * time.Second)
 		lr, err := m.ocrInstances[0].GetLatestRound(context.Background())
 		if err != nil {
-			return &wasp.CallResult{Error: err.Error(), Failed: true}
+			return &wasp.Response{Error: err.Error(), Failed: true}
 		}
 		m.l.Info().Interface("LatestRound", lr).Msg("latest round")
 		if lr.RoundId.Int64() >= requestedRound {
-			return &wasp.CallResult{}
+			return &wasp.Response{}
 		}
 	}
 }

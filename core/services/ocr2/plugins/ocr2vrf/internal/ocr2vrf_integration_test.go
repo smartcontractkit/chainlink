@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
@@ -33,6 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
@@ -285,7 +285,7 @@ func setupNodeOCR2(
 
 		// Add the forwarder to the node's forwarder manager.
 		forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
-		chainID := utils.Big(*b.Blockchain().Config().ChainID)
+		chainID := ubig.Big(*b.Blockchain().Config().ChainID)
 		_, err = forwarderORM.CreateForwarder(faddr, chainID)
 		require.NoError(t, err)
 		effectiveTransmitter = faddr
@@ -298,7 +298,7 @@ func setupNodeOCR2(
 		n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 		require.NoError(t, err)
 
-		tx := types.NewTransaction(
+		tx := cltest.NewLegacyTransaction(
 			n, k.Address,
 			assets.Ether(1).ToInt(),
 			21000,
@@ -662,7 +662,7 @@ linkEthFeedAddress     	= "%s"
 		// Fund the payee with some ETH.
 		n, err2 := uni.backend.NonceAt(testutils.Context(t), uni.owner.From, nil)
 		require.NoError(t, err2)
-		tx := types.NewTransaction(
+		tx := cltest.NewLegacyTransaction(
 			n, payeeTransactor.From,
 			assets.Ether(1).ToInt(),
 			21000,

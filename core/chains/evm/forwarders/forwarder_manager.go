@@ -14,15 +14,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI).Methods["forward"]
@@ -79,7 +80,7 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 		f.logger.Debug("Initializing EVM forwarder manager")
 		chainId := f.evmClient.ConfiguredChainID()
 
-		fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*chainId))
+		fwdrs, err := f.ORM.FindForwardersByChain(big.Big(*chainId))
 		if err != nil {
 			return errors.Wrapf(err, "Failed to retrieve forwarders for chain %d", chainId)
 		}
@@ -112,7 +113,7 @@ func FilterName(addr common.Address) string {
 
 func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
-	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ConfiguredChainID()))
+	fwdrs, err := f.ORM.FindForwardersByChain(big.Big(*f.evmClient.ConfiguredChainID()))
 	if err != nil {
 		return common.Address{}, err
 	}

@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 
@@ -83,6 +84,28 @@ func WithLogStream(ls *logstream.LogStream) ClNodeOption {
 	}
 }
 
+func WithImage(image string) ClNodeOption {
+	return func(c *ClNode) {
+		c.ContainerImage = image
+	}
+}
+
+func WithVersion(version string) ClNodeOption {
+	return func(c *ClNode) {
+		c.ContainerVersion = version
+	}
+}
+
+func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
+	return func(c *ClNode) {
+		var err error
+		c.PostgresDb, err = test_env.NewPostgresDb(c.EnvComponent.Networks, opts...)
+		if err != nil {
+			c.t.Fatalf("failed to create postgres db: %v", err)
+		}
+	}
+}
+
 func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) (*ClNode, error) {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
@@ -112,7 +135,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 func (n *ClNode) SetTestLogger(t *testing.T) {
 	n.l = logging.GetTestLogger(t)
 	n.t = t
-	n.PostgresDb.WithTestLogger(t)
+	n.PostgresDb.WithTestInstance(t)
 }
 
 // Restart restarts only CL node, DB container is reused
@@ -130,8 +153,15 @@ func (n *ClNode) UpgradeVersion(newImage, newVersion string) error {
 		return fmt.Errorf("new version is empty")
 	}
 	if newImage == "" {
-		return fmt.Errorf("new image name is empty")
+		newImage = os.Getenv("CHAINLINK_IMAGE")
 	}
+	n.l.Info().
+		Str("Name", n.ContainerName).
+		Str("Old Image", os.Getenv("CHAINLINK_IMAGE")).
+		Str("Old Version", os.Getenv("CHAINLINK_VERSION")).
+		Str("New Image", newImage).
+		Str("New Version", newVersion).
+		Msg("Upgrading Chainlink Node")
 	n.ContainerImage = newImage
 	n.ContainerVersion = newVersion
 	return n.Restart(n.NodeConfig)

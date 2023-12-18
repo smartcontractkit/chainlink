@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -336,7 +336,7 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 	k, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	chainID := big.NewInt(evmclient.NullClientChainID)
-	tx := types.NewTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
+	tx := cltest.NewLegacyTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
 
 	randomAddress := testutils.NewAddress()
 	_, err := ethKeyStore.SignTx(randomAddress, tx, chainID)
@@ -673,7 +673,7 @@ func Test_EthKeyStore_Delete(t *testing.T) {
 
 	_, addr1 := cltest.MustInsertRandomKey(t, ks)
 	_, addr2 := cltest.MustInsertRandomKey(t, ks)
-	cltest.MustInsertRandomKey(t, ks, *utils.NewBig(testutils.SimulatedChainID))
+	cltest.MustInsertRandomKey(t, ks, *ubig.New(testutils.SimulatedChainID))
 	require.NoError(t, ks.Add(addr1, testutils.SimulatedChainID))
 	require.NoError(t, ks.Enable(addr1, testutils.SimulatedChainID))
 

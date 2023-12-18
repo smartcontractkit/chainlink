@@ -28,8 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -71,11 +71,16 @@ type TestEvmTxStore interface {
 	InsertTxAttempt(attempt *TxAttempt) error
 	LoadTxesAttempts(etxs []*Tx, qopts ...pg.QOpt) error
 	GetFatalTransactions(ctx context.Context) (txes []*Tx, err error)
+	GetAllTxes(ctx context.Context) (txes []*Tx, err error)
+	GetAllTxAttempts(ctx context.Context) (attempts []TxAttempt, err error)
+	CountTxesByStateAndSubject(ctx context.Context, state txmgrtypes.TxState, subject uuid.UUID) (count int, err error)
+	FindTxesByFromAddressAndState(ctx context.Context, fromAddress common.Address, state string) (txes []*Tx, err error)
+	UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context, id int64, blockNum uint) error
 }
 
 type evmTxStore struct {
 	q         pg.Q
-	logger    logger.Logger
+	logger    logger.SugaredLogger
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 }
@@ -177,7 +182,7 @@ type DbEthTx struct {
 	Subject           uuid.NullUUID
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  null.Uint32
-	EVMChainID        utils.Big
+	EVMChainID        ubig.Big
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
 	TransmitChecker    *sqlutil.JSON
@@ -210,7 +215,7 @@ func (db *DbEthTx) FromTx(tx *Tx) {
 	db.CallbackCompleted = tx.CallbackCompleted
 
 	if tx.ChainID != nil {
-		db.EVMChainID = *utils.NewBig(tx.ChainID)
+		db.EVMChainID = *ubig.New(tx.ChainID)
 	}
 	if tx.Sequence != nil {
 		n := tx.Sequence.Int64()
@@ -340,7 +345,7 @@ func NewTxStore(
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
 	return &evmTxStore{
 		q:         q,
-		logger:    namedLogger,
+		logger:    logger.Sugared(namedLogger),
 		ctx:       ctx,
 		ctxCancel: cancel,
 	}
@@ -1499,7 +1504,7 @@ GROUP BY e.id
 				txHashesHex[i] = common.BytesToAddress(r.TxHashes[i])
 			}
 
-			logger.Criticalw(o.logger, fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+			o.logger.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
 				"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
 				"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
 				"an external wallet has been used to send a transaction from account %s with nonce %v."+
@@ -2009,6 +2014,66 @@ func (o *evmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Co
 		return nil
 	})
 	return txes, pkgerrors.Wrap(err, "FindTxesWithAttemptsAndReceiptsByIdsAndState failed")
+}
+
+// For testing only, get all txes in the DB
+func (o *evmTxStore) GetAllTxes(ctx context.Context) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := "SELECT * FROM evm.txes"
+	err = qq.Select(&dbEtxs, sql)
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, err
+}
+
+// For testing only, get all tx attempts in the DB
+func (o *evmTxStore) GetAllTxAttempts(ctx context.Context) (attempts []TxAttempt, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbAttempts []DbEthTxAttempt
+	sql := "SELECT * FROM evm.tx_attempts"
+	err = qq.Select(&dbAttempts, sql)
+	attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
+	return attempts, err
+}
+
+func (o *evmTxStore) CountTxesByStateAndSubject(ctx context.Context, state txmgrtypes.TxState, subject uuid.UUID) (count int, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	sql := "SELECT COUNT(*) FROM evm.txes WHERE state = $1 AND subject = $2"
+	err = qq.Get(&count, sql, state, subject)
+	return count, err
+}
+
+func (o *evmTxStore) FindTxesByFromAddressAndState(ctx context.Context, fromAddress common.Address, state string) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	sql := "SELECT * FROM evm.txes WHERE from_address = $1 AND state = $2"
+	var dbEtxs []DbEthTx
+	err = qq.Select(&dbEtxs, sql, fromAddress, state)
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, err
+}
+
+func (o *evmTxStore) UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context, id int64, blockNum uint) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	sql := "UPDATE evm.tx_attempts SET broadcast_before_block_num = $1 WHERE eth_tx_id = $2"
+	_, err := qq.Exec(sql, blockNum, id)
+	return err
 }
 
 // Returns a context that contains the values of the provided context,

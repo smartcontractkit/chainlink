@@ -97,6 +97,7 @@ type VRFSpec {
     batchCoordinatorAddress: String
     batchFulfillmentEnabled: Boolean!
     batchFulfillmentGasMultiplier: Float!
+    customRevertsPipelineEnabled: Boolean
     chunkSize: Int!
     backoffInitialDelay: String!
     backoffMaxDelay: String!
