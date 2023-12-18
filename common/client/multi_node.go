@@ -119,7 +119,7 @@ func NewMultiNode[
 	HEAD types.Head[BLOCK_HASH],
 	RPC_CLIENT RPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD],
 ](
-	l logger.Logger,
+	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
@@ -131,9 +131,6 @@ func NewMultiNode[
 	sendOnlyErrorParser func(err error) SendTxReturnCode,
 ) MultiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT] {
 	nodeSelector := newNodeSelector(selectionMode, nodes)
-
-	lggr := logger.Named(l, "MultiNode")
-	lggr = logger.With(lggr, "chainID", chainID.String())
 
 	var all []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
 	for _, n := range nodes {
