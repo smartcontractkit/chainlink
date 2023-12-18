@@ -29,6 +29,11 @@ func NewUserSubscriptions() UserSubscriptions {
 	}
 }
 
+type CachedSubscription struct {
+	SubscriptionID uint64
+	functions_router.IFunctionsSubscriptionsSubscription
+}
+
 func (us *userSubscriptions) UpdateSubscription(subscriptionId uint64, subscription *functions_router.IFunctionsSubscriptionsSubscription) {
 	if subscription == nil || subscription.Owner == utils.ZeroAddress {
 		user, ok := us.subscriptionIdsMap[subscriptionId]
