@@ -136,7 +136,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 		performData  []byte
 		wantErr      assert.ErrorAssertionFunc
 
-		state     mercury.MercuryUpkeepState
+		state     encoding.PipelineExecutionState
 		retryable bool
 		registry  streamsRegistry
 	}{
@@ -230,7 +230,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 			callbackResp: []byte{},
 			callbackErr:  errors.New("bad response"),
 			wantErr:      assert.Error,
-			state:        mercury.RpcFlakyFailure,
+			state:        encoding.RpcFlakyFailure,
 			retryable:    true,
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -281,8 +281,8 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		allowed    bool
 		ethCallErr error
 		err        error
-		state      mercury.MercuryUpkeepState
-		reason     mercury.MercuryUpkeepFailureReason
+		state      encoding.PipelineExecutionState
+		reason     encoding.UpkeepFailureReason
 		registry   streamsRegistry
 		retryable  bool
 		config     []byte
@@ -340,7 +340,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		{
 			name:   "failure - cannot unmarshal privilege config",
 			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
-			state:  mercury.MercuryUnmarshalError,
+			state:  encoding.MercuryUnmarshalError,
 			config: []byte{0, 1},
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -355,7 +355,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 			name:       "failure - flaky RPC",
 			retryable:  true,
 			err:        fmt.Errorf("failed to get upkeep privilege config: flaky RPC"),
-			state:      mercury.RpcFlakyFailure,
+			state:      encoding.RpcFlakyFailure,
 			ethCallErr: fmt.Errorf("flaky RPC"),
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -369,7 +369,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		{
 			name:   "failure - empty upkeep privilege config",
 			err:    fmt.Errorf("upkeep privilege config is empty"),
-			reason: mercury.MercuryUpkeepFailureReasonMercuryAccessNotAllowed,
+			reason: encoding.UpkeepFailureReasonMercuryAccessNotAllowed,
 			config: []byte{},
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -484,7 +484,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: blockNum,
 					},
-					IneligibilityReason: uint8(mercury.MercuryUpkeepFailureReasonTargetCheckReverted),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonTargetCheckReverted),
 				},
 			},
 			blobs: map[string]string{
@@ -538,7 +538,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: blockNum,
 					},
-					IneligibilityReason: uint8(mercury.MercuryUpkeepFailureReasonTargetCheckReverted),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonTargetCheckReverted),
 				},
 			},
 			blobs: map[string]string{
@@ -711,7 +711,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: blockNum,
 					},
-					IneligibilityReason: uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput),
 				},
 			},
 			hasError: true,
