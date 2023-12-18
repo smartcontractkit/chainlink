@@ -278,14 +278,6 @@ jobs:
           BASE64_CONFIG_OVERRIDE: "W0VtcHR5XQo="
         run: |
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          
-          echo ::add-mask::$CHAINLINK_IMAGE
-          echo ::add-mask::$LOKI_TENANT_ID
-          echo ::add-mask::$LOKI_URL
-          echo ::add-mask::$LOKI_BASIC_AUTH
-          echo ::add-mask::$PYROSCOPE_SERVER
-          echo ::add-mask::$PYROSCOPE_ENVIRONMENT
-          echo ::add-mask::$PYROSCOPE_KEY
 
           convert_to_toml_array() {
             local IFS=','
@@ -606,14 +598,6 @@ jobs:
           BASE64_CONFIG_OVERRIDE: "W0VtcHR5XQo="
         run: |
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-
-          echo ::add-mask::$CHAINLINK_IMAGE
-          echo ::add-mask::$LOKI_TENANT_ID
-          echo ::add-mask::$LOKI_URL
-          echo ::add-mask::$LOKI_BASIC_AUTH
-          echo ::add-mask::$PYROSCOPE_SERVER
-          echo ::add-mask::$PYROSCOPE_ENVIRONMENT
-          echo ::add-mask::$PYROSCOPE_KEY
 
           convert_to_toml_array() {
             local IFS=','
