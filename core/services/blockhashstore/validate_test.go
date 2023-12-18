@@ -6,9 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestValidate(t *testing.T) {
@@ -49,7 +49,7 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 					os.BlockhashStoreSpec.BlockhashStoreAddress)
 				require.Equal(t, 23*time.Second, os.BlockhashStoreSpec.PollPeriod)
 				require.Equal(t, 7*time.Second, os.BlockhashStoreSpec.RunTimeout)
-				require.Equal(t, utils.NewBigI(4), os.BlockhashStoreSpec.EVMChainID)
+				require.Equal(t, big.NewI(4), os.BlockhashStoreSpec.EVMChainID)
 				require.Equal(t, fromAddresses,
 					os.BlockhashStoreSpec.FromAddresses)
 			},

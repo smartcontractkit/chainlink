@@ -13,20 +13,20 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Configs interface {
-	Chains(ids ...relay.ChainID) ([]types.ChainStatus, int, error)
+	Chains(ids ...string) ([]types.ChainStatus, int, error)
 	Node(name string) (Node, error)
-	Nodes(chainID relay.ChainID) (nodes []Node, err error)
+	Nodes(chainID string) (nodes []Node, err error)
 	NodeStatus(name string) (types.NodeStatus, error)
 }
 
 type Node struct {
 	Name       string
-	EVMChainID utils.Big
+	EVMChainID ubig.Big
 	WSURL      null.String
 	HTTPURL    null.String
 	SendOnly   bool

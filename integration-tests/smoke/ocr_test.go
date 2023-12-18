@@ -17,9 +17,12 @@ func TestOCRBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
-		WithGeth().
+		WithTestInstance(t).
+		WithPrivateEthereumNetwork(network).
 		WithMockAdapter().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.5)).
@@ -66,7 +69,7 @@ func TestOCRJobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(6).

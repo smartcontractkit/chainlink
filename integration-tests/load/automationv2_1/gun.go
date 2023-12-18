@@ -28,7 +28,7 @@ func NewLogTriggerUser(
 	}
 }
 
-func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.CallResult {
+func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.logger.Debug().Str("Trigger address", m.triggerContract.Address().String()).Msg("Triggering upkeep")
 	payload := make([]int, 0)
 	for i := 0; i < m.numberOfEvents; i++ {
@@ -36,8 +36,8 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.CallResult {
 	}
 	_, err := m.triggerContract.EmitLogInts(payload)
 	if err != nil {
-		return &wasp.CallResult{Error: err.Error(), Failed: true}
+		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
 
-	return &wasp.CallResult{}
+	return &wasp.Response{}
 }

@@ -25,6 +25,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -429,7 +430,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[1].Result = &b42
 		})
 
-		head := evmtypes.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head := evmtypes.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		err = bhe.FetchBlocks(testutils.Context(t), &head)
 		require.NoError(t, err)
 
@@ -493,8 +494,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[1].Result = &b2
 		})
 
-		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		head3.Parent = &head2
 		err := bhe.FetchBlocks(testutils.Context(t), &head3)
 		require.NoError(t, err)
@@ -546,8 +547,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		// RE-ORG, head2 and head3 have different hash than saved b2 and b3
-		head2 := evmtypes.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		head3.Parent = &head2
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -617,8 +618,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		// head2 and head3 have identical hash to saved blocks
-		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		head3.Parent = &head2
 
 		err := bhe.FetchBlocks(testutils.Context(t), &head3)

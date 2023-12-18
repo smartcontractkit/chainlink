@@ -37,11 +37,14 @@ images:
     image: ${DEVSPACE_IMAGE}
     dockerfile: ../../core/chainlink.devspace.Dockerfile
     context: ../..
+    docker:
+      disableFallback: true
 
 hooks:
   - wait:
       running: true
       terminatedWithCode: 0
+      timeout: 600
     container:
       labelSelector:
         # vars don't work here, = releaseName

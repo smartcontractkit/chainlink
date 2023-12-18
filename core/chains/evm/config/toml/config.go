@@ -19,10 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -107,7 +106,7 @@ func (cs EVMConfigs) totalChains() int {
 	}
 	return total
 }
-func (cs EVMConfigs) Chains(ids ...relay.ChainID) (r []commontypes.ChainStatus, total int, err error) {
+func (cs EVMConfigs) Chains(ids ...string) (r []commontypes.ChainStatus, total int, err error) {
 	total = cs.totalChains()
 	for _, ch := range cs {
 		if ch == nil {
@@ -154,14 +153,14 @@ func (cs EVMConfigs) NodeStatus(name string) (commontypes.NodeStatus, error) {
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
-				return nodeStatus(n, relay.ChainID(cs[i].ChainID.String()))
+				return nodeStatus(n, cs[i].ChainID.String())
 			}
 		}
 	}
 	return commontypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
-func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
+func legacyNode(n *Node, chainID *big.Big) (v2 types.Node) {
 	v2.Name = *n.Name
 	v2.EVMChainID = *chainID
 	if n.HTTPURL != nil {
@@ -179,7 +178,7 @@ func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
 	return
 }
 
-func nodeStatus(n *Node, chainID relay.ChainID) (commontypes.NodeStatus, error) {
+func nodeStatus(n *Node, chainID string) (commontypes.NodeStatus, error) {
 	var s commontypes.NodeStatus
 	s.ChainID = chainID
 	s.Name = *n.Name
@@ -191,7 +190,7 @@ func nodeStatus(n *Node, chainID relay.ChainID) (commontypes.NodeStatus, error) 
 	return s, nil
 }
 
-func (cs EVMConfigs) nodes(id relay.ChainID) (ns EVMNodes) {
+func (cs EVMConfigs) nodes(id string) (ns EVMNodes) {
 	for _, c := range cs {
 		if c.ChainID.String() == id {
 			return c.Nodes
@@ -200,7 +199,7 @@ func (cs EVMConfigs) nodes(id relay.ChainID) (ns EVMNodes) {
 	return nil
 }
 
-func (cs EVMConfigs) Nodes(chainID relay.ChainID) (ns []types.Node, err error) {
+func (cs EVMConfigs) Nodes(chainID string) (ns []types.Node, err error) {
 	evmID, err := ChainIDInt64(chainID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid evm chain id %q : %w", chainID, err)
@@ -215,19 +214,19 @@ func (cs EVMConfigs) Nodes(chainID relay.ChainID) (ns []types.Node, err error) {
 			continue
 		}
 
-		ns = append(ns, legacyNode(n, utils.NewBigI(evmID)))
+		ns = append(ns, legacyNode(n, big.NewI(evmID)))
 	}
 	return
 }
 
-func (cs EVMConfigs) NodeStatuses(chainIDs ...relay.ChainID) (ns []commontypes.NodeStatus, err error) {
+func (cs EVMConfigs) NodeStatuses(chainIDs ...string) (ns []commontypes.NodeStatus, err error) {
 	if len(chainIDs) == 0 {
 		for i := range cs {
 			for _, n := range cs[i].Nodes {
 				if n == nil {
 					continue
 				}
-				n2, err := nodeStatus(n, relay.ChainID(cs[i].ChainID.String()))
+				n2, err := nodeStatus(n, cs[i].ChainID.String())
 				if err != nil {
 					return nil, err
 				}
@@ -268,7 +267,7 @@ func (ns *EVMNodes) SetFrom(fs *EVMNodes) {
 }
 
 type EVMConfig struct {
-	ChainID *utils.Big
+	ChainID *big.Big
 	Enabled *bool
 	Chain
 	Nodes EVMNodes
@@ -816,6 +815,6 @@ func (n *Node) SetFrom(f *Node) {
 	}
 }
 
-func ChainIDInt64(cid relay.ChainID) (int64, error) {
+func ChainIDInt64(cid string) (int64, error) {
 	return strconv.ParseInt(cid, 10, 64)
 }
