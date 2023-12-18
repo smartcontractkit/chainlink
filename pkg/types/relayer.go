@@ -53,4 +53,5 @@ type Relayer interface {
 	NewMedianProvider(rargs RelayArgs, pargs PluginArgs) (MedianProvider, error)
 	NewMercuryProvider(rargs RelayArgs, pargs PluginArgs) (MercuryProvider, error)
 	NewFunctionsProvider(rargs RelayArgs, pargs PluginArgs) (FunctionsProvider, error)
+	NewAutomationProvider(rargs RelayArgs, pargs PluginArgs) (AutomationProvider, error)
 }

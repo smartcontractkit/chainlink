@@ -22,6 +22,10 @@ type FunctionsProvider interface {
 	NewFunctionsProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.FunctionsProvider, error)
 }
 
+type AutomationProvider interface {
+	NewAutomationProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.AutomationProvider, error)
+}
+
 // Relayer extends [types.Relayer] and includes [context.Context]s.
 type Relayer interface {
 	types.ChainService
