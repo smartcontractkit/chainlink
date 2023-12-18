@@ -8,71 +8,49 @@ import (
 )
 
 type LogTriggerGun struct {
-	triggerContract contracts.LogEmitter
-	logger          zerolog.Logger
-	triggerPayload  []int
-	spamPayload     []int
-	spamNPayload    []int
+	triggerContract               contracts.LogEmitter
+	logger                        zerolog.Logger
+	numberOfEvents                int
+	numberOfSpamMatchingEvents    int
+	numberOfSpamNonMatchingEvents int
 }
 
 func NewLogTriggerUser(
 	triggerContract contracts.LogEmitter,
 	logger zerolog.Logger,
 	numberOfEvents int,
-	numberOfSpamEvents int,
+	numberOfSpamMatchingEvents int,
 	numberOfSpamNonMatchingEvents int,
 ) *LogTriggerGun {
 
-	triggerPayload := make([]int, 0)
-	spamPayload := make([]int, 0)
-	spamNPayload := make([]int, 0)
-
-	if numberOfEvents > 0 {
-		for i := 0; i < numberOfEvents; i++ {
-			triggerPayload = append(triggerPayload, 1)
-		}
-	}
-
-	if numberOfSpamEvents > 0 {
-		for i := 0; i < numberOfSpamEvents; i++ {
-			spamPayload = append(spamPayload, 1)
-		}
-	}
-
-	if numberOfSpamNonMatchingEvents > 0 {
-		for i := 0; i < numberOfSpamNonMatchingEvents; i++ {
-			spamNPayload = append(spamNPayload, 2)
-		}
-	}
-
 	return &LogTriggerGun{
-		triggerContract: triggerContract,
-		logger:          logger,
-		triggerPayload:  triggerPayload,
-		spamPayload:     spamPayload,
-		spamNPayload:    spamNPayload,
+		triggerContract:               triggerContract,
+		logger:                        logger,
+		numberOfEvents:                numberOfEvents,
+		numberOfSpamMatchingEvents:    numberOfSpamMatchingEvents,
+		numberOfSpamNonMatchingEvents: numberOfSpamNonMatchingEvents,
 	}
 }
 
 func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.logger.Debug().Str("Trigger address", m.triggerContract.Address().String()).Msg("Triggering upkeep")
 
-	if len(m.triggerPayload) > 0 {
-		_, err := m.triggerContract.EmitLogIntsMultiIndexed(m.triggerPayload, 1)
+	if m.numberOfEvents > 0 {
+		_, err := m.triggerContract.EmitLogIntMultiIndexed(1, 1, m.numberOfEvents)
 		if err != nil {
 			return &wasp.Response{Error: err.Error(), Failed: true}
 		}
 	}
 
-	if len(m.spamPayload) > 0 {
-		_, err := m.triggerContract.EmitLogIntsMultiIndexed(m.spamPayload, 2)
+	if m.numberOfSpamMatchingEvents > 0 {
+		_, err := m.triggerContract.EmitLogIntMultiIndexed(1, 2, m.numberOfSpamMatchingEvents)
 		if err != nil {
 			return &wasp.Response{Error: err.Error(), Failed: true}
 		}
 	}
 
-	if len(m.spamNPayload) > 0 {
-		_, err := m.triggerContract.EmitLogIntsMultiIndexed(m.spamNPayload, 2)
+	if m.numberOfSpamNonMatchingEvents > 0 {
+		_, err := m.triggerContract.EmitLogIntMultiIndexed(2, 2, m.numberOfSpamNonMatchingEvents)
 		if err != nil {
 			return &wasp.Response{Error: err.Error(), Failed: true}
 		}
