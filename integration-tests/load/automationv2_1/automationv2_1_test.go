@@ -246,6 +246,10 @@ func TestLogTrigger(t *testing.T) {
 		key = "GRAFANA_DASHBOARD_URL"
 		err = os.Setenv(fmt.Sprintf("TEST_%s", key), getEnv(key, ""))
 		require.NoError(t, err, "failed to set the environment variable GRAFANA_DASHBOARD_URL for remote runner")
+
+		key = "CONFIG_OVERRIDE"
+		err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+		require.NoError(t, err, "failed to set the environment variable CONFIG_OVERRIDE for remote runner")
 	}
 
 	testEnvironment.
