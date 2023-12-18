@@ -588,6 +588,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		nodeSelector.On("Select").Return(nil).Once()
 		nodeSelector.On("Name").Return("MockedNodeSelector").Once()
 		mn.nodeSelector = nodeSelector
+		defer func() { _ = mn.Close() }()
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, err, ErroringNodeError.Error())
 	})
@@ -608,6 +609,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 			logger:              lggr,
 		})
 		mn.nodeSelector = nodeSelector
+		defer func() { _ = mn.Close() }()
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, err, expectedError.Error())
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 3)
@@ -631,7 +633,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 			sendOnlyErrorParser: sendOnlyErrorParser,
 		})
 		mn.nodeSelector = nodeSelector
-
+		defer func() { _ = mn.Close() }()
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 3)
@@ -659,7 +661,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 			sendOnlyErrorParser: sendOnlyErrorParser,
 		})
 		mn.nodeSelector = nodeSelector
-
+		defer func() { _ = mn.Close() }()
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
 		cancel()
