@@ -2,11 +2,9 @@ package integrationtesthelpers
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -19,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	types3 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
@@ -838,7 +837,7 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 		app, peerID, transmitter, kb := setupNodeCCIP(
 			t,
 			c.Dest.User,
-			bootstrapNodePort+1+i,
+			int64(freeport.GetOne(t)),
 			fmt.Sprintf("oracle_ccip%d", i),
 			c.Source.Chain,
 			c.Dest.Chain,
@@ -885,7 +884,7 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	// setup Jobs
 	ctx := context.Background()
 	// Starts nodes and configures them in the OCR contracts.
-	bootstrapNode, _, configBlock := c.SetupAndStartNodes(ctx, t, generateRandomBootstrapPort())
+	bootstrapNode, _, configBlock := c.SetupAndStartNodes(ctx, t, int64(freeport.GetOne(t)))
 
 	jobParams := c.NewCCIPJobSpecParams(pricePipeline, configBlock, usdcAttestationAPI)
 
@@ -965,26 +964,4 @@ func (n NoopFeedsClient) RejectedJob(context.Context, *pb.RejectedJobRequest) (*
 
 func (n NoopFeedsClient) CancelledJob(context.Context, *pb.CancelledJobRequest) (*pb.CancelledJobResponse, error) {
 	return &pb.CancelledJobResponse{}, nil
-}
-
-func generateRandomBootstrapPort() int64 {
-	minPort := int64(10000)
-	maxPort := int64(65500)
-	for {
-		i, _ := rand.Int(rand.Reader, big.NewInt(maxPort-minPort))
-		port := i.Int64() + minPort
-		if isPortAvailable(port) {
-			return port
-		}
-	}
-}
-
-func isPortAvailable(port int64) bool {
-	address := fmt.Sprintf(":%d", port)
-	listener, err := net.Listen("tcp", address)
-	if err != nil {
-		return false
-	}
-	listener.Close()
-	return true
 }
