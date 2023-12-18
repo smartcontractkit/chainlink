@@ -407,12 +407,13 @@ jobs:
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             nodes: 1
-            run: -run TestVRFv2MultipleSendingKeys
-            file: vrfv2            
+            file: vrfv2
+            client: geth
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             nodes: 1
+            client: geth
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated                       
           - name: forwarder_ocr
