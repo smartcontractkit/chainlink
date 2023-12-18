@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
@@ -26,17 +27,18 @@ const mailboxPromInterval = 5 * time.Second
 type Monitor struct {
 	services.StateMachine
 	appID string
+	lggr  logger.Logger
 
 	mailboxes sync.Map
 	stop      func()
 	done      chan struct{}
 }
 
-func NewMonitor(appID string) *Monitor {
-	return &Monitor{appID: appID}
+func NewMonitor(appID string, lggr logger.Logger) *Monitor {
+	return &Monitor{appID: appID, lggr: logger.Named(lggr, "Monitor")}
 }
 
-func (m *Monitor) Name() string { return "Monitor" }
+func (m *Monitor) Name() string { return m.lggr.Name() }
 
 func (m *Monitor) Start(context.Context) error {
 	return m.StartOnce("Monitor", func() error {
