@@ -453,7 +453,7 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 	case []byte:
 		switch len(v) {
 		case 42:
-			bs, err := hex.DecodeString(string(v))
+			bs, err := commonhex.DecodeString(string(v))
 			if err == nil {
 				*a = AddressParam(common.BytesToAddress(bs))
 				return nil
