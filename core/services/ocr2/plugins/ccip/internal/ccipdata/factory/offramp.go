@@ -77,10 +77,3 @@ func execReportToEthTxMeta(execReport ccipdata.ExecReport) (*txmgr.TxMeta, error
 		MessageIDs: msgIDs,
 	}, nil
 }
-
-// EncodeExecutionReport is only used in tests
-// TODO should remove it and update tests to use Reader interface.
-func EncodeExecutionReport(report ccipdata.ExecReport) ([]byte, error) {
-	offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
-	return v1_2_0.EncodeExecutionReport(abihelpers.MustGetMethodInputs(ccipdata.ManuallyExecute, offRampABI)[:1], report)
-}
