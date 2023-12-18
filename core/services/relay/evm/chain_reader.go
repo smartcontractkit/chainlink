@@ -134,6 +134,8 @@ func (cr *chainReader) getLatestValueFromContract(ctx context.Context, contractN
 		return err
 	}
 
+	cr.lggr.Infof("!!!!!!!!!!\nEVM results \n%x\n!!!!!!!!!!\n", output)
+
 	err = cr.codec.Decode(ctx, output, returnVal, wrapItemType(contractName, method, false))
 	if err != nil {
 		cr.lggr.Errorf("!!!!!!!!!!\nEVM decode err:\n%v\n!!!!!!!!!!\n", err)
