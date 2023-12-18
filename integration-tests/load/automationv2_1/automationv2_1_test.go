@@ -561,7 +561,7 @@ func TestLogTrigger(t *testing.T) {
 		eventsMissed, percentMissed, testDuration.String())
 
 	err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
-		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(endTime.UnixMilli(), 10),
+		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(time.Now().UnixMilli(), 10),
 		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")})
 	if err != nil {
 		l.Error().Err(err).Msg("Error sending slack notification")
