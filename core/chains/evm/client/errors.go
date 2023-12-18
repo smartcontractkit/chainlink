@@ -488,7 +488,8 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		return commonclient.Retryable
 	}
 	if sendError.IsCanceled() {
-		return commonclient.Retryable, errors.Wrapf(sendError, "context was canceled while sending transaction %s", tx.Hash().Hex())
+		lggr.Errorw("context was canceled while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		return commonclient.Retryable
 	}
 	if sendError.IsTxFeeExceedsCap() {
 		lggr.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
