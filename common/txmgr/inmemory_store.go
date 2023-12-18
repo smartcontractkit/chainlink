@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"sync"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -464,7 +464,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBr
 		}
 	}
 	for _, as := range ms.addressStates {
-		as.applyToTxs([]txmgrtypes.TxState{txmgr.TxUnconfirmed}, fn)
+		as.ApplyToTxs(nil, fn)
 	}
 
 	return nil
@@ -478,10 +478,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		if tx.TxAttempts != nil && len(tx.TxAttempts) > 0 {
-			if tx.ChainID.String() != chainID.String() {
-				return false
-			}
-			return true
+			return tx.ChainID.String() == chainID.String()
 		}
 
 		return false
@@ -489,22 +486,10 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	states := []txmgrtypes.TxState{TxConfirmedMissingReceipt}
 	attempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, as := range ms.addressStates {
-		attempts = append(attempts, as.fetchTxAttempts(states, filter)...)
+		attempts = append(attempts, as.FetchTxAttempts(states, filter)...)
 	}
 	// sort by tx_id ASC, gas_price DESC, gas_tip_cap DESC
 	// TODO
-	/*
-		sort.SliceStable(attempts, func(i, j int) bool {
-				// TODO: THIS IS CURRENTLY TIED TO ETHEREUM WE MIGHT WANT TO MAKE METHODS ON FEE FOR PRICE AND TIP CAP
-					if attempts[i].TxID == attempts[j].TxID {
-						if attempts[i].TxFee.GasPrice == attempts[j].TxFee.GasPrice {
-							return attempts[i].TxFee.GasTipCap > attempts[j].TxFee.GasTipCap
-						}
-						return attempts[i].TxFee.GasPrice > attempts[j].TxFee.GasPrice
-					}
-			return attempts[i].TxID < attempts[j].TxID
-		})
-	*/
 
 	return attempts, nil
 }
@@ -524,7 +509,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	}
 
 	for _, as := range ms.addressStates {
-		as.applyToTxs(txmgr.TxUnconfirmed, fn, txIDs...)
+		as.ApplyToTxs(nil, fn, txIDs...)
 	}
 
 	return nil
@@ -543,7 +528,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	}
 
 	for _, as := range ms.addressStates {
-		as.applyToTxs(nil, fn, txIDs...)
+		as.ApplyToTxs(nil, fn, txIDs...)
 	}
 
 	return nil
@@ -566,7 +551,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
 	attempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, as := range ms.addressStates {
-		attempts = append(as.fetchTxAttempts(states, filterFn), attempts...)
+		attempts = append(attempts, as.FetchTxAttempts(states, filterFn)...)
 	}
 	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
 	// TODO
@@ -574,9 +559,57 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	return attempts, nil
 }
 
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) (receiptsPlus []txmgrtypes.ReceiptPlus[R], err error) {
-	return ms.txStore.FindTxesPendingCallback(ctx, blockNum, chainID)
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error) {
+	if ms.chainID.String() != chainID.String() {
+		return nil, fmt.Errorf("find_txes_pending_callback: %w", ErrInvalidChainID)
+	}
+
+	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return false
+		}
+
+		if tx.TxAttempts[0].Receipts == nil || len(tx.TxAttempts[0].Receipts) == 0 {
+			return false
+		}
+
+		if tx.PipelineTaskRunID.Valid && tx.SignalCallback && !tx.CallbackCompleted &&
+			tx.TxAttempts[0].Receipts[0].GetBlockNumber() != nil &&
+			big.NewInt(blockNum-int64(tx.MinConfirmations.Uint32)).Cmp(tx.TxAttempts[0].Receipts[0].GetBlockNumber()) > 0 {
+			return true
+		}
+
+		return false
+
+	}
+	states := []txmgrtypes.TxState{TxConfirmed}
+	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	for _, as := range ms.addressStates {
+		txs = append(txs, as.FetchTxs(states, filterFn)...)
+	}
+
+	receiptsPlus := make([]txmgrtypes.ReceiptPlus[R], len(txs))
+	meta := map[string]interface{}{}
+	for i, tx := range txs {
+		if err := json.Unmarshal(json.RawMessage(*tx.Meta), &meta); err != nil {
+			return nil, err
+		}
+		failOnRevert := false
+		if v, ok := meta["FailOnRevert"].(bool); ok {
+			failOnRevert = v
+		}
+
+		receiptsPlus[i] = txmgrtypes.ReceiptPlus[R]{
+			ID:           tx.PipelineTaskRunID.UUID,
+			Receipt:      (tx.TxAttempts[0].Receipts[0]).(R),
+			FailOnRevert: failOnRevert,
+		}
+		clear(meta)
+	}
+
+	return receiptsPlus, nil
 }
+
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error {
 	return ms.txStore.UpdateTxCallbackCompleted(ctx, pipelineTaskRunRid, chainId)
 }
