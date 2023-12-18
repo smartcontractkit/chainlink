@@ -634,8 +634,55 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) error {
-	return ms.txStore.SaveFetchedReceipts(ctx, receipts, chainID)
+	if ms.chainID.String() != chainID.String() {
+		return fmt.Errorf("save_fetched_receipts: %w", ErrInvalidChainID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.SaveFetchedReceipts(ctx, receipts, chainID); err != nil {
+		return err
+	}
+
+	// convert receipts to map
+	receiptsMap := map[TX_HASH]R{}
+	for _, receipt := range receipts {
+		receiptsMap[receipt.GetTxHash()] = receipt
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return
+		}
+		attempt := tx.TxAttempts[0]
+		receipt, ok := receiptsMap[attempt.Hash]
+		if !ok {
+			return
+		}
+
+		if attempt.Receipts != nil && len(attempt.Receipts) > 0 &&
+			attempt.Receipts[0].GetBlockNumber() != nil && receipt.GetBlockNumber() != nil &&
+			attempt.Receipts[0].GetBlockNumber().Cmp(receipt.GetBlockNumber()) == 0 {
+			return
+		}
+		// TODO(jtw): this needs to be finished
+
+		attempt.State = txmgrtypes.TxAttemptBroadcast
+		if attempt.BroadcastBeforeBlockNum == nil {
+			blocknum := receipt.GetBlockNumber().Int64()
+			attempt.BroadcastBeforeBlockNum = &blocknum
+		}
+		attempt.Receipts = []txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]{receipt}
+
+		tx.State = TxConfirmed
+	}
+	for _, as := range ms.addressStates {
+		as.ApplyToTxs(nil, fn)
+	}
+
+	return nil
 }
+
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	return ms.txStore.FindTxesByMetaFieldAndStates(ctx, metaField, metaValue, states, chainID)
 }
