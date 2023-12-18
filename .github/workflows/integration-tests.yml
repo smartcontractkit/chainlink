@@ -275,13 +275,17 @@ jobs:
           LOKI_URL: ${{ secrets.LOKI_URL }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-          BASE64_CONFIG_OVERRIDE: ""
+          BASE64_CONFIG_OVERRIDE: "W0VtcHR5XQo="
         run: |
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           
           echo ::add-mask::$CHAINLINK_IMAGE
           echo ::add-mask::$LOKI_TENANT_ID
           echo ::add-mask::$LOKI_URL
+          echo ::add-mask::$LOKI_BASIC_AUTH
+          echo ::add-mask::$PYROSCOPE_SERVER
+          echo ::add-mask::$PYROSCOPE_ENVIRONMENT
+          echo ::add-mask::$PYROSCOPE_KEY
 
           convert_to_toml_array() {
             local IFS=','
@@ -296,14 +300,18 @@ jobs:
             echo "$toml_array_format"
           }
           
-          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")          
-          log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
+          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")                   
 
+          if [ -n "$ETH2_EL_CLIENT" ]; then
+            execution_layer="$ETH2_EL_CLIENT"
+          else
+            execution_layer="geth"
+          fi
           if [ -n "$TEST_LOG_COLLECT" ]; then
-              test_log_collect=true
+            test_log_collect=true
           else
             test_log_collect=false
-          fi       
+          fi              
 
           cat << EOF > config.toml
           [Network]
@@ -315,6 +323,9 @@ jobs:
           
           [Pyroscope]
           enabled=false
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
 
           [Logging]
           test_log_collect=$test_log_collect
@@ -322,6 +333,14 @@ jobs:
 
           [Logging.LogStream]
           log_targets=$log_targets
+
+          [Logging.Loki]
+          loki_tenant_id="$LOKI_TENANT_ID"
+          loki_url="$LOKI_URL"
+          loki_basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          grafana_url="$GRAFANA_URL"
           EOF
           
           echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
@@ -578,18 +597,23 @@ jobs:
           ETH2_EL_CLIENT: ${{matrix.product.client}}
           LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
           LOKI_URL: ${{ secrets.LOKI_URL }}
+          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
           RUN_ID: ${{ github.run_id }}
           TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
           CHAINLINK_VERSION: ${{ github.sha }}
-          BASE64_CONFIG_OVERRIDE: ""
+          BASE64_CONFIG_OVERRIDE: "W0VtcHR5XQo="
         run: |
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
 
           echo ::add-mask::$CHAINLINK_IMAGE
           echo ::add-mask::$LOKI_TENANT_ID
           echo ::add-mask::$LOKI_URL
+          echo ::add-mask::$LOKI_BASIC_AUTH
+          echo ::add-mask::$PYROSCOPE_SERVER
+          echo ::add-mask::$PYROSCOPE_ENVIRONMENT
+          echo ::add-mask::$PYROSCOPE_KEY
 
           convert_to_toml_array() {
             local IFS=','
@@ -627,6 +651,9 @@ jobs:
           
           [Pyroscope]
           enabled=false
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
 
           [PrivateEthereumNetwork]
           execution_layer="$execution_layer"
@@ -637,6 +664,14 @@ jobs:
 
           [Logging.LogStream]
           log_targets=$log_targets
+
+          [Logging.Loki]
+          loki_tenant_id="$LOKI_TENANT_ID"
+          loki_url="$LOKI_URL"
+          loki_basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          grafana_url="$GRAFANA_URL"
           EOF
           
           echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV       
