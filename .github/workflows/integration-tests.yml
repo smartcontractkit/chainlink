@@ -271,6 +271,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
           CHAINLINK_VERSION: ${{ github.sha }}
+          BASE64_CONFIG_OVERRIDE: ""
         run: |
           echo ::add-mask::$CHAINLINK_IMAGE
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
@@ -572,6 +573,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
           CHAINLINK_VERSION: ${{ github.sha }}
+          BASE64_CONFIG_OVERRIDE: ""
         run: |
           echo ::add-mask::$CHAINLINK_IMAGE
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
