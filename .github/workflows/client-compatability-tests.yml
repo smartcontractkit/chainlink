@@ -1,7 +1,7 @@
 name: Client Compatability Tests
 on:
   schedule:
-    - cron: "0 5 * * *" # Run every night at midnight EST
+    - cron: "30 5 * * *" # Run every night at midnight + 30min EST
   push:
     tags:
       - "*"
