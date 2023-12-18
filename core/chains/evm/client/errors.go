@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 )
@@ -311,6 +312,17 @@ func (s *SendError) IsTimeout() bool {
 	return errors.Is(s.err, context.DeadlineExceeded)
 }
 
+// IsCanceled indicates if the error was caused by an context cancellation
+func (s *SendError) IsCanceled() bool {
+	if s == nil {
+		return false
+	}
+	if s.err == nil {
+		return false
+	}
+	return errors.Is(s.err, context.Canceled)
+}
+
 func NewFatalSendError(e error) *SendError {
 	if e == nil {
 		return nil
@@ -474,6 +486,9 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 	if sendError.IsTimeout() {
 		lggr.Errorw("timeout while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
 		return commonclient.Retryable
+	}
+	if sendError.IsCanceled() {
+		return commonclient.Retryable, errors.Wrapf(sendError, "context was canceled while sending transaction %s", tx.Hash().Hex())
 	}
 	if sendError.IsTxFeeExceedsCap() {
 		lggr.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),

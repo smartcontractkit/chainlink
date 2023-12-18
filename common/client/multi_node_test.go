@@ -1,9 +1,10 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	big "math/big"
+	"math/big"
 	"math/rand"
 	"testing"
 	"time"
@@ -559,11 +560,29 @@ func TestMultiNode_BatchCallContextAll(t *testing.T) {
 
 func TestMultiNode_SendTransaction(t *testing.T) {
 	t.Parallel()
-	t.Run("Fails if failed to select active node", func(t *testing.T) {
+	sendOnlyErrorParser := func(err error) SendTxReturnCode {
+		if err != nil {
+			return Fatal
+		}
+
+		return Successful
+	}
+	newSendTxNode := func(t *testing.T, result error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {
+		rpc := newMultiNodeRPCClient(t)
+		rpc.On("SendTransaction", mock.Anything, mock.Anything).Return(result).Run(sendTxRun).Maybe()
+		node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
+		node.On("String").Return("node name").Maybe()
+		node.On("RPC").Return(rpc).Maybe()
+		return node
+	}
+	t.Run("Fails if failed to select active node, even if managed to send tx", func(t *testing.T) {
 		chainID := types.RandomID()
+		node := newSendTxNode(t, nil, nil)
 		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       chainID,
+			selectionMode:       NodeSelectionModeRoundRobin,
+			chainID:             chainID,
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
+			sendOnlyErrorParser: sendOnlyErrorParser,
 		})
 		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(nil).Once()
@@ -572,64 +591,79 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, err, ErroringNodeError.Error())
 	})
-	t.Run("Returns error if RPC call fails for active node", func(t *testing.T) {
+	t.Run("Returns error from main node, logs all", func(t *testing.T) {
 		chainID := types.RandomID()
-		rpc := newMultiNodeRPCClient(t)
 		expectedError := errors.New("rpc failed to do the batch call")
-		rpc.On("SendTransaction", mock.Anything, mock.Anything).Return(expectedError).Once()
-		node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-		node.On("RPC").Return(rpc)
-		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-		nodeSelector.On("Select").Return(node).Once()
-		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       chainID,
-		})
-		mn.nodeSelector = nodeSelector
-		err := mn.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, err, expectedError.Error())
-	})
-	t.Run("Returns result of main node and logs secondary nodes results", func(t *testing.T) {
-		// setup RPCs
-		failedRPC := newMultiNodeRPCClient(t)
-		failedRPC.On("SendTransaction", mock.Anything, mock.Anything).
-			Return(errors.New("rpc failed to do the batch call")).Once()
-		okRPC := newMultiNodeRPCClient(t)
-		okRPC.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Twice()
-
-		// setup ok and failed auxiliary nodes
-		okNode := newMockSendOnlyNode[types.ID, multiNodeRPCClient](t)
-		okNode.On("RPC").Return(okRPC).Once()
-		okNode.On("String").Return("okNode")
-		failedNode := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-		failedNode.On("RPC").Return(failedRPC).Once()
-		failedNode.On("String").Return("failedNode")
-
-		// setup main node
-		mainNode := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-		mainNode.On("RPC").Return(okRPC)
+		unexpectedError := errors.New("error returned by non main node must be ignored")
+		mainNode := newSendTxNode(t, expectedError, nil)
 		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(mainNode).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       types.RandomID(),
-			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{failedNode, mainNode},
-			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{okNode},
-			logger:        lggr,
-			sendOnlyErrorParser: func(err error) SendTxReturnCode {
-				if err != nil {
-					return Fatal
-				}
+			selectionMode:       NodeSelectionModeRoundRobin,
+			chainID:             chainID,
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{mainNode, newSendTxNode(t, unexpectedError, nil)},
+			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{newSendTxNode(t, unexpectedError, nil)},
+			sendOnlyErrorParser: sendOnlyErrorParser,
+			logger:              lggr,
+		})
+		mn.nodeSelector = nodeSelector
+		err := mn.SendTransaction(tests.Context(t), nil)
+		require.EqualError(t, err, expectedError.Error())
+		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 3)
+		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 3)
+	})
+	t.Run("Main node submission is successful", func(t *testing.T) {
+		// setup RPCs
+		failedNode := newSendTxNode(t, errors.New("rpc failed to send transaction"), nil)
+		failedSendOnly := newSendTxNode(t, errors.New("send only rpc failed to send transaction"), nil)
+		okNode := newSendTxNode(t, nil, nil)
 
-				return Successful
-			},
+		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
+		nodeSelector.On("Select").Return(okNode).Once()
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		mn := newTestMultiNode(t, multiNodeOpts{
+			selectionMode:       NodeSelectionModeRoundRobin,
+			chainID:             types.RandomID(),
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{failedNode, okNode},
+			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{failedSendOnly},
+			logger:              lggr,
+			sendOnlyErrorParser: sendOnlyErrorParser,
 		})
 		mn.nodeSelector = nodeSelector
 
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
-		tests.AssertLogEventually(t, observedLogs, "Sendonly node sent transaction")
-		tests.AssertLogEventually(t, observedLogs, "RPC returned error")
+		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 3)
+		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 2)
+	})
+	t.Run("Secondary node returns success before main node fails", func(t *testing.T) {
+		// setup RPCs
+		ctx, cancel := context.WithCancel(context.Background())
+		mainNode := newSendTxNode(t, errors.New("main node failure"), func(args mock.Arguments) {
+			// ensure that main node returns result after secondary succeeded
+			<-ctx.Done()
+		})
+		secondary := newSendTxNode(t, nil, nil)
+		secondaryFailed := newSendTxNode(t, errors.New("secondary node failure"), nil)
+
+		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
+		nodeSelector.On("Select").Return(mainNode).Once()
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		mn := newTestMultiNode(t, multiNodeOpts{
+			selectionMode:       NodeSelectionModeRoundRobin,
+			chainID:             types.RandomID(),
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{mainNode, secondaryFailed},
+			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{secondary},
+			logger:              lggr,
+			sendOnlyErrorParser: sendOnlyErrorParser,
+		})
+		mn.nodeSelector = nodeSelector
+
+		err := mn.SendTransaction(tests.Context(t), nil)
+		require.NoError(t, err)
+		cancel()
+		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 3)
+		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 2)
 	})
 }

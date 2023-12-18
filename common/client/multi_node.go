@@ -84,6 +84,7 @@ type multiNode[
 	services.StateMachine
 	nodes               []Node[CHAIN_ID, HEAD, RPC_CLIENT]
 	sendonlys           []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
+	allNodes            []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
 	chainID             CHAIN_ID
 	chainType           config.ChainType
 	lggr                logger.SugaredLogger
@@ -118,7 +119,7 @@ func NewMultiNode[
 	HEAD types.Head[BLOCK_HASH],
 	RPC_CLIENT RPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD],
 ](
-	lggr logger.Logger,
+	l logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
@@ -131,6 +132,14 @@ func NewMultiNode[
 ) MultiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT] {
 	nodeSelector := newNodeSelector(selectionMode, nodes)
 
+	lggr := logger.Named(l, "MultiNode")
+	lggr = logger.With(lggr, "chainID", chainID.String())
+
+	var all []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
+	for _, n := range nodes {
+		all = append(all, n)
+	}
+	all = append(all, sendonlys...)
 	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
 	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
 	const reportInterval = 6500 * time.Millisecond
@@ -148,6 +157,7 @@ func NewMultiNode[
 		chainFamily:         chainFamily,
 		sendOnlyErrorParser: sendOnlyErrorParser,
 		reportInterval:      reportInterval,
+		allNodes:            all,
 	}
 
 	c.lggr.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
@@ -546,20 +556,18 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SendTransaction(ctx context.Context, tx TX) error {
-	main, nodeError := c.selectNode()
-	var all []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
-	for _, n := range c.nodes {
-		all = append(all, n)
+	if len(c.allNodes) == 0 {
+		return ErroringNodeError
 	}
-	all = append(all, c.sendonlys...)
-	for _, n := range all {
-		if n == main {
-			// main node is used at the end for the return value
-			continue
-		}
-		// Parallel send to all other nodes with ignored return value
-		// Async - we do not want to block the main thread with secondary nodes
-		// in case they are unreliable/slow.
+	result := make(chan error, 1)
+	// Even if we fail to select a main node, try sending the tx and notify the caller of failure.
+	// It gives us a chance that tx will be applied while we are trying to recover.
+	main, nodeError := c.selectNode()
+	for _, n := range c.allNodes {
+		// Parallel send to all nodes.
+		// Release the caller on the success of any node or on the error from the main.
+		// This way, we improve performance for cases when the main node is degraded and would eventually return time out.
+		// At the same time, we expect that only the main node is capable of report trustworthy errors.
 		// It is purely a "best effort" send.
 		// Resource is not unbounded because the default context has a timeout.
 		ok := c.IfNotStopped(func() {
@@ -569,21 +577,38 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 				defer c.wg.Done()
 
 				txErr := n.RPC().SendTransaction(ctx, tx)
-				c.lggr.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", txErr)
-				sendOnlyError := c.sendOnlyErrorParser(txErr)
-				if sendOnlyError != Successful {
+				c.lggr.Debugw("Node sent transaction", "name", n.String(), "tx", tx, "err", txErr)
+				isSuccess := c.sendOnlyErrorParser(txErr) == Successful
+				if !isSuccess {
 					c.lggr.Warnw("RPC returned error", "name", n.String(), "tx", tx, "err", txErr)
 				}
+
+				if isSuccess || n == main {
+					select {
+					case result <- txErr:
+					default:
+					}
+				}
+
 			}(n)
 		})
 		if !ok {
-			c.lggr.Debug("Cannot send transaction on sendonly node; MultiNode is stopped", "node", n.String())
+			c.lggr.Debugw("Cannot send transaction on node; MultiNode is stopped", "node", n.String())
+			return fmt.Errorf("MulltiNode is stopped: %w", context.Canceled)
 		}
 	}
+
 	if nodeError != nil {
 		return nodeError
 	}
-	return main.RPC().SendTransaction(ctx, tx)
+
+	select {
+	case err := <-result:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SequenceAt(ctx context.Context, account ADDR, blockNumber *big.Int) (s SEQ, err error) {
