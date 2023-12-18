@@ -318,7 +318,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
   function testWithdrawNoLink() public {
     // CASE: no link token set
     vm.expectRevert(SubscriptionAPI.LinkNotSet.selector);
-    s_subscriptionAPI.withdraw(OWNER, 1 ether);
+    s_subscriptionAPI.withdraw(OWNER);
   }
 
   function testWithdrawInsufficientBalance() public {
@@ -330,7 +330,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
 
     // call withdraw
     vm.expectRevert(SubscriptionAPI.InsufficientBalance.selector);
-    s_subscriptionAPI.withdraw(OWNER, 1 ether);
+    s_subscriptionAPI.withdraw(OWNER);
   }
 
   function testWithdrawSufficientBalanceLinkSet() public {
@@ -355,7 +355,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     // call Withdraw from owner address
     uint256 ownerBalance = linkToken.balanceOf(OWNER);
     changePrank(OWNER);
-    s_subscriptionAPI.withdraw(OWNER, 1 ether);
+    s_subscriptionAPI.withdraw(OWNER);
     // assert link balance of owner
     assertEq(linkToken.balanceOf(OWNER) - ownerBalance, 1 ether, "owner link balance incorrect");
     // assert state of subscription api
@@ -371,21 +371,21 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     // call WithdrawNative
     changePrank(OWNER);
     vm.expectRevert(SubscriptionAPI.InsufficientBalance.selector);
-    s_subscriptionAPI.withdrawNative(payable(OWNER), 1 ether);
+    s_subscriptionAPI.withdrawNative(payable(OWNER));
   }
 
   function testWithdrawLinkInvalidOwner() public {
     address invalidAddress = makeAddr("invalidAddress");
     changePrank(invalidAddress);
     vm.expectRevert("Only callable by owner");
-    s_subscriptionAPI.withdraw(payable(OWNER), 1 ether);
+    s_subscriptionAPI.withdraw(payable(OWNER));
   }
 
   function testWithdrawNativeInvalidOwner() public {
     address invalidAddress = makeAddr("invalidAddress");
     changePrank(invalidAddress);
     vm.expectRevert("Only callable by owner");
-    s_subscriptionAPI.withdrawNative(payable(OWNER), 1 ether);
+    s_subscriptionAPI.withdrawNative(payable(OWNER));
   }
 
   function testWithdrawNativeSufficientBalance() public {
@@ -405,7 +405,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
 
     // call WithdrawNative from owner address
     changePrank(OWNER);
-    s_subscriptionAPI.withdrawNative(payable(OWNER), 1 ether);
+    s_subscriptionAPI.withdrawNative(payable(OWNER));
     // assert native balance
     assertEq(address(OWNER).balance, 1 ether, "owner native balance incorrect");
     // assert state of subscription api

@@ -208,13 +208,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function withdraw(address recipient, uint96 amount) external nonReentrant onlyOwner {
+  function withdraw(address recipient) external nonReentrant onlyOwner {
     if (address(LINK) == address(0)) {
       revert LinkNotSet();
     }
-    if (s_withdrawableTokens < amount) {
+    if (s_withdrawableTokens == 0) {
       revert InsufficientBalance();
     }
+    uint96 amount = s_withdrawableTokens;
     s_withdrawableTokens -= amount;
     s_totalBalance -= amount;
     if (!LINK.transfer(recipient, amount)) {
@@ -227,11 +228,12 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function withdrawNative(address payable recipient, uint96 amount) external nonReentrant onlyOwner {
-    if (s_withdrawableNative < amount) {
+  function withdrawNative(address payable recipient) external nonReentrant onlyOwner {
+    if (s_withdrawableNative == 0) {
       revert InsufficientBalance();
     }
     // Prevent re-entrancy by updating state before transfer.
+    uint96 amount = s_withdrawableNative;
     s_withdrawableNative -= amount;
     s_totalNativeBalance -= amount;
     (bool sent, ) = recipient.call{value: amount}("");
