@@ -39,4 +39,5 @@ compileContract llo-feeds/test/mocks/ErroredVerifier.sol
 compileContract llo-feeds/test/mocks/ExposedVerifier.sol
 
 # Streams
-compileContract llo-feeds/dev/StreamConfigStore.sol
+compileContract llo-feeds/dev/ChannelConfigStore.sol
+compileContract llo-feeds/dev/ChannelVerifierProxy.sol

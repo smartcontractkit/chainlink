@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
-interface IStreamConfigStore is IERC165 {
+interface IChannelConfigStore is IERC165 {
 
     function setStagingConfig(bytes32 channelId, ChannelConfiguration calldata channelConfig) external;
 
