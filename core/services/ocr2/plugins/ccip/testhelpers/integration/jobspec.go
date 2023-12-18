@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"text/template"
-
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
