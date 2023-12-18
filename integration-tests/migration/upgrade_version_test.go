@@ -20,9 +20,9 @@ func TestVersionUpgrade(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	upgradeImage, err := osutil.GetEnv("TEST_UPGRADE_IMAGE")
+	upgradeImage, err := osutil.GetEnv("UPGRADE_IMAGE")
 	require.NoError(t, err, "Error getting upgrade image")
-	upgradeVersion, err := osutil.GetEnv("TEST_UPGRADE_VERSION")
+	upgradeVersion, err := osutil.GetEnv("UPGRADE_VERSION")
 	require.NoError(t, err, "Error getting upgrade version")
 	// [Database]
 	// MigrateOnStartup = true
