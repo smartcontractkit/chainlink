@@ -418,6 +418,17 @@ juelsPerFeeCoinSource = """
 			digestAndEpoch, err := ocrContract.LatestConfigDigestAndEpoch(nil)
 			require.NoError(t, err)
 			assert.Equal(t, digestAndEpoch.Epoch, epoch)
+			latestTransmissionDetails, err := ocrContract.LatestTransmissionDetails(nil)
+			require.NoError(t, err)
+			assert.Equal(t, latestTransmissionDetails.LatestAnswer, 20)
+			assert.Equal(t, 3, latestTransmissionDetails.Epoch)
+			assert.Equal(t, 2, latestTransmissionDetails.Round)
+			latestRoundRequested, err := ocrContract.FilterRoundRequested(nil, []common.Address{{}})
+			require.NoError(t, err)
+			assert.NotNil(t, latestRoundRequested.Event)
+			if latestRoundRequested.Next() { // Shouldn't this come back non-nil?
+				assert.NotNil(t, latestRoundRequested.Event)
+			}
 		})
 	}
 }
