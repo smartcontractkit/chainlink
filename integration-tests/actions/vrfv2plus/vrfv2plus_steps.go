@@ -845,7 +845,6 @@ func ReturnFundsForFulfilledRequests(client blockchain.EVMClient, coordinator co
 		Msg("Returning LINK for fulfilled requests")
 	err = coordinator.Withdraw(
 		common.HexToAddress(defaultWallet),
-		linkTotalBalance,
 	)
 	if err != nil {
 		return fmt.Errorf("Error withdrawing LINK from coordinator to default wallet, err: %w", err)
@@ -855,12 +854,11 @@ func ReturnFundsForFulfilledRequests(client blockchain.EVMClient, coordinator co
 		return fmt.Errorf("Error getting NATIVE total balance, err: %w", err)
 	}
 	l.Info().
-		Str("Native Token amount", linkTotalBalance.String()).
+		Str("Native Token amount", nativeTotalBalance.String()).
 		Str("Returning to", defaultWallet).
 		Msg("Returning Native Token for fulfilled requests")
 	err = coordinator.WithdrawNative(
 		common.HexToAddress(defaultWallet),
-		nativeTotalBalance,
 	)
 	if err != nil {
 		return fmt.Errorf("Error withdrawing NATIVE from coordinator to default wallet, err: %w", err)

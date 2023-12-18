@@ -36,7 +36,7 @@ type CoordinatorV2_X interface {
 	GetConfig(opts *bind.CallOpts) (Config, error)
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 	OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error)
-	Withdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error)
+	Withdraw(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error)
 	LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic
 	Version() vrfcommon.Version
 	RegisterProvingKey(opts *bind.TransactOpts, oracle *common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error)
@@ -131,7 +131,7 @@ func (c *coordinatorV2) OracleWithdraw(opts *bind.TransactOpts, recipient common
 	return c.coordinator.OracleWithdraw(opts, recipient, amount)
 }
 
-func (c *coordinatorV2) Withdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
+func (c *coordinatorV2) Withdraw(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
 	return nil, errors.New("withdraw not implemented for v2")
 }
 
@@ -289,8 +289,8 @@ func (c *coordinatorV2_5) OracleWithdraw(opts *bind.TransactOpts, recipient comm
 	return nil, errors.New("oracle withdraw not implemented for v2.5")
 }
 
-func (c *coordinatorV2_5) Withdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
-	return c.coordinator.Withdraw(opts, recipient, amount)
+func (c *coordinatorV2_5) Withdraw(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
+	return c.coordinator.Withdraw(opts, recipient)
 }
 
 func (c *coordinatorV2_5) LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic {

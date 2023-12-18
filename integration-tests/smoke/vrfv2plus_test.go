@@ -522,7 +522,7 @@ func TestVRFv2Plus(t *testing.T) {
 			"Active subscription ids should not contain sub id after sub cancellation",
 		)
 	})
-	t.Run("Oracle Withdraw", func(t *testing.T) {
+	t.Run("Owner Withdraw", func(t *testing.T) {
 		testConfig := vrfv2PlusConfig
 		subIDsForWithdraw, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
@@ -575,7 +575,6 @@ func TestVRFv2Plus(t *testing.T) {
 
 		err = vrfv2PlusContracts.Coordinator.Withdraw(
 			common.HexToAddress(defaultWalletAddress),
-			amountToWithdrawLink,
 		)
 		require.NoError(t, err, "error withdrawing LINK from coordinator to default wallet")
 		amountToWithdrawNative := fulfilledEventNative.Payment
@@ -587,7 +586,6 @@ func TestVRFv2Plus(t *testing.T) {
 
 		err = vrfv2PlusContracts.Coordinator.WithdrawNative(
 			common.HexToAddress(defaultWalletAddress),
-			amountToWithdrawNative,
 		)
 		require.NoError(t, err, "error withdrawing Native tokens from coordinator to default wallet")
 

@@ -180,7 +180,7 @@ func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to commo
 	return tx, v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) Withdraw(recipient common.Address, amount *big.Int) error {
+func (v *EthereumVRFCoordinatorV2_5) Withdraw(recipient common.Address) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -188,7 +188,6 @@ func (v *EthereumVRFCoordinatorV2_5) Withdraw(recipient common.Address, amount *
 	tx, err := v.coordinator.Withdraw(
 		opts,
 		recipient,
-		amount,
 	)
 	if err != nil {
 		return err
@@ -196,7 +195,7 @@ func (v *EthereumVRFCoordinatorV2_5) Withdraw(recipient common.Address, amount *
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) WithdrawNative(recipient common.Address, amount *big.Int) error {
+func (v *EthereumVRFCoordinatorV2_5) WithdrawNative(recipient common.Address) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -204,7 +203,6 @@ func (v *EthereumVRFCoordinatorV2_5) WithdrawNative(recipient common.Address, am
 	tx, err := v.coordinator.WithdrawNative(
 		opts,
 		recipient,
-		amount,
 	)
 	if err != nil {
 		return err
