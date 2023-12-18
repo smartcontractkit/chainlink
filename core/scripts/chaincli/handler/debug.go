@@ -308,10 +308,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			var values [][]byte
 			values, err = streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
 
-			if checkResults[0].IneligibilityReason == uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput) {
+			if checkResults[0].IneligibilityReason == uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput) {
 				resolveIneligible("upkeep used invalid revert data")
 			}
-			if checkResults[0].PipelineExecutionState == uint8(mercury.InvalidMercuryRequest) {
+			if checkResults[0].PipelineExecutionState == uint8(encoding.InvalidMercuryRequest) {
 				resolveIneligible("the mercury request data is invalid")
 			}
 			if err != nil {

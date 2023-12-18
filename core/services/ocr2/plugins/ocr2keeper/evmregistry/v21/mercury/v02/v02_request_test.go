@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -289,8 +290,8 @@ func TestV02_DoMercuryRequestV02(t *testing.T) {
 		expectedRetryable     bool
 		expectedRetryInterval time.Duration
 		expectedError         error
-		state                 mercury.MercuryUpkeepState
-		reason                mercury.MercuryUpkeepFailureReason
+		state                 encoding.PipelineExecutionState
+		reason                encoding.UpkeepFailureReason
 	}{
 		{
 			name: "success",
@@ -329,7 +330,7 @@ func TestV02_DoMercuryRequestV02(t *testing.T) {
 			pluginRetries:         0,
 			expectedRetryInterval: 1 * time.Second,
 			expectedError:         errors.New("failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 500\n#2: 500\n#3: 500"),
-			state:                 mercury.MercuryFlakyFailure,
+			state:                 encoding.MercuryFlakyFailure,
 		},
 		{
 			name: "failure - retryable and interval is 5s",
@@ -350,7 +351,7 @@ func TestV02_DoMercuryRequestV02(t *testing.T) {
 			expectedRetryable:     true,
 			expectedRetryInterval: 5 * time.Second,
 			expectedError:         errors.New("failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 500\n#2: 500\n#3: 500"),
-			state:                 mercury.MercuryFlakyFailure,
+			state:                 encoding.MercuryFlakyFailure,
 		},
 		{
 			name: "failure - not retryable because there are many plugin retries already",
@@ -370,7 +371,7 @@ func TestV02_DoMercuryRequestV02(t *testing.T) {
 			expectedValues:     [][]byte{nil},
 			expectedRetryable:  true,
 			expectedError:      errors.New("failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 500\n#2: 500\n#3: 500"),
-			state:              mercury.MercuryFlakyFailure,
+			state:              encoding.MercuryFlakyFailure,
 		},
 		{
 			name: "failure - not retryable",
@@ -389,7 +390,7 @@ func TestV02_DoMercuryRequestV02(t *testing.T) {
 			expectedValues:     [][]byte{nil},
 			expectedRetryable:  false,
 			expectedError:      errors.New("failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: at block 25880526 upkeep 88786950015966611018675766524283132478093844178961698330929478019253453382042 received status code 429 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
-			state:              mercury.InvalidMercuryRequest,
+			state:              encoding.InvalidMercuryRequest,
 		},
 		{
 			name: "failure - no feeds",
@@ -404,7 +405,7 @@ func TestV02_DoMercuryRequestV02(t *testing.T) {
 				UpkeepId: upkeepId,
 			},
 			expectedValues: [][]byte{},
-			reason:         mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput,
+			reason:         encoding.UpkeepFailureReasonInvalidRevertDataInput,
 		},
 		{
 			name: "failure - invalid revert data",
@@ -419,7 +420,7 @@ func TestV02_DoMercuryRequestV02(t *testing.T) {
 				UpkeepId: upkeepId,
 			},
 			expectedValues: [][]byte{},
-			reason:         mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput,
+			reason:         encoding.UpkeepFailureReasonInvalidRevertDataInput,
 		},
 	}
 

@@ -66,7 +66,7 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 	return result, nil
 }
 
-func (p *abiPacker) UnpackPerformResult(raw string) (uint8, bool, error) {
+func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return PackUnpackDecodeFailed, false, err
@@ -134,10 +134,10 @@ func (p *abiPacker) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistr
 }
 
 // GetIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data
-func GetIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason uint8, state uint8, retryable bool) ocr2keepers.CheckResult {
+func GetIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason UpkeepFailureReason, state PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
 	return ocr2keepers.CheckResult{
-		IneligibilityReason:    reason,
-		PipelineExecutionState: state,
+		IneligibilityReason:    uint8(reason),
+		PipelineExecutionState: uint8(state),
 		Retryable:              retryable,
 		UpkeepID:               p.UpkeepID,
 		Trigger:                p.Trigger,
