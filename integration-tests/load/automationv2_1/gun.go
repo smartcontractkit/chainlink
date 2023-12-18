@@ -32,7 +32,7 @@ func NewLogTriggerUser(
 
 	if numberOfSpamEvents > 0 {
 		for i := 0; i < numberOfSpamEvents; i++ {
-			spamPayload = append(spamPayload, 1)
+			spamPayload = append(spamPayload, 0)
 		}
 	}
 
@@ -48,7 +48,7 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.logger.Debug().Str("Trigger address", m.triggerContract.Address().String()).Msg("Triggering upkeep")
 
 	if len(m.triggerPayload) > 0 {
-		_, err := m.triggerContract.EmitLogInts(m.triggerPayload)
+		_, err := m.triggerContract.EmitLogIntsIndexed(m.triggerPayload)
 		if err != nil {
 			return &wasp.Response{Error: err.Error(), Failed: true}
 		}

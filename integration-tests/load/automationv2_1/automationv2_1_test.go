@@ -373,7 +373,7 @@ func TestLogTrigger(t *testing.T) {
 		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
 			ContractAddress: triggerContracts[i].Address(),
 			FilterSelector:  0,
-			Topic0:          emitterABI.Events["Log1"].ID,
+			Topic0:          emitterABI.Events["Log2"].ID,
 			Topic1:          bytes0,
 			Topic2:          bytes0,
 			Topic3:          bytes0,
@@ -382,6 +382,18 @@ func TestLogTrigger(t *testing.T) {
 		require.NoError(t, err, "Error encoding log trigger config")
 		l.Debug().Bytes("Encoded Log Trigger Config", encodedLogTriggerConfig).Msg("Encoded Log Trigger Config")
 
+		checkDataStruct := simple_log_upkeep_counter_wrapper.CheckData{
+			CheckBurnAmount:   big.NewInt(1),
+			PerformBurnAmount: big.NewInt(1),
+			EventSig: [32]byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		}
+
+		encodedCheckDataStruct, err := consumerABI.Methods["_checkDataConfig"].Inputs.Pack(&checkDataStruct)
+		require.NoError(t, err, "Error encoding check data struct")
+		l.Debug().Bytes("Encoded Check Data Struct", encodedCheckDataStruct).Msg("Encoded Check Data Struct")
+
 		upkeepConfig := automationv2.UpkeepConfig{
 			UpkeepName:     fmt.Sprintf("LogTriggerUpkeep-%d", i),
 			EncryptedEmail: []byte("test@mail.com"),
@@ -389,7 +401,7 @@ func TestLogTrigger(t *testing.T) {
 			GasLimit:       automationDefaultUpkeepGasLimit,
 			AdminAddress:   common.HexToAddress(chainClient.GetDefaultWallet().Address()),
 			TriggerType:    uint8(1),
-			CheckData:      []byte("0"),
+			CheckData:      encodedCheckDataStruct,
 			TriggerConfig:  encodedLogTriggerConfig,
 			OffchainConfig: []byte("0"),
 			FundingAmount:  automationDefaultLinkFunds,
