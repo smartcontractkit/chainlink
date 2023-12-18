@@ -51,7 +51,7 @@ contract SimpleLogUpkeepCounter is ILogAutomation {
         dummyIndex = keccak256(abi.encode(dummyIndex, address(this)));
       }
     }
-    if (log.topics[1] == eventSig) {
+    if (log.topics[2] == eventSig) {
       return (true, abi.encode(log, checkData));
     }
     return (false, abi.encode(log, checkData));

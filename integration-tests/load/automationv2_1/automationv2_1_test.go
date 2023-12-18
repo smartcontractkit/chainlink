@@ -132,34 +132,39 @@ var (
 )
 
 type Load struct {
-	NumberOfEvents     int      `toml:",omitempty"`
-	NumberOfSpamEvents int      `toml:",omitempty"`
-	CheckBurnAmount    *big.Int `toml:",omitempty"`
-	PerformBurnAmount  *big.Int `toml:",omitempty"`
-	UpkeepGasLimit     uint32   `toml:",omitempty"`
-	NumberOfUpkeeps    int      `toml:",omitempty"`
+	NumberOfEvents                int      `toml:",omitempty"`
+	NumberOfSpamMatchingEvents    int      `toml:",omitempty"`
+	NumberOfSpamNonMatchingEvents int      `toml:",omitempty"`
+	CheckBurnAmount               *big.Int `toml:",omitempty"`
+	PerformBurnAmount             *big.Int `toml:",omitempty"`
+	UpkeepGasLimit                uint32   `toml:",omitempty"`
+	NumberOfUpkeeps               int      `toml:",omitempty"`
+	//SharedTrigger                 bool     `toml:",omitempty"` TODO: Implement shared trigger
 }
 
 type LoadConfig struct {
-	Loads []Load `toml:",omitempty"`
+	Load []Load `toml:",omitempty"`
 }
 
 var defaultLoadConfig = LoadConfig{
-	Loads: []Load{{
-		NumberOfEvents:     1,
-		NumberOfSpamEvents: 5,
-		CheckBurnAmount:    big.NewInt(1000),
-		PerformBurnAmount:  big.NewInt(1000),
-		UpkeepGasLimit:     1_000_000,
-		NumberOfUpkeeps:    3,
-	},
+	Load: []Load{
 		{
-			NumberOfEvents:     1,
-			NumberOfSpamEvents: 5,
-			CheckBurnAmount:    big.NewInt(10),
-			PerformBurnAmount:  big.NewInt(10),
-			UpkeepGasLimit:     1_000_000,
-			NumberOfUpkeeps:    5,
+			NumberOfEvents:                1,
+			NumberOfSpamMatchingEvents:    1,
+			NumberOfSpamNonMatchingEvents: 0,
+			CheckBurnAmount:               big.NewInt(0),
+			PerformBurnAmount:             big.NewInt(0),
+			UpkeepGasLimit:                1_000_000,
+			NumberOfUpkeeps:               5,
+		},
+		{
+			NumberOfEvents:                1,
+			NumberOfSpamMatchingEvents:    0,
+			NumberOfSpamNonMatchingEvents: 1,
+			CheckBurnAmount:               big.NewInt(0),
+			PerformBurnAmount:             big.NewInt(0),
+			UpkeepGasLimit:                1_000_000,
+			NumberOfUpkeeps:               5,
 		}},
 }
 
@@ -386,7 +391,7 @@ func TestLogTrigger(t *testing.T) {
 
 	cContractDeployer, err := contracts.NewContractDeployer(cEVMClient, l)
 	require.NoError(t, err, "Error building concurrent contract deployer")
-	for _, u := range loadConfig.Loads {
+	for _, u := range loadConfig.Load {
 		for i := 0; i < u.NumberOfUpkeeps; i++ {
 			consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
 			require.NoError(t, err, "Error deploying automation consumer contract")
@@ -405,14 +410,15 @@ func TestLogTrigger(t *testing.T) {
 				Int("Number", i+1).
 				Int("Out Of", u.NumberOfUpkeeps).
 				Msg("Deployed Automation Log Trigger Emitter Contract")
-			loadConfig := Load{
-				NumberOfEvents:     u.NumberOfEvents,
-				NumberOfSpamEvents: u.NumberOfSpamEvents,
-				CheckBurnAmount:    u.CheckBurnAmount,
-				PerformBurnAmount:  u.PerformBurnAmount,
-				UpkeepGasLimit:     u.UpkeepGasLimit,
+			loadCfg := Load{
+				NumberOfEvents:                u.NumberOfEvents,
+				NumberOfSpamMatchingEvents:    u.NumberOfSpamMatchingEvents,
+				NumberOfSpamNonMatchingEvents: u.NumberOfSpamNonMatchingEvents,
+				CheckBurnAmount:               u.CheckBurnAmount,
+				PerformBurnAmount:             u.PerformBurnAmount,
+				UpkeepGasLimit:                u.UpkeepGasLimit,
 			}
-			loadConfigs = append(loadConfigs, loadConfig)
+			loadConfigs = append(loadConfigs, loadCfg)
 		}
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Failed waiting for contracts to deploy")
@@ -421,11 +427,13 @@ func TestLogTrigger(t *testing.T) {
 	for i, consumerContract := range consumerContracts {
 		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
 			ContractAddress: triggerContracts[i].Address(),
-			FilterSelector:  0,
-			Topic0:          emitterABI.Events["Log2"].ID,
-			Topic1:          bytes0,
-			Topic2:          bytes0,
-			Topic3:          bytes0,
+			FilterSelector:  1,
+			Topic0:          emitterABI.Events["Log4"].ID,
+			Topic1: [32]byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+			Topic2: bytes0,
+			Topic3: bytes0,
 		}
 		encodedLogTriggerConfig, err := utilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 		require.NoError(t, err, "Error encoding log trigger config")
@@ -491,7 +499,8 @@ func TestLogTrigger(t *testing.T) {
 				triggerContract,
 				l,
 				loadConfigs[i].NumberOfEvents,
-				loadConfigs[i].NumberOfSpamEvents,
+				loadConfigs[i].NumberOfSpamMatchingEvents,
+				loadConfigs[i].NumberOfSpamNonMatchingEvents,
 			),
 			CallResultBufLen: 1000000,
 		})
