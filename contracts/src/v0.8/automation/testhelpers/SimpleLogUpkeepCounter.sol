@@ -37,11 +37,10 @@ contract SimpleLogUpkeepCounter is ILogAutomation {
   function _checkDataConfig(CheckData memory) external {}
 
   function checkLog(Log calldata log, bytes calldata checkData) external view override returns (bool, bytes memory) {
-    (
-      uint256 checkBurnAmount,
-      uint256 performBurnAmount,
-      bytes32 eventSig
-    ) = abi.decode(checkData, (uint256, uint256, bytes32));
+    (uint256 checkBurnAmount, uint256 performBurnAmount, bytes32 eventSig) = abi.decode(
+      checkData,
+      (uint256, uint256, bytes32)
+    );
     uint256 startGas = gasleft();
     bytes32 dummyIndex = blockhash(block.number - 1);
     bool dummy;
@@ -65,13 +64,12 @@ contract SimpleLogUpkeepCounter is ILogAutomation {
     lastBlock = block.number;
     counter = counter + 1;
     previousPerformBlock = lastBlock;
-    (Log memory log,  bytes memory extraData) = abi.decode(performData, (Log, bytes));
+    (Log memory log, bytes memory extraData) = abi.decode(performData, (Log, bytes));
     timeToPerform = block.timestamp - log.timestamp;
-    (
-      uint256 checkBurnAmount,
-      uint256 performBurnAmount,
-      bytes32 eventSig
-    ) = abi.decode(extraData, (uint256, uint256, bytes32));
+    (uint256 checkBurnAmount, uint256 performBurnAmount, bytes32 eventSig) = abi.decode(
+      extraData,
+      (uint256, uint256, bytes32)
+    );
     uint256 startGas = gasleft();
     bytes32 dummyIndex = blockhash(block.number - 1);
     bool dummy;
