@@ -9,9 +9,14 @@ metadata:
     {{- range $key, $value := $.Values.labels }}
     {{ $key }}: {{ $value | quote }}
     {{- end }}
-  {{- if .Values.ingress.annotations }}
   annotations:
-  {{- range $key, $value := .Values.ingress.annotations }}
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/certificate-arn: {{ $.Values.ingress.annotation_certificate_arn | quote }}
+    alb.ingress.kubernetes.io/group.name: {{ $.Values.ingress.annotation_group_name | quote }}
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+  {{- if .Values.ingress.extra_annotations }}
+  {{- range $key, $value := .Values.ingress.extra_annotations }}
     {{ $key }}: {{ $value | quote }}
   {{- end }}
   {{- end }}
