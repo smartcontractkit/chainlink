@@ -742,7 +742,43 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	return ms.txStore.FindTxesWithMetaFieldByReceiptBlockNum(ctx, metaField, blockNum, chainID)
+	if ms.chainID.String() != chainID.String() {
+		return nil, fmt.Errorf("find_txes_with_meta_field_by_receipt_block_num: %w", ErrInvalidChainID)
+	}
+
+	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if tx.Meta == nil {
+			return false
+		}
+		meta := map[string]interface{}{}
+		if err := json.Unmarshal(json.RawMessage(*tx.Meta), &meta); err != nil {
+			return false
+		}
+		if _, ok := meta[metaField]; !ok {
+			return false
+		}
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return false
+		}
+		attempt := tx.TxAttempts[0]
+		if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
+			return false
+		}
+		if attempt.Receipts[0].GetBlockNumber() == nil {
+			return false
+		}
+
+		return attempt.Receipts[0].GetBlockNumber().Int64() >= blockNum
+	}
+
+	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	for _, as := range ms.addressStates {
+		for _, tx := range as.FetchTxs(nil, filterFn) {
+			txs = append(txs, &tx)
+		}
+	}
+
+	return txs, nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (tx []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	return ms.txStore.FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx, ids, states, chainID)
