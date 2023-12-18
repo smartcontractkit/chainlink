@@ -5,14 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	mediantypes "github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -55,21 +50,6 @@ func (m *medianConfig) JobPipelineMaxSuccessfulRuns() uint64 {
 
 func (m *medianConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return m.jobPipelineResultWriteQueueDepth
-}
-
-// This wrapper avoids the need to modify the signature of NewMedianFactory in all of the non-evm
-// relay repos as well as its primary definition in chainlink-common. Once ChainReader is implemented
-// and working on all 4 blockchain families, we can remove the original MedianContract() method from
-// MedianProvider and pass medianContract as a separate param to NewMedianFactory
-type medianProviderWrapper struct {
-	types.MedianProvider
-	contract mediantypes.MedianContract
-}
-
-// Override relay's implementation of MedianContract with product plugin's implementation of
-// MedianContract, making use of product-agnostic ChainReader to read the contract instead of relay MedianContract
-func (m medianProviderWrapper) MedianContract() mediantypes.MedianContract {
-	return m.contract
 }
 
 func NewMedianServices(ctx context.Context,
@@ -145,23 +125,10 @@ func NewMedianServices(ctx context.Context,
 		CreatedAt:    time.Now(),
 	}, lggr)
 
-	medianPluginCmd := env.MedianPluginCmd.Get()
-	medianLoopEnabled := medianPluginCmd != ""
-
-	if medianProvider.ChainReader() != nil {
-		lggr.Info("Chain Reader enabled")
-		medianProvider = medianProviderWrapper{
-			medianProvider, // attach newer MedianContract which uses ChainReader
-			newMedianContract(provider.ChainReader(), common.HexToAddress(spec.ContractID)),
-		}
-	} else {
-		lggr.Info("Chain Reader disabled")
-	}
-
-	if medianLoopEnabled {
+	if cmdName := env.MedianPluginCmd.Get(); cmdName != "" {
 		// use unique logger names so we can use it to register a loop
 		medianLggr := lggr.Named("Median").Named(spec.ContractID).Named(spec.GetID())
-		cmdFn, telem, err2 := cfg.RegisterLOOP(medianLggr.Name(), medianPluginCmd)
+		cmdFn, telem, err2 := cfg.RegisterLOOP(medianLggr.Name(), cmdName)
 		if err2 != nil {
 			err = fmt.Errorf("failed to register loop: %w", err2)
 			abort()
@@ -190,51 +157,4 @@ func NewMedianServices(ctx context.Context,
 		lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
 	}
 	return
-}
-
-type medianContract struct {
-	chainReader types.ChainReader
-	contract    types.BoundContract
-}
-
-type latestTransmissionDetailsResponse struct {
-	ConfigDigest    ocr2types.ConfigDigest
-	Epoch           uint32
-	Round           uint8
-	LatestAnswer    *big.Int
-	LatestTimestamp time.Time
-}
-
-type latestRoundRequested struct {
-	ConfigDigest ocr2types.ConfigDigest
-	Epoch        uint32
-	Round        uint8
-}
-
-func (m *medianContract) LatestTransmissionDetails(ctx context.Context) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, latestAnswer *big.Int, latestTimestamp time.Time, err error) {
-	// init the LatestAnswer so that it's not nil if there have been no events yet
-	resp := latestTransmissionDetailsResponse{LatestAnswer: new(big.Int)}
-
-	err = m.chainReader.GetLatestValue(ctx, m.contract.Name, "LatestTransmissionDetails", nil, &resp)
-	if err != nil {
-		return
-	}
-
-	return resp.ConfigDigest, resp.Epoch, resp.Round, resp.LatestAnswer, resp.LatestTimestamp, err
-}
-
-func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, err error) {
-	var resp latestRoundRequested
-
-	err = m.chainReader.GetLatestValue(ctx, m.contract.Name, "LatestRoundRequested", map[string]string{}, &resp)
-	if err != nil {
-		return
-	}
-
-	return resp.ConfigDigest, resp.Epoch, resp.Round, err
-}
-
-func newMedianContract(chainReader types.ChainReader, address common.Address) *medianContract {
-	contract := types.BoundContract{Address: address.String(), Name: "median", Pending: true}
-	return &medianContract{chainReader, contract}
 }
