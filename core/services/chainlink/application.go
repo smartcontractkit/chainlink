@@ -241,7 +241,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	// pool must be started before all relayers and stopped after them
-	srvcs = append(srvcs, opts.MercuryPool)
+	if opts.MercuryPool != nil {
+		srvcs = append(srvcs, opts.MercuryPool)
+	}
 
 	// EVM chains are used all over the place. This will need to change for fully EVM extraction
 	// TODO: BCF-2510, BCF-2511
