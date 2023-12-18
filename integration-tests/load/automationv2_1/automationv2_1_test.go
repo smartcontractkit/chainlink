@@ -170,6 +170,7 @@ func TestLogTrigger(t *testing.T) {
 	loadConfig := &LoadConfig{}
 	if configOverride != "" {
 		d, err := base64.StdEncoding.DecodeString(configOverride)
+		require.NoError(t, err, "Error decoding config override")
 		l.Info().Str("CONFIG_OVERRIDE", configOverride).Bytes("Decoded value", d).Msg("Decoding config override")
 		err = toml.Unmarshal(d, &loadConfig)
 		require.NoError(t, err, "Error unmarshalling config override")
