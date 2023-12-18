@@ -2,6 +2,7 @@ package automationv2_1
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"math/big"
@@ -14,6 +15,7 @@ import (
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/require"
 
@@ -31,16 +33,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 )
 
 const (
@@ -119,44 +120,82 @@ ListenAddresses = ["0.0.0.0:6690"]`
 )
 
 var (
-	numberofNodes, _   = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))        // Number of nodes in the DON
-	numberOfUpkeeps, _ = strconv.Atoi(getEnv("NUMBEROFUPKEEPS", "100"))    // Number of log triggered upkeeps
-	duration, _        = strconv.Atoi(getEnv("DURATION", "900"))           // Test duration in seconds
-	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))            // Block time in seconds for geth simulated dev network
-	numberOfEvents, _  = strconv.Atoi(getEnv("NUMBEROFEVENTS", "1"))       // Number of events to emit per trigger
-	numberOfSEvents, _ = strconv.Atoi(getEnv("NUMBEROFSPAMEVENTS", "100")) // Number of events to emit per trigger
-	specType           = getEnv("SPECTYPE", "minimum")                     // minimum, recommended, local specs for the test
-	logLevel           = getEnv("LOGLEVEL", "info")                        // log level for the chainlink nodes
-	pyroscope, _       = strconv.ParseBool(getEnv("PYROSCOPE", "false"))   // enable pyroscope for the chainlink nodes
-	prometheus, _      = strconv.ParseBool(getEnv("PROMETHEUS", "false"))  // enable prometheus for the chainlink nodes
+	numberofNodes, _ = strconv.Atoi(getEnv("NUMBEROFNODES", "6")) // Number of nodes in the DON
+	duration, _      = strconv.Atoi(getEnv("DURATION", "900"))    // Test duration in seconds
+	blockTime, _     = strconv.Atoi(getEnv("BLOCKTIME", "1"))     // Block time in seconds for geth simulated dev network
+
+	specType       = getEnv("SPECTYPE", "minimum")                    // minimum, recommended, local specs for the test
+	logLevel       = getEnv("LOGLEVEL", "info")                       // log level for the chainlink nodes
+	pyroscope, _   = strconv.ParseBool(getEnv("PYROSCOPE", "false"))  // enable pyroscope for the chainlink nodes
+	prometheus, _  = strconv.ParseBool(getEnv("PROMETHEUS", "false")) // enable prometheus for the chainlink nodes
+	configOverride = os.Getenv("CONFIG_OVERRIDE")                     // config overrides for the load config
 )
+
+type Load struct {
+	NumberOfEvents     int      `toml:",omitempty"`
+	NumberOfSpamEvents int      `toml:",omitempty"`
+	CheckBurnAmount    *big.Int `toml:",omitempty"`
+	PerformBurnAmount  *big.Int `toml:",omitempty"`
+	UpkeepGasLimit     uint32   `toml:",omitempty"`
+	NumberOfUpkeeps    int      `toml:",omitempty"`
+}
+
+type LoadConfig struct {
+	Loads []Load `toml:",omitempty"`
+}
+
+var defaultLoadConfig = LoadConfig{
+	Loads: []Load{{
+		NumberOfEvents:     1,
+		NumberOfSpamEvents: 5,
+		CheckBurnAmount:    big.NewInt(1000),
+		PerformBurnAmount:  big.NewInt(1000),
+		UpkeepGasLimit:     1_000_000,
+		NumberOfUpkeeps:    3,
+	},
+		{
+			NumberOfEvents:     1,
+			NumberOfSpamEvents: 5,
+			CheckBurnAmount:    big.NewInt(10),
+			PerformBurnAmount:  big.NewInt(10),
+			UpkeepGasLimit:     1_000_000,
+			NumberOfUpkeeps:    5,
+		}},
+}
 
 func TestLogTrigger(t *testing.T) {
 	ctx := tests.Context(t)
 	l := logging.GetTestLogger(t)
 
+	loadConfig := &LoadConfig{}
+	if configOverride != "" {
+		d, err := base64.StdEncoding.DecodeString(configOverride)
+		l.Info().Str("CONFIG_OVERRIDE", configOverride).Bytes("Decoded value", d).Msg("Decoding config override")
+		err = toml.Unmarshal(d, &loadConfig)
+		require.NoError(t, err, "Error unmarshalling config override")
+	} else {
+		loadConfig = &defaultLoadConfig
+	}
+
 	l.Info().Msg("Starting automation v2.1 log trigger load test")
 	l.Info().Str("TEST_INPUTS", os.Getenv("TEST_INPUTS")).Int("Number of Nodes", numberofNodes).
-		Int("Number of Upkeeps", numberOfUpkeeps).
 		Int("Duration", duration).
 		Int("Block Time", blockTime).
-		Int("Number of Events", numberOfEvents).
-		Int("Number of Spam Events", numberOfSEvents).
 		Str("Spec Type", specType).
 		Str("Log Level", logLevel).
 		Str("Image", os.Getenv(config.EnvVarCLImage)).
 		Str("Tag", os.Getenv(config.EnvVarCLTag)).
+		Interface("Load Config", loadConfig).
 		Msg("Test Config")
 
-	testConfig := fmt.Sprintf("Number of Nodes: %d\nNumber of Upkeeps: %d\nDuration: %d\nBlock Time: %d\n"+
-		"Number of Events: %d\nNumber of Spam Events: %d\nSpec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\n", numberofNodes, numberOfUpkeeps, duration,
-		blockTime, numberOfEvents, numberOfSEvents, specType, logLevel, os.Getenv(config.EnvVarCLImage), os.Getenv(config.EnvVarCLTag))
+	testConfig := fmt.Sprintf("Number of Nodes: %d\nDuration: %d\nBlock Time: %d\n"+
+		"Spec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\nLoad Config: %+v", numberofNodes, duration,
+		blockTime, specType, logLevel, os.Getenv(config.EnvVarCLImage), os.Getenv(config.EnvVarCLTag), loadConfig)
 
 	testNetwork := networks.MustGetSelectedNetworksFromEnv()[0]
 	testType := "load"
 	loadDuration := time.Duration(duration) * time.Second
 	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
-	automationDefaultUpkeepGasLimit := uint32(1_000_000)
 
 	registrySettings := &contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(0),
@@ -340,34 +379,43 @@ func TestLogTrigger(t *testing.T) {
 	}
 
 	upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
+	loadConfigs := make([]Load, 0)
 	cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
 	require.NoError(t, err, "Error building concurrent chain client")
 
 	cContractDeployer, err := contracts.NewContractDeployer(cEVMClient, l)
 	require.NoError(t, err, "Error building concurrent contract deployer")
+	for _, u := range loadConfig.Loads {
+		for i := 0; i < u.NumberOfUpkeeps; i++ {
+			consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
+			require.NoError(t, err, "Error deploying automation consumer contract")
+			consumerContracts = append(consumerContracts, consumerContract)
+			l.Debug().
+				Str("Contract Address", consumerContract.Address()).
+				Int("Number", i+1).
+				Int("Out Of", u.NumberOfUpkeeps).
+				Msg("Deployed Automation Log Trigger Consumer Contract")
 
-	for i := 0; i < numberOfUpkeeps; i++ {
-		consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
-		require.NoError(t, err, "Error deploying automation consumer contract")
-		consumerContracts = append(consumerContracts, consumerContract)
-		l.Debug().
-			Str("Contract Address", consumerContract.Address()).
-			Int("Number", i+1).
-			Int("Out Of", numberOfUpkeeps).
-			Msg("Deployed Automation Log Trigger Consumer Contract")
-
-		triggerContract, err := cContractDeployer.DeployLogEmitterContract()
-		require.NoError(t, err, "Error deploying log emitter contract")
-		triggerContracts = append(triggerContracts, triggerContract)
-		l.Debug().
-			Str("Contract Address", triggerContract.Address().Hex()).
-			Int("Number", i+1).
-			Int("Out Of", numberOfUpkeeps).
-			Msg("Deployed Automation Log Trigger Emitter Contract")
+			triggerContract, err := cContractDeployer.DeployLogEmitterContract()
+			require.NoError(t, err, "Error deploying log emitter contract")
+			triggerContracts = append(triggerContracts, triggerContract)
+			l.Debug().
+				Str("Contract Address", triggerContract.Address().Hex()).
+				Int("Number", i+1).
+				Int("Out Of", u.NumberOfUpkeeps).
+				Msg("Deployed Automation Log Trigger Emitter Contract")
+			loadConfig := Load{
+				NumberOfEvents:     u.NumberOfEvents,
+				NumberOfSpamEvents: u.NumberOfSpamEvents,
+				CheckBurnAmount:    u.CheckBurnAmount,
+				PerformBurnAmount:  u.PerformBurnAmount,
+				UpkeepGasLimit:     u.UpkeepGasLimit,
+			}
+			loadConfigs = append(loadConfigs, loadConfig)
+		}
+		err = chainClient.WaitForEvents()
+		require.NoError(t, err, "Failed waiting for contracts to deploy")
 	}
-
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for contracts to deploy")
 
 	for i, consumerContract := range consumerContracts {
 		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
@@ -383,8 +431,8 @@ func TestLogTrigger(t *testing.T) {
 		l.Debug().Bytes("Encoded Log Trigger Config", encodedLogTriggerConfig).Msg("Encoded Log Trigger Config")
 
 		checkDataStruct := simple_log_upkeep_counter_wrapper.CheckData{
-			CheckBurnAmount:   big.NewInt(1),
-			PerformBurnAmount: big.NewInt(1),
+			CheckBurnAmount:   loadConfigs[i].CheckBurnAmount,
+			PerformBurnAmount: loadConfigs[i].PerformBurnAmount,
 			EventSig: [32]byte{
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
 			},
@@ -398,7 +446,7 @@ func TestLogTrigger(t *testing.T) {
 			UpkeepName:     fmt.Sprintf("LogTriggerUpkeep-%d", i),
 			EncryptedEmail: []byte("test@mail.com"),
 			UpkeepContract: common.HexToAddress(consumerContract.Address()),
-			GasLimit:       automationDefaultUpkeepGasLimit,
+			GasLimit:       loadConfigs[i].UpkeepGasLimit,
 			AdminAddress:   common.HexToAddress(chainClient.GetDefaultWallet().Address()),
 			TriggerType:    uint8(1),
 			CheckData:      encodedCheckDataStruct,
@@ -428,7 +476,7 @@ func TestLogTrigger(t *testing.T) {
 
 	p := wasp.NewProfile()
 
-	for _, triggerContract := range triggerContracts {
+	for i, triggerContract := range triggerContracts {
 		g, err := wasp.NewGenerator(&wasp.Config{
 			T:           t,
 			LoadType:    wasp.RPS,
@@ -441,8 +489,8 @@ func TestLogTrigger(t *testing.T) {
 			Gun: NewLogTriggerUser(
 				triggerContract,
 				l,
-				numberOfEvents,
-				numberOfSEvents,
+				loadConfigs[i].NumberOfEvents,
+				loadConfigs[i].NumberOfSpamEvents,
 			),
 			CallResultBufLen: 1000000,
 		})
@@ -475,10 +523,9 @@ func TestLogTrigger(t *testing.T) {
 	var numberOfEventsEmitted int
 	var batchSize uint64 = 500
 
-	for _, gen := range p.Generators {
-		numberOfEventsEmitted += len(gen.GetData().OKData.Data)
+	for i, gen := range p.Generators {
+		numberOfEventsEmitted = numberOfEventsEmitted + (len(gen.GetData().OKData.Data) * loadConfigs[i].NumberOfEvents)
 	}
-	numberOfEventsEmitted = numberOfEventsEmitted * numberOfEvents
 	l.Info().Int("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
 	if endBlock-startBlock < batchSize {
@@ -515,7 +562,7 @@ func TestLogTrigger(t *testing.T) {
 					timeout = time.Duration(math.Min(float64(timeout)*2, float64(2*time.Minute)))
 					continue
 				}
-				l.Info().
+				l.Debug().
 					Interface("FilterQuery", filterQuery).
 					Str("Contract Address", consumerContract.Address()).
 					Str("Timeout", timeout.String()).
