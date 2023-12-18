@@ -2,10 +2,10 @@
 pragma solidity ^0.8.16;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {IStreamConfigStore} from "./interfaces/IStreamConfigStore.sol";
+import {IChannelConfigStore} from "./interfaces/IChannelConfigStore.sol";
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 
-contract StreamConfigStore is ConfirmedOwner, IStreamConfigStore, TypeAndVersionInterface {
+contract StreamConfigStore is ConfirmedOwner, IChannelConfigStore, TypeAndVersionInterface {
 
     mapping(bytes32 => ChannelDefinition) private s_channelDefinitions;
 
@@ -101,7 +101,7 @@ contract StreamConfigStore is ConfirmedOwner, IStreamConfigStore, TypeAndVersion
     }
 
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == type(IStreamConfigStore).interfaceId;
+        return interfaceId == type(IChannelConfigStore).interfaceId;
     }
 }
 
