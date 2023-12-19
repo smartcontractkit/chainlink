@@ -3,8 +3,9 @@ package evm
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
