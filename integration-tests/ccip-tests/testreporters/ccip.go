@@ -11,9 +11,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-
 	"github.com/slack-go/slack"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 )
 

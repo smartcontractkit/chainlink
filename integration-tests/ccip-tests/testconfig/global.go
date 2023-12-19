@@ -7,11 +7,8 @@ import (
 	"fmt"
 
 	"github.com/AlekSi/pointer"
-
 	"github.com/pelletier/go-toml/v2"
-
 	"github.com/pkg/errors"
-
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
