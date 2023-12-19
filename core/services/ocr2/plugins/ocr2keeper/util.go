@@ -3,6 +3,10 @@ package ocr2keeper
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+
 	"github.com/jmoiron/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -12,19 +16,16 @@ import (
 	ocr2keepers20polling "github.com/smartcontractkit/chainlink-automation/pkg/v2/observer/polling"
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	evmregistry20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v20"
 	evmregistry21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 	evmregistry21transmit "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 type Encoder20 interface {
@@ -115,24 +116,18 @@ func EVMDependencies21(
 	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,
 	dbCfg pg.QConfig,
-	ethKeystore keystore.Eth,
-) (evmrelay.OCR2KeeperProvider, evmregistry21.AutomationServices, error) {
+) (evmregistry21.AutomationServices, error) {
 	var err error
-	var keeperProvider evmrelay.OCR2KeeperProvider
 
 	oSpec := spec.OCR2OracleSpec
-	// the provider will be returned as a dependency
-	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, ethKeystore); err != nil {
-		return nil, nil, err
-	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
 	services, err := evmregistry21.New(rAddr, chain, mc, keyring, lggr, db, dbCfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return keeperProvider, services, err
+	return services, err
 }
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
