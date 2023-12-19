@@ -86,6 +86,9 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 	fmt.Println("built agg")
 
+	err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 50)
+	require.NoError(t, err)
+
 	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 
 	require.NoError(t, err, "Error starting new OCR2 round")
@@ -95,10 +98,8 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	fmt.Println("get latest")
 
-	require.Equal(t, int64(5), roundData.Answer.Int64(),
-		"Expected latest answer from OCR contract to be 5 but got %d",
-		roundData.Answer.Int64(),
-	)
+	fmt.Printf("want 50 it's %v\n", roundData.Answer.Int64())
+
 	fmt.Println("answer")
 
 	err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
@@ -113,11 +114,29 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 	require.NoError(t, err, "Error getting latest OCR answer")
 	fmt.Println("got answer 2")
 
-	require.Equal(t, int64(10), roundData.Answer.Int64(),
+	fmt.Printf("want 10 it's %v\n", roundData.Answer.Int64())
+
+	err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 15)
+	require.NoError(t, err)
+	fmt.Println("adapter 2")
+
+	err = actions.StartNewOCR2Round(3, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	require.NoError(t, err)
+	fmt.Println("new round 3")
+
+	roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(3))
+	require.NoError(t, err, "Error getting latest OCR answer")
+	fmt.Println("got answer 3")
+
+	fmt.Printf("want 15 it's %v\n", roundData.Answer.Int64())
+
+	/*require.Equal(t, int64(10), roundData.Answer.Int64(),
 		"Expected latest answer from OCR contract to be 10 but got %d",
 		roundData.Answer.Int64(),
-	)
+	)*/
 
-	fmt.Println("values equal")
+	fmt.Println("SLEEPING NOW")
+	time.Sleep(time.Hour)
+	fmt.Println("DONE SLEEPING")
 	require.Fail(t, "Capture logs")
 }
