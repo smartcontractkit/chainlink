@@ -23,8 +23,7 @@ type ORM interface {
 }
 
 type orm struct {
-	q               pg.Q
-	contractAddress common.Address
+	q pg.Q
 }
 
 var _ ORM = (*orm)(nil)
