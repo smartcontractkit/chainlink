@@ -62,6 +62,7 @@ const (
 func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
 	pluginORM := functions.NewORM(conf.DB, conf.Logger, conf.QConfig, common.HexToAddress(conf.ContractID))
 	s4ORM := s4.NewPostgresORM(conf.DB, conf.Logger, conf.QConfig, s4.SharedTableName, FunctionsS4Namespace)
+	gwFunctionsORM := gwFunctions.NewORM(conf.DB, conf.Logger, conf.QConfig)
 
 	var pluginConfig config.PluginConfig
 	if err := json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig); err != nil {
@@ -143,7 +144,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a RateLimiter")
 		}
-		subscriptions, err2 := gwFunctions.NewOnchainSubscriptions(conf.Chain.Client(), *pluginConfig.OnchainSubscriptions, conf.Logger)
+		subscriptions, err2 := gwFunctions.NewOnchainSubscriptions(conf.Chain.Client(), *pluginConfig.OnchainSubscriptions, gwFunctionsORM, conf.Logger)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a OnchainSubscriptions")
 		}

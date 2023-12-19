@@ -19,12 +19,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+const defaultCacheBatchSize = 100
+
 type OnchainSubscriptionsConfig struct {
 	ContractAddress    common.Address `json:"contractAddress"`
 	BlockConfirmations uint           `json:"blockConfirmations"`
 	UpdateFrequencySec uint           `json:"updateFrequencySec"`
 	UpdateTimeoutSec   uint           `json:"updateTimeoutSec"`
 	UpdateRangeSize    uint           `json:"updateRangeSize"`
+	CacheBatchSize     uint           `json:"cacheBatchSize"`
 }
 
 // OnchainSubscriptions maintains a mirror of all subscriptions fetched from the blockchain (EVM-only).
@@ -43,6 +46,7 @@ type onchainSubscriptions struct {
 
 	config             OnchainSubscriptionsConfig
 	subscriptions      UserSubscriptions
+	orm                ORM
 	client             evmclient.Client
 	router             *functions_router.FunctionsRouter
 	blockConfirmations *big.Int
@@ -52,7 +56,7 @@ type onchainSubscriptions struct {
 	stopCh             services.StopChan
 }
 
-func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscriptionsConfig, lggr logger.Logger) (OnchainSubscriptions, error) {
+func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscriptionsConfig, orm ORM, lggr logger.Logger) (OnchainSubscriptions, error) {
 	if client == nil {
 		return nil, errors.New("client is nil")
 	}
@@ -63,9 +67,16 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %s", err)
 	}
+
+	// if CacheBatchSize is not specified used the default value
+	if config.CacheBatchSize == 0 {
+		config.CacheBatchSize = defaultCacheBatchSize
+	}
+
 	return &onchainSubscriptions{
 		config:             config,
 		subscriptions:      NewUserSubscriptions(),
+		orm:                orm,
 		client:             client,
 		router:             router,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
@@ -85,6 +96,23 @@ func (s *onchainSubscriptions) Start(ctx context.Context) error {
 		}
 		if s.config.UpdateRangeSize == 0 {
 			return errors.New("OnchainSubscriptionsConfig.UpdateRangeSize must be greater than 0")
+		}
+
+		offset := uint(0)
+		for {
+			cs, err := s.orm.FetchSubscriptions(offset, s.config.CacheBatchSize)
+			if err != nil {
+				break
+			}
+
+			for _, cs := range cs {
+				s.subscriptions.UpdateSubscription(cs.SubscriptionID, &cs.IFunctionsSubscriptionsSubscription)
+			}
+
+			if len(cs) != int(s.config.CacheBatchSize) {
+				break
+			}
+			offset += s.config.CacheBatchSize
 		}
 
 		s.closeWait.Add(1)

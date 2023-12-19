@@ -29,6 +29,7 @@ func NewUserSubscriptions() UserSubscriptions {
 	}
 }
 
+// CachedSubscription is used to populate the user subscription maps from a persistent layer like postgres.
 type CachedSubscription struct {
 	SubscriptionID uint64
 	functions_router.IFunctionsSubscriptionsSubscription

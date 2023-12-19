@@ -9,6 +9,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -39,7 +41,7 @@ type Gateway interface {
 type HandlerType = string
 
 type HandlerFactory interface {
-	NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error)
+	NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger) (handlers.Handler, error)
 }
 
 type gateway struct {
@@ -52,7 +54,7 @@ type gateway struct {
 	lggr       logger.Logger
 }
 
-func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
+func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFactory, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger) (Gateway, error) {
 	codec := &api.JsonRPCCodec{}
 	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr)
 	connMgr, err := NewConnectionManager(config, utils.NewRealClock(), lggr)
@@ -77,7 +79,7 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 				return nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
 			}
 		}
-		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
+		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr, db, cfg, lggr)
 		if err != nil {
 			return nil, err
 		}
