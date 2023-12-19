@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -45,7 +45,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
 	})
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon, KeyStore: keyStore.Eth()})
 
 	lggr := logger.TestLogger(t)
@@ -82,7 +82,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	runner := pipeline_mocks.NewRunner(t)
 	broadcaster.On("AddDependents", 1)
 
-	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())

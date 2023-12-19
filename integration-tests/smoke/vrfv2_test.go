@@ -4,19 +4,21 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
@@ -113,19 +115,259 @@ func TestVRFv2Basic(t *testing.T) {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
 	})
+
+	t.Run("Oracle Withdraw", func(t *testing.T) {
+		testConfig := vrfv2Config
+		subIDsForOracleWithDraw, err := vrfv2_actions.CreateFundSubsAndAddConsumers(
+			env,
+			testConfig,
+			linkToken,
+			vrfv2Contracts.Coordinator,
+			vrfv2Contracts.LoadTestConsumers,
+			1,
+		)
+		require.NoError(t, err)
+
+		subIDForOracleWithdraw := subIDsForOracleWithDraw[0]
+
+		fulfilledEventLink, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
+			vrfv2Contracts.LoadTestConsumers[0],
+			vrfv2Contracts.Coordinator,
+			vrfv2Data,
+			subIDForOracleWithdraw,
+			testConfig.RandomnessRequestCountPerRequest,
+			testConfig,
+			testConfig.RandomWordsFulfilledEventTimeout,
+			l,
+		)
+		require.NoError(t, err)
+
+		amountToWithdrawLink := fulfilledEventLink.Payment
+
+		defaultWalletBalanceLinkBeforeOracleWithdraw, err := linkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		require.NoError(t, err)
+
+		l.Info().
+			Str("Returning to", defaultWalletAddress).
+			Str("Amount", amountToWithdrawLink.String()).
+			Msg("Invoking Oracle Withdraw for LINK")
+
+		err = vrfv2Contracts.Coordinator.OracleWithdraw(common.HexToAddress(defaultWalletAddress), amountToWithdrawLink)
+		require.NoError(t, err, "Error withdrawing LINK from coordinator to default wallet")
+
+		err = env.EVMClient.WaitForEvents()
+		require.NoError(t, err, vrfv2_actions.ErrWaitTXsComplete)
+
+		defaultWalletBalanceLinkAfterOracleWithdraw, err := linkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		require.NoError(t, err)
+
+		require.Equal(
+			t,
+			1,
+			defaultWalletBalanceLinkAfterOracleWithdraw.Cmp(defaultWalletBalanceLinkBeforeOracleWithdraw),
+			"LINK funds were not returned after oracle withdraw",
+		)
+	})
+	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
+		testConfig := vrfv2Config
+		subIDsForCancelling, err := vrfv2_actions.CreateFundSubsAndAddConsumers(
+			env,
+			testConfig,
+			linkToken,
+			vrfv2Contracts.Coordinator,
+			vrfv2Contracts.LoadTestConsumers,
+			1,
+		)
+		require.NoError(t, err)
+		subIDForCancelling := subIDsForCancelling[0]
+
+		testWalletAddress, err := actions.GenerateWallet()
+		require.NoError(t, err)
+
+		testWalletBalanceLinkBeforeSubCancelling, err := linkToken.BalanceOf(testcontext.Get(t), testWalletAddress.String())
+		require.NoError(t, err)
+
+		subscriptionForCancelling, err := vrfv2Contracts.Coordinator.GetSubscription(testcontext.Get(t), subIDForCancelling)
+		require.NoError(t, err, "error getting subscription information")
+
+		subBalanceLink := subscriptionForCancelling.Balance
+
+		l.Info().
+			Str("Subscription Amount Link", subBalanceLink.String()).
+			Uint64("Returning funds from SubID", subIDForCancelling).
+			Str("Returning funds to", testWalletAddress.String()).
+			Msg("Canceling subscription and returning funds to subscription owner")
+
+		tx, err := vrfv2Contracts.Coordinator.CancelSubscription(subIDForCancelling, testWalletAddress)
+		require.NoError(t, err, "Error canceling subscription")
+
+		subscriptionCanceledEvent, err := vrfv2Contracts.Coordinator.WaitForSubscriptionCanceledEvent([]uint64{subIDForCancelling}, time.Second*30)
+		require.NoError(t, err, "error waiting for subscription canceled event")
+
+		cancellationTxReceipt, err := env.EVMClient.GetTxReceipt(tx.Hash())
+		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
+
+		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
+
+		l.Info().
+			Str("Cancellation Tx Fee Wei", cancellationTxFeeWei.String()).
+			Str("Effective Gas Price", cancellationTxReceipt.EffectiveGasPrice.String()).
+			Uint64("Gas Used", cancellationTxReceipt.GasUsed).
+			Msg("Cancellation TX Receipt")
+
+		l.Info().
+			Str("Returned Subscription Amount Link", subscriptionCanceledEvent.Amount.String()).
+			Uint64("SubID", subscriptionCanceledEvent.SubId).
+			Str("Returned to", subscriptionCanceledEvent.To.String()).
+			Msg("Subscription Canceled Event")
+
+		require.Equal(t, subBalanceLink, subscriptionCanceledEvent.Amount, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
+
+		testWalletBalanceLinkAfterSubCancelling, err := linkToken.BalanceOf(testcontext.Get(t), testWalletAddress.String())
+		require.NoError(t, err)
+
+		//Verify that sub was deleted from Coordinator
+		_, err = vrfv2Contracts.Coordinator.GetSubscription(testcontext.Get(t), subIDForCancelling)
+		require.Error(t, err, "error not occurred when trying to get deleted subscription from old Coordinator after sub migration")
+
+		subFundsReturnedLinkActual := new(big.Int).Sub(testWalletBalanceLinkAfterSubCancelling, testWalletBalanceLinkBeforeSubCancelling)
+
+		l.Info().
+			Str("Cancellation Tx Fee Wei", cancellationTxFeeWei.String()).
+			Str("Sub Funds Returned Actual - Link", subFundsReturnedLinkActual.String()).
+			Str("Sub Balance - Link", subBalanceLink.String()).
+			Msg("Sub funds returned")
+
+		require.Equal(t, 0, subBalanceLink.Cmp(subFundsReturnedLinkActual), "Returned LINK funds are not equal to sub balance that was cancelled")
+	})
+
+	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
+		testConfig := vrfv2Config
+
+		// Underfund subscription to force fulfillments to fail
+		testConfig.SubscriptionFundingAmountLink = float64(0.000000000000000001) // 1 Juel
+
+		subIDsForCancelling, err := vrfv2_actions.CreateFundSubsAndAddConsumers(
+			env,
+			testConfig,
+			linkToken,
+			vrfv2Contracts.Coordinator,
+			vrfv2Contracts.LoadTestConsumers,
+			1,
+		)
+		require.NoError(t, err)
+
+		subIDForCancelling := subIDsForCancelling[0]
+
+		subscriptionForCancelling, err := vrfv2Contracts.Coordinator.GetSubscription(testcontext.Get(t), subIDForCancelling)
+		require.NoError(t, err, "Error getting subscription information")
+
+		vrfv2_actions.LogSubDetails(l, subscriptionForCancelling, subIDForCancelling, vrfv2Contracts.Coordinator)
+
+		// No GetActiveSubscriptionIds function available - skipping check
+
+		pendingRequestsExist, err := vrfv2Contracts.Coordinator.PendingRequestsExist(testcontext.Get(t), subIDForCancelling)
+		require.NoError(t, err)
+		require.False(t, pendingRequestsExist, "Pending requests should not exist")
+
+		// Request randomness - should fail due to underfunded subscription
+		randomWordsFulfilledEventTimeout := 5 * time.Second
+		_, err = vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
+			vrfv2Contracts.LoadTestConsumers[0],
+			vrfv2Contracts.Coordinator,
+			vrfv2Data,
+			subIDForCancelling,
+			testConfig.RandomnessRequestCountPerRequest,
+			testConfig,
+			randomWordsFulfilledEventTimeout,
+			l,
+		)
+		require.Error(t, err, "Error should occur while waiting for fulfilment due to low sub balance")
+
+		pendingRequestsExist, err = vrfv2Contracts.Coordinator.PendingRequestsExist(testcontext.Get(t), subIDForCancelling)
+		require.NoError(t, err)
+		require.True(t, pendingRequestsExist, "Pending requests should exist after unfilfulled requests due to low sub balance")
+
+		walletBalanceLinkBeforeSubCancelling, err := linkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		require.NoError(t, err)
+
+		subscriptionForCancelling, err = vrfv2Contracts.Coordinator.GetSubscription(testcontext.Get(t), subIDForCancelling)
+		require.NoError(t, err, "Error getting subscription information")
+		subBalanceLink := subscriptionForCancelling.Balance
+
+		l.Info().
+			Str("Subscription Amount Link", subBalanceLink.String()).
+			Uint64("Returning funds from SubID", subIDForCancelling).
+			Str("Returning funds to", defaultWalletAddress).
+			Msg("Canceling subscription and returning funds to subscription owner")
+
+		// Call OwnerCancelSubscription
+		tx, err := vrfv2Contracts.Coordinator.OwnerCancelSubscription(subIDForCancelling)
+		require.NoError(t, err, "Error canceling subscription")
+
+		subscriptionCanceledEvent, err := vrfv2Contracts.Coordinator.WaitForSubscriptionCanceledEvent([]uint64{subIDForCancelling}, time.Second*30)
+		require.NoError(t, err, "error waiting for subscription canceled event")
+
+		cancellationTxReceipt, err := env.EVMClient.GetTxReceipt(tx.Hash())
+		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
+
+		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
+
+		l.Info().
+			Str("Cancellation Tx Fee Wei", cancellationTxFeeWei.String()).
+			Str("Effective Gas Price", cancellationTxReceipt.EffectiveGasPrice.String()).
+			Uint64("Gas Used", cancellationTxReceipt.GasUsed).
+			Msg("Cancellation TX Receipt")
+
+		l.Info().
+			Str("Returned Subscription Amount Link", subscriptionCanceledEvent.Amount.String()).
+			Uint64("SubID", subscriptionCanceledEvent.SubId).
+			Str("Returned to", subscriptionCanceledEvent.To.String()).
+			Msg("Subscription Canceled Event")
+
+		require.Equal(t, subBalanceLink, subscriptionCanceledEvent.Amount, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
+
+		walletBalanceLinkAfterSubCancelling, err := linkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		require.NoError(t, err)
+
+		// Verify that subscription was deleted from Coordinator contract
+		_, err = vrfv2Contracts.Coordinator.GetSubscription(testcontext.Get(t), subIDForCancelling)
+		l.Info().
+			Str("Expected error message", err.Error())
+		require.Error(t, err, "Error did not occur when fetching deleted subscription from the Coordinator after owner cancelation")
+
+		subFundsReturnedLinkActual := new(big.Int).Sub(walletBalanceLinkAfterSubCancelling, walletBalanceLinkBeforeSubCancelling)
+		l.Info().
+			Str("Wallet Balance Before Owner Cancelation", walletBalanceLinkBeforeSubCancelling.String()).
+			Str("Cancellation Tx Fee Wei", cancellationTxFeeWei.String()).
+			Str("Sub Funds Returned Actual - Link", subFundsReturnedLinkActual.String()).
+			Str("Sub Balance - Link", subBalanceLink.String()).
+			Str("Wallet Balance After Owner Cancelation", walletBalanceLinkAfterSubCancelling.String()).
+			Msg("Sub funds returned")
+
+		require.Equal(t, 0, subBalanceLink.Cmp(subFundsReturnedLinkActual), "Returned LINK funds are not equal to sub balance that was cancelled")
+
+		// Again, there is no GetActiveSubscriptionIds method on the v2 Coordinator contract, so we can't double check that the cancelled
+		// subID is no longer in the list of active subs
+	})
 }
 
 func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	var vrfv2Config vrfv2_config.VRFV2Config
-	err := envconfig.Process("VRFV2", &vrfv2Config)
+	err = envconfig.Process("VRFV2", &vrfv2Config)
 	require.NoError(t, err)
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
-		WithGeth().
+		WithPrivateEthereumNetwork(network).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).
 		WithStandardCleanup().

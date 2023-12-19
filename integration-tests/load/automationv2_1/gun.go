@@ -8,35 +8,52 @@ import (
 )
 
 type LogTriggerGun struct {
-	triggerContract contracts.LogEmitter
-	upkeepContract  contracts.KeeperConsumer
-	logger          zerolog.Logger
-	numberOfEvents  int
+	triggerContract               contracts.LogEmitter
+	logger                        zerolog.Logger
+	numberOfEvents                int
+	numberOfSpamMatchingEvents    int
+	numberOfSpamNonMatchingEvents int
 }
 
 func NewLogTriggerUser(
 	triggerContract contracts.LogEmitter,
-	upkeepContract contracts.KeeperConsumer,
 	logger zerolog.Logger,
 	numberOfEvents int,
+	numberOfSpamMatchingEvents int,
+	numberOfSpamNonMatchingEvents int,
 ) *LogTriggerGun {
+
 	return &LogTriggerGun{
-		triggerContract: triggerContract,
-		upkeepContract:  upkeepContract,
-		logger:          logger,
-		numberOfEvents:  numberOfEvents,
+		triggerContract:               triggerContract,
+		logger:                        logger,
+		numberOfEvents:                numberOfEvents,
+		numberOfSpamMatchingEvents:    numberOfSpamMatchingEvents,
+		numberOfSpamNonMatchingEvents: numberOfSpamNonMatchingEvents,
 	}
 }
 
 func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.logger.Debug().Str("Trigger address", m.triggerContract.Address().String()).Msg("Triggering upkeep")
-	payload := make([]int, 0)
-	for i := 0; i < m.numberOfEvents; i++ {
-		payload = append(payload, 1)
+
+	if m.numberOfEvents > 0 {
+		_, err := m.triggerContract.EmitLogIntMultiIndexed(1, 1, m.numberOfEvents)
+		if err != nil {
+			return &wasp.Response{Error: err.Error(), Failed: true}
+		}
 	}
-	_, err := m.triggerContract.EmitLogInts(payload)
-	if err != nil {
-		return &wasp.Response{Error: err.Error(), Failed: true}
+
+	if m.numberOfSpamMatchingEvents > 0 {
+		_, err := m.triggerContract.EmitLogIntMultiIndexed(1, 2, m.numberOfSpamMatchingEvents)
+		if err != nil {
+			return &wasp.Response{Error: err.Error(), Failed: true}
+		}
+	}
+
+	if m.numberOfSpamNonMatchingEvents > 0 {
+		_, err := m.triggerContract.EmitLogIntMultiIndexed(2, 2, m.numberOfSpamNonMatchingEvents)
+		if err != nil {
+			return &wasp.Response{Error: err.Error(), Failed: true}
+		}
 	}
 
 	return &wasp.Response{}
