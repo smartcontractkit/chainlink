@@ -611,13 +611,16 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	var vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
-	err := envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
+	err = envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
 	require.NoError(t, err)
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
-		WithGeth().
+		WithPrivateEthereumNetwork(network).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		WithStandardCleanup().
@@ -702,13 +705,17 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 func TestVRFv2PlusMigration(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
+
+	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	var vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
-	err := envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
+	err = envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
 	require.NoError(t, err)
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
-		WithGeth().
+		WithPrivateEthereumNetwork(network).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		WithStandardCleanup().
