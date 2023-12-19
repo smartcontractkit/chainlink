@@ -208,7 +208,7 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
         with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -v -timeout 900h -count=1 -json -run ^TestLoadCCIPStableRPS$ ./load
+          test_command_to_run: cd ./integration-tests && go test -v -timeout 900h -count=1 -json -run ^TestLoadCCIPStableRPS$ ./load
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
