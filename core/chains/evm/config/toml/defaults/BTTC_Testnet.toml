@@ -3,11 +3,13 @@ ChainID = '1029'
 FinalityDepth = 9000
 # blocks are generated every 2-4s 
 LogPollInterval = '2s'
-# Blocks are only emitted when a transaction happens / no empty blocks
-NoNewHeadsThreshold = '0'
 
 [GasEstimator]
 EIP1559DynamicFees = false
+PriceDefault = '15 mwei' # Default
+PriceMin = '9 mwei' # Default
+BumpMin = '5 mwei' # Default
+BumpThreshold = 2
 
 [GasEstimator.BlockHistory]
 # how many blocks we want to keep in memory to calculate gas price
