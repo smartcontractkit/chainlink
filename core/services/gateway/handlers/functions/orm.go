@@ -27,7 +27,10 @@ type orm struct {
 }
 
 var _ ORM = (*orm)(nil)
-var ErrDuplicateSubscriptionID = errors.New("Functions ORM: duplicate subscription ID")
+var (
+	ErrDuplicateSubscriptionID = errors.New("Functions ORM: duplicate subscription ID")
+	ErrInvalidParameters       = errors.New("invalid parameters provided to create a subscription cache ORM")
+)
 
 const (
 	tableName = "functions_subscriptions"
@@ -43,10 +46,14 @@ type cachedSubscriptionRow struct {
 	Flags          []uint8
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) (ORM, error) {
+	if db == nil || cfg == nil || lggr == nil {
+		return nil, ErrInvalidParameters
+	}
+
 	return &orm{
 		q: pg.NewQ(db, lggr, cfg),
-	}
+	}, nil
 }
 
 func (o *orm) FetchSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error) {
@@ -119,5 +126,17 @@ func (o *orm) CreateSubscription(subscription CachedSubscription, qopts ...pg.QO
 	if nrows == 0 {
 		return ErrDuplicateSubscriptionID
 	}
+	return nil
+}
+
+type noopORM struct{}
+
+func NewNoopORM() ORM {
+	return &noopORM{}
+}
+func (o *noopORM) FetchSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error) {
+	return nil, nil
+}
+func (o *noopORM) CreateSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error {
 	return nil
 }

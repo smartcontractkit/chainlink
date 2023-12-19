@@ -62,13 +62,16 @@ const (
 func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
 	pluginORM := functions.NewORM(conf.DB, conf.Logger, conf.QConfig, common.HexToAddress(conf.ContractID))
 	s4ORM := s4.NewPostgresORM(conf.DB, conf.Logger, conf.QConfig, s4.SharedTableName, FunctionsS4Namespace)
-	gwFunctionsORM := gwFunctions.NewORM(conf.DB, conf.Logger, conf.QConfig)
-
-	var pluginConfig config.PluginConfig
-	if err := json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig); err != nil {
+	gwFunctionsORM, err := gwFunctions.NewORM(conf.DB, conf.Logger, conf.QConfig)
+	if err != nil {
 		return nil, err
 	}
-	if err := config.ValidatePluginConfig(pluginConfig); err != nil {
+
+	var pluginConfig config.PluginConfig
+	if err = json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig); err != nil {
+		return nil, err
+	}
+	if err = config.ValidatePluginConfig(pluginConfig); err != nil {
 		return nil, err
 	}
 
