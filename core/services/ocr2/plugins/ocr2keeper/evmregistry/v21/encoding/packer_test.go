@@ -209,7 +209,7 @@ func TestPacker_UnpackPerformResult(t *testing.T) {
 	tests := []struct {
 		Name    string
 		RawData string
-		State   uint8
+		State   PipelineExecutionState
 	}{
 		{
 			Name:    "unpack success",
