@@ -1,0 +1,53 @@
+name: Notify Test Result Slack
+description: Will send a notification in Slack for a test result
+inputs:
+
+steps:
+  - name: Get Results
+    id: test-results
+    run: |
+      # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
+      echo "Querying test results"
+
+      PARSED_RESULTS=$(curl \
+      -H "Authorization: Bearer ${{ github.token }}" \
+      'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
+      | jq -r --arg pattern "^Client Compatability Test (?<product>.*?)$" '.jobs[]
+      | select(.name | test($pattern)) as $job
+      | $job.steps[]
+      | select(.name == "Run Tests")
+      | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), product: ("*" + ($job.name | capture($pattern).product) + "*") }')
+
+      echo "Parsed Results:"
+      echo $PARSED_RESULTS
+
+      ALL_SUCCESS=true
+      echo "Checking for failures"
+      echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
+      for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
+          ALL_SUCCESS=false
+          break
+      done
+      echo "Success: $ALL_SUCCESS"
+
+      echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
+
+      FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[] 
+      | { 
+        conclusion: .conclusion, 
+        product: .product 
+        }
+      ]
+      | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"\(.product): \(.conclusion)\"}}")
+      | join(",")')
+
+      echo "Formatted Results:"
+      echo $FORMATTED_RESULTS
+
+      # Cleans out backslashes and quotes from jq
+      CLEAN_RESULTS=$(echo "$FORMATTED_RESULTS" | sed 's/\\\"/"/g' | sed 's/^"//;s/"$//')
+
+      echo "Clean Results"
+      echo $CLEAN_RESULTS
+
+      echo results=$CLEAN_RESULTS >> $GITHUB_OUTPUT
