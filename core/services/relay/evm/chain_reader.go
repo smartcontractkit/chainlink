@@ -3,7 +3,6 @@ package evm
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -48,7 +47,7 @@ func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, b Binding
 		return nil, err
 	}
 
-	c, err := parsed.toCodec()
+	c, err := parsed.toCodec(lggr)
 
 	return &chainReader{
 		lggr:     lggr.Named("ChainReader"),
@@ -64,10 +63,7 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 var _ commontypes.ContractTypeProvider = &chainReader{}
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
-	b := make([]byte, 2048) // adjust buffer size to be larger than expected stack
-	n := runtime.Stack(b, false)
-	s := string(b[:n])
-	cr.lggr.Infof("!!!!!!!!!!\nEVM CR\n%s.%s\n%#v\n%s\n!!!!!!!!!!\n", contractName, method, params, s)
+	cr.lggr.Infof("!!!!!!!!!!\nEVM CR\n%s.%s\n%#v\n%s\n!!!!!!!!!!\n", contractName, method, params)
 	ae, err := cr.bindings.getBinding(contractName, method, false)
 	if err != nil {
 		cr.lggr.Errorf("!!!!!!!!!!\nEVM CR err:\n%v\n!!!!!!!!!!\n", err)

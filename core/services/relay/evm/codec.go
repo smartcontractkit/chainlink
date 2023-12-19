@@ -15,6 +15,7 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -27,7 +28,7 @@ import (
 // it was a *big.Int
 var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountHook, codec.EpochToTimeHook, codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook}
 
-func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
+func NewCodec(conf types.CodecConfig, lggr logger.Logger) (commontypes.RemoteCodec, error) {
 	fmt.Printf("!!!!!!!!!!\nNewCodec\n%#v\n!!!!!!!!!!\n", conf.ChainCodecConfigs)
 	parsed := &parsedTypes{
 		encoderDefs: map[string]*codecEntry{},
@@ -57,7 +58,7 @@ func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 		parsed.decoderDefs[k] = item
 	}
 
-	return parsed.toCodec()
+	return parsed.toCodec(lggr)
 }
 
 type evmCodec struct {

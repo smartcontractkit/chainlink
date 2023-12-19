@@ -6,6 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type parsedTypes struct {
@@ -13,29 +15,29 @@ type parsedTypes struct {
 	decoderDefs map[string]*codecEntry
 }
 
-func (parsed *parsedTypes) toCodec() (commontypes.RemoteCodec, error) {
+func (parsed *parsedTypes) toCodec(lggr logger.Logger) (commontypes.RemoteCodec, error) {
 	modByTypeName := map[string]codec.Modifier{}
 	if err := addEntries(parsed.encoderDefs, modByTypeName); err != nil {
-		fmt.Printf("!!!!!!!!!!\nto codec add encoder entries err\n%#v\n!!!!!!!!!!\n%", err)
+		lggr.Errorf("!!!!!!!!!!\nto codec add encoder entries err\n%#v\n!!!!!!!!!!\n%", err)
 		return nil, err
 	}
 	if err := addEntries(parsed.decoderDefs, modByTypeName); err != nil {
-		fmt.Printf("!!!!!!!!!!\nto codec add decoder entries err\n%#v\n!!!!!!!!!!\n%", err)
+		lggr.Errorf("!!!!!!!!!!\nto codec add decoder entries err\n%#v\n!!!!!!!!!!\n%", err)
 		return nil, err
 	}
 
 	mod, err := codec.NewByItemTypeModifier(modByTypeName)
 	if err != nil {
-		fmt.Printf("!!!!!!!!!!\nto codec mod by type err\n%#v\n!!!!!!!!!!\n%", err)
+		lggr.Errorf("!!!!!!!!!!\nto codec mod by type err\n%#v\n!!!!!!!!!!\n%", err)
 		return nil, err
 	}
 	underlying := &evmCodec{
-		encoder:     &encoder{Definitions: parsed.encoderDefs},
-		decoder:     &decoder{Definitions: parsed.decoderDefs},
+		encoder:     &encoder{Definitions: parsed.encoderDefs, lggr: lggr},
+		decoder:     &decoder{Definitions: parsed.decoderDefs, lggr: lggr},
 		parsedTypes: parsed,
 	}
 	mc, err := codec.NewModifierCodec(underlying, mod, evmDecoderHooks...)
-	fmt.Printf("!!!!!!!!!!\nnow modifier codec: has error?\n%v\n%#v\n!!!!!!!!!!\n%", err != nil, err)
+	lggr.Errorf("!!!!!!!!!!\nnow modifier codec: has error?\n%v\n%#v\n!!!!!!!!!!\n%", err != nil, err)
 	return mc, err
 }
 

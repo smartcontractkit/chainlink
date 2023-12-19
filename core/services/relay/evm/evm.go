@@ -516,7 +516,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 	if relayConfig.Codec != nil {
 		lggr.Infof("!!!!!!!!\nCodec config found\n%#v\n!!!!!!!!\n", relayConfig.Codec)
-		medianProvider.codec, err = NewCodec(*relayConfig.Codec)
+		medianProvider.codec, err = NewCodec(*relayConfig.Codec, lggr)
 		if err != nil {
 			lggr.Infof("!!!!!!!!\nfailed to make new codec\n%v\n!!!!!!!!\n", err)
 			return nil, err
