@@ -2,20 +2,20 @@ package telemetry
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/commontypes"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //// Client encapsulates all the functionality needed to
@@ -26,7 +26,7 @@ import (
 //}
 
 type Manager struct {
-	utils.StartStopOnce
+	services.StateMachine
 	bufferSize                  uint
 	endpoints                   []*telemetryEndpoint
 	ks                          keystore.CSA
@@ -67,7 +67,6 @@ func (l *legacyEndpointConfig) URL() *url.URL {
 }
 
 type telemetryEndpoint struct {
-	utils.StartStopOnce
 	ChainID string
 	Network string
 	URL     *url.URL
@@ -139,17 +138,16 @@ func (m *Manager) Name() string {
 }
 
 func (m *Manager) HealthReport() map[string]error {
-	hr := make(map[string]error)
-	hr[m.lggr.Name()] = m.Healthy()
+	hr := map[string]error{m.Name(): m.Healthy()}
+
 	for _, e := range m.endpoints {
-		name := fmt.Sprintf("%s.%s.%s", m.lggr.Name(), e.Network, e.ChainID)
-		hr[name] = e.StartStopOnce.Healthy()
+		services.CopyHealth(hr, e.client.HealthReport())
 	}
 	return hr
 }
 
 // GenMonitoringEndpoint creates a new monitoring endpoints based on the existing available endpoints defined in the core config TOML, if no endpoint for the network and chainID exists, a NOOP agent will be used and the telemetry will not be sent
-func (m *Manager) GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType, network string, chainID string) commontypes.MonitoringEndpoint {
+func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contractID string, telemType synchronization.TelemetryType) commontypes.MonitoringEndpoint {
 
 	e, found := m.getEndpoint(network, chainID)
 
@@ -159,10 +157,10 @@ func (m *Manager) GenMonitoringEndpoint(contractID string, telemType synchroniza
 	}
 
 	if m.useBatchSend {
-		return NewIngressAgentBatch(e.client, contractID, telemType, network, chainID)
+		return NewIngressAgentBatch(e.client, network, chainID, contractID, telemType)
 	}
 
-	return NewIngressAgent(e.client, contractID, telemType, network, chainID)
+	return NewIngressAgent(e.client, network, chainID, contractID, telemType)
 
 }
 
@@ -189,9 +187,9 @@ func (m *Manager) addEndpoint(e config.TelemetryIngressEndpoint) error {
 
 	var tClient synchronization.TelemetryService
 	if m.useBatchSend {
-		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, m.maxBatchSize, m.sendInterval, m.sendTimeout, m.uniConn)
+		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, m.maxBatchSize, m.sendInterval, m.sendTimeout, m.uniConn, e.Network(), e.ChainID())
 	} else {
-		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize)
+		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, e.Network(), e.ChainID())
 	}
 
 	te := telemetryEndpoint{

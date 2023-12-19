@@ -23,7 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
-	config "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	config "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 

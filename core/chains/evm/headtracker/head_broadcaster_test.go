@@ -10,18 +10,21 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -48,7 +51,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	})
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	db := pgtest.NewSqlxDB(t)
-	logger := logger.TestLogger(t)
+	logger := logger.Test(t)
 
 	sub := commonmocks.NewSubscription(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -68,21 +71,21 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	hb := headtracker.NewHeadBroadcaster(logger)
 	orm := headtracker.NewORM(db, logger, cfg.Database(), *ethClient.ConfiguredChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg.EVM(), evmCfg.EVM().HeadTracker())
-	mailMon := utils.NewMailboxMonitor(t.Name())
+	mailMon := mailbox.NewMonitor(t.Name())
+	servicetest.Run(t, mailMon)
+	hb := headtracker.NewHeadBroadcaster(logger)
+	servicetest.Run(t, hb)
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg.EVM(), evmCfg.EVM().HeadTracker(), hb, hs, mailMon)
-	var ms services.MultiStart
-	require.NoError(t, ms.Start(testutils.Context(t), mailMon, hb, ht))
-	t.Cleanup(func() { require.NoError(t, services.CloseAll(mailMon, hb, ht)) })
+	servicetest.Run(t, ht)
 
 	latest1, unsubscribe1 := hb.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet
 	assert.Equal(t, (*evmtypes.Head)(nil), latest1)
 
 	headers := <-chchHeaders
-	h := evmtypes.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
+	h := evmtypes.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), EVMChainID: big.New(&cltest.FixtureChainID)}
 	headers <- &h
 	g.Eventually(checker1.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
@@ -93,7 +96,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	unsubscribe1()
 
-	headers <- &evmtypes.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
+	headers <- &evmtypes.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: big.New(&cltest.FixtureChainID)}
 	g.Eventually(checker2.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 }
 
@@ -101,7 +104,7 @@ func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewWithT(t)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	broadcaster := headtracker.NewHeadBroadcaster(lggr)
 
 	err := broadcaster.Start(testutils.Context(t))
@@ -143,7 +146,7 @@ func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
 func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	broadcaster := headtracker.NewHeadBroadcaster(lggr)
 
 	err := broadcaster.Start(testutils.Context(t))

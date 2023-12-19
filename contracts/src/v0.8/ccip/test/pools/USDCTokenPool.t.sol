@@ -12,7 +12,7 @@ import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {MockUSDCTokenMessenger} from "../mocks/MockUSDCTokenMessenger.sol";
 import {USDCTokenPoolHelper} from "../helpers/USDCTokenPoolHelper.sol";
 
-import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/IERC165.sol";
+import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
 contract USDCTokenPoolSetup is BaseTest {
   IBurnMintERC20 internal s_token;

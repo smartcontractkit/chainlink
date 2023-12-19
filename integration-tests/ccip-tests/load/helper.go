@@ -1,7 +1,6 @@
 package load
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"math/big"
@@ -11,14 +10,16 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
-	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
+	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 )
 
@@ -29,7 +30,7 @@ type ChaosConfig struct {
 	WaitBetweenChaos time.Duration
 }
 
-type loadArgs struct {
+type LoadArgs struct {
 	t                *testing.T
 	lggr             zerolog.Logger
 	schedules        []*wasp.Segment
@@ -41,7 +42,7 @@ type loadArgs struct {
 	LoadgenTearDowns []func()
 }
 
-func (l *loadArgs) Setup() {
+func (l *LoadArgs) Setup() {
 	lggr := l.lggr
 	existing := pointer.GetBool(l.TestCfg.TestGroupInput.ExistingDeployment)
 	envName := "load-ccip"
@@ -51,7 +52,7 @@ func (l *loadArgs) Setup() {
 	l.TestSetupArgs = testsetups.CCIPDefaultTestSetUp(l.TestCfg.Test, lggr, envName, nil, l.TestCfg)
 }
 
-func (l *loadArgs) setSchedule() {
+func (l *LoadArgs) setSchedule() {
 	var segments []*wasp.Segment
 	var segmentDuration time.Duration
 	require.Greater(l.t, len(l.TestCfg.TestGroupInput.RequestPerUnitTime), 0, "RequestPerUnitTime must be set")
@@ -70,7 +71,7 @@ func (l *loadArgs) setSchedule() {
 	}
 }
 
-func (l *loadArgs) SanityCheck() {
+func (l *LoadArgs) SanityCheck() {
 	for _, lane := range l.TestSetupArgs.Lanes {
 		lane.ForwardLane.RecordStateBeforeTransfer()
 		err := lane.ForwardLane.SendRequests(1, l.TestCfg.TestGroupInput.MsgType, big.NewInt(600_000))
@@ -83,7 +84,7 @@ func (l *loadArgs) SanityCheck() {
 	}
 }
 
-func (l *loadArgs) TriggerLoadByLane() {
+func (l *LoadArgs) TriggerLoadByLane() {
 	l.setSchedule()
 	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
 	namespace := l.TestCfg.TestGroupInput.ExistingEnv
@@ -128,6 +129,7 @@ func (l *loadArgs) TriggerLoadByLane() {
 		l.AddToRunnerGroup(loadRunner)
 	}
 	for _, lane := range l.TestSetupArgs.Lanes {
+		lane := lane
 		l.LoadStarterWg.Add(1)
 		go func() {
 			defer l.LoadStarterWg.Done()
@@ -143,7 +145,7 @@ func (l *loadArgs) TriggerLoadByLane() {
 	}
 }
 
-func (l *loadArgs) AddToRunnerGroup(gen *wasp.Generator) {
+func (l *LoadArgs) AddToRunnerGroup(gen *wasp.Generator) {
 	l.RunnerWg.Go(func() error {
 		_, failed := gen.Wait()
 		if failed {
@@ -156,7 +158,7 @@ func (l *loadArgs) AddToRunnerGroup(gen *wasp.Generator) {
 	})
 }
 
-func (l *loadArgs) Wait() {
+func (l *LoadArgs) Wait() {
 	l.lggr.Info().Msg("Waiting for load to start on all lanes")
 	// wait for load runner to start
 	l.LoadStarterWg.Wait()
@@ -167,7 +169,7 @@ func (l *loadArgs) Wait() {
 	l.lggr.Info().Msg("Load finished on all lanes")
 }
 
-func (l *loadArgs) ApplyChaos() {
+func (l *LoadArgs) ApplyChaos() {
 	testEnv := l.TestSetupArgs.Env
 	if testEnv == nil || testEnv.K8Env == nil {
 		l.lggr.Warn().Msg("test environment is nil, skipping chaos")
@@ -197,7 +199,7 @@ func (l *loadArgs) ApplyChaos() {
 	}
 }
 
-func (l *loadArgs) TearDown() {
+func (l *LoadArgs) TearDown() {
 	for _, tearDn := range l.LoadgenTearDowns {
 		tearDn()
 	}
@@ -206,7 +208,7 @@ func (l *loadArgs) TearDown() {
 	}
 }
 
-func (l *loadArgs) TriggerLoadBySource() {
+func (l *LoadArgs) TriggerLoadBySource() {
 	require.NotNil(l.t, l.TestCfg.TestGroupInput.TestDuration, "test duration input is nil")
 	require.GreaterOrEqual(l.t, 1, len(l.TestCfg.TestGroupInput.RequestPerUnitTime), "time unit input must be specified")
 	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
@@ -264,9 +266,9 @@ func (l *loadArgs) TriggerLoadBySource() {
 	}
 }
 
-func NewLoadArgs(t *testing.T, lggr zerolog.Logger, parent context.Context, chaosExps ...ChaosConfig) *loadArgs {
-	wg, _ := errgroup.WithContext(parent)
-	return &loadArgs{
+func NewLoadArgs(t *testing.T, lggr zerolog.Logger, chaosExps ...ChaosConfig) *LoadArgs {
+	wg, _ := errgroup.WithContext(testcontext.Get(t))
+	return &LoadArgs{
 		t:             t,
 		lggr:          lggr,
 		RunnerWg:      wg,

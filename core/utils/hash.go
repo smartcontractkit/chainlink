@@ -8,11 +8,31 @@ import (
 	"github.com/pkg/errors"
 )
 
+const HashLength = 32
+
 // Hash is a simplified version of go-ethereum's common.Hash to avoid
 // go-ethereum dependency
 // It represents a 32 byte fixed size array that marshals/unmarshals assuming a
 // 0x prefix
 type Hash [32]byte
+
+// BytesToHash sets b to hash.
+// If b is larger than len(h), b will be cropped from the left.
+func BytesToHash(b []byte) Hash {
+	var h Hash
+	h.SetBytes(b)
+	return h
+}
+
+// SetBytes sets the hash to the value of b.
+// If b is larger than len(h), b will be cropped from the left.
+func (h *Hash) SetBytes(b []byte) {
+	if len(b) > len(h) {
+		b = b[len(b)-HashLength:]
+	}
+
+	copy(h[HashLength-len(b):], b)
+}
 
 // Hex converts a hash to a hex string.
 func (h Hash) Hex() string { return fmt.Sprintf("0x%s", hex.EncodeToString(h[:])) }

@@ -7,8 +7,8 @@ import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
-import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Address.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
 contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController, ITypeAndVersion, ConfirmedOwner {

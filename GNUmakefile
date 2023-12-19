@@ -57,9 +57,9 @@ chainlink-test: operator-ui ## Build a test build of chainlink binary.
 chainlink-local-start:
 	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
 
-.PHONY: install-median
-install-median: ## Build & install the chainlink-median binary.
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
+.PHONY: install-medianpoc
+install-medianpoc: ## Build & install the chainlink-medianpoc binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -75,7 +75,7 @@ docker-plugins:
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
-	./operator_ui/install.sh
+	go generate ./core/web
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
@@ -112,7 +112,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.35.4
+	go install github.com/vektra/mockery/v2@v2.38.0
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -127,10 +127,6 @@ telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers
 	--go-wsrpc_opt=paths=source_relative \
 	./core/services/synchronization/telem/*.proto
 
-.PHONY: test_need_operator_assets
-test_need_operator_assets: ## Add blank file in web assets if operator ui has not been built
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
-
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
 	go run ./core/config/docs/cmd/generate -o ./docs/
@@ -138,7 +134,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.55.0 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.55.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 
 GORELEASER_CONFIG ?= .goreleaser.yaml
@@ -150,6 +146,10 @@ goreleaser-dev-build: ## Run goreleaser snapshot build
 .PHONY: goreleaser-dev-release
 goreleaser-dev-release: ## run goreleaser snapshot release
 	./tools/bin/goreleaser_wrapper release --snapshot --rm-dist --config ${GORELEASER_CONFIG}
+
+.PHONY: modgraph
+modgraph:
+	./tools/bin/modgraph > go.md
 
 help:
 	@echo ""

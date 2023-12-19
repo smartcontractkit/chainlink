@@ -2,7 +2,7 @@
 // solhint-disable one-contract-per-file
 pragma solidity ^0.8.0;
 
-import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/IERC165.sol";
+import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
 /// @title IOptimismMintableERC20Minimal
 /// @dev This interface is a subset of the Optimism ERC20 interface that is defined

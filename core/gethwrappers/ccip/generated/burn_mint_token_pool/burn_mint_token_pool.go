@@ -72,7 +72,7 @@ func DeployBurnMintTokenPool(auth *bind.TransactOpts, backend bind.ContractBacke
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &BurnMintTokenPool{BurnMintTokenPoolCaller: BurnMintTokenPoolCaller{contract: contract}, BurnMintTokenPoolTransactor: BurnMintTokenPoolTransactor{contract: contract}, BurnMintTokenPoolFilterer: BurnMintTokenPoolFilterer{contract: contract}}, nil
+	return address, tx, &BurnMintTokenPool{address: address, abi: *parsed, BurnMintTokenPoolCaller: BurnMintTokenPoolCaller{contract: contract}, BurnMintTokenPoolTransactor: BurnMintTokenPoolTransactor{contract: contract}, BurnMintTokenPoolFilterer: BurnMintTokenPoolFilterer{contract: contract}}, nil
 }
 
 type BurnMintTokenPool struct {

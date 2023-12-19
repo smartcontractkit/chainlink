@@ -9,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/caigo"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	adapters "github.com/smartcontractkit/chainlink-relay/pkg/loop/adapters/starknet"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	adapters "github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
@@ -155,7 +155,7 @@ func (ks *starknet) getByID(id string) (starkkey.Key, error) {
 	return key, nil
 }
 
-// StarknetLooppSigner implements [github.com/smartcontractkit/chainlink-relay/pkg/loop.Keystore] interface and the requirements
+// StarknetLooppSigner implements [github.com/smartcontractkit/chainlink-common/pkg/loop.Keystore] interface and the requirements
 // of signature d/encoding of the [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
 type StarknetLooppSigner struct {
 	StarkNet
@@ -165,7 +165,7 @@ var _ loop.Keystore = &StarknetLooppSigner{}
 
 // Sign implements [loop.Keystore]
 // hash is expected to be the byte representation of big.Int
-// the returned []byte is an encoded [github.com/smartcontractkit/chainlink-relay/pkg/loop/adapters/starknet.Signature].
+// the returned []byte is an encoded [github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/starknet.Signature].
 // this enables compatibility with [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
 func (lk *StarknetLooppSigner) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
 

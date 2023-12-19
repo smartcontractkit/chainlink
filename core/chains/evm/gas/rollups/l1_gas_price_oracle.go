@@ -12,10 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -26,9 +28,10 @@ type ethClient interface {
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
 type l1GasPriceOracle struct {
+	services.StateMachine
 	client     ethClient
 	pollPeriod time.Duration
-	logger     logger.Logger
+	logger     logger.SugaredLogger
 	address    string
 	callArgs   string
 
@@ -36,9 +39,8 @@ type l1GasPriceOracle struct {
 	l1GasPrice   *assets.Wei
 
 	chInitialised chan struct{}
-	chStop        utils.StopChan
+	chStop        services.StopChan
 	chDone        chan struct{}
-	utils.StartStopOnce
 }
 
 const (
@@ -94,7 +96,7 @@ func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType conf
 	return &l1GasPriceOracle{
 		client:        ethClient,
 		pollPeriod:    PollPeriod,
-		logger:        lggr.Named(fmt.Sprintf("L1GasPriceOracle(%s)", chainType)),
+		logger:        logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasPriceOracle(%s)", chainType))),
 		address:       address,
 		callArgs:      callArgs,
 		chInitialised: make(chan struct{}),

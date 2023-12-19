@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 type bytesProducer interface {
@@ -34,7 +34,7 @@ type queryArgs struct {
 func newQueryArgs(chainId *big.Int) *queryArgs {
 	return &queryArgs{
 		args: map[string]interface{}{
-			"evm_chain_id": utils.NewBig(chainId),
+			"evm_chain_id": ubig.New(chainId),
 		},
 		err: []error{},
 	}
@@ -74,6 +74,14 @@ func (q *queryArgs) withWordIndex(wordIndex int) *queryArgs {
 	return q.withCustomArg("word_index", wordIndex)
 }
 
+func (q *queryArgs) withWordValueMin(wordValueMin common.Hash) *queryArgs {
+	return q.withCustomHashArg("word_value_min", wordValueMin)
+}
+
+func (q *queryArgs) withWordValueMax(wordValueMax common.Hash) *queryArgs {
+	return q.withCustomHashArg("word_value_max", wordValueMax)
+}
+
 func (q *queryArgs) withWordIndexMin(wordIndex int) *queryArgs {
 	return q.withCustomArg("word_index_min", wordIndex)
 }
@@ -84,14 +92,6 @@ func (q *queryArgs) withWordIndexMax(wordIndex int) *queryArgs {
 
 func (q *queryArgs) withWordValue(wordValue common.Hash) *queryArgs {
 	return q.withCustomHashArg("word_value", wordValue)
-}
-
-func (q *queryArgs) withWordValueMin(wordValueMin common.Hash) *queryArgs {
-	return q.withCustomHashArg("word_value_min", wordValueMin)
-}
-
-func (q *queryArgs) withWordValueMax(wordValueMax common.Hash) *queryArgs {
-	return q.withCustomHashArg("word_value_max", wordValueMax)
 }
 
 func (q *queryArgs) withConfs(confs Confirmations) *queryArgs {

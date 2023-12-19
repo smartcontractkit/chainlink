@@ -8,7 +8,7 @@ import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {Client} from "../libraries/Client.sol";
 import {CCIPReceiver} from "./CCIPReceiver.sol";
 
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 /// @title PingPongDemo - A simple ping-pong contract for demonstrating cross-chain communication
 contract PingPongDemo is CCIPReceiver, OwnerIsCreator, ITypeAndVersion {

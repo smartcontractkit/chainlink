@@ -8,7 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/trusted_blockhash_store"
@@ -27,14 +28,14 @@ var _ job.ServiceCtx = &service{}
 // Delegate creates BlockhashStore feeder jobs.
 type Delegate struct {
 	logger       logger.Logger
-	legacyChains evm.LegacyChainContainer
+	legacyChains legacyevm.LegacyChainContainer
 	ks           keystore.Eth
 }
 
 // NewDelegate creates a new Delegate.
 func NewDelegate(
 	logger logger.Logger,
-	legacyChains evm.LegacyChainContainer,
+	legacyChains legacyevm.LegacyChainContainer,
 	ks keystore.Eth,
 ) *Delegate {
 	return &Delegate{
@@ -197,7 +198,7 @@ func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {
-	utils.StartStopOnce
+	services.StateMachine
 	feeder     *Feeder
 	wg         sync.WaitGroup
 	pollPeriod time.Duration

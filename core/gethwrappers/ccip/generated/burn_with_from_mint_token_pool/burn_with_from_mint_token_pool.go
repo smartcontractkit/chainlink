@@ -72,7 +72,7 @@ func DeployBurnWithFromMintTokenPool(auth *bind.TransactOpts, backend bind.Contr
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &BurnWithFromMintTokenPool{BurnWithFromMintTokenPoolCaller: BurnWithFromMintTokenPoolCaller{contract: contract}, BurnWithFromMintTokenPoolTransactor: BurnWithFromMintTokenPoolTransactor{contract: contract}, BurnWithFromMintTokenPoolFilterer: BurnWithFromMintTokenPoolFilterer{contract: contract}}, nil
+	return address, tx, &BurnWithFromMintTokenPool{address: address, abi: *parsed, BurnWithFromMintTokenPoolCaller: BurnWithFromMintTokenPoolCaller{contract: contract}, BurnWithFromMintTokenPoolTransactor: BurnWithFromMintTokenPoolTransactor{contract: contract}, BurnWithFromMintTokenPoolFilterer: BurnWithFromMintTokenPoolFilterer{contract: contract}}, nil
 }
 
 type BurnWithFromMintTokenPool struct {

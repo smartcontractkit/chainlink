@@ -5,6 +5,4 @@ import {IFunctionsRouter} from "./IFunctionsRouter.sol";
 import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 
 /// @title Chainlink Functions Router interface with Ownability.
-interface IOwnableFunctionsRouter is IOwnable, IFunctionsRouter {
-
-}
+interface IOwnableFunctionsRouter is IOwnable, IFunctionsRouter {}

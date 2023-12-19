@@ -65,7 +65,7 @@ func DeploySelfFundedPingPong(auth *bind.TransactOpts, backend bind.ContractBack
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &SelfFundedPingPong{SelfFundedPingPongCaller: SelfFundedPingPongCaller{contract: contract}, SelfFundedPingPongTransactor: SelfFundedPingPongTransactor{contract: contract}, SelfFundedPingPongFilterer: SelfFundedPingPongFilterer{contract: contract}}, nil
+	return address, tx, &SelfFundedPingPong{address: address, abi: *parsed, SelfFundedPingPongCaller: SelfFundedPingPongCaller{contract: contract}, SelfFundedPingPongTransactor: SelfFundedPingPongTransactor{contract: contract}, SelfFundedPingPongFilterer: SelfFundedPingPongFilterer{contract: contract}}, nil
 }
 
 type SelfFundedPingPong struct {

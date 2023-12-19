@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-
 	"github.com/slack-go/slack"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 )
 
@@ -88,11 +88,11 @@ func (stat *RequestStat) UpdateState(lggr zerolog.Logger, seqNum uint64, step Ph
 			Status: state,
 		}
 		lggr.Info().
-			Str(fmt.Sprint(E2E), fmt.Sprintf("%s", Failure)).
+			Str(fmt.Sprint(E2E), string(Failure)).
 			Msgf("reqNo %d", stat.ReqNo)
-		event.Str(fmt.Sprint(step), fmt.Sprintf("%s", Failure)).Msgf("reqNo %d", stat.ReqNo)
+		event.Str(string(step), string(Failure)).Msgf("reqNo %d", stat.ReqNo)
 	} else {
-		event.Str(fmt.Sprint(step), fmt.Sprintf("%s", Success)).Msgf("reqNo %d", stat.ReqNo)
+		event.Str(string(step), string(Success)).Msgf("reqNo %d", stat.ReqNo)
 		if step == Commit || step == ReportBlessed || step == ExecStateChanged {
 			stat.StatusByPhase[E2E] = PhaseStat{
 				SeqNum:   seqNum,
@@ -101,7 +101,7 @@ func (stat *RequestStat) UpdateState(lggr zerolog.Logger, seqNum uint64, step Ph
 			}
 			if step == ExecStateChanged {
 				lggr.Info().
-					Str(fmt.Sprint(E2E), fmt.Sprintf("%s", Success)).
+					Str(fmt.Sprint(E2E), string(Success)).
 					Msgf("reqNo %d", stat.ReqNo)
 			}
 		}
@@ -124,7 +124,7 @@ type CCIPLaneStats struct {
 	SuccessCountsByPhase    map[Phase]int64             `json:"success_counts_by_phase,omitempty"` // SuccessCountsByPhase is the number of requests that succeeded in each phase
 	FailedCountsByPhase     map[Phase]int64             `json:"failed_counts_by_phase,omitempty"`  // FailedCountsByPhase is the number of requests that failed in each phase
 	DurationStatByPhase     map[Phase]AggregatorMetrics `json:"duration_stat_by_phase,omitempty"`  // DurationStatByPhase is the duration statistics for each phase
-	statusByPhaseByRequests sync.Map                    `json:"-"`
+	statusByPhaseByRequests sync.Map
 }
 
 func (testStats *CCIPLaneStats) UpdatePhaseStatsForReq(stat *RequestStat) {

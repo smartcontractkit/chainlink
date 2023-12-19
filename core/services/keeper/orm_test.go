@@ -9,13 +9,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/jmoiron/sqlx"
+
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -44,7 +46,7 @@ func setupKeeperDB(t *testing.T) (
 
 func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistration {
 	return keeper.UpkeepRegistration{
-		UpkeepID:   utils.NewBigI(upkeepID),
+		UpkeepID:   ubig.NewI(upkeepID),
 		ExecuteGas: executeGas,
 		Registry:   registry,
 		RegistryID: registry.ID,
@@ -102,7 +104,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 	upkeep := keeper.UpkeepRegistration{
-		UpkeepID:            utils.NewBigI(0),
+		UpkeepID:            ubig.NewI(0),
 		ExecuteGas:          executeGas,
 		Registry:            registry,
 		RegistryID:          registry.ID,
@@ -138,7 +140,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 
 	expectedUpkeepID := cltest.MustInsertUpkeepForRegistry(t, db, config.Database(), registry).UpkeepID
-	var upkeepIDs []utils.Big
+	var upkeepIDs []ubig.Big
 	for i := 0; i < 2; i++ {
 		upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config.Database(), registry)
 		upkeepIDs = append(upkeepIDs, *upkeep.UpkeepID)
@@ -179,7 +181,7 @@ func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 	assert.NoError(t, err)
 
 	require.Len(t, eligibleUpkeeps, 100)
-	shuffled := [100]*utils.Big{}
+	shuffled := [100]*ubig.Big{}
 	for i := 0; i < 100; i++ {
 		shuffled[i] = eligibleUpkeeps[i].UpkeepID
 	}
@@ -371,8 +373,8 @@ func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
 	require.NoError(t, err)
 	// No upkeeps returned
 	require.Len(t, upkeepIDs, 2)
-	require.Contains(t, upkeepIDs, *utils.NewBig(big.NewInt(3)))
-	require.Contains(t, upkeepIDs, *utils.NewBig(big.NewInt(8)))
+	require.Contains(t, upkeepIDs, *ubig.New(big.NewInt(3)))
+	require.Contains(t, upkeepIDs, *ubig.New(big.NewInt(8)))
 }
 
 func TestKeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {

@@ -72,7 +72,7 @@ func DeployLockReleaseTokenPool(auth *bind.TransactOpts, backend bind.ContractBa
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &LockReleaseTokenPool{LockReleaseTokenPoolCaller: LockReleaseTokenPoolCaller{contract: contract}, LockReleaseTokenPoolTransactor: LockReleaseTokenPoolTransactor{contract: contract}, LockReleaseTokenPoolFilterer: LockReleaseTokenPoolFilterer{contract: contract}}, nil
+	return address, tx, &LockReleaseTokenPool{address: address, abi: *parsed, LockReleaseTokenPoolCaller: LockReleaseTokenPoolCaller{contract: contract}, LockReleaseTokenPoolTransactor: LockReleaseTokenPoolTransactor{contract: contract}, LockReleaseTokenPoolFilterer: LockReleaseTokenPoolFilterer{contract: contract}}, nil
 }
 
 type LockReleaseTokenPool struct {

@@ -77,7 +77,7 @@ func DeployMockARMContract(auth *bind.TransactOpts, backend bind.ContractBackend
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &MockARMContract{MockARMContractCaller: MockARMContractCaller{contract: contract}, MockARMContractTransactor: MockARMContractTransactor{contract: contract}, MockARMContractFilterer: MockARMContractFilterer{contract: contract}}, nil
+	return address, tx, &MockARMContract{address: address, abi: *parsed, MockARMContractCaller: MockARMContractCaller{contract: contract}, MockARMContractTransactor: MockARMContractTransactor{contract: contract}, MockARMContractFilterer: MockARMContractFilterer{contract: contract}}, nil
 }
 
 type MockARMContract struct {

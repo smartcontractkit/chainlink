@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
 )
 
@@ -18,14 +17,14 @@ var (
 	jobID     = common.BytesToHash([]byte("1234567890abcdef1234567890abcdef"))
 	seed      = big.NewInt(1)
 	sender    = common.HexToAddress("0xecfcab0a285d3380e488a39b4bb21e777f8a4eac")
-	fee       = assets.NewLinkFromJuels(100)
+	fee       = big.NewInt(100)
 	requestID = common.HexToHash("0xcafe")
 	raw       = solidity_cross_tests.RawRandomnessRequestLog{
 		KeyHash:   keyHash,
 		Seed:      seed,
 		JobID:     jobID,
 		Sender:    sender,
-		Fee:       (*big.Int)(fee),
+		Fee:       fee,
 		RequestID: requestID,
 		Raw: types.Log{
 			// A raw, on-the-wire RandomnessRequestLog is the concat of fields as uint256's
@@ -33,7 +32,7 @@ var (
 				keyHash.Bytes(),
 				common.BigToHash(seed).Bytes()...),
 				sender.Hash().Bytes()...),
-				fee.ToHash().Bytes()...),
+				common.BigToHash(fee).Bytes()...),
 				requestID.Bytes()...),
 			Topics: []common.Hash{{}, jobID},
 		},

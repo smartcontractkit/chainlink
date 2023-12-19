@@ -50,7 +50,7 @@ func DeployBatchBlockhashStore(auth *bind.TransactOpts, backend bind.ContractBac
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &BatchBlockhashStore{BatchBlockhashStoreCaller: BatchBlockhashStoreCaller{contract: contract}, BatchBlockhashStoreTransactor: BatchBlockhashStoreTransactor{contract: contract}, BatchBlockhashStoreFilterer: BatchBlockhashStoreFilterer{contract: contract}}, nil
+	return address, tx, &BatchBlockhashStore{address: address, abi: *parsed, BatchBlockhashStoreCaller: BatchBlockhashStoreCaller{contract: contract}, BatchBlockhashStoreTransactor: BatchBlockhashStoreTransactor{contract: contract}, BatchBlockhashStoreFilterer: BatchBlockhashStoreFilterer{contract: contract}}, nil
 }
 
 type BatchBlockhashStore struct {

@@ -8,23 +8,22 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_ReplayFromBlock(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].ChainID = (*utils.Big)(big.NewInt(5))
+		c.EVM[0].ChainID = (*ubig.Big)(big.NewInt(5))
 		c.EVM[0].Enabled = ptr(true)
 	})
 
 	client, _ := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ReplayFromBlock, set, "")
+	flagSetApplyFromAction(client.ReplayFromBlock, set, "")
 
 	//Incorrect block number
 	require.NoError(t, set.Set("block-number", "0"))

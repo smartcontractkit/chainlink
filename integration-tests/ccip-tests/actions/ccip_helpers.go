@@ -2,7 +2,6 @@ package actions
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"math/big"
 	"strings"
@@ -18,14 +17,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctfclient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
@@ -279,19 +280,19 @@ func (ccipModule *CCIPCommon) CleanUp() error {
 		for i, pool := range ccipModule.BridgeTokenPools {
 			bal, err := ccipModule.BridgeTokens[i].BalanceOf(context.Background(), pool.Address())
 			if err != nil {
-				return fmt.Errorf("error in getting pool balance %+v", err)
+				return fmt.Errorf("error in getting pool balance %w", err)
 			}
 			if bal.Cmp(big.NewInt(0)) == 0 {
 				continue
 			}
 			err = pool.RemoveLiquidity(bal)
 			if err != nil {
-				return fmt.Errorf("error in removing liquidity %+v", err)
+				return fmt.Errorf("error in removing liquidity %w", err)
 			}
 		}
 		err := ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("error in waiting for events %+v", err)
+			return fmt.Errorf("error in waiting for events %wfmt.Sprintf(\"Setting mockserver response\")", err)
 		}
 	}
 	return nil
@@ -391,7 +392,7 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	if ccipModule.ARM != nil {
 		arm, err := cd.NewARMContract(ccipModule.ARM.EthAddress)
 		if err != nil {
-			return fmt.Errorf("getting new ARM contract shouldn't fail %+v", err)
+			return fmt.Errorf("getting new ARM contract shouldn't fail %w", err)
 		}
 		ccipModule.ARM = arm
 	} else {
@@ -402,11 +403,11 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 			}
 			ccipModule.ARMContract, err = cd.DeployMockARMContract()
 			if err != nil {
-				return fmt.Errorf("deploying mock ARM contract shouldn't fail %+v", err)
+				return fmt.Errorf("deploying mock ARM contract shouldn't fail %w", err)
 			}
 			err = ccipModule.ChainClient.WaitForEvents()
 			if err != nil {
-				return fmt.Errorf("error in waiting for mock ARM deployment %+v", err)
+				return fmt.Errorf("error in waiting for mock ARM deployment %w", err)
 			}
 		}
 	}
@@ -417,18 +418,18 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		// deploy link token
 		token, err := cd.DeployLinkTokenContract()
 		if err != nil {
-			return fmt.Errorf("deploying fee token contract shouldn't fail %+v", err)
+			return fmt.Errorf("deploying fee token contract shouldn't fail %w", err)
 		}
 
 		ccipModule.FeeToken = token
 		err = ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("error in waiting for feetoken deployment %+v", err)
+			return fmt.Errorf("error in waiting for feetoken deployment %w", err)
 		}
 	} else {
 		token, err := cd.NewLinkTokenContract(common.HexToAddress(ccipModule.FeeToken.Address()))
 		if err != nil {
-			return fmt.Errorf("getting fee token contract shouldn't fail %+v", err)
+			return fmt.Errorf("getting fee token contract shouldn't fail %w", err)
 		}
 		ccipModule.FeeToken = token
 	}
@@ -445,21 +446,24 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 					// we deploy link token and cast it to ERC20Token
 					linkToken, err := cd.DeployLinkTokenContract()
 					if err != nil {
-						return fmt.Errorf("deploying bridge token contract shouldn't fail %+v", err)
+						return fmt.Errorf("deploying bridge token contract shouldn't fail %w", err)
 					}
 					token, err = cd.NewERC20TokenContract(common.HexToAddress(linkToken.Address()))
+					if err != nil {
+						return fmt.Errorf("getting new bridge token contract shouldn't fail %w", err)
+					}
 				} else {
 					token, err = cd.DeployERC20TokenContract(tokenDeployerFns[i])
-				}
-				if err != nil {
-					return fmt.Errorf("deploying bridge token contract shouldn't fail %+v", err)
+					if err != nil {
+						return fmt.Errorf("deploying bridge token contract shouldn't fail %w", err)
+					}
 				}
 				ccipModule.BridgeTokens = append(ccipModule.BridgeTokens, token)
 			}
 		}
 		err = ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("error in waiting for bridge token deployment %+v", err)
+			return fmt.Errorf("error in waiting for bridge token deployment %w", err)
 		}
 	}
 
@@ -467,7 +471,7 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	for _, token := range ccipModule.BridgeTokens {
 		newToken, err := cd.NewERC20TokenContract(common.HexToAddress(token.Address()))
 		if err != nil {
-			return fmt.Errorf("getting new bridge token contract shouldn't fail %+v", err)
+			return fmt.Errorf("getting new bridge token contract shouldn't fail %w", err)
 		}
 		tokens = append(tokens, newToken)
 	}
@@ -481,12 +485,12 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 			token := ccipModule.BridgeTokens[i]
 			btp, err := cd.DeployLockReleaseTokenPoolContract(token.Address(), *ccipModule.ARMContract)
 			if err != nil {
-				return fmt.Errorf("deploying bridge Token pool shouldn't fail %+v", err)
+				return fmt.Errorf("deploying bridge Token pool shouldn't fail %w", err)
 			}
 			ccipModule.BridgeTokenPools = append(ccipModule.BridgeTokenPools, btp)
 			err = btp.AddLiquidity(token.Approve, token.Address(), ccipModule.poolFunds)
 			if err != nil {
-				return fmt.Errorf("adding liquidity token to dest pool shouldn't fail %+v", err)
+				return fmt.Errorf("adding liquidity token to dest pool shouldn't fail %w", err)
 			}
 		}
 	} else {
@@ -494,7 +498,7 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		for _, pool := range ccipModule.BridgeTokenPools {
 			newPool, err := cd.NewLockReleaseTokenPoolContract(pool.EthAddress)
 			if err != nil {
-				return fmt.Errorf("getting new bridge token pool contract shouldn't fail %+v", err)
+				return fmt.Errorf("getting new bridge token pool contract shouldn't fail %w", err)
 			}
 			pools = append(pools, newPool)
 		}
@@ -512,12 +516,12 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 		weth9addr, err := cd.DeployWrappedNative()
 		if err != nil {
-			return fmt.Errorf("deploying wrapped native shouldn't fail %+v", err)
+			return fmt.Errorf("deploying wrapped native shouldn't fail %w", err)
 		}
 
 		err = ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("waiting for deploying wrapped native shouldn't fail %+v", err)
+			return fmt.Errorf("waiting for deploying wrapped native shouldn't fail %w", err)
 		}
 		ccipModule.WrappedNative = *weth9addr
 	}
@@ -528,16 +532,16 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 		ccipModule.Router, err = cd.DeployRouter(ccipModule.WrappedNative, *ccipModule.ARMContract)
 		if err != nil {
-			return fmt.Errorf("deploying router shouldn't fail %+v", err)
+			return fmt.Errorf("deploying router shouldn't fail %w", err)
 		}
 		err = ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("error in waiting for router deployment %+v", err)
+			return fmt.Errorf("error in waiting for router deployment %w", err)
 		}
 	} else {
 		r, err := cd.NewRouter(ccipModule.Router.EthAddress)
 		if err != nil {
-			return fmt.Errorf("getting new router contract shouldn't fail %+v", err)
+			return fmt.Errorf("getting new router contract shouldn't fail %w", err)
 		}
 		ccipModule.Router = r
 	}
@@ -551,16 +555,16 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 			common.HexToAddress(ccipModule.WrappedNative.Hex()),
 		})
 		if err != nil {
-			return fmt.Errorf("deploying PriceRegistry shouldn't fail %+v", err)
+			return fmt.Errorf("deploying PriceRegistry shouldn't fail %w", err)
 		}
 		err = ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("error in waiting for PriceRegistry deployment %+v", err)
+			return fmt.Errorf("error in waiting for PriceRegistry deployment %w", err)
 		}
 	} else {
 		ccipModule.PriceRegistry, err = cd.NewPriceRegistry(ccipModule.PriceRegistry.EthAddress)
 		if err != nil {
-			return fmt.Errorf("getting new PriceRegistry contract shouldn't fail %+v", err)
+			return fmt.Errorf("getting new PriceRegistry contract shouldn't fail %w", err)
 		}
 	}
 	if ccipModule.MulticallContract == (common.Address{}) && ccipModule.MulticallEnabled {
@@ -601,7 +605,7 @@ type SourceCCIPModule struct {
 	DestNetworkName            string
 	OnRamp                     *contracts.OnRamp
 	SrcStartBlock              uint64
-	CCIPSendRequestedWatcher   sync.Map // map[string]*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested
+	CCIPSendRequestedWatcher   *sync.Map // map[string]*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested
 	NewFinalizedBlockNum       atomic.Uint64
 	NewFinalizedBlockTimestamp atomic.Time
 }
@@ -700,7 +704,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 
 		sourceCCIP.SrcStartBlock, err = sourceCCIP.Common.ChainClient.LatestBlockNumber(context.Background())
 		if err != nil {
-			return fmt.Errorf("getting latest block number shouldn't fail %+v", err)
+			return fmt.Errorf("getting latest block number shouldn't fail %w", err)
 		}
 		sourceCCIP.OnRamp, err = contractDeployer.DeployOnRamp(
 			sourceChainSelector,
@@ -731,18 +735,18 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		)
 
 		if err != nil {
-			return fmt.Errorf("onRamp deployment shouldn't fail %+v", err)
+			return fmt.Errorf("onRamp deployment shouldn't fail %w", err)
 		}
 
 		err = sourceCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("waiting for onRamp deployment shouldn't fail %+v", err)
+			return fmt.Errorf("waiting for onRamp deployment shouldn't fail %w", err)
 		}
 
 		// update source Router with OnRamp address
 		err = sourceCCIP.Common.Router.SetOnRamp(destChainSelector, sourceCCIP.OnRamp.EthAddress)
 		if err != nil {
-			return fmt.Errorf("setting onramp on the router shouldn't fail %+v", err)
+			return fmt.Errorf("setting onramp on the router shouldn't fail %w", err)
 		}
 
 		// now sync the pools and tokens
@@ -753,25 +757,25 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 
 		err = sourceCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("waiting for events shouldn't fail %+v", err)
+			return fmt.Errorf("waiting for events shouldn't fail %w", err)
 		}
 
 		// update native pool with onRamp address
 		for _, pool := range sourceCCIP.Common.BridgeTokenPools {
 			err = pool.SetOnRamp(sourceCCIP.OnRamp.EthAddress)
 			if err != nil {
-				return fmt.Errorf("setting OnRamp on the bridge token pool shouldn't fail %+v", err)
+				return fmt.Errorf("setting OnRamp on the bridge token pool shouldn't fail %w", err)
 			}
 		}
 
 		err = sourceCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("waiting for events shouldn't fail %+v", err)
+			return fmt.Errorf("waiting for events shouldn't fail %w", err)
 		}
 	} else {
 		sourceCCIP.OnRamp, err = contractDeployer.NewOnRamp(sourceCCIP.OnRamp.EthAddress)
 		if err != nil {
-			return fmt.Errorf("getting new onramp contractshouldn't fail %+v", err)
+			return fmt.Errorf("getting new onramp contractshouldn't fail %w", err)
 		}
 	}
 
@@ -886,7 +890,7 @@ func (sourceCCIP *SourceCCIPModule) AssertSendRequestedLogFinalized(
 		for _, stat := range reqStats {
 			stat.UpdateState(lggr, stat.SeqNum, testreporters.SourceLogFinalized, time.Since(prevEventAt), testreporters.Failure)
 		}
-		return time.Time{}, 0, fmt.Errorf("error waiting for CCIPSendRequested event log to be finalized - %+v", err)
+		return time.Time{}, 0, fmt.Errorf("error waiting for CCIPSendRequested event log to be finalized - %w", err)
 	}
 	for _, stat := range reqStats {
 		stat.UpdateState(lggr, stat.SeqNum, testreporters.SourceLogFinalized, finalizedAt.Sub(prevEventAt), testreporters.Success,
@@ -956,12 +960,12 @@ func (sourceCCIP *SourceCCIPModule) CCIPMsg(
 	}
 	receiverAddr, err := utils.ABIEncode(`[{"type":"address"}]`, receiver)
 	if err != nil {
-		return router.ClientEVM2AnyMessage{}, fmt.Errorf("failed encoding the receiver address: %+v", err)
+		return router.ClientEVM2AnyMessage{}, fmt.Errorf("failed encoding the receiver address: %w", err)
 	}
 
 	extraArgsV1, err := testhelpers.GetEVMExtraArgsV1(gasLimit, false)
 	if err != nil {
-		return router.ClientEVM2AnyMessage{}, fmt.Errorf("failed encoding the options field: %+v", err)
+		return router.ClientEVM2AnyMessage{}, fmt.Errorf("failed encoding the options field: %w", err)
 	}
 	// form the message for transfer
 	return router.ClientEVM2AnyMessage{
@@ -982,12 +986,12 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 	var d time.Duration
 	destChainSelector, err := chainselectors.SelectorFromChainId(sourceCCIP.DestinationChainId)
 	if err != nil {
-		return common.Hash{}, d, nil, fmt.Errorf("failed getting the chain selector: %+v", err)
+		return common.Hash{}, d, nil, fmt.Errorf("failed getting the chain selector: %w", err)
 	}
 	// form the message for transfer
 	msg, err := sourceCCIP.CCIPMsg(receiver, msgType, data, gasLimit)
 	if err != nil {
-		return common.Hash{}, d, nil, fmt.Errorf("failed forming the ccip msg: %+v", err)
+		return common.Hash{}, d, nil, fmt.Errorf("failed forming the ccip msg: %w", err)
 	}
 	fee, err := sourceCCIP.Common.Router.GetFee(destChainSelector, msg)
 	if err != nil {
@@ -995,7 +999,7 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 		if reason != "" {
 			return common.Hash{}, d, nil, fmt.Errorf("failed getting the fee: %s", reason)
 		}
-		return common.Hash{}, d, nil, fmt.Errorf("failed getting the fee: %+v", err)
+		return common.Hash{}, d, nil, fmt.Errorf("failed getting the fee: %w", err)
 	}
 	log.Info().Str("fee", fee.String()).Msg("calculated fee")
 
@@ -1007,12 +1011,12 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 	if feeToken != (common.Address{}) {
 		sendTx, err = sourceCCIP.Common.Router.CCIPSendAndProcessTx(destChainSelector, msg, nil)
 		if err != nil {
-			return common.Hash{}, time.Since(timeNow), nil, fmt.Errorf("failed initiating the transfer ccip-send: %+v", err)
+			return common.Hash{}, time.Since(timeNow), nil, fmt.Errorf("failed initiating the transfer ccip-send: %w", err)
 		}
 	} else {
 		sendTx, err = sourceCCIP.Common.Router.CCIPSendAndProcessTx(destChainSelector, msg, fee)
 		if err != nil {
-			return common.Hash{}, time.Since(timeNow), nil, fmt.Errorf("failed initiating the transfer ccip-send: %+v", err)
+			return common.Hash{}, time.Since(timeNow), nil, fmt.Errorf("failed initiating the transfer ccip-send: %w", err)
 		}
 	}
 
@@ -1035,11 +1039,12 @@ func DefaultSourceCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMCl
 		transferAmount = transferAmount[:len(cmn.BridgeTokens)]
 	}
 	return &SourceCCIPModule{
-		Common:             cmn,
-		TransferAmount:     transferAmount,
-		DestinationChainId: destChainId,
-		DestNetworkName:    destChain,
-		Sender:             common.HexToAddress(chainClient.GetDefaultWallet().Address()),
+		Common:                   cmn,
+		TransferAmount:           transferAmount,
+		DestinationChainId:       destChainId,
+		DestNetworkName:          destChain,
+		Sender:                   common.HexToAddress(chainClient.GetDefaultWallet().Address()),
+		CCIPSendRequestedWatcher: &sync.Map{},
 	}, nil
 }
 
@@ -1051,9 +1056,9 @@ type DestCCIPModule struct {
 	ReceiverDapp            *contracts.ReceiverDapp
 	OffRamp                 *contracts.OffRamp
 	WrappedNative           common.Address
-	ReportAcceptedWatcher   sync.Map
-	ExecStateChangedWatcher sync.Map
-	ReportBlessedWatcher    sync.Map
+	ReportAcceptedWatcher   *sync.Map
+	ExecStateChangedWatcher *sync.Map
+	ReportBlessedWatcher    *sync.Map
 	NextSeqNumToCommit      *atomic.Uint64
 }
 
@@ -1122,26 +1127,26 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			*destCCIP.Common.ARMContract,
 		)
 		if err != nil {
-			return fmt.Errorf("deploying commitstore shouldn't fail %+v", err)
+			return fmt.Errorf("deploying commitstore shouldn't fail %w", err)
 		}
 		err = destCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("waiting for commitstore deployment shouldn't fail %+v", err)
+			return fmt.Errorf("waiting for commitstore deployment shouldn't fail %w", err)
 		}
 
 		// CommitStore can update
 		err = destCCIP.Common.PriceRegistry.AddPriceUpdater(destCCIP.CommitStore.EthAddress)
 		if err != nil {
-			return fmt.Errorf("setting commitstore as fee updater shouldn't fail %+v", err)
+			return fmt.Errorf("setting commitstore as fee updater shouldn't fail %w", err)
 		}
 		err = destCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("waiting for setting commitstore as fee updater shouldn't fail %+v", err)
+			return fmt.Errorf("waiting for setting commitstore as fee updater shouldn't fail %w", err)
 		}
 	} else {
 		destCCIP.CommitStore, err = contractDeployer.NewCommitStore(destCCIP.CommitStore.EthAddress)
 		if err != nil {
-			return fmt.Errorf("getting new commitstore shouldn't fail %+v", err)
+			return fmt.Errorf("getting new commitstore shouldn't fail %w", err)
 		}
 	}
 
@@ -1154,60 +1159,60 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			destCCIP.CommitStore.EthAddress, sourceCCIP.OnRamp.EthAddress,
 			[]common.Address{}, []common.Address{}, destCCIP.Common.RateLimiterConfig, *destCCIP.Common.ARMContract)
 		if err != nil {
-			return fmt.Errorf("deploying offramp shouldn't fail %+v", err)
+			return fmt.Errorf("deploying offramp shouldn't fail %w", err)
 		}
 		err = destCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("waiting for offramp deployment shouldn't fail %+v", err)
+			return fmt.Errorf("waiting for offramp deployment shouldn't fail %w", err)
 		}
 
 		// apply offramp updates
 		_, err = destCCIP.Common.Router.AddOffRamp(destCCIP.OffRamp.EthAddress, sourceChainSelector)
 		if err != nil {
-			return fmt.Errorf("setting offramp as fee updater shouldn't fail %+v", err)
+			return fmt.Errorf("setting offramp as fee updater shouldn't fail %w", err)
 		}
 
 		err = destCCIP.SyncTokensAndPools(sourceCCIP.Common.BridgeTokens)
 		if err != nil {
-			return fmt.Errorf("syncing tokens and pools shouldn't fail %+v", err)
+			return fmt.Errorf("syncing tokens and pools shouldn't fail %w", err)
 		}
 		err = destCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("waiting for events on destination contract shouldn't fail %+v", err)
+			return fmt.Errorf("waiting for events on destination contract shouldn't fail %w", err)
 		}
 
 		// update pools with offRamp id
 		for _, pool := range destCCIP.Common.BridgeTokenPools {
 			err = pool.SetOffRamp(destCCIP.OffRamp.EthAddress)
 			if err != nil {
-				return fmt.Errorf("setting offramp on the bridge token pool shouldn't fail %+v", err)
+				return fmt.Errorf("setting offramp on the bridge token pool shouldn't fail %w", err)
 			}
 		}
 
 		err = destCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("waiting for events on destination contract shouldn't fail %+v", err)
+			return fmt.Errorf("waiting for events on destination contract shouldn't fail %w", err)
 		}
 	} else {
 		destCCIP.OffRamp, err = contractDeployer.NewOffRamp(destCCIP.OffRamp.EthAddress)
 		if err != nil {
-			return fmt.Errorf("getting new offramp shouldn't fail %+v", err)
+			return fmt.Errorf("getting new offramp shouldn't fail %w", err)
 		}
 	}
 	if destCCIP.ReceiverDapp == nil {
 		// ReceiverDapp
 		destCCIP.ReceiverDapp, err = contractDeployer.DeployReceiverDapp(false)
 		if err != nil {
-			return fmt.Errorf("receiverDapp contract should be deployed successfully %+v", err)
+			return fmt.Errorf("receiverDapp contract should be deployed successfully %w", err)
 		}
 		err = destCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
-			return fmt.Errorf("waiting for events on destination contract deployments %+v", err)
+			return fmt.Errorf("waiting for events on destination contract deployments %w", err)
 		}
 	} else {
 		destCCIP.ReceiverDapp, err = contractDeployer.NewReceiverDapp(destCCIP.ReceiverDapp.EthAddress)
 		if err != nil {
-			return fmt.Errorf("getting new receiverDapp shouldn't fail %+v", err)
+			return fmt.Errorf("getting new receiverDapp shouldn't fail %w", err)
 		}
 	}
 	return nil
@@ -1328,16 +1333,15 @@ func (destCCIP *DestCCIPModule) AssertEventExecutionStateChanged(
 								GasUsed: gasUsed,
 							})
 						return e.State, nil
-					} else {
-						reqStat.UpdateState(lggr, seqNum, testreporters.ExecStateChanged, time.Since(timeNow), testreporters.Failure)
-						return e.State, fmt.Errorf("ExecutionStateChanged event state - expected %d actual - %d with data %x for seq num %v for lane %d-->%d",
-							execState, testhelpers.MessageExecutionState(e.State), e.ReturnData, seqNum, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
 					}
+					reqStat.UpdateState(lggr, seqNum, testreporters.ExecStateChanged, time.Since(timeNow), testreporters.Failure)
+					return e.State, fmt.Errorf("ExecutionStateChanged event state - expected %d actual - %d with data %x for seq num %v for lane %d-->%d",
+						execState, testhelpers.MessageExecutionState(e.State), e.ReturnData, seqNum, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
 				}
 			}
 		case <-ctx.Done():
 			reqStat.UpdateState(lggr, seqNum, testreporters.ExecStateChanged, time.Since(timeNow), testreporters.Failure)
-			return 0, fmt.Errorf("ExecutionStateChanged event not found for seq num %v for lane %d-->%d",
+			return 0, fmt.Errorf("ExecutionStateChanged event not found for seq num %d for lane %d-->%d",
 				seqNum, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
 		}
 	}
@@ -1483,7 +1487,7 @@ func (destCCIP *DestCCIPModule) AssertSeqNumberExecuted(
 			seqNumberAfter, err := destCCIP.CommitStore.Instance.GetExpectedNextSequenceNumber(nil)
 			if err != nil {
 				reqStat.UpdateState(lggr, seqNumberBefore, testreporters.Commit, time.Since(timeNow), testreporters.Failure)
-				return fmt.Errorf("error %+v in GetNextExpectedSeqNumber by commitStore for seqNum %d lane %d-->%d",
+				return fmt.Errorf("error %w in GetNextExpectedSeqNumber by commitStore for seqNum %d lane %d-->%d",
 					err, seqNumberBefore+1, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
 			}
 			if seqNumberAfter > seqNumberBefore {
@@ -1504,10 +1508,13 @@ func DefaultDestinationCCIPModule(logger zerolog.Logger, chainClient blockchain.
 		return nil, err
 	}
 	return &DestCCIPModule{
-		Common:             cmn,
-		SourceChainId:      sourceChainId,
-		SourceNetworkName:  sourceChain,
-		NextSeqNumToCommit: atomic.NewUint64(1),
+		Common:                  cmn,
+		SourceChainId:           sourceChainId,
+		SourceNetworkName:       sourceChain,
+		NextSeqNumToCommit:      atomic.NewUint64(1),
+		ReportBlessedWatcher:    &sync.Map{},
+		ExecStateChangedWatcher: &sync.Map{},
+		ReportAcceptedWatcher:   &sync.Map{},
 	}, nil
 }
 
@@ -1519,7 +1526,6 @@ type CCIPRequest struct {
 }
 
 func CCIPRequestFromTxHash(txHash common.Hash, chainClient blockchain.EVMClient) (CCIPRequest, *types.Receipt, error) {
-	txConfirmationTimestamp := time.Now().UTC()
 	rcpt, err := chainClient.GetTxReceipt(txHash)
 	if err != nil {
 		return CCIPRequest{}, nil, err
@@ -1529,7 +1535,7 @@ func CCIPRequestFromTxHash(txHash common.Hash, chainClient blockchain.EVMClient)
 	if err != nil {
 		return CCIPRequest{}, nil, err
 	}
-	txConfirmationTimestamp = hdr.Timestamp
+	txConfirmationTimestamp := hdr.Timestamp
 
 	return CCIPRequest{
 		txHash:                  txHash.Hex(),
@@ -1641,7 +1647,7 @@ func (lane *CCIPLane) AddToSentReqs(txHash common.Hash, reqStats []*testreporter
 		for _, stat := range reqStats {
 			stat.UpdateState(lane.Logger, 0, testreporters.TX, 0, testreporters.Failure)
 		}
-		return rcpt, fmt.Errorf("could not get request from tx hash %s: %+v", txHash.Hex(), err)
+		return rcpt, fmt.Errorf("could not get request from tx hash %s: %w", txHash.Hex(), err)
 	}
 	var allRequests []CCIPRequest
 	for _, stat := range reqStats {
@@ -1664,11 +1670,11 @@ func (lane *CCIPLane) Multicall(noOfRequests int, msgType string, multiSendAddr 
 	feeToken := common.HexToAddress(lane.Source.Common.FeeToken.Address())
 	genericMsg, err := lane.Source.CCIPMsg(lane.Dest.ReceiverDapp.EthAddress, msgType, "testMsg", big.NewInt(600_000))
 	if err != nil {
-		return fmt.Errorf("failed to form the ccip message: %+v", err)
+		return fmt.Errorf("failed to form the ccip message: %w", err)
 	}
 	destChainSelector, err := chainselectors.SelectorFromChainId(lane.Source.DestinationChainId)
 	if err != nil {
-		return fmt.Errorf("failed getting the chain selector: %+v", err)
+		return fmt.Errorf("failed getting the chain selector: %w", err)
 	}
 	var reqStats []*testreporters.RequestStat
 	var txstats []testreporters.TransactionStats
@@ -1688,7 +1694,7 @@ func (lane *CCIPLane) Multicall(noOfRequests int, msgType string, multiSendAddr 
 			if reason != "" {
 				return fmt.Errorf("failed getting the fee: %s", reason)
 			}
-			return fmt.Errorf("failed getting the fee: %+v", err)
+			return fmt.Errorf("failed getting the fee: %w", err)
 		}
 		log.Info().Str("fee", fee.String()).Msg("calculated fee")
 		sendData.Fee = fee
@@ -1724,7 +1730,7 @@ func (lane *CCIPLane) Multicall(noOfRequests int, msgType string, multiSendAddr 
 
 	tx, err := contracts.MultiCallCCIP(lane.Source.Common.ChainClient, multiSendAddr.Hex(), ccipMultipleMsg, isNative)
 	if err != nil {
-		return fmt.Errorf("failed to send the multicall: %+v", err)
+		return fmt.Errorf("failed to send the multicall: %w", err)
 	}
 	if err != nil {
 		// update the stats as failure for all the requests in the multicall tx
@@ -1732,7 +1738,7 @@ func (lane *CCIPLane) Multicall(noOfRequests int, msgType string, multiSendAddr 
 			stat.UpdateState(lane.Logger, 0,
 				testreporters.TX, 0, testreporters.Failure)
 		}
-		return fmt.Errorf("failed to send the multicall: %+v", err)
+		return fmt.Errorf("failed to send the multicall: %w", err)
 	}
 	rcpt, err := lane.AddToSentReqs(tx.Hash(), reqStats)
 	if err != nil {
@@ -1764,13 +1770,13 @@ func (lane *CCIPLane) SendRequests(noOfRequests int, msgType string, gasLimit *b
 		if err != nil {
 			stat.UpdateState(lane.Logger, 0,
 				testreporters.TX, txConfirmationDur, testreporters.Failure)
-			return fmt.Errorf("could not send request: %+v", err)
+			return fmt.Errorf("could not send request: %w", err)
 		}
 		err = lane.Source.Common.ChainClient.WaitForEvents()
 		if err != nil {
 			stat.UpdateState(lane.Logger, 0,
 				testreporters.TX, txConfirmationDur, testreporters.Failure)
-			return fmt.Errorf("could not send request: %+v", err)
+			return fmt.Errorf("could not send request: %w", err)
 		}
 
 		noOfTokens := len(lane.Source.TransferAmount)
@@ -1868,21 +1874,21 @@ func (lane *CCIPLane) ExecuteManually() error {
 			timeNow := time.Now().UTC()
 			tx, err := args.ExecuteManually()
 			if err != nil {
-				return fmt.Errorf("could not execute manually: %v seqNum %d", err, seqNum)
+				return fmt.Errorf("could not execute manually: %w seqNum %d", err, seqNum)
 			}
 
 			rec, err := bind.WaitMined(context.Background(), lane.DestChain.DeployBackend(), tx)
 			if err != nil {
-				return fmt.Errorf("could not get receipt: %v seqNum %d", err, seqNum)
+				return fmt.Errorf("could not get receipt: %w seqNum %d", err, seqNum)
 			}
 			if rec.Status != 1 {
-				return fmt.Errorf("manual execution failed: %v seqNum %d", err, seqNum)
+				return fmt.Errorf("manual execution failed: %w seqNum %d", err, seqNum)
 			}
 			lane.Logger.Info().Uint64("seqNum", seqNum).Msg("Manual Execution completed")
 			_, err = lane.Dest.AssertEventExecutionStateChanged(lane.Logger, seqNum, lane.ValidationTimeout,
 				timeNow, ccipReq.RequestStat, testhelpers.ExecutionStateSuccess)
 			if err != nil {
-				return fmt.Errorf("could not validate ExecutionStateChanged event: %+v", err)
+				return fmt.Errorf("could not validate ExecutionStateChanged event: %w", err)
 			}
 		}
 	}
@@ -1915,19 +1921,23 @@ func (lane *CCIPLane) ValidateRequestByTxHash(txHash common.Hash, execState test
 	ccipRequests := lane.SentReqs[txHash]
 	require.Greater(lane.Test, len(ccipRequests), 0, "no ccip requests found for tx hash")
 	txConfirmation := ccipRequests[0].txConfirmationTimestamp
+	defer func() {
+		for _, req := range ccipRequests {
+			lane.Reports.UpdatePhaseStatsForReq(req.RequestStat)
+		}
+	}()
 	for _, req := range ccipRequests {
 		reqStats = append(reqStats, req.RequestStat)
-		defer lane.Reports.UpdatePhaseStatsForReq(req.RequestStat)
 	}
 
 	msgLogs, ccipSendReqGenAt, err := lane.Source.AssertEventCCIPSendRequested(
 		lane.Logger, txHash.Hex(), lane.ValidationTimeout, txConfirmation, reqStats)
 	if err != nil || msgLogs == nil {
-		return fmt.Errorf("could not validate CCIPSendRequested event: %+v", err)
+		return fmt.Errorf("could not validate CCIPSendRequested event: %w", err)
 	}
 	sourceLogFinalizedAt, _, err := lane.Source.AssertSendRequestedLogFinalized(lane.Logger, txHash, ccipSendReqGenAt, reqStats)
 	if err != nil {
-		return fmt.Errorf("could not finalize CCIPSendRequested event: %+v", err)
+		return fmt.Errorf("could not finalize CCIPSendRequested event: %w", err)
 	}
 	for _, msgLog := range msgLogs {
 		seqNumber := msgLog.Message.SequenceNumber
@@ -1944,24 +1954,24 @@ func (lane *CCIPLane) ValidateRequestByTxHash(txHash common.Hash, execState test
 
 		err = lane.Dest.AssertSeqNumberExecuted(lane.Logger, seqNumber, lane.ValidationTimeout, sourceLogFinalizedAt, reqStat)
 		if err != nil {
-			return fmt.Errorf("could not validate seq number increase at commit store: %+v", err)
+			return fmt.Errorf("could not validate seq number increase at commit store: %w", err)
 		}
 
 		// Verify whether commitStore has accepted the report
 		commitReport, reportAcceptedAt, err := lane.Dest.AssertEventReportAccepted(
 			lane.Logger, seqNumber, lane.ValidationTimeout, sourceLogFinalizedAt, reqStat)
 		if err != nil || commitReport == nil {
-			return fmt.Errorf("could not validate ReportAccepted event: %+v", err)
+			return fmt.Errorf("could not validate ReportAccepted event: %w", err)
 		}
 
 		reportBlessedAt, err := lane.Dest.AssertReportBlessed(lane.Logger, seqNumber, lane.ValidationTimeout, *commitReport, reportAcceptedAt, reqStat)
 		if err != nil {
-			return fmt.Errorf("could not validate ReportBlessed event: %+v", err)
+			return fmt.Errorf("could not validate ReportBlessed event: %w", err)
 		}
 		// Verify whether the execution state is changed and the transfer is successful
 		_, err = lane.Dest.AssertEventExecutionStateChanged(lane.Logger, seqNumber, lane.ValidationTimeout, reportBlessedAt, reqStat, execState)
 		if err != nil {
-			return fmt.Errorf("could not validate ExecutionStateChanged event: %+v", err)
+			return fmt.Errorf("could not validate ExecutionStateChanged event: %w", err)
 		}
 	}
 	return nil
@@ -2180,7 +2190,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	// Here for simplicity we are just taking the current block number just before the job is created.
 	currentBlockOnDest, err := destChainClient.LatestBlockNumber(context.Background())
 	if err != nil {
-		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("getting current block should be successful in destination chain %+v", err)
+		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("getting current block should be successful in destination chain %w", err)
 	}
 
 	tokenUSDMap := make(map[string]string)
@@ -2213,18 +2223,14 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	}
 
 	bootstrapCommitP2PId := bootstrapCommit.KeysBundle.P2PKeys.Data[0].Attributes.PeerID
-	var bootstrapExecP2PId string
 	var p2pBootstrappersExec, p2pBootstrappersCommit *client.P2PData
-	if bootstrapExec == nil {
-		bootstrapExec = bootstrapCommit
-		bootstrapExecP2PId = bootstrapCommitP2PId
-	} else {
-		bootstrapExecP2PId = bootstrapExec.KeysBundle.P2PKeys.Data[0].Attributes.PeerID
+	if bootstrapExec != nil {
 		p2pBootstrappersExec = &client.P2PData{
 			InternalIP: bootstrapExec.Node.InternalIP(),
-			PeerID:     bootstrapExecP2PId,
+			PeerID:     bootstrapExec.KeysBundle.P2PKeys.Data[0].Attributes.PeerID,
 		}
 	}
+
 	p2pBootstrappersCommit = &client.P2PData{
 		InternalIP: bootstrapCommit.Node.InternalIP(),
 		PeerID:     bootstrapCommitP2PId,
@@ -2332,12 +2338,12 @@ func CreateBootstrapJob(
 ) error {
 	_, err := bootstrapCommit.Node.MustCreateJob(jobParams.BootstrapJob(jobParams.CommitStore.Hex()))
 	if err != nil {
-		return fmt.Errorf("shouldn't fail creating bootstrap job on bootstrap node %+v", err)
+		return fmt.Errorf("shouldn't fail creating bootstrap job on bootstrap node %w", err)
 	}
 	if bootstrapExec != nil {
 		_, err := bootstrapExec.Node.MustCreateJob(jobParams.BootstrapJob(jobParams.OffRamp.Hex()))
 		if err != nil {
-			return fmt.Errorf("shouldn't fail creating bootstrap job on bootstrap node %+v", err)
+			return fmt.Errorf("shouldn't fail creating bootstrap job on bootstrap node %w", err)
 		}
 	}
 	return nil
@@ -2362,15 +2368,21 @@ func CreateOCR2CCIPCommitJobs(
 		lggr.Info().Msgf("Creating CCIP-Commit job on OCR node %d job name %s", index+1, ocr2SpecCommit.Name)
 		_, err = node.Node.MustCreateJob(&ocr2SpecCommit)
 		if err != nil {
-			return fmt.Errorf("shouldn't fail creating CCIP-Commit job on OCR node %d job name %s - %+v", index+1, ocr2SpecCommit.Name, err)
+			return fmt.Errorf("shouldn't fail creating CCIP-Commit job on OCR node %d job name %s - %w", index+1, ocr2SpecCommit.Name, err)
 		}
 		return nil
+	}
+
+	testSpec := client.OCR2TaskJobSpec{
+		Name:           ocr2SpecCommit.Name,
+		JobType:        ocr2SpecCommit.JobType,
+		OCR2OracleSpec: ocr2SpecCommit.OCR2OracleSpec,
 	}
 	for i, node := range commitNodes {
 		node := node
 		i := i
 		group.Go(func() error {
-			return createJob(i, node, *ocr2SpecCommit, mutexes[i])
+			return createJob(i, node, testSpec, mutexes[i])
 		})
 	}
 	return nil
@@ -2395,7 +2407,7 @@ func CreateOCR2CCIPExecutionJobs(
 		lggr.Info().Msgf("Creating CCIP-Exec job on OCR node %d job name %s", index+1, ocr2SpecExec.Name)
 		_, err = node.Node.MustCreateJob(&ocr2SpecExec)
 		if err != nil {
-			return fmt.Errorf("shouldn't fail creating CCIP-Exec job on OCR node %d job name %s - %+v", index+1,
+			return fmt.Errorf("shouldn't fail creating CCIP-Exec job on OCR node %d job name %s - %w", index+1,
 				ocr2SpecExec.Name, err)
 		}
 		return nil
@@ -2405,7 +2417,14 @@ func CreateOCR2CCIPExecutionJobs(
 			node := node
 			i := i
 			group.Go(func() error {
-				return createJob(i, node, *ocr2SpecExec, mutexes[i])
+				return createJob(i, node, client.OCR2TaskJobSpec{
+					Name:              ocr2SpecExec.Name,
+					JobType:           ocr2SpecExec.JobType,
+					MaxTaskDuration:   ocr2SpecExec.MaxTaskDuration,
+					ForwardingAllowed: ocr2SpecExec.ForwardingAllowed,
+					OCR2OracleSpec:    ocr2SpecExec.OCR2OracleSpec,
+					ObservationSource: ocr2SpecExec.ObservationSource,
+				}, mutexes[i])
 			})
 		}
 	}
@@ -2413,7 +2432,7 @@ func CreateOCR2CCIPExecutionJobs(
 }
 
 // TODO : keep it if there is a better mockserver implementation is found
-func _(tokenAddr []string, mockserver *ctfClient.MockserverClient) string {
+func _(tokenAddr []string, mockserver *ctfclient.MockserverClient) string {
 	source := ""
 	right := ""
 	for i, addr := range tokenAddr {
@@ -2440,27 +2459,6 @@ func StaticTokenFeeForMultipleTokenAddr(tokenUSD map[string]string) string {
 	source := fmt.Sprintf(`merge [type=merge left="{}" right="{%s}"];`, right)
 
 	return source
-}
-
-// SetMockServerWithSameTokenFeeConversionValue sets the mock responses in mockserver that are read by chainlink nodes
-// to simulate different price feed value.
-func SetMockServerWithSameTokenFeeConversionValue(
-	ctx context.Context,
-	tokenValueAddress map[string]interface{},
-	mockserver *ctfClient.MockserverClient,
-) error {
-	valueAdditions, _ := errgroup.WithContext(ctx)
-	for tokenAddr, value := range tokenValueAddress {
-		path := fmt.Sprintf("/%s", tokenAddr)
-		tokenValue := value
-		valueAdditions.Go(func() error {
-			log.Info().Str("path", path).
-				Str("value", fmt.Sprintf("%v", tokenValue)).
-				Msg(fmt.Sprintf("Setting mockserver response"))
-			return mockserver.SetAnyValuePath(path, tokenValue)
-		})
-	}
-	return valueAdditions.Wait()
 }
 
 type CCIPTestEnv struct {
@@ -2547,7 +2545,6 @@ func (c *CCIPTestEnv) ChaosLabelForCLNodes(t *testing.T) {
 }
 
 func (c *CCIPTestEnv) SetUpNodesAndKeys(
-	ctx context.Context,
 	nodeFund *big.Float,
 	chains []blockchain.EVMClient,
 	logger zerolog.Logger,
@@ -2604,7 +2601,7 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 		}
 		c1, err := blockchain.ConcurrentEVMClient(*cfg, c.K8Env, ec, logger)
 		if err != nil {
-			return fmt.Errorf("getting concurrent evmclient chain %s %+v", ec.GetNetworkName(), err)
+			return fmt.Errorf("getting concurrent evmclient chain %s %w", ec.GetNetworkName(), err)
 		}
 		defer func() {
 			if c1 != nil {
@@ -2614,7 +2611,7 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 		log.Info().Str("chain id", c1.GetChainID().String()).Msg("Funding Chainlink nodes for chain")
 		err = actions.FundChainlinkNodesAddresses(chainlinkNodes[1:], c1, nodeFund)
 		if err != nil {
-			return fmt.Errorf("funding nodes for chain %s %+v", c1.GetNetworkName(), err)
+			return fmt.Errorf("funding nodes for chain %s %w", c1.GetNetworkName(), err)
 		}
 		return nil
 	}

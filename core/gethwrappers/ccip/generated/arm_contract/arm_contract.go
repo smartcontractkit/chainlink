@@ -77,7 +77,7 @@ func DeployARMContract(auth *bind.TransactOpts, backend bind.ContractBackend, co
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &ARMContract{ARMContractCaller: ARMContractCaller{contract: contract}, ARMContractTransactor: ARMContractTransactor{contract: contract}, ARMContractFilterer: ARMContractFilterer{contract: contract}}, nil
+	return address, tx, &ARMContract{address: address, abi: *parsed, ARMContractCaller: ARMContractCaller{contract: contract}, ARMContractTransactor: ARMContractTransactor{contract: contract}, ARMContractFilterer: ARMContractFilterer{contract: contract}}, nil
 }
 
 type ARMContract struct {

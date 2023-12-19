@@ -52,7 +52,7 @@ func DeployWERC20Mock(auth *bind.TransactOpts, backend bind.ContractBackend) (co
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &WERC20Mock{WERC20MockCaller: WERC20MockCaller{contract: contract}, WERC20MockTransactor: WERC20MockTransactor{contract: contract}, WERC20MockFilterer: WERC20MockFilterer{contract: contract}}, nil
+	return address, tx, &WERC20Mock{address: address, abi: *parsed, WERC20MockCaller: WERC20MockCaller{contract: contract}, WERC20MockTransactor: WERC20MockTransactor{contract: contract}, WERC20MockFilterer: WERC20MockFilterer{contract: contract}}, nil
 }
 
 type WERC20Mock struct {

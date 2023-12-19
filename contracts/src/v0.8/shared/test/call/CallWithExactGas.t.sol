@@ -21,6 +21,134 @@ contract CallWithExactGasSetup is BaseTest {
   }
 }
 
+contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
+  function test_callWithExactGasSuccess(bytes memory payload, bytes4 funcSelector) public {
+    vm.pauseGasMetering();
+
+    bytes memory data = abi.encodeWithSelector(funcSelector, payload);
+    vm.assume(
+      funcSelector != GenericReceiver.setRevert.selector &&
+        funcSelector != GenericReceiver.setErr.selector &&
+        funcSelector != 0x5100fc21 // s_toRevert(), which is public and therefore has a function selector
+    );
+
+    vm.expectCall(address(s_receiver), data);
+    vm.resumeGasMetering();
+
+    bool success = s_caller.callWithExactGas(
+      data,
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    assertTrue(success);
+  }
+
+  function test_CallWithExactGasSafeReturnDataExactGas() public {
+    // The calculated overhead for otherwise unaccounted for gas usage
+    uint256 overheadForCallWithExactGas = 364;
+
+    bytes memory payload = abi.encodeWithSelector(
+      s_caller.callWithExactGas.selector,
+      "",
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    // Since only 63/64th of the gas gets passed, we compensate
+    uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64));
+
+    allowedGas += EXTCODESIZE_GAS_COST + DEFAULT_GAS_FOR_CALL_EXACT_CHECK + overheadForCallWithExactGas;
+
+    // Due to EIP-150 we expect to lose 1/64, so we compensate for this
+    allowedGas = (allowedGas * 64) / 63;
+
+    (bool success, bytes memory retData) = address(s_caller).call{gas: allowedGas}(payload);
+
+    assertTrue(success);
+    assertEq(abi.encode(true), retData);
+  }
+
+  function test_CallWithExactGasReceiverErrorSuccess() public {
+    bytes memory data = abi.encode("0x52656E73");
+
+    bytes memory errorData = new bytes(20);
+    for (uint256 i = 0; i < errorData.length; ++i) {
+      errorData[i] = 0x01;
+    }
+    s_receiver.setErr(errorData);
+    s_receiver.setRevert(true);
+
+    vm.expectCall(address(s_receiver), data);
+
+    bool success = s_caller.callWithExactGas(
+      data,
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT * 10,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    assertFalse(success);
+  }
+
+  function test_NoContractReverts() public {
+    address addressWithoutContract = address(1337);
+
+    vm.expectRevert(CallWithExactGas.NoContract.selector);
+
+    s_caller.callWithExactGas(
+      "", // empty payload as it will revert well before needing it
+      addressWithoutContract,
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+  }
+
+  function test_NoGasForCallExactCheckReverts() public {
+    bytes memory payload = abi.encodeWithSelector(
+      s_caller.callWithExactGas.selector,
+      "", // empty payload as it will revert well before needing it
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    (bool success, bytes memory retData) = address(s_caller).call{gas: DEFAULT_GAS_FOR_CALL_EXACT_CHECK - 1}(payload);
+    assertFalse(success);
+    assertEq(retData.length, CallWithExactGas.NoGasForCallExactCheck.selector.length);
+    assertEq(abi.encodeWithSelector(CallWithExactGas.NoGasForCallExactCheck.selector), retData);
+  }
+
+  function test_NotEnoughGasForCallReverts() public {
+    bytes memory payload = abi.encodeWithSelector(
+      s_caller.callWithExactGas.selector,
+      "", // empty payload as it will revert well before needing it
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    // Supply enough gas for the final call, the DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+    // the extcodesize and account for EIP-150. This doesn't account for any other gas
+    // usage, and will therefore fail because the checks and memory stored/loads
+    // also cost gas.
+    uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64)) + DEFAULT_GAS_FOR_CALL_EXACT_CHECK;
+    // extcodesize gas cost
+    allowedGas += EXTCODESIZE_GAS_COST;
+    // EIP-150
+    allowedGas = (allowedGas * 64) / 63;
+
+    // Expect this call to fail due to not having enough gas for the final call
+    (bool success, bytes memory retData) = address(s_caller).call{gas: allowedGas}(payload);
+
+    assertFalse(success);
+    assertEq(retData.length, CallWithExactGas.NotEnoughGasForCall.selector.length);
+    assertEq(abi.encodeWithSelector(CallWithExactGas.NotEnoughGasForCall.selector), retData);
+  }
+}
+
 contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSetup {
   function testFuzz_CallWithExactGasSafeReturnDataSuccess(bytes memory payload, bytes4 funcSelector) public {
     vm.pauseGasMetering();
@@ -30,7 +158,6 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
         funcSelector != GenericReceiver.setErr.selector &&
         funcSelector != 0x5100fc21 // s_toRevert(), which is public and therefore has a function selector
     );
-
     uint16 maxRetBytes = 0;
 
     vm.expectCall(address(s_receiver), data);
@@ -40,8 +167,8 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
       data,
       address(s_receiver),
       DEFAULT_GAS_LIMIT,
-      maxRetBytes,
-      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+      maxRetBytes
     );
 
     assertTrue(success);
@@ -55,7 +182,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     // The calculated overhead for retData initialization
     uint256 overheadForRetDataInit = 114;
     // The calculated overhead for otherwise unaccounted for gas usage
-    uint256 overheadForCallWithExactGas = 416;
+    uint256 overheadForCallWithExactGas = 486;
 
     bytes memory payload = abi.encodeWithSelector(
       s_caller.callWithExactGasSafeReturnData.selector,
@@ -184,5 +311,149 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     assertFalse(success);
     assertEq(retData.length, CallWithExactGas.NotEnoughGasForCall.selector.length);
     assertEq(abi.encodeWithSelector(CallWithExactGas.NotEnoughGasForCall.selector), retData);
+  }
+}
+
+contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithExactGasSetup {
+  function test_CallWithExactGasEvenIfTargetIsNoContractSuccess(bytes memory payload, bytes4 funcSelector) public {
+    vm.pauseGasMetering();
+    bytes memory data = abi.encodeWithSelector(funcSelector, payload);
+    vm.assume(
+      funcSelector != GenericReceiver.setRevert.selector &&
+        funcSelector != GenericReceiver.setErr.selector &&
+        funcSelector != 0x5100fc21 // s_toRevert(), which is public and therefore has a function selector
+    );
+    vm.expectCall(address(s_receiver), data);
+    vm.resumeGasMetering();
+
+    (bool success, bool sufficientGas) = s_caller.callWithExactGasEvenIfTargetIsNoContract(
+      data,
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    assertTrue(success);
+    assertTrue(sufficientGas);
+  }
+
+  function test_CallWithExactGasEvenIfTargetIsNoContractExactGasSuccess() public {
+    // The calculated overhead for otherwise unaccounted for gas usage
+    uint256 overheadForCallWithExactGas = 446;
+
+    bytes memory data = abi.encode("0x52656E73");
+
+    bytes memory payload = abi.encodeWithSelector(
+      s_caller.callWithExactGasEvenIfTargetIsNoContract.selector,
+      data,
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    // Since only 63/64th of the gas gets passed, we compensate
+    uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64));
+
+    allowedGas += DEFAULT_GAS_FOR_CALL_EXACT_CHECK + overheadForCallWithExactGas;
+
+    // Due to EIP-150 we expect to lose 1/64, so we compensate for this
+    allowedGas = (allowedGas * 64) / 63;
+
+    vm.expectCall(address(s_receiver), data);
+    (bool outerCallSuccess, bytes memory SuccessAndSufficientGas) = address(s_caller).call{gas: allowedGas}(payload);
+
+    // The call succeeds
+    assertTrue(outerCallSuccess);
+
+    (bool success, bool sufficientGas) = abi.decode(SuccessAndSufficientGas, (bool, bool));
+    assertTrue(success);
+    assertTrue(sufficientGas);
+  }
+
+  function test_CallWithExactGasEvenIfTargetIsNoContractReceiverErrorSuccess() public {
+    bytes memory data = abi.encode("0x52656E73");
+
+    bytes memory errorData = new bytes(20);
+    for (uint256 i = 0; i < errorData.length; ++i) {
+      errorData[i] = 0x01;
+    }
+    s_receiver.setErr(errorData);
+    s_receiver.setRevert(true);
+
+    vm.expectCall(address(s_receiver), data);
+
+    (bool success, bool sufficientGas) = s_caller.callWithExactGasEvenIfTargetIsNoContract(
+      data,
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT * 10,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    // We don't care if it reverts, we only care if we have enough gas
+    assertFalse(success);
+    assertTrue(sufficientGas);
+  }
+
+  function test_NoContractSuccess() public {
+    bytes memory data = abi.encode("0x52656E73");
+    address addressWithoutContract = address(1337);
+
+    (bool success, bool sufficientGas) = s_caller.callWithExactGasEvenIfTargetIsNoContract(
+      data,
+      addressWithoutContract,
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    assertTrue(success);
+    assertTrue(sufficientGas);
+  }
+
+  function test_NoGasForCallExactCheckReturnFalseSuccess() public {
+    bytes memory payload = abi.encodeWithSelector(
+      s_caller.callWithExactGasEvenIfTargetIsNoContract.selector,
+      "", // empty payload as it will revert well before needing it
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    (bool outerCallSuccess, bytes memory SuccessAndSufficientGas) = address(s_caller).call{
+      gas: DEFAULT_GAS_FOR_CALL_EXACT_CHECK - 1
+    }(payload);
+
+    // The call succeeds
+    assertTrue(outerCallSuccess);
+
+    (bool success, bool sufficientGas) = abi.decode(SuccessAndSufficientGas, (bool, bool));
+    assertFalse(success);
+    assertFalse(sufficientGas);
+  }
+
+  function test_NotEnoughGasForCallReturnsFalseSuccess() public {
+    bytes memory payload = abi.encodeWithSelector(
+      s_caller.callWithExactGasEvenIfTargetIsNoContract.selector,
+      "", // empty payload as it will revert well before needing it
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    // Supply enough gas for the final call, the DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+    // and account for EIP-150. This doesn't account for any other gas usage, and
+    // will therefore fail because the checks and memory stored/loads also cost gas.
+    uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64)) + DEFAULT_GAS_FOR_CALL_EXACT_CHECK;
+    // EIP-150
+    allowedGas = (allowedGas * 64) / 63;
+
+    // Expect this call to fail due to not having enough gas for the final call
+    (bool outerCallSuccess, bytes memory SuccessAndSufficientGas) = address(s_caller).call{gas: allowedGas}(payload);
+
+    // The call succeeds
+    assertTrue(outerCallSuccess);
+
+    (bool success, bool sufficientGas) = abi.decode(SuccessAndSufficientGas, (bool, bool));
+    assertFalse(success);
+    assertFalse(sufficientGas);
   }
 }

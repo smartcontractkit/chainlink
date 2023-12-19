@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -1656,8 +1656,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		bridgeORM      = bridges.NewORM(db, lggr, config.Database())
 		relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	)
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	orm := job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
+	orm := job.NewORM(db, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
@@ -1667,6 +1666,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jb, err := ocr.ValidatedOracleSpecToml(legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),

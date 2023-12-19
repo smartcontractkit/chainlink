@@ -1,5 +1,5 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
-# profile defined and use the Foundry snapshots. 
+# profile defined and use the Foundry snapshots.
 ALL_FOUNDRY_PRODUCTS = llo-feeds functions shared ccip
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
@@ -39,11 +39,11 @@ abigen: ## Build & install abigen.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.35.4
+	go install github.com/vektra/mockery/v2@v2.38.0
 
 .PHONY: foundry
 foundry: ## Install foundry.
-	foundryup --version nightly-09fe3e041369a816365a020f715ad6f94dbce9f2
+	foundryup --version nightly-5b7e4cb3c882b28f3c32ba580de27ce7381f415a
 
 .PHONY: foundry-refresh
 foundry-refresh: foundry

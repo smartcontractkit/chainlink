@@ -52,7 +52,7 @@ func DeployVRFConsumerV2PlusUpgradeableExample(auth *bind.TransactOpts, backend 
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFConsumerV2PlusUpgradeableExample{VRFConsumerV2PlusUpgradeableExampleCaller: VRFConsumerV2PlusUpgradeableExampleCaller{contract: contract}, VRFConsumerV2PlusUpgradeableExampleTransactor: VRFConsumerV2PlusUpgradeableExampleTransactor{contract: contract}, VRFConsumerV2PlusUpgradeableExampleFilterer: VRFConsumerV2PlusUpgradeableExampleFilterer{contract: contract}}, nil
+	return address, tx, &VRFConsumerV2PlusUpgradeableExample{address: address, abi: *parsed, VRFConsumerV2PlusUpgradeableExampleCaller: VRFConsumerV2PlusUpgradeableExampleCaller{contract: contract}, VRFConsumerV2PlusUpgradeableExampleTransactor: VRFConsumerV2PlusUpgradeableExampleTransactor{contract: contract}, VRFConsumerV2PlusUpgradeableExampleFilterer: VRFConsumerV2PlusUpgradeableExampleFilterer{contract: contract}}, nil
 }
 
 type VRFConsumerV2PlusUpgradeableExample struct {

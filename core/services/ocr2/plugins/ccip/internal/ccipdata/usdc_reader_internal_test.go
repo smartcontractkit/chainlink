@@ -30,6 +30,7 @@ func TestLogPollerClient_GetLastUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 		require.NoError(t, err)
 		lp.On("IndexedLogsByTxHash",
 			u.usdcMessageSent,
+			u.transmitterAddress,
 			txHash,
 			mock.Anything,
 		).Return([]logpoller.Log{
@@ -51,6 +52,7 @@ func TestLogPollerClient_GetLastUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 		require.NoError(t, err)
 		lp.On("IndexedLogsByTxHash",
 			u.usdcMessageSent,
+			u.transmitterAddress,
 			txHash,
 			mock.Anything,
 		).Return([]logpoller.Log{}, nil)

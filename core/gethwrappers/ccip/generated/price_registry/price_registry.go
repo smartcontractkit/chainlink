@@ -72,7 +72,7 @@ func DeployPriceRegistry(auth *bind.TransactOpts, backend bind.ContractBackend, 
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &PriceRegistry{PriceRegistryCaller: PriceRegistryCaller{contract: contract}, PriceRegistryTransactor: PriceRegistryTransactor{contract: contract}, PriceRegistryFilterer: PriceRegistryFilterer{contract: contract}}, nil
+	return address, tx, &PriceRegistry{address: address, abi: *parsed, PriceRegistryCaller: PriceRegistryCaller{contract: contract}, PriceRegistryTransactor: PriceRegistryTransactor{contract: contract}, PriceRegistryFilterer: PriceRegistryFilterer{contract: contract}}, nil
 }
 
 type PriceRegistry struct {

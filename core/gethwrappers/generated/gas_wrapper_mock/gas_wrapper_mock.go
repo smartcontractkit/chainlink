@@ -52,7 +52,7 @@ func DeployKeeperRegistryCheckUpkeepGasUsageWrapperMock(auth *bind.TransactOpts,
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &KeeperRegistryCheckUpkeepGasUsageWrapperMock{KeeperRegistryCheckUpkeepGasUsageWrapperMockCaller: KeeperRegistryCheckUpkeepGasUsageWrapperMockCaller{contract: contract}, KeeperRegistryCheckUpkeepGasUsageWrapperMockTransactor: KeeperRegistryCheckUpkeepGasUsageWrapperMockTransactor{contract: contract}, KeeperRegistryCheckUpkeepGasUsageWrapperMockFilterer: KeeperRegistryCheckUpkeepGasUsageWrapperMockFilterer{contract: contract}}, nil
+	return address, tx, &KeeperRegistryCheckUpkeepGasUsageWrapperMock{address: address, abi: *parsed, KeeperRegistryCheckUpkeepGasUsageWrapperMockCaller: KeeperRegistryCheckUpkeepGasUsageWrapperMockCaller{contract: contract}, KeeperRegistryCheckUpkeepGasUsageWrapperMockTransactor: KeeperRegistryCheckUpkeepGasUsageWrapperMockTransactor{contract: contract}, KeeperRegistryCheckUpkeepGasUsageWrapperMockFilterer: KeeperRegistryCheckUpkeepGasUsageWrapperMockFilterer{contract: contract}}, nil
 }
 
 type KeeperRegistryCheckUpkeepGasUsageWrapperMock struct {

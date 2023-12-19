@@ -61,6 +61,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
    * @return upkeepNeeded true if and only if at least UPKEEP_INTERVAL seconds have elapsed since the last upkeep or since construction
    * of the contract.
    */
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function checkUpkeep(
     bytes calldata /* checkData */
   ) external view override returns (bool upkeepNeeded, bytes memory /* performData */) {

@@ -11,11 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/common/model"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/wasp"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/wasp"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
@@ -140,8 +142,8 @@ func (m *CCIPMultiCallLoadGenerator) HandleLokiLogs(rValues map[string]MultiCall
 	}
 }
 
-func (m *CCIPMultiCallLoadGenerator) Call(_ *wasp.Generator) *wasp.CallResult {
-	res := &wasp.CallResult{}
+func (m *CCIPMultiCallLoadGenerator) Call(_ *wasp.Generator) *wasp.Response {
+	res := &wasp.Response{}
 	msgs, returnValuesByDest, err := m.MergeCalls()
 	if err != nil {
 		res.Error = err.Error()
@@ -176,7 +178,7 @@ func (m *CCIPMultiCallLoadGenerator) Call(_ *wasp.Generator) *wasp.CallResult {
 	}
 	for _, rValues := range returnValuesByDest {
 		if len(rValues.Stats) != len(rValues.Msgs) {
-			res.Error = fmt.Sprintf("number of stats and msgs should be same")
+			res.Error = fmt.Sprintf("number of stats %d and msgs %d should be same", len(rValues.Stats), len(rValues.Msgs))
 			res.Failed = true
 			return res
 		}

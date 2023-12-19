@@ -60,7 +60,7 @@ func DeployForwarder(auth *bind.TransactOpts, backend bind.ContractBackend) (com
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &Forwarder{ForwarderCaller: ForwarderCaller{contract: contract}, ForwarderTransactor: ForwarderTransactor{contract: contract}, ForwarderFilterer: ForwarderFilterer{contract: contract}}, nil
+	return address, tx, &Forwarder{address: address, abi: *parsed, ForwarderCaller: ForwarderCaller{contract: contract}, ForwarderTransactor: ForwarderTransactor{contract: contract}, ForwarderFilterer: ForwarderFilterer{contract: contract}}, nil
 }
 
 type Forwarder struct {

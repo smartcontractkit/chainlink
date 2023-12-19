@@ -3,10 +3,10 @@ package types
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
 // TxAttemptBuilder takes the base unsigned transaction + optional parameters (tx type, gas parameters)
@@ -23,7 +23,7 @@ type TxAttemptBuilder[
 	FEE feetypes.Fee, // FEE - chain fee type
 ] interface {
 	// interfaces for running the underlying estimator
-	services.ServiceCtx
+	services.Service
 	types.HeadTrackable[HEAD, BLOCK_HASH]
 
 	// NewTxAttempt builds a transaction using the configured transaction type and fee estimator (new estimation)

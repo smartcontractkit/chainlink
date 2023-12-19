@@ -11,22 +11,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestChainScopedConfig(t *testing.T) {
 	t.Parallel()
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		id := utils.NewBig(big.NewInt(rand.Int63()))
+		id := ubig.New(big.NewInt(rand.Int63()))
 		c.EVM[0] = &toml.EVMConfig{
 			ChainID: id,
 			Chain: toml.Defaults(id, &toml.Chain{
@@ -37,7 +38,7 @@ func TestChainScopedConfig(t *testing.T) {
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
 	overrides := func(c *chainlink.Config, s *chainlink.Secrets) {
-		id := utils.NewBig(big.NewInt(rand.Int63()))
+		id := ubig.New(big.NewInt(rand.Int63()))
 		c.EVM[0] = &toml.EVMConfig{
 			ChainID: id,
 			Chain: toml.Defaults(id, &toml.Chain{
@@ -64,7 +65,7 @@ func TestChainScopedConfig(t *testing.T) {
 		t.Run("uses customer configured value when set", func(t *testing.T) {
 			var override uint32 = 10
 			gasBumpOverrides := func(c *chainlink.Config, s *chainlink.Secrets) {
-				id := utils.NewBig(big.NewInt(rand.Int63()))
+				id := ubig.New(big.NewInt(rand.Int63()))
 				c.EVM[0] = &toml.EVMConfig{
 					ChainID: id,
 					Chain: toml.Defaults(id, &toml.Chain{
@@ -291,7 +292,7 @@ func TestChainScopedConfig_GasEstimator(t *testing.T) {
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {
 	chainID := big.NewInt(56)
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
-		id := utils.NewBig(chainID)
+		id := ubig.New(chainID)
 		cfg := toml.Defaults(id)
 		c.EVM[0] = &toml.EVMConfig{
 			ChainID: id,
@@ -343,7 +344,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 			t.Parallel()
 
 			gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
-				id := utils.NewBigI(tt.chainID)
+				id := ubig.NewI(tt.chainID)
 				cfg := toml.Defaults(id)
 				c.EVM[0] = &toml.EVMConfig{
 					ChainID: id,
@@ -378,7 +379,7 @@ func TestChainScopedConfig_HeadTracker(t *testing.T) {
 func Test_chainScopedConfig_Validate(t *testing.T) {
 	configWithChains := func(t *testing.T, id int64, chains ...*toml.Chain) config.AppConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			chainID := utils.NewBigI(id)
+			chainID := ubig.NewI(id)
 			c.EVM[0] = &toml.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: toml.Defaults(chainID, chains...),
 				Nodes: toml.EVMNodes{{
 					Name:    ptr("fake"),
@@ -402,7 +403,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	t.Run("arbitrum-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChains(t, 0, &toml.Chain{
-				ChainType: ptr(string(config.ChainArbitrum)),
+				ChainType: ptr(string(commonconfig.ChainArbitrum)),
 				GasEstimator: toml.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},
@@ -423,7 +424,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("testnet", func(t *testing.T) {
 			cfg := configWithChains(t, 421611, &toml.Chain{
 				GasEstimator: toml.GasEstimator{
-					Mode: ptr("L2Suggested"),
+					Mode: ptr("SuggestedPrice"),
 				},
 			})
 			assert.NoError(t, cfg.Validate())
@@ -433,7 +434,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	t.Run("optimism-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChains(t, 0, &toml.Chain{
-				ChainType: ptr(string(config.ChainOptimismBedrock)),
+				ChainType: ptr(string(commonconfig.ChainOptimismBedrock)),
 				GasEstimator: toml.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},
@@ -461,7 +462,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 
 func TestNodePoolConfig(t *testing.T) {
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		id := utils.NewBig(big.NewInt(rand.Int63()))
+		id := ubig.New(big.NewInt(rand.Int63()))
 		c.EVM[0] = &toml.EVMConfig{
 			ChainID: id,
 			Chain:   toml.Defaults(id, &toml.Chain{}),

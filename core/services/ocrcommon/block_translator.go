@@ -4,9 +4,9 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

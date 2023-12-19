@@ -18,11 +18,11 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type poolConfig struct {
@@ -164,7 +164,7 @@ func TestPool_Dial(t *testing.T) {
 			for i, n := range test.sendNodes {
 				sendNodes[i] = n.newSendOnlyNode(t, test.sendNodeChainID)
 			}
-			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendNodes, test.poolChainID, "")
+			p := evmclient.NewPool(logger.Test(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendNodes, test.poolChainID, "")
 			err := p.Dial(ctx)
 			if err == nil {
 				t.Cleanup(func() { assert.NoError(t, p.Close()) })
@@ -188,7 +188,7 @@ type chainIDResp struct {
 
 func (r *chainIDResp) newSendOnlyNode(t *testing.T, nodeChainID int64) evmclient.SendOnlyNode {
 	httpURL := r.newHTTPServer(t)
-	return evmclient.NewSendOnlyNode(logger.TestLogger(t), *httpURL, t.Name(), big.NewInt(nodeChainID))
+	return evmclient.NewSendOnlyNode(logger.Test(t), *httpURL, t.Name(), big.NewInt(nodeChainID))
 }
 
 func (r *chainIDResp) newHTTPServer(t *testing.T) *url.URL {
@@ -211,7 +211,7 @@ type chainIDResps struct {
 }
 
 func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
-	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+	ws := testutils.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		switch method {
 		case "eth_subscribe":
 			resp.Result = `"0x00"`
@@ -223,7 +223,7 @@ func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
 		}
 		t.Errorf("Unexpected method call: %s(%s)", method, params)
 		return
-	})
+	}).WSURL().String()
 
 	wsURL, err := url.Parse(ws)
 	require.NoError(t, err)
@@ -234,7 +234,7 @@ func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
 	}
 
 	defer func() { r.id++ }()
-	return evmclient.NewNode(evmclient.TestNodePoolConfig{}, time.Second*0, logger.TestLogger(t), *wsURL, httpURL, t.Name(), r.id, big.NewInt(nodeChainID), 0)
+	return evmclient.NewNode(evmclient.TestNodePoolConfig{}, time.Second*0, logger.Test(t), *wsURL, httpURL, t.Name(), r.id, big.NewInt(nodeChainID), 0)
 }
 
 type chainIDService struct {
@@ -256,7 +256,7 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	n3 := evmmocks.NewNode(t)
 	nodes := []evmclient.Node{n1, n2, n3}
 
-	lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
+	lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 	p := evmclient.NewPool(lggr, defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
 
 	n1.On("String").Maybe().Return("n1")
@@ -331,7 +331,7 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 		sendonlys = append(sendonlys, s)
 	}
 
-	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendonlys, &cltest.FixtureChainID, "")
+	p := evmclient.NewPool(logger.Test(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendonlys, &cltest.FixtureChainID, "")
 
 	assert.True(t, p.ChainType().IsValid())
 	assert.False(t, p.ChainType().IsL2())
@@ -378,7 +378,7 @@ func TestUnit_Pool_LeaseDuration(t *testing.T) {
 	n2.On("Order").Return(int32(2))
 	n2.On("ChainID").Return(testutils.FixtureChainID).Once()
 
-	lggr, observedLogs := logger.TestLoggerObserved(t, zap.InfoLevel)
+	lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 	p := evmclient.NewPool(lggr, "PriorityLevel", time.Second*2, time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
 	require.NoError(t, p.Dial(testutils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, p.Close()) })

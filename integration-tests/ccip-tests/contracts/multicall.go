@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -251,7 +252,7 @@ func TransferTokens(
 	boundContract := bind.NewBoundContract(contractAddress, multiCallABI, evmClient.Backend(), evmClient.Backend(), evmClient.Backend())
 	for _, token := range tokens {
 		var inputs []byte
-		balance, err := token.BalanceOf(nil, contractAddress.Hex())
+		balance, err := token.BalanceOf(context.Background(), contractAddress.Hex())
 		if err != nil {
 			return err
 		}

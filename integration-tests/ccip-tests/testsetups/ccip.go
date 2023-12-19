@@ -16,22 +16,23 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
@@ -222,9 +223,9 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTes
 	if allError != nil {
 		t.Fatal(allError)
 	}
-	ccipCfg := testconfig.GlobalTestConfig.CCIP.Env
-	contractCfg := testconfig.GlobalTestConfig.CCIP.Deployments
-	groupCfg, exists := testconfig.GlobalTestConfig.CCIP.Groups[tType]
+	ccipCfg := testconfig.GlobalTestConfig().CCIP.Env
+	contractCfg := testconfig.GlobalTestConfig().CCIP.Deployments
+	groupCfg, exists := testconfig.GlobalTestConfig().CCIP.Groups[tType]
 	if !exists {
 		t.Fatalf("group config for %s does not exist", tType)
 	}
@@ -299,21 +300,21 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 
 	chain, err := blockchain.ConcurrentEVMClient(networkCfg, k8Env, chainClient, lggr)
 	if err != nil {
-		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %v", networkCfg.Name, err))
+		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkCfg.Name, err))
 	}
 
 	chain.ParallelTransactions(true)
 	defer chain.Close()
 	ccipCommon, err := actions.DefaultCCIPModule(lggr, chain, pointer.GetBool(o.Cfg.TestGroupInput.ExistingDeployment), pointer.GetBool(o.Cfg.TestGroupInput.MulticallInOneTx))
 	if err != nil {
-		return errors.WithStack(fmt.Errorf("failed to create ccip common module for %s: %v", networkCfg.Name, err))
+		return errors.WithStack(fmt.Errorf("failed to create ccip common module for %s: %w", networkCfg.Name, err))
 	}
 
 	cfg := o.LaneConfig.ReadLaneConfig(networkCfg.Name)
 
 	err = ccipCommon.DeployContracts(noOfTokens, tokenDeployerFns, cfg)
 	if err != nil {
-		return errors.WithStack(fmt.Errorf("failed to deploy common ccip contracts for %s: %v", networkCfg.Name, err))
+		return errors.WithStack(fmt.Errorf("failed to deploy common ccip contracts for %s: %w", networkCfg.Name, err))
 	}
 	o.LaneContractsByNetwork.Store(networkCfg.Name, cfg)
 	o.CommonContractsByNetwork.Store(networkCfg.Name, ccipCommon)
@@ -349,14 +350,14 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	// ConcurrentEVMClient is a work-around for that.
 	sourceChainClientA2B, err := blockchain.ConcurrentEVMClient(networkA, k8Env, chainClientA, lggr)
 	if err != nil {
-		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %v", networkA.Name, err))
+		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkA.Name, err))
 	}
 
 	sourceChainClientA2B.ParallelTransactions(true)
 
 	destChainClientA2B, err := blockchain.ConcurrentEVMClient(networkB, k8Env, chainClientB, lggr)
 	if err != nil {
-		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %v", networkB.Name, err))
+		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkB.Name, err))
 	}
 	destChainClientA2B.ParallelTransactions(true)
 
@@ -402,13 +403,13 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	if bidirectional {
 		sourceChainClientB2A, err := blockchain.ConcurrentEVMClient(networkB, k8Env, chainClientB, lggr)
 		if err != nil {
-			return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %v", networkB.Name, err))
+			return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkB.Name, err))
 		}
 		sourceChainClientB2A.ParallelTransactions(true)
 
 		destChainClientB2A, err := blockchain.ConcurrentEVMClient(networkA, k8Env, chainClientA, lggr)
 		if err != nil {
-			return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %v", networkA.Name, err))
+			return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkA.Name, err))
 		}
 		destChainClientB2A.ParallelTransactions(true)
 
@@ -457,18 +458,18 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 		srcConfig, destConfig, err := ccipLaneA2B.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, networkACmn, networkBCmn,
 			transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp)
 		if err != nil {
-			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %+v", networkA.Name, networkB.Name, err)))
+			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %w", networkA.Name, networkB.Name, err)))
 			return err
 		}
 		err = o.LaneConfig.WriteLaneConfig(networkA.Name, srcConfig)
 		if err != nil {
 			lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkA.Name, networkB.Name)
-			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %+v", networkA.Name, err)))
+			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkA.Name, err)))
 			return err
 		}
 		err = o.LaneConfig.WriteLaneConfig(networkB.Name, destConfig)
 		if err != nil {
-			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %+v", networkB.Name, err)))
+			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkB.Name, err)))
 			return err
 		}
 		lggr.Info().Msgf("done setting up lane %s to %s", networkA.Name, networkB.Name)
@@ -482,18 +483,18 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 				transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp)
 			if err != nil {
 				lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkB.Name, networkA.Name)
-				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err -  %+v", networkB.Name, networkA.Name, err)))
+				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err -  %w", networkB.Name, networkA.Name, err)))
 				return err
 			}
 
 			err = o.LaneConfig.WriteLaneConfig(networkB.Name, srcConfig)
 			if err != nil {
-				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %+v", networkA.Name, err)))
+				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkA.Name, err)))
 				return err
 			}
 			err = o.LaneConfig.WriteLaneConfig(networkA.Name, destConfig)
 			if err != nil {
-				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %+v", networkB.Name, err)))
+				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkB.Name, err)))
 				return err
 			}
 			lggr.Info().Msgf("done setting up lane %s to %s", networkB.Name, networkA.Name)
@@ -609,7 +610,6 @@ func CCIPDefaultTestSetUp(
 	var (
 		ccipEnv *actions.CCIPTestEnv
 		k8Env   *environment.Environment
-		ctx     context.Context
 		err     error
 		chains  []blockchain.EVMClient
 	)
@@ -664,7 +664,7 @@ func CCIPDefaultTestSetUp(
 			ccipEnv = &actions.CCIPTestEnv{K8Env: k8Env}
 		}
 
-		ccipEnv.CLNodeWithKeyReady, ctx = errgroup.WithContext(parent)
+		ccipEnv.CLNodeWithKeyReady, _ = errgroup.WithContext(parent)
 		setUpArgs.Env = ccipEnv
 		if ccipEnv.K8Env != nil && ccipEnv.K8Env.WillUseRemoteRunner() {
 			return setUpArgs
@@ -758,7 +758,7 @@ func CCIPDefaultTestSetUp(
 					return err
 				}
 			}
-			return ccipEnv.SetUpNodesAndKeys(ctx, big.NewFloat(inputs.TestGroupInput.NodeFunding), chains, lggr)
+			return ccipEnv.SetUpNodesAndKeys(big.NewFloat(inputs.TestGroupInput.NodeFunding), chains, lggr)
 		})
 	}
 
@@ -811,7 +811,7 @@ func CCIPDefaultTestSetUp(
 		n.NetworkA.URLs = inputs.NetworkPairs[i].ChainClientA.GetNetworkConfig().URLs
 		n.NetworkB.HTTPURLs = inputs.NetworkPairs[i].ChainClientB.GetNetworkConfig().HTTPURLs
 		n.NetworkB.URLs = inputs.NetworkPairs[i].ChainClientB.GetNetworkConfig().URLs
-		
+
 		laneAddGrp.Go(func() error {
 			return setUpArgs.AddLanesForNetworkPair(
 				lggr, n.NetworkA, n.NetworkB,

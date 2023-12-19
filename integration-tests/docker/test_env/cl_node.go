@@ -1,6 +1,7 @@
 package test_env
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -22,8 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 
@@ -47,7 +49,7 @@ type ClNode struct {
 	UserPassword          string                  `json:"userPassword"`
 	t                     *testing.T
 	l                     zerolog.Logger
-	lw                    *logwatch.LogWatch
+	ls                    *logstream.LogStream
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -76,9 +78,31 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
+func WithLogStream(ls *logstream.LogStream) ClNodeOption {
 	return func(c *ClNode) {
-		c.lw = lw
+		c.ls = ls
+	}
+}
+
+func WithImage(image string) ClNodeOption {
+	return func(c *ClNode) {
+		c.ContainerImage = image
+	}
+}
+
+func WithVersion(version string) ClNodeOption {
+	return func(c *ClNode) {
+		c.ContainerVersion = version
+	}
+}
+
+func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
+	return func(c *ClNode) {
+		var err error
+		c.PostgresDb, err = test_env.NewPostgresDb(c.EnvComponent.Networks, opts...)
+		if err != nil {
+			c.t.Fatalf("failed to create postgres db: %v", err)
+		}
 	}
 }
 
@@ -111,7 +135,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 func (n *ClNode) SetTestLogger(t *testing.T) {
 	n.l = logging.GetTestLogger(t)
 	n.t = t
-	n.PostgresDb.WithTestLogger(t)
+	n.PostgresDb.WithTestInstance(t)
 }
 
 // Restart restarts only CL node, DB container is reused
@@ -285,11 +309,7 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return fmt.Errorf("%s err: %w", ErrStartCLNodeContainer, err)
 	}
-	if n.lw != nil {
-		if err := n.lw.ConnectContainer(testcontext.Get(n.t), container, "cl-node", true); err != nil {
-			return err
-		}
-	}
+
 	clEndpoint, err := test_env.GetEndpoint(testcontext.Get(n.t), container, "http")
 	if err != nil {
 		return err
@@ -409,6 +429,24 @@ func (n *ClNode) getContainerRequest(secrets string) (
 				ContainerFilePath: apiCredsPath,
 				FileMode:          0644,
 			},
+		},
+		LifecycleHooks: []tc.ContainerLifecycleHooks{
+			{PostStarts: []tc.ContainerHook{
+				func(ctx context.Context, c tc.Container) error {
+					if n.ls != nil {
+						return n.ls.ConnectContainer(ctx, c, "cl-node")
+					}
+					return nil
+				},
+			},
+				PostStops: []tc.ContainerHook{
+					func(ctx context.Context, c tc.Container) error {
+						if n.ls != nil {
+							return n.ls.DisconnectContainer(c)
+						}
+						return nil
+					},
+				}},
 		},
 	}, nil
 }

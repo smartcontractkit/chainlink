@@ -7,8 +7,8 @@ import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title Functions Subscriptions contract
 /// @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).

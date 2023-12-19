@@ -52,7 +52,7 @@ func DeployARMProxyContract(auth *bind.TransactOpts, backend bind.ContractBacken
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &ARMProxyContract{ARMProxyContractCaller: ARMProxyContractCaller{contract: contract}, ARMProxyContractTransactor: ARMProxyContractTransactor{contract: contract}, ARMProxyContractFilterer: ARMProxyContractFilterer{contract: contract}}, nil
+	return address, tx, &ARMProxyContract{address: address, abi: *parsed, ARMProxyContractCaller: ARMProxyContractCaller{contract: contract}, ARMProxyContractTransactor: ARMProxyContractTransactor{contract: contract}, ARMProxyContractFilterer: ARMProxyContractFilterer{contract: contract}}, nil
 }
 
 type ARMProxyContract struct {

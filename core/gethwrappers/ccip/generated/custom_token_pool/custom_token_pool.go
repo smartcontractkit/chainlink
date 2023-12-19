@@ -72,7 +72,7 @@ func DeployCustomTokenPool(auth *bind.TransactOpts, backend bind.ContractBackend
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &CustomTokenPool{CustomTokenPoolCaller: CustomTokenPoolCaller{contract: contract}, CustomTokenPoolTransactor: CustomTokenPoolTransactor{contract: contract}, CustomTokenPoolFilterer: CustomTokenPoolFilterer{contract: contract}}, nil
+	return address, tx, &CustomTokenPool{address: address, abi: *parsed, CustomTokenPoolCaller: CustomTokenPoolCaller{contract: contract}, CustomTokenPoolTransactor: CustomTokenPoolTransactor{contract: contract}, CustomTokenPoolFilterer: CustomTokenPoolFilterer{contract: contract}}, nil
 }
 
 type CustomTokenPool struct {

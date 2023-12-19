@@ -1,9 +1,9 @@
 package gas
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 // chainSpecificIsUsable allows for additional logic specific to a particular
@@ -46,6 +46,14 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 		// WeMix specific transaction types that enables fee delegation.
 		// https://docs.wemix.com/v/en/design/fee-delegation
 		if tx.Type == 0x16 {
+			return false
+		}
+	}
+
+	if chainType == config.ChainZkSync {
+		// zKSync specific type for contract deployment & priority transactions
+		// https://era.zksync.io/docs/reference/concepts/transactions.html#eip-712-0x71
+		if tx.Type == 0x71 || tx.Type == 0xff {
 			return false
 		}
 	}

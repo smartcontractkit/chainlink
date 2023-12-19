@@ -11,9 +11,8 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.4;
 
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 import {BlockhashStoreInterface} from "./interfaces/BlockhashStoreInterface.sol";
-import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "../shared/interfaces/AggregatorV3Interface.sol";
 import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {IERC677Receiver} from "../shared/interfaces/IERC677Receiver.sol";
@@ -491,6 +491,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     // The seed actually used by the VRF machinery, mixing in the blockhash
     uint256 actualSeed = uint256(keccak256(abi.encodePacked(proof.seed, blockHash)));
     randomness = VRF._randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
+    return (keyHash, requestId, randomness);
   }
 
   /*

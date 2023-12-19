@@ -50,7 +50,7 @@ func DeployExposedVerifier(auth *bind.TransactOpts, backend bind.ContractBackend
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &ExposedVerifier{ExposedVerifierCaller: ExposedVerifierCaller{contract: contract}, ExposedVerifierTransactor: ExposedVerifierTransactor{contract: contract}, ExposedVerifierFilterer: ExposedVerifierFilterer{contract: contract}}, nil
+	return address, tx, &ExposedVerifier{address: address, abi: *parsed, ExposedVerifierCaller: ExposedVerifierCaller{contract: contract}, ExposedVerifierTransactor: ExposedVerifierTransactor{contract: contract}, ExposedVerifierFilterer: ExposedVerifierFilterer{contract: contract}}, nil
 }
 
 type ExposedVerifier struct {

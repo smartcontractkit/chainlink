@@ -9,7 +9,7 @@ import {BurnMintERC677} from "../../../token/ERC677/BurnMintERC677.sol";
 import {BaseTest} from "../../BaseTest.t.sol";
 import {OpStackBurnMintERC677} from "../../../token/ERC677/OpStackBurnMintERC677.sol";
 
-import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/IERC165.sol";
+import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
 contract OpStackBurnMintERC677Setup is BaseTest {
   address internal s_l1Token = address(897352983527);

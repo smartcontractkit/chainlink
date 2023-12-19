@@ -43,7 +43,7 @@ func TestShell_CreateUser(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.CreateUser, set, "")
+			flagSetApplyFromAction(client.CreateUser, set, "")
 
 			require.NoError(t, set.Set("email", test.email))
 			require.NoError(t, set.Set("role", test.role))
@@ -62,7 +62,7 @@ func TestShell_ChangeRole(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
 
 	tests := []struct {
 		name  string
@@ -83,7 +83,7 @@ func TestShell_ChangeRole(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.ChangeRole, set, "")
+			flagSetApplyFromAction(client.ChangeRole, set, "")
 
 			require.NoError(t, set.Set("email", test.email))
 			require.NoError(t, set.Set("new-role", test.role))
@@ -101,7 +101,7 @@ func TestShell_DeleteUser(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
 
 	tests := []struct {
 		name  string
@@ -118,7 +118,7 @@ func TestShell_DeleteUser(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.DeleteUser, set, "")
+			flagSetApplyFromAction(client.DeleteUser, set, "")
 
 			require.NoError(t, set.Set("email", test.email))
 			c := cli.NewContext(nil, set, nil)
@@ -135,10 +135,10 @@ func TestShell_ListUsers(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ListUsers, set, "")
+	flagSetApplyFromAction(client.ListUsers, set, "")
 	c := cli.NewContext(nil, set, nil)
 
 	buffer := bytes.NewBufferString("")

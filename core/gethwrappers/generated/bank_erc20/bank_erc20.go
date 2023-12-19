@@ -52,7 +52,7 @@ func DeployBankERC20(auth *bind.TransactOpts, backend bind.ContractBackend, name
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &BankERC20{BankERC20Caller: BankERC20Caller{contract: contract}, BankERC20Transactor: BankERC20Transactor{contract: contract}, BankERC20Filterer: BankERC20Filterer{contract: contract}}, nil
+	return address, tx, &BankERC20{address: address, abi: *parsed, BankERC20Caller: BankERC20Caller{contract: contract}, BankERC20Transactor: BankERC20Transactor{contract: contract}, BankERC20Filterer: BankERC20Filterer{contract: contract}}, nil
 }
 
 type BankERC20 struct {

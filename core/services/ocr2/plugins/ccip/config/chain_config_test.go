@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	evmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -40,10 +40,10 @@ func TestGetChainFromSpec(t *testing.T) {
 		},
 	}
 
-	mockChain := evmORMMocks.NewChain(t)
+	mockChain := mocks.NewChain(t)
 	mockChain.On("ID").Return(big.NewInt(testChainID)).Maybe()
 
-	mockChainSet := evmORMMocks.NewLegacyChainContainer(t)
+	mockChainSet := mocks.NewLegacyChainContainer(t)
 	mockChainSet.On("Get", strconv.FormatInt(testChainID, 10)).Return(mockChain, nil).Maybe()
 
 	for _, test := range tests {
@@ -63,10 +63,10 @@ func TestGetChainFromSpec(t *testing.T) {
 }
 
 func TestGetChainByChainSelector_success(t *testing.T) {
-	mockChain := evmORMMocks.NewChain(t)
+	mockChain := mocks.NewChain(t)
 	mockChain.On("ID").Return(big.NewInt(11155111))
 
-	mockChainSet := evmORMMocks.NewLegacyChainContainer(t)
+	mockChainSet := mocks.NewLegacyChainContainer(t)
 	mockChainSet.On("Get", "11155111").Return(mockChain, nil)
 
 	// Ethereum Sepolia chain selector.
@@ -77,14 +77,14 @@ func TestGetChainByChainSelector_success(t *testing.T) {
 }
 
 func TestGetChainByChainSelector_selectorNotFound(t *testing.T) {
-	mockChainSet := evmORMMocks.NewLegacyChainContainer(t)
+	mockChainSet := mocks.NewLegacyChainContainer(t)
 
 	_, _, err := GetChainByChainSelector(mockChainSet, uint64(444000444))
 	require.Error(t, err)
 }
 
 func TestGetChainById_notFound(t *testing.T) {
-	mockChainSet := evmORMMocks.NewLegacyChainContainer(t)
+	mockChainSet := mocks.NewLegacyChainContainer(t)
 	mockChainSet.On("Get", "444").Return(nil, errors.New("test")).Maybe()
 
 	_, _, err := GetChainByChainID(mockChainSet, uint64(444))

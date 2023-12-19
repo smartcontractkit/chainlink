@@ -12,7 +12,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -22,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -53,20 +55,20 @@ type UpkeepExecuterConfig interface {
 
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
-	chStop                 utils.StopChan
+	services.StateMachine
+	chStop                 services.StopChan
 	ethClient              evmclient.Client
 	config                 UpkeepExecuterConfig
 	executionQueue         chan struct{}
 	headBroadcaster        httypes.HeadBroadcasterRegistry
 	gasEstimator           gas.EvmFeeEstimator
 	job                    job.Job
-	mailbox                *utils.Mailbox[*evmtypes.Head]
+	mailbox                *mailbox.Mailbox[*evmtypes.Head]
 	orm                    ORM
 	pr                     pipeline.Runner
 	logger                 logger.Logger
 	wgDone                 sync.WaitGroup
 	effectiveKeeperAddress common.Address
-	utils.StartStopOnce
 }
 
 // NewUpkeepExecuter is the constructor of UpkeepExecuter
@@ -82,13 +84,13 @@ func NewUpkeepExecuter(
 	effectiveKeeperAddress common.Address,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
-		chStop:                 make(chan struct{}),
+		chStop:                 make(services.StopChan),
 		ethClient:              ethClient,
 		executionQueue:         make(chan struct{}, executionQueueSize),
 		headBroadcaster:        headBroadcaster,
 		gasEstimator:           gasEstimator,
 		job:                    job,
-		mailbox:                utils.NewSingleMailbox[*evmtypes.Head](),
+		mailbox:                mailbox.NewSingle[*evmtypes.Head](),
 		config:                 config,
 		orm:                    orm,
 		pr:                     pr,

@@ -50,7 +50,7 @@ func DeployVRFV2PlusMaliciousMigrator(auth *bind.TransactOpts, backend bind.Cont
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV2PlusMaliciousMigrator{VRFV2PlusMaliciousMigratorCaller: VRFV2PlusMaliciousMigratorCaller{contract: contract}, VRFV2PlusMaliciousMigratorTransactor: VRFV2PlusMaliciousMigratorTransactor{contract: contract}, VRFV2PlusMaliciousMigratorFilterer: VRFV2PlusMaliciousMigratorFilterer{contract: contract}}, nil
+	return address, tx, &VRFV2PlusMaliciousMigrator{address: address, abi: *parsed, VRFV2PlusMaliciousMigratorCaller: VRFV2PlusMaliciousMigratorCaller{contract: contract}, VRFV2PlusMaliciousMigratorTransactor: VRFV2PlusMaliciousMigratorTransactor{contract: contract}, VRFV2PlusMaliciousMigratorFilterer: VRFV2PlusMaliciousMigratorFilterer{contract: contract}}, nil
 }
 
 type VRFV2PlusMaliciousMigrator struct {

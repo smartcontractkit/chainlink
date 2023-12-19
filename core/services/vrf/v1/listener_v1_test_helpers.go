@@ -3,6 +3,8 @@ package v1
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func (lsn *Listener) SetReqAdded(fn func()) {
@@ -10,7 +12,7 @@ func (lsn *Listener) SetReqAdded(fn func()) {
 }
 
 func (lsn *Listener) Stop(t *testing.T) {
-	lsn.ChStop <- struct{}{}
+	assert.NoError(t, lsn.Close())
 	select {
 	case <-lsn.WaitOnStop:
 	case <-time.After(time.Second):

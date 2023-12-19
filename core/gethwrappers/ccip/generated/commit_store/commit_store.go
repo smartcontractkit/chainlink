@@ -89,7 +89,7 @@ func DeployCommitStore(auth *bind.TransactOpts, backend bind.ContractBackend, st
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &CommitStore{CommitStoreCaller: CommitStoreCaller{contract: contract}, CommitStoreTransactor: CommitStoreTransactor{contract: contract}, CommitStoreFilterer: CommitStoreFilterer{contract: contract}}, nil
+	return address, tx, &CommitStore{address: address, abi: *parsed, CommitStoreCaller: CommitStoreCaller{contract: contract}, CommitStoreTransactor: CommitStoreTransactor{contract: contract}, CommitStoreFilterer: CommitStoreFilterer{contract: contract}}, nil
 }
 
 type CommitStore struct {

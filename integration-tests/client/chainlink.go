@@ -272,6 +272,7 @@ func (c *ChainlinkClient) DeleteSpec(id string) (*http.Response, error) {
 // MustCreateBridge creates a bridge on the Chainlink node based on the provided attributes and returns error if
 // the request is unsuccessful
 func (c *ChainlinkClient) MustCreateBridge(bta *BridgeTypeAttributes) error {
+	c.l.Debug().Str(NodeURL, c.Config.URL).Str("Name", bta.Name).Msg("Creating Bridge")
 	resp, err := c.CreateBridge(bta)
 	if err != nil {
 		return err
@@ -280,7 +281,7 @@ func (c *ChainlinkClient) MustCreateBridge(bta *BridgeTypeAttributes) error {
 }
 
 func (c *ChainlinkClient) CreateBridge(bta *BridgeTypeAttributes) (*http.Response, error) {
-	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", bta.Name).Msg("Creating Bridge")
+	c.l.Debug().Str(NodeURL, c.Config.URL).Str("Name", bta.Name).Msg("Creating Bridge")
 	resp, err := c.APIClient.R().
 		SetBody(bta).
 		Post("/v2/bridge_types")
@@ -293,7 +294,7 @@ func (c *ChainlinkClient) CreateBridge(bta *BridgeTypeAttributes) (*http.Respons
 // ReadBridge reads a bridge from the Chainlink node based on the provided name
 func (c *ChainlinkClient) ReadBridge(name string) (*BridgeType, *http.Response, error) {
 	bt := BridgeType{}
-	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Reading Bridge")
+	c.l.Debug().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Reading Bridge")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"name": name,
@@ -309,7 +310,7 @@ func (c *ChainlinkClient) ReadBridge(name string) (*BridgeType, *http.Response, 
 // ReadBridges reads bridges from the Chainlink node
 func (c *ChainlinkClient) ReadBridges() (*Bridges, *resty.Response, error) {
 	result := &Bridges{}
-	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Getting all bridges")
+	c.l.Debug().Str(NodeURL, c.Config.URL).Msg("Getting all bridges")
 	resp, err := c.APIClient.R().
 		SetResult(&result).
 		Get("/v2/bridge_types")
@@ -321,7 +322,7 @@ func (c *ChainlinkClient) ReadBridges() (*Bridges, *resty.Response, error) {
 
 // DeleteBridge deletes a bridge on the Chainlink node based on the provided name
 func (c *ChainlinkClient) DeleteBridge(name string) (*http.Response, error) {
-	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Deleting Bridge")
+	c.l.Debug().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Deleting Bridge")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"name": name,

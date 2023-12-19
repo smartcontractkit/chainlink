@@ -1,26 +1,28 @@
 package ocrcommon_test
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 func Test_DiscovererDatabase(t *testing.T) {
 	db := pgtest.NewSqlDB(t)
 
-	localPeerID1 := cltest.MustRandomP2PPeerID(t)
-	localPeerID2 := cltest.MustRandomP2PPeerID(t)
+	localPeerID1 := mustRandomP2PPeerID(t)
+	localPeerID2 := mustRandomP2PPeerID(t)
 
-	dd1 := ocrcommon.NewDiscovererDatabase(db, localPeerID1)
-	dd2 := ocrcommon.NewDiscovererDatabase(db, localPeerID2)
+	dd1 := ocrcommon.NewDiscovererDatabase(db, localPeerID1.Raw())
+	dd2 := ocrcommon.NewDiscovererDatabase(db, localPeerID2.Raw())
 
 	ctx := testutils.Context(t)
 
@@ -72,7 +74,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 	})
 
 	t.Run("persists data across restarts", func(t *testing.T) {
-		dd3 := ocrcommon.NewDiscovererDatabase(db, localPeerID1)
+		dd3 := ocrcommon.NewDiscovererDatabase(db, localPeerID1.Raw())
 
 		announcements, err := dd3.ReadAnnouncements(ctx, []string{"remote1"})
 		require.NoError(t, err)
@@ -80,4 +82,12 @@ func Test_DiscovererDatabase(t *testing.T) {
 		assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
 
 	})
+}
+
+func mustRandomP2PPeerID(t *testing.T) p2pkey.PeerID {
+	_, p2pPrivkey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	id, err := ragep2ptypes.PeerIDFromPrivateKey(p2pPrivkey)
+	require.NoError(t, err)
+	return p2pkey.PeerID(id)
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_contract"
@@ -60,43 +61,43 @@ func (token *ERC20Token) BalanceOf(ctx context.Context, addr string) (*big.Int, 
 	return balance, nil
 }
 
-func (l *ERC20Token) Approve(to string, amount *big.Int) error {
-	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+func (token *ERC20Token) Approve(to string, amount *big.Int) error {
+	opts, err := token.client.TransactionOpts(token.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
 	log.Info().
-		Str("From", l.client.GetDefaultWallet().Address()).
+		Str("From", token.client.GetDefaultWallet().Address()).
 		Str("To", to).
-		Str("Token", l.Address()).
+		Str("Token", token.Address()).
 		Str("Amount", amount.String()).
 		Uint64("Nonce", opts.Nonce.Uint64()).
-		Str("Network Name", l.client.GetNetworkConfig().Name).
+		Str("Network Name", token.client.GetNetworkConfig().Name).
 		Msg("Approving ERC20 Transfer")
-	tx, err := l.instance.Approve(opts, common.HexToAddress(to), amount)
+	tx, err := token.instance.Approve(opts, common.HexToAddress(to), amount)
 	if err != nil {
 		return err
 	}
-	return l.client.ProcessTransaction(tx)
+	return token.client.ProcessTransaction(tx)
 }
 
-func (l *ERC20Token) Transfer(to string, amount *big.Int) error {
-	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+func (token *ERC20Token) Transfer(to string, amount *big.Int) error {
+	opts, err := token.client.TransactionOpts(token.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
 	log.Info().
-		Str("From", l.client.GetDefaultWallet().Address()).
+		Str("From", token.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
 		Uint64("Nonce", opts.Nonce.Uint64()).
-		Str("Network Name", l.client.GetNetworkConfig().Name).
+		Str("Network Name", token.client.GetNetworkConfig().Name).
 		Msg("Transferring ERC20")
-	tx, err := l.instance.Transfer(opts, common.HexToAddress(to), amount)
+	tx, err := token.instance.Transfer(opts, common.HexToAddress(to), amount)
 	if err != nil {
 		return err
 	}
-	return l.client.ProcessTransaction(tx)
+	return token.client.ProcessTransaction(tx)
 }
 
 type LinkToken struct {
@@ -105,16 +106,16 @@ type LinkToken struct {
 	EthAddress common.Address
 }
 
-func (token *LinkToken) Address() string {
-	return token.EthAddress.Hex()
+func (l *LinkToken) Address() string {
+	return l.EthAddress.Hex()
 }
 
-func (token *LinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
+func (l *LinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(token.client.GetDefaultWallet().Address()),
+		From:    common.HexToAddress(l.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	}
-	balance, err := token.instance.BalanceOf(opts, common.HexToAddress(addr))
+	balance, err := l.instance.BalanceOf(opts, common.HexToAddress(addr))
 	if err != nil {
 		return nil, err
 	}
@@ -354,8 +355,8 @@ type CommitStore struct {
 	EthAddress common.Address
 }
 
-func (bv *CommitStore) Address() string {
-	return bv.EthAddress.Hex()
+func (b *CommitStore) Address() string {
+	return b.EthAddress.Hex()
 }
 
 // SetOCR2Config sets the offchain reporting protocol configuration

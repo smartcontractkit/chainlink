@@ -39,7 +39,7 @@ func NewLogEmitterGun(
 	}
 }
 
-func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.CallResult {
+func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.Response {
 	localCounter := 0
 	logEmitter := (*m.contract)
 	address := logEmitter.Address()
@@ -58,7 +58,7 @@ func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.CallResult {
 		}
 
 		if err != nil {
-			return &wasp.CallResult{Error: err.Error(), Failed: true}
+			return &wasp.Response{Error: err.Error(), Failed: true}
 		}
 		localCounter++
 	}
@@ -69,11 +69,11 @@ func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.CallResult {
 		defer counter.mu.Unlock()
 		counter.value += localCounter
 	} else {
-		return &wasp.CallResult{
+		return &wasp.Response{
 			Error:  "SharedData did not contain a Counter",
 			Failed: true,
 		}
 	}
 
-	return &wasp.CallResult{}
+	return &wasp.Response{}
 }

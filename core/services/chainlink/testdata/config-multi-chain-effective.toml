@@ -62,6 +62,7 @@ MaxAgeDays = 0
 MaxBackups = 1
 
 [WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = 'http://localhost:3000,http://localhost:6688'
 BridgeResponseURL = ''
 BridgeCacheTTL = '0s'
@@ -73,6 +74,25 @@ SessionReaperExpiration = '240h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
 ListenIP = '0.0.0.0'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = ''
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = ''
+ActiveAttributeAllowedValue = ''
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]
 RPID = ''
@@ -118,7 +138,7 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '20s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = false
+CaptureAutomationCustomTelemetry = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
@@ -141,19 +161,6 @@ IncomingMessageBufferSize = 999
 OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
-
-[P2P.V1]
-Enabled = false
-AnnounceIP = ''
-AnnouncePort = 0
-BootstrapCheckInterval = '20s'
-DefaultBootstrapPeers = []
-DHTAnnouncementCounterUserPrefix = 0
-DHTLookupInterval = 10
-ListenIP = '0.0.0.0'
-ListenPort = 0
-NewStreamTimeout = '10s'
-PeerstoreWriteInterval = '5m0s'
 
 [P2P.V2]
 Enabled = true
@@ -213,6 +220,14 @@ Enabled = false
 CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
+Mode = 'tls'
+TLSCertPath = ''
+
+[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1s'
+MaxStaleAge = '1h0m0s'
+LatestReportDeadline = '5s'
 
 [[EVM]]
 ChainID = '1'
@@ -284,6 +299,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
@@ -369,6 +386,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
@@ -448,6 +467,8 @@ LeaseDuration = '0s'
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
 [EVM.OCR2]

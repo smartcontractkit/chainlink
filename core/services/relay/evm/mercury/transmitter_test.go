@@ -26,6 +26,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	var jobID int32
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	q := NewTransmitQueue(lggr, "", 0, nil, nil)
 
 	t.Run("v1 report transmission successfully enqueued", func(t *testing.T) {
 		report := sampleV1Report
@@ -40,6 +41,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			},
 		}
 		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt.queue = q
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
 		require.NoError(t, err)
@@ -57,6 +59,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			},
 		}
 		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt.queue = q
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
 		require.NoError(t, err)
@@ -74,6 +77,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			},
 		}
 		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt.queue = q
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
 		require.NoError(t, err)

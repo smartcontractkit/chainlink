@@ -2,14 +2,15 @@ package keeper
 
 import (
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // To make sure Delegate struct implements job.Delegate interface
@@ -20,8 +21,8 @@ type Delegate struct {
 	db           *sqlx.DB
 	jrm          job.ORM
 	pr           pipeline.Runner
-	legacyChains evm.LegacyChainContainer
-	mailMon      *utils.MailboxMonitor
+	legacyChains legacyevm.LegacyChainContainer
+	mailMon      *mailbox.Monitor
 }
 
 // NewDelegate is the constructor of Delegate
@@ -30,8 +31,8 @@ func NewDelegate(
 	jrm job.ORM,
 	pr pipeline.Runner,
 	logger logger.Logger,
-	legacyChains evm.LegacyChainContainer,
-	mailMon *utils.MailboxMonitor,
+	legacyChains legacyevm.LegacyChainContainer,
+	mailMon *mailbox.Monitor,
 ) *Delegate {
 	return &Delegate{
 		logger:       logger,
@@ -54,7 +55,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(spec job.Job, qopts ...pg.QOpt) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(spec job.Job, opts ...pg.QOpt) (services []job.ServiceCtx, err error) {
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}

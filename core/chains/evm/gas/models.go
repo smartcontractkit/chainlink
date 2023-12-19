@@ -9,21 +9,20 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 // EvmFeeEstimator provides a unified interface that wraps EvmEstimator and can determine if legacy or dynamic fee estimation should be used
@@ -73,19 +72,31 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
 		l1Oracle = rollups.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
 	}
+	var newEstimator func(logger.Logger) EvmEstimator
 	switch s {
 	case "Arbitrum":
-		return NewWrappedEvmEstimator(NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient), df, l1Oracle)
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient)
+		}
 	case "BlockHistory":
-		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df, l1Oracle)
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID())
+		}
 	case "FixedPrice":
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, l1Oracle)
-	case "Optimism2", "L2Suggested":
-		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient), df, l1Oracle)
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewFixedPriceEstimator(geCfg, bh, lggr)
+		}
+	case "L2Suggested", "SuggestedPrice":
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewSuggestedPriceEstimator(lggr, ethClient)
+		}
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, l1Oracle)
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewFixedPriceEstimator(geCfg, bh, lggr)
+		}
 	}
+	return NewWrappedEvmEstimator(lggr, newEstimator, df, l1Oracle)
 }
 
 // DynamicFee encompasses both FeeCap and TipCap for EIP1559 transactions
@@ -151,24 +162,27 @@ func (fee EvmFee) ValidDynamic() bool {
 
 // WrappedEvmEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
 type WrappedEvmEstimator struct {
+	services.StateMachine
+	lggr logger.Logger
 	EvmEstimator
 	EIP1559Enabled bool
 	l1Oracle       rollups.L1Oracle
-	utils.StartStopOnce
 }
 
 var _ EvmFeeEstimator = (*WrappedEvmEstimator)(nil)
 
-func NewWrappedEvmEstimator(e EvmEstimator, eip1559Enabled bool, l1Oracle rollups.L1Oracle) EvmFeeEstimator {
+func NewWrappedEvmEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, l1Oracle rollups.L1Oracle) EvmFeeEstimator {
+	lggr = logger.Named(lggr, "WrappedEvmEstimator")
 	return &WrappedEvmEstimator{
-		EvmEstimator:   e,
+		lggr:           lggr,
+		EvmEstimator:   newEstimator(lggr),
 		EIP1559Enabled: eip1559Enabled,
 		l1Oracle:       l1Oracle,
 	}
 }
 
 func (e *WrappedEvmEstimator) Name() string {
-	return fmt.Sprintf("WrappedEvmEstimator(%s)", e.EvmEstimator.Name())
+	return e.lggr.Name()
 }
 
 func (e *WrappedEvmEstimator) Start(ctx context.Context) error {
