@@ -1,4 +1,4 @@
-package ccip
+package ccipcommit
 
 import (
 	"math/big"

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
@@ -18,6 +19,11 @@ func GetMessageIDsAsHexString(messages []internal.EVM2EVMMessage) []string {
 		messageIDs = append(messageIDs, "0x"+hex.EncodeToString(m.MessageId[:]))
 	}
 	return messageIDs
+}
+
+type BackfillArgs struct {
+	SourceLP, DestLP                 logpoller.LogPoller
+	SourceStartBlock, DestStartBlock uint64
 }
 
 // GetDestinationTokens returns the destination chain fee tokens from the provided price registry

@@ -1,4 +1,4 @@
-package ccip
+package ccipexec
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"sync"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
@@ -79,93 +79,6 @@ type ExecutionReportingPlugin struct {
 	snoozedRoots    cache.SnoozedRoots
 }
 
-type ExecutionReportingPluginFactory struct {
-	// Config derived from job specs and does not change between instances.
-	config ExecutionPluginStaticConfig
-
-	destPriceRegReader ccipdata.PriceRegistryReader
-	destPriceRegAddr   common.Address
-	readersMu          *sync.Mutex
-}
-
-func NewExecutionReportingPluginFactory(config ExecutionPluginStaticConfig) *ExecutionReportingPluginFactory {
-	return &ExecutionReportingPluginFactory{
-		config:    config,
-		readersMu: &sync.Mutex{},
-
-		// the fields below are initially empty and populated on demand
-		destPriceRegReader: nil,
-		destPriceRegAddr:   common.Address{},
-	}
-}
-
-func (rf *ExecutionReportingPluginFactory) UpdateDynamicReaders(newPriceRegAddr common.Address) error {
-	rf.readersMu.Lock()
-	defer rf.readersMu.Unlock()
-	// TODO: Investigate use of Close() to cleanup.
-	// TODO: a true price registry upgrade on an existing lane may want some kind of start block in its config? Right now we
-	// essentially assume that plugins don't care about historical price reg logs.
-	if rf.destPriceRegAddr == newPriceRegAddr {
-		// No-op
-		return nil
-	}
-	// Close old reader (if present) and open new reader if address changed.
-	if rf.destPriceRegReader != nil {
-		if err := rf.destPriceRegReader.Close(); err != nil {
-			return err
-		}
-	}
-
-	destPriceRegistryReader, err := rf.config.priceRegistryProvider.NewPriceRegistryReader(context.Background(), newPriceRegAddr)
-	if err != nil {
-		return err
-	}
-	rf.destPriceRegReader = destPriceRegistryReader
-	rf.destPriceRegAddr = newPriceRegAddr
-	return nil
-}
-
-func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	destPriceRegistry, destWrappedNative, err := rf.config.offRampReader.ChangeConfig(config.OnchainConfig, config.OffchainConfig)
-	if err != nil {
-		return nil, types.ReportingPluginInfo{}, err
-	}
-	// Open dynamic readers
-	err = rf.UpdateDynamicReaders(destPriceRegistry)
-	if err != nil {
-		return nil, types.ReportingPluginInfo{}, err
-	}
-
-	offchainConfig := rf.config.offRampReader.OffchainConfig()
-
-	return &ExecutionReportingPlugin{
-			F:                        config.F,
-			lggr:                     rf.config.lggr.Named("ExecutionReportingPlugin"),
-			offchainConfig:           offchainConfig,
-			tokenDataProviders:       rf.config.tokenDataProviders,
-			gasPriceEstimator:        rf.config.offRampReader.GasPriceEstimator(),
-			sourcePriceRegistry:      rf.config.sourcePriceRegistry,
-			sourceWrappedNativeToken: rf.config.sourceWrappedNativeToken,
-			onRampReader:             rf.config.onRampReader,
-			commitStoreReader:        rf.config.commitStoreReader,
-			destPriceRegistry:        rf.destPriceRegReader,
-			destWrappedNative:        destWrappedNative,
-			onchainConfig:            rf.config.offRampReader.OnchainConfig(),
-			offRampReader:            rf.config.offRampReader,
-			inflightReports:          newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
-			snoozedRoots:             cache.NewSnoozedRoots(rf.config.offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds, offchainConfig.RootSnoozeTime.Duration()),
-		}, types.ReportingPluginInfo{
-			Name: "CCIPExecution",
-			// Setting this to false saves on calldata since OffRamp doesn't require agreement between NOPs
-			// (OffRamp is only able to execute committed messages).
-			UniqueReports: false,
-			Limits: types.ReportingPluginLimits{
-				MaxObservationLength: MaxObservationLength,
-				MaxReportLength:      MaxExecutionReportLength,
-			},
-		}, nil
-}
-
 func (r *ExecutionReportingPlugin) Query(context.Context, types.ReportTimestamp) (types.Query, error) {
 	return types.Query{}, nil
 }
@@ -177,7 +90,7 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 		return nil, errors.Wrap(err, "isDown check errored")
 	}
 	if down {
-		return nil, ErrCommitStoreIsDown
+		return nil, ccip.ErrCommitStoreIsDown
 	}
 	// Expire any inflight reports.
 	r.inflightReports.expire(lggr)
@@ -186,19 +99,19 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 	observationBuildStart := time.Now()
 
 	executableObservations, err := r.getExecutableObservations(ctx, lggr, timestamp, inFlight)
-	measureObservationBuildDuration(timestamp, time.Since(observationBuildStart))
+	ccip.MeasureObservationBuildDuration(timestamp, time.Since(observationBuildStart))
 	if err != nil {
 		return nil, err
 	}
 	// cap observations which fits MaxObservationLength (after serialized)
 	capped := sort.Search(len(executableObservations), func(i int) bool {
 		var encoded []byte
-		encoded, err = NewExecutionObservation(executableObservations[:i+1]).Marshal()
+		encoded, err = ccip.NewExecutionObservation(executableObservations[:i+1]).Marshal()
 		if err != nil {
 			// false makes Search keep looking to the right, always including any "erroring" ObservedMessage and allowing us to detect in the bottom
 			return false
 		}
-		return len(encoded) > MaxObservationLength
+		return len(encoded) > ccip.MaxObservationLength
 	})
 	if err != nil {
 		return nil, err
@@ -206,10 +119,10 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 	executableObservations = executableObservations[:capped]
 	lggr.Infow("Observation", "executableMessages", executableObservations)
 	// Note can be empty
-	return NewExecutionObservation(executableObservations).Marshal()
+	return ccip.NewExecutionObservation(executableObservations).Marshal()
 }
 
-func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context, lggr logger.Logger, timestamp types.ReportTimestamp, inflight []InflightInternalExecutionReport) ([]ObservedMessage, error) {
+func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context, lggr logger.Logger, timestamp types.ReportTimestamp, inflight []InflightInternalExecutionReport) ([]ccip.ObservedMessage, error) {
 	unexpiredReports, err := r.getUnexpiredCommitReports(
 		ctx,
 		r.commitStoreReader,
@@ -221,7 +134,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 	}
 
 	if len(unexpiredReports) == 0 {
-		return []ObservedMessage{}, nil
+		return []ccip.ObservedMessage{}, nil
 	}
 
 	for j := 0; j < len(unexpiredReports); {
@@ -271,7 +184,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 			return r.gasPriceEstimator.GetGasPrice(ctx)
 		})
 
-		measureNumberOfReportsProcessed(timestamp, len(unexpiredReportsPart))
+		ccip.MeasureNumberOfReportsProcessed(timestamp, len(unexpiredReportsPart))
 
 		unexpiredReportsWithSendReqs, err := r.getReportsWithSendRequests(ctx, unexpiredReportsPart)
 		if err != nil {
@@ -309,7 +222,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 			if allMsgsExecutedAndFinalized := rep.allRequestsAreExecutedAndFinalized(); allMsgsExecutedAndFinalized {
 				rootLggr.Infof("Snoozing root %s forever since there are no executable txs anymore", hex.EncodeToString(merkleRoot[:]))
 				r.snoozedRoots.MarkAsExecuted(merkleRoot)
-				incSkippedRequests(reasonAllExecuted)
+				ccip.IncSkippedRequests(ccip.ReasonAllExecuted)
 				continue
 			}
 
@@ -319,7 +232,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 			}
 			if !blessed {
 				rootLggr.Infow("Report is accepted but not blessed")
-				incSkippedRequests(reasonNotBlessed)
+				ccip.IncSkippedRequests(ccip.ReasonNotBlessed)
 				continue
 			}
 
@@ -359,14 +272,14 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 				getDestGasPrice,
 				sourceToDestTokens,
 				destPoolRateLimits)
-			measureBatchBuildDuration(timestamp, time.Since(buildBatchDuration))
+			ccip.MeasureBatchBuildDuration(timestamp, time.Since(buildBatchDuration))
 			if len(batch) != 0 {
 				return batch, nil
 			}
 			r.snoozedRoots.Snooze(merkleRoot)
 		}
 	}
-	return []ObservedMessage{}, nil
+	return []ccip.ObservedMessage{}, nil
 }
 
 // destPoolRateLimits returns a map that consists of the rate limits of each destination token of the provided reports.
@@ -468,11 +381,11 @@ func (r *ExecutionReportingPlugin) buildBatch(
 	gasPriceEstimate cache.LazyFunction[prices.GasPrice],
 	sourceToDestToken map[common.Address]common.Address,
 	destTokenPoolRateLimits map[common.Address]*big.Int,
-) (executableMessages []ObservedMessage) {
+) (executableMessages []ccip.ObservedMessage) {
 	inflightSeqNrs, inflightAggregateValue, maxInflightSenderNonces, inflightTokenAmounts, err := inflightAggregates(inflight, destTokenPricesUSD, sourceToDestToken)
 	if err != nil {
 		lggr.Errorw("Unexpected error computing inflight values", "err", err)
-		return []ObservedMessage{}
+		return []ccip.ObservedMessage{}
 	}
 	availableGas := uint64(r.offchainConfig.BatchGasLimit)
 	expectedNonces := make(map[common.Address]uint64)
@@ -544,7 +457,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 		gasPriceValue, err := gasPriceEstimate()
 		if err != nil {
 			msgLggr.Errorw("Unexpected error fetching gas price estimate", "err", err)
-			return []ObservedMessage{}
+			return []ccip.ObservedMessage{}
 		}
 
 		dstWrappedNativePrice, exists := destTokenPricesUSD[r.destWrappedNative]
@@ -556,7 +469,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 		execCostUsd, err := r.gasPriceEstimator.EstimateMsgCostUSD(gasPriceValue, dstWrappedNativePrice, msg)
 		if err != nil {
 			msgLggr.Errorw("failed to estimate message cost USD", "err", err)
-			return []ObservedMessage{}
+			return []ccip.ObservedMessage{}
 		}
 
 		// calculating the source chain fee, dividing by 1e18 for denomination.
@@ -616,7 +529,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 
 		msgLggr.Infow("Adding msg to batch", "seqNum", msg.SequenceNumber, "nonce", msg.Nonce,
 			"value", msgValue, "aggregateTokenLimit", aggregateTokenLimit)
-		executableMessages = append(executableMessages, NewObservedMessage(msg.SequenceNumber, tokenData))
+		executableMessages = append(executableMessages, ccip.NewObservedMessage(msg.SequenceNumber, tokenData))
 
 		// after message is added to the batch, decrease the available data length
 		availableDataLen -= len(msg.Data)
@@ -842,7 +755,7 @@ func aggregateTokenValue(destTokenPricesUSD map[common.Address]*big.Int, sourceT
 
 // Assumes non-empty report. Messages to execute can span more than one report, but are assumed to be in order of increasing
 // sequence number.
-func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.Logger, observedMessages []ObservedMessage) ([]byte, error) {
+func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.Logger, observedMessages []ccip.ObservedMessage) ([]byte, error) {
 	if err := validateSeqNumbers(ctx, r.commitStoreReader, observedMessages); err != nil {
 		return nil, err
 	}
@@ -905,7 +818,7 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 
 func (r *ExecutionReportingPlugin) Report(ctx context.Context, timestamp types.ReportTimestamp, query types.Query, observations []types.AttributedObservation) (bool, types.Report, error) {
 	lggr := r.lggr.Named("ExecutionReport")
-	parsableObservations := getParsableObservations[ExecutionObservation](lggr, observations)
+	parsableObservations := ccip.GetParsableObservations[ccip.ExecutionObservation](lggr, observations)
 	// Need at least F+1 observations
 	if len(parsableObservations) <= r.F {
 		lggr.Warn("Non-empty observations <= F, need at least F+1 to continue")
@@ -938,7 +851,7 @@ type tallyVal struct {
 	tokenData [][]byte
 }
 
-func calculateObservedMessagesConsensus(observations []ExecutionObservation, f int) ([]ObservedMessage, error) {
+func calculateObservedMessagesConsensus(observations []ccip.ExecutionObservation, f int) ([]ccip.ObservedMessage, error) {
 	tally := make(map[tallyKey]tallyVal)
 	for _, obs := range observations {
 		for seqNr, msgData := range obs.Messages {
@@ -977,9 +890,9 @@ func calculateObservedMessagesConsensus(observations []ExecutionObservation, f i
 		}
 	}
 
-	finalSequenceNumbers := make([]ObservedMessage, 0, len(seqNumTally))
+	finalSequenceNumbers := make([]ccip.ObservedMessage, 0, len(seqNumTally))
 	for seqNr, tallyInfo := range seqNumTally {
-		finalSequenceNumbers = append(finalSequenceNumbers, NewObservedMessage(seqNr, tallyInfo.tokenData))
+		finalSequenceNumbers = append(finalSequenceNumbers, ccip.NewObservedMessage(seqNr, tallyInfo.tokenData))
 	}
 	// buildReport expects sorted sequence numbers (tally map is non-deterministic).
 	sort.Slice(finalSequenceNumbers, func(i, j int) bool {

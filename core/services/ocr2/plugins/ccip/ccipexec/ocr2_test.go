@@ -1,4 +1,4 @@
-package ccip
+package ccipexec
 
 import (
 	"bytes"
@@ -24,6 +24,7 @@ import (
 
 	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -168,7 +169,7 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 		name            string
 		f               int
 		committedSeqNum uint64
-		observations    []ExecutionObservation
+		observations    []ccip.ExecutionObservation
 
 		expectingSomeReport bool
 		expectedReport      ccipdata.ExecReport
@@ -178,9 +179,9 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 			name:            "not enough observations to form consensus",
 			f:               5,
 			committedSeqNum: 5,
-			observations: []ExecutionObservation{
-				{Messages: map[uint64]MsgData{3: {}, 4: {}}},
-				{Messages: map[uint64]MsgData{3: {}, 4: {}}},
+			observations: []ccip.ExecutionObservation{
+				{Messages: map[uint64]ccip.MsgData{3: {}, 4: {}}},
+				{Messages: map[uint64]ccip.MsgData{3: {}, 4: {}}},
 			},
 			expectingSomeErr:    false,
 			expectingSomeReport: false,
@@ -189,7 +190,7 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 			name:                "zero observations",
 			f:                   0,
 			committedSeqNum:     5,
-			observations:        []ExecutionObservation{},
+			observations:        []ccip.ExecutionObservation{},
 			expectingSomeErr:    false,
 			expectingSomeReport: false,
 		},
@@ -322,9 +323,9 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 	// ensure "naive" full report would be bigger than limit
 	assert.Greater(t, len(encodedReport), MaxExecutionReportLength, "full execution report length")
 
-	observations := make([]ObservedMessage, len(executionReport.Messages))
+	observations := make([]ccip.ObservedMessage, len(executionReport.Messages))
 	for i, msg := range executionReport.Messages {
-		observations[i] = NewObservedMessage(msg.SequenceNumber, executionReport.OffchainTokenData[i])
+		observations[i] = ccip.NewObservedMessage(msg.SequenceNumber, executionReport.OffchainTokenData[i])
 	}
 
 	// ensure that buildReport should cap the built report to fit in MaxExecutionReportLength
@@ -435,7 +436,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		offRampNoncesBySender    map[common.Address]uint64
 		destRateLimits           map[common.Address]*big.Int
 		srcToDestTokens          map[common.Address]common.Address
-		expectedSeqNrs           []ObservedMessage
+		expectedSeqNrs           []ccip.ObservedMessage
 	}{
 		{
 			name:                  "single message no tokens",
@@ -446,7 +447,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			srcPrices:             map[common.Address]*big.Int{srcNative: big.NewInt(1)},
 			dstPrices:             map[common.Address]*big.Int{destNative: big.NewInt(1)},
 			offRampNoncesBySender: map[common.Address]uint64{sender1: 0},
-			expectedSeqNrs:        []ObservedMessage{{SeqNr: uint64(1)}},
+			expectedSeqNrs:        []ccip.ObservedMessage{{SeqNr: uint64(1)}},
 		},
 		{
 			name:                  "executed non finalized messages should be skipped",
@@ -590,7 +591,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			srcPrices:             map[common.Address]*big.Int{srcNative: big.NewInt(1)},
 			dstPrices:             map[common.Address]*big.Int{destNative: big.NewInt(1)},
 			offRampNoncesBySender: map[common.Address]uint64{sender1: 0},
-			expectedSeqNrs:        []ObservedMessage{{SeqNr: uint64(10)}, {SeqNr: uint64(12)}},
+			expectedSeqNrs:        []ccip.ObservedMessage{{SeqNr: uint64(10)}, {SeqNr: uint64(12)}},
 		},
 	}
 
@@ -1024,13 +1025,13 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 
 func Test_calculateObservedMessagesConsensus(t *testing.T) {
 	type args struct {
-		observations []ExecutionObservation
+		observations []ccip.ExecutionObservation
 		f            int
 	}
 	tests := []struct {
 		name string
 		args args
-		want []ObservedMessage
+		want []ccip.ObservedMessage
 	}{
 		{
 			name: "no observations",
@@ -1038,27 +1039,27 @@ func Test_calculateObservedMessagesConsensus(t *testing.T) {
 				observations: nil,
 				f:            0,
 			},
-			want: []ObservedMessage{},
+			want: []ccip.ObservedMessage{},
 		},
 		{
 			name: "common path",
 			args: args{
-				observations: []ExecutionObservation{
+				observations: []ccip.ExecutionObservation{
 					{
-						Messages: map[uint64]MsgData{
+						Messages: map[uint64]ccip.MsgData{
 							1: {TokenData: [][]byte{{0x1}, {0x1}, {0x1}}},
 							2: {TokenData: [][]byte{{0x2}, {0x2}, {0x2}}},
 						},
 					},
 					{
-						Messages: map[uint64]MsgData{
+						Messages: map[uint64]ccip.MsgData{
 							1: {TokenData: [][]byte{{0x1}, {0x1}, {0xff}}}, // different token data - should not be picked
 							2: {TokenData: [][]byte{{0x2}, {0x2}, {0x2}}},
 							3: {TokenData: [][]byte{{0x3}, {0x3}, {0x3}}},
 						},
 					},
 					{
-						Messages: map[uint64]MsgData{
+						Messages: map[uint64]ccip.MsgData{
 							1: {TokenData: [][]byte{{0x1}, {0x1}, {0x1}}},
 							2: {TokenData: [][]byte{{0x2}, {0x2}, {0x2}}},
 						},
@@ -1066,52 +1067,52 @@ func Test_calculateObservedMessagesConsensus(t *testing.T) {
 				},
 				f: 1,
 			},
-			want: []ObservedMessage{
-				{SeqNr: 1, MsgData: MsgData{TokenData: [][]byte{{0x1}, {0x1}, {0x1}}}},
-				{SeqNr: 2, MsgData: MsgData{TokenData: [][]byte{{0x2}, {0x2}, {0x2}}}},
+			want: []ccip.ObservedMessage{
+				{SeqNr: 1, MsgData: ccip.MsgData{TokenData: [][]byte{{0x1}, {0x1}, {0x1}}}},
+				{SeqNr: 2, MsgData: ccip.MsgData{TokenData: [][]byte{{0x2}, {0x2}, {0x2}}}},
 			},
 		},
 		{
 			name: "similar token data",
 			args: args{
-				observations: []ExecutionObservation{
+				observations: []ccip.ExecutionObservation{
 					{
-						Messages: map[uint64]MsgData{
+						Messages: map[uint64]ccip.MsgData{
 							1: {TokenData: [][]byte{{0x1}, {0x1}, {0x1}}},
 						},
 					},
 					{
-						Messages: map[uint64]MsgData{
+						Messages: map[uint64]ccip.MsgData{
 							1: {TokenData: [][]byte{{0x1}, {0x1, 0x1}}},
 						},
 					},
 					{
-						Messages: map[uint64]MsgData{
+						Messages: map[uint64]ccip.MsgData{
 							1: {TokenData: [][]byte{{0x1}, {0x1, 0x1}}},
 						},
 					},
 				},
 				f: 1,
 			},
-			want: []ObservedMessage{
-				{SeqNr: 1, MsgData: MsgData{TokenData: [][]byte{{0x1}, {0x1, 0x1}}}},
+			want: []ccip.ObservedMessage{
+				{SeqNr: 1, MsgData: ccip.MsgData{TokenData: [][]byte{{0x1}, {0x1, 0x1}}}},
 			},
 		},
 		{
 			name: "results should be deterministic",
 			args: args{
-				observations: []ExecutionObservation{
-					{Messages: map[uint64]MsgData{1: {TokenData: [][]byte{{0x2}}}}},
-					{Messages: map[uint64]MsgData{1: {TokenData: [][]byte{{0x2}}}}},
-					{Messages: map[uint64]MsgData{1: {TokenData: [][]byte{{0x1}}}}},
-					{Messages: map[uint64]MsgData{1: {TokenData: [][]byte{{0x3}}}}},
-					{Messages: map[uint64]MsgData{1: {TokenData: [][]byte{{0x3}}}}},
-					{Messages: map[uint64]MsgData{1: {TokenData: [][]byte{{0x1}}}}},
+				observations: []ccip.ExecutionObservation{
+					{Messages: map[uint64]ccip.MsgData{1: {TokenData: [][]byte{{0x2}}}}},
+					{Messages: map[uint64]ccip.MsgData{1: {TokenData: [][]byte{{0x2}}}}},
+					{Messages: map[uint64]ccip.MsgData{1: {TokenData: [][]byte{{0x1}}}}},
+					{Messages: map[uint64]ccip.MsgData{1: {TokenData: [][]byte{{0x3}}}}},
+					{Messages: map[uint64]ccip.MsgData{1: {TokenData: [][]byte{{0x3}}}}},
+					{Messages: map[uint64]ccip.MsgData{1: {TokenData: [][]byte{{0x1}}}}},
 				},
 				f: 1,
 			},
-			want: []ObservedMessage{
-				{SeqNr: 1, MsgData: MsgData{TokenData: [][]byte{{0x3}}}},
+			want: []ccip.ObservedMessage{
+				{SeqNr: 1, MsgData: ccip.MsgData{TokenData: [][]byte{{0x3}}}},
 			},
 		},
 	}
