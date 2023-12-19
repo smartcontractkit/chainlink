@@ -86,7 +86,7 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 	fmt.Println("built agg")
 
-	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*10, l)
 
 	require.NoError(t, err, "Error starting new OCR2 round")
 	fmt.Println("round done")
@@ -105,7 +105,7 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Println("adapter")
 
-	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*10, l)
 	require.NoError(t, err)
 	fmt.Println("new round 2")
 
