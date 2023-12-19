@@ -789,7 +789,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		return true
 	}
-	// convert ids to slice of int64
+
 	txIDs := make([]int64, len(ids))
 	for i, id := range ids {
 		txIDs[i] = id.Int64()
@@ -806,7 +806,31 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (int64, error) {
-	return ms.txStore.PruneUnstartedTxQueue(ctx, queueSize, subject)
+	// Persist to persistent storage
+	n, err := ms.txStore.PruneUnstartedTxQueue(ctx, queueSize, subject)
+	if err != nil {
+		return 0, err
+	}
+
+	// Update in memory store
+	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if !tx.Subject.Valid {
+			return false
+		}
+
+		return tx.Subject.UUID == subject
+	}
+	var m int
+	for _, as := range ms.addressStates {
+		m += as.PruneUnstartedTxQueue(queueSize, filter)
+	}
+
+	if n != int64(m) {
+		// TODO: WHAT SHOULD HAPPEN HERE IF THE COUNTS DON'T MATCH?
+		return n, fmt.Errorf("prune_unstarted_tx_queue: inmemory prune(%d) does not match persistence(%d) ", m, n)
+	}
+
+	return n, nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
 	return ms.txStore.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, chainID)
