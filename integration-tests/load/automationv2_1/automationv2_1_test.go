@@ -506,7 +506,7 @@ func TestLogTrigger(t *testing.T) {
 
 	l.Info().Msg("Starting load generators")
 	startTime := time.Now()
-	err, ts := sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
+	ts, err := sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), "now",
 		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, slack.MsgOptionBlocks())
 	if err != nil {
@@ -626,7 +626,7 @@ func TestLogTrigger(t *testing.T) {
 		avg, median, ninetyPct, ninetyNinePct, maximum, len(allUpkeepDelays), numberOfEventsEmitted,
 		eventsMissed, percentMissed, testDuration.String())
 
-	err, _ = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
+	_, err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(time.Now().UnixMilli(), 10),
 		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")}, slack.MsgOptionTS(ts))
 	if err != nil {

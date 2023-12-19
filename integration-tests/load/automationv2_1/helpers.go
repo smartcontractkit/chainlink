@@ -31,7 +31,7 @@ func extraBlockWithText(text string) slack.Block {
 }
 
 func sendSlackNotification(header string, l zerolog.Logger, namespace string, numberOfNodes,
-	startingTime string, endingTime string, extraBlocks []slack.Block, msgOption slack.MsgOption) (error, string) {
+	startingTime string, endingTime string, extraBlocks []slack.Block, msgOption slack.MsgOption) (string, error) {
 	slackClient := slack.New(reportModel.SlackAPIKey)
 
 	headerText := ":chainlink-keepers: Automation Load Test " + header + " :white_check_mark:"
@@ -67,5 +67,5 @@ func sendSlackNotification(header string, l zerolog.Logger, namespace string, nu
 
 	ts, err := reportModel.SendSlackMessage(slackClient, slack.MsgOptionBlocks(notificationBlocks...), msgOption)
 	l.Info().Str("ts", ts).Msg("Sent Slack Message")
-	return err, ts
+	return ts, err
 }
