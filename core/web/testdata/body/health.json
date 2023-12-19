@@ -110,18 +110,18 @@
     },
     {
       "type": "checks",
-      "id": "Mercury.WSRPCPool",
+      "id": "Mailbox.Monitor",
       "attributes": {
-        "name": "Mercury.WSRPCPool",
+        "name": "Mailbox.Monitor",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Monitor",
+      "id": "Mercury.WSRPCPool",
       "attributes": {
-        "name": "Monitor",
+        "name": "Mercury.WSRPCPool",
         "status": "passing",
         "output": ""
       }
