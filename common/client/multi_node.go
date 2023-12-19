@@ -563,9 +563,9 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	for _, n := range c.allNodes {
 		// Parallel send to all nodes.
 		// Release the caller on the success of any node or on the error from the main.
-		// This way, we improve performance for cases when the main node is degraded and would eventually return time out.
-		// At the same time, we expect that only the main node is capable of report trustworthy errors.
-		// It is purely a "best effort" send.
+		// This way, we:
+		// * prefer potentially the healthiest node to report the error;
+		// * improve performance for cases when the main node is degraded and would eventually return time out.
 		// Resource is not unbounded because the default context has a timeout.
 		ok := c.IfNotStopped(func() {
 			// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
