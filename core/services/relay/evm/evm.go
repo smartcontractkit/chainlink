@@ -490,7 +490,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 	medianProvider := medianProvider{
 		configWatcher:       configWatcher,
-		reportCodec:         reportCodec, // loggingCodec{c: reportCodec, l: lggr},
+		reportCodec:         reportCodec,
 		contractTransmitter: contractTransmitter,
 		medianContract:      medianContract,
 	}
