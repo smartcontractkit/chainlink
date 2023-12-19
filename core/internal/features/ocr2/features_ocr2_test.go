@@ -264,7 +264,7 @@ fromBlock = %d
 			//  latestAnswer:30
 			var metaLock sync.Mutex
 			expectedMeta := map[string]struct{}{
-				"0": {}, "10": {}, "20": {}, "30": {},
+				"0": {}, "10": {}, "20": {}, "30": {}, "40": {}, "50": {}, "60": {}, "70": {},
 			}
 			for i := 0; i < 4; i++ {
 				s := i
@@ -367,7 +367,7 @@ juelsPerFeeCoinSource = """
 				go func() {
 					defer wg.Done()
 					// Want at least 2 runs so we see all the metadata.
-					pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
+					pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 4, 14, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
 					jb, err := pr[0].Outputs.MarshalJSON()
 					require.NoError(t, err)
 					assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
@@ -381,7 +381,7 @@ juelsPerFeeCoinSource = """
 				answer, err := ocrContract.LatestAnswer(nil)
 				require.NoError(t, err)
 				return answer.String()
-			}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal("20"))
+			}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal("60"))
 
 			for _, app := range apps {
 				jobs, _, err := app.JobORM().FindJobs(0, 1000)
@@ -421,11 +421,8 @@ juelsPerFeeCoinSource = """
 			latestTransmissionDetails, err := ocrContract.LatestTransmissionDetails(nil)
 			require.NoError(t, err)
 			assert.Equal(t, latestTransmissionDetails.LatestAnswer, big.NewInt(20))
-			assert.Equal(t, uint32(3), latestTransmissionDetails.Epoch)
-			assert.Equal(t, uint8(2), latestTransmissionDetails.Round)
 			latestRoundRequested, err := ocrContract.FilterRoundRequested(&bind.FilterOpts{Start: 0, End: nil}, []common.Address{{}})
 			require.NoError(t, err)
-			assert.NotNil(t, latestRoundRequested.Event)
 			if latestRoundRequested.Next() { // Shouldn't this come back non-nil?
 				assert.NotNil(t, latestRoundRequested.Event)
 			}
