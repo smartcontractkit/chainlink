@@ -2,6 +2,7 @@ package ccipdata
 
 import (
 	"context"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -26,10 +27,11 @@ type USDCReader interface {
 }
 
 type USDCReaderImpl struct {
-	usdcMessageSent common.Hash
-	lp              logpoller.LogPoller
-	filter          logpoller.Filter
-	lggr            logger.Logger
+	usdcMessageSent    common.Hash
+	lp                 logpoller.LogPoller
+	filter             logpoller.Filter
+	lggr               logger.Logger
+	transmitterAddress common.Address
 }
 
 func (u *USDCReaderImpl) Close(qopts ...pg.QOpt) error {
@@ -65,6 +67,7 @@ func parseUSDCMessageSent(logData []byte) ([]byte, error) {
 func (u *USDCReaderImpl) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error) {
 	logs, err := u.lp.IndexedLogsByTxHash(
 		u.usdcMessageSent,
+		u.transmitterAddress,
 		txHash,
 		pg.WithParentCtx(ctx),
 	)
@@ -90,9 +93,10 @@ func NewUSDCReader(lggr logger.Logger, transmitter common.Address, lp logpoller.
 		Addresses: []common.Address{transmitter},
 	}
 	return &USDCReaderImpl{
-		lggr:            lggr,
-		lp:              lp,
-		usdcMessageSent: eventSig,
-		filter:          filter,
+		lggr:               lggr,
+		lp:                 lp,
+		usdcMessageSent:    eventSig,
+		filter:             filter,
+		transmitterAddress: transmitter,
 	}, nil
 }

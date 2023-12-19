@@ -6,11 +6,11 @@ import (
 	"github.com/pkg/errors"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func GetChainFromSpec(spec *job.OCR2OracleSpec, chainSet evm.LegacyChainContainer) (evm.Chain, int64, error) {
+func GetChainFromSpec(spec *job.OCR2OracleSpec, chainSet legacyevm.LegacyChainContainer) (legacyevm.Chain, int64, error) {
 	chainIDInterface, ok := spec.RelayConfig["chainID"]
 	if !ok {
 		return nil, 0, errors.New("chainID must be provided in relay config")
@@ -19,7 +19,7 @@ func GetChainFromSpec(spec *job.OCR2OracleSpec, chainSet evm.LegacyChainContaine
 	return GetChainByChainID(chainSet, destChainID)
 }
 
-func GetChainByChainSelector(chainSet evm.LegacyChainContainer, chainSelector uint64) (evm.Chain, int64, error) {
+func GetChainByChainSelector(chainSet legacyevm.LegacyChainContainer, chainSelector uint64) (legacyevm.Chain, int64, error) {
 	chainID, err := chainselectors.ChainIdFromSelector(chainSelector)
 	if err != nil {
 		return nil, 0, err
@@ -27,7 +27,7 @@ func GetChainByChainSelector(chainSet evm.LegacyChainContainer, chainSelector ui
 	return GetChainByChainID(chainSet, chainID)
 }
 
-func GetChainByChainID(chainSet evm.LegacyChainContainer, chainID uint64) (evm.Chain, int64, error) {
+func GetChainByChainID(chainSet legacyevm.LegacyChainContainer, chainID uint64) (legacyevm.Chain, int64, error) {
 	chain, err := chainSet.Get(strconv.FormatUint(chainID, 10))
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "chain not found in chainset")

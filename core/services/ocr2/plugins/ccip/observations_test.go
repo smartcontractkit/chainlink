@@ -6,16 +6,15 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
-
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
@@ -74,13 +73,13 @@ func TestCommitObservationJsonDeserialization(t *testing.T) {
 
 	json := `{
 		"interval": {
-			"Min":1, 
-			"Max":12 
+			"Min":1,
+			"Max":12
 		},
 		"tokensPerFeeCoin": {
 			"0x0000000000000000000000000000000000000001": 1
 		},
-		"sourceGasPrice": 3 
+		"sourceGasPrice": 3
 	}`
 
 	observations := GetParsableObservations[CommitObservation](logger.TestLogger(t), []types.AttributedObservation{{Observation: []byte(json)}})
@@ -98,9 +97,9 @@ func TestExecutionObservationJsonDeserialization(t *testing.T) {
 	// ["Yw=="] is "c"
 	json := `{
 		"messages": {
-			"2":{"tokenData":["YQ=="]}, 
-			"1":{"tokenData":["Yw=="]},  
-			"2":{"tokenData":["Yw=="]}  
+			"2":{"tokenData":["YQ=="]},
+			"1":{"tokenData":["Yw=="]},
+			"2":{"tokenData":["Yw=="]}
 		}
 	}`
 

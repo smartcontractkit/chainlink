@@ -56,7 +56,8 @@ func (c *LogpollerEventsBased[T]) Get(ctx context.Context, syncFunc func(ctx con
 	}
 
 	if hasExpired {
-		latestValue, err := syncFunc(ctx)
+		var latestValue T
+		latestValue, err = syncFunc(ctx)
 		if err != nil {
 			return empty, fmt.Errorf("sync func: %w", err)
 		}
@@ -131,7 +132,6 @@ func (c *LogpollerEventsBased[T]) set(value T, blockNum int64) {
 
 	c.value = value
 	c.lastChangeBlock = blockNum
-	return
 }
 
 func (c *LogpollerEventsBased[T]) get() T {

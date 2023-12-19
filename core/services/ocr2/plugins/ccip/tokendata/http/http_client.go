@@ -31,7 +31,7 @@ func (s *HttpClient) Get(ctx context.Context, url string, timeout time.Duration)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		// Only report API timeout if child context timed out.
-		if errors.Is(err, context.DeadlineExceeded) && context.Cause(timeoutCtx) == tokendata.ErrTimeout {
+		if errors.Is(err, context.DeadlineExceeded) && errors.Is(context.Cause(timeoutCtx), tokendata.ErrTimeout) {
 			return nil, http.StatusRequestTimeout, tokendata.ErrTimeout
 		}
 		// On error, res is nil in most cases, do not read res.StatusCode, return BadRequest

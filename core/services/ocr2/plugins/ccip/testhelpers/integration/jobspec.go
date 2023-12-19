@@ -1,21 +1,143 @@
 package integrationtesthelpers
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"text/template"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+// OCR2TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
+// and provide their answers
+type OCR2TaskJobSpec struct {
+	Name              string `toml:"name"`
+	JobType           string `toml:"type"`
+	MaxTaskDuration   string `toml:"maxTaskDuration"` // Optional
+	ForwardingAllowed bool   `toml:"forwardingAllowed"`
+	OCR2OracleSpec    job.OCR2OracleSpec
+	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
+}
+
+// Type returns the type of the job
+func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
+
+// String representation of the job
+func (o *OCR2TaskJobSpec) String() (string, error) {
+	var feedID string
+	if o.OCR2OracleSpec.FeedID != nil {
+		feedID = o.OCR2OracleSpec.FeedID.Hex()
+	}
+	specWrap := struct {
+		Name                     string
+		JobType                  string
+		MaxTaskDuration          string
+		ForwardingAllowed        bool
+		ContractID               string
+		FeedID                   string
+		Relay                    string
+		PluginType               string
+		RelayConfig              map[string]interface{}
+		PluginConfig             map[string]interface{}
+		P2PV2Bootstrappers       []string
+		OCRKeyBundleID           string
+		MonitoringEndpoint       string
+		TransmitterID            string
+		BlockchainTimeout        time.Duration
+		TrackerSubscribeInterval time.Duration
+		TrackerPollInterval      time.Duration
+		ContractConfirmations    uint16
+		ObservationSource        string
+	}{
+		Name:                  o.Name,
+		JobType:               o.JobType,
+		ForwardingAllowed:     o.ForwardingAllowed,
+		MaxTaskDuration:       o.MaxTaskDuration,
+		ContractID:            o.OCR2OracleSpec.ContractID,
+		FeedID:                feedID,
+		Relay:                 string(o.OCR2OracleSpec.Relay),
+		PluginType:            string(o.OCR2OracleSpec.PluginType),
+		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
+		PluginConfig:          o.OCR2OracleSpec.PluginConfig,
+		P2PV2Bootstrappers:    o.OCR2OracleSpec.P2PV2Bootstrappers,
+		OCRKeyBundleID:        o.OCR2OracleSpec.OCRKeyBundleID.String,
+		MonitoringEndpoint:    o.OCR2OracleSpec.MonitoringEndpoint.String,
+		TransmitterID:         o.OCR2OracleSpec.TransmitterID.String,
+		BlockchainTimeout:     o.OCR2OracleSpec.BlockchainTimeout.Duration(),
+		ContractConfirmations: o.OCR2OracleSpec.ContractConfigConfirmations,
+		TrackerPollInterval:   o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
+		ObservationSource:     o.ObservationSource,
+	}
+	ocr2TemplateString := `
+type                                   = "{{ .JobType }}"
+name                                   = "{{.Name}}"
+forwardingAllowed                      = {{.ForwardingAllowed}}
+{{if .MaxTaskDuration}}
+maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
+{{if .PluginType}}
+pluginType                             = "{{ .PluginType }}" {{end}}
+relay                                  = "{{.Relay}}"
+schemaVersion                          = 1
+contractID                             = "{{.ContractID}}"
+{{if .FeedID}}
+feedID                                 = "{{.FeedID}}"
+{{end}}
+{{if eq .JobType "offchainreporting2" }}
+ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
+{{if eq .JobType "offchainreporting2" }}
+transmitterID                          = "{{.TransmitterID}}" {{end}}
+{{if .BlockchainTimeout}}
+blockchainTimeout                      = "{{.BlockchainTimeout}}"
+{{end}}
+{{if .ContractConfirmations}}
+contractConfigConfirmations            = {{.ContractConfirmations}}
+{{end}}
+{{if .TrackerPollInterval}}
+contractConfigTrackerPollInterval      = "{{.TrackerPollInterval}}"
+{{end}}
+{{if .TrackerSubscribeInterval}}
+contractConfigTrackerSubscribeInterval = "{{.TrackerSubscribeInterval}}"
+{{end}}
+{{if .P2PV2Bootstrappers}}
+p2pv2Bootstrappers                     = [{{range .P2PV2Bootstrappers}}"{{.}}",{{end}}]{{end}}
+{{if .MonitoringEndpoint}}
+monitoringEndpoint                     = "{{.MonitoringEndpoint}}" {{end}}
+{{if .ObservationSource}}
+observationSource                      = """
+{{.ObservationSource}}
+"""{{end}}
+{{if eq .JobType "offchainreporting2" }}
+[pluginConfig]{{range $key, $value := .PluginConfig}}
+{{$key}} = {{$value}}{{end}}
+{{end}}
+[relayConfig]{{range $key, $value := .RelayConfig}}
+{{$key}} = {{$value}}{{end}}
+`
+	return MarshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
+}
+
+// marshallTemplate Helper to marshall templates
+func MarshallTemplate(jobSpec interface{}, name, templateString string) (string, error) {
+	var buf bytes.Buffer
+	tmpl, err := template.New(name).Parse(templateString)
+	if err != nil {
+		return "", err
+	}
+	err = tmpl.Execute(&buf, jobSpec)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), err
+}
 
 type JobType string
 
@@ -78,7 +200,7 @@ func (params CCIPJobSpecParams) ValidateExecJobSpec() error {
 
 // CommitJobSpec generates template for CCIP-relay job spec.
 // OCRKeyBundleID,TransmitterID need to be set from the calling function
-func (params CCIPJobSpecParams) CommitJobSpec() (*client.OCR2TaskJobSpec, error) {
+func (params CCIPJobSpecParams) CommitJobSpec() (*OCR2TaskJobSpec, error) {
 	err := params.ValidateCommitJobSpec()
 	if err != nil {
 		return nil, err
@@ -106,7 +228,7 @@ func (params CCIPJobSpecParams) CommitJobSpec() (*client.OCR2TaskJobSpec, error)
 	if params.SourceStartBlock > 0 {
 		ocrSpec.PluginConfig["sourceStartBlock"] = params.SourceStartBlock
 	}
-	return &client.OCR2TaskJobSpec{
+	return &OCR2TaskJobSpec{
 		OCR2OracleSpec: ocrSpec,
 		JobType:        "offchainreporting2",
 		Name:           JobName(Commit, params.SourceChainName, params.DestChainName, params.Version),
@@ -115,7 +237,7 @@ func (params CCIPJobSpecParams) CommitJobSpec() (*client.OCR2TaskJobSpec, error)
 
 // ExecutionJobSpec generates template for CCIP-execution job spec.
 // OCRKeyBundleID,TransmitterID need to be set from the calling function
-func (params CCIPJobSpecParams) ExecutionJobSpec() (*client.OCR2TaskJobSpec, error) {
+func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 	err := params.ValidateExecJobSpec()
 	if err != nil {
 		return nil, err
@@ -145,14 +267,14 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*client.OCR2TaskJobSpec, err
 		ocrSpec.PluginConfig["USDCConfig.SourceMessageTransmitterAddress"] = fmt.Sprintf("\"%s\"", utils.RandomAddress().String())
 		ocrSpec.PluginConfig["USDCConfig.AttestationAPITimeoutSeconds"] = 5
 	}
-	return &client.OCR2TaskJobSpec{
+	return &OCR2TaskJobSpec{
 		OCR2OracleSpec: ocrSpec,
 		JobType:        "offchainreporting2",
 		Name:           JobName(Execution, params.SourceChainName, params.DestChainName, params.Version),
 	}, err
 }
 
-func (params CCIPJobSpecParams) BootstrapJob(contractID string) *client.OCR2TaskJobSpec {
+func (params CCIPJobSpecParams) BootstrapJob(contractID string) *OCR2TaskJobSpec {
 	bootstrapSpec := job.OCR2OracleSpec{
 		ContractID:                        contractID,
 		Relay:                             relay.EVM,
@@ -162,7 +284,7 @@ func (params CCIPJobSpecParams) BootstrapJob(contractID string) *client.OCR2Task
 			"chainID": params.DestEvmChainId,
 		},
 	}
-	return &client.OCR2TaskJobSpec{
+	return &OCR2TaskJobSpec{
 		Name:           fmt.Sprintf("%s-%s", Boostrap, params.DestChainName),
 		JobType:        "bootstrap",
 		OCR2OracleSpec: bootstrapSpec,
