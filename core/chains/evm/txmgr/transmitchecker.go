@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -23,7 +24,6 @@ import (
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type (
@@ -252,7 +252,7 @@ func (v *VRFV1Checker) Check(
 			"meta", tx.Meta,
 			"reqID", reqID)
 		return nil
-	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+	} else if bytes.IsEmpty(callback.SeedAndBlockNum[:]) {
 		// Request already fulfilled
 		l.Infow("Request already fulfilled",
 			"err", err,
@@ -344,7 +344,7 @@ func (v *VRFV2Checker) Check(
 			"blockNumber", h.Number,
 		)
 		return nil
-	} else if utils.IsEmpty(callback[:]) {
+	} else if bytes.IsEmpty(callback[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled and we should skip it.
 		l.Infow("Request already fulfilled.",
 			"ethTxID", tx.ID,

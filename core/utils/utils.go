@@ -218,11 +218,6 @@ func Sha256(in string) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-// JustError takes a tuple and returns the last entry, the error.
-func JustError(_ interface{}, err error) error {
-	return err
-}
-
 // WaitGroupChan creates a channel that closes when the provided sync.WaitGroup is done.
 func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	chAwait := make(chan struct{})
@@ -409,20 +404,6 @@ func (q *BoundedPriorityQueue[T]) Empty() bool {
 		}
 	}
 	return true
-}
-
-// WrapIfError decorates an error with the given message.  It is intended to
-// be used with `defer` statements, like so:
-//
-//	func SomeFunction() (err error) {
-//	    defer WrapIfError(&err, "error in SomeFunction:")
-//
-//	    ...
-//	}
-func WrapIfError(err *error, msg string) {
-	if *err != nil {
-		*err = pkgerrors.Wrap(*err, msg)
-	}
 }
 
 // TickerBase is an interface for pausable tickers.
@@ -661,16 +642,6 @@ func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
 	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
 	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
 		"\n\n"
-}
-
-// AllEqual returns true iff all the provided elements are equal to each other.
-func AllEqual[T comparable](elems ...T) bool {
-	for i := 1; i < len(elems); i++ {
-		if elems[i] != elems[0] {
-			return false
-		}
-	}
-	return true
 }
 
 // ConcatBytes appends a bunch of byte arrays into a single byte array
