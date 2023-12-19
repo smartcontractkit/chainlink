@@ -181,17 +181,28 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) close(
 	clear(as.idempotencyKeyToTx)
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UnstartedCount() int {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTransactionsByState(txState txmgrtypes.TxState) int {
 	as.RLock()
 	defer as.RUnlock()
 
-	return as.unstarted.Len()
-}
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UnconfirmedCount() int {
-	as.RLock()
-	defer as.RUnlock()
+	switch txState {
+	case TxUnstarted:
+		return as.unstarted.Len()
+	case TxInProgress:
+		if as.inprogress != nil {
+			return 1
+		}
+	case TxUnconfirmed:
+		return len(as.unconfirmed)
+	case TxConfirmedMissingReceipt:
+		return len(as.confirmedMissingReceipt)
+	case TxConfirmed:
+		return len(as.confirmed)
+	case TxFatalError:
+		return len(as.fatalErrored)
+	}
 
-	return len(as.unconfirmed)
+	return 0
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithIdempotencyKey(key string) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
