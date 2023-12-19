@@ -11,11 +11,11 @@ import (
 type skipReason string
 
 const (
-	// reasonNotBlessed describes when a report is skipped due to not being blessed.
-	reasonNotBlessed skipReason = "not blessed"
+	// ReasonNotBlessed describes when a report is skipped due to not being blessed.
+	ReasonNotBlessed skipReason = "not blessed"
 
-	// reasonAllExecuted describes when a report is skipped due to messages being all executed.
-	reasonAllExecuted skipReason = "all executed"
+	// ReasonAllExecuted describes when a report is skipped due to messages being all executed.
+	ReasonAllExecuted skipReason = "all executed"
 )
 
 var (
@@ -63,11 +63,11 @@ func measureExecPluginDuration(histogram *prometheus.HistogramVec, timestamp typ
 		Observe(float64(duration))
 }
 
-func measureObservationBuildDuration(timestamp types.ReportTimestamp, duration time.Duration) {
+func MeasureObservationBuildDuration(timestamp types.ReportTimestamp, duration time.Duration) {
 	measureExecPluginDuration(execPluginObservationBuildDuration, timestamp, duration)
 }
 
-func measureBatchBuildDuration(timestamp types.ReportTimestamp, duration time.Duration) {
+func MeasureBatchBuildDuration(timestamp types.ReportTimestamp, duration time.Duration) {
 	measureExecPluginDuration(execPluginBatchBuildDuration, timestamp, duration)
 }
 
@@ -75,13 +75,13 @@ func measureReportsIterationDuration(timestamp types.ReportTimestamp, duration t
 	measureExecPluginDuration(execPluginReportsIterationDuration, timestamp, duration)
 }
 
-func measureNumberOfReportsProcessed(timestamp types.ReportTimestamp, count int) {
+func MeasureNumberOfReportsProcessed(timestamp types.ReportTimestamp, count int) {
 	execPluginReportsCount.
 		WithLabelValues(timestampToLabels(timestamp)...).
 		Set(float64(count))
 }
 
-func incSkippedRequests(reason skipReason) {
+func IncSkippedRequests(reason skipReason) {
 	metricReportSkipped.WithLabelValues(string(reason)).Inc()
 }
 

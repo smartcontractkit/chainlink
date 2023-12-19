@@ -1,4 +1,4 @@
-package ccip
+package ccipcommit
 
 import (
 	"context"
@@ -12,9 +12,10 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -31,12 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-type BackfillArgs struct {
-	sourceLP, destLP                 logpoller.LogPoller
-	sourceStartBlock, destStartBlock uint64
-}
-
-func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Runner, chainSet evm.LegacyChainContainer, qopts ...pg.QOpt) (*CommitPluginStaticConfig, *BackfillArgs, error) {
+func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Runner, chainSet evm.LegacyChainContainer, qopts ...pg.QOpt) (*CommitPluginStaticConfig, *ccipcommon.BackfillArgs, error) {
 	if jb.OCR2OracleSpec == nil {
 		return nil, nil, errors.New("spec is nil")
 	}
@@ -98,9 +94,9 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 	}
 
 	// Prom wrappers
-	onRampReader = observability.NewObservedOnRampReader(onRampReader, sourceChainID, CommitPluginLabel)
-	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, CommitPluginLabel)
-	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, CommitPluginLabel)
+	onRampReader = observability.NewObservedOnRampReader(onRampReader, sourceChainID, ccip.CommitPluginLabel)
+	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, ccip.CommitPluginLabel)
+	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.CommitPluginLabel)
 
 	lggr.Infow("NewCommitServices",
 		"pluginConfig", pluginConfig,
@@ -118,12 +114,12 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 			sourceChainSelector:   staticConfig.SourceChainSelector,
 			destChainSelector:     staticConfig.ChainSelector,
 			commitStore:           commitStoreReader,
-			priceRegistryProvider: ccipdataprovider.NewEvmPriceRegistry(destChain.LogPoller(), destChain.Client(), commitLggr, CommitPluginLabel),
-		}, &BackfillArgs{
-			sourceLP:         sourceChain.LogPoller(),
-			destLP:           destChain.LogPoller(),
-			sourceStartBlock: pluginConfig.SourceStartBlock,
-			destStartBlock:   pluginConfig.DestStartBlock,
+			priceRegistryProvider: ccipdataprovider.NewEvmPriceRegistry(destChain.LogPoller(), destChain.Client(), commitLggr, ccip.CommitPluginLabel),
+		}, &ccipcommon.BackfillArgs{
+			SourceLP:         sourceChain.LogPoller(),
+			DestLP:           destChain.LogPoller(),
+			SourceStartBlock: pluginConfig.SourceStartBlock,
+			DestStartBlock:   pluginConfig.DestStartBlock,
 		}, nil
 }
 
@@ -160,10 +156,10 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainC
 	if new {
 		return []job.ServiceCtx{oraclelib.NewBackfilledOracle(
 			pluginConfig.lggr,
-			backfillArgs.sourceLP,
-			backfillArgs.destLP,
-			backfillArgs.sourceStartBlock,
-			backfillArgs.destStartBlock,
+			backfillArgs.SourceLP,
+			backfillArgs.DestLP,
+			backfillArgs.SourceStartBlock,
+			backfillArgs.DestStartBlock,
 			job.NewServiceAdapter(oracle)),
 		}, nil
 	}

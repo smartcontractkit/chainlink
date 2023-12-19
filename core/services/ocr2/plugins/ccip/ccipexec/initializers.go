@@ -1,4 +1,4 @@
-package ccip
+package ccipexec
 
 import (
 	"context"
@@ -17,6 +17,8 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider"
 
@@ -38,7 +40,7 @@ import (
 )
 
 // TODO pass context?
-func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer) (*ExecutionPluginStaticConfig, *BackfillArgs, error) {
+func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer) (*ExecutionPluginStaticConfig, *ccipcommon.BackfillArgs, error) {
 	if jb.OCR2OracleSpec == nil {
 		return nil, nil, errors.New("spec is nil")
 	}
@@ -115,10 +117,10 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.Lega
 	}
 
 	// Prom wrappers
-	onRampReader = observability.NewObservedOnRampReader(onRampReader, int64(chainID), ExecPluginLabel)
-	sourcePriceRegistry = observability.NewPriceRegistryReader(sourcePriceRegistry, int64(chainID), ExecPluginLabel)
-	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ExecPluginLabel)
-	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, ExecPluginLabel)
+	onRampReader = observability.NewObservedOnRampReader(onRampReader, int64(chainID), ccip.ExecPluginLabel)
+	sourcePriceRegistry = observability.NewPriceRegistryReader(sourcePriceRegistry, int64(chainID), ccip.ExecPluginLabel)
+	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.ExecPluginLabel)
+	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, ccip.ExecPluginLabel)
 
 	destChainSelector, err := chainselectors.SelectorFromChainId(uint64(destChainID))
 	if err != nil {
@@ -141,12 +143,12 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.Lega
 			sourceWrappedNativeToken: sourceWrappedNative,
 			destChainSelector:        destChainSelector,
 			tokenDataProviders:       tokenDataProviders,
-			priceRegistryProvider:    ccipdataprovider.NewEvmPriceRegistry(destChain.LogPoller(), destChain.Client(), execLggr, ExecPluginLabel),
-		}, &BackfillArgs{
-			sourceLP:         sourceChain.LogPoller(),
-			destLP:           destChain.LogPoller(),
-			sourceStartBlock: pluginConfig.SourceStartBlock,
-			destStartBlock:   pluginConfig.DestStartBlock,
+			priceRegistryProvider:    ccipdataprovider.NewEvmPriceRegistry(destChain.LogPoller(), destChain.Client(), execLggr, ccip.ExecPluginLabel),
+		}, &ccipcommon.BackfillArgs{
+			SourceLP:         sourceChain.LogPoller(),
+			DestLP:           destChain.LogPoller(),
+			SourceStartBlock: pluginConfig.SourceStartBlock,
+			DestStartBlock:   pluginConfig.DestStartBlock,
 		}, nil
 }
 
@@ -186,10 +188,10 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyCha
 		return []job.ServiceCtx{
 			oraclelib.NewBackfilledOracle(
 				execPluginConfig.lggr,
-				backfillArgs.sourceLP,
-				backfillArgs.destLP,
-				backfillArgs.sourceStartBlock,
-				backfillArgs.destStartBlock,
+				backfillArgs.SourceLP,
+				backfillArgs.DestLP,
+				backfillArgs.SourceStartBlock,
+				backfillArgs.DestStartBlock,
 				job.NewServiceAdapter(oracle)),
 		}, nil
 	}

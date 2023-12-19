@@ -2,10 +2,12 @@ package ccip
 
 import (
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
 	"math/big"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
@@ -23,7 +25,7 @@ func TestObservationFilter(t *testing.T) {
 	obs1 := CommitObservation{Interval: ccipdata.CommitStoreInterval{Min: 1, Max: 10}}
 	b1, err := obs1.Marshal()
 	require.NoError(t, err)
-	nonEmpty := getParsableObservations[CommitObservation](lggr, []types.AttributedObservation{{Observation: b1}, {Observation: []byte{}}})
+	nonEmpty := GetParsableObservations[CommitObservation](lggr, []types.AttributedObservation{{Observation: b1}, {Observation: []byte{}}})
 	require.Equal(t, 1, len(nonEmpty))
 	assert.Equal(t, nonEmpty[0].Interval, obs1.Interval)
 }
@@ -81,7 +83,7 @@ func TestCommitObservationJsonDeserialization(t *testing.T) {
 		"sourceGasPrice": 3 
 	}`
 
-	observations := getParsableObservations[CommitObservation](logger.TestLogger(t), []types.AttributedObservation{{Observation: []byte(json)}})
+	observations := GetParsableObservations[CommitObservation](logger.TestLogger(t), []types.AttributedObservation{{Observation: []byte(json)}})
 	assert.Equal(t, 1, len(observations))
 	assert.Equal(t, expectedObservation, observations[0])
 }
@@ -102,7 +104,7 @@ func TestExecutionObservationJsonDeserialization(t *testing.T) {
 		}
 	}`
 
-	observations := getParsableObservations[ExecutionObservation](logger.TestLogger(t), []types.AttributedObservation{{Observation: []byte(json)}})
+	observations := GetParsableObservations[ExecutionObservation](logger.TestLogger(t), []types.AttributedObservation{{Observation: []byte(json)}})
 	assert.Equal(t, 1, len(observations))
 	assert.Equal(t, 2, len(observations[0].Messages))
 	assert.Equal(t, expectedObservation, observations[0])
