@@ -78,16 +78,16 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	minimumDbSpec = map[string]interface{}{
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
-				"cpu":    "2000m",
+				"cpu":    "4000m",
 				"memory": "4Gi",
 			},
 			"limits": map[string]interface{}{
-				"cpu":    "2000m",
+				"cpu":    "4000m",
 				"memory": "4Gi",
 			},
 		},
 		"stateful": true,
-		"capacity": "5Gi",
+		"capacity": "10Gi",
 	}
 
 	recNodeSpec = map[string]interface{}{
@@ -103,19 +103,17 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		},
 	}
 
-	recDbSpec = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
-				"cpu":    "4000m",
-				"memory": "8Gi",
-			},
-			"limits": map[string]interface{}{
-				"cpu":    "4000m",
-				"memory": "8Gi",
-			},
+	recDbSpec = minimumDbSpec
+
+	gethNodeSpec = map[string]interface{}{
+		"requests": map[string]interface{}{
+			"cpu":    "8000m",
+			"memory": "8Gi",
 		},
-		"stateful": true,
-		"capacity": "10Gi",
+		"limits": map[string]interface{}{
+			"cpu":    "16000m",
+			"memory": "16Gi",
+		},
 	}
 )
 
@@ -258,16 +256,7 @@ func TestLogTrigger(t *testing.T) {
 			Simulated:   testNetwork.Simulated,
 			WsURLs:      testNetwork.URLs,
 			Values: map[string]interface{}{
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "8000m",
-						"memory": "8Gi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "16000m",
-						"memory": "16Gi",
-					},
-				},
+				"resources": gethNodeSpec,
 				"geth": map[string]interface{}{
 					"blocktime": blockTime,
 					"capacity":  "20Gi",
@@ -513,9 +502,9 @@ func TestLogTrigger(t *testing.T) {
 
 	l.Info().Msg("Starting load generators")
 	startTime := time.Now()
-	err = sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
+	err, ts := sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), "now",
-		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")})
+		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, slack.MsgOptionBlocks())
 	if err != nil {
 		l.Error().Err(err).Msg("Error sending slack notification")
 	}
@@ -633,9 +622,9 @@ func TestLogTrigger(t *testing.T) {
 		avg, median, ninetyPct, ninetyNinePct, maximum, len(allUpkeepDelays), numberOfEventsEmitted,
 		eventsMissed, percentMissed, testDuration.String())
 
-	err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
+	err, _ = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(time.Now().UnixMilli(), 10),
-		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")})
+		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")}, slack.MsgOptionTS(ts))
 	if err != nil {
 		l.Error().Err(err).Msg("Error sending slack notification")
 	}
