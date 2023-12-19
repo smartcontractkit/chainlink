@@ -146,9 +146,7 @@ func Keccak256Fixed(in []byte) [32]byte {
 // EIP55CapitalizedAddress returns true iff possibleAddressString has the correct
 // capitalization for an Ethereum address, per EIP 55
 func EIP55CapitalizedAddress(possibleAddressString string) bool {
-	if !hex.HasPrefix(possibleAddressString) {
-		possibleAddressString = "0x" + possibleAddressString
-	}
+	possibleAddressString = hex.EnsurePrefix(possibleAddressString)
 	EIP55Capitalized := common.HexToAddress(possibleAddressString).Hex()
 	return possibleAddressString == EIP55Capitalized
 }
@@ -182,23 +180,19 @@ func NewRedialBackoff() backoff.Backoff {
 
 }
 
-// RetryWithBackoff retries the sleeper and backs off if not Done
-func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
-	sleeper := NewBackoffSleeper()
-	sleeper.Reset()
-	for {
-		retry := fn()
-		if !retry {
-			return
-		}
+// Sleeper interface is used for tasks that need to be done on some
+// interval, excluding Cron, like reconnecting.
+type Sleeper interface {
+	Reset()
+	Sleep()
+	After() time.Duration
+	Duration() time.Duration
+}
 
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(sleeper.After()):
-			continue
-		}
-	}
+// BackoffSleeper is a sleeper that backs off on subsequent attempts.
+type BackoffSleeper struct {
+	backoff.Backoff
+	beenRun atomic.Bool
 }
 
 // NewBackoffSleeper returns a BackoffSleeper that is configured to
@@ -211,12 +205,6 @@ func NewBackoffSleeper() *BackoffSleeper {
 			Max: 10 * time.Second,
 		},
 	}
-}
-
-// BackoffSleeper is a sleeper that backs off on subsequent attempts.
-type BackoffSleeper struct {
-	backoff.Backoff
-	beenRun atomic.Bool
 }
 
 // Sleep waits for the given duration, incrementing the back off.
@@ -247,6 +235,25 @@ func (bs *BackoffSleeper) Duration() time.Duration {
 func (bs *BackoffSleeper) Reset() {
 	bs.beenRun.Store(false)
 	bs.Backoff.Reset()
+}
+
+// RetryWithBackoff retries the sleeper and backs off if not Done
+func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
+	sleeper := NewBackoffSleeper()
+	sleeper.Reset()
+	for {
+		retry := fn()
+		if !retry {
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(sleeper.After()):
+			continue
+		}
+	}
 }
 
 // AllEqual returns true iff all the provided elements are equal to each other.

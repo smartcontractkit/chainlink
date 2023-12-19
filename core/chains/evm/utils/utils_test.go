@@ -1,9 +1,12 @@
 package utils_test
 
 import (
+	"context"
 	"math/big"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -162,4 +165,67 @@ func TestHexToUint256(t *testing.T) {
 	b, err = utils.HexToUint256("0xFFFFFFFF")
 	assert.NoError(t, err)
 	assert.Zero(t, b.Cmp(big.NewInt(4294967295)))
+}
+
+func TestNewHash(t *testing.T) {
+	t.Parallel()
+
+	h1 := utils.NewHash()
+	h2 := utils.NewHash()
+	assert.NotEqual(t, h1, h2)
+	assert.NotEqual(t, h1, common.HexToHash("0x0"))
+	assert.NotEqual(t, h2, common.HexToHash("0x0"))
+}
+
+func TestPadByteToHash(t *testing.T) {
+	t.Parallel()
+
+	h := utils.PadByteToHash(1)
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000001", h.String())
+}
+
+func TestUtils_BackoffSleeper(t *testing.T) {
+	t.Parallel()
+
+	bs := utils.NewBackoffSleeper()
+	assert.Equal(t, time.Duration(0), bs.Duration(), "should initially return immediately")
+	bs.Sleep()
+
+	d := 1 * time.Nanosecond
+	bs.Min = d
+	bs.Factor = 2
+	assert.Equal(t, d, bs.Duration())
+	bs.Sleep()
+
+	d2 := 2 * time.Nanosecond
+	assert.Equal(t, d2, bs.Duration())
+
+	bs.Reset()
+	assert.Equal(t, time.Duration(0), bs.Duration(), "should initially return immediately")
+}
+
+func TestRetryWithBackoff(t *testing.T) {
+	t.Parallel()
+
+	var counter atomic.Int32
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+
+	utils.RetryWithBackoff(ctx, func() bool {
+		return false
+	})
+
+	retry := func() bool {
+		return counter.Add(1) < 3
+	}
+
+	go utils.RetryWithBackoff(ctx, retry)
+
+	assert.Eventually(t, func() bool {
+		return counter.Load() == 3
+	}, testutils.WaitTimeout(t), testutils.TestInterval)
+
+	cancel()
+
+	utils.RetryWithBackoff(ctx, retry)
+	assert.Equal(t, int32(4), counter.Load())
 }
