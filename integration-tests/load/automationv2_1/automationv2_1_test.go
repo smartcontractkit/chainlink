@@ -118,9 +118,10 @@ ListenAddresses = ["0.0.0.0:6690"]`
 )
 
 var (
-	numberofNodes, _ = strconv.Atoi(getEnv("NUMBEROFNODES", "6")) // Number of nodes in the DON
-	duration, _      = strconv.Atoi(getEnv("DURATION", "900"))    // Test duration in seconds
-	blockTime, _     = strconv.Atoi(getEnv("BLOCKTIME", "1"))     // Block time in seconds for geth simulated dev network
+	numberofNodes, _ = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))           // Number of nodes in the DON
+	duration, _      = strconv.Atoi(getEnv("DURATION", "900"))              // Test duration in seconds
+	blockTime, _     = strconv.Atoi(getEnv("BLOCKTIME", "1"))               // Block time in seconds for geth simulated dev network
+	nodeFunding, _   = strconv.ParseFloat(getEnv("NODEFUNDING", "100"), 64) // Amount of native to fund each node with
 
 	specType       = getEnv("SPECTYPE", "minimum")                    // minimum, recommended, local specs for the test
 	logLevel       = getEnv("LOGLEVEL", "info")                       // log level for the chainlink nodes
@@ -366,7 +367,7 @@ func TestLogTrigger(t *testing.T) {
 
 	a.SetupAutomationDeployment(t)
 
-	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(100), 0)
+	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(nodeFunding), 0)
 	require.NoError(t, err, "Error funding chainlink nodes")
 
 	consumerContracts := make([]contracts.KeeperConsumer, 0)
@@ -469,6 +470,7 @@ func TestLogTrigger(t *testing.T) {
 			OffchainConfig: []byte("0"),
 			FundingAmount:  automationDefaultLinkFunds,
 		}
+		l.Debug().Interface("Upkeep Config", upkeepConfig).Msg("Upkeep Config")
 		upkeepConfigs = append(upkeepConfigs, upkeepConfig)
 	}
 
