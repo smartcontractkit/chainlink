@@ -32,6 +32,7 @@ type AddressState[
 	confirmedMissingReceipt map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	confirmed               map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	allTransactions         map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	fatalErrored            map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 }
 
 // NewAddressState returns a new AddressState instance
@@ -180,39 +181,27 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) close(
 	clear(as.idempotencyKeyToTx)
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) unstartedCount() int {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UnstartedCount() int {
 	as.RLock()
 	defer as.RUnlock()
 
 	return as.unstarted.Len()
 }
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) unconfirmedCount() int {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UnconfirmedCount() int {
 	as.RLock()
 	defer as.RUnlock()
 
 	return len(as.unconfirmed)
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTxWithIdempotencyKey(key string) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithIdempotencyKey(key string) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	as.RLock()
 	defer as.RUnlock()
 
 	return as.idempotencyKeyToTx[key]
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) confirmedMissingReceiptTxs() []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	as.RLock()
-	defer as.RUnlock()
-
-	var txAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	for _, tx := range as.confirmedMissingReceipt {
-		txAttempts = append(txAttempts, tx.TxAttempts...)
-	}
-
-	return txAttempts
-}
-
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findLatestSequence() SEQ {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence() SEQ {
 	as.RLock()
 	defer as.RUnlock()
 
@@ -243,7 +232,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ApplyT
 	defer as.Unlock()
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
-	if txStates == nil || len(txStates) == 0 {
+	if len(txStates) == 0 {
 		as.applyToStorage(as.allTransactions, fn, txIDs...)
 		return
 	}
@@ -260,6 +249,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ApplyT
 			as.applyToStorage(as.confirmedMissingReceipt, fn, txIDs...)
 		case TxConfirmed:
 			as.applyToStorage(as.confirmed, fn, txIDs...)
+		case TxFatalError:
+			as.applyToStorage(as.fatalErrored, fn, txIDs...)
 		}
 	}
 }
@@ -298,7 +289,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 	defer as.RUnlock()
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
-	if txStates == nil || len(txStates) == 0 {
+	if len(txStates) == 0 {
 		return as.fetchTxAttemptsFromStorage(as.allTransactions, filter, txIDs...)
 	}
 
@@ -315,6 +306,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 			txAttempts = append(txAttempts, as.fetchTxAttemptsFromStorage(as.confirmedMissingReceipt, filter, txIDs...)...)
 		case TxConfirmed:
 			txAttempts = append(txAttempts, as.fetchTxAttemptsFromStorage(as.confirmed, filter, txIDs...)...)
+		case TxFatalError:
+			txAttempts = append(txAttempts, as.fetchTxAttemptsFromStorage(as.fatalErrored, filter, txIDs...)...)
 		}
 	}
 
@@ -360,7 +353,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 	defer as.RUnlock()
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
-	if txStates == nil || len(txStates) == 0 {
+	if len(txStates) == 0 {
 		return as.fetchTxsFromStorage(as.allTransactions, filter, txIDs...)
 	}
 
@@ -377,6 +370,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 			txs = append(txs, as.fetchTxsFromStorage(as.confirmedMissingReceipt, filter, txIDs...)...)
 		case TxConfirmed:
 			txs = append(txs, as.fetchTxsFromStorage(as.confirmed, filter, txIDs...)...)
+		case TxFatalError:
+			txs = append(txs, as.fetchTxsFromStorage(as.fatalErrored, filter, txIDs...)...)
 		}
 	}
 
@@ -414,13 +409,41 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchT
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstartedTxQueue(queueSize uint32, filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool) int {
-	as.RLock()
-	defer as.RUnlock()
+	as.Lock()
+	defer as.Unlock()
 
-	return len(as.unstarted.Prune(int(queueSize), filter))
+	txs := as.unstarted.Prune(int(queueSize), filter)
+	as.deleteTxs(txs...)
+
+	return len(txs)
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DeleteTxs(txs ...txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	as.Lock()
+	defer as.Unlock()
+
+	as.deleteTxs(txs...)
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteTxs(txs ...txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	for _, tx := range txs {
+		if tx.IdempotencyKey != nil {
+			delete(as.idempotencyKeyToTx, *tx.IdempotencyKey)
+		}
+		txID := tx.ID
+		if as.inprogress != nil && as.inprogress.ID == txID {
+			as.inprogress = nil
+		}
+		delete(as.allTransactions, txID)
+		delete(as.unconfirmed, txID)
+		delete(as.confirmedMissingReceipt, txID)
+		delete(as.allTransactions, txID)
+		delete(as.confirmed, txID)
+		delete(as.fatalErrored, txID)
+	}
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PeekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	as.RLock()
 	defer as.RUnlock()
 
@@ -432,7 +455,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNe
 	return tx, nil
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekInProgressTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PeekInProgressTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	as.RLock()
 	defer as.RUnlock()
 
@@ -444,7 +467,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekIn
 	return tx, nil
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxToUnstarted(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AddTxToUnstarted(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	as.Lock()
 	defer as.Unlock()
 
@@ -461,7 +484,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxT
 	return nil
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUnstartedToInProgress(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnstartedToInProgress(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	as.Lock()
 	defer as.Unlock()
 
@@ -486,7 +509,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 	return nil
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveInProgressToUnconfirmed(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveInProgressToUnconfirmed(
 	txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
 	as.Lock()
@@ -519,37 +542,57 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveIn
 	return nil
 }
 
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveInProgressToFatalError(txError null.String) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx := as.inprogress
+	if tx == nil {
+		return fmt.Errorf("move_in_progress_to_fatal_error: no transaction in progress")
+	}
+
+	tx.State = TxFatalError
+	tx.Sequence = nil
+	tx.TxAttempts = nil
+	tx.InitialBroadcastAt = nil
+	tx.Error = txError
+	as.fatalErrored[tx.ID] = tx
+	as.inprogress = nil
+
+	return nil
+}
+
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon() {
 	as.Lock()
 	defer as.Unlock()
 
 	for as.unstarted.Len() > 0 {
 		tx := as.unstarted.RemoveNextTx()
-		abandon[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](tx)
+		as.abandonTx(tx)
 	}
 
 	if as.inprogress != nil {
 		tx := as.inprogress
-		abandon[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](tx)
+		as.abandonTx(tx)
 		as.inprogress = nil
 	}
 	for _, tx := range as.unconfirmed {
-		abandon[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](tx)
+		as.abandonTx(tx)
 	}
 	for _, tx := range as.idempotencyKeyToTx {
-		abandon[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](tx)
+		as.abandonTx(tx)
+	}
+	for _, tx := range as.confirmedMissingReceipt {
+		as.abandonTx(tx)
+	}
+	for _, tx := range as.confirmed {
+		as.abandonTx(tx)
 	}
 
 	clear(as.unconfirmed)
 }
 
-func abandon[
-	CHAIN_ID types.ID,
-	ADDR, TX_HASH, BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
-](tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandonTx(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
 	if tx == nil {
 		return
 	}
@@ -557,4 +600,6 @@ func abandon[
 	tx.State = TxFatalError
 	tx.Sequence = nil
 	tx.Error = null.NewString("abandoned", true)
+
+	as.fatalErrored[tx.ID] = tx
 }

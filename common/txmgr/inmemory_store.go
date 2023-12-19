@@ -118,7 +118,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 	// TODO(jtw); HANDLE PRUNING STEP
 
 	// Add the request to the Unstarted channel to be processed by the Broadcaster
-	if err := as.addTxToUnstarted(&tx); err != nil {
+	if err := as.AddTxToUnstarted(&tx); err != nil {
 		return tx, fmt.Errorf("create_transaction: %w", err)
 	}
 
@@ -135,7 +135,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	ms.addressStatesLock.Lock()
 	defer ms.addressStatesLock.Unlock()
 	for _, as := range ms.addressStates {
-		if tx := as.findTxWithIdempotencyKey(idempotencyKey); tx != nil {
+		if tx := as.FindTxWithIdempotencyKey(idempotencyKey); tx != nil {
 			return ms.deepCopyTx(tx), nil
 		}
 	}
@@ -157,7 +157,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Check
 		return fmt.Errorf("check_tx_queue_capacity: %w", ErrAddressNotFound)
 	}
 
-	count := uint64(as.unstartedCount())
+	count := uint64(as.UnstartedCount())
 	if count >= maxQueuedTransactions {
 		return fmt.Errorf("check_tx_queue_capacity: cannot create transaction; too many unstarted transactions in the queue (%v/%v). %s", count, maxQueuedTransactions, label.MaxQueuedTransactionsWarning)
 	}
@@ -183,7 +183,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindL
 		return seq, fmt.Errorf("find_latest_sequence: %w", ErrAddressNotFound)
 	}
 
-	seq = as.findLatestSequence()
+	seq = as.FindLatestSequence()
 	if seq.Int64() == 0 {
 		return seq, fmt.Errorf("find_latest_sequence: %w", ErrSequenceNotFound)
 	}
@@ -203,7 +203,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 		return 0, fmt.Errorf("count_unstarted_transactions: %w", ErrAddressNotFound)
 	}
 
-	return uint32(as.unconfirmedCount()), nil
+	return uint32(as.UnconfirmedCount()), nil
 }
 
 // CountUnstartedTransactions returns the number of unstarted transactions for a given address.
@@ -218,7 +218,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 		return 0, fmt.Errorf("count_unstarted_transactions: %w", ErrAddressNotFound)
 	}
 
-	return uint32(as.unstartedCount()), nil
+	return uint32(as.UnstartedCount()), nil
 }
 
 // UpdateTxUnstartedToInProgress updates a transaction from unstarted to in_progress.
@@ -248,7 +248,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	tx.TxAttempts = append(tx.TxAttempts, *attempt)
 
 	// Update in address state in memory
-	if err := as.moveUnstartedToInProgress(tx); err != nil {
+	if err := as.MoveUnstartedToInProgress(tx); err != nil {
 		return fmt.Errorf("update_tx_unstarted_to_in_progress: %w", err)
 	}
 
@@ -262,7 +262,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTx
 		return nil, fmt.Errorf("get_tx_in_progress: %w", ErrAddressNotFound)
 	}
 
-	tx, err := as.peekInProgressTx()
+	tx, err := as.PeekInProgressTx()
 	if tx == nil {
 		return nil, fmt.Errorf("get_tx_in_progress: %w", err)
 	}
@@ -311,7 +311,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	if !ok {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", ErrAddressNotFound)
 	}
-	if err := as.moveInProgressToUnconfirmed(attempt); err != nil {
+	if err := as.MoveInProgressToUnconfirmed(attempt); err != nil {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
 	}
 
@@ -335,7 +335,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindN
 	}
 
 	var err error
-	tx, err = as.peekNextUnstartedTx()
+	tx, err = as.PeekNextUnstartedTx()
 	if tx == nil {
 		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", err)
 	}
@@ -356,17 +356,18 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveR
 		return fmt.Errorf("save_replacement_in_progress_attempt: expected oldattempt to have an ID")
 	}
 
+	// Check if fromaddress enabled
+	as, ok := ms.addressStates[oldAttempt.Tx.FromAddress]
+	if !ok {
+		return fmt.Errorf("save_replacement_in_progress_attempt: %w", ErrAddressNotFound)
+	}
+
 	// Persist to persistent storage
 	if err := ms.txStore.SaveReplacementInProgressAttempt(ctx, oldAttempt, replacementAttempt); err != nil {
 		return fmt.Errorf("save_replacement_in_progress_attempt: %w", err)
 	}
 
-	// Update in memory store
-	as, ok := ms.addressStates[oldAttempt.Tx.FromAddress]
-	if !ok {
-		return fmt.Errorf("save_replacement_in_progress_attempt: %w", ErrAddressNotFound)
-	}
-	tx, err := as.peekInProgressTx()
+	tx, err := as.PeekInProgressTx()
 	if tx == nil {
 		return fmt.Errorf("save_replacement_in_progress_attempt: %w", err)
 	}
@@ -393,15 +394,21 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	if !tx.Error.Valid {
 		return fmt.Errorf("update_tx_fatal_error: expected error field to be set")
 	}
+	// Check if fromaddress enabled
+	as, ok := ms.addressStates[tx.FromAddress]
+	if !ok {
+		return fmt.Errorf("update_tx_fatal_error: %w", ErrAddressNotFound)
+	}
 
 	// Persist to persistent storage
 	if err := ms.txStore.UpdateTxFatalError(ctx, tx); err != nil {
 		return fmt.Errorf("update_tx_fatal_error: %w", err)
 	}
 
-	// Ensure that the tx state is updated to fatal_error since this is a chain agnostic operation
-	tx.Sequence = nil
-	tx.State = TxFatalError
+	// Update in memory store
+	if err := as.MoveInProgressToFatalError(tx.Error); err != nil {
+		return fmt.Errorf("update_tx_fatal_error: %w", err)
+	}
 
 	return fmt.Errorf("update_tx_fatal_error: not implemented")
 }
@@ -832,8 +839,66 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Prune
 
 	return n, nil
 }
+
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
-	return ms.txStore.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+	if ms.chainID.String() != chainID.String() {
+		return fmt.Errorf("reap_tx_history: %w", ErrInvalidChainID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, chainID); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	states := []txmgrtypes.TxState{TxConfirmed}
+	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return false
+		}
+		attempt := tx.TxAttempts[0]
+		if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
+			return false
+		}
+		if attempt.Receipts[0].GetBlockNumber() == nil {
+			return false
+		}
+		if attempt.Receipts[0].GetBlockNumber().Int64() >= minBlockNumberToKeep {
+			return false
+		}
+		if tx.CreatedAt.After(timeThreshold) {
+			return false
+		}
+		if tx.State != TxConfirmed {
+			return false
+		}
+		return true
+	}
+
+	wg := sync.WaitGroup{}
+	for _, as := range ms.addressStates {
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			as.DeleteTxs(as.FetchTxs(states, filterFn)...)
+			wg.Done()
+		}(as)
+	}
+	wg.Wait()
+
+	filterFn = func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return tx.State == TxFatalError && tx.CreatedAt.Before(timeThreshold)
+	}
+	states = []txmgrtypes.TxState{TxFatalError}
+	for _, as := range ms.addressStates {
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			as.DeleteTxs(as.FetchTxs(states, filterFn)...)
+			wg.Done()
+		}(as)
+	}
+	wg.Wait()
+
+	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) (uint32, error) {
 	return ms.txStore.CountTransactionsByState(ctx, state, chainID)
