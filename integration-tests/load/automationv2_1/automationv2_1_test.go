@@ -137,7 +137,7 @@ type Load struct {
 	PerformBurnAmount             *big.Int `toml:",omitempty"`
 	UpkeepGasLimit                uint32   `toml:",omitempty"`
 	NumberOfUpkeeps               int      `toml:",omitempty"`
-	//SharedTrigger                 bool     `toml:",omitempty"` TODO: Implement shared trigger
+	SharedTrigger                 bool     `toml:",omitempty"`
 }
 
 type LoadConfig struct {
@@ -154,6 +154,7 @@ var defaultLoadConfig = LoadConfig{
 			PerformBurnAmount:             big.NewInt(0),
 			UpkeepGasLimit:                1_000_000,
 			NumberOfUpkeeps:               5,
+			SharedTrigger:                 false,
 		},
 		{
 			NumberOfEvents:                1,
@@ -163,6 +164,7 @@ var defaultLoadConfig = LoadConfig{
 			PerformBurnAmount:             big.NewInt(0),
 			UpkeepGasLimit:                1_000_000,
 			NumberOfUpkeeps:               5,
+			SharedTrigger:                 true,
 		}},
 }
 
@@ -369,6 +371,7 @@ func TestLogTrigger(t *testing.T) {
 
 	consumerContracts := make([]contracts.KeeperConsumer, 0)
 	triggerContracts := make([]contracts.LogEmitter, 0)
+	triggerAddresses := make([]common.Address, 0)
 
 	utilsABI, err := automation_utils_2_1.AutomationUtilsMetaData.GetAbi()
 	require.NoError(t, err, "Error getting automation utils abi")
@@ -398,15 +401,6 @@ func TestLogTrigger(t *testing.T) {
 				Int("Number", i+1).
 				Int("Out Of", u.NumberOfUpkeeps).
 				Msg("Deployed Automation Log Trigger Consumer Contract")
-
-			triggerContract, err := cContractDeployer.DeployLogEmitterContract()
-			require.NoError(t, err, "Error deploying log emitter contract")
-			triggerContracts = append(triggerContracts, triggerContract)
-			l.Debug().
-				Str("Contract Address", triggerContract.Address().Hex()).
-				Int("Number", i+1).
-				Int("Out Of", u.NumberOfUpkeeps).
-				Msg("Deployed Automation Log Trigger Emitter Contract")
 			loadCfg := Load{
 				NumberOfEvents:                u.NumberOfEvents,
 				NumberOfSpamMatchingEvents:    u.NumberOfSpamMatchingEvents,
@@ -414,8 +408,23 @@ func TestLogTrigger(t *testing.T) {
 				CheckBurnAmount:               u.CheckBurnAmount,
 				PerformBurnAmount:             u.PerformBurnAmount,
 				UpkeepGasLimit:                u.UpkeepGasLimit,
+				SharedTrigger:                 u.SharedTrigger,
 			}
 			loadConfigs = append(loadConfigs, loadCfg)
+
+			if u.SharedTrigger && i > 0 {
+				triggerAddresses = append(triggerAddresses, triggerAddresses[len(triggerAddresses)-1])
+				continue
+			}
+			triggerContract, err := cContractDeployer.DeployLogEmitterContract()
+			require.NoError(t, err, "Error deploying log emitter contract")
+			triggerContracts = append(triggerContracts, triggerContract)
+			triggerAddresses = append(triggerAddresses, triggerContract.Address())
+			l.Debug().
+				Str("Contract Address", triggerContract.Address().Hex()).
+				Int("Number", i+1).
+				Int("Out Of", u.NumberOfUpkeeps).
+				Msg("Deployed Automation Log Trigger Emitter Contract")
 		}
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Failed waiting for contracts to deploy")
@@ -423,7 +432,7 @@ func TestLogTrigger(t *testing.T) {
 
 	for i, consumerContract := range consumerContracts {
 		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
-			ContractAddress: triggerContracts[i].Address(),
+			ContractAddress: triggerAddresses[i],
 			FilterSelector:  1,
 			Topic0:          emitterABI.Events["Log4"].ID,
 			Topic1: [32]byte{
