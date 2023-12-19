@@ -13,6 +13,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/models"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -742,8 +743,8 @@ func (o *OCR) setFrom(f *OCR) {
 
 type Node struct {
 	Name     *string
-	WSURL    *models.URL
-	HTTPURL  *models.URL
+	WSURL    *commonconfig.URL
+	HTTPURL  *commonconfig.URL
 	SendOnly *bool
 	Order    *int32
 }

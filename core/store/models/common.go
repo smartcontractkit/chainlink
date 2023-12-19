@@ -17,6 +17,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonmodels "github.com/smartcontractkit/chainlink-common/pkg/models"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -421,7 +422,7 @@ func (s Sha256Hash) Value() (driver.Value, error) {
 }
 
 // URL extends url.URL to implement encoding.TextMarshaler.
-type URL = commonmodels.URL
+type URL = commonconfig.URL
 
 func ParseURL(s string) (*URL, error) {
 	u, err := url.Parse(s)

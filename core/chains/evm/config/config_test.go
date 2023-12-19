@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/models"
+	configurl "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -383,8 +383,8 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			c.EVM[0] = &toml.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: toml.Defaults(chainID, chains...),
 				Nodes: toml.EVMNodes{{
 					Name:    ptr("fake"),
-					WSURL:   models.MustParseURL("wss://foo.test/ws"),
-					HTTPURL: models.MustParseURL("http://foo.test"),
+					WSURL:   configurl.MustParseURL("wss://foo.test/ws"),
+					HTTPURL: configurl.MustParseURL("http://foo.test"),
 				}}}
 		})
 	}
