@@ -224,6 +224,18 @@ func (v *EthereumVRFCoordinatorV2) PendingRequestsExist(ctx context.Context, sub
 	return pendingRequestExists, nil
 }
 
+func (v *EthereumVRFCoordinatorV2) OracleWithdraw(recipient common.Address, amount *big.Int) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.coordinator.OracleWithdraw(opts, recipient, amount)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist

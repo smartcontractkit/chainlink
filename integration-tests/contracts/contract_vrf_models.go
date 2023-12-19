@@ -58,6 +58,7 @@ type VRFCoordinatorV2 interface {
 	FindSubscriptionID(subID uint64) (uint64, error)
 	WaitForRandomWordsFulfilledEvent(requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error)
 	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
+	OracleWithdraw(recipient common.Address, amount *big.Int) error
 }
 
 type VRFCoordinatorV2_5 interface {
