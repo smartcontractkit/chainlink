@@ -41,3 +41,14 @@ func commonEnv(env *testscript.Env) error {
 	env.Setenv("COMMIT_SHA", static.Sha)
 	return nil
 }
+
+// BenchmarkAdd is a dummy benchmark test to monitor for regressions in overal benchmark CI behavior.
+func BenchmarkAdd(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		dummyBenchmarkAdd(1, 2)
+	}
+}
+
+func dummyBenchmarkAdd(i int, j int) int {
+	return i + j
+}

@@ -1,0 +1,19 @@
+name: Run Benchmarks
+
+on: [push, pull_request]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Run Go Benchmark Action
+        uses: patrickhuie19/benchmark-action@v0.2
+        with:
+          benchmarks: 'from-pr'  # Use benchmarks specified in PR, or default benchmarks
+          trigger-branches: 'develop'  # Comma-separated list of branches for merging
+          use-gh-pages: 'true'  # Enable or disable GitHub Pages
+          github-token: ${{ secrets.GITHUB_TOKEN }}  # Use the built-in GitHub token
+          gh-pages-branch: 'gh-pages'  # GitHub Pages branch (if use-gh-pages is true)
