@@ -66,10 +66,10 @@ func (o ExecutionObservation) Marshal() ([]byte, error) {
 	return json.Marshal(&o)
 }
 
-// getParsableObservations checks the given observations for formatting and value errors.
+// GetParsableObservations checks the given observations for formatting and value errors.
 // It returns all valid observations, potentially being an empty list. It will log
 // malformed observations but never error.
-func getParsableObservations[O CommitObservation | ExecutionObservation](l logger.Logger, observations []types.AttributedObservation) []O {
+func GetParsableObservations[O CommitObservation | ExecutionObservation](l logger.Logger, observations []types.AttributedObservation) []O {
 	var parseableObservations []O
 	for _, ao := range observations {
 		if len(ao.Observation) == 0 {

@@ -1,4 +1,4 @@
-package ccip
+package ccipcommit
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"slices"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -86,96 +86,6 @@ type CommitReportingPlugin struct {
 	inflightReports *inflightCommitReportsContainer
 }
 
-type CommitReportingPluginFactory struct {
-	// Configuration derived from the job spec which does not change
-	// between plugin instances (ie between SetConfigs onchain)
-	config CommitPluginStaticConfig
-
-	// Dynamic readers
-	readersMu          *sync.Mutex
-	destPriceRegReader ccipdata.PriceRegistryReader
-	destPriceRegAddr   common.Address
-}
-
-// NewCommitReportingPluginFactory return a new CommitReportingPluginFactory.
-func NewCommitReportingPluginFactory(config CommitPluginStaticConfig) *CommitReportingPluginFactory {
-	return &CommitReportingPluginFactory{
-		config:    config,
-		readersMu: &sync.Mutex{},
-
-		// the fields below are initially empty and populated on demand
-		destPriceRegReader: nil,
-		destPriceRegAddr:   common.Address{},
-	}
-}
-
-func (rf *CommitReportingPluginFactory) UpdateDynamicReaders(newPriceRegAddr common.Address) error {
-	rf.readersMu.Lock()
-	defer rf.readersMu.Unlock()
-	// TODO: Investigate use of Close() to cleanup.
-	// TODO: a true price registry upgrade on an existing lane may want some kind of start block in its config? Right now we
-	// essentially assume that plugins don't care about historical price reg logs.
-	if rf.destPriceRegAddr == newPriceRegAddr {
-		// No-op
-		return nil
-	}
-	// Close old reader if present and open new reader if address changed
-	if rf.destPriceRegReader != nil {
-		if err := rf.destPriceRegReader.Close(); err != nil {
-			return err
-		}
-	}
-
-	destPriceRegistryReader, err := rf.config.priceRegistryProvider.NewPriceRegistryReader(context.Background(), newPriceRegAddr)
-	if err != nil {
-		return fmt.Errorf("init dynamic price registry: %w", err)
-	}
-	rf.destPriceRegReader = destPriceRegistryReader
-	rf.destPriceRegAddr = newPriceRegAddr
-	return nil
-}
-
-// NewReportingPlugin returns the ccip CommitReportingPlugin and satisfies the ReportingPluginFactory interface.
-func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	destPriceReg, err := rf.config.commitStore.ChangeConfig(config.OnchainConfig, config.OffchainConfig)
-	if err != nil {
-		return nil, types.ReportingPluginInfo{}, err
-	}
-	if err = rf.UpdateDynamicReaders(destPriceReg); err != nil {
-		return nil, types.ReportingPluginInfo{}, err
-	}
-
-	if err != nil {
-		return nil, types.ReportingPluginInfo{}, err
-	}
-
-	pluginOffChainConfig := rf.config.commitStore.OffchainConfig()
-
-	return &CommitReportingPlugin{
-			sourceChainSelector:     rf.config.sourceChainSelector,
-			sourceNative:            rf.config.sourceNative,
-			onRampReader:            rf.config.onRampReader,
-			commitStoreReader:       rf.config.commitStore,
-			priceGetter:             rf.config.priceGetter,
-			F:                       config.F,
-			lggr:                    rf.config.lggr.Named("CommitReportingPlugin"),
-			inflightReports:         newInflightCommitReportsContainer(rf.config.commitStore.OffchainConfig().InflightCacheExpiry),
-			destPriceRegistryReader: rf.destPriceRegReader,
-			offRampReader:           rf.config.offRamp,
-			gasPriceEstimator:       rf.config.commitStore.GasPriceEstimator(),
-			offchainConfig:          pluginOffChainConfig,
-		},
-		types.ReportingPluginInfo{
-			Name:          "CCIPCommit",
-			UniqueReports: false, // See comment in CommitStore constructor.
-			Limits: types.ReportingPluginLimits{
-				MaxQueryLength:       MaxQueryLength,
-				MaxObservationLength: MaxObservationLength,
-				MaxReportLength:      MaxCommitReportLength,
-			},
-		}, nil
-}
-
 // Query is not used by the CCIP Commit plugin.
 func (r *CommitReportingPlugin) Query(context.Context, types.ReportTimestamp) (types.Query, error) {
 	return types.Query{}, nil
@@ -193,7 +103,7 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 		return nil, errors.Wrap(err, "isDown check errored")
 	}
 	if down {
-		return nil, ErrCommitStoreIsDown
+		return nil, ccip.ErrCommitStoreIsDown
 	}
 	r.inflightReports.expire(lggr)
 
@@ -223,7 +133,7 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 		"epochAndRound", epochAndRound)
 	// Even if all values are empty we still want to communicate our observation
 	// with the other nodes, therefore, we always return the observed values.
-	return CommitObservation{
+	return ccip.CommitObservation{
 		Interval: ccipdata.CommitStoreInterval{
 			Min: min,
 			Max: max,
@@ -441,7 +351,7 @@ func (r *CommitReportingPlugin) getLatestGasPriceUpdate(ctx context.Context, now
 func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.ReportTimestamp, _ types.Query, observations []types.AttributedObservation) (bool, types.Report, error) {
 	now := time.Now()
 	lggr := r.lggr.Named("CommitReport")
-	parsableObservations := getParsableObservations[CommitObservation](lggr, observations)
+	parsableObservations := ccip.GetParsableObservations[ccip.CommitObservation](lggr, observations)
 
 	feeTokens, bridgeableTokens, err := ccipcommon.GetDestinationTokens(ctx, r.offRampReader, r.destPriceRegistryReader)
 	if err != nil {
@@ -507,7 +417,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 // validateObservations validates the given observations.
 // An observation is rejected if any of its gas price or token price is nil. With current CommitObservation implementation, prices
 // are checked to ensure no nil values before adding to Observation, hence an observation that contains nil values comes from a faulty node.
-func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []common.Address, f int, observations []CommitObservation) (validObs []CommitObservation, err error) {
+func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []common.Address, f int, observations []ccip.CommitObservation) (validObs []ccip.CommitObservation, err error) {
 	for _, obs := range observations {
 		// If gas price is reported as nil, the observation is faulty, skip the observation.
 		if obs.SourceGasPriceUSD == nil {
@@ -612,7 +522,7 @@ func calculateIntervalConsensus(intervals []ccipdata.CommitStoreInterval, f int,
 
 // Note priceUpdates must be deterministic.
 // The provided latestTokenPrices should not contain nil values.
-func (r *CommitReportingPlugin) calculatePriceUpdates(observations []CommitObservation, latestGasPrice update, latestTokenPrices map[common.Address]update) ([]ccipdata.TokenPrice, []ccipdata.GasPrice, error) {
+func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.CommitObservation, latestGasPrice update, latestTokenPrices map[common.Address]update) ([]ccipdata.TokenPrice, []ccipdata.GasPrice, error) {
 	priceObservations := make(map[common.Address][]*big.Int)
 	var sourceGasObservations []prices.GasPrice
 
