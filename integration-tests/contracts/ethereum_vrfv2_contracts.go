@@ -224,6 +224,25 @@ func (v *EthereumVRFCoordinatorV2) PendingRequestsExist(ctx context.Context, sub
 	return pendingRequestExists, nil
 }
 
+// OwnerCancelSubscription cancels subscription,
+// return funds to the subscription owner,
+// down not check if pending requests for a sub exist,
+// outstanding requests may fail onchain
+func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*types.Transaction, error) {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := v.coordinator.OwnerCancelSubscription(
+		opts,
+		subID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tx, v.client.ProcessTransaction(tx)
+}
+
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist
@@ -296,6 +315,26 @@ func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsRequestedEvent(keyHash [][3
 			return nil, fmt.Errorf("timeout waiting for RandomWordsRequested event")
 		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
 			return randomWordsFulfilledEvent, nil
+		}
+	}
+}
+
+func (v *EthereumVRFCoordinatorV2) WaitForSubscriptionCanceledEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
+	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled)
+	subscription, err := v.coordinator.WatchSubscriptionCanceled(nil, eventsChannel, subID)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for SubscriptionCanceled event")
+		case sub := <-eventsChannel:
+			return sub, nil
 		}
 	}
 }
