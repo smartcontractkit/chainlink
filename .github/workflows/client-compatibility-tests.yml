@@ -1,4 +1,4 @@
-name: Client Compatability Tests
+name: Client Compatibility Tests
 on:
   schedule:
     - cron: "30 5 * * *" # Run every night at midnight + 30min EST
@@ -39,7 +39,7 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  client-compatability-matrix:
+  client-compatibility-matrix:
     environment: integration
     permissions:
       checks: write
@@ -100,7 +100,7 @@ jobs:
             client: erigon            
             pyroscope_env: ci-smoke-ocr2-evm-simulated                           
     runs-on: ubuntu-latest
-    name: Client Compatability Test ${{ matrix.product.name }}
+    name: Client Compatibility Test ${{ matrix.product.name }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -267,7 +267,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [client-compatability-matrix]
+    needs: [client-compatibility-matrix]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}

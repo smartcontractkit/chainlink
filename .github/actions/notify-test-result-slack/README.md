@@ -1,2 +1,0 @@
-# Notify Test Result Slack
-
