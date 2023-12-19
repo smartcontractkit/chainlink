@@ -391,6 +391,8 @@ func TestDuration_Scan_Value(t *testing.T) {
 	d := models.MustMakeDuration(100)
 	require.NotNil(t, d)
 
+	d.Duration()
+
 	val, err := d.Value()
 	require.NoError(t, err)
 
