@@ -218,16 +218,6 @@ func Sha256(in string) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-// WaitGroupChan creates a channel that closes when the provided sync.WaitGroup is done.
-func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
-	chAwait := make(chan struct{})
-	go func() {
-		defer close(chAwait)
-		wg.Wait()
-	}()
-	return chAwait
-}
-
 // WithCloseChan wraps a context so that it is canceled if the passed in channel is closed.
 // Deprecated: Call [services.StopChan.Ctx] directly
 func WithCloseChan(parentCtx context.Context, chStop chan struct{}) (context.Context, context.CancelFunc) {
@@ -251,40 +241,6 @@ type StopChan = services.StopChan
 
 // Deprecated: use services.StopRChan
 type StopRChan = services.StopRChan
-
-// DependentAwaiter contains Dependent funcs
-type DependentAwaiter interface {
-	AwaitDependents() <-chan struct{}
-	AddDependents(n int)
-	DependentReady()
-}
-
-type dependentAwaiter struct {
-	wg *sync.WaitGroup
-	ch <-chan struct{}
-}
-
-// NewDependentAwaiter creates a new DependentAwaiter
-func NewDependentAwaiter() DependentAwaiter {
-	return &dependentAwaiter{
-		wg: &sync.WaitGroup{},
-	}
-}
-
-func (da *dependentAwaiter) AwaitDependents() <-chan struct{} {
-	if da.ch == nil {
-		da.ch = WaitGroupChan(da.wg)
-	}
-	return da.ch
-}
-
-func (da *dependentAwaiter) AddDependents(n int) {
-	da.wg.Add(n)
-}
-
-func (da *dependentAwaiter) DependentReady() {
-	da.wg.Done()
-}
 
 // BoundedQueue is a FIFO queue that discards older items when it reaches its capacity.
 type BoundedQueue[T any] struct {
