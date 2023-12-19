@@ -320,6 +320,13 @@ jobs:
             file: ccip
             dir: ccip-tests/smoke
             run: -run ^TestSmokeCCIPForBidirectionalLane$
+          - name: ccip-smoke-db-compatibility
+            nodes: 1
+            os: ubuntu20.04-8cores-32GB
+            file: ccip
+            dir: ccip-tests/smoke
+            run: -run ^TestSmokeCCIPForBidirectionalLane$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/db-compatibility.toml
           - name: ccip-smoke-rate-limit
             nodes: 1
             dir: ccip-tests/smoke
@@ -521,6 +528,13 @@ jobs:
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           docker logs otel-collector
+      - name: Set Override Config
+        id: set_override_config
+        run: |
+          # if the matrix.product.config_path is set, use it as the override config
+          if [ "${{ matrix.product.config_path }}" != "" ]; then
+            echo "base_64_override=$(base64 -w 0 -i ${{ matrix.product.config_path }})" >> "$GITHUB_OUTPUT"
+          fi
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
@@ -537,6 +551,8 @@ jobs:
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
           GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
           RUN_ID: ${{ github.run_id }}
+          BASE64_TEST_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }}
+          TEST_BASE64_TEST_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }}
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
