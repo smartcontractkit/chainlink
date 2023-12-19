@@ -6,19 +6,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
@@ -116,6 +116,58 @@ func TestVRFv2Basic(t *testing.T) {
 		}
 	})
 
+	t.Run("Oracle Withdraw", func(t *testing.T) {
+		testConfig := vrfv2Config
+		subIDsForOracleWithDraw, err := vrfv2_actions.CreateFundSubsAndAddConsumers(
+			env,
+			testConfig,
+			linkToken,
+			vrfv2Contracts.Coordinator,
+			vrfv2Contracts.LoadTestConsumers,
+			1,
+		)
+		require.NoError(t, err)
+
+		subIDForOracleWithdraw := subIDsForOracleWithDraw[0]
+
+		fulfilledEventLink, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
+			vrfv2Contracts.LoadTestConsumers[0],
+			vrfv2Contracts.Coordinator,
+			vrfv2Data,
+			subIDForOracleWithdraw,
+			testConfig.RandomnessRequestCountPerRequest,
+			testConfig,
+			testConfig.RandomWordsFulfilledEventTimeout,
+			l,
+		)
+		require.NoError(t, err)
+
+		amountToWithdrawLink := fulfilledEventLink.Payment
+
+		defaultWalletBalanceLinkBeforeOracleWithdraw, err := linkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		require.NoError(t, err)
+
+		l.Info().
+			Str("Returning to", defaultWalletAddress).
+			Str("Amount", amountToWithdrawLink.String()).
+			Msg("Invoking Oracle Withdraw for LINK")
+
+		err = vrfv2Contracts.Coordinator.OracleWithdraw(common.HexToAddress(defaultWalletAddress), amountToWithdrawLink)
+		require.NoError(t, err, "Error withdrawing LINK from coordinator to default wallet")
+
+		err = env.EVMClient.WaitForEvents()
+		require.NoError(t, err, vrfv2_actions.ErrWaitTXsComplete)
+
+		defaultWalletBalanceLinkAfterOracleWithdraw, err := linkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		require.NoError(t, err)
+
+		require.Equal(
+			t,
+			1,
+			defaultWalletBalanceLinkAfterOracleWithdraw.Cmp(defaultWalletBalanceLinkBeforeOracleWithdraw),
+			"LINK funds were not returned after oracle withdraw",
+		)
+	})
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
 		testConfig := vrfv2Config
 		subIDsForCancelling, err := vrfv2_actions.CreateFundSubsAndAddConsumers(
