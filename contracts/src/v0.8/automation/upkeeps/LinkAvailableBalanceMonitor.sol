@@ -75,9 +75,17 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   uint8 private s_upkeepInterval;
   address[] private s_watchList;
   mapping(address targetAddress => MonitoredAddress targetProperties) internal s_targets;
+
+  /// @notice s_onRampAddresses represents a list of CCIP onRamp addresses watched on this contract
+  /// There has to be only one onRamp per dstChainSelector.
   mapping(uint64 dstChainSelector => address onRamp) internal s_onRampAddresses;
 
+  /// @param admin is the administrator address of this contract
   /// @param linkTokenAddress the LINK token address
+  /// @param minWaitPeriodSeconds represents the amount of time that has to wait a contract to be funded
+  /// @param maxPerform maximum amount of contracts to fund
+  /// @param maxCheck maximum amount of contracts to check
+  /// @param upkeepInterval randomizes the check for underfunded contracts
   constructor(
     address admin,
     address linkTokenAddress,
@@ -90,7 +98,6 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
     _setRoleAdmin(EXECUTOR_ROLE, ADMIN_ROLE);
     _grantRole(ADMIN_ROLE, admin);
-    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     i_linkToken = IERC20(linkTokenAddress);
     setMinWaitPeriodSeconds(minWaitPeriodSeconds);
     setMaxPerform(maxPerform);
@@ -106,7 +113,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     address[] calldata addresses,
     uint96[] calldata minBalances,
     uint96[] calldata topUpAmounts
-  ) external onlyRoleOrAdminRole(EXECUTOR_ROLE) {
+  ) external onlyAdminOrExecutor {
     if (addresses.length != minBalances.length || addresses.length != topUpAmounts.length) {
       revert InvalidWatchList();
     }
@@ -135,10 +142,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @dev this function has to be compatible with the event onRampSet(address, dstChainSelector) emitted by
   /// the CCIP router. Important detail to know is this event is also emitted when an onRamp is decomissioned,
   /// in which case it will carry the proper dstChainSelector along with the 0x0 address
-  function addToWatchListOrDecomission(
-    address targetAddress,
-    uint64 dstChainSelector
-  ) public onlyRoleOrAdminRole(EXECUTOR_ROLE) {
+  function addToWatchListOrDecomission(address targetAddress, uint64 dstChainSelector) public onlyAdminOrExecutor {
     if (s_targets[targetAddress].isActive) revert DuplicateAddress(targetAddress);
     address oldAddress = s_onRampAddresses[dstChainSelector];
     // if targetAddress is an existing onRamp, there's a need of cleaning the previous onRamp associated to this dstChainSelector
@@ -164,7 +168,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
 
   /// @notice Delete an address from the watchlist and sets the target to inactive
   /// @param targetAddress the address to be deleted
-  function removeFromWatchList(address targetAddress) public onlyRoleOrAdminRole(EXECUTOR_ROLE) returns (bool) {
+  function removeFromWatchList(address targetAddress) public onlyAdminOrExecutor returns (bool) {
     s_targets[targetAddress].isActive = false;
     for (uint256 i; i < s_watchList.length; i++) {
       if (s_watchList[i] == targetAddress) {
@@ -214,6 +218,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     return targetsToFund;
   }
 
+  /// @notice tries to fund an array of target addresses, checking if they're underfunded in the process
+  /// @param targetAddresses is an array of contract addresses to be funded in case they're underfunded
   function topUp(address[] memory targetAddresses) public whenNotPaused {
     MonitoredAddress memory target;
     uint256 localBalance = i_linkToken.balanceOf(address(this));
@@ -291,7 +297,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @notice Withdraws the contract balance in the LINK token.
   /// @param amount the amount of the LINK to withdraw
   /// @param payee the address to pay
-  function withdraw(uint256 amount, address payable payee) external onlyRoleOrAdminRole(EXECUTOR_ROLE) {
+  function withdraw(uint256 amount, address payable payee) external onlyAdminOrExecutor {
     if (payee == address(0)) revert InvalidAddress(payee);
     i_linkToken.transfer(payee, amount);
     emit FundsWithdrawn(amount, payee);
@@ -375,12 +381,12 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     return (target.isActive, target.minBalance, target.topUpAmount);
   }
 
-  /// @dev Modifier to make a function callable only by a certain role or the
+  /// @dev Modifier to make a function callable only by executor role or the
   /// admin role.
-  modifier onlyRoleOrAdminRole(bytes32 role) {
+  modifier onlyAdminOrExecutor() {
     address sender = _msgSender();
     if (!hasRole(ADMIN_ROLE, sender)) {
-      _checkRole(role, sender);
+      _checkRole(EXECUTOR_ROLE, sender);
     }
     _;
   }
