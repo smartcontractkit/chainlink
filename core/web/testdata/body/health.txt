@@ -11,8 +11,8 @@
 -EVM.0.Txm.Confirmer
 -EVM.0.Txm.WrappedEvmEstimator
 -JobSpawner
+-Mailbox.Monitor
 -Mercury.WSRPCPool
--Monitor
 -PipelineORM
 -PipelineRunner
 -PromReporter
