@@ -181,6 +181,9 @@ func TestLogTrigger(t *testing.T) {
 		loadConfig = &defaultLoadConfig
 	}
 
+	loadConfigBytes, err := toml.Marshal(loadConfig)
+	require.NoError(t, err, "Error marshalling load config")
+
 	l.Info().Msg("Starting automation v2.1 log trigger load test")
 	l.Info().Str("TEST_INPUTS", os.Getenv("TEST_INPUTS")).Int("Number of Nodes", numberofNodes).
 		Int("Duration", duration).
@@ -189,12 +192,13 @@ func TestLogTrigger(t *testing.T) {
 		Str("Log Level", logLevel).
 		Str("Image", os.Getenv(config.EnvVarCLImage)).
 		Str("Tag", os.Getenv(config.EnvVarCLTag)).
-		Interface("Load Config", loadConfig).
+		Bytes("Load Config", loadConfigBytes).
 		Msg("Test Config")
 
 	testConfig := fmt.Sprintf("Number of Nodes: %d\nDuration: %d\nBlock Time: %d\n"+
-		"Spec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\nLoad Config: %+v", numberofNodes, duration,
-		blockTime, specType, logLevel, os.Getenv(config.EnvVarCLImage), os.Getenv(config.EnvVarCLTag), loadConfig)
+		"Spec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\n\nLoad Config: \n%s", numberofNodes, duration,
+		blockTime, specType, logLevel, os.Getenv(config.EnvVarCLImage), os.Getenv(config.EnvVarCLTag), string(loadConfigBytes))
+	l.Info().Str("testConfig", testConfig).Msg("Test Config")
 
 	testNetwork := networks.MustGetSelectedNetworksFromEnv()[0]
 	testType := "load"
@@ -264,7 +268,7 @@ func TestLogTrigger(t *testing.T) {
 			},
 		}))
 
-	err := testEnvironment.Run()
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 
 	if testEnvironment.WillUseRemoteRunner() {
