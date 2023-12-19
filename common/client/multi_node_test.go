@@ -573,12 +573,22 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		node.On("String").Return("node name").Maybe()
 		node.On("RPC").Return(rpc).Maybe()
+		node.On("Close").Return(nil).Once()
 		return node
+	}
+	newStartedMultiNode := func(t *testing.T, opts multiNodeOpts) testMultiNode {
+		mn := newTestMultiNode(t, opts)
+		err := mn.StartOnce("startedTestMultiNode", func() error { return nil })
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, mn.Close())
+		})
+		return mn
 	}
 	t.Run("Fails if failed to select active node, even if managed to send tx", func(t *testing.T) {
 		chainID := types.RandomID()
 		node := newSendTxNode(t, nil, nil)
-		mn := newTestMultiNode(t, multiNodeOpts{
+		mn := newStartedMultiNode(t, multiNodeOpts{
 			selectionMode:       NodeSelectionModeRoundRobin,
 			chainID:             chainID,
 			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
@@ -588,7 +598,6 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		nodeSelector.On("Select").Return(nil).Once()
 		nodeSelector.On("Name").Return("MockedNodeSelector").Once()
 		mn.nodeSelector = nodeSelector
-		defer func() { _ = mn.Close() }()
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, err, ErroringNodeError.Error())
 	})
@@ -600,7 +609,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(mainNode).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
-		mn := newTestMultiNode(t, multiNodeOpts{
+		mn := newStartedMultiNode(t, multiNodeOpts{
 			selectionMode:       NodeSelectionModeRoundRobin,
 			chainID:             chainID,
 			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{mainNode, newSendTxNode(t, unexpectedError, nil)},
@@ -609,7 +618,6 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 			logger:              lggr,
 		})
 		mn.nodeSelector = nodeSelector
-		defer func() { _ = mn.Close() }()
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, err, expectedError.Error())
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 3)
@@ -624,7 +632,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(okNode).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
-		mn := newTestMultiNode(t, multiNodeOpts{
+		mn := newStartedMultiNode(t, multiNodeOpts{
 			selectionMode:       NodeSelectionModeRoundRobin,
 			chainID:             types.RandomID(),
 			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{failedNode, okNode},
@@ -633,7 +641,6 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 			sendOnlyErrorParser: sendOnlyErrorParser,
 		})
 		mn.nodeSelector = nodeSelector
-		defer func() { _ = mn.Close() }()
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 3)
@@ -652,7 +659,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(mainNode).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
-		mn := newTestMultiNode(t, multiNodeOpts{
+		mn := newStartedMultiNode(t, multiNodeOpts{
 			selectionMode:       NodeSelectionModeRoundRobin,
 			chainID:             types.RandomID(),
 			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{mainNode, secondaryFailed},
@@ -661,7 +668,6 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 			sendOnlyErrorParser: sendOnlyErrorParser,
 		})
 		mn.nodeSelector = nodeSelector
-		defer func() { _ = mn.Close() }()
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
 		cancel()
