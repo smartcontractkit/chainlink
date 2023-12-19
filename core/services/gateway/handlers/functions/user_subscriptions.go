@@ -12,6 +12,8 @@ import (
 
 // Methods are NOT thread-safe.
 
+var ErrUserHasNoSubscription = errors.New("user has no subscriptions")
+
 type UserSubscriptions interface {
 	UpdateSubscription(subscriptionId uint64, subscription *functions_router.IFunctionsSubscriptionsSubscription)
 	GetMaxUserBalance(user common.Address) (*big.Int, error)
@@ -57,7 +59,7 @@ func (us *userSubscriptions) UpdateSubscription(subscriptionId uint64, subscript
 func (us *userSubscriptions) GetMaxUserBalance(user common.Address) (*big.Int, error) {
 	subs, exists := us.userSubscriptionsMap[user]
 	if !exists {
-		return nil, errors.New("user has no subscriptions")
+		return nil, ErrUserHasNoSubscription
 	}
 
 	maxBalance := big.NewInt(0)

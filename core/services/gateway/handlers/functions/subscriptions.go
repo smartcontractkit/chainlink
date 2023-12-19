@@ -98,24 +98,8 @@ func (s *onchainSubscriptions) Start(ctx context.Context) error {
 			return errors.New("OnchainSubscriptionsConfig.UpdateRangeSize must be greater than 0")
 		}
 
-		offset := uint(0)
-		for {
-			cs, err := s.orm.FetchSubscriptions(offset, s.config.CacheBatchSize)
-			if err != nil {
-				break
-			}
-
-			for _, cs := range cs {
-				s.subscriptions.UpdateSubscription(cs.SubscriptionID, &cs.IFunctionsSubscriptionsSubscription)
-			}
-
-			if len(cs) != int(s.config.CacheBatchSize) {
-				break
-			}
-			offset += s.config.CacheBatchSize
-		}
-
-		s.closeWait.Add(1)
+		s.closeWait.Add(2)
+		go s.loadCachedSubscriptions()
 		go s.queryLoop()
 
 		return nil
@@ -230,4 +214,28 @@ func (s *onchainSubscriptions) getSubscriptionsCount(ctx context.Context, blockN
 		BlockNumber: blockNumber,
 		Context:     ctx,
 	})
+}
+func (s *onchainSubscriptions) loadCachedSubscriptions() {
+	defer s.closeWait.Done()
+	offset := uint(0)
+	for {
+		cs, err := s.orm.FetchSubscriptions(offset, s.config.CacheBatchSize)
+		if err != nil {
+			break
+		}
+
+		for _, cs := range cs {
+			// only load subscriptions from cache db that are currently not present.
+			// if the subscription data is already present its more up to date.
+			if _, err := s.subscriptions.GetMaxUserBalance(cs.Owner); err == ErrUserHasNoSubscription {
+				s.subscriptions.UpdateSubscription(cs.SubscriptionID, &cs.IFunctionsSubscriptionsSubscription)
+			}
+
+		}
+
+		if len(cs) != int(s.config.CacheBatchSize) {
+			break
+		}
+		offset += s.config.CacheBatchSize
+	}
 }
