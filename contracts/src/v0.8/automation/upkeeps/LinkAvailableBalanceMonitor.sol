@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
 import {AccessControl} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/access/AccessControl.sol";
+import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableMap.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
 
@@ -34,6 +35,8 @@ interface ILinkAvailable {
 /// we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
 /// which has significantly different trust assumptions
 contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInterface, Pausable {
+  using EnumerableMap for EnumerableMap.UintToAddressMap;
+
   event BalanceUpdated(address indexed addr, uint256 oldBalance, uint256 newBalance);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event UpkeepIntervalSet(uint256 oldUpkeepInterval, uint256 newUpkeepInterval);
@@ -87,7 +90,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// There has to be only one onRamp per dstChainSelector.
   /// dstChainSelector is needed as we have to track the live onRamp, and delete the onRamp
   /// whenever a new one is deployed with the same dstChainSelector.
-  mapping(uint64 dstChainSelector => address onRamp) internal s_onRampAddresses;
+  EnumerableMap.UintToAddressMap internal s_onRampAddresses;
 
   /// @param admin is the administrator address of this contract
   /// @param linkTokenAddress the LINK token address
@@ -134,6 +137,10 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     for (uint256 idx = 0; idx < s_watchList.length; idx++) {
       delete s_targets[s_watchList[idx]];
     }
+    for (uint256 idx = 0; idx < s_onRampAddresses.length(); idx++) {
+      (uint256 key, ) = s_onRampAddresses.at(idx);
+      s_onRampAddresses.remove(key);
+    }
     for (uint256 idx = 0; idx < addresses.length; idx++) {
       address targetAddress = addresses[idx];
       if (s_targets[targetAddress].isActive) revert DuplicateAddress(targetAddress);
@@ -146,7 +153,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
         lastTopUpTimestamp: 0
       });
       if (dstChainSelectors[idx] > 0) {
-        s_onRampAddresses[dstChainSelectors[idx]] = targetAddress;
+        s_onRampAddresses.set(dstChainSelectors[idx], targetAddress);
       }
     }
     s_watchList = addresses;
@@ -161,15 +168,16 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// in which case it will carry the proper dstChainSelector along with the 0x0 address
   function addToWatchListOrDecomission(address targetAddress, uint64 dstChainSelector) public onlyAdminOrExecutor {
     if (s_targets[targetAddress].isActive) revert DuplicateAddress(targetAddress);
-    address oldAddress = s_onRampAddresses[dstChainSelector];
+    bool onRampExists = s_onRampAddresses.contains(dstChainSelector);
     // if targetAddress is an existing onRamp, there's a need of cleaning the previous onRamp associated to this dstChainSelector
     // there's no need to remove any other address that's not an onRamp
-    if (dstChainSelector > 0 && oldAddress != address(0)) {
+    if (dstChainSelector > 0 && onRampExists) {
+      address oldAddress = s_onRampAddresses.get(dstChainSelector);
       removeFromWatchList(oldAddress);
     }
     // only add the new address if it's not 0x0
     if (targetAddress != address(0)) {
-      s_onRampAddresses[dstChainSelector] = targetAddress;
+      s_onRampAddresses.set(dstChainSelector, targetAddress);
       s_targets[targetAddress] = MonitoredAddress({
         isActive: true,
         minBalance: DEFAULT_MIN_BALANCE_JULES,
@@ -179,18 +187,18 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
       s_watchList.push(targetAddress);
     } else {
       // if the address is 0x0, it means the onRamp has ben decomissioned and has to be cleaned
-      delete s_onRampAddresses[dstChainSelector];
+      s_onRampAddresses.remove(dstChainSelector);
     }
   }
 
   /// @notice Delete an address from the watchlist and sets the target to inactive
   /// @param targetAddress the address to be deleted
   function removeFromWatchList(address targetAddress) public onlyAdminOrExecutor returns (bool) {
-    delete s_targets[targetAddress];
     for (uint256 i; i < s_watchList.length; i++) {
       if (s_watchList[i] == targetAddress) {
         s_watchList[i] = s_watchList[s_watchList.length - 1];
         s_watchList.pop();
+        delete s_targets[targetAddress];
         return true;
       }
     }
@@ -393,7 +401,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @notice Gets the onRamp address with the specified dstChainSelector
   function getOnRampAddressAtChainSelector(uint64 dstChainSelector) external view returns (address) {
     if (dstChainSelector > 0) revert InvalidChainSelector();
-    return s_onRampAddresses[dstChainSelector];
+    return s_onRampAddresses.get(dstChainSelector);
   }
 
   /// @notice Gets configuration information for an address on the watchlist
