@@ -36,7 +36,6 @@ runs:
         # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
         echo "Querying test results at https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs"
 
-        echo "Looking for jobs matching regex: `${{ inputs.github_job_name_regex }}`"
         PARSED_RESULTS=$(curl \
         -H "Authorization: Bearer ${{ inputs.github_token }}" \
         'https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs' \
@@ -44,7 +43,7 @@ runs:
         | select(.name | test($pattern)) as $job
         | $job.steps[]
         | select(.name == "Run Tests")
-        | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), cap: ("*" + ($job.name | capture($pattern).cap) + "*") }')
+        | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), cap: ("*" + ($job.name | capture($pattern).cap) + "*"), html_url: $job.html_url }')
 
         echo "Parsed Results:"
         echo $PARSED_RESULTS
@@ -64,9 +63,10 @@ runs:
         | { 
           conclusion: .conclusion, 
           cap: .cap 
+          html_url: .html_url
           }
         ]
-        | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"\(.cap): \(.conclusion)\"}}")
+        | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"<\(.html_url)|\(.cap)>: \(.conclusion)\"}}")
         | join(",")')
 
         echo "Formatted Results:"
