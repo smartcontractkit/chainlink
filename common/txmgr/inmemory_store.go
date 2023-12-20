@@ -17,6 +17,10 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
+// BIG TODO LIST
+// TODO: make sure that all state transitions are handled by the address state to ensure that the in-memory store is always in a consistent state
+// TODO: figure out if multiple tx attempts are actually stored in the db for each tx
+
 var (
 	// ErrInvalidChainID is returned when the chain ID is invalid
 	ErrInvalidChainID = fmt.Errorf("invalid chain ID")
@@ -1223,49 +1227,69 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadT
 
 	return nil
 }
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) error {
-	if ms.chainID.String() != chainID.String() {
-		return fmt.Errorf("mark_all_confirmed_missing_receipt: %w", ErrInvalidChainID)
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PreloadTxes(_ context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	if len(attempts) == 0 {
+		return nil
 	}
 
-	// TODO(jtw): need to complete
+	as, ok := ms.addressStates[attempts[0].Tx.FromAddress]
+	if !ok {
+		return fmt.Errorf("preload_txes: %w", ErrAddressNotFound)
+	}
 
-	/*
-		// Persist to persistent storage
-		if err := ms.txStore.MarkAllConfirmedMissingReceipt(ctx, chainID); err != nil {
-			return err
-		}
-
-		// Update in memory store
-		fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
-			if tx.State != TxUnconfirmed {
-				return
+	txIDs := make([]int64, len(attempts))
+	for i, attempt := range attempts {
+		txIDs[i] = attempt.TxID
+	}
+	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return true
+	}
+	txs := as.FetchTxs(nil, filter, txIDs...)
+	for i, attempt := range attempts {
+		for _, tx := range txs {
+			if tx.ID == attempt.TxID {
+				attempts[i].Tx = tx
 			}
-			if tx.Sequence >= maxSequence {
-				return
-			}
-
-			tx.State = TxConfirmedMissingReceipt
 		}
-		states := []txmgrtypes.TxState{TxUnconfirmed}
-		for _, as := range ms.addressStates {
-			as.ApplyToTxs(states, fn)
-		}
-	*/
+	}
 
 	return nil
 }
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID) error {
-	return ms.txStore.MarkOldTxesMissingReceiptAsErrored(ctx, blockNum, finalityDepth, chainID)
-}
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PreloadTxes(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	return ms.txStore.PreloadTxes(ctx, attempts)
-}
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
-	return ms.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, attempt, broadcastAt)
+	as, ok := ms.addressStates[attempt.Tx.FromAddress]
+	if !ok {
+		return fmt.Errorf("save_confirmed_missing_receipt_attempt: %w", ErrAddressNotFound)
+	}
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("expected state to be in_progress")
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, attempt, broadcastAt); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.ID != attempt.TxID {
+			return
+		}
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return
+		}
+		if tx.BroadcastAt.Before(broadcastAt) {
+			tx.BroadcastAt = &broadcastAt
+		}
+
+		tx.TxAttempts[0].State = txmgrtypes.TxAttemptBroadcast
+		tx.State = TxConfirmedMissingReceipt
+	}
+	as.ApplyToTxs(nil, fn, attempt.TxID)
+
+	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInProgressAttempt(ctx context.Context, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	_, ok := ms.addressStates[attempt.Tx.FromAddress]
+	as, ok := ms.addressStates[attempt.Tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("save_in_progress_attempt: %w", ErrAddressNotFound)
 	}
@@ -1278,8 +1302,16 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 		return err
 	}
 
-	// Update in memory store
-	// TODO
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.ID != attempt.TxID {
+			return
+		}
+		if tx.TxAttempts == nil {
+			tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+		}
+		tx.TxAttempts = append(tx.TxAttempts, *attempt)
+	}
+	as.ApplyToTxs(nil, fn, attempt.TxID)
 
 	return nil
 }
@@ -1349,10 +1381,55 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveS
 	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	return ms.txStore.UpdateTxForRebroadcast(ctx, etx, etxAttempt)
+	as, ok := ms.addressStates[etx.FromAddress]
+	if !ok {
+		return fmt.Errorf("update_tx_for_rebroadcast: %w", ErrAddressNotFound)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.UpdateTxForRebroadcast(ctx, etx, etxAttempt); err != nil {
+		return err
+	}
+
+	// Update in memory store
+
+	// TODO
+	// delete receipts
+	// update tx unconfirmed
+	// update tx_attempt unbroadcast
+
+	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID) (bool, error) {
-	return ms.txStore.IsTxFinalized(ctx, blockHeight, txID, chainID)
+	if ms.chainID.String() != chainID.String() {
+		return false, fmt.Errorf("is_tx_finalized: %w", ErrInvalidChainID)
+	}
+
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if tx.ID != txID {
+			return false
+		}
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return false
+		}
+		attempt := tx.TxAttempts[0]
+		if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
+			return false
+		}
+		if attempt.Receipts[0].GetBlockNumber() == nil {
+			return false
+		}
+
+		return attempt.Receipts[0].GetBlockNumber().Int64() <= (blockHeight - int64(tx.MinConfirmations.Uint32))
+	}
+	for _, as := range ms.addressStates {
+		txas := as.FetchTxAttempts(nil, fn, txID)
+		if len(txas) > 0 {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxsRequiringGasBump(ctx context.Context, address ADDR, blockNum, gasBumpThreshold, depth int64, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
@@ -1362,6 +1439,42 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 	// TODO
 	return nil, nil
+}
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) error {
+	if ms.chainID.String() != chainID.String() {
+		return fmt.Errorf("mark_all_confirmed_missing_receipt: %w", ErrInvalidChainID)
+	}
+
+	// TODO(jtw): need to complete
+
+	/*
+		// Persist to persistent storage
+		if err := ms.txStore.MarkAllConfirmedMissingReceipt(ctx, chainID); err != nil {
+			return err
+		}
+
+		// Update in memory store
+		fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+			if tx.State != TxUnconfirmed {
+				return
+			}
+			if tx.Sequence >= maxSequence {
+				return
+			}
+
+			tx.State = TxConfirmedMissingReceipt
+		}
+		states := []txmgrtypes.TxState{TxUnconfirmed}
+		for _, as := range ms.addressStates {
+			as.ApplyToTxs(states, fn)
+		}
+	*/
+
+	return nil
+}
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID) error {
+	// TODO
+	return ms.txStore.MarkOldTxesMissingReceiptAsErrored(ctx, blockNum, finalityDepth, chainID)
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deepCopyTx(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
