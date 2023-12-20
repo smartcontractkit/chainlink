@@ -129,9 +129,11 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			mockOffRampReader.On("GetSenderNonce", mock.Anything, mock.Anything).Return(offRamp.GetSenderNonce(nil, utils.RandomAddress())).Maybe()
 			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, []common.Address{}).
 				Return([]ccipdata.TokenBucketRateLimit{}, nil).Maybe()
-			mockOffRampReader.On("GetDestinationTokens", ctx).Return(nil, nil).Maybe()
 			mockOffRampReader.On("GetSourceToDestTokensMapping", ctx).Return(nil, nil).Maybe()
-			mockOffRampReader.On("GetDestinationTokenPools", ctx).Return(nil, nil).Maybe()
+			mockOffRampReader.On("GetTokens", ctx).Return(ccipdata.OffRampTokens{
+				DestinationTokens: []common.Address{},
+				SourceTokens:      []common.Address{},
+			}, nil).Maybe()
 			p.offRampReader = mockOffRampReader
 
 			mockOnRampReader := ccipdatamocks.NewOnRampReader(t)
@@ -867,8 +869,9 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 			offRampAddr := utils.RandomAddress()
 			mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
 			mockOffRampReader.On("Address").Return(offRampAddr, nil).Maybe()
-			mockOffRampReader.On("GetDestinationTokenPools", ctx).
-				Return(poolsMapping, tc.destPoolsCacheErr).Maybe()
+			mockOffRampReader.On("GetTokens", ctx).Return(ccipdata.OffRampTokens{
+				DestinationPool: poolsMapping,
+			}, tc.destPoolsCacheErr).Maybe()
 			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, tc.destPools).
 				Return(tc.poolRateLimits, nil).
 				Maybe()

@@ -44,11 +44,11 @@ func GetDestinationTokens(ctx context.Context, offRamp ccipdata.OffRampReader, p
 	})
 
 	eg.Go(func() error {
-		tokens, err := offRamp.GetDestinationTokens(ctx)
+		tokens, err := offRamp.GetTokens(ctx)
 		if err != nil {
 			return fmt.Errorf("get dest bridgeable tokens: %w", err)
 		}
-		destBridgeableTokens = tokens
+		destBridgeableTokens = tokens.DestinationTokens
 		return nil
 	})
 
