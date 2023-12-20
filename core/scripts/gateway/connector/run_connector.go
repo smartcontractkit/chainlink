@@ -31,7 +31,10 @@ type client struct {
 
 func (h *client) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
 	h.lggr.Infof("received message from gateway %s. Echoing back.", gatewayId)
-	h.connector.SendToGateway(context.Background(), gatewayId, msg)
+	err := h.connector.SendToGateway(ctx, gatewayId, msg)
+	if err != nil {
+		h.lggr.Errorw("failed to send to gateway", "id", gatewayId, "err", err)
+	}
 }
 
 func (h *client) Sign(data ...[]byte) ([]byte, error) {
@@ -70,8 +73,16 @@ func main() {
 	client.connector = connector
 
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt)
-	connector.Start(ctx)
+	err = connector.Start(ctx)
+	if err != nil {
+		fmt.Println("error staring connector:", err)
+		return
+	}
 
 	<-ctx.Done()
-	connector.Close()
+	err = connector.Close()
+	if err != nil {
+		fmt.Println("error closing connector:", err)
+		return
+	}
 }

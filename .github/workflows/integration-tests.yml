@@ -355,17 +355,17 @@ jobs:
             pyroscope_env: ""
           - name: ocr
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             run: -run TestOCRJobReplacement
             file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr-geth
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             run: -run TestOCRBasic
             file: ocr
             client: geth
-            pyroscope_env: ci-smoke-ocr-evm-simulated         
+            pyroscope_env: ci-smoke-ocr-evm-simulated
           # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE
           # - name: ocr-nethermind
           #   nodes: 1
@@ -373,21 +373,21 @@ jobs:
           #   run: -run TestOCRBasic
           #   file: ocr
           #   client: nethermind
-          #   pyroscope_env: ci-smoke-ocr-evm-simulated                          
+          #   pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr-besu
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             run: -run TestOCRBasic
             file: ocr
             client: besu
-            pyroscope_env: ci-smoke-ocr-evm-simulated        
+            pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr-erigon
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             run: -run TestOCRBasic
             file: ocr
             client: erigon
-            pyroscope_env: ci-smoke-ocr-evm-simulated         
+            pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 1
             os: ubuntu20.04-8cores-32GB
@@ -400,29 +400,29 @@ jobs:
             run: -run TestOCRv2Basic
             file: ocr2
             client: geth
-            pyroscope_env: ci-smoke-ocr2-evm-simulated            
-          # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE            
+            pyroscope_env: ci-smoke-ocr2-evm-simulated
+          # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE
           # - name: ocr2-nethermind
           #   nodes: 1
           #   os: ubuntu20.04-8cores-32GB
           #   run: -run TestOCRv2Basic
           #   file: ocr2
           #   client: nethermind
-          #   pyroscope_env: ci-smoke-ocr2-evm-simulated                         
+          #   pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2-besu
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             run: -run TestOCRv2Basic
             file: ocr2
-            client: besu            
-            pyroscope_env: ci-smoke-ocr2-evm-simulated      
+            client: besu
+            pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2-erigon
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             run: -run TestOCRv2Basic
             file: ocr2
-            client: erigon            
-            pyroscope_env: ci-smoke-ocr2-evm-simulated                           
+            client: erigon
+            pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
             nodes: 1
             os: ubuntu20.04-8cores-32GB
@@ -434,25 +434,23 @@ jobs:
             pyroscope_env: ""
           - name: vrf
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             nodes: 1
-            run: -run TestVRFv2MultipleSendingKeys
-            file: vrfv2            
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-vrf2plus-evm-simulated                       
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           - name: forwarders_ocr2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
@@ -466,7 +464,7 @@ jobs:
         run: |
           # if dir is provided use it, otherwise use the smoke dir
           if [ "${{ matrix.product.dir }}" != "" ]; then
-            dir=${{ matrix.product.dir }} 
+            dir=${{ matrix.product.dir }}
           else
             dir=smoke
           fi

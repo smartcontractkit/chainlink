@@ -232,9 +232,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 			transmitters[i+1] = f.String()
 		}
 	} else {
-		for _, t := range transmitters[1:] {
-			nodesToFund = append(nodesToFund, t)
-		}
+		nodesToFund = append(nodesToFund, transmitters[1:]...)
 	}
 
 	var payees []common.Address

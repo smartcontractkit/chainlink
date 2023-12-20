@@ -411,44 +411,44 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 
 		if writeLogs {
 			var rdr io.ReadCloser
-			rdr, err := dockerClient.ContainerLogs(ctx, nodeContainerResp.ID, types.ContainerLogsOptions{
+			rdr, err2 := dockerClient.ContainerLogs(ctx, nodeContainerResp.ID, types.ContainerLogsOptions{
 				ShowStderr: true,
 				Timestamps: true,
 			})
-			if err != nil {
+			if err2 != nil {
 				rdr.Close()
-				log.Fatal("Failed to collect logs from container: ", err)
+				log.Fatal("Failed to collect logs from container: ", err2)
 			}
 
-			stdErr, err := os.OpenFile(fmt.Sprintf("./%s-stderr.log", nodeContainerResp.ID), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-			if err != nil {
+			stdErr, err2 := os.OpenFile(fmt.Sprintf("./%s-stderr.log", nodeContainerResp.ID), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+			if err2 != nil {
 				rdr.Close()
 				stdErr.Close()
-				log.Fatal("Failed to open file: ", err)
+				log.Fatal("Failed to open file: ", err2)
 			}
 
-			if _, err := stdcopy.StdCopy(io.Discard, stdErr, rdr); err != nil {
+			if _, err2 := stdcopy.StdCopy(io.Discard, stdErr, rdr); err2 != nil {
 				rdr.Close()
 				stdErr.Close()
-				log.Fatal("Failed to write logs to file: ", err)
+				log.Fatal("Failed to write logs to file: ", err2)
 			}
 
 			rdr.Close()
 			stdErr.Close()
 		}
 
-		if err = dockerClient.ContainerStop(ctx, nodeContainerResp.ID, container.StopOptions{}); err != nil {
-			log.Fatal("Failed to stop node container: ", err)
+		if err2 := dockerClient.ContainerStop(ctx, nodeContainerResp.ID, container.StopOptions{}); err2 != nil {
+			log.Fatal("Failed to stop node container: ", err2)
 		}
-		if err = dockerClient.ContainerRemove(ctx, nodeContainerResp.ID, types.ContainerRemoveOptions{}); err != nil {
-			log.Fatal("Failed to remove node container: ", err)
+		if err2 := dockerClient.ContainerRemove(ctx, nodeContainerResp.ID, types.ContainerRemoveOptions{}); err2 != nil {
+			log.Fatal("Failed to remove node container: ", err2)
 		}
 
-		if err = dockerClient.ContainerStop(ctx, dbContainerResp.ID, container.StopOptions{}); err != nil {
-			log.Fatal("Failed to stop DB container: ", err)
+		if err2 := dockerClient.ContainerStop(ctx, dbContainerResp.ID, container.StopOptions{}); err2 != nil {
+			log.Fatal("Failed to stop DB container: ", err2)
 		}
-		if err = dockerClient.ContainerRemove(ctx, dbContainerResp.ID, types.ContainerRemoveOptions{}); err != nil {
-			log.Fatal("Failed to remove DB container: ", err)
+		if err2 := dockerClient.ContainerRemove(ctx, dbContainerResp.ID, types.ContainerRemoveOptions{}); err2 != nil {
+			log.Fatal("Failed to remove DB container: ", err2)
 		}
 	}, nil
 }

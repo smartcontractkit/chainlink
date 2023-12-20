@@ -503,6 +503,13 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	return &medianProvider, nil
 }
 
+func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
+	lggr := r.lggr.Named("AutomationProvider").Named(rargs.ExternalJobID.String())
+	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.db, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth())
+
+	return ocr2keeperRelayer.NewOCR2KeeperProvider(rargs, pargs)
+}
+
 var _ commontypes.MedianProvider = (*medianProvider)(nil)
 
 type medianProvider struct {

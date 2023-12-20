@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-...
+### Fixed
+
+- Fixed the encoding used for transactions when resending in batches
 
 ## 2.8.0 - UNRELEASED
 
