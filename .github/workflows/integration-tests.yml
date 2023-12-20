@@ -330,19 +330,19 @@ jobs:
             pyroscope_env: ci-smoke-ocr-evm-simulated                         
           - name: ocr2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             run: -run TestOCRv2JobReplacement
             file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             run: -run TestOCRv2Basic
             file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated                                                           
           - name: ocr2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
           - name: runlog
