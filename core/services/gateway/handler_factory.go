@@ -21,19 +21,21 @@ const (
 
 type handlerFactory struct {
 	legacyChains legacyevm.LegacyChainContainer
+	db           *sqlx.DB
+	cfg          pg.QConfig
 	lggr         logger.Logger
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, lggr logger.Logger) HandlerFactory {
-	return &handlerFactory{legacyChains, lggr}
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger) HandlerFactory {
+	return &handlerFactory{legacyChains, db, cfg, lggr}
 }
 
-func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger) (handlers.Handler, error) {
+func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error) {
 	switch handlerType {
 	case FunctionsHandlerType:
-		return functions.NewFunctionsHandlerFromConfig(handlerConfig, donConfig, don, hf.legacyChains, db, cfg, hf.lggr)
+		return functions.NewFunctionsHandlerFromConfig(handlerConfig, donConfig, don, hf.legacyChains, hf.db, hf.cfg, hf.lggr)
 	case DummyHandlerType:
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	default:

@@ -128,15 +128,3 @@ func (o *orm) CreateSubscription(subscription CachedSubscription, qopts ...pg.QO
 	}
 	return nil
 }
-
-type noopORM struct{}
-
-func NewNoopORM() ORM {
-	return &noopORM{}
-}
-func (o *noopORM) FetchSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error) {
-	return nil, nil
-}
-func (o *noopORM) CreateSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error {
-	return nil
-}

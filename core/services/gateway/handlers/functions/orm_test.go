@@ -72,14 +72,6 @@ func TestORM_FetchSubscriptions(t *testing.T) {
 		require.Equal(t, 1, len(results), "incorrect results length")
 		require.Equal(t, results[0].Owner, cachedSubscriptions[1].Owner)
 	})
-
-	t.Run("fetch from NoopORM returns empty result", func(t *testing.T) {
-		orm := functions.NewNoopORM()
-		_ = createSubscription(t, orm, 2)
-		results, err := orm.FetchSubscriptions(1, 5)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(results), "incorrect results length")
-	})
 }
 
 func Test_NewORM(t *testing.T) {

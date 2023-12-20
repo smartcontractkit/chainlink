@@ -138,8 +138,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 
 		orm, err := NewORM(db, lggr, qcfg)
 		if err != nil {
-			lggr.Debugw("using a noop subscription cache layer")
-			orm = NewNoopORM()
+			return nil, err
 		}
 
 		subscriptions, err2 = NewOnchainSubscriptions(chain.Client(), *cfg.OnchainSubscriptions, orm, lggr)
