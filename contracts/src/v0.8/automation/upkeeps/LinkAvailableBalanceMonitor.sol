@@ -54,6 +54,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   error InvalidUpkeepInterval(uint8 upkeepInterval);
   error InvalidLinkTokenAddress(address lt);
   error InvalidWatchList();
+  error InvalidChainSelector();
   error DuplicateAddress(address duplicate);
 
   struct MonitoredAddress {
@@ -73,11 +74,19 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   uint16 private s_maxPerform;
   uint16 private s_maxCheck;
   uint8 private s_upkeepInterval;
+
+  /// @notice s_watchList contains all the addresses watched by this monitor
+  /// It mainly provides the length() function
   address[] private s_watchList;
+
+  /// @notice s_targets contains all the addresses watched by this monitor
+  /// Each key points to a MonitoredAddress with all the needed metadata
   mapping(address targetAddress => MonitoredAddress targetProperties) internal s_targets;
 
   /// @notice s_onRampAddresses represents a list of CCIP onRamp addresses watched on this contract
   /// There has to be only one onRamp per dstChainSelector.
+  /// dstChainSelector is needed as we have to track the live onRamp, and delete the onRamp
+  /// whenever a new one is deployed with the same dstChainSelector.
   mapping(uint64 dstChainSelector => address onRamp) internal s_onRampAddresses;
 
   /// @param admin is the administrator address of this contract
@@ -112,9 +121,14 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   function setWatchList(
     address[] calldata addresses,
     uint96[] calldata minBalances,
-    uint96[] calldata topUpAmounts
+    uint96[] calldata topUpAmounts,
+    uint64[] calldata dstChainSelectors
   ) external onlyAdminOrExecutor {
-    if (addresses.length != minBalances.length || addresses.length != topUpAmounts.length) {
+    if (
+      addresses.length != minBalances.length ||
+      addresses.length != topUpAmounts.length ||
+      addresses.length != dstChainSelectors.length
+    ) {
       revert InvalidWatchList();
     }
     for (uint256 idx = 0; idx < s_watchList.length; idx++) {
@@ -122,8 +136,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     }
     for (uint256 idx = 0; idx < addresses.length; idx++) {
       address targetAddress = addresses[idx];
-      if (s_targets[targetAddress].isActive) revert DuplicateAddress(addresses[idx]);
-      if (addresses[idx] == address(0)) revert InvalidWatchList();
+      if (s_targets[targetAddress].isActive) revert DuplicateAddress(targetAddress);
+      if (targetAddress == address(0)) revert InvalidWatchList();
       if (topUpAmounts[idx] == 0) revert InvalidWatchList();
       s_targets[targetAddress] = MonitoredAddress({
         isActive: true,
@@ -131,6 +145,9 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
         topUpAmount: topUpAmounts[idx],
         lastTopUpTimestamp: 0
       });
+      if (dstChainSelectors[idx] > 0) {
+        s_onRampAddresses[dstChainSelectors[idx]] = targetAddress;
+      }
     }
     s_watchList = addresses;
     emit WatchlistUpdated();
@@ -169,7 +186,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @notice Delete an address from the watchlist and sets the target to inactive
   /// @param targetAddress the address to be deleted
   function removeFromWatchList(address targetAddress) public onlyAdminOrExecutor returns (bool) {
-    s_targets[targetAddress].isActive = false;
+    delete s_targets[targetAddress];
     for (uint256 i; i < s_watchList.length; i++) {
       if (s_watchList[i] == targetAddress) {
         s_watchList[i] = s_watchList[s_watchList.length - 1];
@@ -371,6 +388,12 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @notice Gets the list of subscription ids being watched
   function getWatchList() external view returns (address[] memory) {
     return s_watchList;
+  }
+
+  /// @notice Gets the onRamp address with the specified dstChainSelector
+  function getOnRampAddressAtChainSelector(uint64 dstChainSelector) external view returns (address) {
+    if (dstChainSelector > 0) revert InvalidChainSelector();
+    return s_onRampAddresses[dstChainSelector];
   }
 
   /// @notice Gets configuration information for an address on the watchlist

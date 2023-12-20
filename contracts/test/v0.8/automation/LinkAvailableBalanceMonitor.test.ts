@@ -58,6 +58,7 @@ let directTarget2: MockContract
 let watchListAddresses: string[]
 let watchListMinBalances: BigNumber[]
 let watchListTopUpAmounts: BigNumber[]
+let watchListDstChainSelectors: number[]
 
 async function assertContractLinkBalances(
   balance1: BigNumber,
@@ -120,6 +121,7 @@ const setup = async () => {
   ]
   watchListMinBalances = [oneLINK, oneLINK, oneLINK, twoLINK, twoLINK]
   watchListTopUpAmounts = [twoLINK, twoLINK, twoLINK, twoLINK, twoLINK]
+  watchListDstChainSelectors = [1, 2, 3, 4, 5]
 
   await proxy1.mock.aggregator.returns(aggregator1.address)
   await proxy2.mock.aggregator.returns(aggregator2.address)
@@ -169,6 +171,7 @@ const setup = async () => {
       watchListAddresses,
       watchListMinBalances,
       watchListTopUpAmounts,
+      watchListDstChainSelectors,
     )
   await setTx.wait()
 }
@@ -323,7 +326,7 @@ describe('LinkAvailableBalanceMonitor', () => {
 
     beforeEach(async () => {
       // reset watchlist to empty before running these tests
-      await labm.connect(owner).setWatchList([], [], [])
+      await labm.connect(owner).setWatchList([], [], [], [])
       const watchList = await labm.getWatchList()
       assert.deepEqual(watchList, [])
     })
@@ -332,7 +335,7 @@ describe('LinkAvailableBalanceMonitor', () => {
       // add first watchlist
       let tx = await labm
         .connect(owner)
-        .setWatchList([watchAddress1], [oneLINK], [oneLINK])
+        .setWatchList([watchAddress1], [oneLINK], [oneLINK], [0])
       let watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
       // add more to watchlist
@@ -342,6 +345,7 @@ describe('LinkAvailableBalanceMonitor', () => {
           [watchAddress1, watchAddress2, watchAddress3],
           [oneLINK, oneLINK, oneLINK],
           [oneLINK, oneLINK, oneLINK],
+          [1, 2, 3],
         )
       await tx.wait()
       watchList = await labm.getWatchList()
@@ -356,6 +360,7 @@ describe('LinkAvailableBalanceMonitor', () => {
           [watchAddress1, watchAddress2, watchAddress1],
           [oneLINK, oneLINK],
           [oneLINK, oneLINK],
+          [1, 2],
         )
       await expect(tx).to.be.revertedWith(errMsg)
     })
@@ -368,6 +373,7 @@ describe('LinkAvailableBalanceMonitor', () => {
           [watchAddress1, watchAddress2, watchAddress1],
           [oneLINK, oneLINK, oneLINK],
           [oneLINK, oneLINK, oneLINK],
+          [1, 2, 3],
         )
       await expect(tx).to.be.revertedWith(errMsg)
     })
@@ -375,7 +381,7 @@ describe('LinkAvailableBalanceMonitor', () => {
     it('Should not allow strangers to set the watchlist', async () => {
       const setTxStranger = labm
         .connect(stranger)
-        .setWatchList([watchAddress1], [oneLINK], [oneLINK])
+        .setWatchList([watchAddress1], [oneLINK], [oneLINK], [0])
       await expect(setTxStranger).to.be.reverted
     })
 
@@ -386,6 +392,7 @@ describe('LinkAvailableBalanceMonitor', () => {
           [watchAddress1, ethers.constants.AddressZero],
           [oneLINK, oneLINK],
           [oneLINK, oneLINK],
+          [1, 2],
         )
       await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
     })
@@ -535,6 +542,7 @@ describe('LinkAvailableBalanceMonitor', () => {
         watchListAddresses,
         watchListMinBalances,
         watchListTopUpAmounts,
+        watchListDstChainSelectors,
       )
 
       const [should, payload] = await labm.checkUpkeep('0x')
@@ -560,6 +568,7 @@ describe('LinkAvailableBalanceMonitor', () => {
         [aggregator2.address, directTarget1.address, directTarget2.address],
         [oneLINK, twoLINK, twoLINK],
         [oneLINK, oneLINK, oneLINK],
+        [1, 2, 3],
       )
 
       // all of them are underfunded, return 3
@@ -608,6 +617,7 @@ describe('LinkAvailableBalanceMonitor', () => {
       let minBalances: BigNumber[]
       let topUpAmount: BigNumber[]
       let aggregators: MockContract[]
+      let dstChainSelectors: number[]
 
       beforeEach(async () => {
         MAX_PERFORM = await labm.getMaxPerform()
@@ -616,6 +626,7 @@ describe('LinkAvailableBalanceMonitor', () => {
         minBalances = []
         topUpAmount = []
         aggregators = []
+        dstChainSelectors = []
         const numAggregators = MAX_CHECK + 50
         for (let idx = 0; idx < numAggregators; idx++) {
           const proxy = await deployMockContract(
@@ -632,8 +643,14 @@ describe('LinkAvailableBalanceMonitor', () => {
           minBalances.push(oneLINK)
           topUpAmount.push(oneLINK)
           aggregators.push(aggregator)
+          dstChainSelectors.push(0)
         }
-        await labm.setWatchList(proxyAddresses, minBalances, topUpAmount)
+        await labm.setWatchList(
+          proxyAddresses,
+          minBalances,
+          topUpAmount,
+          dstChainSelectors,
+        )
         let watchlist = await labm.getWatchList()
         expect(watchlist).to.deep.equalInAnyOrder(proxyAddresses)
         assert.equal(watchlist.length, minBalances.length)
@@ -688,6 +705,7 @@ describe('LinkAvailableBalanceMonitor', () => {
           watchListAddresses,
           watchListMinBalances,
           watchListTopUpAmounts,
+          watchListDstChainSelectors,
         )
     })
 
@@ -730,6 +748,7 @@ describe('LinkAvailableBalanceMonitor', () => {
       const proxyAddresses = []
       const minBalances = []
       const topUpAmount = []
+      const dstChainSelectors = []
       for (let idx = 0; idx < MAX_PERFORM; idx++) {
         const proxy = await deployMockContract(
           owner,
@@ -744,8 +763,14 @@ describe('LinkAvailableBalanceMonitor', () => {
         proxyAddresses.push(proxy.address)
         minBalances.push(oneLINK)
         topUpAmount.push(oneLINK)
+        dstChainSelectors.push(0)
       }
-      await labm.setWatchList(proxyAddresses, minBalances, topUpAmount)
+      await labm.setWatchList(
+        proxyAddresses,
+        minBalances,
+        topUpAmount,
+        dstChainSelectors,
+      )
       let watchlist = await labm.getWatchList()
       expect(watchlist).to.deep.equalInAnyOrder(proxyAddresses)
       assert.equal(watchlist.length, minBalances.length)
@@ -858,6 +883,7 @@ describe('LinkAvailableBalanceMonitor', () => {
             [proxy1.address, directTarget1.address],
             [oneLINK, oneLINK],
             [oneLINK, oneLINK],
+            [1, 2],
           )
         const tx = await labm
           .connect(keeperRegistry)
@@ -895,6 +921,7 @@ describe('LinkAvailableBalanceMonitor', () => {
             [proxy1.address, proxy4.address],
             [oneLINK, oneLINK],
             [oneLINK, oneLINK],
+            [1, 2],
           )
         const tx = await labm
           .connect(keeperRegistry)
@@ -913,6 +940,7 @@ describe('LinkAvailableBalanceMonitor', () => {
             [proxy1.address, proxy4.address],
             [oneLINK, oneLINK],
             [oneLINK, oneLINK],
+            [1, 2],
           )
         const tx = await labm
           .connect(keeperRegistry)
@@ -932,6 +960,7 @@ describe('LinkAvailableBalanceMonitor', () => {
             [proxy1.address, proxy4.address],
             [oneLINK, oneLINK],
             [oneLINK, oneLINK],
+            [1, 2],
           )
         const tx = await labm
           .connect(keeperRegistry)
@@ -950,6 +979,7 @@ describe('LinkAvailableBalanceMonitor', () => {
             [proxy1.address, directTarget1.address],
             [oneLINK, oneLINK],
             [oneLINK, oneLINK],
+            [1, 2],
           )
         const tx = await labm
           .connect(keeperRegistry)
