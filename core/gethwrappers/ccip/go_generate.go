@@ -29,6 +29,8 @@ package ccip
 // Generate mocks for our contracts
 //go:generate mockery --quiet --dir ./generated/evm_2_evm_onramp/ --name EVM2EVMOnRampInterface --output ./mocks/ --outpkg mock_contracts --case=underscore
 //go:generate mockery --quiet --dir ./generated/evm_2_evm_offramp/ --name EVM2EVMOffRampInterface --output ./mocks/ --outpkg mock_contracts --case=underscore
+//go:generate mockery --quiet --dir ./generated/evm_2_evm_offramp_1_2_0/ --name EVM2EVMOffRampInterface --output ./mocks/v1_2_0/ --outpkg mock_contracts --case=underscore
+//go:generate mockery --quiet --dir ./generated/evm_2_evm_offramp_1_0_0/ --name EVM2EVMOffRampInterface --output ./mocks/v1_0_0/ --outpkg mock_contracts --case=underscore
 //go:generate mockery --quiet --dir ./generated/commit_store/ --name CommitStoreInterface --output ./mocks/ --outpkg mock_contracts --case=underscore
 //go:generate mockery --quiet --dir ./generated/price_registry/ --name PriceRegistryInterface --output ./mocks/ --outpkg mock_contracts --case=underscore
 //go:generate mockery --quiet --dir ../generated/link_token_interface/ --name LinkTokenInterface --output ./mocks/ --outpkg mock_contracts --case=underscore
