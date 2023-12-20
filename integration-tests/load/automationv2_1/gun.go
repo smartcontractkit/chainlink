@@ -20,7 +20,7 @@ type LogTriggerConfig struct {
 }
 
 type LogTriggerGun struct {
-	data             [][]byte
+	data             [][][]byte
 	addresses        []string
 	multiCallAddress string
 	evmClient        blockchain.EVMClient
@@ -46,26 +46,31 @@ func NewLogTriggerUser(
 	multicallAddress string,
 ) *LogTriggerGun {
 
-	var data [][]byte
+	var data1, data2, data3 [][]byte
 	var addresses []string
 
 	for _, c := range TriggerConfigs {
 		if c.NumberOfEvents > 0 {
 			d := generateCallData(1, 1, c.NumberOfEvents)
-			data = append(data, d)
+			data1 = append(data1, d)
 			addresses = append(addresses, c.Address)
 		}
 		if c.NumberOfSpamMatchingEvents > 0 {
 			d := generateCallData(1, 2, c.NumberOfSpamMatchingEvents)
-			data = append(data, d)
+			data2 = append(data2, d)
 			addresses = append(addresses, c.Address)
 		}
 		if c.NumberOfSpamNonMatchingEvents > 0 {
 			d := generateCallData(2, 2, c.NumberOfSpamNonMatchingEvents)
-			data = append(data, d)
+			data3 = append(data3, d)
 			addresses = append(addresses, c.Address)
 		}
 	}
+
+	var data [][][]byte
+	data = append(data, data1)
+	data = append(data, data2)
+	data = append(data, data3)
 
 	return &LogTriggerGun{
 		addresses:        addresses,
@@ -78,9 +83,11 @@ func NewLogTriggerUser(
 
 func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 
-	_, err := contracts.MultiCallLogTriggerLoadGen(m.evmClient, m.multiCallAddress, m.addresses, m.data)
-	if err != nil {
-		return &wasp.Response{Error: err.Error(), Failed: true}
+	for _, d := range m.data {
+		_, err := contracts.MultiCallLogTriggerLoadGen(m.evmClient, m.multiCallAddress, m.addresses, d)
+		if err != nil {
+			return &wasp.Response{Error: err.Error(), Failed: true}
+		}
 	}
 
 	return &wasp.Response{}
