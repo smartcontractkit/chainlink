@@ -430,7 +430,8 @@ juelsPerFeeCoinSource = """
 				assert.Len(t, em, 0, "expected metadata %v", em)
 
 				t.Logf("======= Summary =======")
-				for i := 0; i < 20; i++ {
+				roundId, err := ocrContract.LatestRound(nil)
+				for i := 0; i <= int(roundId.Int64()); i++ {
 					roundData, err := ocrContract.GetRoundData(nil, big.NewInt(int64(i)))
 					require.NoError(t, err)
 					t.Logf("RoundId: %d, AnsweredInRound: %d, Answer: %d, StartedAt: %v, UpdatedAt: %v", roundData.RoundId, roundData.AnsweredInRound, roundData.Answer, roundData.StartedAt, roundData.UpdatedAt)
