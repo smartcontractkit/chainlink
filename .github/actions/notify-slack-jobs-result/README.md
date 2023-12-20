@@ -4,7 +4,7 @@ Sends a Slack message to a specified channel detailing the results of one to man
 
 ```yaml
 message_title: Optimism Goerli
-github_job_name_regex: ^Optimism Goerli (?<cap>.*?) Tests$
+github_job_name_regex: ^Optimism Goerli (?<cap>.*?) Tests$ # Note that the regex MUST have a capturing group named "cap"
 ```
 
 ![example](image.png)

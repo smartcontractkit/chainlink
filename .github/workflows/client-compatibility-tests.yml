@@ -237,7 +237,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   post-test-results-to-slack:
-    name: Post Test Results for ${{matrix.product}}-${{matrix.client}}
+    name: Post Test Results for ${{matrix.product}}
     if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     permissions:
@@ -251,83 +251,19 @@ jobs:
       fail-fast: false
       matrix:
         product: [ocr, ocr2]
-        client: [geth, besu, erigon]
     steps:
-      - name: Get Results
-        id: test-results
-        run: |
-          # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
-          echo "Querying test results"
-
-          PARSED_RESULTS=$(curl \
-          -H "Authorization: Bearer ${{ github.token }}" \
-          'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq -r --arg pattern "^Client Compatability Test (?<product>.*?)$" '.jobs[]
-          | select(.name | test($pattern)) as $job
-          | $job.steps[]
-          | select(.name == "Run Tests")
-          | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), product: ("*" + ($job.name | capture($pattern).product) + "*") }')
-
-          echo "Parsed Results:"
-          echo $PARSED_RESULTS
-
-          ALL_SUCCESS=true
-          echo "Checking for failures"
-          echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
-          for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
-              ALL_SUCCESS=false
-              break
-          done
-          echo "Success: $ALL_SUCCESS"
-
-          echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
-
-          FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[] 
-          | { 
-            conclusion: .conclusion, 
-            product: .product 
-            }
-          ]
-          | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"\(.product): \(.conclusion)\"}}")
-          | join(",")')
-
-          echo "Formatted Results:"
-          echo $FORMATTED_RESULTS
-
-          # Cleans out backslashes and quotes from jq
-          CLEAN_RESULTS=$(echo "$FORMATTED_RESULTS" | sed 's/\\\"/"/g' | sed 's/^"//;s/"$//')
-
-          echo "Clean Results"
-          echo $CLEAN_RESULTS
-
-          echo results=$CLEAN_RESULTS >> $GITHUB_OUTPUT
-
-      - name: Test Details
-        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
-          payload: |
-            {
-              "thread_ts": "${{ needs.start-slack-thread.outputs.thread_ts }}",
-              "attachments": [
-                {
-                  "color": "${{ steps.test-results.outputs.all_success == 'true' && '#2E7D32' || '#C62828' }}",
-                  "blocks": [
-                    {
-                      "type": "header",
-                      "text": {
-                        "type": "plain_text",
-                        "text": "${{matrix.product}}-${{matrix.client}} ${{ steps.test-results.outputs.all_success == 'true' && ':white_check_mark:' || ':x:'}}",
-                        "emoji": true
-                      }
-                    },
-                    {
-                      "type": "divider"
-                    },
-                    ${{ steps.test-results.outputs.results }}
-                  ]
-                }
-              ]
-            }
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Post Test Results to Slack
+        uses: ./.github/actions/notify-slack-jobs-result
+        with:
+          github_token: ${{ github.token }}
+          github_repository: ${{ github.repository }}
+          workflow_run_id: ${{ github.run_id }}
+          github_job_name_regex: ^Client Compatability Test ${{ matrix.product }}-(?<cap>.*?)$
+          message_title: ${{ matrix.product }}
+          slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
+          slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
+          slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
