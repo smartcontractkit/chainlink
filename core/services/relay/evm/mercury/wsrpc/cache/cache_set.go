@@ -46,7 +46,7 @@ func newCacheSet(lggr logger.Logger, cfg Config) *cacheSet {
 
 func (cs *cacheSet) Start(context.Context) error {
 	return cs.StartOnce("CacheSet", func() error {
-		cs.lggr.Debugw("CacheSet starting", "config", cs.cfg, "enabled", cs.cfg.LatestReportTTL > 0)
+		cs.lggr.Debugw("CacheSet starting", "config", cs.cfg, "cachingEnabled", cs.cfg.LatestReportTTL > 0)
 		return nil
 	})
 }
@@ -65,13 +65,12 @@ func (cs *cacheSet) Close() error {
 }
 
 func (cs *cacheSet) Get(ctx context.Context, client Client) (f Fetcher, err error) {
+	if cs.cfg.LatestReportTTL == 0 {
+		// caching disabled
+		return client, nil
+	}
 	ok := cs.IfStarted(func() {
-		if cs.cfg.LatestReportTTL == 0 {
-			// caching disabled
-			f, err = client, nil
-		} else {
-			f, err = cs.get(ctx, client)
-		}
+		f, err = cs.get(ctx, client)
 	})
 	if !ok {
 		return nil, fmt.Errorf("cacheSet must be started, but is: %v", cs.State())
