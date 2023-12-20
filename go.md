@@ -47,6 +47,7 @@ flowchart LR
   chainlink/v2 --> wsrpc
   click wsrpc href "https://github.com/smartcontractkit/wsrpc"
   chainlink-automation --> libocr
+  chainlink-automation --> chainlink-common
   chainlink-common --> libocr
   chainlink-cosmos --> chainlink-common
   chainlink-cosmos --> libocr
