@@ -131,9 +131,9 @@ var (
 )
 
 type Load struct {
-	NumberOfEvents                int      `toml:",omitempty"`
-	NumberOfSpamMatchingEvents    int      `toml:",omitempty"`
-	NumberOfSpamNonMatchingEvents int      `toml:",omitempty"`
+	NumberOfEvents                int64    `toml:",omitempty"`
+	NumberOfSpamMatchingEvents    int64    `toml:",omitempty"`
+	NumberOfSpamNonMatchingEvents int64    `toml:",omitempty"`
 	CheckBurnAmount               *big.Int `toml:",omitempty"`
 	PerformBurnAmount             *big.Int `toml:",omitempty"`
 	UpkeepGasLimit                uint32   `toml:",omitempty"`
@@ -343,6 +343,9 @@ Load Config:
 
 	chainClient.ParallelTransactions(true)
 
+	multicallAddress, err := contractDeployer.DeployMultiCallContract()
+	require.NoError(t, err, "Error deploying multicall contract")
+
 	a := automationv2.NewAutomationTestK8s(chainClient, contractDeployer, chainlinkNodes)
 	a.RegistrySettings = *registrySettings
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
@@ -503,27 +506,38 @@ Load Config:
 
 	p := wasp.NewProfile()
 
+	configs := make([]LogTriggerConfig, 0)
+	var numberOfEventsEmitted int64
+
 	for i, triggerContract := range triggerContracts {
-		g, err := wasp.NewGenerator(&wasp.Config{
-			T:           t,
-			LoadType:    wasp.RPS,
-			GenName:     fmt.Sprintf("log_trigger_gen_%s", triggerContract.Address().String()),
-			CallTimeout: time.Second * 10,
-			Schedule: wasp.Plain(
-				1,
-				loadDuration,
-			),
-			Gun: NewLogTriggerUser(
-				triggerContract,
-				l,
-				loadConfigs[i].NumberOfEvents,
-				loadConfigs[i].NumberOfSpamMatchingEvents,
-				loadConfigs[i].NumberOfSpamNonMatchingEvents,
-			),
-			CallResultBufLen: 1000000,
-		})
-		p.Add(g, err)
+		c := LogTriggerConfig{
+			Address:                       triggerContract.Address().String(),
+			NumberOfEvents:                loadConfigs[i].NumberOfEvents,
+			NumberOfSpamMatchingEvents:    loadConfigs[i].NumberOfSpamMatchingEvents,
+			NumberOfSpamNonMatchingEvents: loadConfigs[i].NumberOfSpamNonMatchingEvents,
+		}
+		numberOfEventsEmitted = numberOfEventsEmitted + loadConfigs[i].NumberOfEvents
+		configs = append(configs, c)
 	}
+
+	g, err := wasp.NewGenerator(&wasp.Config{
+		T:           t,
+		LoadType:    wasp.RPS,
+		GenName:     fmt.Sprint("log_trigger_gen"),
+		CallTimeout: time.Second * 10,
+		Schedule: wasp.Plain(
+			1,
+			loadDuration,
+		),
+		Gun: NewLogTriggerUser(
+			l,
+			configs,
+			cEVMClient,
+			multicallAddress.Hex(),
+		),
+		CallResultBufLen: 1000000,
+	})
+	p.Add(g, err)
 
 	l.Info().Msg("Starting load generators")
 	startTime := time.Now()
@@ -549,13 +563,13 @@ Load Config:
 
 	upkeepDelaysFast := make([][]int64, 0)
 	upkeepDelaysRecovery := make([][]int64, 0)
-	var numberOfEventsEmitted int
+
 	var batchSize uint64 = 500
 
-	for i, gen := range p.Generators {
-		numberOfEventsEmitted = numberOfEventsEmitted + (len(gen.GetData().OKData.Data) * loadConfigs[i].NumberOfEvents)
+	for _, gen := range p.Generators {
+		numberOfEventsEmitted = numberOfEventsEmitted * int64(len(gen.GetData().OKData.Data))
 	}
-	l.Info().Int("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
+	l.Info().Int64("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
 	if endBlock-startBlock < batchSize {
 		batchSize = endBlock - startBlock
@@ -646,7 +660,7 @@ Load Config:
 
 	avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF := testreporters.IntListStats(allUpkeepDelaysFast)
 	avgR, medianR, ninetyPctR, ninetyNinePctR, maximumR := testreporters.IntListStats(allUpkeepDelaysRecovery)
-	eventsMissed := numberOfEventsEmitted - len(allUpkeepDelays)
+	eventsMissed := (numberOfEventsEmitted) - int64(len(allUpkeepDelays))
 	percentMissed := float64(eventsMissed) / float64(numberOfEventsEmitted) * 100
 	l.Info().
 		Float64("Average", avgF).Int64("Median", medianF).
@@ -660,8 +674,8 @@ Load Config:
 		Int("Total Perform Count", len(allUpkeepDelays)).
 		Int("Perform Count Fast Execution", len(allUpkeepDelaysFast)).
 		Int("Perform Count Recovery Execution", len(allUpkeepDelaysRecovery)).
-		Int("Total Events Emitted", numberOfEventsEmitted).
-		Int("Total Events Missed", eventsMissed).
+		Int64("Total Events Emitted", numberOfEventsEmitted).
+		Int64("Total Events Missed", eventsMissed).
 		Float64("Percent Missed", percentMissed).
 		Msg("Test completed")
 
