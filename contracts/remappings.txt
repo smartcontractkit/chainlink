@@ -4,3 +4,4 @@ forge-std/=foundry-lib/forge-std/src
 @openzeppelin/=node_modules/@openzeppelin/
 hardhat/=node_modules/hardhat/
 @eth-optimism/=node_modules/@eth-optimism
+@scroll-tech/=node_modules/@scroll-tech
