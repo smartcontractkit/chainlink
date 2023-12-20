@@ -9,8 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const base10 = 10
@@ -84,7 +85,7 @@ func (b Big) MarshalJSON() ([]byte, error) {
 func (b *Big) UnmarshalText(input []byte) error {
 	input = bytes.TrimQuotes(input)
 	str := string(input)
-	if utils.HasHexPrefix(str) {
+	if hex.HasPrefix(str) {
 		decoded, err := hexutil.DecodeBig(str)
 		if err != nil {
 			return err
