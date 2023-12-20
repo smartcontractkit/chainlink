@@ -104,8 +104,9 @@ func (cs *cacheSet) HealthReport() map[string]error {
 		cs.Name(): cs.Ready(),
 	}
 	cs.RLock()
-	defer cs.RUnlock()
-	for _, c := range cs.caches {
+	caches := maps.Values(cs.caches)
+	cs.RUnlock()
+	for _, c := range caches {
 		services.CopyHealth(report, c.HealthReport())
 	}
 	return report
