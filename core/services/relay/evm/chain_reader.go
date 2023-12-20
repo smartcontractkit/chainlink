@@ -85,7 +85,7 @@ func (cr *chainReader) getLatestValueFromLogPoller(ctx context.Context, contract
 		return err
 	}
 
-	log, err := cr.lp.LatestLogByEventSigWithConfs(hash, ae.addr, logpoller.Unconfirmed)
+	log, err := cr.lp.LatestLogByEventSigWithConfs(hash, ae.addr, 1)
 	if err != nil {
 		errStr := err.Error()
 		if strings.Contains(errStr, "not found") || strings.Contains(errStr, "no rows") {
