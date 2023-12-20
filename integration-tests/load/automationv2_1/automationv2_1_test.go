@@ -403,8 +403,6 @@ Load Config:
 	cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
 	require.NoError(t, err, "Error building concurrent chain client")
 
-	cContractDeployer, err := contracts.NewContractDeployer(cEVMClient, l)
-	require.NoError(t, err, "Error building concurrent contract deployer")
 	for _, u := range loadConfig.Load {
 		for i := 0; i < u.NumberOfUpkeeps; i++ {
 			consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
@@ -430,7 +428,7 @@ Load Config:
 				triggerAddresses = append(triggerAddresses, triggerAddresses[len(triggerAddresses)-1])
 				continue
 			}
-			triggerContract, err := cContractDeployer.DeployLogEmitterContract()
+			triggerContract, err := contractDeployer.DeployLogEmitterContract()
 			require.NoError(t, err, "Error deploying log emitter contract")
 			triggerContracts = append(triggerContracts, triggerContract)
 			triggerAddresses = append(triggerAddresses, triggerContract.Address())

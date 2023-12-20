@@ -40,7 +40,7 @@ type Result struct {
 }
 
 func WaitForSuccessfulTxMined(evmClient blockchain.EVMClient, tx *types.Transaction) error {
-	log.Info().Str("tx", tx.Hash().Hex()).Msg("waiting for tx to be mined")
+	log.Debug().Str("tx", tx.Hash().Hex()).Msg("waiting for tx to be mined")
 	receipt, err := bind.WaitMined(context.Background(), evmClient.DeployBackend(), tx)
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func WaitForSuccessfulTxMined(evmClient blockchain.EVMClient, tx *types.Transact
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		return fmt.Errorf("tx failed %s", tx.Hash().Hex())
 	}
-	log.Info().Str("tx", tx.Hash().Hex()).Str("Network", evmClient.GetNetworkName()).Msg("tx mined successfully")
+	log.Debug().Str("tx", tx.Hash().Hex()).Str("Network", evmClient.GetNetworkName()).Msg("tx mined successfully")
 	return nil
 }
 
