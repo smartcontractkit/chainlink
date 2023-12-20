@@ -69,7 +69,7 @@ type MercuryData struct {
 	Error     error
 	Retryable bool
 	Bytes     [][]byte
-	State     MercuryUpkeepState
+	State     encoding.PipelineExecutionState
 }
 
 type MercuryConfigProvider interface {
@@ -85,7 +85,7 @@ type HttpClient interface {
 }
 
 type MercuryClient interface {
-	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (MercuryUpkeepState, MercuryUpkeepFailureReason, [][]byte, bool, time.Duration, error)
+	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, error)
 }
 
 type StreamsLookupError struct {
@@ -116,7 +116,7 @@ func (l *StreamsLookup) IsMercuryV03UsingBlockNumber() bool {
 }
 
 type Packer interface {
-	UnpackCheckCallbackResult(callbackResp []byte) (uint8, bool, []byte, uint8, *big.Int, error)
+	UnpackCheckCallbackResult(callbackResp []byte) (encoding.PipelineExecutionState, bool, []byte, encoding.UpkeepFailureReason, *big.Int, error)
 	PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error)
 	UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error)
 	DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError, error)
@@ -149,7 +149,7 @@ func (p *abiPacker) DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError
 	}, nil
 }
 
-func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (uint8, bool, []byte, uint8, *big.Int, error) {
+func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (encoding.PipelineExecutionState, bool, []byte, encoding.UpkeepFailureReason, *big.Int, error) {
 	out, err := p.registryABI.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
 	if err != nil {
 		return encoding.PackUnpackDecodeFailed, false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
@@ -157,7 +157,7 @@ func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (uint8, bool,
 
 	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
-	failureReason := *abi.ConvertType(out[2], new(uint8)).(*uint8)
+	failureReason := encoding.UpkeepFailureReason(*abi.ConvertType(out[2], new(uint8)).(*uint8))
 	gasUsed := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 
 	return encoding.NoPipelineError, upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
