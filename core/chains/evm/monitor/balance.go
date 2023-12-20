@@ -42,7 +42,7 @@ type (
 		ethKeyStore    keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
-		sleeperTask    utils.SleeperTask
+		sleeperTask    *utils.SleeperTask
 	}
 
 	NullBalanceMonitor struct{}

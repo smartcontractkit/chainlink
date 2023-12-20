@@ -62,7 +62,7 @@ type runner struct {
 	legacyEVMChains        legacyevm.LegacyChainContainer
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
-	runReaperWorker        commonutils.SleeperTask
+	runReaperWorker        *commonutils.SleeperTask
 	lggr                   logger.Logger
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client

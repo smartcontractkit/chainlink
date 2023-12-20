@@ -130,7 +130,7 @@ type ChainlinkApplication struct {
 	Config                   GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	SessionReaper            utils.SleeperTask
+	SessionReaper            *utils.SleeperTask
 	shutdownOnce             sync.Once
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
@@ -267,7 +267,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// localDB auth or remote LDAP auth
 	authMethod := cfg.WebServer().AuthenticationMethod()
 	var authenticationProvider sessions.AuthenticationProvider
-	var sessionReaper utils.SleeperTask
+	var sessionReaper *utils.SleeperTask
 
 	switch sessions.AuthenticationProviderName(authMethod) {
 	case sessions.LDAPAuth:

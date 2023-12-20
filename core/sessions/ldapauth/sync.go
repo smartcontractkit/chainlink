@@ -30,7 +30,7 @@ func NewLDAPServerStateSync(
 	pgCfg pg.QConfig,
 	config config.LDAP,
 	lggr logger.Logger,
-) utils.SleeperTask {
+) *utils.SleeperTask {
 	namedLogger := lggr.Named("LDAPServerStateSync")
 	serverSync := LDAPServerStateSyncer{
 		q:            pg.NewQ(db, namedLogger, pgCfg),

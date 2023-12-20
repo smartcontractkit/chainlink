@@ -248,7 +248,7 @@ type subscription struct {
 	payloadFilter      string
 	eventBroadcaster   *eventBroadcaster
 	queue              *utils.BoundedQueue[Event]
-	processQueueWorker commonutils.SleeperTask
+	processQueueWorker *commonutils.SleeperTask
 	chEvents           chan Event
 	chDone             chan struct{}
 	lggr               logger.SugaredLogger
