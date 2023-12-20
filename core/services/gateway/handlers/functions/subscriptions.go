@@ -219,12 +219,13 @@ func (s *onchainSubscriptions) loadCachedSubscriptions() {
 	defer s.closeWait.Done()
 	offset := uint(0)
 	for {
-		cs, err := s.orm.FetchSubscriptions(offset, s.config.CacheBatchSize)
+		csBatch, err := s.orm.FetchSubscriptions(offset, s.config.CacheBatchSize)
 		if err != nil {
 			break
 		}
 
-		for _, cs := range cs {
+		s.rwMutex.Lock()
+		for _, cs := range csBatch {
 			// only load subscriptions from cache db that are currently not present.
 			// if the subscription data is already present its more up to date.
 			if _, err := s.subscriptions.GetMaxUserBalance(cs.Owner); errors.Is(err, ErrUserHasNoSubscription) {
@@ -237,10 +238,10 @@ func (s *onchainSubscriptions) loadCachedSubscriptions() {
 					Flags:          cs.Flags,
 				})
 			}
-
 		}
+		s.rwMutex.Unlock()
 
-		if len(cs) != int(s.config.CacheBatchSize) {
+		if len(csBatch) != int(s.config.CacheBatchSize) {
 			break
 		}
 		offset += s.config.CacheBatchSize
