@@ -94,21 +94,21 @@ func DecodeErrorStringFromABI(errorString string) (string, error) {
 		indicator := errorString[len(errorString)-2:]
 		switch indicator {
 		case "01":
-			return fmt.Sprintf("If you call assert with an argument that evaluates to false."), nil
+			return "If you call assert with an argument that evaluates to false.", nil
 		case "11":
-			return fmt.Sprintf("If an arithmetic operation results in underflow or overflow outside of an unchecked { ... } block."), nil
+			return "If an arithmetic operation results in underflow or overflow outside of an unchecked { ... } block.", nil
 		case "12":
-			return fmt.Sprintf("If you divide or modulo by zero (e.g. 5 / 0 or 23 modulo 0)."), nil
+			return "If you divide or modulo by zero (e.g. 5 / 0 or 23 modulo 0).", nil
 		case "21":
-			return fmt.Sprintf("If you convert a value that is too big or negative into an enum type."), nil
+			return "If you convert a value that is too big or negative into an enum type.", nil
 		case "31":
-			return fmt.Sprintf("If you call .pop() on an empty array."), nil
+			return "If you call .pop() on an empty array.", nil
 		case "32":
-			return fmt.Sprintf("If you access an array, bytesN or an array slice at an out-of-bounds or negative index (i.e. x[i] where i >= x.length or i < 0)."), nil
+			return "If you access an array, bytesN or an array slice at an out-of-bounds or negative index (i.e. x[i] where i >= x.length or i < 0).", nil
 		case "41":
-			return fmt.Sprintf("If you allocate too much memory or create an array that is too large."), nil
+			return "If you allocate too much memory or create an array that is too large.", nil
 		case "51":
-			return fmt.Sprintf("If you call a zero-initialized variable of internal function type."), nil
+			return "If you call a zero-initialized variable of internal function type.", nil
 		default:
 			return fmt.Sprintf("This is a revert produced by an assertion failure. Exact code not found \"%s\"", indicator), nil
 		}
@@ -119,7 +119,7 @@ func DecodeErrorStringFromABI(errorString string) (string, error) {
 		return fmt.Sprintf("string error: %s", stringErr), nil
 	}
 
-	return "", errors.Errorf("Cannot match error with contract ABI. Error code \"%v\"\n", errorString)
+	return "", errors.Errorf(`cannot match error with contract ABI. Error code "%s"`, errorString)
 }
 
 func getAllABIs() []string {

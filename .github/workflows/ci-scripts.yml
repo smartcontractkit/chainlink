@@ -14,7 +14,7 @@ jobs:
         uses: ./.github/actions/golangci-lint
         with:
           name: lint-scripts
-          go-directory: core/scripts
+          go-directory: core/scripts/ccip
           go-version-file: core/scripts/go.mod
           go-module-file: core/scripts/go.sum
           gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
@@ -32,7 +32,7 @@ jobs:
           go-module-file: core/scripts/go.sum
       - name: Run Tests
         shell: bash
-        working-directory: core/scripts
+        working-directory: core/scripts/ccip
         run: go test ./...
       - name: Collect Metrics
         if: always()
