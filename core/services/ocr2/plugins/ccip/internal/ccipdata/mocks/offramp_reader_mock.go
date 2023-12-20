@@ -211,66 +211,6 @@ func (_m *OffRampReader) GasPriceEstimator() prices.GasPriceEstimatorExec {
 	return r0
 }
 
-// GetDestinationTokenPools provides a mock function with given fields: ctx
-func (_m *OffRampReader) GetDestinationTokenPools(ctx context.Context) (map[common.Address]common.Address, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetDestinationTokenPools")
-	}
-
-	var r0 map[common.Address]common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (map[common.Address]common.Address, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) map[common.Address]common.Address); ok {
-		r0 = rf(ctx)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[common.Address]common.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetDestinationTokens provides a mock function with given fields: ctx
-func (_m *OffRampReader) GetDestinationTokens(ctx context.Context) ([]common.Address, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetDestinationTokens")
-	}
-
-	var r0 []common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]common.Address, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) []common.Address); ok {
-		r0 = rf(ctx)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]common.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetExecutionState provides a mock function with given fields: ctx, sequenceNumber
 func (_m *OffRampReader) GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error) {
 	ret := _m.Called(ctx, sequenceNumber)
@@ -438,6 +378,34 @@ func (_m *OffRampReader) GetTokenPoolsRateLimits(ctx context.Context, poolAddres
 
 	if rf, ok := ret.Get(1).(func(context.Context, []common.Address) error); ok {
 		r1 = rf(ctx, poolAddresses)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetTokens provides a mock function with given fields: ctx
+func (_m *OffRampReader) GetTokens(ctx context.Context) (ccipdata.OffRampTokens, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTokens")
+	}
+
+	var r0 ccipdata.OffRampTokens
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (ccipdata.OffRampTokens, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) ccipdata.OffRampTokens); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(ccipdata.OffRampTokens)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}

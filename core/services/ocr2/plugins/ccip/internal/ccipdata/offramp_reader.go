@@ -94,6 +94,12 @@ type OffRampStaticConfig struct {
 	ArmProxy            common.Address
 }
 
+type OffRampTokens struct {
+	DestinationTokens []common.Address
+	SourceTokens      []common.Address
+	DestinationPool   map[common.Address]common.Address
+}
+
 type TokenBucketRateLimit struct {
 	Tokens      *big.Int
 	LastUpdated uint32
@@ -111,7 +117,6 @@ type OffRampReader interface {
 	DecodeExecutionReport(report []byte) (ExecReport, error)
 	// GetExecutionStateChangesBetweenSeqNums returns all the execution state change events for the provided message sequence numbers (inclusive).
 	GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confs int) ([]Event[ExecutionStateChanged], error)
-	GetDestinationTokens(ctx context.Context) ([]common.Address, error)
 	GetTokenPoolsRateLimits(ctx context.Context, poolAddresses []common.Address) ([]TokenBucketRateLimit, error)
 	Address() common.Address
 	// Notifies the reader that the config has changed onchain
@@ -124,7 +129,7 @@ type OffRampReader interface {
 	GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error)
 	GetStaticConfig(ctx context.Context) (OffRampStaticConfig, error)
 	GetSourceToDestTokensMapping(ctx context.Context) (map[common.Address]common.Address, error)
-	GetDestinationTokenPools(ctx context.Context) (map[common.Address]common.Address, error)
+	GetTokens(ctx context.Context) (OffRampTokens, error)
 }
 
 // MessageExecutionState defines the execution states of CCIP messages.

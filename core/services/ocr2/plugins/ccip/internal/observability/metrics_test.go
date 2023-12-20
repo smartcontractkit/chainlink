@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
@@ -48,15 +49,15 @@ func TestMetricsSendFromContractDirectly(t *testing.T) {
 	chainId := int64(420)
 
 	mockedOfframp := ccipdatamocks.NewOffRampReader(t)
-	mockedOfframp.On("GetDestinationTokens", ctx).Return(nil, fmt.Errorf("execution error"))
+	mockedOfframp.On("GetTokens", ctx).Return(ccipdata.OffRampTokens{}, fmt.Errorf("execution error"))
 
 	observedOfframp := NewObservedOffRampReader(mockedOfframp, chainId, "plugin")
 
 	for i := 0; i < expectedCounter; i++ {
-		_, _ = observedOfframp.GetDestinationTokens(ctx)
+		_, _ = observedOfframp.GetTokens(ctx)
 	}
 
-	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetDestinationTokens", "false"))
+	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetTokens", "false"))
 	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetPoolByDestToken", "false"))
 	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetPoolByDestToken", "true"))
 }

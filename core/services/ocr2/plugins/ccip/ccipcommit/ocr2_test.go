@@ -137,7 +137,9 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			}
 
 			offRampReader := ccipdatamocks.NewOffRampReader(t)
-			offRampReader.On("GetDestinationTokens", ctx).Return(destTokens, nil).Maybe()
+			offRampReader.On("GetTokens", ctx).Return(ccipdata.OffRampTokens{
+				DestinationTokens: destTokens,
+			}, nil).Maybe()
 
 			destPriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
 			destPriceRegReader.On("GetFeeTokens", ctx).Return(nil, nil).Maybe()
@@ -184,7 +186,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 		destPriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
 		p.offRampReader = offRampReader
 		p.destPriceRegistryReader = destPriceRegReader
-		offRampReader.On("GetDestinationTokens", ctx).Return(nil, nil).Maybe()
+		offRampReader.On("GetTokens", ctx).Return(ccipdata.OffRampTokens{}, nil).Maybe()
 		destPriceRegReader.On("GetFeeTokens", ctx).Return(nil, nil).Maybe()
 
 		o := ccip.CommitObservation{Interval: ccipdata.CommitStoreInterval{Min: 1, Max: 1}, SourceGasPriceUSD: big.NewInt(0)}
@@ -207,10 +209,9 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 		tokenDecimals     map[common.Address]uint8
 		tokenPriceUpdates []ccipdata.Event[ccipdata.TokenPriceUpdate]
 		sendRequests      []ccipdata.Event[internal.EVM2EVMMessage]
-
-		expCommitReport *ccipdata.CommitStoreReport
-		expSeqNumRange  ccipdata.CommitStoreInterval
-		expErr          bool
+		expCommitReport   *ccipdata.CommitStoreReport
+		expSeqNumRange    ccipdata.CommitStoreInterval
+		expErr            bool
 	}{
 		{
 			name: "base",
@@ -304,7 +305,9 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			}
 
 			offRampReader := ccipdatamocks.NewOffRampReader(t)
-			offRampReader.On("GetDestinationTokens", ctx).Return(destTokens, nil).Maybe()
+			offRampReader.On("GetTokens", ctx).Return(ccipdata.OffRampTokens{
+				DestinationTokens: destTokens,
+			}, nil).Maybe()
 
 			destPriceRegistryReader.On("GetFeeTokens", ctx).Return(nil, nil).Maybe()
 			destPriceRegistryReader.On("GetTokensDecimals", ctx, destTokens).Return(destDecimals, nil).Maybe()
