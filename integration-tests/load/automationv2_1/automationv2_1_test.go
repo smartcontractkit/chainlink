@@ -521,7 +521,7 @@ Load Config:
 	g, err := wasp.NewGenerator(&wasp.Config{
 		T:           t,
 		LoadType:    wasp.RPS,
-		GenName:     fmt.Sprint("log_trigger_gen"),
+		GenName:     "log_trigger_gen",
 		CallTimeout: time.Second * 10,
 		Schedule: wasp.Plain(
 			1,
