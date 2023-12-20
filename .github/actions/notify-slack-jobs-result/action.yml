@@ -62,7 +62,7 @@ runs:
         FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[] 
         | { 
           conclusion: .conclusion, 
-          cap: .cap 
+          cap: .cap,
           html_url: .html_url
           }
         ]
