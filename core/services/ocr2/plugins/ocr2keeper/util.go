@@ -15,7 +15,7 @@ import (
 	ocr2keepers20coordinator "github.com/smartcontractkit/chainlink-automation/pkg/v2/coordinator"
 	ocr2keepers20polling "github.com/smartcontractkit/chainlink-automation/pkg/v2/observer/polling"
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
-	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers21 "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -44,9 +44,9 @@ var (
 	ErrNoChainFromSpec = fmt.Errorf("could not create chain from spec")
 )
 
-func EVMProvider(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, ethKeystore keystore.Eth) (evmrelay.OCR2KeeperProvider, error) {
+func EVMProvider(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, ethKeystore keystore.Eth, dbCfg pg.QConfig) (evmrelay.OCR2KeeperProvider, error) {
 	oSpec := spec.OCR2OracleSpec
-	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(db, chain, lggr.Named("OCR2KeeperRelayer"), ethKeystore)
+	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(db, chain, lggr.Named("OCR2KeeperRelayer"), ethKeystore, dbCfg)
 
 	keeperProvider, err := ocr2keeperRelayer.NewOCR2KeeperProvider(
 		types.RelayArgs{
@@ -73,6 +73,7 @@ func EVMDependencies20(
 	lggr logger.Logger,
 	chain legacyevm.Chain,
 	ethKeystore keystore.Eth,
+	dbCfg pg.QConfig,
 ) (evmrelay.OCR2KeeperProvider, *evmregistry20.EvmRegistry, Encoder20, *evmregistry20.LogProvider, error) {
 	var err error
 
@@ -80,7 +81,7 @@ func EVMDependencies20(
 	var registry *evmregistry20.EvmRegistry
 
 	// the provider will be returned as a dependency
-	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, ethKeystore); err != nil {
+	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, ethKeystore, dbCfg); err != nil {
 		return nil, nil, nil, nil, err
 	}
 

@@ -4,6 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/upkeepstate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -41,6 +49,15 @@ type OCR2KeeperProviderOpts struct {
 // OCR2KeeperProvider provides all components needed for a OCR2Keeper plugin.
 type OCR2KeeperProvider interface {
 	commontypes.Plugin
+	Registry() automation.Registry
+	Encoder() automation.Encoder
+	TransmitEventProvider() automation.EventProvider
+	BlockSubscriber() automation.BlockSubscriber
+	PayloadBuilder() automation.PayloadBuilder
+	UpkeepStateStore() automation.UpkeepStateStore
+	LogEventProvider() automation.LogEventProvider
+	LogRecoverer() automation.LogRecoverer
+	UpkeepProvider() automation.ConditionalUpkeepProvider
 }
 
 // OCR2KeeperRelayer contains the relayer and instantiating functions for OCR2Keeper providers.
@@ -54,15 +71,17 @@ type ocr2keeperRelayer struct {
 	chain       legacyevm.Chain
 	lggr        logger.Logger
 	ethKeystore keystore.Eth
+	dbCfg       pg.QConfig
 }
 
 // NewOCR2KeeperRelayer is the constructor of ocr2keeperRelayer
-func NewOCR2KeeperRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2KeeperRelayer {
+func NewOCR2KeeperRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth, dbCfg pg.QConfig) OCR2KeeperRelayer {
 	return &ocr2keeperRelayer{
 		db:          db,
 		chain:       chain,
 		lggr:        lggr,
 		ethKeystore: ethKeystore,
+		dbCfg:       dbCfg,
 	}
 }
 
@@ -78,9 +97,53 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 		return nil, err
 	}
 
+	registryContract, err := iregistry21.NewIKeeperRegistryMaster(cfgWatcher.contractAddress, r.chain.Client())
+	if err != nil {
+		return nil, err
+	}
+	// lookback blocks for transmit event is hard coded and should provide ample time for logs
+	// to be detected in most cases
+	var transmitLookbackBlocks int64 = 250
+	transmitEventProvider, err := transmit.NewTransmitEventProvider(r.lggr, r.chain.LogPoller(), cfgWatcher.contractAddress, r.chain.Client(), transmitLookbackBlocks)
+	if err != nil {
+		return nil, err
+	}
+
+	client := r.chain
+
+	packer := encoding.NewAbiPacker()
+	encoder := encoding.NewReportEncoder(packer)
+
+	finalityDepth := client.Config().EVM().FinalityDepth()
+
+	orm := upkeepstate.NewORM(client.ID(), r.db, r.lggr, r.dbCfg)
+	scanner := upkeepstate.NewPerformedEventsScanner(r.lggr, client.LogPoller(), cfgWatcher.contractAddress, finalityDepth)
+	upkeepState := upkeepstate.NewUpkeepStateStore(orm, r.lggr, scanner)
+
+	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), upkeepState, finalityDepth)
+	blockSub := evm.NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, r.lggr)
+
+	al := evm.NewActiveUpkeepList()
+	payloadBuilder := evm.NewPayloadBuilder(al, logRecoverer, r.lggr)
+
+	reg := evm.NewEvmRegistry(r.lggr, cfgWatcher.contractAddress, client,
+		registryContract, nil, al, logProvider, // TODO pass mercury credentials instead of nil
+		packer, blockSub, finalityDepth)
+
+	upkeepProvider := evm.NewUpkeepProvider(al, blockSub, client.LogPoller())
+
 	return &ocr2keeperProvider{
-		configWatcher:       cfgWatcher,
-		contractTransmitter: contractTransmitter,
+		configWatcher:             cfgWatcher,
+		contractTransmitter:       contractTransmitter,
+		registry:                  reg,
+		encoder:                   encoder,
+		transmitEventProvider:     transmitEventProvider,
+		blockSubscriber:           blockSub,
+		payloadBuilder:            payloadBuilder,
+		upkeepStateStore:          upkeepState,
+		logEventProvider:          logProvider,
+		logRecoverer:              logRecoverer,
+		conditionalUpkeepProvider: upkeepProvider,
 	}, nil
 }
 
@@ -120,7 +183,16 @@ func (t *ocr3keeperProviderContractTransmitter) FromAccount() (ocrtypes.Account,
 
 type ocr2keeperProvider struct {
 	*configWatcher
-	contractTransmitter ContractTransmitter
+	contractTransmitter       ContractTransmitter
+	registry                  automation.Registry
+	encoder                   automation.Encoder
+	transmitEventProvider     automation.EventProvider
+	blockSubscriber           automation.BlockSubscriber
+	payloadBuilder            automation.PayloadBuilder
+	upkeepStateStore          automation.UpkeepStateStore
+	logEventProvider          automation.LogEventProvider
+	logRecoverer              automation.LogRecoverer
+	conditionalUpkeepProvider automation.ConditionalUpkeepProvider
 }
 
 func (c *ocr2keeperProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
@@ -129,6 +201,41 @@ func (c *ocr2keeperProvider) ContractTransmitter() ocrtypes.ContractTransmitter 
 
 func (c *ocr2keeperProvider) ChainReader() commontypes.ChainReader {
 	return nil
+}
+
+func (c *ocr2keeperProvider) Registry() automation.Registry {
+	return c.registry
+}
+func (c *ocr2keeperProvider) Encoder() automation.Encoder {
+	return c.encoder
+
+}
+func (c *ocr2keeperProvider) TransmitEventProvider() automation.EventProvider {
+	return c.transmitEventProvider
+
+}
+func (c *ocr2keeperProvider) BlockSubscriber() automation.BlockSubscriber {
+	return c.blockSubscriber
+
+}
+func (c *ocr2keeperProvider) PayloadBuilder() automation.PayloadBuilder {
+	return c.payloadBuilder
+
+}
+func (c *ocr2keeperProvider) UpkeepStateStore() automation.UpkeepStateStore {
+	return c.upkeepStateStore
+
+}
+func (c *ocr2keeperProvider) LogEventProvider() automation.LogEventProvider {
+	return c.logEventProvider
+
+}
+func (c *ocr2keeperProvider) LogRecoverer() automation.LogRecoverer {
+	return c.logRecoverer
+
+}
+func (c *ocr2keeperProvider) UpkeepProvider() automation.ConditionalUpkeepProvider {
+	return c.conditionalUpkeepProvider
 }
 
 func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
