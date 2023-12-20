@@ -8,10 +8,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib/rpclibmocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -20,20 +26,6 @@ import (
 func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 	ctx := testutils.Context(t)
 	const numSrcTokens = 20
-
-	generateTokensAndOutputs := func() ([]common.Address, []common.Address, []rpclib.DataAndErr) {
-		srcTks := make([]common.Address, numSrcTokens)
-		dstTks := make([]common.Address, numSrcTokens)
-		outputs := make([]rpclib.DataAndErr, numSrcTokens)
-		for i := range srcTks {
-			srcTks[i] = utils.RandomAddress()
-			dstTks[i] = utils.RandomAddress()
-			outputs[i] = rpclib.DataAndErr{
-				Outputs: []any{dstTks[i]}, Err: nil,
-			}
-		}
-		return srcTks, dstTks, outputs
-	}
 
 	testCases := []struct {
 		name           string
@@ -86,7 +78,7 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			batchCaller := rpclibmocks.NewEvmBatchCaller(t)
 			o := &OffRamp{evmBatchCaller: batchCaller, lp: lp}
-			srcTks, dstTks, outputs := generateTokensAndOutputs()
+			srcTks, dstTks, outputs := generateTokensAndOutputs(numSrcTokens)
 			outputs = tc.outputChangeFn(outputs)
 			batchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).
 				Return(outputs, nil)
@@ -101,4 +93,65 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 			assert.Equal(t, dstTks, actualDstTokens)
 		})
 	}
+}
+
+func TestCachedOffRampTokens(t *testing.T) {
+	// Test data.
+	srcTks, dstTks, outputs := generateTokensAndOutputs(3)
+
+	// Mock contract wrapper.
+	mockOffRamp := mock_contracts.NewEVM2EVMOffRampInterface(t)
+	mockOffRamp.On("GetDestinationTokens", mock.Anything).Return(dstTks, nil)
+	mockOffRamp.On("GetSupportedTokens", mock.Anything).Return(srcTks, nil)
+	mockOffRamp.On("Address").Return(utils.RandomAddress())
+
+	lp := mocks.NewLogPoller(t)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: rand.Int63()}, nil)
+
+	ec := evmclimocks.NewClient(t)
+
+	batchCaller := rpclibmocks.NewEvmBatchCaller(t)
+	batchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).Return(outputs, nil)
+
+	offRamp := OffRamp{
+		offRamp:        mockOffRamp,
+		lp:             lp,
+		lggr:           logger.TestLogger(t),
+		ec:             ec,
+		evmBatchCaller: batchCaller,
+		cachedOffRampTokens: cache.NewLogpollerEventsBased[ccipdata.OffRampTokens](
+			lp,
+			offRamp_poolAddedPoolRemovedEvents,
+			mockOffRamp.Address(),
+		),
+	}
+
+	ctx := testutils.Context(t)
+	tokens, err := offRamp.GetTokens(ctx)
+	require.NoError(t, err)
+
+	// Verify data is properly loaded in the cache.
+	expectedPools := make(map[common.Address]common.Address)
+	for i := range dstTks {
+		expectedPools[dstTks[i]] = dstTks[i]
+	}
+	require.Equal(t, ccipdata.OffRampTokens{
+		DestinationTokens: dstTks,
+		SourceTokens:      srcTks,
+		DestinationPool:   expectedPools,
+	}, tokens)
+}
+
+func generateTokensAndOutputs(nbTokens uint) ([]common.Address, []common.Address, []rpclib.DataAndErr) {
+	srcTks := make([]common.Address, nbTokens)
+	dstTks := make([]common.Address, nbTokens)
+	outputs := make([]rpclib.DataAndErr, nbTokens)
+	for i := range srcTks {
+		srcTks[i] = utils.RandomAddress()
+		dstTks[i] = utils.RandomAddress()
+		outputs[i] = rpclib.DataAndErr{
+			Outputs: []any{dstTks[i]}, Err: nil,
+		}
+	}
+	return srcTks, dstTks, outputs
 }

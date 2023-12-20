@@ -45,12 +45,6 @@ func (o *ObservedOffRampReader) GetExecutionStateChangesBetweenSeqNums(ctx conte
 	})
 }
 
-func (o *ObservedOffRampReader) GetDestinationTokens(ctx context.Context) ([]common.Address, error) {
-	return withObservedInteractionAndResults(o.metric, "GetDestinationTokens", func() ([]common.Address, error) {
-		return o.OffRampReader.GetDestinationTokens(ctx)
-	})
-}
-
 func (o *ObservedOffRampReader) GetSenderNonce(ctx context.Context, sender common.Address) (uint64, error) {
 	return withObservedInteraction(o.metric, "GetSenderNonce", func() (uint64, error) {
 		return o.OffRampReader.GetSenderNonce(ctx, sender)
@@ -81,8 +75,8 @@ func (o *ObservedOffRampReader) GetSourceToDestTokensMapping(ctx context.Context
 	})
 }
 
-func (o *ObservedOffRampReader) GetDestinationTokenPools(ctx context.Context) (map[common.Address]common.Address, error) {
-	return withObservedInteraction(o.metric, "GetDestinationTokenPools", func() (map[common.Address]common.Address, error) {
-		return o.OffRampReader.GetDestinationTokenPools(ctx)
+func (o *ObservedOffRampReader) GetTokens(ctx context.Context) (ccipdata.OffRampTokens, error) {
+	return withObservedInteraction(o.metric, "GetTokens", func() (ccipdata.OffRampTokens, error) {
+		return o.OffRampReader.GetTokens(ctx)
 	})
 }

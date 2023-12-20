@@ -93,7 +93,7 @@ func (d ExecOnchainConfig) PermissionLessExecutionThresholdDuration() time.Durat
 }
 
 type OffRamp struct {
-	offRamp                 *evm_2_evm_offramp_1_0_0.EVM2EVMOffRamp
+	offRamp                 evm_2_evm_offramp_1_0_0.EVM2EVMOffRampInterface
 	addr                    common.Address
 	lp                      logpoller.LogPoller
 	lggr                    logger.Logger
@@ -104,9 +104,7 @@ type OffRamp struct {
 	executionReportArgs     abi.Arguments
 	eventIndex              int
 	eventSig                common.Hash
-	destinationTokensCache  cache.AutoSync[[]common.Address]
-	sourceTokensCache       cache.AutoSync[[]common.Address]
-	destinationPoolsCache   cache.AutoSync[map[common.Address]common.Address]
+	cachedOffRampTokens     cache.AutoSync[ccipdata.OffRampTokens]
 	sourceToDestTokensCache sync.Map
 
 	// Dynamic config
@@ -257,49 +255,47 @@ func (o *OffRamp) GetTokenPoolsRateLimits(ctx context.Context, poolAddresses []c
 	return rateLimits, nil
 }
 
-func (o *OffRamp) getSourceTokens(ctx context.Context) ([]common.Address, error) {
-	return o.sourceTokensCache.Get(ctx, func(ctx context.Context) ([]common.Address, error) {
-		return o.offRamp.GetSupportedTokens(&bind.CallOpts{Context: ctx})
-	})
-}
-
 func (o *OffRamp) GetSourceToDestTokensMapping(ctx context.Context) (map[common.Address]common.Address, error) {
-	sourceTokens, err := o.getSourceTokens(ctx)
+	tokens, err := o.GetTokens(ctx)
 	if err != nil {
 		return nil, err
 	}
-
+	sourceTokens := tokens.SourceTokens
 	destTokens, err := o.getDestinationTokensFromSourceTokens(ctx, sourceTokens)
 	if err != nil {
 		return nil, fmt.Errorf("get destination tokens from source tokens: %w", err)
 	}
-
 	srcToDstTokenMapping := make(map[common.Address]common.Address, len(sourceTokens))
 	for i, sourceToken := range sourceTokens {
 		srcToDstTokenMapping[sourceToken] = destTokens[i]
 	}
-
 	return srcToDstTokenMapping, nil
 }
 
-func (o *OffRamp) GetDestinationTokenPools(ctx context.Context) (map[common.Address]common.Address, error) {
-	return o.destinationPoolsCache.Get(ctx, func(ctx context.Context) (map[common.Address]common.Address, error) {
-		destTokens, err := o.GetDestinationTokens(ctx)
+func (o *OffRamp) GetTokens(ctx context.Context) (ccipdata.OffRampTokens, error) {
+	return o.cachedOffRampTokens.Get(ctx, func(ctx context.Context) (ccipdata.OffRampTokens, error) {
+		destTokens, err := o.offRamp.GetDestinationTokens(&bind.CallOpts{Context: ctx})
 		if err != nil {
-			return nil, fmt.Errorf("get destination tokens: %w", err)
+			return ccipdata.OffRampTokens{}, fmt.Errorf("get destination tokens: %w", err)
 		}
-
+		sourceTokens, err := o.offRamp.GetSupportedTokens(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return ccipdata.OffRampTokens{}, err
+		}
 		destPools, err := o.getPoolsByDestTokens(ctx, destTokens)
 		if err != nil {
-			return nil, fmt.Errorf("get pools by dest tokens: %w", err)
+			return ccipdata.OffRampTokens{}, fmt.Errorf("get pools by dest tokens: %w", err)
 		}
-
 		tokenToPool := make(map[common.Address]common.Address, len(destTokens))
 		for i := range destTokens {
 			tokenToPool[destTokens[i]] = destPools[i]
 		}
 
-		return tokenToPool, nil
+		return ccipdata.OffRampTokens{
+			DestinationTokens: destTokens,
+			SourceTokens:      sourceTokens,
+			DestinationPool:   tokenToPool,
+		}, nil
 	})
 }
 
@@ -393,12 +389,6 @@ func (o *OffRamp) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (com
 		"offchainConfig", onchainConfigParsed,
 		"onchainConfig", offchainConfigParsed)
 	return onchainConfigParsed.PriceRegistry, destWrappedNative, nil
-}
-
-func (o *OffRamp) GetDestinationTokens(ctx context.Context) ([]common.Address, error) {
-	return o.destinationTokensCache.Get(ctx, func(ctx context.Context) ([]common.Address, error) {
-		return o.offRamp.GetDestinationTokens(&bind.CallOpts{Context: ctx})
-	})
 }
 
 func (o *OffRamp) Close(qopts ...pg.QOpt) error {
@@ -610,17 +600,7 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 			rpclib.DefaultRpcBatchSizeLimit,
 			rpclib.DefaultRpcBatchBackOffMultiplier,
 		),
-		destinationTokensCache: cache.NewLogpollerEventsBased[[]common.Address](
-			lp,
-			offRamp_poolAddedPoolRemovedEvents,
-			offRamp.Address(),
-		),
-		sourceTokensCache: cache.NewLogpollerEventsBased[[]common.Address](
-			lp,
-			offRamp_poolAddedPoolRemovedEvents,
-			offRamp.Address(),
-		),
-		destinationPoolsCache: cache.NewLogpollerEventsBased[map[common.Address]common.Address](
+		cachedOffRampTokens: cache.NewLogpollerEventsBased[ccipdata.OffRampTokens](
 			lp,
 			offRamp_poolAddedPoolRemovedEvents,
 			offRamp.Address(),
