@@ -84,9 +84,22 @@ func NewLogTriggerUser(
 func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 
 	for _, d := range m.data {
-		_, err := contracts.MultiCallLogTriggerLoadGen(m.evmClient, m.multiCallAddress, m.addresses, d)
-		if err != nil {
-			return &wasp.Response{Error: err.Error(), Failed: true}
+		var dividedData [][][]byte
+		chuckSize := 100
+		for i := 0; i < len(d); i += chuckSize {
+			end := i + chuckSize
+			if end > len(d) {
+				end = len(d)
+			}
+			dividedData = append(dividedData, d[i:end])
+
+		}
+
+		for _, a := range dividedData {
+			_, err := contracts.MultiCallLogTriggerLoadGen(m.evmClient, m.multiCallAddress, m.addresses, a)
+			if err != nil {
+				return &wasp.Response{Error: err.Error(), Failed: true}
+			}
 		}
 	}
 
