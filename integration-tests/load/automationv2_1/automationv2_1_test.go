@@ -198,8 +198,18 @@ func TestLogTrigger(t *testing.T) {
 		Bytes("Load Config", loadConfigBytes).
 		Msg("Test Config")
 
-	testConfig := fmt.Sprintf("Number of Nodes: %d\nDuration: %d\nBlock Time: %d\n"+
-		"Spec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\n\nLoad Config: \n%s", numberofNodes, duration,
+	testConfigFormat := `Number of Nodes: %d
+Duration: %d
+Block Time: %d
+Spec Type: %s
+Log Level: %s
+Image: %s
+Tag: %s
+
+Load Config:
+%s`
+
+	testConfig := fmt.Sprintf(testConfigFormat, numberofNodes, duration,
 		blockTime, specType, logLevel, os.Getenv(config.EnvVarCLImage), os.Getenv(config.EnvVarCLTag), string(loadConfigBytes))
 	l.Info().Str("testConfig", testConfig).Msg("Test Config")
 
@@ -537,7 +547,8 @@ func TestLogTrigger(t *testing.T) {
 	require.NoError(t, err, "Error getting latest block number")
 	l.Info().Uint64("Starting Block", startBlock).Uint64("Ending Block", endBlock).Msg("Test Block Range")
 
-	upkeepDelays := make([][]int64, 0)
+	upkeepDelaysFast := make([][]int64, 0)
+	upkeepDelaysRecovery := make([][]int64, 0)
 	var numberOfEventsEmitted int
 	var batchSize uint64 = 500
 
@@ -590,7 +601,8 @@ func TestLogTrigger(t *testing.T) {
 		}
 
 		if len(logs) > 0 {
-			delay := make([]int64, 0)
+			delayFast := make([]int64, 0)
+			delayRecovery := make([]int64, 0)
 			for _, log := range logs {
 				eventDetails, err := consumerABI.EventByID(log.Topics[0])
 				require.NoError(t, err, "Error getting event details")
@@ -601,29 +613,49 @@ func TestLogTrigger(t *testing.T) {
 				if eventDetails.Name == "PerformingUpkeep" {
 					parsedLog, err := consumer.ParsePerformingUpkeep(log)
 					require.NoError(t, err, "Error parsing log")
-					delay = append(delay, parsedLog.TimeToPerform.Int64())
+					if parsedLog.IsRecovered {
+						delayRecovery = append(delayRecovery, parsedLog.TimeToPerform.Int64())
+					} else {
+						delayFast = append(delayFast, parsedLog.TimeToPerform.Int64())
+					}
 				}
 			}
-			upkeepDelays = append(upkeepDelays, delay)
+			upkeepDelaysFast = append(upkeepDelaysFast, delayFast)
+			upkeepDelaysRecovery = append(upkeepDelaysRecovery, delayRecovery)
 		}
 	}
 
-	l.Info().Interface("Upkeep Delays", upkeepDelays).Msg("Upkeep Delays")
+	l.Info().
+		Interface("Upkeep Delays Fast", upkeepDelaysFast).
+		Interface("Upkeep Delays Recovered", upkeepDelaysRecovery).
+		Msg("Upkeep Delays")
 
 	var allUpkeepDelays []int64
+	var allUpkeepDelaysFast []int64
+	var allUpkeepDelaysRecovery []int64
 
-	for _, upkeepDelay := range upkeepDelays {
+	for _, upkeepDelay := range upkeepDelaysFast {
 		allUpkeepDelays = append(allUpkeepDelays, upkeepDelay...)
+		allUpkeepDelaysFast = append(allUpkeepDelaysFast, upkeepDelay...)
 	}
 
-	avg, median, ninetyPct, ninetyNinePct, maximum := testreporters.IntListStats(allUpkeepDelays)
+	for _, upkeepDelay := range upkeepDelaysRecovery {
+		allUpkeepDelays = append(allUpkeepDelays, upkeepDelay...)
+		allUpkeepDelaysRecovery = append(allUpkeepDelaysRecovery, upkeepDelay...)
+	}
+
+	avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF := testreporters.IntListStats(allUpkeepDelaysFast)
+	avgR, medianR, ninetyPctR, ninetyNinePctR, maximumR := testreporters.IntListStats(allUpkeepDelaysRecovery)
 	eventsMissed := numberOfEventsEmitted - len(allUpkeepDelays)
 	percentMissed := float64(eventsMissed) / float64(numberOfEventsEmitted) * 100
 	l.Info().
-		Float64("Average", avg).Int64("Median", median).
-		Int64("90th Percentile", ninetyPct).Int64("99th Percentile", ninetyNinePct).
-		Int64("Max", maximum).Msg("Upkeep Delays in seconds")
-
+		Float64("Average", avgF).Int64("Median", medianF).
+		Int64("90th Percentile", ninetyPctF).Int64("99th Percentile", ninetyNinePctF).
+		Int64("Max", maximumF).Msg("Upkeep Delays Fast Execution in seconds")
+	l.Info().
+		Float64("Average", avgR).Int64("Median", medianR).
+		Int64("90th Percentile", ninetyPctR).Int64("99th Percentile", ninetyNinePctR).
+		Int64("Max", maximumR).Msg("Upkeep Delays Recovery Execution in seconds")
 	l.Info().
 		Int("Total Perform Count", len(allUpkeepDelays)).
 		Int("Total Events Emitted", numberOfEventsEmitted).
@@ -631,10 +663,27 @@ func TestLogTrigger(t *testing.T) {
 		Float64("Percent Missed", percentMissed).
 		Msg("Test completed")
 
-	testReport := fmt.Sprintf("Upkeep Delays in seconds\nAverage: %f\nMedian: %d\n90th Percentile: %d\n"+
-		"99th Percentile: %d\nMax: %d\nTotal Perform Count: %d\n\nTotal Events Emitted: %d\nTotal Events Missed: %d\n"+
-		"Percent Missed: %f\nTest Duration: %s\n",
-		avg, median, ninetyPct, ninetyNinePct, maximum, len(allUpkeepDelays), numberOfEventsEmitted,
+	testReportFormat := `Upkeep Delays in seconds - Fast Execution
+Average: %f
+Median: %d
+90th Percentile: %d
+99th Percentile: %d
+Max: %d
+
+Upkeep Delays in seconds - Recovery Execution
+Average: %f
+Median: %d
+90th Percentile: %d
+99th Percentile: %d
+
+Total Perform Count: %d
+Total Events Emitted: %d
+Total Events Missed: %d
+Percent Missed: %f
+Test Duration: %s`
+
+	testReport := fmt.Sprintf(testReportFormat, avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF,
+		avgR, medianR, ninetyPctR, ninetyNinePctR, len(allUpkeepDelays), numberOfEventsEmitted,
 		eventsMissed, percentMissed, testDuration.String())
 
 	_, err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
