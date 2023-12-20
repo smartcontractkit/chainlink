@@ -25,6 +25,7 @@ import (
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -190,6 +191,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			}
 		}
 		if triggeringEvent == nil {
+
 			failCheckArgs(fmt.Sprintf("unable to find log with index %d in transaction", logIndex), nil)
 		}
 		// check that tx for this upkeep / tx was not already performed
