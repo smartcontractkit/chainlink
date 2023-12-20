@@ -274,8 +274,8 @@ func (w *client) handleTimeout(err error) {
 		cnt := w.consecutiveTimeoutCnt.Add(1)
 		if cnt == MaxConsecutiveRequestFailures {
 			w.logger.Errorf("Timed out on %d consecutive transmits, resetting transport", cnt)
-			// NOTE: If we get 5+ request timeouts in a row, close and re-open
-			// the websocket connection.
+			// NOTE: If we get at least MaxConsecutiveRequestFailures request
+			// timeouts in a row, close and re-open the websocket connection.
 			//
 			// This *shouldn't* be necessary in theory (ideally, wsrpc would
 			// handle it for us) but it acts as a "belts and braces" approach
@@ -284,11 +284,11 @@ func (w *client) handleTimeout(err error) {
 			select {
 			case w.chResetTransport <- struct{}{}:
 			default:
-				// This can happen if we had 5 consecutive timeouts, already
-				// sent a reset signal, then the connection started working
-				// again (resetting the count) then we got 5 additional
-				// failures before the runloop was able to close the bad
-				// connection.
+				// This can happen if we had MaxConsecutiveRequestFailures
+				// consecutive timeouts, already sent a reset signal, then the
+				// connection started working again (resetting the count) then
+				// we got MaxConsecutiveRequestFailures additional failures
+				// before the runloop was able to close the bad connection.
 				//
 				// It should be safe to just ignore in this case.
 				//
