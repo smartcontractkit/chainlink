@@ -34,12 +34,13 @@ runs:
       id: test-results
       run: |
         # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
-        echo "Querying test results"
+        echo "Querying test results at https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs"
 
+        echo "Looking for jobs matching regex: `${{ inputs.github_job_name_regex }}`"
         PARSED_RESULTS=$(curl \
         -H "Authorization: Bearer ${{ inputs.github_token }}" \
         'https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs' \
-        | jq -r --arg pattern "^Client Compatability Test (?<cap>.*?)$" '.jobs[]
+        | jq -r --arg pattern "${{ inputs.github_job_name_regex }}" '.jobs[]
         | select(.name | test($pattern)) as $job
         | $job.steps[]
         | select(.name == "Run Tests")
