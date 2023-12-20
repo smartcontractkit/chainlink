@@ -127,17 +127,18 @@ func (te *CLClusterTestEnv) StartPrivateChain() error {
 func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *test_env.EthereumNetwork) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
 	// if environment is being restored from a previous state, use the existing config
 	// this might fail terribly if temporary folders with chain data on the host machine were removed
-	if te.Cfg != nil && te.Cfg.EthereumNetwork != nil {
-		builder := test_env.NewEthereumNetworkBuilder()
-		c, err := builder.WithExistingConfig(*te.Cfg.EthereumNetwork).
-			WithTest(te.t).
-			Build()
-		if err != nil {
-			return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
-		}
-		cfg = &c
+	// if te.Cfg != nil && te.Cfg.EthereumNetwork != nil {
+	builder := test_env.NewEthereumNetworkBuilder()
+	c, err := builder.WithExistingConfig(*cfg).
+		WithTest(te.t).
+		Build()
+	if err != nil {
+		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
 	}
-	n, rpc, err := cfg.Start()
+	// cfg = &c
+	// }
+	n, rpc, err := c.Start()
+	*cfg = c
 
 	if err != nil {
 		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
