@@ -658,6 +658,8 @@ Load Config:
 		Int64("Max", maximumR).Msg("Upkeep Delays Recovery Execution in seconds")
 	l.Info().
 		Int("Total Perform Count", len(allUpkeepDelays)).
+		Int("Perform Count Fast Execution", len(allUpkeepDelaysFast)).
+		Int("Perform Count Recovery Execution", len(allUpkeepDelaysRecovery)).
 		Int("Total Events Emitted", numberOfEventsEmitted).
 		Int("Total Events Missed", eventsMissed).
 		Float64("Percent Missed", percentMissed).
@@ -677,14 +679,16 @@ Median: %d
 99th Percentile: %d
 
 Total Perform Count: %d
-Total Events Emitted: %d
+Perform Count Fast Execution: %d
+Perform Count Recovery Execution: %d
+Total Log Triggering Events Emitted: %d
 Total Events Missed: %d
 Percent Missed: %f
 Test Duration: %s`
 
 	testReport := fmt.Sprintf(testReportFormat, avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF,
-		avgR, medianR, ninetyPctR, ninetyNinePctR, len(allUpkeepDelays), numberOfEventsEmitted,
-		eventsMissed, percentMissed, testDuration.String())
+		avgR, medianR, ninetyPctR, ninetyNinePctR, len(allUpkeepDelays), len(allUpkeepDelaysFast),
+		len(allUpkeepDelaysRecovery), numberOfEventsEmitted, eventsMissed, percentMissed, testDuration.String())
 
 	_, err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(time.Now().UnixMilli(), 10),
