@@ -146,9 +146,7 @@ func Keccak256Fixed(in []byte) [32]byte {
 // EIP55CapitalizedAddress returns true iff possibleAddressString has the correct
 // capitalization for an Ethereum address, per EIP 55
 func EIP55CapitalizedAddress(possibleAddressString string) bool {
-	if !hex.HasPrefix(possibleAddressString) {
-		possibleAddressString = "0x" + possibleAddressString
-	}
+	possibleAddressString = hex.EnsurePrefix(possibleAddressString)
 	EIP55Capitalized := common.HexToAddress(possibleAddressString).Hex()
 	return possibleAddressString == EIP55Capitalized
 }

@@ -69,26 +69,6 @@ func TestUtils_StringToHex(t *testing.T) {
 	}
 }
 
-func TestUtils_BackoffSleeper(t *testing.T) {
-	t.Parallel()
-
-	bs := utils.NewBackoffSleeper()
-	assert.Equal(t, time.Duration(0), bs.Duration(), "should initially return immediately")
-	bs.Sleep()
-
-	d := 1 * time.Nanosecond
-	bs.Min = d
-	bs.Factor = 2
-	assert.Equal(t, d, bs.Duration())
-	bs.Sleep()
-
-	d2 := 2 * time.Nanosecond
-	assert.Equal(t, d2, bs.Duration())
-
-	bs.Reset()
-	assert.Equal(t, time.Duration(0), bs.Duration(), "should initially return immediately")
-}
-
 func TestUtils_DurationFromNow(t *testing.T) {
 	t.Parallel()
 
@@ -258,32 +238,6 @@ func TestFormatJSON(t *testing.T) {
 	formatted, err := utils.FormatJSON(json)
 	assert.NoError(t, err)
 	assert.Equal(t, "\"{\\\"foo\\\":123}\"", string(formatted))
-}
-
-func TestRetryWithBackoff(t *testing.T) {
-	t.Parallel()
-
-	var counter atomic.Int32
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-
-	utils.RetryWithBackoff(ctx, func() bool {
-		return false
-	})
-
-	retry := func() bool {
-		return counter.Add(1) < 3
-	}
-
-	go utils.RetryWithBackoff(ctx, retry)
-
-	assert.Eventually(t, func() bool {
-		return counter.Load() == 3
-	}, testutils.WaitTimeout(t), testutils.TestInterval)
-
-	cancel()
-
-	utils.RetryWithBackoff(ctx, retry)
-	assert.Equal(t, int32(4), counter.Load())
 }
 
 func TestMustUnmarshalToMap(t *testing.T) {

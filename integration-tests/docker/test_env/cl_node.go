@@ -153,8 +153,15 @@ func (n *ClNode) UpgradeVersion(newImage, newVersion string) error {
 		return fmt.Errorf("new version is empty")
 	}
 	if newImage == "" {
-		return fmt.Errorf("new image name is empty")
+		newImage = os.Getenv("CHAINLINK_IMAGE")
 	}
+	n.l.Info().
+		Str("Name", n.ContainerName).
+		Str("Old Image", os.Getenv("CHAINLINK_IMAGE")).
+		Str("Old Version", os.Getenv("CHAINLINK_VERSION")).
+		Str("New Image", newImage).
+		Str("New Version", newVersion).
+		Msg("Upgrading Chainlink Node")
 	n.ContainerImage = newImage
 	n.ContainerVersion = newVersion
 	return n.Restart(n.NodeConfig)

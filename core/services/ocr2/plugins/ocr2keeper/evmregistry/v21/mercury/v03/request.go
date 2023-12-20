@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -60,9 +61,9 @@ func NewClient(mercuryConfig mercury.MercuryConfigProvider, httpClient mercury.H
 	}
 }
 
-func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLookup, pluginRetryKey string) (mercury.MercuryUpkeepState, mercury.MercuryUpkeepFailureReason, [][]byte, bool, time.Duration, error) {
+func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, error) {
 	if len(streamsLookup.Feeds) == 0 {
-		return mercury.NoPipelineError, mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0 * time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", streamsLookup.FeedParamKey, streamsLookup.TimeParamKey, streamsLookup.Feeds)
+		return encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0 * time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", streamsLookup.FeedParamKey, streamsLookup.TimeParamKey, streamsLookup.Feeds)
 	}
 	resultLen := 1 // Only 1 multi-feed request is made for all feeds
 	ch := make(chan mercury.MercuryData, resultLen)
@@ -74,7 +75,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	var retryInterval time.Duration
 	results := make([][]byte, len(streamsLookup.Feeds))
 	retryable := false
-	state := mercury.NoPipelineError
+	state := encoding.NoPipelineError
 
 	m := <-ch
 	if m.Error != nil {
@@ -88,7 +89,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 		results = m.Bytes
 	}
 
-	return state, mercury.MercuryUpkeepFailureReasonNone, results, retryable, retryInterval, reqErr
+	return state, encoding.UpkeepFailureReasonNone, results, retryable, retryInterval, reqErr
 }
 
 func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.MercuryData, sl *mercury.StreamsLookup) {
@@ -109,7 +110,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
-		ch <- mercury.MercuryData{Index: 0, Error: err, Retryable: false, State: mercury.InvalidMercuryRequest}
+		ch <- mercury.MercuryData{Index: 0, Error: err, Retryable: false, State: encoding.InvalidMercuryRequest}
 		return
 	}
 
@@ -126,7 +127,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 	req.Header.Set(upkeepIDHeader, sl.UpkeepId.String())
 
 	// in the case of multiple retries here, use the last attempt's data
-	state := mercury.NoPipelineError
+	state := encoding.NoPipelineError
 	retryable := false
 	sent := false
 	retryErr := retry.Do(
@@ -136,7 +137,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 			if err != nil {
 				c.lggr.Warnf("at timestamp %s upkeep %s GET request fails from mercury v0.3: %v", sl.Time.String(), sl.UpkeepId.String(), err)
 				retryable = true
-				state = mercury.MercuryFlakyFailure
+				state = encoding.MercuryFlakyFailure
 				return err
 			}
 			defer resp.Body.Close()
@@ -144,7 +145,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				retryable = false
-				state = mercury.InvalidMercuryResponse
+				state = encoding.InvalidMercuryResponse
 				return err
 			}
 
@@ -152,27 +153,27 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 			switch resp.StatusCode {
 			case http.StatusUnauthorized:
 				retryable = false
-				state = mercury.UpkeepNotAuthorized
+				state = encoding.UpkeepNotAuthorized
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by unauthorized upkeep", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
 			case http.StatusBadRequest:
 				retryable = false
-				state = mercury.InvalidMercuryRequest
+				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by invalid format of timestamp", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
 			case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 				retryable = true
-				state = mercury.MercuryFlakyFailure
+				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", resp.StatusCode)
 			case http.StatusPartialContent:
 				// TODO (AUTO-5044): handle response code 206 entirely with errors field parsing
 				c.lggr.Warnf("at timestamp %s upkeep %s requested [%s] feeds but mercury v0.3 server returned 206 status, treating it as 404 and retrying", sl.Time.String(), sl.UpkeepId.String(), sl.Feeds)
 				retryable = true
-				state = mercury.MercuryFlakyFailure
+				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", http.StatusPartialContent)
 			case http.StatusOK:
 				// continue
 			default:
 				retryable = false
-				state = mercury.InvalidMercuryRequest
+				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
 			}
 			c.lggr.Debugf("at block %s upkeep %s received status code %d from mercury v0.3 with BODY=%s", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode, hexutil.Encode(body))
@@ -181,7 +182,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 			if err := json.Unmarshal(body, &response); err != nil {
 				c.lggr.Warnf("at timestamp %s upkeep %s failed to unmarshal body to MercuryV03Response from mercury v0.3: %v", sl.Time.String(), sl.UpkeepId.String(), err)
 				retryable = false
-				state = mercury.MercuryUnmarshalError
+				state = encoding.MercuryUnmarshalError
 				return err
 			}
 
@@ -194,7 +195,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				}
 				c.lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server returned 206 status with [%s] reports while we requested [%s] feeds, retrying", sl.Time.String(), sl.UpkeepId.String(), receivedFeeds, sl.Feeds)
 				retryable = true
-				state = mercury.MercuryFlakyFailure
+				state = encoding.MercuryFlakyFailure
 				return fmt.Errorf("%d", http.StatusNotFound)
 			}
 			var reportBytes [][]byte
@@ -203,7 +204,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				if err != nil {
 					c.lggr.Warnf("at timestamp %s upkeep %s failed to decode reportBlob %s: %v", sl.Time.String(), sl.UpkeepId.String(), rsp.FullReport, err)
 					retryable = false
-					state = mercury.InvalidMercuryResponse
+					state = encoding.InvalidMercuryResponse
 					return err
 				}
 				reportBytes = append(reportBytes, b)
@@ -212,7 +213,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				Index:     0,
 				Bytes:     reportBytes,
 				Retryable: false,
-				State:     mercury.NoPipelineError,
+				State:     encoding.NoPipelineError,
 			}
 			sent = true
 			return nil
