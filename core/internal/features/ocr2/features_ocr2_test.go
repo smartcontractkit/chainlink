@@ -429,6 +429,13 @@ juelsPerFeeCoinSource = """
 				metaLock.Unlock()
 				assert.Len(t, em, 0, "expected metadata %v", em)
 
+				t.Logf("======= Summary =======")
+				for i := 0; i < 20; i++ {
+					roundData, err := ocrContract.GetRoundData(nil, big.NewInt(int64(i)))
+					require.NoError(t, err)
+					t.Logf("RoundId: %d, AnsweredInRound: %d, Answer: %d, StartedAt: %v, UpdatedAt: %v", roundData.RoundId, roundData.AnsweredInRound, roundData.Answer, roundData.StartedAt, roundData.UpdatedAt)
+				}
+
 				// Assert we can read the latest config digest and epoch after a report has been submitted.
 				contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 				require.NoError(t, err)
@@ -445,7 +452,7 @@ juelsPerFeeCoinSource = """
 				assert.Equal(t, digestAndEpoch.Epoch, epoch)
 				latestTransmissionDetails, err := ocrContract.LatestTransmissionDetails(nil)
 				require.NoError(t, err)
-				assert.Equal(t, latestTransmissionDetails.LatestAnswer, big.NewInt(20))
+				assert.Equal(t, big.NewInt(2*int64(retVal)), latestTransmissionDetails.LatestAnswer)
 				latestRoundRequested, err := ocrContract.FilterRoundRequested(&bind.FilterOpts{Start: 0, End: nil}, []common.Address{{}})
 				require.NoError(t, err)
 				if latestRoundRequested.Next() { // Shouldn't this come back non-nil?
