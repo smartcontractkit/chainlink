@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -85,7 +86,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 	if len(config.DonId) == 0 || len(config.DonId) > int(network.HandshakeDonIdLen) {
 		return nil, errors.New("invalid DON ID")
 	}
-	addressBytes, err := utils.TryParseHex(config.NodeAddress)
+	addressBytes, err := hex.DecodeString(config.NodeAddress)
 	if err != nil {
 		return nil, err
 	}
