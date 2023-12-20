@@ -393,7 +393,7 @@ func setupNodeCCIP(
 		ETHKS: keyStore.Eth(),
 		CSAKS: keyStore.CSA(),
 	}
-	mailMon := mailbox.NewMonitor("CCIP")
+	mailMon := mailbox.NewMonitor("CCIP", lggr.Named("Mailbox"))
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
 			AppConfig:        config,
