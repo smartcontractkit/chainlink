@@ -247,35 +247,6 @@ func (bs *BackoffSleeper) Reset() {
 	bs.Backoff.Reset()
 }
 
-// AllEqual returns true iff all the provided elements are equal to each other.
-func AllEqual[T comparable](elems ...T) bool {
-	for i := 1; i < len(elems); i++ {
-		if elems[i] != elems[0] {
-			return false
-		}
-	}
-	return true
-}
-
-// JustError takes a tuple and returns the last entry, the error.
-func JustError(_ interface{}, err error) error {
-	return err
-}
-
-// WrapIfError decorates an error with the given message.  It is intended to
-// be used with `defer` statements, like so:
-//
-//	func SomeFunction() (err error) {
-//	    defer WrapIfError(&err, "error in SomeFunction:")
-//
-//	    ...
-//	}
-func WrapIfError(err *error, msg string) {
-	if *err != nil {
-		*err = fmt.Errorf(msg, *err)
-	}
-}
-
 // RandUint256 generates a random bigNum up to 2 ** 256 - 1
 func RandUint256() *big.Int {
 	n, err := rand.Int(rand.Reader, MaxUint256)
