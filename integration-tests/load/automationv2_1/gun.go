@@ -2,6 +2,7 @@ package automationv2_1
 
 import (
 	"math/big"
+	"sync"
 
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/wasp"
@@ -45,7 +46,6 @@ func NewLogTriggerUser(
 	evmClient blockchain.EVMClient,
 	multicallAddress string,
 ) *LogTriggerGun {
-
 	var data1, data2, data3 [][]byte
 	var addresses []string
 
@@ -82,7 +82,7 @@ func NewLogTriggerUser(
 }
 
 func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
-
+	var wg sync.WaitGroup
 	for _, d := range m.data {
 		var dividedData [][][]byte
 		chunkSize := 100
@@ -93,14 +93,18 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 			}
 			dividedData = append(dividedData, d[i:end])
 		}
-
 		for _, a := range dividedData {
-			_, err := contracts.MultiCallLogTriggerLoadGen(m.evmClient, m.multiCallAddress, m.addresses, a)
-			if err != nil {
-				return &wasp.Response{Error: err.Error(), Failed: true}
-			}
+			wg.Add(1)
+			go func(a [][]byte, m *LogTriggerGun) *wasp.Response {
+				defer wg.Done()
+				_, err := contracts.MultiCallLogTriggerLoadGen(m.evmClient, m.multiCallAddress, m.addresses, a)
+				if err != nil {
+					return &wasp.Response{Error: err.Error(), Failed: true}
+				}
+				return &wasp.Response{}
+			}(a, m)
 		}
 	}
-
+	wg.Wait()
 	return &wasp.Response{}
 }
