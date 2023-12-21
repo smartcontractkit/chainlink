@@ -156,7 +156,7 @@ func TestLogTrigger(t *testing.T) {
 		Tag: %s
 		
 		Load Config:
-		%s`
+		%+v`
 
 	testConfig := fmt.Sprintf(testConfigFormat, *loadedTestConfig.Automation.General.NumberOfNodes, *loadedTestConfig.Automation.General.Duration,
 		*loadedTestConfig.Automation.General.BlockTime, *loadedTestConfig.Automation.General.SpecType, *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel, image, version, loadedTestConfig.Automation.Load)
