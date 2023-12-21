@@ -294,9 +294,10 @@ var logPollerHasFinalisedEndBlock = func(endBlock int64, chainID *big.Int, l zer
 	wg := &sync.WaitGroup{}
 
 	type boolQueryResult struct {
-		nodeName     string
-		hasFinalised bool
-		err          error
+		nodeName       string
+		hasFinalised   bool
+		finalizedBlock int64
+		err            error
 	}
 
 	endBlockCh := make(chan boolQueryResult, len(nodes.Nodes)-1)
@@ -332,9 +333,10 @@ var logPollerHasFinalisedEndBlock = func(endBlock int64, chainID *big.Int, l zer
 				}
 
 				r <- boolQueryResult{
-					nodeName:     clNode.ContainerName,
-					hasFinalised: latestBlock.FinalizedBlockNumber > endBlock,
-					err:          nil,
+					nodeName:       clNode.ContainerName,
+					finalizedBlock: latestBlock.FinalizedBlockNumber,
+					hasFinalised:   latestBlock.FinalizedBlockNumber > endBlock,
+					err:            nil,
 				}
 
 			}
@@ -357,7 +359,7 @@ var logPollerHasFinalisedEndBlock = func(endBlock int64, chainID *big.Int, l zer
 			if r.hasFinalised {
 				l.Info().Str("Node name", r.nodeName).Msg("CL node has finalised end block")
 			} else {
-				l.Warn().Str("Node name", r.nodeName).Msg("CL node has not finalised end block yet")
+				l.Warn().Int64("Has", r.finalizedBlock).Int64("Want", endBlock).Str("Node name", r.nodeName).Msg("CL node has not finalised end block yet")
 			}
 
 			if len(foundMap) == len(nodes.Nodes)-1 {
@@ -1055,7 +1057,7 @@ func setupLogPollerTestDocker(
 		WithConsensusType(ctf_test_env.ConsensusType_PoS).
 		WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
 		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
-		WithWaitingForFinalization().
+		// WithWaitingForFinalization().
 		WithEthereumChainConfig(ctf_test_env.EthereumChainConfig{
 			SecondsPerSlot: 4,
 			SlotsPerEpoch:  2,

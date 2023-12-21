@@ -132,7 +132,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
 		}
 		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
-	}, logCountWaitDuration, "5s").Should(gomega.Succeed())
+	}, logCountWaitDuration, "10s").Should(gomega.Succeed())
 
 	// Wait until all CL nodes have exactly the same logs emitted by test contracts as the EVM node has
 	logConsistencyWaitDuration := "2m"
@@ -148,7 +148,7 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 			printMissingLogsByType(missingLogs, l, cfg)
 		}
 		g.Expect(missingLogs.IsEmpty()).To(gomega.BeTrue(), "Some CL nodes were missing logs")
-	}, logConsistencyWaitDuration, "5s").Should(gomega.Succeed())
+	}, logConsistencyWaitDuration, "10s").Should(gomega.Succeed())
 }
 
 func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string) {
@@ -202,17 +202,15 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	require.NoError(t, err, "Error executing event generator")
 	expectedLogsEmitted := getExpectedLogCount(cfg)
 	duration := int(endTime.Sub(startTime).Seconds())
-	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
 	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
-	l.Info().Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
+	endBlock, err := GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
+	require.NoError(t, err, "Error getting end block to wait for")
 
-	// to simplify the test, we will select logs for a very wide range, thanks to that we don't have to
-	// look for block number of the last block in which logs were emitted as that's not trivial to do
-	endBlock := int64(eb) + 10000
+	l.Info().Int64("Ending Block", endBlock).Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Lets make sure no logs are in DB yet
 	expectedFilters := getExpectedFilters(logEmitters, cfg)
@@ -223,15 +221,8 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
-	for i := 0; i < len(upkeepIDs); i++ {
-		emitterAddress := (*logEmitters[i%cfg.General.Contracts]).Address()
-		upkeepID := upkeepIDs[i]
-		topicId := cfg.General.EventsToEmit[i%len(cfg.General.EventsToEmit)].ID
-
-		l.Info().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
-		err = registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
-		require.NoError(t, err, "Error registering log trigger for log emitter")
-	}
+	err = registerFiltersAndAssertUniquness(l, registry, upkeepIDs, logEmitters, cfg, upKeepsNeeded)
+	require.NoError(t, err, "Error registering filters")
 
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
@@ -251,18 +242,19 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 			}
 			g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 		}
-	}, "1m", "10s").Should(gomega.Succeed())
+	}, "5m", "10s").Should(gomega.Succeed())
 	l.Info().Msg("All nodes have expected filters registered")
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
-	l.Warn().Str("Duration", "1m").Msg("Waiting for all CL nodes to have end block finalised")
+	blockFinalisationWaitDuration := "5m"
+	l.Warn().Str("Duration", blockFinalisationWaitDuration).Msg("Waiting for all CL nodes to have end block finalised")
 	gom.Eventually(func(g gomega.Gomega) {
 		hasFinalised, err := logPollerHasFinalisedEndBlock(endBlock, testEnv.EVMClient.GetChainID(), l, coreLogger, testEnv.ClCluster)
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if nodes have finalised end block. Retrying...")
 		}
 		g.Expect(hasFinalised).To(gomega.BeTrue(), "Some nodes have not finalised end block")
-	}, "1m", "30s").Should(gomega.Succeed())
+	}, blockFinalisationWaitDuration, "10s").Should(gomega.Succeed())
 
 	// Trigger replay
 	l.Info().Msg("Triggering log poller's replay")
@@ -273,6 +265,8 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 		require.Equal(t, "Replay started", response.Data.Attributes.Message, "Unexpected response message from log poller's replay")
 	}
 
+	// so that we don't have to look for block number of the last block in which logs were emitted as that's not trivial to do
+	endBlock = endBlock + 10000
 	l.Warn().Str("Duration", consistencyTimeout).Msg("Waiting for replay logs to be processed by all nodes")
 
 	gom.Eventually(func(g gomega.Gomega) {
@@ -281,7 +275,7 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
 		}
 		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
-	}, consistencyTimeout, "30s").Should(gomega.Succeed())
+	}, consistencyTimeout, "10s").Should(gomega.Succeed())
 
 	// Wait until all CL nodes have exactly the same logs emitted by test contracts as the EVM node has
 	l.Warn().Str("Duration", consistencyTimeout).Msg("Waiting for CL nodes to have all the logs that EVM node has")
@@ -340,16 +334,8 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
-	for i := 0; i < len(upkeepIDs); i++ {
-		emitterAddress := (*logEmitters[i%cfg.General.Contracts]).Address()
-		upkeepID := upkeepIDs[i]
-		topicId := cfg.General.EventsToEmit[i%len(cfg.General.EventsToEmit)].ID
-
-		l.Info().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
-		err = registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
-		randomWait(50, 200)
-		require.NoError(t, err, "Error registering log trigger for log emitter")
-	}
+	err = registerFiltersAndAssertUniquness(l, registry, upkeepIDs, logEmitters, cfg, upKeepsNeeded)
+	require.NoError(t, err, "Error registering filters")
 
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
@@ -370,7 +356,7 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 			}
 			g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
 		}
-	}, "2m", "10s").Should(gomega.Succeed())
+	}, "5m", "10s").Should(gomega.Succeed())
 	l.Info().Msg("All nodes have expected filters registered")
 	l.Info().Int("Count", len(expectedFilters)).Msg("Expected filters count")
 
@@ -415,7 +401,7 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
 		}
 		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
-	}, logCountWaitDuration, "5s").Should(gomega.Succeed())
+	}, logCountWaitDuration, "10s").Should(gomega.Succeed())
 
 	// Wait until all CL nodes have exactly the same logs emitted by test contracts as the EVM node has
 	logConsistencyWaitDuration := "2m"
@@ -431,7 +417,7 @@ func ExecuteCILogPollerTest(t *testing.T, cfg *Config) {
 			printMissingLogsByType(missingLogs, l, cfg)
 		}
 		g.Expect(missingLogs.IsEmpty()).To(gomega.BeTrue(), "Some CL nodes were missing logs")
-	}, logConsistencyWaitDuration, "20s").Should(gomega.Succeed())
+	}, logConsistencyWaitDuration, "10s").Should(gomega.Succeed())
 
 	evmLogs, _ := getEVMLogs(startBlock, endBlock, logEmitters, testEnv.EVMClient, l, cfg)
 
