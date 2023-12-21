@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"runtime/debug"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/rs/zerolog"
@@ -195,7 +194,6 @@ func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 		if err := cl.Fund(te.EVMClient, amount); err != nil {
 			return fmt.Errorf("%s, err: %w", ErrFundCLNode, err)
 		}
-		time.Sleep(5 * time.Second)
 	}
 	return te.EVMClient.WaitForEvents()
 }

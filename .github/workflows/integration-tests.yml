@@ -437,6 +437,12 @@ jobs:
           - name: ocr2
             nodes: 1
             os: ubuntu-latest
+            run: -run TestOCRv2Request
+            file: ocr2
+            pyroscope_env: ci-smoke-ocr2-evm-simulated                                                           
+          - name: ocr2
+            nodes: 1
+            os: ubuntu-latest
             pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
           - name: vrf
