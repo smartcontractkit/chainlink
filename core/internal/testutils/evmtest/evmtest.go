@@ -119,7 +119,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainR
 		}
 	}
 	if opts.MailMon == nil {
-		opts.MailMon = servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+		opts.MailMon = servicetest.Run(t, mailbox.NewMonitor(t.Name(), logger.TestLogger(t)))
 	}
 	if testopts.GasEstimator != nil {
 		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {
