@@ -18,7 +18,6 @@ import (
 	"go.uber.org/multierr"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	commonmodels "github.com/smartcontractkit/chainlink-common/pkg/models"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -197,25 +196,6 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 // String returns the current Cron spec string.
 func (c Cron) String() string {
 	return string(c)
-}
-
-// Duration is a non-negative time duration.
-type Duration = commonmodels.Duration
-
-func MakeDuration(d time.Duration) (Duration, error) {
-	return commonmodels.MakeDuration(d)
-}
-
-func ParseDuration(s string) (Duration, error) {
-	return commonmodels.ParseDuration(s)
-}
-
-func MustMakeDuration(d time.Duration) Duration {
-	return commonmodels.MustMakeDuration(d)
-}
-
-func MustNewDuration(d time.Duration) *Duration {
-	return commonmodels.MustNewDuration(d)
 }
 
 // Interval represents a time.Duration stored as a Postgres interval type

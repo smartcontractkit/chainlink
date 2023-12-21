@@ -3,8 +3,9 @@
 package mocks
 
 import (
-	models "github.com/smartcontractkit/chainlink-common/pkg/models"
 	mock "github.com/stretchr/testify/mock"
+
+	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	time "time"
 )
@@ -33,18 +34,18 @@ func (_m *Config) DefaultHTTPLimit() int64 {
 }
 
 // DefaultHTTPTimeout provides a mock function with given fields:
-func (_m *Config) DefaultHTTPTimeout() models.Duration {
+func (_m *Config) DefaultHTTPTimeout() sqlutil.Duration {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for DefaultHTTPTimeout")
 	}
 
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+	var r0 sqlutil.Duration
+	if rf, ok := ret.Get(0).(func() sqlutil.Duration); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(models.Duration)
+		r0 = ret.Get(0).(sqlutil.Duration)
 	}
 
 	return r0

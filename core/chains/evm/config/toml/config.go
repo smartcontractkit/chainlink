@@ -14,7 +14,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/models"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
@@ -352,12 +352,12 @@ type Chain struct {
 	FlagsContractAddress     *ethkey.EIP55Address
 	LinkContractAddress      *ethkey.EIP55Address
 	LogBackfillBatchSize     *uint32
-	LogPollInterval          *models.Duration
+	LogPollInterval          *sqlutil.Duration
 	LogKeepBlocksDepth       *uint32
 	MinIncomingConfirmations *uint32
 	MinContractPayment       *commonassets.Link
 	NonceAutoSync            *bool
-	NoNewHeadsThreshold      *models.Duration
+	NoNewHeadsThreshold      *sqlutil.Duration
 	OperatorFactoryAddress   *ethkey.EIP55Address
 	RPCDefaultBatchSize      *uint32
 	RPCBlockQueryDelay       *uint16
@@ -405,9 +405,9 @@ type Transactions struct {
 	ForwardersEnabled    *bool
 	MaxInFlight          *uint32
 	MaxQueued            *uint32
-	ReaperInterval       *models.Duration
-	ReaperThreshold      *models.Duration
-	ResendAfterThreshold *models.Duration
+	ReaperInterval       *sqlutil.Duration
+	ReaperThreshold      *sqlutil.Duration
+	ResendAfterThreshold *sqlutil.Duration
 }
 
 func (t *Transactions) setFrom(f *Transactions) {
@@ -670,7 +670,7 @@ func (e *KeySpecificGasEstimator) setFrom(f *KeySpecificGasEstimator) {
 type HeadTracker struct {
 	HistoryDepth     *uint32
 	MaxBufferSize    *uint32
-	SamplingInterval *models.Duration
+	SamplingInterval *sqlutil.Duration
 }
 
 func (t *HeadTracker) setFrom(f *HeadTracker) {
@@ -687,10 +687,10 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 
 type NodePool struct {
 	PollFailureThreshold *uint32
-	PollInterval         *models.Duration
+	PollInterval         *sqlutil.Duration
 	SelectionMode        *string
 	SyncThreshold        *uint32
-	LeaseDuration        *models.Duration
+	LeaseDuration        *sqlutil.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -713,11 +713,11 @@ func (p *NodePool) setFrom(f *NodePool) {
 
 type OCR struct {
 	ContractConfirmations              *uint16
-	ContractTransmitterTransmitTimeout *models.Duration
-	DatabaseTimeout                    *models.Duration
-	DeltaCOverride                     *models.Duration
-	DeltaCJitterOverride               *models.Duration
-	ObservationGracePeriod             *models.Duration
+	ContractTransmitterTransmitTimeout *sqlutil.Duration
+	DatabaseTimeout                    *sqlutil.Duration
+	DeltaCOverride                     *sqlutil.Duration
+	DeltaCJitterOverride               *sqlutil.Duration
+	ObservationGracePeriod             *sqlutil.Duration
 }
 
 func (o *OCR) setFrom(f *OCR) {

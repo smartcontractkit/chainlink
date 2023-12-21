@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // Config defines the Flux Monitor configuration.
@@ -28,7 +28,7 @@ type FluxMonitorConfig interface {
 }
 
 type JobPipelineConfig interface {
-	DefaultHTTPTimeout() models.Duration
+	DefaultHTTPTimeout() sqlutil.Duration
 }
 
 // MinimumPollingInterval returns the minimum duration between polling ticks

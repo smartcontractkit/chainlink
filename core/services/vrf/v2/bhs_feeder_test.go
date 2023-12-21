@@ -1,18 +1,17 @@
 package v2_test
 
 import (
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -56,7 +55,7 @@ func TestStartHeartbeats(t *testing.T) {
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
-		c.EVM[0].LogPollInterval = models.MustNewDuration(time.Second)
+		c.EVM[0].LogPollInterval = sqlutil.MustNewDuration(time.Second)
 	})
 
 	heartbeatPeriod := 5 * time.Second

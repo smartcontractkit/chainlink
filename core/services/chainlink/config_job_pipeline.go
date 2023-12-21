@@ -3,9 +3,9 @@ package chainlink
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var _ config.JobPipeline = (*jobPipelineConfig)(nil)
@@ -18,7 +18,7 @@ func (j *jobPipelineConfig) DefaultHTTPLimit() int64 {
 	return int64(*j.c.HTTPRequest.MaxSize)
 }
 
-func (j *jobPipelineConfig) DefaultHTTPTimeout() models.Duration {
+func (j *jobPipelineConfig) DefaultHTTPTimeout() sqlutil.Duration {
 	return *j.c.HTTPRequest.DefaultTimeout
 }
 

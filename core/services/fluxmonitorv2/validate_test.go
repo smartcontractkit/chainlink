@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 
 	"github.com/stretchr/testify/assert"
@@ -16,7 +16,9 @@ import (
 
 type testcfg struct{}
 
-func (testcfg) DefaultHTTPTimeout() models.Duration { return models.MustMakeDuration(2 * time.Second) }
+func (testcfg) DefaultHTTPTimeout() sqlutil.Duration {
+	return sqlutil.MustMakeDuration(2 * time.Second)
+}
 
 func TestValidate(t *testing.T) {
 	var tt = []struct {

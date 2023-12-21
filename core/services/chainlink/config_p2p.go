@@ -1,12 +1,12 @@
 package chainlink
 
 import (
-	"github.com/smartcontractkit/libocr/commontypes"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/libocr/commontypes"
 )
 
 type p2p struct {
@@ -59,19 +59,19 @@ func (v *p2pv2) DefaultBootstrappers() (locators []commontypes.BootstrapperLocat
 	return nil
 }
 
-func (v *p2pv2) DeltaDial() models.Duration {
+func (v *p2pv2) DeltaDial() sqlutil.Duration {
 	if d := v.c.DeltaDial; d != nil {
 		return *d
 	}
-	return models.Duration{}
+	return sqlutil.Duration{}
 }
 
-func (v *p2pv2) DeltaReconcile() models.Duration {
+func (v *p2pv2) DeltaReconcile() sqlutil.Duration {
 	if d := v.c.DeltaReconcile; d != nil {
 		return *d
 
 	}
-	return models.Duration{}
+	return sqlutil.Duration{}
 }
 
 func (v *p2pv2) ListenAddresses() []string {

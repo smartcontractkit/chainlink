@@ -9,18 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type mockConfig struct {
 	t                    *testing.T
 	root                 string
-	pollInterval         *models.Duration
-	gatherDuration       *models.Duration
-	traceDuration        *models.Duration
+	pollInterval         *sqlutil.Duration
+	gatherDuration       *sqlutil.Duration
+	traceDuration        *sqlutil.Duration
 	profileSize          utils.FileSize
 	cpuProfileRate       int
 	memProfileRate       int
@@ -40,9 +40,9 @@ var (
 func newMockConfig(t *testing.T) *mockConfig {
 	return &mockConfig{
 		root:                 t.TempDir(),
-		pollInterval:         models.MustNewDuration(testInterval),
-		gatherDuration:       models.MustNewDuration(testDuration),
-		traceDuration:        models.MustNewDuration(testDuration),
+		pollInterval:         sqlutil.MustNewDuration(testInterval),
+		gatherDuration:       sqlutil.MustNewDuration(testDuration),
+		traceDuration:        sqlutil.MustNewDuration(testDuration),
 		profileSize:          utils.FileSize(testSize),
 		memProfileRate:       runtime.MemProfileRate,
 		blockProfileRate:     testRate,
@@ -57,15 +57,15 @@ func (c mockConfig) ProfileRoot() string {
 	return c.root
 }
 
-func (c mockConfig) PollInterval() models.Duration {
+func (c mockConfig) PollInterval() sqlutil.Duration {
 	return *c.pollInterval
 }
 
-func (c mockConfig) GatherDuration() models.Duration {
+func (c mockConfig) GatherDuration() sqlutil.Duration {
 	return *c.gatherDuration
 }
 
-func (c mockConfig) GatherTraceDuration() models.Duration {
+func (c mockConfig) GatherTraceDuration() sqlutil.Duration {
 	return *c.traceDuration
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -45,20 +46,20 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 
 	c.Insecure.OCRDevelopmentMode = ptr(true)
 	c.InsecureFastScrypt = ptr(true)
-	c.ShutdownGracePeriod = models.MustNewDuration(testutils.DefaultWaitTimeout)
+	c.ShutdownGracePeriod = sqlutil.MustNewDuration(testutils.DefaultWaitTimeout)
 
 	c.Database.Dialect = dialects.TransactionWrappedPostgres
 	c.Database.Lock.Enabled = ptr(false)
 	c.Database.MaxIdleConns = ptr[int64](20)
 	c.Database.MaxOpenConns = ptr[int64](20)
 	c.Database.MigrateOnStartup = ptr(false)
-	c.Database.DefaultLockTimeout = models.MustNewDuration(1 * time.Minute)
+	c.Database.DefaultLockTimeout = sqlutil.MustNewDuration(1 * time.Minute)
 
-	c.JobPipeline.ReaperInterval = models.MustNewDuration(0)
+	c.JobPipeline.ReaperInterval = sqlutil.MustNewDuration(0)
 
 	c.P2P.V2.Enabled = ptr(false)
 
-	c.WebServer.SessionTimeout = models.MustNewDuration(2 * time.Minute)
+	c.WebServer.SessionTimeout = sqlutil.MustNewDuration(2 * time.Minute)
 	c.WebServer.BridgeResponseURL = models.MustParseURL("http://localhost:6688")
 	testIP := net.ParseIP("127.0.0.1")
 	c.WebServer.ListenIP = &testIP

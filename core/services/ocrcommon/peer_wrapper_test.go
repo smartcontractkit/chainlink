@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -18,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func Test_SingletonPeerWrapper_Start(t *testing.T) {
@@ -123,8 +123,8 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 	cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.PeerID = ptr(k.PeerID())
-		c.P2P.V2.DeltaDial = models.MustNewDuration(100 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(1 * time.Second)
+		c.P2P.V2.DeltaDial = sqlutil.MustNewDuration(100 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = sqlutil.MustNewDuration(1 * time.Second)
 
 		p2paddresses := []string{
 			"127.0.0.1:17193",
