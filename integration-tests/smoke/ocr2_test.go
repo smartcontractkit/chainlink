@@ -111,7 +111,12 @@ func TestOCRv2Request(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.ForwarderOcr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
