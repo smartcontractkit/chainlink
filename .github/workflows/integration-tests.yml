@@ -529,75 +529,75 @@ jobs:
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           docker logs otel-collector
-          - name: Prepare Base64 TOML override
-          env:
-            PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-            PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-            RUN_ID: ${{ github.run_id }}
-            TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
-            CHAINLINK_VERSION: ${{ github.sha }}
-            LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
-            LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-            GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-            BASE64_CONFIG_OVERRIDE: "W0VtcHR5XQo="
-          run: |
-            echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-  
-            convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+      - name: Prepare Base64 TOML override
+        env:
+          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+          RUN_ID: ${{ github.run_id }}
+          TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
+          CHAINLINK_VERSION: ${{ github.sha }}
+          LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+          LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+          BASE64_CONFIG_OVERRIDE: "W0VtcHR5XQo="
+        run: |
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+
+          convert_to_toml_array() {
+            local IFS=','
+            local input_array=($1)
+            local toml_array_format="["
+        
+            for element in "${input_array[@]}"; do
+                toml_array_format+="\"$element\","
+            done
+        
+            toml_array_format="${toml_array_format%,}]"
+            echo "$toml_array_format"
+          }
           
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
+          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")                   
+
+          if [ -n "$ETH2_EL_CLIENT" ]; then
+            execution_layer="$ETH2_EL_CLIENT"
+          else
+            execution_layer="geth"
+          fi
+          if [ -n "$TEST_LOG_COLLECT" ]; then
+            test_log_collect=true
+          else
+            test_log_collect=false
+          fi              
+
+          cat << EOF > config.toml
+          [Network]
+          selected_networks=$selected_networks
           
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-            }
-            
-            selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")                   
-  
-            if [ -n "$ETH2_EL_CLIENT" ]; then
-              execution_layer="$ETH2_EL_CLIENT"
-            else
-              execution_layer="geth"
-            fi
-            if [ -n "$TEST_LOG_COLLECT" ]; then
-              test_log_collect=true
-            else
-              test_log_collect=false
-            fi              
-  
-            cat << EOF > config.toml
-            [Network]
-            selected_networks=$selected_networks
-            
-            [ChainlinkImage]
-            # image="$CHAINLINK_IMAGE"
-            version="$CHAINLINK_VERSION"
-            
-            [Pyroscope]
-            enabled=false
-            server_url="$PYROSCOPE_SERVER"
-            environment="$PYROSCOPE_ENVIRONMENT"
-  
-            [Logging]
-            test_log_collect=$test_log_collect
-            run_id="$RUN_ID"
-  
-            [Logging.LogStream]
-            log_targets=$log_targets
-  
-            [Logging.Loki]
-            loki_tenant_id="$LOKI_TENANT_ID"
-            loki_url="$LOKI_URL"
-  
-            [Logging.Grafana]
-            grafana_url="$GRAFANA_URL"
-            EOF
-            
-            echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
+          [ChainlinkImage]
+          image="chainlink"
+          version="$CHAINLINK_VERSION"
+          
+          [Pyroscope]
+          enabled=false
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+
+          [Logging]
+          test_log_collect=$test_log_collect
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          loki_tenant_id="$LOKI_TENANT_ID"
+          loki_url="$LOKI_URL"
+
+          [Logging.Grafana]
+          grafana_url="$GRAFANA_URL"
+          EOF
+          
+          echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
