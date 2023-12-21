@@ -583,3 +583,7 @@ func (p *medianProvider) ChainReader() commontypes.ChainReader {
 func (p *medianProvider) Codec() commontypes.Codec {
 	return p.codec
 }
+
+func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
+	return nil, errors.New("automation is not supported for evm")
+}
