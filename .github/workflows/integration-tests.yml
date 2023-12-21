@@ -267,12 +267,10 @@ jobs:
         env:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           RUN_ID: ${{ github.run_id }}
           TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
           CHAINLINK_VERSION: ${{ github.sha }}
           LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
-          # LOKI_URL: ${{ secrets.LOKI_URL }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
           BASE64_CONFIG_OVERRIDE: "W0VtcHR5XQo="
@@ -317,7 +315,6 @@ jobs:
           enabled=false
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
-          # key="$PYROSCOPE_KEY"
 
           [Logging]
           test_log_collect=$test_log_collect
@@ -329,7 +326,6 @@ jobs:
           [Logging.Loki]
           loki_tenant_id="$LOKI_TENANT_ID"
           loki_url="$LOKI_URL"
-          # loki_basic_auth="$LOKI_BASIC_AUTH"
 
           [Logging.Grafana]
           grafana_url="$GRAFANA_URL"
