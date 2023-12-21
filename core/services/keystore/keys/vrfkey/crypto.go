@@ -7,8 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"go.dedis.ch/kyber/v3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bm "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
@@ -19,7 +20,7 @@ import (
 
 var (
 	// FieldSize is number of elements in secp256k1's base field, i.e. GF(FieldSize)
-	FieldSize = utils.HexToBig(
+	FieldSize = mustParseBig(
 		"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
 	)
 	Secp256k1Curve       = &secp256k1.Secp256k1{}
@@ -175,4 +176,12 @@ func ScalarFromCurvePoints(
 	}
 	msg = append(msg, uWitness[:]...)
 	return bm.I().SetBytes(utils.MustHash(string(msg)).Bytes())
+}
+
+func mustParseBig(hx string) *big.Int {
+	n, err := hex.ParseBig(hx)
+	if err != nil {
+		panic(fmt.Errorf(`failed to convert "%s" as hex to big.Int`, hx))
+	}
+	return n
 }

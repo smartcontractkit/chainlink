@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
+	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -122,8 +123,8 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
 		// first check if this is a valid hex-encoded string
-		if utils.HasHexPrefix(v) {
-			noHexPrefix := utils.RemoveHexPrefix(v)
+		if commonhex.HasPrefix(v) {
+			noHexPrefix := commonhex.TrimPrefix(v)
 			bs, err := hex.DecodeString(noHexPrefix)
 			if err == nil {
 				*b = bs
@@ -452,7 +453,7 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 	case []byte:
 		switch len(v) {
 		case 42:
-			bs, err := utils.TryParseHex(string(v))
+			bs, err := commonhex.DecodeString(string(v))
 			if err == nil {
 				*a = AddressParam(common.BytesToAddress(bs))
 				return nil

@@ -7,7 +7,6 @@ import (
 	"github.com/slack-go/slack"
 
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -16,15 +15,15 @@ func extraBlockWithText(text string) slack.Block {
 		"mrkdwn", text, false, false), nil, nil)
 }
 
-func sendSlackNotification(header string, l zerolog.Logger, namespace string, numberOfNodes,
-	startingTime string, endingTime string, extraBlocks []slack.Block, config *tc.TestConfig) error {
+func sendSlackNotification(config *tc.TestConfig, header string, l zerolog.Logger, namespace string, numberOfNodes,
+	startingTime string, endingTime string, extraBlocks []slack.Block, msgOption slack.MsgOption) (string, error) {
 	slackClient := slack.New(reportModel.SlackAPIKey)
 
 	headerText := ":chainlink-keepers: Automation Load Test " + header + " :white_check_mark:"
 
 	grafanaUrl, err := config.GetGrafanaURL()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	formattedDashboardUrl := fmt.Sprintf("%s?orgId=1&from=%s&to=%s&var-namespace=%s&var-number_of_nodes=%s", grafanaUrl, startingTime, endingTime, namespace, numberOfNodes)
@@ -55,7 +54,7 @@ func sendSlackNotification(header string, l zerolog.Logger, namespace string, nu
 		notificationBlocks = append(notificationBlocks, extraBlocks...)
 	}
 
-	ts, err := reportModel.SendSlackMessage(slackClient, slack.MsgOptionBlocks(notificationBlocks...))
+	ts, err := reportModel.SendSlackMessage(slackClient, slack.MsgOptionBlocks(notificationBlocks...), msgOption)
 	l.Info().Str("ts", ts).Msg("Sent Slack Message")
-	return err
+	return ts, err
 }

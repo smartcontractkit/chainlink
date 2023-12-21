@@ -2,6 +2,7 @@ package testconfig
 
 import (
 	"encoding/base64"
+	"math/big"
 	"os"
 	"testing"
 
@@ -28,14 +29,32 @@ func TestBase64ConfigRead(t *testing.T) {
 
 	testConfig := TestConfig{
 		Automation: &a_config.Config{
-			Performance: &a_config.Performance{
+			General: &a_config.General{
 				NumberOfNodes:         ptr.Ptr(7),
-				NumberOfUpkeeps:       ptr.Ptr(8),
 				Duration:              ptr.Ptr(9),
 				BlockTime:             ptr.Ptr(10),
-				NumberOfEvents:        ptr.Ptr(11),
 				SpecType:              ptr.Ptr("minimum"),
 				ChainlinkNodeLogLevel: ptr.Ptr("debug"),
+			},
+			Load: []a_config.Load{
+				{
+					NumberOfUpkeeps:               ptr.Ptr(1),
+					NumberOfEvents:                ptr.Ptr(2),
+					NumberOfSpamMatchingEvents:    ptr.Ptr(3),
+					NumberOfSpamNonMatchingEvents: ptr.Ptr(4),
+					CheckBurnAmount:               big.NewInt(5),
+					PerformBurnAmount:             big.NewInt(6),
+					SharedTrigger:                 ptr.Ptr(true),
+				},
+				{
+					NumberOfUpkeeps:               ptr.Ptr(3),
+					NumberOfEvents:                ptr.Ptr(2),
+					NumberOfSpamMatchingEvents:    ptr.Ptr(3),
+					NumberOfSpamNonMatchingEvents: ptr.Ptr(7),
+					CheckBurnAmount:               big.NewInt(5),
+					PerformBurnAmount:             big.NewInt(6),
+					SharedTrigger:                 ptr.Ptr(false),
+				},
 			},
 		},
 		Network: &ctf_config.NetworkConfig{
@@ -59,10 +78,11 @@ func TestBase64ConfigRead(t *testing.T) {
 	require.NoError(t, err, "Error reading config")
 
 	require.NotNil(t, readConfig.Automation, "Automation config read from base64 is nil")
-	require.Equal(t, testConfig.Automation, readConfig.Automation, "Automation config read from base64 does not match expected")
+	require.Equal(t, testConfig.Automation.General, readConfig.Automation.General, "General automation config does not match expected")
+	require.EqualValues(t, testConfig.Automation.Load, readConfig.Automation.Load, "Load automation config does not match expected")
 	require.NotNil(t, readConfig.Network, "Network config read from base64 is nil")
 	require.Equal(t, testConfig.Network.SelectedNetworks, readConfig.Network.SelectedNetworks, "SelectedNetwork config entry read from base64 does not match expected")
-	require.Equal(t, testConfig.Network.RpcHttpUrls["OPTIMISM_GOERLI"], readConfig.Network.RpcHttpUrls["OPTIMISM_GOERLI"], "RpcHttpUrls config entry read from base64 does not match expected")
+	require.Equal(t, []string{"http://localhost:8545"}, readConfig.Network.RpcHttpUrls["OPTIMISM_GOERLI"], "RpcHttpUrls config entry read from base64 does not match expected")
 	require.Equal(t, []string{"wss://devnet-2.mt/ABC/rpc/"}, readConfig.Network.RpcWsUrls["OPTIMISM_GOERLI"], "RpcWsUrls config entry read from base64 network defaults does not match expected")
 	require.Equal(t, testConfig.Network.WalletKeys, readConfig.Network.WalletKeys, "WalletKeys config entry read from base64 does not match expected")
 }

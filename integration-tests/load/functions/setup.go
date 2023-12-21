@@ -18,7 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
+	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 type FunctionsTest struct {

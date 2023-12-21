@@ -22,6 +22,7 @@ func TestVersionUpgrade(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&config).
 		WithTestInstance(t).
+		WithStandardCleanup().
 		WithGeth().
 		WithCLNodes(1).
 		WithStandardCleanup().
@@ -34,8 +35,7 @@ func TestVersionUpgrade(t *testing.T) {
 	// MigrateOnStartup = true
 	//
 	// by default
-	env.ClCluster.Nodes[0].ContainerImage = *config.ChainlinkUpgradeImage.Image
-	env.ClCluster.Nodes[0].ContainerVersion = *config.ChainlinkUpgradeImage.Version
-	err = env.ClCluster.Nodes[0].Restart(env.ClCluster.Nodes[0].NodeConfig)
+	err = env.ClCluster.Nodes[0].UpgradeVersion(*config.ChainlinkUpgradeImage.Image, *config.ChainlinkUpgradeImage.Version)
 	require.NoError(t, err)
+
 }

@@ -29,10 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -40,6 +36,9 @@ import (
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 )
 
 const (
@@ -76,16 +75,16 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	minimumDbSpec = map[string]interface{}{
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
-				"cpu":    "1000m",
-				"memory": "1Gi",
+				"cpu":    "4000m",
+				"memory": "4Gi",
 			},
 			"limits": map[string]interface{}{
-				"cpu":    "1000m",
-				"memory": "1Gi",
+				"cpu":    "4000m",
+				"memory": "4Gi",
 			},
 		},
 		"stateful": true,
-		"capacity": "5Gi",
+		"capacity": "10Gi",
 	}
 
 	recNodeSpec = map[string]interface{}{
@@ -101,19 +100,17 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		},
 	}
 
-	recDbSpec = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
-				"cpu":    "2000m",
-				"memory": "2Gi",
-			},
-			"limits": map[string]interface{}{
-				"cpu":    "2000m",
-				"memory": "2Gi",
-			},
+	recDbSpec = minimumDbSpec
+
+	gethNodeSpec = map[string]interface{}{
+		"requests": map[string]interface{}{
+			"cpu":    "8000m",
+			"memory": "8Gi",
 		},
-		"stateful": true,
-		"capacity": "10Gi",
+		"limits": map[string]interface{}{
+			"cpu":    "16000m",
+			"memory": "16Gi",
+		},
 	}
 )
 
@@ -141,26 +138,34 @@ func TestLogTrigger(t *testing.T) {
 	version := *loadedTestConfig.ChainlinkImage.Version
 
 	l.Info().Msg("Starting automation v2.1 log trigger load test")
-	l.Info().Str("TEST_INPUTS", strings.Join(*loadedTestConfig.Automation.Performance.TestInputs, ",")).Int("Number of Nodes", *loadedTestConfig.Automation.Performance.NumberOfNodes).
-		Int("Number of Upkeeps", *loadedTestConfig.Automation.Performance.NumberOfUpkeeps).
-		Int("Duration", *loadedTestConfig.Automation.Performance.Duration).
-		Int("Block Time", *loadedTestConfig.Automation.Performance.BlockTime).
-		Int("Number of Events", *loadedTestConfig.Automation.Performance.NumberOfEvents).
-		Str("Spec Type", *loadedTestConfig.Automation.Performance.SpecType).
-		Str("Log Level", *loadedTestConfig.Automation.Performance.ChainlinkNodeLogLevel).
+	l.Info().Str("TEST_INPUTS", strings.Join(*loadedTestConfig.Automation.General.TestInputs, ",")).Int("Number of Nodes", *loadedTestConfig.Automation.General.NumberOfNodes).
+		Int("Duration", *loadedTestConfig.Automation.General.Duration).
+		Int("Block Time", *loadedTestConfig.Automation.General.BlockTime).
+		Str("Spec Type", *loadedTestConfig.Automation.General.SpecType).
+		Str("Log Level", *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel).
 		Str("Image", image).
 		Str("Tag", version).
 		Msg("Test Config")
 
-	testConfig := fmt.Sprintf("Number of Nodes: %d\nNumber of Upkeeps: %d\nDuration: %d\nBlock Time: %d\n"+
-		"Number of Events: %d\nSpec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\n", *loadedTestConfig.Automation.Performance.NumberOfNodes, *loadedTestConfig.Automation.Performance.NumberOfUpkeeps, *loadedTestConfig.Automation.Performance.Duration,
-		*loadedTestConfig.Automation.Performance.BlockTime, *loadedTestConfig.Automation.Performance.NumberOfEvents, *loadedTestConfig.Automation.Performance.SpecType, *loadedTestConfig.Automation.Performance.ChainlinkNodeLogLevel, image, version)
+	testConfigFormat := `Number of Nodes: %d
+		Duration: %d
+		Block Time: %d
+		Spec Type: %s
+		Log Level: %s
+		Image: %s
+		Tag: %s
+		
+		Load Config:
+		%s`
+
+	testConfig := fmt.Sprintf(testConfigFormat, *loadedTestConfig.Automation.General.NumberOfNodes, *loadedTestConfig.Automation.General.Duration,
+		*loadedTestConfig.Automation.General.BlockTime, *loadedTestConfig.Automation.General.SpecType, *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel, image, version, loadedTestConfig.Automation.Load)
+	l.Info().Str("testConfig", testConfig).Msg("Test Config")
 
 	testNetwork := networks.MustGetSelectedNetworkConfig(loadedTestConfig.Network)[0]
 	testType := "load"
-	loadDuration := time.Duration(*loadedTestConfig.Automation.Performance.Duration) * time.Second
+	loadDuration := time.Duration(*loadedTestConfig.Automation.General.Duration) * time.Second
 	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
-	automationDefaultUpkeepGasLimit := uint32(1_000_000)
 
 	registrySettings := &contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(0),
@@ -215,19 +220,10 @@ func TestLogTrigger(t *testing.T) {
 			Simulated:   testNetwork.Simulated,
 			WsURLs:      testNetwork.URLs,
 			Values: map[string]interface{}{
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "4000m",
-						"memory": "4Gi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "8000m",
-						"memory": "8Gi",
-					},
-				},
+				"resources": gethNodeSpec,
 				"geth": map[string]interface{}{
-					"blocktime": *loadedTestConfig.Automation.Performance.BlockTime,
-					"capacity":  "10Gi",
+					"blocktime": *loadedTestConfig.Automation.General.BlockTime,
+					"capacity":  "20Gi",
 				},
 			},
 		}))
@@ -244,7 +240,7 @@ func TestLogTrigger(t *testing.T) {
 		dbSpec   = minimumDbSpec
 	)
 
-	switch *loadedTestConfig.Automation.Performance.SpecType {
+	switch *loadedTestConfig.Automation.General.SpecType {
 	case "recommended":
 		nodeSpec = recNodeSpec
 		dbSpec = recDbSpec
@@ -268,20 +264,21 @@ func TestLogTrigger(t *testing.T) {
 	// err = os.Setenv(config.EnvVarPyroscopeEnvironment, testEnvironment.Cfg.Namespace)
 	// require.NoError(t, err, "Error setting pyroscope environment env var")
 
-	numberOfUpkeeps := *loadedTestConfig.Automation.Performance.NumberOfNodes
+	numberOfUpkeeps := *loadedTestConfig.Automation.General.NumberOfNodes
 
 	for i := 0; i < numberOfUpkeeps+1; i++ { // +1 for the OCR boot node
 		var nodeTOML string
 		if i == 1 || i == 3 {
-			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, *loadedTestConfig.Automation.Performance.ChainlinkNodeLogLevel)
+			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel)
 		} else {
 			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"info\"", baseTOML)
 		}
 		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
 		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-			"toml":      nodeTOML,
-			"chainlink": nodeSpec,
-			"db":        dbSpec,
+			"toml":       nodeTOML,
+			"chainlink":  nodeSpec,
+			"db":         dbSpec,
+			"prometheus": *loadedTestConfig.Automation.General.UsePrometheus,
 		}))
 	}
 
@@ -333,11 +330,12 @@ func TestLogTrigger(t *testing.T) {
 
 	a.SetupAutomationDeployment(t)
 
-	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(100), 0)
+	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(*loadedTestConfig.Common.ChainlinkNodeFunding), 0)
 	require.NoError(t, err, "Error funding chainlink nodes")
 
 	consumerContracts := make([]contracts.KeeperConsumer, 0)
 	triggerContracts := make([]contracts.LogEmitter, 0)
+	triggerAddresses := make([]common.Address, 0)
 
 	utilsABI, err := automation_utils_2_1.AutomationUtilsMetaData.GetAbi()
 	require.NoError(t, err, "Error getting automation utils abi")
@@ -351,61 +349,80 @@ func TestLogTrigger(t *testing.T) {
 	}
 
 	upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
+	cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
+	require.NoError(t, err, "Error building concurrent chain client")
 
-	for i := 0; i < numberOfUpkeeps; i++ {
-		consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
-		require.NoError(t, err, "Error deploying automation consumer contract")
-		consumerContracts = append(consumerContracts, consumerContract)
-		l.Debug().
-			Str("Contract Address", consumerContract.Address()).
-			Int("Number", i+1).
-			Int("Out Of", numberOfUpkeeps).
-			Msg("Deployed Automation Log Trigger Consumer Contract")
+	cContractDeployer, err := contracts.NewContractDeployer(cEVMClient, l)
+	require.NoError(t, err, "Error building concurrent contract deployer")
+	for _, u := range loadedTestConfig.Automation.Load {
+		for i := 0; i < *u.NumberOfUpkeeps; i++ {
+			consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
+			require.NoError(t, err, "Error deploying automation consumer contract")
+			consumerContracts = append(consumerContracts, consumerContract)
+			l.Debug().
+				Str("Contract Address", consumerContract.Address()).
+				Int("Number", i+1).
+				Int("Out Of", *u.NumberOfUpkeeps).
+				Msg("Deployed Automation Log Trigger Consumer Contract")
 
-		cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
-		require.NoError(t, err, "Error building concurrent chain client")
-
-		cContractDeployer, err := contracts.NewContractDeployer(cEVMClient, l)
-		require.NoError(t, err, "Error building concurrent contract deployer")
-
-		triggerContract, err := cContractDeployer.DeployLogEmitterContract()
-		require.NoError(t, err, "Error deploying log emitter contract")
-		triggerContracts = append(triggerContracts, triggerContract)
-		l.Debug().
-			Str("Contract Address", triggerContract.Address().Hex()).
-			Int("Number", i+1).
-			Int("Out Of", numberOfUpkeeps).
-			Msg("Deployed Automation Log Trigger Emitter Contract")
+			if *u.SharedTrigger && i > 0 {
+				triggerAddresses = append(triggerAddresses, triggerAddresses[len(triggerAddresses)-1])
+				continue
+			}
+			triggerContract, err := cContractDeployer.DeployLogEmitterContract()
+			require.NoError(t, err, "Error deploying log emitter contract")
+			triggerContracts = append(triggerContracts, triggerContract)
+			triggerAddresses = append(triggerAddresses, triggerContract.Address())
+			l.Debug().
+				Str("Contract Address", triggerContract.Address().Hex()).
+				Int("Number", i+1).
+				Int("Out Of", *u.NumberOfUpkeeps).
+				Msg("Deployed Automation Log Trigger Emitter Contract")
+		}
+		err = chainClient.WaitForEvents()
+		require.NoError(t, err, "Failed waiting for contracts to deploy")
 	}
-
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for contracts to deploy")
 
 	for i, consumerContract := range consumerContracts {
 		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
-			ContractAddress: triggerContracts[i].Address(),
-			FilterSelector:  0,
-			Topic0:          emitterABI.Events["Log1"].ID,
-			Topic1:          bytes0,
-			Topic2:          bytes0,
-			Topic3:          bytes0,
+			ContractAddress: triggerAddresses[i],
+			FilterSelector:  1,
+			Topic0:          emitterABI.Events["Log4"].ID,
+			Topic1: [32]byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+			Topic2: bytes0,
+			Topic3: bytes0,
 		}
 		encodedLogTriggerConfig, err := utilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 		require.NoError(t, err, "Error encoding log trigger config")
 		l.Debug().Bytes("Encoded Log Trigger Config", encodedLogTriggerConfig).Msg("Encoded Log Trigger Config")
 
+		checkDataStruct := simple_log_upkeep_counter_wrapper.CheckData{
+			CheckBurnAmount:   loadedTestConfig.Automation.Load[i].CheckBurnAmount,
+			PerformBurnAmount: loadedTestConfig.Automation.Load[i].PerformBurnAmount,
+			EventSig: [32]byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		}
+
+		encodedCheckDataStruct, err := consumerABI.Methods["_checkDataConfig"].Inputs.Pack(&checkDataStruct)
+		require.NoError(t, err, "Error encoding check data struct")
+		l.Debug().Bytes("Encoded Check Data Struct", encodedCheckDataStruct).Msg("Encoded Check Data Struct")
+
 		upkeepConfig := automationv2.UpkeepConfig{
 			UpkeepName:     fmt.Sprintf("LogTriggerUpkeep-%d", i),
 			EncryptedEmail: []byte("test@mail.com"),
 			UpkeepContract: common.HexToAddress(consumerContract.Address()),
-			GasLimit:       automationDefaultUpkeepGasLimit,
+			GasLimit:       *loadedTestConfig.Automation.Load[i].UpkeepGasLimit,
 			AdminAddress:   common.HexToAddress(chainClient.GetDefaultWallet().Address()),
 			TriggerType:    uint8(1),
-			CheckData:      []byte("0"),
+			CheckData:      encodedCheckDataStruct,
 			TriggerConfig:  encodedLogTriggerConfig,
 			OffchainConfig: []byte("0"),
 			FundingAmount:  automationDefaultLinkFunds,
 		}
+		l.Debug().Interface("Upkeep Config", upkeepConfig).Msg("Upkeep Config")
 		upkeepConfigs = append(upkeepConfigs, upkeepConfig)
 	}
 
@@ -440,9 +457,10 @@ func TestLogTrigger(t *testing.T) {
 			),
 			Gun: NewLogTriggerUser(
 				triggerContract,
-				consumerContracts[i],
 				l,
-				*loadedTestConfig.Automation.Performance.NumberOfEvents,
+				*loadedTestConfig.Automation.Load[i].NumberOfEvents,
+				*loadedTestConfig.Automation.Load[i].NumberOfSpamMatchingEvents,
+				*loadedTestConfig.Automation.Load[i].NumberOfSpamNonMatchingEvents,
 			),
 			CallResultBufLen: 1000000,
 		})
@@ -451,9 +469,9 @@ func TestLogTrigger(t *testing.T) {
 
 	l.Info().Msg("Starting load generators")
 	startTime := time.Now()
-	err = sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.Performance.NumberOfNodes),
+	ts, err := sendSlackNotification(&loadedTestConfig, "Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.General.NumberOfNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), "now",
-		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, &loadedTestConfig)
+		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, slack.MsgOptionBlocks())
 	if err != nil {
 		l.Error().Err(err).Msg("Error sending slack notification")
 	}
@@ -471,14 +489,14 @@ func TestLogTrigger(t *testing.T) {
 	require.NoError(t, err, "Error getting latest block number")
 	l.Info().Uint64("Starting Block", startBlock).Uint64("Ending Block", endBlock).Msg("Test Block Range")
 
-	upkeepDelays := make([][]int64, 0)
+	upkeepDelaysFast := make([][]int64, 0)
+	upkeepDelaysRecovery := make([][]int64, 0)
 	var numberOfEventsEmitted int
 	var batchSize uint64 = 500
 
-	for _, gen := range p.Generators {
-		numberOfEventsEmitted += len(gen.GetData().OKData.Data)
+	for i, gen := range p.Generators {
+		numberOfEventsEmitted = numberOfEventsEmitted + (len(gen.GetData().OKData.Data) * *loadedTestConfig.Automation.Load[i].NumberOfEvents)
 	}
-	numberOfEventsEmitted = numberOfEventsEmitted * *loadedTestConfig.Automation.Performance.NumberOfEvents
 	l.Info().Int("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
 	if endBlock-startBlock < batchSize {
@@ -515,7 +533,7 @@ func TestLogTrigger(t *testing.T) {
 					timeout = time.Duration(math.Min(float64(timeout)*2, float64(2*time.Minute)))
 					continue
 				}
-				l.Info().
+				l.Debug().
 					Interface("FilterQuery", filterQuery).
 					Str("Contract Address", consumerContract.Address()).
 					Str("Timeout", timeout.String()).
@@ -525,7 +543,8 @@ func TestLogTrigger(t *testing.T) {
 		}
 
 		if len(logs) > 0 {
-			delay := make([]int64, 0)
+			delayFast := make([]int64, 0)
+			delayRecovery := make([]int64, 0)
 			for _, log := range logs {
 				eventDetails, err := consumerABI.EventByID(log.Topics[0])
 				require.NoError(t, err, "Error getting event details")
@@ -536,45 +555,86 @@ func TestLogTrigger(t *testing.T) {
 				if eventDetails.Name == "PerformingUpkeep" {
 					parsedLog, err := consumer.ParsePerformingUpkeep(log)
 					require.NoError(t, err, "Error parsing log")
-					delay = append(delay, parsedLog.TimeToPerform.Int64())
+					if parsedLog.IsRecovered {
+						delayRecovery = append(delayRecovery, parsedLog.TimeToPerform.Int64())
+					} else {
+						delayFast = append(delayFast, parsedLog.TimeToPerform.Int64())
+					}
 				}
 			}
-			upkeepDelays = append(upkeepDelays, delay)
+			upkeepDelaysFast = append(upkeepDelaysFast, delayFast)
+			upkeepDelaysRecovery = append(upkeepDelaysRecovery, delayRecovery)
 		}
 	}
 
-	l.Info().Interface("Upkeep Delays", upkeepDelays).Msg("Upkeep Delays")
+	l.Info().
+		Interface("Upkeep Delays Fast", upkeepDelaysFast).
+		Interface("Upkeep Delays Recovered", upkeepDelaysRecovery).
+		Msg("Upkeep Delays")
 
 	var allUpkeepDelays []int64
+	var allUpkeepDelaysFast []int64
+	var allUpkeepDelaysRecovery []int64
 
-	for _, upkeepDelay := range upkeepDelays {
+	for _, upkeepDelay := range upkeepDelaysFast {
 		allUpkeepDelays = append(allUpkeepDelays, upkeepDelay...)
+		allUpkeepDelaysFast = append(allUpkeepDelaysFast, upkeepDelay...)
 	}
 
-	avg, median, ninetyPct, ninetyNinePct, maximum := testreporters.IntListStats(allUpkeepDelays)
+	for _, upkeepDelay := range upkeepDelaysRecovery {
+		allUpkeepDelays = append(allUpkeepDelays, upkeepDelay...)
+		allUpkeepDelaysRecovery = append(allUpkeepDelaysRecovery, upkeepDelay...)
+	}
+
+	avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF := testreporters.IntListStats(allUpkeepDelaysFast)
+	avgR, medianR, ninetyPctR, ninetyNinePctR, maximumR := testreporters.IntListStats(allUpkeepDelaysRecovery)
 	eventsMissed := numberOfEventsEmitted - len(allUpkeepDelays)
 	percentMissed := float64(eventsMissed) / float64(numberOfEventsEmitted) * 100
 	l.Info().
-		Float64("Average", avg).Int64("Median", median).
-		Int64("90th Percentile", ninetyPct).Int64("99th Percentile", ninetyNinePct).
-		Int64("Max", maximum).Msg("Upkeep Delays in seconds")
-
+		Float64("Average", avgF).Int64("Median", medianF).
+		Int64("90th Percentile", ninetyPctF).Int64("99th Percentile", ninetyNinePctF).
+		Int64("Max", maximumF).Msg("Upkeep Delays Fast Execution in seconds")
+	l.Info().
+		Float64("Average", avgR).Int64("Median", medianR).
+		Int64("90th Percentile", ninetyPctR).Int64("99th Percentile", ninetyNinePctR).
+		Int64("Max", maximumR).Msg("Upkeep Delays Recovery Execution in seconds")
 	l.Info().
 		Int("Total Perform Count", len(allUpkeepDelays)).
+		Int("Perform Count Fast Execution", len(allUpkeepDelaysFast)).
+		Int("Perform Count Recovery Execution", len(allUpkeepDelaysRecovery)).
 		Int("Total Events Emitted", numberOfEventsEmitted).
 		Int("Total Events Missed", eventsMissed).
 		Float64("Percent Missed", percentMissed).
 		Msg("Test completed")
 
-	testReport := fmt.Sprintf("Upkeep Delays in seconds\nAverage: %f\nMedian: %d\n90th Percentile: %d\n"+
-		"99th Percentile: %d\nMax: %d\nTotal Perform Count: %d\n\nTotal Events Emitted: %d\nTotal Events Missed: %d\n"+
-		"Percent Missed: %f\nTest Duration: %s\n",
-		avg, median, ninetyPct, ninetyNinePct, maximum, len(allUpkeepDelays), numberOfEventsEmitted,
-		eventsMissed, percentMissed, testDuration.String())
+	testReportFormat := `Upkeep Delays in seconds - Fast Execution
+Average: %f
+Median: %d
+90th Percentile: %d
+99th Percentile: %d
+Max: %d
 
-	err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.Performance.NumberOfNodes),
-		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(endTime.UnixMilli(), 10),
-		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")}, &loadedTestConfig)
+Upkeep Delays in seconds - Recovery Execution
+Average: %f
+Median: %d
+90th Percentile: %d
+99th Percentile: %d
+
+Total Perform Count: %d
+Perform Count Fast Execution: %d
+Perform Count Recovery Execution: %d
+Total Log Triggering Events Emitted: %d
+Total Events Missed: %d
+Percent Missed: %f
+Test Duration: %s`
+
+	testReport := fmt.Sprintf(testReportFormat, avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF,
+		avgR, medianR, ninetyPctR, ninetyNinePctR, len(allUpkeepDelays), len(allUpkeepDelaysFast),
+		len(allUpkeepDelaysRecovery), numberOfEventsEmitted, eventsMissed, percentMissed, testDuration.String())
+
+	_, err = sendSlackNotification(&loadedTestConfig, "Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.General.NumberOfNodes),
+		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(time.Now().UnixMilli(), 10),
+		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")}, slack.MsgOptionTS(ts))
 	if err != nil {
 		l.Error().Err(err).Msg("Error sending slack notification")
 	}

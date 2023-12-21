@@ -17,7 +17,7 @@ import (
 	gethParams "github.com/ethereum/go-ethereum/params"
 	"golang.org/x/tools/go/ast/astutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 const headerComment = `// Code generated - DO NOT EDIT.
