@@ -2,12 +2,13 @@ package loadfunctions
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"math/big"
 	"os"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog/log"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 const (
