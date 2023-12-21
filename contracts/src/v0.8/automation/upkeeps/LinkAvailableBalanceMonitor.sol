@@ -5,6 +5,7 @@ pragma solidity 0.8.19;
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
 import {AccessControl} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/access/AccessControl.sol";
 import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableMap.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
 
@@ -36,6 +37,7 @@ interface ILinkAvailable {
 /// which has significantly different trust assumptions
 contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInterface, Pausable {
   using EnumerableMap for EnumerableMap.UintToAddressMap;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   event BalanceUpdated(address indexed addr, uint256 oldBalance, uint256 newBalance);
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
@@ -80,7 +82,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
 
   /// @notice s_watchList contains all the addresses watched by this monitor
   /// It mainly provides the length() function
-  address[] private s_watchList;
+  EnumerableSet.AddressSet private s_watchList;
 
   /// @notice s_targets contains all the addresses watched by this monitor
   /// Each key points to a MonitoredAddress with all the needed metadata
@@ -134,9 +136,13 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     ) {
       revert InvalidWatchList();
     }
-    for (uint256 idx = 0; idx < s_watchList.length; idx++) {
-      delete s_targets[s_watchList[idx]];
+    for (uint256 idx = s_watchList.length(); idx > 0; idx--) {
+      address member = s_watchList.at(idx - 1);
+      s_watchList.remove(member);
+      delete s_targets[member];
     }
+    // s_onRampAddresses is not the same length as s_watchList, so it has
+    // to be clean in a separate loop
     for (uint256 idx = 0; idx < s_onRampAddresses.length(); idx++) {
       (uint256 key, ) = s_onRampAddresses.at(idx);
       s_onRampAddresses.remove(key);
@@ -155,8 +161,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
       if (dstChainSelectors[idx] > 0) {
         s_onRampAddresses.set(dstChainSelectors[idx], targetAddress);
       }
+      s_watchList.add(targetAddress);
     }
-    s_watchList = addresses;
     emit WatchlistUpdated();
   }
 
@@ -184,7 +190,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
         topUpAmount: DEFAULT_TOP_UP_AMOUNT_JULES,
         lastTopUpTimestamp: 0
       });
-      s_watchList.push(targetAddress);
+      s_watchList.add(targetAddress);
     } else {
       // if the address is 0x0, it means the onRamp has ben decomissioned and has to be cleaned
       s_onRampAddresses.remove(dstChainSelector);
@@ -194,13 +200,9 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @notice Delete an address from the watchlist and sets the target to inactive
   /// @param targetAddress the address to be deleted
   function removeFromWatchList(address targetAddress) public onlyAdminOrExecutor returns (bool) {
-    for (uint256 i; i < s_watchList.length; i++) {
-      if (s_watchList[i] == targetAddress) {
-        s_watchList[i] = s_watchList[s_watchList.length - 1];
-        s_watchList.pop();
-        delete s_targets[targetAddress];
-        return true;
-      }
+    if (s_watchList.remove(targetAddress)) {
+      delete s_targets[targetAddress];
+      return true;
     }
     return false;
   }
@@ -214,7 +216,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   function sampleUnderfundedAddresses() public view returns (address[] memory) {
     uint16 maxPerform = s_maxPerform;
     uint16 maxCheck = s_maxCheck;
-    uint256 numTargets = s_watchList.length;
+    uint256 numTargets = s_watchList.length();
     uint256 idx = uint256(blockhash(block.number - (block.number % s_upkeepInterval) - 1)) % numTargets;
     uint256 numToCheck = numTargets < maxCheck ? numTargets : maxCheck;
     uint256 numFound = 0;
@@ -225,7 +227,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
       numChecked < numToCheck;
       (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)
     ) {
-      address targetAddress = s_watchList[idx];
+      address targetAddress = s_watchList.at(idx);
       target = s_targets[targetAddress];
       if (_needsFunding(targetAddress, target.minBalance)) {
         targetsToFund[numFound] = targetAddress;
@@ -395,12 +397,12 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
 
   /// @notice Gets the list of subscription ids being watched
   function getWatchList() external view returns (address[] memory) {
-    return s_watchList;
+    return s_watchList.values();
   }
 
   /// @notice Gets the onRamp address with the specified dstChainSelector
   function getOnRampAddressAtChainSelector(uint64 dstChainSelector) external view returns (address) {
-    if (dstChainSelector > 0) revert InvalidChainSelector();
+    if (dstChainSelector == 0) revert InvalidChainSelector();
     return s_onRampAddresses.get(dstChainSelector);
   }
 
