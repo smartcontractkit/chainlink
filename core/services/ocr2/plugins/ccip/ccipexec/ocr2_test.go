@@ -141,6 +141,10 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 				Return(tc.sendRequests, nil).Maybe()
 			p.onRampReader = mockOnRampReader
 
+			mockGasPriceEstimator := prices.NewMockGasPriceEstimatorExec(t)
+			mockGasPriceEstimator.On("GetGasPrice", ctx).Return(prices.GasPrice(big.NewInt(1)), nil).Maybe()
+			p.gasPriceEstimator = mockGasPriceEstimator
+
 			destPriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
 			destPriceRegReader.On("GetTokenPrices", ctx, mock.Anything).Return(
 				[]ccipdata.TokenPriceUpdate{{TokenPrice: ccipdata.TokenPrice{Token: common.HexToAddress("0x1"), Value: big.NewInt(123)}, TimestampUnixSec: big.NewInt(time.Now().Unix())}}, nil).Maybe()
@@ -634,7 +638,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 				tc.tokenLimit,
 				tc.srcPrices,
 				tc.dstPrices,
-				func() (prices.GasPrice, error) { return tc.destGasPrice, nil },
+				tc.destGasPrice,
 				tc.srcToDestTokens,
 				tc.destRateLimits,
 			)
@@ -1220,7 +1224,7 @@ func Test_getTokensPrices(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			priceReg := ccipdatamocks.NewPriceRegistryReader(t)
 			priceReg.On("GetTokenPrices", mock.Anything, mock.Anything).Return(tc.retPrices, nil)
-			priceReg.On("Address").Return(utils.RandomAddress(), nil)
+			priceReg.On("Address").Return(utils.RandomAddress(), nil).Maybe()
 
 			tokenPrices, err := getTokensPrices(context.Background(), priceReg, append(tc.feeTokens, tc.tokens...))
 			if tc.expErr {
@@ -1653,6 +1657,132 @@ func Test_selectReportsToFillBatch(t *testing.T) {
 			}
 			assert.Len(t, flatten, len(reports))
 			assert.Equal(t, reports, flatten)
+		})
+	}
+}
+
+func Test_prepareTokenExecData(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	weth := utils.RandomAddress()
+	wavax := utils.RandomAddress()
+	link := utils.RandomAddress()
+	usdc := utils.RandomAddress()
+
+	wethPriceUpdate := ccipdata.TokenPriceUpdate{TokenPrice: ccipdata.TokenPrice{Token: weth, Value: big.NewInt(2e18)}}
+	wavaxPriceUpdate := ccipdata.TokenPriceUpdate{TokenPrice: ccipdata.TokenPrice{Token: wavax, Value: big.NewInt(3e18)}}
+	linkPriceUpdate := ccipdata.TokenPriceUpdate{TokenPrice: ccipdata.TokenPrice{Token: link, Value: big.NewInt(4e18)}}
+	usdcPriceUpdate := ccipdata.TokenPriceUpdate{TokenPrice: ccipdata.TokenPrice{Token: usdc, Value: big.NewInt(5e18)}}
+
+	tokenPrices := map[common.Address]ccipdata.TokenPriceUpdate{weth: wethPriceUpdate, wavax: wavaxPriceUpdate, link: linkPriceUpdate, usdc: usdcPriceUpdate}
+
+	tests := []struct {
+		name               string
+		sourceFeeTokens    []common.Address
+		sourceFeeTokensErr error
+		destTokens         []common.Address
+		destTokensErr      error
+		destFeeTokens      []common.Address
+		destFeeTokensErr   error
+		sourcePrices       []ccipdata.TokenPriceUpdate
+		destPrices         []ccipdata.TokenPriceUpdate
+	}{
+		{
+			name:         "only native token",
+			sourcePrices: []ccipdata.TokenPriceUpdate{wethPriceUpdate},
+			destPrices:   []ccipdata.TokenPriceUpdate{wavaxPriceUpdate},
+		},
+		{
+			name:          "additional dest fee token",
+			destFeeTokens: []common.Address{link},
+			sourcePrices:  []ccipdata.TokenPriceUpdate{wethPriceUpdate},
+			destPrices:    []ccipdata.TokenPriceUpdate{linkPriceUpdate, wavaxPriceUpdate},
+		},
+		{
+			name:         "dest tokens",
+			destTokens:   []common.Address{link, usdc},
+			sourcePrices: []ccipdata.TokenPriceUpdate{wethPriceUpdate},
+			destPrices:   []ccipdata.TokenPriceUpdate{linkPriceUpdate, usdcPriceUpdate, wavaxPriceUpdate},
+		},
+		{
+			name:            "source fee tokens",
+			sourceFeeTokens: []common.Address{usdc},
+			sourcePrices:    []ccipdata.TokenPriceUpdate{usdcPriceUpdate, wethPriceUpdate},
+			destPrices:      []ccipdata.TokenPriceUpdate{wavaxPriceUpdate},
+		},
+		{
+			name:            "source, dest and fee tokens",
+			sourceFeeTokens: []common.Address{usdc},
+			destTokens:      []common.Address{link},
+			destFeeTokens:   []common.Address{usdc},
+			sourcePrices:    []ccipdata.TokenPriceUpdate{usdcPriceUpdate, wethPriceUpdate},
+			destPrices:      []ccipdata.TokenPriceUpdate{usdcPriceUpdate, linkPriceUpdate, wavaxPriceUpdate},
+		},
+		{
+			name:            "source, dest and fee tokens with duplicates",
+			sourceFeeTokens: []common.Address{link, weth},
+			destTokens:      []common.Address{link, wavax},
+			destFeeTokens:   []common.Address{link, wavax},
+			sourcePrices:    []ccipdata.TokenPriceUpdate{linkPriceUpdate, wethPriceUpdate},
+			destPrices:      []ccipdata.TokenPriceUpdate{linkPriceUpdate, wavaxPriceUpdate},
+		},
+		{
+			name:               "everything fails when source fails",
+			sourceFeeTokensErr: errors.New("source error"),
+		},
+		{
+			name:             "everything fails when dest fee fails",
+			destFeeTokensErr: errors.New("dest fee error"),
+		},
+		{
+			name:          "everything fails when dest  fails",
+			destTokensErr: errors.New("dest error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			offrampReader := ccipdatamocks.NewOffRampReader(t)
+			sourcePriceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
+			destPriceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
+			gasPriceEstimator := prices.NewMockGasPriceEstimatorExec(t)
+
+			offrampReader.On("CurrentRateLimiterState", ctx).Return(evm_2_evm_offramp.RateLimiterTokenBucket{}, nil).Maybe()
+			offrampReader.On("GetSourceToDestTokensMapping", ctx).Return(map[common.Address]common.Address{}, nil).Maybe()
+			gasPriceEstimator.On("GetGasPrice", ctx).Return(prices.GasPrice(big.NewInt(1e9)), nil).Maybe()
+
+			offrampReader.On("GetTokens", ctx).Return(ccipdata.OffRampTokens{DestinationTokens: tt.destTokens}, tt.destTokensErr).Maybe()
+			sourcePriceRegistry.On("GetFeeTokens", ctx).Return(tt.sourceFeeTokens, tt.sourceFeeTokensErr).Maybe()
+			sourcePriceRegistry.On("GetTokenPrices", ctx, mock.Anything).Return(tt.sourcePrices, nil).Maybe()
+			destPriceRegistry.On("GetFeeTokens", ctx).Return(tt.destFeeTokens, tt.destFeeTokensErr).Maybe()
+			destPriceRegistry.On("GetTokenPrices", ctx, mock.Anything).Return(tt.destPrices, nil).Maybe()
+
+			reportingPlugin := ExecutionReportingPlugin{
+				offRampReader:            offrampReader,
+				sourcePriceRegistry:      sourcePriceRegistry,
+				destPriceRegistry:        destPriceRegistry,
+				gasPriceEstimator:        gasPriceEstimator,
+				sourceWrappedNativeToken: weth,
+				destWrappedNative:        wavax,
+			}
+
+			tokenData, err := reportingPlugin.prepareTokenExecData(ctx)
+			if tt.destFeeTokensErr != nil || tt.sourceFeeTokensErr != nil || tt.destTokensErr != nil {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, tokenData.sourceTokenPrices, len(tt.sourcePrices))
+			assert.Len(t, tokenData.destTokenPrices, len(tt.destPrices))
+
+			for token, price := range tokenData.sourceTokenPrices {
+				assert.Equal(t, tokenPrices[token].Value, price)
+			}
+
+			for token, price := range tokenData.destTokenPrices {
+				assert.Equal(t, tokenPrices[token].Value, price)
+			}
 		})
 	}
 }
