@@ -110,7 +110,7 @@ jobs:
       - name: Make coverage directory
         run: mkdir ./contracts/coverage-reports
       - name: Download coverage
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@f44cd7b40bfd40b6aa1cc1b9b5b7bf03d3c67110 # v4.1.0
         with:
           path: ./contracts/coverage-reports
       - name: Display structure of downloaded files
