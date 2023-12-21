@@ -99,8 +99,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    uint8 nativePremiumPercentage,
-    uint8 linkDiscountPercentage
+    uint32 fulfillmentFlatFeeNativePPM,
+    uint32 fulfillmentFlatFeeLinkDiscountPPM
   );
 
   constructor(address blockhashStore) SubscriptionAPI() {
@@ -137,8 +137,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @param stalenessSeconds if the native/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @param fallbackWeiPerUnitLink fallback native/link price in the case of a stale feed
-   * @param nativePremiumPercentage native premium percentage
-   * @param linkDiscountPercentage link discount percentage
+   * @param fulfillmentFlatFeeNativePPM fulfillment flat fee native parts per million
+   * @param fulfillmentFlatFeeLinkDiscountPPM fulfillment flat fee link discount parts per million
    */
   function setConfig(
     uint16 minimumRequestConfirmations,
@@ -146,8 +146,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    uint8 nativePremiumPercentage,
-    uint8 linkDiscountPercentage
+    uint32 fulfillmentFlatFeeNativePPM,
+    uint32 fulfillmentFlatFeeLinkDiscountPPM
   ) external onlyOwner {
     if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
       revert InvalidRequestConfirmations(
@@ -165,8 +165,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
       reentrancyLock: false,
-      nativePremiumPercentage: nativePremiumPercentage,
-      linkDiscountPercentage: linkDiscountPercentage
+      fulfillmentFlatFeeNativePPM: fulfillmentFlatFeeNativePPM,
+      fulfillmentFlatFeeLinkDiscountPPM: fulfillmentFlatFeeLinkDiscountPPM
     });
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
     emit ConfigSet(
@@ -175,8 +175,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       stalenessSeconds,
       gasAfterPaymentCalculation,
       fallbackWeiPerUnitLink,
-      nativePremiumPercentage,
-      linkDiscountPercentage
+      fulfillmentFlatFeeNativePPM,
+      fulfillmentFlatFeeLinkDiscountPPM
     );
   }
 

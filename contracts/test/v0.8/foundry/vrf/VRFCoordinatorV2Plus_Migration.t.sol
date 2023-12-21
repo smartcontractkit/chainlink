@@ -91,8 +91,8 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
       600,
       10_000,
       20_000,
-      15, // nativePremiumPercentage
-      5 // linkDiscountPercentage
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000 // fulfillmentFlatFeeLinkDiscountPPM
     );
     v1Coordinator_noLink.setConfig(
       DEFAULT_REQUEST_CONFIRMATIONS,
@@ -100,8 +100,8 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
       600,
       10_000,
       20_000,
-      15, // nativePremiumPercentage
-      5 // linkDiscountPercentage
+      500_000, // nativePremiumPercentage
+      100_000 // linkDiscountPercentage
     );
     registerProvingKey();
     testConsumer.setCoordinator(v1CoordinatorAddr);

@@ -92,8 +92,8 @@ contract VRFV2Plus is BaseTest {
       1, // stalenessSeconds
       50_000, // gasAfterPaymentCalculation
       50000000000000000, // fallbackWeiPerUnitLink
-      15, // nativePremiumPercentage
-      5 // linkDiscountPercentage
+      5, // fulfillmentFlatFeeNativePPM
+      1 // fulfillmentFlatFeeLinkDiscountPPM
     );
   }
 
@@ -106,11 +106,11 @@ contract VRFV2Plus is BaseTest {
 
     // Test that setting requestConfirmations above MAX_REQUEST_CONFIRMATIONS reverts.
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidRequestConfirmations.selector, 500, 500, 200));
-    s_testCoordinator.setConfig(500, 2_500_000, 1, 50_000, 50000000000000000, 15, 5);
+    s_testCoordinator.setConfig(500, 2_500_000, 1, 50_000, 50000000000000000, 5, 1);
 
     // Test that setting fallbackWeiPerUnitLink to zero reverts.
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidLinkWeiPrice.selector, 0));
-    s_testCoordinator.setConfig(0, 2_500_000, 1, 50_000, 0, 15, 5);
+    s_testCoordinator.setConfig(0, 2_500_000, 1, 50_000, 0, 5, 1);
   }
 
   function testRegisterProvingKey() public {
@@ -347,11 +347,11 @@ contract VRFV2Plus is BaseTest {
     // baseFeeWei = 1 * (50_000 + 70_000)
     // baseFeeWei = 120_000
     // ...
-    // billed_fee = baseFeeWei * (100 + linkPremiumPercentage / 100) 
-    // billed_fee = baseFeeWei * 1.15
-    // billed_fee = 138_000
+    // billed_fee = baseFeeWei + (5 * 1e12)
+    // billed_fee = baseFeeWei + 5e12
+    // billed_fee = 5_000_000_120_000
     (, uint96 nativeBalanceAfter, , , ) = s_testCoordinator.getSubscription(subId);
-    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 138_000, 10_000);
+    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 5_000_000_120_000, 10_000);
   }
 
   function testRequestAndFulfillRandomWordsLINK() public {
@@ -460,15 +460,18 @@ contract VRFV2Plus is BaseTest {
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
-    // paymentNoFee = (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft() + l1CostWei) / link_native_ratio)
-    // paymentNoFee = (1 * (50_000 + 96_000 + 0)) / .5
-    // paymentNoFee = 292_000
-    // ...
-    // billed_fee = paymentNoFee * ((100 + nativePremiumPercentage - linkDiscountPercent) / 100)
-    // billed_fee = paymentNoFee * 1.1
-    // billed_fee = 321_200
+    // baseFeeWei = gasAfterPaymentCalculation + startGas - gasleft() + l1CostWei
+    // baseFeeWei = 50_000 + 96_000 + 0
+    // baseFeeWei = 146_000
+    // flatFeeWei = 1e12 * (config.fulfillmentFlatFeeNativePPM - config.fulfillmentFlatFeeLinkDiscountPPM)
+    // flatFeeWei = 1e12 * (5 - 1)
+    // flatFeeWei = 4e12
+    // billed_fee = (1e18 * (flatFeeWei - baseFeeWei)) / weiPerUnitLink
+    // billed_fee = (4e12 - 146_000) / 0.5
+    // billed_fee = 4_000_000_146_000 / 0.5
+    // billed_fee = 8_000_000_292_000
     // note: delta is doubled from the native test to account for more variance due to the link/native ratio
     (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
-    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 321_200, 10_000);
+    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 8_000_000_292_000, 10_000);
   }
 }

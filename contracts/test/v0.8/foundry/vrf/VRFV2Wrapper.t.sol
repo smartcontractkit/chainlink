@@ -56,8 +56,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
       1, // stalenessSeconds
       50_000, // gasAfterPaymentCalculation
       50000000000000000, // fallbackWeiPerUnitLink
-      15, // nativePremiumPercentage
-      5 // linkDiscountPercentage
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000 // fulfillmentFlatFeeLinkDiscountPPM
     );
   }
 

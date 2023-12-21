@@ -92,7 +92,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       10, // max number of words,
       1, // stalenessSeconds
       50000000000000000, // fallbackWeiPerUnitLink
-      0, // fulfillmentFlatFeeLinkPPM
+      0, // fulfillmentFlatFeeNativePPM
       0 // fulfillmentFlatFeeNativePPM
     );
     (

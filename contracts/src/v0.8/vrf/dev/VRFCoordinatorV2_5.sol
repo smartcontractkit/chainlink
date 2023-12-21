@@ -30,7 +30,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   error ProvingKeyAlreadyRegistered(bytes32 keyHash);
   error NoSuchProvingKey(bytes32 keyHash);
   error InvalidLinkWeiPrice(int256 linkWei);
-  error LinkDiscountPercentageTooHigh(uint8 linkDiscountPercentage, uint8 nativePremiumPercentage);
+  error LinkDiscountTooHigh(uint32 flatFeeLinkDiscountPPM, uint32 flatFeeNativePPM);
   error InsufficientGasForConsumer(uint256 have, uint256 want);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
@@ -78,8 +78,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    uint8 nativePremiumPercentage,
-    uint8 linkDiscountPercentage
+    uint32 fulfillmentFlatFeeNativePPM,
+    uint32 fulfillmentFlatFeeLinkDiscountPPM
   );
 
   constructor(address blockhashStore) SubscriptionAPI() {
@@ -138,8 +138,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @param stalenessSeconds if the native/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @param fallbackWeiPerUnitLink fallback native/link price in the case of a stale feed
-   * @param nativePremiumPercentage native premium percentage
-   * @param linkDiscountPercentage link discount percentage
+   * @param fulfillmentFlatFeeNativePPM fulfillment flat fee native parts per million
+   * @param fulfillmentFlatFeeLinkDiscountPPM fulfillment flat fee link discount parts per million
    */
   function setConfig(
     uint16 minimumRequestConfirmations,
@@ -147,8 +147,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    uint8 nativePremiumPercentage,
-    uint8 linkDiscountPercentage
+    uint32 fulfillmentFlatFeeNativePPM,
+    uint32 fulfillmentFlatFeeLinkDiscountPPM
   ) external onlyOwner {
     if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
       revert InvalidRequestConfirmations(
@@ -160,8 +160,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (fallbackWeiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
     }
-    if (linkDiscountPercentage > nativePremiumPercentage) {
-      revert LinkDiscountPercentageTooHigh(linkDiscountPercentage, nativePremiumPercentage);
+    if (fulfillmentFlatFeeLinkDiscountPPM > fulfillmentFlatFeeNativePPM) {
+      revert LinkDiscountTooHigh(fulfillmentFlatFeeLinkDiscountPPM, fulfillmentFlatFeeNativePPM);
     }
     s_config = Config({
       minimumRequestConfirmations: minimumRequestConfirmations,
@@ -169,8 +169,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
       reentrancyLock: false,
-      nativePremiumPercentage: nativePremiumPercentage,
-      linkDiscountPercentage: linkDiscountPercentage
+      fulfillmentFlatFeeNativePPM: fulfillmentFlatFeeNativePPM,
+      fulfillmentFlatFeeLinkDiscountPPM: fulfillmentFlatFeeLinkDiscountPPM
     });
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
     emit ConfigSet(
@@ -179,8 +179,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       stalenessSeconds,
       gasAfterPaymentCalculation,
       fallbackWeiPerUnitLink,
-      nativePremiumPercentage,
-      linkDiscountPercentage
+      fulfillmentFlatFeeNativePPM,
+      fulfillmentFlatFeeLinkDiscountPPM
     );
   }
 
@@ -484,7 +484,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // calculate the payment without the premium
     uint256 baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft());
     // calculate the flat fee in wei
-    return uint96((l1CostWei + baseFeeWei) * (100 + s_config.nativePremiumPercentage) / 100);
+    uint256 flatFeeWei = 1e12 * uint256(s_config.fulfillmentFlatFeeNativePPM);
+    // return the final fee with the flat fee and l1 cost (if applicable) added
+    return uint96(baseFeeWei + flatFeeWei + l1CostWei);
   }
 
   // Get the amount of gas used for fulfillment
@@ -500,13 +502,15 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     }
     // Will return non-zero on chains that have this enabled
     uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
-    // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
-      uint256(weiPerUnitLink);
-    Config memory config =  s_config;
-    uint256 payment = (paymentNoFee * (100 + config.nativePremiumPercentage - config.linkDiscountPercentage)) / 100;
-    if (payment > 1e27) {
-      revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
+    // calculate the payment without the premium
+    uint256 baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft());
+    Config memory config = s_config;
+    // calculate the flat fee in wei
+    uint256 flatFeeWei = 1e12 * uint256(config.fulfillmentFlatFeeNativePPM - config.fulfillmentFlatFeeLinkDiscountPPM);
+    // (1e18 juels/link) (cost in wei) / (wei/link) = juels
+    uint256 payment = (1e18 * (baseFeeWei + flatFeeWei + l1CostWei)) / uint256(weiPerUnitLink);
+    if (payment > (1e27)) {
+      revert PaymentTooLarge(); // Payment cannot be more than all of the link in existence.
     }
     return uint96(payment);
   }
