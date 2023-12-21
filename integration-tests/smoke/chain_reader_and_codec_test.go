@@ -130,13 +130,8 @@ func TestOCRv2BasicWithChainReaderAndCodec(t *testing.T) {
 
 	fmt.Printf("want 15 it's %v\n", roundData.Answer.Int64())
 
-	/*require.Equal(t, int64(10), roundData.Answer.Int64(),
-		"Expected latest answer from OCR contract to be 10 but got %d",
+	require.Equal(t, int64(15), roundData.Answer.Int64(),
+		"Expected latest answer from OCR contract to be 15 but got %d",
 		roundData.Answer.Int64(),
-	)*/
-
-	fmt.Println("SLEEPING NOW")
-	time.Sleep(time.Hour)
-	fmt.Println("DONE SLEEPING")
-	require.Fail(t, "Capture logs")
+	)
 }
