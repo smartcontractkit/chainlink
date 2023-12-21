@@ -54,7 +54,7 @@ func Test_Client_Transmit(t *testing.T) {
 
 	noopCacheSet := newNoopCacheSet()
 
-	t.Run("sends on reset channel after MaxConsecutiveTransmitFailures timed out transmits", func(t *testing.T) {
+	t.Run("sends on reset channel after MaxConsecutiveRequestFailures timed out transmits", func(t *testing.T) {
 		calls := 0
 		transmitErr := context.DeadlineExceeded
 		wsrpcClient := &mocks.MockWSRPCClient{
@@ -70,11 +70,11 @@ func Test_Client_Transmit(t *testing.T) {
 		c.conn = conn
 		c.rawClient = wsrpcClient
 		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
-		for i := 1; i < MaxConsecutiveTransmitFailures; i++ {
+		for i := 1; i < MaxConsecutiveRequestFailures; i++ {
 			_, err := c.Transmit(ctx, req)
 			require.EqualError(t, err, "context deadline exceeded")
 		}
-		assert.Equal(t, 4, calls)
+		assert.Equal(t, MaxConsecutiveRequestFailures-1, calls)
 		select {
 		case <-c.chResetTransport:
 			t.Fatal("unexpected send on chResetTransport")
@@ -82,7 +82,7 @@ func Test_Client_Transmit(t *testing.T) {
 		}
 		_, err := c.Transmit(ctx, req)
 		require.EqualError(t, err, "context deadline exceeded")
-		assert.Equal(t, 5, calls)
+		assert.Equal(t, MaxConsecutiveRequestFailures, calls)
 		select {
 		case <-c.chResetTransport:
 		default:
@@ -94,14 +94,14 @@ func Test_Client_Transmit(t *testing.T) {
 			// working transmit to reset counter
 			_, err = c.Transmit(ctx, req)
 			require.NoError(t, err)
-			assert.Equal(t, 6, calls)
+			assert.Equal(t, MaxConsecutiveRequestFailures+1, calls)
 			assert.Equal(t, 0, int(c.consecutiveTimeoutCnt.Load()))
 		})
 
 		t.Run("doesn't block in case channel is full", func(t *testing.T) {
 			transmitErr = context.DeadlineExceeded
 			c.chResetTransport = nil // simulate full channel
-			for i := 0; i < MaxConsecutiveTransmitFailures; i++ {
+			for i := 0; i < MaxConsecutiveRequestFailures; i++ {
 				_, err := c.Transmit(ctx, req)
 				require.EqualError(t, err, "context deadline exceeded")
 			}
@@ -162,10 +162,7 @@ func Test_Client_LatestReport(t *testing.T) {
 
 		// simulate start without dialling
 		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
-		var err error
 		servicetest.Run(t, cacheSet)
-		c.cache, err = cacheSet.Get(ctx, c)
-		require.NoError(t, err)
 
 		for i := 0; i < 5; i++ {
 			r, err := c.LatestReport(ctx, req)
