@@ -506,6 +506,7 @@ Load Config:
 
 	configs := make([]LogTriggerConfig, 0)
 	var numberOfEventsEmitted int64
+	var numberOfEventsEmittedPerSec int64
 
 	for i, triggerContract := range triggerContracts {
 		c := LogTriggerConfig{
@@ -514,7 +515,7 @@ Load Config:
 			NumberOfSpamMatchingEvents:    loadConfigs[i].NumberOfSpamMatchingEvents,
 			NumberOfSpamNonMatchingEvents: loadConfigs[i].NumberOfSpamNonMatchingEvents,
 		}
-		numberOfEventsEmitted = numberOfEventsEmitted + loadConfigs[i].NumberOfEvents
+		numberOfEventsEmittedPerSec = numberOfEventsEmittedPerSec + loadConfigs[i].NumberOfEvents
 		configs = append(configs, c)
 	}
 
@@ -565,7 +566,7 @@ Load Config:
 	var batchSize uint64 = 500
 
 	for _, gen := range p.Generators {
-		numberOfEventsEmitted = numberOfEventsEmitted * int64(len(gen.GetData().OKData.Data))
+		numberOfEventsEmitted = numberOfEventsEmittedPerSec * int64(len(gen.GetData().OKData.Data))
 	}
 	l.Info().Int64("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
