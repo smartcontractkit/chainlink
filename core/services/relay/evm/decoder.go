@@ -2,6 +2,8 @@ package evm
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"reflect"
 
 	"github.com/mitchellh/mapstructure"
@@ -18,7 +20,7 @@ var _ commontypes.Decoder = &decoder{}
 func (m *decoder) Decode(ctx context.Context, raw []byte, into any, itemType string) error {
 	info, ok := m.Definitions[itemType]
 	if !ok {
-		return commontypes.ErrInvalidType
+		return fmt.Errorf("%w: cannot find definition for %s", commontypes.ErrInvalidType, itemType)
 	}
 
 	decode, err := extractDecoding(info, raw)
@@ -53,7 +55,8 @@ func (m *decoder) GetMaxDecodingSize(ctx context.Context, n int, itemType string
 func extractDecoding(info *codecEntry, raw []byte) (any, error) {
 	unpacked := map[string]any{}
 	if err := info.Args.UnpackIntoMap(unpacked, raw); err != nil {
-		return nil, commontypes.ErrInvalidEncoding
+		argsJson, _ := json.Marshal(info.Args)
+		return nil, fmt.Errorf("%w: %w: for args %s", commontypes.ErrInvalidEncoding, err, argsJson)
 	}
 	var decode any = unpacked
 
@@ -79,8 +82,13 @@ func mapstructureDecode(src, dest any) error {
 		Result:     dest,
 		Squash:     true,
 	})
-	if err != nil || mDecoder.Decode(src) != nil {
-		return commontypes.ErrInvalidType
+	if err != nil {
+		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
+
+	if err = mDecoder.Decode(src); err != nil {
+		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
+	}
+
 	return nil
 }
