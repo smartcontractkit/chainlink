@@ -15,3 +15,13 @@ func TrimQuotes(input []byte) []byte {
 	}
 	return input
 }
+
+// IsEmpty returns true if bytes contains only zero values, or has len 0.
+func IsEmpty(bytes []byte) bool {
+	for _, b := range bytes {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
