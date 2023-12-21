@@ -19,6 +19,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -394,7 +395,7 @@ func (b *broadcaster) reinitialize() (backfillStart *int64, abort bool) {
 	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
 
-	utils.RetryWithBackoff(ctx, func() bool {
+	evmutils.RetryWithBackoff(ctx, func() bool {
 		var err error
 		backfillStart, err = b.orm.Reinitialize(pg.WithParentCtx(ctx))
 		if err != nil {

@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Return types:
@@ -40,8 +40,8 @@ func (t *HexDecodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		return Result{Error: err}, runInfo
 	}
 
-	if utils.HasHexPrefix(input.String()) {
-		noHexPrefix := utils.RemoveHexPrefix(input.String())
+	if commonhex.HasPrefix(input.String()) {
+		noHexPrefix := commonhex.TrimPrefix(input.String())
 		bs, err := hex.DecodeString(noHexPrefix)
 		if err == nil {
 			return Result{Value: bs}, runInfo

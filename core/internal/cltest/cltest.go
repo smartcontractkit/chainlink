@@ -51,6 +51,7 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -504,14 +505,14 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 		if len(elems) > 0 {
 			elems[0].Result = &evmtypes.Block{
 				Number:       42,
-				Hash:         utils.NewHash(),
+				Hash:         evmutils.NewHash(),
 				Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
 			}
 		}
 		if len(elems) > 1 {
 			elems[1].Result = &evmtypes.Block{
 				Number:       41,
-				Hash:         utils.NewHash(),
+				Hash:         evmutils.NewHash(),
 				Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
 			}
 		}
@@ -992,13 +993,13 @@ func Head(val interface{}) *evmtypes.Head {
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	case uint64:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	case int64:
-		h = evmtypes.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(t), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	case *big.Int:
-		h = evmtypes.NewHead(t, utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(t, evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	default:
 		panic(fmt.Sprintf("Could not convert %v of type %T to Head", val, val))
 	}
@@ -1008,7 +1009,7 @@ func Head(val interface{}) *evmtypes.Head {
 func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
 	var h evmtypes.Head
 	time := uint64(0)
-	h = evmtypes.NewHead(big.NewInt(n), hash, utils.NewHash(), time, ubig.New(&FixtureChainID))
+	h = evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	return &h
 
 }
@@ -1385,7 +1386,7 @@ func (b *Blocks) NewHead(number uint64) *evmtypes.Head {
 	}
 	head := &evmtypes.Head{
 		Number:     parent.Number + 1,
-		Hash:       utils.NewHash(),
+		Hash:       evmutils.NewHash(),
 		ParentHash: parent.Hash,
 		Parent:     parent,
 		Timestamp:  time.Unix(parent.Number+1, 0),
@@ -1425,7 +1426,7 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*evmtypes.Head)
 	for i := int64(0); i < int64(numHashes); i++ {
-		hash := utils.NewHash()
+		hash := evmutils.NewHash()
 		hashes = append(hashes, hash)
 
 		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: ubig.New(&FixtureChainID)}
