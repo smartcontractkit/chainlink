@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type sessionReaper struct {
@@ -21,7 +21,7 @@ type SessionReaperConfig interface {
 }
 
 // NewSessionReaper creates a reaper that cleans stale sessions from the store.
-func NewSessionReaper(db *sql.DB, config SessionReaperConfig, lggr logger.Logger) utils.SleeperTask {
+func NewSessionReaper(db *sql.DB, config SessionReaperConfig, lggr logger.Logger) *utils.SleeperTask {
 	return utils.NewSleeperTask(&sessionReaper{
 		db,
 		config,
