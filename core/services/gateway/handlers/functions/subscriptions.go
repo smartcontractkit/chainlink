@@ -207,6 +207,7 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 		s.subscriptions.UpdateSubscription(subscriptionId, &subscription)
 		err = s.orm.UpsertSubscription(CachedSubscription{
 			SubscriptionID:                      subscriptionId,
+			RouterContractAddress:               s.router.Address(),
 			IFunctionsSubscriptionsSubscription: subscription,
 		})
 		if err != nil {

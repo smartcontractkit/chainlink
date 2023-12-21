@@ -7,7 +7,8 @@ CREATE TABLE functions_subscriptions(
     blocked_balance text,
     proposed_owner bytea,
     consumers bytea[],
-    flags bytea
+    flags bytea,
+    router_contract_address bytea
 );
 -- +goose StatementEnd
 

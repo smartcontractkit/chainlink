@@ -37,13 +37,14 @@ const (
 )
 
 type cachedSubscriptionRow struct {
-	SubscriptionID uint64
-	Balance        string
-	Owner          common.Address
-	BlockedBalance string
-	ProposedOwner  common.Address
-	Consumers      pq.ByteaArray
-	Flags          []uint8
+	SubscriptionID        uint64
+	Balance               string
+	Owner                 common.Address
+	BlockedBalance        string
+	ProposedOwner         common.Address
+	Consumers             pq.ByteaArray
+	Flags                 []uint8
+	RouterContractAddress common.Address
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) (ORM, error) {
@@ -60,7 +61,7 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 	var cacheSubscriptions []CachedSubscription
 	var cacheSubscriptionRows []cachedSubscriptionRow
 	stmt := fmt.Sprintf(`
-		SELECT subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags
+		SELECT subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address
 		FROM %s
 		ORDER BY subscription_id DESC
 		OFFSET $1
@@ -88,7 +89,8 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 		}
 
 		cacheSubscriptions = append(cacheSubscriptions, CachedSubscription{
-			SubscriptionID: cs.SubscriptionID,
+			SubscriptionID:        cs.SubscriptionID,
+			RouterContractAddress: cs.RouterContractAddress,
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        balance,
 				Owner:          cs.Owner,
@@ -105,9 +107,9 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 
 func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error {
 	stmt := fmt.Sprintf(`
-		INSERT INTO %s (subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags)
-		VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (subscription_id) DO UPDATE
-		SET owner=$2, balance=$3, blocked_balance=$4, proposed_owner=$5, consumers=$6, flags=$7;`, tableName)
+		INSERT INTO %s (subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (subscription_id) DO UPDATE
+		SET owner=$2, balance=$3, blocked_balance=$4, proposed_owner=$5, consumers=$6, flags=$7, router_contract_address=$8;`, tableName)
 
 	if subscription.Balance == nil {
 		subscription.Balance = big.NewInt(0)
@@ -117,7 +119,7 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 		subscription.BlockedBalance = big.NewInt(0)
 	}
 
-	result, err := o.q.WithOpts(qopts...).Exec(
+	_, err := o.q.WithOpts(qopts...).Exec(
 		stmt,
 		subscription.SubscriptionID,
 		subscription.Owner,
@@ -126,16 +128,8 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 		subscription.ProposedOwner,
 		subscription.Consumers,
 		subscription.Flags[:],
+		subscription.RouterContractAddress,
 	)
-	if err != nil {
-		return err
-	}
-	nrows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if nrows == 0 {
-		return ErrDuplicateSubscriptionID
-	}
-	return nil
+
+	return err
 }
