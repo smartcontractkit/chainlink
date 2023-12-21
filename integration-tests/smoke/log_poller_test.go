@@ -70,7 +70,7 @@ func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
 
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
-func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
+func TestLogPollerManyFiltersFixedDepth(t *testing.T) {
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:      logpoller.GeneratorType_Looped,
@@ -99,7 +99,7 @@ func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
-func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
+func TestLogPollerManyFiltersFinalityTag(t *testing.T) {
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:      logpoller.GeneratorType_Looped,
@@ -236,7 +236,7 @@ func TestLogPollerReplayFinalityTag(t *testing.T) {
 			Generator:      logpoller.GeneratorType_Looped,
 			Contracts:      2,
 			EventsPerTx:    4,
-			UseFinalityTag: false,
+			UseFinalityTag: true,
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{

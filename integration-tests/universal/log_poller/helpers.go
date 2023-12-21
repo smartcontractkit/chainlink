@@ -12,11 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"cosmossdk.io/errors"
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jmoiron/sqlx"
+	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
@@ -28,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -227,14 +230,14 @@ func getStringSlice(length int) []string {
 var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contracts.LogEmitter, cfg *Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
 	address := (*logEmitter).Address().String()
 	localCounter := 0
-	select {
-	case <-ctx.Done():
-		l.Warn().Str("Emitter address", address).Msg("Context cancelled, not emitting events")
-		return
-	default:
-		defer wg.Done()
-		for i := 0; i < cfg.LoopedConfig.ExecutionCount; i++ {
-			for _, event := range cfg.General.EventsToEmit {
+	defer wg.Done()
+	for i := 0; i < cfg.LoopedConfig.ExecutionCount; i++ {
+		for _, event := range cfg.General.EventsToEmit {
+			select {
+			case <-ctx.Done():
+				l.Warn().Str("Emitter address", address).Msg("Context cancelled, not emitting events")
+				return
+			default:
 				l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", (i+1), cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
 				var err error
 				switch event.Name {
@@ -244,14 +247,15 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 					_, err = (*logEmitter).EmitLogIntsIndexed(getIntSlice(cfg.General.EventsPerTx))
 				case "Log3":
 					_, err = (*logEmitter).EmitLogStrings(getStringSlice(cfg.General.EventsPerTx))
+				case "Log4":
+					_, err = (*logEmitter).EmitLogIntMultiIndexed(1, 1, cfg.General.EventsPerTx)
 				default:
 					err = fmt.Errorf("unknown event name: %s", event.Name)
 				}
 
 				if err != nil {
 					results <- LogEmitterChannel{
-						logsEmitted: 0,
-						err:         err,
+						err: err,
 					}
 					return
 				}
@@ -264,13 +268,13 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", i+1, cfg.LoopedConfig.ExecutionCount)).Msg("Emitted all three events")
 			}
 		}
+	}
 
-		l.Info().Str("Emitter address", address).Int("Total logs emitted", localCounter).Msg("Finished emitting events")
+	l.Info().Str("Emitter address", address).Int("Total logs emitted", localCounter).Msg("Finished emitting events")
 
-		results <- LogEmitterChannel{
-			logsEmitted: localCounter,
-			err:         nil,
-		}
+	results <- LogEmitterChannel{
+		logsEmitted: localCounter,
+		err:         nil,
 	}
 }
 
@@ -798,25 +802,33 @@ func runLoopedGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogE
 	aggrChan := make(chan int, len(logEmitters))
 
 	go func() {
-		for emitter := range emitterCh {
-			if emitter.err != nil {
-				emitErr = emitter.err
-				cancelFn()
+		for {
+			select {
+			case <-ctx.Done():
+				l.Info().Msg("context cancelled in error-searching goroutine")
 				return
+			case emitter := <-emitterCh:
+				l.Info().Msg("received log emitter channel")
+				if emitter.err != nil {
+					l.Error().Err(emitter.err).Msg("received error, cancelling")
+					emitErr = emitter.err
+					cancelFn()
+					return
+				}
+				aggrChan <- emitter.logsEmitted
 			}
-			aggrChan <- emitter.logsEmitted
 		}
 	}()
 
 	wg.Wait()
 	close(emitterCh)
 
-	for i := 0; i < len(logEmitters); i++ {
-		total += <-aggrChan
-	}
-
 	if emitErr != nil {
 		return 0, emitErr
+	}
+
+	for i := 0; i < len(logEmitters); i++ {
+		total += <-aggrChan
 	}
 
 	return int(total), nil
@@ -1045,7 +1057,7 @@ func setupLogPollerTestDocker(
 		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
 		WithWaitingForFinalization().
 		WithEthereumChainConfig(ctf_test_env.EthereumChainConfig{
-			SecondsPerSlot: 8,
+			SecondsPerSlot: 4,
 			SlotsPerEpoch:  2,
 		}).
 		Build()
@@ -1117,4 +1129,99 @@ func setupLogPollerTestDocker(
 	require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
 
 	return env.EVMClient, nodeClients, env.ContractDeployer, linkToken, registry, registrar, env
+}
+
+func uploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testing.T, testEnv *test_env.CLClusterTestEnv, cfg *Config) []*contracts.LogEmitter {
+	// Deploy Log Emitter contracts
+	logEmitters := make([]*contracts.LogEmitter, 0)
+	for i := 0; i < cfg.General.Contracts; i++ {
+		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
+		logEmitters = append(logEmitters, &logEmitter)
+		require.NoError(t, err, "Error deploying log emitter contract")
+		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
+		time.Sleep(200 * time.Millisecond)
+	}
+	afterUploadBlock, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
+	require.NoError(t, err, "Error getting latest block number")
+
+	gom := gomega.NewGomegaWithT(t)
+	gom.Eventually(func(g gomega.Gomega) {
+		targetBlockNumber := int64(afterUploadBlock + 1)
+		finalized, err := testEnv.EVMClient.GetLatestFinalizedBlockHeader(testcontext.Get(t))
+		if err != nil {
+			l.Warn().Err(err).Msg("Error checking if contract were uploaded. Retrying...")
+			return
+		}
+		finalizedBlockNumber := finalized.Number.Int64()
+
+		if finalizedBlockNumber < targetBlockNumber {
+			l.Debug().Int64("Finalized block", finalized.Number.Int64()).Int64("After upload block", int64(afterUploadBlock+1)).Msg("Waiting for contract upload to finalise")
+		}
+
+		g.Expect(finalizedBlockNumber >= targetBlockNumber).To(gomega.BeTrue(), "Contract upload did not finalize in time")
+	}, "2m", "10s").Should(gomega.Succeed())
+
+	return logEmitters
+}
+
+func assertUpkeepIdsUniqueness(upkeepIDs []*big.Int) error {
+	upKeepIdSeen := make(map[int64]bool)
+	for _, upkeepID := range upkeepIDs {
+		if _, ok := upKeepIdSeen[upkeepID.Int64()]; ok {
+			return fmt.Errorf("Duplicate upkeep ID %d", upkeepID.Int64())
+		}
+		upKeepIdSeen[upkeepID.Int64()] = true
+	}
+
+	return nil
+}
+
+func assertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error {
+	contractAddressSeen := make(map[string]bool)
+	for _, logEmitter := range logEmitters {
+		address := (*logEmitter).Address().String()
+		if _, ok := contractAddressSeen[address]; ok {
+			return fmt.Errorf("Duplicate contract address %s", address)
+		}
+		contractAddressSeen[address] = true
+	}
+
+	return nil
+}
+
+func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []*contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
+	uniqueFilters := make(map[string]bool)
+
+	upkeepIdIndex := 0
+	for i := 0; i < len(logEmitters); i++ {
+		for j := 0; j < len(cfg.General.EventsToEmit); j++ {
+			emitterAddress := (*logEmitters[i]).Address()
+			topicId := cfg.General.EventsToEmit[j].ID
+
+			upkeepID := upkeepIDs[upkeepIdIndex]
+			l.Debug().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
+			err := registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
+			randomWait(150, 300)
+			if err != nil {
+				return errors.Wrapf(err, "Error registering log trigger for log emitter %s", emitterAddress.String())
+			}
+
+			if i%10 == 0 {
+				l.Info().Msgf("Registered log trigger for topic %d for log emitter %d/%d", j, i, len(logEmitters))
+			}
+
+			key := fmt.Sprintf("%s-%s", emitterAddress.String(), topicId.Hex())
+			if _, ok := uniqueFilters[key]; ok {
+				return fmt.Errorf("Duplicate filter %s", key)
+			}
+			uniqueFilters[key] = true
+			upkeepIdIndex++
+		}
+	}
+
+	if upKeepsNeeded != len(uniqueFilters) {
+		return fmt.Errorf("Number of unique filters should be equal to number of upkeeps. Expected %d. Got %d", upKeepsNeeded, len(uniqueFilters))
+	}
+
+	return nil
 }
