@@ -471,7 +471,16 @@ func (err JsonError) Error() string {
 	return err.Message
 }
 
-func (err *JsonError) String() string {
+// Satisfies rpc.Error interface, which any actual jsonError returned from geth is expected to
+func (err JsonError) ErrorCode() int {
+	return err.Code
+}
+
+func (err JsonError) ErrorData() {
+
+}
+
+func (err JsonError) String() string {
 	return fmt.Sprintf("json-rpc error { Code = %d, Message = '%s', Data = '%v' }", err.Code, err.Message, err.Data)
 }
 

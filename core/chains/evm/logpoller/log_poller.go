@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -794,7 +793,28 @@ func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log, endBl
 	return lp.GetBlocksRange(ctx, numbers)
 }
 
-const jsonRpcLimitExceeded = -32005 // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1474.md
+// Defined as "failure to create transaction" in some references, but implemented as "results too large" in geth
+// See: https://github.com/ethereum/go-ethereum/blob/master/rpc/errors.go#L63
+const jsonRpcResultsTooLarge = -32003
+
+// This one is not implemented in geth by default, but is defined in EIP 1474 and is implemented by infura and many other
+// 3rd party rpc servers who do rate limiting. See: https://community.infura.io/t/getlogs-error-query-returned-more-than-1000-results/358/5
+const jsonRpcLimitExceeded = -32005 // See also: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1474.md
+
+func isRequestTooLargeError(err error) bool {
+	var rpcErr rpc.Error
+	if !pkgerrors.As(err, &rpcErr) {
+		return false
+	}
+
+	switch rpcErr.ErrorCode() {
+	case jsonRpcLimitExceeded:
+		fallthrough
+	case jsonRpcResultsTooLarge:
+		return true
+	}
+	return false
+}
 
 // backfill will query FilterLogs in batches for logs in the
 // block range [start, end] and save them to the db.
@@ -807,13 +827,12 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 
 		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
-			var rpcErr client.JsonError
-			if pkgerrors.As(err, &rpcErr) {
-				if rpcErr.Code != jsonRpcLimitExceeded {
-					lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
-					return err
-				}
+
+			if !isRequestTooLargeError(err) {
+				lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
+				return err
 			}
+
 			if batchSize == 1 {
 				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
 				return err
