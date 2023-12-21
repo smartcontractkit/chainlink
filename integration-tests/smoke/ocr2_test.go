@@ -112,6 +112,40 @@ func TestOCRv2Basic(t *testing.T) {
 			)
 		})
 	}
+
+	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
+	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EVMClient, ocrOffchainOptions)
+	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
+
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false, false)
+	require.NoError(t, err, "Error creating OCRv2 jobs")
+
+	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
+	require.NoError(t, err, "Error building OCRv2 config")
+
+	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, aggregatorContracts)
+	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+
+	err = actions.WatchNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	require.NoError(t, err, "Error starting new OCR2 round")
+	roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
+	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+	require.Equal(t, int64(5), roundData.Answer.Int64(),
+		"Expected latest answer from OCR contract to be 5 but got %d",
+		roundData.Answer.Int64(),
+	)
+
+	err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
+	require.NoError(t, err)
+	err = actions.WatchNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	require.NoError(t, err)
+
+	roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(2))
+	require.NoError(t, err, "Error getting latest OCR answer")
+	require.Equal(t, int64(10), roundData.Answer.Int64(),
+		"Expected latest answer from OCR contract to be 10 but got %d",
+		roundData.Answer.Int64(),
+	)
 }
 
 // Tests that just calling requestNewRound() will properly induce more rounds
@@ -239,7 +273,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EVMClient, ocrOffchainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false)
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false, false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
@@ -275,7 +309,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	err = actions.DeleteBridges(nodeClients)
 	require.NoError(t, err)
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 15, env.EVMClient.GetChainID().Uint64(), false)
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 15, env.EVMClient.GetChainID().Uint64(), false, false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	err = actions.WatchNewOCR2Round(3, aggregatorContracts, env.EVMClient, time.Minute*3, l)
