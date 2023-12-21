@@ -208,7 +208,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "Live Smoke Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+                        "text": "Client Compatability Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
                         "emoji": true
                       }
                     },
