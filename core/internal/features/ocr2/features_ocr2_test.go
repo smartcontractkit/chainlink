@@ -370,6 +370,26 @@ juelsPerFeeCoinSource = """
 				jids = append(jids, ocrJob.ID)
 			}
 
+			// Watch for OCR2AggregatorTransmitted events
+			start := uint64(0)
+			txEvents := make(chan *ocr2aggregator.OCR2AggregatorTransmitted)
+			ocrContract.WatchTransmitted(&bind.WatchOpts{Start: &start, Context: testutils.Context(t)}, txEvents)
+			newTxEvents := make(chan *ocr2aggregator.OCR2AggregatorNewTransmission)
+			ocrContract.WatchNewTransmission(&bind.WatchOpts{Start: &start, Context: testutils.Context(t)}, newTxEvents, []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+
+			go func() {
+				var newTxEvent *ocr2aggregator.OCR2AggregatorNewTransmission
+				select {
+				case txEvent := <-txEvents:
+					t.Logf("txEvent: %v", txEvent)
+					if newTxEvent != nil {
+						assert.Equal(t, txEvent.Epoch, uint32(newTxEvent.EpochAndRound.Uint64()))
+					}
+				case newTxEvent = <-newTxEvents:
+					t.Logf("newTxEvent: %v", newTxEvent)
+				}
+			}()
+
 			for trial := 0; trial < 2; trial++ {
 				var retVal int
 
@@ -437,6 +457,8 @@ juelsPerFeeCoinSource = """
 					t.Logf("RoundId: %d, AnsweredInRound: %d, Answer: %d, StartedAt: %v, UpdatedAt: %v", roundData.RoundId, roundData.AnsweredInRound, roundData.Answer, roundData.StartedAt, roundData.UpdatedAt)
 				}
 
+				expectedAnswer := big.NewInt(2 * int64(retVal))
+
 				// Assert we can read the latest config digest and epoch after a report has been submitted.
 				contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 				require.NoError(t, err)
@@ -453,11 +475,12 @@ juelsPerFeeCoinSource = """
 				assert.Equal(t, digestAndEpoch.Epoch, epoch)
 				latestTransmissionDetails, err := ocrContract.LatestTransmissionDetails(nil)
 				require.NoError(t, err)
-				assert.Equal(t, big.NewInt(2*int64(retVal)), latestTransmissionDetails.LatestAnswer)
-				latestRoundRequested, err := ocrContract.FilterRoundRequested(&bind.FilterOpts{Start: 0, End: nil}, []common.Address{{}})
+				assert.Equal(t, expectedAnswer, latestTransmissionDetails.LatestAnswer)
 				require.NoError(t, err)
-				if latestRoundRequested.Next() { // Shouldn't this come back non-nil?
-					assert.NotNil(t, latestRoundRequested.Event)
+				newTransmissionEvents, err := ocrContract.FilterTransmitted(&bind.FilterOpts{Start: 0, End: nil})
+				require.NoError(t, err)
+				for newTransmissionEvents.Next() {
+					assert.Equal(t, 3, newTransmissionEvents.Event.Epoch)
 				}
 			}
 		})
