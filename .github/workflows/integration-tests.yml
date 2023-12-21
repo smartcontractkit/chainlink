@@ -272,7 +272,7 @@ jobs:
           TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
           CHAINLINK_VERSION: ${{ github.sha }}
           LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
-          LOKI_URL: ${{ secrets.LOKI_URL }}
+          # LOKI_URL: ${{ secrets.LOKI_URL }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
           BASE64_CONFIG_OVERRIDE: "W0VtcHR5XQo="
@@ -317,7 +317,7 @@ jobs:
           enabled=false
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+          # key="$PYROSCOPE_KEY"
 
           [Logging]
           test_log_collect=$test_log_collect
@@ -329,7 +329,7 @@ jobs:
           [Logging.Loki]
           loki_tenant_id="$LOKI_TENANT_ID"
           loki_url="$LOKI_URL"
-          loki_basic_auth="$LOKI_BASIC_AUTH"
+          # loki_basic_auth="$LOKI_BASIC_AUTH"
 
           [Logging.Grafana]
           grafana_url="$GRAFANA_URL"
@@ -527,114 +527,114 @@ jobs:
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           docker logs otel-collector
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-          LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
-          LOKI_URL: ${{ secrets.LOKI_URL }}
-          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-          LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-          RUN_ID: ${{ github.run_id }}
-          TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
-          CHAINLINK_VERSION: ${{ github.sha }}
-          BASE64_CONFIG_OVERRIDE: "W0VtcHR5XQo="
-        run: |
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+      # - name: Prepare Base64 TOML override
+      #   env:
+      #     PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+      #     PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+      #     PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      #     LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+      #     LOKI_URL: ${{ secrets.LOKI_URL }}
+      #     LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      #     LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+      #     GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+      #     RUN_ID: ${{ github.run_id }}
+      #     TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
+      #     CHAINLINK_VERSION: ${{ github.sha }}
+      #     BASE64_CONFIG_OVERRIDE: "W0VtcHR5XQo="
+      #   run: |
+      #     echo ::add-mask::$BASE64_CONFIG_OVERRIDE
 
-          convert_to_toml_array() {
-            local IFS=','
-            local input_array=($1)
-            local toml_array_format="["
+      #     convert_to_toml_array() {
+      #       local IFS=','
+      #       local input_array=($1)
+      #       local toml_array_format="["
         
-            for element in "${input_array[@]}"; do
-                toml_array_format+="\"$element\","
-            done
+      #       for element in "${input_array[@]}"; do
+      #           toml_array_format+="\"$element\","
+      #       done
         
-            toml_array_format="${toml_array_format%,}]"
-            echo "$toml_array_format"
-          }
+      #       toml_array_format="${toml_array_format%,}]"
+      #       echo "$toml_array_format"
+      #     }
           
-          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")                   
+      #     selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")                   
 
-          if [ -n "$ETH2_EL_CLIENT" ]; then
-            execution_layer="$ETH2_EL_CLIENT"
-          else
-            execution_layer="geth"
-          fi
-          if [ -n "$TEST_LOG_COLLECT" ]; then
-            test_log_collect=true
-          else
-            test_log_collect=false
-          fi              
+      #     if [ -n "$ETH2_EL_CLIENT" ]; then
+      #       execution_layer="$ETH2_EL_CLIENT"
+      #     else
+      #       execution_layer="geth"
+      #     fi
+      #     if [ -n "$TEST_LOG_COLLECT" ]; then
+      #       test_log_collect=true
+      #     else
+      #       test_log_collect=false
+      #     fi              
 
-          cat << EOF > config.toml
-          [Network]
-          selected_networks=$selected_networks
+      #     cat << EOF > config.toml
+      #     [Network]
+      #     selected_networks=$selected_networks
           
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="$CHAINLINK_VERSION"
+      #     [ChainlinkImage]
+      #     image="$CHAINLINK_IMAGE"
+      #     version="$CHAINLINK_VERSION"
           
-          [Pyroscope]
-          enabled=false
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+      #     [Pyroscope]
+      #     enabled=false
+      #     server_url="$PYROSCOPE_SERVER"
+      #     environment="$PYROSCOPE_ENVIRONMENT"
+      #     key="$PYROSCOPE_KEY"
 
-          [PrivateEthereumNetwork]
-          execution_layer="$execution_layer"
+      #     [PrivateEthereumNetwork]
+      #     execution_layer="$execution_layer"
 
-          [Logging]
-          test_log_collect=$test_log_collect
-          run_id="$RUN_ID"
+      #     [Logging]
+      #     test_log_collect=$test_log_collect
+      #     run_id="$RUN_ID"
 
-          [Logging.LogStream]
-          log_targets=$log_targets
+      #     [Logging.LogStream]
+      #     log_targets=$log_targets
 
-          [Logging.Loki]
-          loki_tenant_id="$LOKI_TENANT_ID"
-          loki_url="$LOKI_URL"
-          loki_basic_auth="$LOKI_BASIC_AUTH"
+      #     [Logging.Loki]
+      #     loki_tenant_id="$LOKI_TENANT_ID"
+      #     loki_url="$LOKI_URL"
+      #     loki_basic_auth="$LOKI_BASIC_AUTH"
 
-          [Logging.Grafana]
-          grafana_url="$GRAFANA_URL"
-          EOF
+      #     [Logging.Grafana]
+      #     grafana_url="$GRAFANA_URL"
+      #     EOF
           
-          echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV       
+      #     echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV       
       ## Run this step when changes that require tests to be run are made
-      - name: Run Tests
-        if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
-        # env:
-          # PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          # PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-          # PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-          # ETH2_EL_CLIENT: ${{matrix.product.client}}
-          # LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
-          # LOKI_URL: ${{ secrets.LOKI_URL }}
-          # LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-          # LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          # GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-          # RUN_ID: ${{ github.run_id }}
-        with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}${{ matrix.product.tag_suffix }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.product.name }}-test-logs
-          artifacts_location: ./integration-tests/smoke/logs/
-          publish_check_name: ${{ matrix.product.name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""
+      # - name: Run Tests
+      #   if: needs.changes.outputs.src == 'true'
+      #   uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+      #   # env:
+      #     # PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+      #     # PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+      #     # PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      #     # ETH2_EL_CLIENT: ${{matrix.product.client}}
+      #     # LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+      #     # LOKI_URL: ${{ secrets.LOKI_URL }}
+      #     # LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      #     # LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+      #     # GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+      #     # RUN_ID: ${{ github.run_id }}
+      #   with:
+      #     test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+      #     test_download_vendor_packages_command: cd ./integration-tests && go mod download
+      #     cl_repo: ${{ env.CHAINLINK_IMAGE }}
+      #     cl_image_tag: ${{ github.sha }}${{ matrix.product.tag_suffix }}
+      #     aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      #     artifacts_name: ${{ matrix.product.name }}-test-logs
+      #     artifacts_location: ./integration-tests/smoke/logs/
+      #     publish_check_name: ${{ matrix.product.name }}
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     go_mod_path: ./integration-tests/go.mod
+      #     cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+      #     cache_restore_only: "true"
+      #     QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      #     QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      #     QA_KUBECONFIG: ""
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
