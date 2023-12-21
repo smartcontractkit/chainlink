@@ -401,6 +401,10 @@ Load Config:
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	}
 
+	var bytes1 = [32]byte{
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+	}
+
 	upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
 	loadConfigs := make([]Load, 0)
 	cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
@@ -450,11 +454,9 @@ Load Config:
 			ContractAddress: triggerAddresses[i],
 			FilterSelector:  1,
 			Topic0:          emitterABI.Events["Log4"].ID,
-			Topic1: [32]byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-			Topic2: bytes0,
-			Topic3: bytes0,
+			Topic1:          bytes1,
+			Topic2:          bytes0,
+			Topic3:          bytes0,
 		}
 		encodedLogTriggerConfig, err := utilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 		require.NoError(t, err, "Error encoding log trigger config")
@@ -463,9 +465,7 @@ Load Config:
 		checkDataStruct := simple_log_upkeep_counter_wrapper.CheckData{
 			CheckBurnAmount:   loadConfigs[i].CheckBurnAmount,
 			PerformBurnAmount: loadConfigs[i].PerformBurnAmount,
-			EventSig: [32]byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
+			EventSig:          bytes1,
 		}
 
 		encodedCheckDataStruct, err := consumerABI.Methods["_checkDataConfig"].Inputs.Pack(&checkDataStruct)
@@ -522,6 +522,20 @@ Load Config:
 		configs = append(configs, c)
 	}
 
+	endTime := time.Now()
+	testSetupDuration := endTime.Sub(startTime)
+	l.Info().
+		Str("END_TIME", endTime.String()).
+		Str("Duration", testSetupDuration.String()).
+		Msg("Test setup ended")
+
+	ts, err := sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
+		strconv.FormatInt(startTime.UnixMilli(), 10), "now",
+		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, slack.MsgOptionBlocks())
+	if err != nil {
+		l.Error().Err(err).Msg("Error sending slack notification")
+	}
+
 	g, err := wasp.NewGenerator(&wasp.Config{
 		T:           t,
 		LoadType:    wasp.RPS,
@@ -537,23 +551,9 @@ Load Config:
 			cEVMClient,
 			multicallAddress.Hex(),
 		),
-		CallResultBufLen: 1000000,
+		CallResultBufLen: 1000,
 	})
 	p.Add(g, err)
-
-	endTime := time.Now()
-	testSetupDuration := endTime.Sub(startTime)
-	l.Info().
-		Str("END_TIME", endTime.String()).
-		Str("Duration", testSetupDuration.String()).
-		Msg("Test setup ended")
-
-	ts, err := sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
-		strconv.FormatInt(startTime.UnixMilli(), 10), "now",
-		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, slack.MsgOptionBlocks())
-	if err != nil {
-		l.Error().Err(err).Msg("Error sending slack notification")
-	}
 
 	startTime = time.Now()
 	l.Info().Str("START_TIME", startTime.String()).Msg("Test execution started")
@@ -585,11 +585,6 @@ Load Config:
 	upkeepDelaysRecovery := make([][]int64, 0)
 
 	var batchSize uint64 = 500
-
-	for _, gen := range p.Generators {
-		numberOfEventsEmitted = numberOfEventsEmittedPerSec * int64(len(gen.GetData().OKData.Data))
-	}
-	l.Info().Int64("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
 	if endBlock-startBlock < batchSize {
 		batchSize = endBlock - startBlock
@@ -658,6 +653,49 @@ Load Config:
 			upkeepDelaysRecovery = append(upkeepDelaysRecovery, delayRecovery)
 		}
 	}
+
+	for _, triggerContract := range triggerContracts {
+		var (
+			logs    []types.Log
+			address = triggerContract.Address()
+			timeout = 5 * time.Second
+		)
+		for fromBlock := startBlock; fromBlock < endBlock; fromBlock += batchSize + 1 {
+			filterQuery := geth.FilterQuery{
+				Addresses: []common.Address{address},
+				FromBlock: big.NewInt(0).SetUint64(fromBlock),
+				ToBlock:   big.NewInt(0).SetUint64(fromBlock + batchSize),
+				Topics:    [][]common.Hash{{emitterABI.Events["Log4"].ID}, {bytes1}, {bytes1}},
+			}
+			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
+			for err != nil {
+				var (
+					logsInBatch []types.Log
+				)
+				ctx2, cancel := context.WithTimeout(ctx, timeout)
+				logsInBatch, err = chainClient.FilterLogs(ctx2, filterQuery)
+				cancel()
+				if err != nil {
+					l.Error().Err(err).
+						Interface("FilterQuery", filterQuery).
+						Str("Contract Address", triggerContract.Address().Hex()).
+						Str("Timeout", timeout.String()).
+						Msg("Error getting logs")
+					timeout = time.Duration(math.Min(float64(timeout)*2, float64(2*time.Minute)))
+					continue
+				}
+				l.Debug().
+					Interface("FilterQuery", filterQuery).
+					Str("Contract Address", triggerContract.Address().Hex()).
+					Str("Timeout", timeout.String()).
+					Msg("Collected logs")
+				logs = append(logs, logsInBatch...)
+			}
+		}
+		numberOfEventsEmitted = numberOfEventsEmitted + int64(len(logs))
+	}
+
+	l.Info().Int64("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
 	l.Info().
 		Interface("Upkeep Delays Fast", upkeepDelaysFast).
