@@ -49,22 +49,23 @@ type Relayer struct {
 	db               *sqlx.DB
 	chain            legacyevm.Chain
 	lggr             logger.Logger
-	ks               CSAETHKeystore
+	ks               CSAETHOCR2Keystore
 	mercuryPool      wsrpc.Pool
 	eventBroadcaster pg.EventBroadcaster
 	pgCfg            pg.QConfig
 	chainReader      commontypes.ChainReader
 }
 
-type CSAETHKeystore interface {
+type CSAETHOCR2Keystore interface {
 	CSA() keystore.CSA
 	Eth() keystore.Eth
+	OCR2() keystore.OCR2
 }
 
 type RelayerOpts struct {
 	*sqlx.DB
 	pg.QConfig
-	CSAETHKeystore
+	CSAETHOCR2Keystore
 	pg.EventBroadcaster
 	MercuryPool wsrpc.Pool
 }
@@ -77,7 +78,7 @@ func (c RelayerOpts) Validate() error {
 	if c.QConfig == nil {
 		err = errors.Join(err, errors.New("nil QConfig"))
 	}
-	if c.CSAETHKeystore == nil {
+	if c.CSAETHOCR2Keystore == nil {
 		err = errors.Join(err, errors.New("nil Keystore"))
 	}
 	if c.EventBroadcaster == nil {
@@ -100,7 +101,7 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		db:               opts.DB,
 		chain:            chain,
 		lggr:             lggr,
-		ks:               opts.CSAETHKeystore,
+		ks:               opts.CSAETHOCR2Keystore,
 		mercuryPool:      opts.MercuryPool,
 		eventBroadcaster: opts.EventBroadcaster,
 		pgCfg:            opts.QConfig,
@@ -505,7 +506,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
 	lggr := r.lggr.Named("AutomationProvider").Named(rargs.ExternalJobID.String())
-	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.db, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth(), r.pgCfg)
+	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.db, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth(), r.ks.OCR2(), r.pgCfg)
 
 	return ocr2keeperRelayer.NewOCR2KeeperProvider(rargs, pargs)
 }

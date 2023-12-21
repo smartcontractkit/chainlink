@@ -37,7 +37,7 @@ type RelayerFactory struct {
 
 type EVMFactoryConfig struct {
 	legacyevm.ChainOpts
-	evmrelay.CSAETHKeystore
+	evmrelay.CSAETHOCR2Keystore
 }
 
 func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[relay.ID]evmrelay.LoopRelayAdapter, error) {
@@ -50,7 +50,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
 	ccOpts := legacyevm.ChainRelayExtenderConfig{
 		Logger:    lggr,
-		KeyStore:  config.CSAETHKeystore.Eth(),
+		KeyStore:  config.CSAETHOCR2Keystore.Eth(),
 		ChainOpts: config.ChainOpts,
 	}
 
@@ -67,11 +67,11 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		}
 
 		relayerOpts := evmrelay.RelayerOpts{
-			DB:               ccOpts.DB,
-			QConfig:          ccOpts.AppConfig.Database(),
-			CSAETHKeystore:   config.CSAETHKeystore,
-			EventBroadcaster: ccOpts.EventBroadcaster,
-			MercuryPool:      r.MercuryPool,
+			DB:                 ccOpts.DB,
+			QConfig:            ccOpts.AppConfig.Database(),
+			CSAETHOCR2Keystore: config.CSAETHOCR2Keystore,
+			EventBroadcaster:   ccOpts.EventBroadcaster,
+			MercuryPool:        r.MercuryPool,
 		}
 		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {

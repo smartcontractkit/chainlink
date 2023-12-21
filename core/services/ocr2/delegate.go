@@ -114,6 +114,7 @@ type Delegate struct {
 	dkgSignKs             keystore.DKGSign
 	dkgEncryptKs          keystore.DKGEncrypt
 	ethKs                 keystore.Eth
+	ocr2Ks                keystore.OCR2
 	RelayGetter
 	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon           *mailbox.Monitor
@@ -225,6 +226,7 @@ func NewDelegate(
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
+	ocr2Ks keystore.OCR2,
 	relayers RelayGetter,
 	mailMon *mailbox.Monitor,
 	eventBroadcaster pg.EventBroadcaster,
@@ -244,6 +246,7 @@ func NewDelegate(
 		dkgSignKs:             dkgSignKs,
 		dkgEncryptKs:          dkgEncryptKs,
 		ethKs:                 ethKs,
+		ocr2Ks:                ocr2Ks,
 		RelayGetter:           relayers,
 		isNewlyCreatedJob:     false,
 		mailMon:               mailMon,
@@ -1067,12 +1070,12 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	cfg ocr2keeper.PluginConfig,
 	spec *job.OCR2OracleSpec,
 ) ([]job.ServiceCtx, error) {
-	//credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
-	//if err2 != nil {
-	//	return nil, errors.Wrap(err2, "failed to get mercury credential name")
-	//}
-	//
-	//mc := d.cfg.Mercury().Credentials(credName)
+	credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
+	if err2 != nil {
+		return nil, errors.Wrap(err2, "failed to get mercury credential name")
+	}
+
+	mc := d.cfg.Mercury().Credentials(credName)
 	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keeper2"}
@@ -1087,6 +1090,13 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
 	}
 
+	var kbID string
+	if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
+		kbID = spec.OCRKeyBundleID.String
+	} else if kbID, err = d.cfg.OCR2().KeyBundleID(); err != nil {
+		return nil, err
+	}
+
 	provider, err := relayer.NewPluginProvider(ctx,
 		types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
@@ -1095,6 +1105,13 @@ func (d *Delegate) newServicesOCR2Keepers21(
 			New:           d.isNewlyCreatedJob,
 			RelayConfig:   spec.RelayConfig.Bytes(),
 			ProviderType:  string(spec.PluginType),
+			MercuryCredentials: types.MercuryCredentials{
+				LegacyURL: mc.LegacyURL,
+				URL:       mc.URL,
+				Username:  mc.Username,
+				Password:  mc.Password,
+			},
+			KeyBundleID: kbID,
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1112,7 +1129,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	//if err != nil {
 	//	return nil, fmt.Errorf("keeper2 services: failed to get chain %s: %w", rid.ChainID, err)
 	//}
-	//
+
 	//services, err := ocr2keeper.EVMDependencies21(jb, d.db, lggr, chain, mc, kb, d.cfg.Database())
 	//if err != nil {
 	//	return nil, errors.Wrap(err, "could not build dependencies for ocr2 keepers")
@@ -1152,19 +1169,19 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR3Automation),
 		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
-		//OnchainKeyring:               services.Keyring(), // TODO pass a keyring
-		LocalConfig:         lc,
-		LogProvider:         keeperProvider.LogEventProvider(),
-		EventProvider:       keeperProvider.TransmitEventProvider(),
-		Runnable:            keeperProvider.Registry(),
-		Encoder:             keeperProvider.Encoder(),
-		BlockSubscriber:     keeperProvider.BlockSubscriber(),
-		RecoverableProvider: keeperProvider.LogRecoverer(),
-		PayloadBuilder:      keeperProvider.PayloadBuilder(),
-		UpkeepProvider:      keeperProvider.UpkeepProvider(),
-		UpkeepStateUpdater:  keeperProvider.UpkeepStateStore(),
-		UpkeepTypeGetter:    ocr2keeper21core.GetUpkeepType,
-		WorkIDGenerator:     ocr2keeper21core.UpkeepWorkID,
+		OnchainKeyring:               keeperProvider.Keyring(),
+		LocalConfig:                  lc,
+		LogProvider:                  keeperProvider.LogEventProvider(),
+		EventProvider:                keeperProvider.TransmitEventProvider(),
+		Runnable:                     keeperProvider.Registry(),
+		Encoder:                      keeperProvider.Encoder(),
+		BlockSubscriber:              keeperProvider.BlockSubscriber(),
+		RecoverableProvider:          keeperProvider.LogRecoverer(),
+		PayloadBuilder:               keeperProvider.PayloadBuilder(),
+		UpkeepProvider:               keeperProvider.UpkeepProvider(),
+		UpkeepStateUpdater:           keeperProvider.UpkeepStateStore(),
+		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
+		WorkIDGenerator:              ocr2keeper21core.UpkeepWorkID,
 		// TODO: Clean up the config
 		CacheExpiration:       cfg.CacheExpiration.Value(),
 		CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
@@ -1230,7 +1247,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
 
-	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.ethKs, d.cfg.Database())
+	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.ethKs, d.ocr2Ks, d.cfg.Database())
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}

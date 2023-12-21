@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
@@ -24,8 +25,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -59,6 +58,7 @@ type OCR2KeeperProvider interface {
 	LogEventProvider() automation.LogEventProvider
 	LogRecoverer() automation.LogRecoverer
 	UpkeepProvider() automation.ConditionalUpkeepProvider
+	Keyring() ocr3types.OnchainKeyring[automation.AutomationReportInfo]
 }
 
 // OCR2KeeperRelayer contains the relayer and instantiating functions for OCR2Keeper providers.
@@ -68,21 +68,23 @@ type OCR2KeeperRelayer interface {
 
 // ocr2keeperRelayer is the relayer with added DKG and OCR2Keeper provider functions.
 type ocr2keeperRelayer struct {
-	db          *sqlx.DB
-	chain       legacyevm.Chain
-	lggr        logger.Logger
-	ethKeystore keystore.Eth
-	dbCfg       pg.QConfig
+	db           *sqlx.DB
+	chain        legacyevm.Chain
+	lggr         logger.Logger
+	ethKeystore  keystore.Eth
+	ocr2Keystore keystore.OCR2
+	dbCfg        pg.QConfig
 }
 
 // NewOCR2KeeperRelayer is the constructor of ocr2keeperRelayer
-func NewOCR2KeeperRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth, dbCfg pg.QConfig) OCR2KeeperRelayer {
+func NewOCR2KeeperRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth, ocr2Keystore keystore.OCR2, dbCfg pg.QConfig) OCR2KeeperRelayer {
 	return &ocr2keeperRelayer{
-		db:          db,
-		chain:       chain,
-		lggr:        lggr,
-		ethKeystore: ethKeystore,
-		dbCfg:       dbCfg,
+		db:           db,
+		chain:        chain,
+		lggr:         lggr,
+		ethKeystore:  ethKeystore,
+		ocr2Keystore: ocr2Keystore,
+		dbCfg:        dbCfg,
 	}
 }
 
@@ -124,11 +126,23 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), upkeepState, finalityDepth)
 	blockSub := evm.NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, r.lggr)
 
+	kb, err := r.ocr2Keystore.Get(rargs.KeyBundleID)
+	if err != nil {
+		return nil, err
+	}
+
+	kr := evm.NewOnchainKeyringV3Wrapper(kb)
+
 	al := evm.NewActiveUpkeepList()
 	payloadBuilder := evm.NewPayloadBuilder(al, logRecoverer, r.lggr)
 
 	reg := evm.NewEvmRegistry(r.lggr, cfgWatcher.contractAddress, client,
-		registryContract, nil, al, logProvider, // TODO pass mercury credentials instead of nil
+		registryContract, &models.MercuryCredentials{
+			LegacyURL: rargs.MercuryCredentials.LegacyURL,
+			URL:       rargs.MercuryCredentials.URL,
+			Username:  rargs.MercuryCredentials.Username,
+			Password:  rargs.MercuryCredentials.Password,
+		}, al, logProvider,
 		packer, blockSub, finalityDepth)
 
 	upkeepProvider := evm.NewUpkeepProvider(al, blockSub, client.LogPoller())
@@ -145,6 +159,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 		logEventProvider:          logProvider,
 		logRecoverer:              logRecoverer,
 		conditionalUpkeepProvider: upkeepProvider,
+		keyring:                   kr,
 	}, nil
 }
 
@@ -152,7 +167,7 @@ type ocr3keeperProviderContractTransmitter struct {
 	contractTransmitter ocrtypes.ContractTransmitter
 }
 
-var _ ocr3types.ContractTransmitter[plugin.AutomationReportInfo] = &ocr3keeperProviderContractTransmitter{}
+var _ ocr3types.ContractTransmitter[automation.AutomationReportInfo] = &ocr3keeperProviderContractTransmitter{}
 
 func NewKeepersOCR3ContractTransmitter(ocr2ContractTransmitter ocrtypes.ContractTransmitter) *ocr3keeperProviderContractTransmitter {
 	return &ocr3keeperProviderContractTransmitter{ocr2ContractTransmitter}
@@ -162,7 +177,7 @@ func (t *ocr3keeperProviderContractTransmitter) Transmit(
 	ctx context.Context,
 	digest ocrtypes.ConfigDigest,
 	seqNr uint64,
-	reportWithInfo ocr3types.ReportWithInfo[plugin.AutomationReportInfo],
+	reportWithInfo ocr3types.ReportWithInfo[automation.AutomationReportInfo],
 	aoss []ocrtypes.AttributedOnchainSignature,
 ) error {
 	return t.contractTransmitter.Transmit(
@@ -194,6 +209,7 @@ type ocr2keeperProvider struct {
 	logEventProvider          automation.LogEventProvider
 	logRecoverer              automation.LogRecoverer
 	conditionalUpkeepProvider automation.ConditionalUpkeepProvider
+	keyring                   ocr3types.OnchainKeyring[automation.AutomationReportInfo]
 }
 
 func (c *ocr2keeperProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
@@ -237,6 +253,9 @@ func (c *ocr2keeperProvider) LogRecoverer() automation.LogRecoverer {
 }
 func (c *ocr2keeperProvider) UpkeepProvider() automation.ConditionalUpkeepProvider {
 	return c.conditionalUpkeepProvider
+}
+func (c *ocr2keeperProvider) Keyring() ocr3types.OnchainKeyring[automation.AutomationReportInfo] {
+	return c.keyring
 }
 
 func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {

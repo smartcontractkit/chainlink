@@ -412,6 +412,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
 			keyStore.Eth(),
+			keyStore.OCR2(),
 			opts.RelayerChainInteroperators,
 			mailMon,
 			eventBroadcaster,

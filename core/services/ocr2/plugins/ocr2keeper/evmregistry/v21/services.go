@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -33,7 +32,7 @@ type AutomationServices interface {
 	LogEventProvider() logprovider.LogEventProvider
 	LogRecoverer() logprovider.LogRecoverer
 	UpkeepProvider() ocr2keepers.ConditionalUpkeepProvider
-	Keyring() ocr3types.OnchainKeyring[plugin.AutomationReportInfo]
+	Keyring() ocr3types.OnchainKeyring[ocr2keepers.AutomationReportInfo]
 }
 
 func New(addr common.Address, client legacyevm.Chain, mc *models.MercuryCredentials, keyring ocrtypes.OnchainKeyring, lggr logger.Logger, db *sqlx.DB, dbCfg pg.QConfig) (AutomationServices, error) {
@@ -131,6 +130,6 @@ func (f *automationServices) UpkeepProvider() ocr2keepers.ConditionalUpkeepProvi
 	return f.upkeepProvider
 }
 
-func (f *automationServices) Keyring() ocr3types.OnchainKeyring[plugin.AutomationReportInfo] {
+func (f *automationServices) Keyring() ocr3types.OnchainKeyring[ocr2keepers.AutomationReportInfo] {
 	return f.keyring
 }
