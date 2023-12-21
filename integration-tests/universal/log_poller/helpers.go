@@ -278,18 +278,6 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 	}
 }
 
-var chainHasFinalisedEndBlock = func(l zerolog.Logger, evmClient blockchain.EVMClient, endBlock int64) (bool, error) {
-	effectiveEndBlock := endBlock + 1
-	lastFinalisedBlockHeader, err := evmClient.GetLatestFinalizedBlockHeader(context.Background())
-	if err != nil {
-		return false, err
-	}
-
-	l.Info().Int64("Last finalised block header", lastFinalisedBlockHeader.Number.Int64()).Int64("End block", effectiveEndBlock).Int64("Blocks left till end block", effectiveEndBlock-lastFinalisedBlockHeader.Number.Int64()).Msg("Waiting for the finalized block to move beyond end block")
-
-	return lastFinalisedBlockHeader.Number.Int64() > effectiveEndBlock, nil
-}
-
 var logPollerHasFinalisedEndBlock = func(endBlock int64, chainID *big.Int, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
 	wg := &sync.WaitGroup{}
 
