@@ -232,7 +232,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, aggregatorContracts)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	err = actions.WatchNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err, "Error starting new OCR2 round")
 	roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
@@ -243,7 +243,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 
 	err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
 	require.NoError(t, err)
-	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	err = actions.WatchNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err)
 
 	roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(2))
@@ -262,7 +262,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 15, env.EVMClient.GetChainID().Uint64(), false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
-	err = actions.StartNewOCR2Round(3, aggregatorContracts, env.EVMClient, time.Minute*3, l)
+	err = actions.WatchNewOCR2Round(3, aggregatorContracts, env.EVMClient, time.Minute*3, l)
 	require.NoError(t, err, "Error starting new OCR2 round")
 	roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(3))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
