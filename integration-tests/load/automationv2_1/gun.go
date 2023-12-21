@@ -21,7 +21,7 @@ type LogTriggerConfig struct {
 }
 
 type LogTriggerGun struct {
-	data             [][][]byte
+	data             [][]byte
 	addresses        []string
 	multiCallAddress string
 	evmClient        blockchain.EVMClient
@@ -46,31 +46,26 @@ func NewLogTriggerUser(
 	evmClient blockchain.EVMClient,
 	multicallAddress string,
 ) *LogTriggerGun {
-	var data1, data2, data3 [][]byte
+	var data [][]byte
 	var addresses []string
 
 	for _, c := range TriggerConfigs {
 		if c.NumberOfEvents > 0 {
 			d := generateCallData(1, 1, c.NumberOfEvents)
-			data1 = append(data1, d)
+			data = append(data, d)
 			addresses = append(addresses, c.Address)
 		}
 		if c.NumberOfSpamMatchingEvents > 0 {
 			d := generateCallData(1, 2, c.NumberOfSpamMatchingEvents)
-			data2 = append(data2, d)
+			data = append(data, d)
 			addresses = append(addresses, c.Address)
 		}
 		if c.NumberOfSpamNonMatchingEvents > 0 {
 			d := generateCallData(2, 2, c.NumberOfSpamNonMatchingEvents)
-			data3 = append(data3, d)
+			data = append(data, d)
 			addresses = append(addresses, c.Address)
 		}
 	}
-
-	var data [][][]byte
-	data = append(data, data1)
-	data = append(data, data2)
-	data = append(data, data3)
 
 	return &LogTriggerGun{
 		addresses:        addresses,
@@ -83,27 +78,26 @@ func NewLogTriggerUser(
 
 func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 	var wg sync.WaitGroup
-	for _, d := range m.data {
-		var dividedData [][][]byte
-		chunkSize := 100
-		for i := 0; i < len(d); i += chunkSize {
-			end := i + chunkSize
-			if end > len(d) {
-				end = len(d)
+	var dividedData [][][]byte
+	d := m.data
+	chunkSize := 100
+	for i := 0; i < len(d); i += chunkSize {
+		end := i + chunkSize
+		if end > len(d) {
+			end = len(d)
+		}
+		dividedData = append(dividedData, d[i:end])
+	}
+	for _, a := range dividedData {
+		wg.Add(1)
+		go func(a [][]byte, m *LogTriggerGun) *wasp.Response {
+			defer wg.Done()
+			_, err := contracts.MultiCallLogTriggerLoadGen(m.evmClient, m.multiCallAddress, m.addresses, a)
+			if err != nil {
+				return &wasp.Response{Error: err.Error(), Failed: true}
 			}
-			dividedData = append(dividedData, d[i:end])
-		}
-		for _, a := range dividedData {
-			wg.Add(1)
-			go func(a [][]byte, m *LogTriggerGun) *wasp.Response {
-				defer wg.Done()
-				_, err := contracts.MultiCallLogTriggerLoadGen(m.evmClient, m.multiCallAddress, m.addresses, a)
-				if err != nil {
-					return &wasp.Response{Error: err.Error(), Failed: true}
-				}
-				return &wasp.Response{}
-			}(a, m)
-		}
+			return &wasp.Response{}
+		}(a, m)
 	}
 	wg.Wait()
 	return &wasp.Response{}
