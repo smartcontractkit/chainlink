@@ -73,7 +73,10 @@ func NewChainClient(
 		chainID,
 		chainType,
 		"EVM",
-		ClassifySendOnlyError,
+		func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
+			return ClassifySendError(err, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
+		},
+		time.Second*5, // TODO: move to config
 	)
 	return &chainClient{
 		multiNode: multiNode,

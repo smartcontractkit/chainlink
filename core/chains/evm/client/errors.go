@@ -502,15 +502,3 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 	lggr.Errorw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
 }
-
-// ClassifySendOnlyError handles SendOnly nodes error codes. In that case, we don't assume there is another transaction that will be correctly
-// priced.
-func ClassifySendOnlyError(err error) commonclient.SendTxReturnCode {
-	sendError := NewSendError(err)
-	if sendError == nil || sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() || sendError.IsTransactionAlreadyInMempool() {
-		// Nonce too low or transaction known errors are expected since
-		// the primary SendTransaction may well have succeeded already
-		return commonclient.Successful
-	}
-	return commonclient.Fatal
-}
