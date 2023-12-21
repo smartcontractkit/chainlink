@@ -1,4 +1,4 @@
-package utils
+package big
 
 import (
 	"database/sql/driver"
@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 )
 
@@ -50,8 +52,8 @@ func (b *BigFloat) Value() *big.Float {
 // Big stores large integers and can deserialize a variety of inputs.
 type Big big.Int
 
-// NewBig constructs a Big from *big.Int.
-func NewBig(i *big.Int) *Big {
+// New constructs a Big from *big.Int.
+func New(i *big.Int) *Big {
 	if i != nil {
 		var b big.Int
 		b.Set(i)
@@ -60,9 +62,9 @@ func NewBig(i *big.Int) *Big {
 	return nil
 }
 
-// NewBigI constructs a Big from int64.
-func NewBigI(i int64) *Big {
-	return NewBig(big.NewInt(i))
+// NewI constructs a Big from int64.
+func NewI(i int64) *Big {
+	return New(big.NewInt(i))
 }
 
 // MarshalText marshals this instance to base 10 number as string.
@@ -83,7 +85,7 @@ func (b Big) MarshalJSON() ([]byte, error) {
 func (b *Big) UnmarshalText(input []byte) error {
 	input = bytes.TrimQuotes(input)
 	str := string(input)
-	if HasHexPrefix(str) {
+	if hex.HasPrefix(str) {
 		decoded, err := hexutil.DecodeBig(str)
 		if err != nil {
 			return err
@@ -174,15 +176,15 @@ func (b *Big) Int64() int64 {
 
 // Add returns the sum of b and c
 func (b *Big) Add(c *Big) *Big {
-	return NewBig(bigmath.Add(b.ToInt(), c.ToInt()))
+	return New(bigmath.Add(b.ToInt(), c.ToInt()))
 }
 
 // Sub returns the differencs between b and c
 func (b *Big) Sub(c *Big) *Big {
-	return NewBig(bigmath.Sub(b.ToInt(), c.ToInt()))
+	return New(bigmath.Sub(b.ToInt(), c.ToInt()))
 }
 
 // Sub returns b % c
 func (b *Big) Mod(c *Big) *Big {
-	return NewBig(bigmath.Mod(b.ToInt(), c.ToInt()))
+	return New(bigmath.Mod(b.ToInt(), c.ToInt()))
 }

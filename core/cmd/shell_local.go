@@ -33,11 +33,13 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -807,7 +809,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 			defer wg.Done()
 			for dbname := range ch {
 				lggr.Infof("Dropping old, dangling test database: %q", dbname)
-				gerr := utils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
+				gerr := cutils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
 				errCh <- gerr
 			}
 		}()
@@ -855,7 +857,7 @@ func randomizeTestDBSequences(db *sqlx.DB) error {
 		}
 
 		var randNum *big.Int
-		randNum, err = crand.Int(crand.Reader, utils.NewBigI(10000).ToInt())
+		randNum, err = crand.Int(crand.Reader, ubig.NewI(10000).ToInt())
 		if err != nil {
 			return fmt.Errorf("%s: failed to generate random number", failedToRandomizeTestDBSequencesError{})
 		}

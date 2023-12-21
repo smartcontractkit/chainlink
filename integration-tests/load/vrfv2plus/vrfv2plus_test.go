@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
@@ -117,6 +116,12 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			require.NoError(t, err)
 			consumers, err = vrfv2plus.DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, 1)
 			require.NoError(t, err)
+			err = env.EVMClient.WaitForEvents()
+			require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+			l.Info().
+				Str("Coordinator", cfg.ExistingEnvConfig.CoordinatorAddress).
+				Int("Number of Subs to create", vrfv2PlusConfig.NumberOfSubToCreate).
+				Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 			subIDs, err = vrfv2plus.CreateFundSubsAndAddConsumers(
 				env,
 				vrfv2PlusConfig,
@@ -306,13 +311,7 @@ func FundNodesIfNeeded(cfg *PerformanceConfig, client blockchain.EVMClient, l ze
 					Str("Should have at least", fundingAtLeast.String()).
 					Str("Funding Amount in ETH", fundingToSendEth.String()).
 					Msg("Funding Node's Sending Key")
-				gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
-					To: &address,
-				})
-				if err != nil {
-					return err
-				}
-				err = client.Fund(sendingKey, fundingToSendEth, gasEstimates)
+				err := actions.FundAddress(client, sendingKey, fundingToSendEth)
 				if err != nil {
 					return err
 				}

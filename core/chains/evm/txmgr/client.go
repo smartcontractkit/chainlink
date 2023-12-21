@@ -14,11 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ TxmClient = (*evmTxmClient)(nil)
@@ -43,7 +44,7 @@ func (c *evmTxmClient) BatchSendTransactions(
 	ctx context.Context,
 	attempts []TxAttempt,
 	batchSize int,
-	lggr logger.Logger,
+	lggr logger.SugaredLogger,
 ) (
 	codes []commonclient.SendTxReturnCode,
 	txErrs []error,
@@ -62,7 +63,7 @@ func (c *evmTxmClient) BatchSendTransactions(
 	if len(reqs) != len(attempts) {
 		lenErr := fmt.Errorf("Returned request data length (%d) != number of tx attempts (%d)", len(reqs), len(attempts))
 		err = errors.Join(err, lenErr)
-		logger.Criticalw(lggr, "Mismatched length", "err", err)
+		lggr.Criticalw("Mismatched length", "err", err)
 		return
 	}
 
@@ -77,10 +78,14 @@ func (c *evmTxmClient) BatchSendTransactions(
 			// convert to tx for logging purposes - exits early if error occurs
 			tx, signedErr := GetGethSignedTx(attempts[i].SignedRawTx)
 			if signedErr != nil {
-				processingErr[i] = fmt.Errorf("failed to process tx (index %d): %w", i, signedErr)
+				signedErrMsg := fmt.Sprintf("failed to process tx (index %d)", i)
+				lggr.Errorw(signedErrMsg, "err", signedErr)
+				processingErr[i] = fmt.Errorf("%s: %w", signedErrMsg, signedErr)
 				return
 			}
-			codes[i], txErrs[i] = client.ClassifySendError(reqs[i].Error, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
+			sendErr := reqs[i].Error
+			codes[i] = client.ClassifySendError(sendErr, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
+			txErrs[i] = sendErr
 		}(index)
 	}
 	wg.Wait()
@@ -88,10 +93,10 @@ func (c *evmTxmClient) BatchSendTransactions(
 	return
 }
 
-func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.Logger) (commonclient.SendTxReturnCode, error) {
+func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.SugaredLogger) (commonclient.SendTxReturnCode, error) {
 	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
 	if err != nil {
-		logger.Criticalw(lggr, "Fatal error signing transaction", "err", err, "etx", etx)
+		lggr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
 		return commonclient.Fatal, err
 	}
 	return c.client.SendTransactionReturnCode(ctx, signedTx, etx.FromAddress)

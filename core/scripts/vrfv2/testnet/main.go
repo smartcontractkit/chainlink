@@ -26,6 +26,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -773,7 +774,7 @@ func main() {
 		bal, err := linkToken.BalanceOf(nil, e.Owner.From)
 		helpers.PanicErr(err)
 		fmt.Println("OWNER BALANCE", bal, e.Owner.From.String(), amount.String())
-		b, err := utils.ABIEncode(`[{"type":"uint64"}]`, created.SubId)
+		b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, created.SubId)
 		helpers.PanicErr(err)
 		e.Owner.GasLimit = 500000
 		tx, err := linkToken.TransferAndCall(e.Owner, coordinator.Address(), amount, b)
@@ -1088,9 +1089,8 @@ func main() {
 				return true
 			} else if strings.Contains(err.Error(), "execution reverted") {
 				return false
-			} else {
-				panic(err)
 			}
+			panic(err)
 		}
 
 		result := helpers.BinarySearch(assets.Ether(int64(*start*2)).ToInt(), big.NewInt(0), isWithdrawable)

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
@@ -25,11 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newHead() evmtypes.Head {
-	return evmtypes.Head{Number: 42, EVMChainID: utils.NewBigI(0)}
+	return evmtypes.Head{Number: 42, EVMChainID: ubig.NewI(0)}
 }
 
 func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainContainer {
@@ -112,7 +112,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
-		require.NoError(t, utils.JustError(db.Exec(`UPDATE evm.tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = $1`, etx.ID)))
+		require.NoError(t, txStore.UpdateTxAttemptBroadcastBeforeBlockNum(testutils.Context(t), etx.ID, 7))
 
 		head := newHead()
 		reporter.OnNewLongestChain(testutils.Context(t), &head)

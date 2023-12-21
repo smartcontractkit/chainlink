@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
@@ -541,7 +543,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-		c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
+		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 	})
@@ -870,7 +872,7 @@ func setupAndFundSubscriptionAndConsumer(
 	uni.backend.Commit()
 
 	if vrfVersion == vrfcommon.V2Plus {
-		b, err2 := utils.ABIEncode(`[{"type":"uint256"}]`, subID)
+		b, err2 := evmutils.ABIEncode(`[{"type":"uint256"}]`, subID)
 		require.NoError(t, err2)
 		_, err2 = uni.linkContract.TransferAndCall(
 			uni.sergey, coordinatorAddress, fundingAmount, b)
@@ -878,7 +880,7 @@ func setupAndFundSubscriptionAndConsumer(
 		uni.backend.Commit()
 		return
 	}
-	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
+	b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
 	require.NoError(t, err)
 	_, err = uni.linkContract.TransferAndCall(
 		uni.sergey, coordinatorAddress, fundingAmount, b)
@@ -1646,7 +1648,7 @@ func testMaliciousConsumer(
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
 		c.EVM[0].GasEstimator.PriceDefault = assets.GWei(1)
 		c.EVM[0].GasEstimator.FeeCapDefault = assets.GWei(1)
-		c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
+		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 	})

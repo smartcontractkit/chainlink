@@ -12,16 +12,18 @@ import (
 	"github.com/segmentio/ksuid"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
@@ -162,7 +164,7 @@ func SetChainConfig(
 		}
 		cfg.EVM = evmcfg.EVMConfigs{
 			{
-				ChainID: utils.NewBig(big.NewInt(chain.ChainID)),
+				ChainID: ubig.New(big.NewInt(chain.ChainID)),
 				Chain:   chainConfig,
 				Nodes:   nodes,
 			},
@@ -179,7 +181,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 	var evmConfigs []*evmcfg.EVMConfig
 	for _, network := range networks {
 		evmConfigs = append(evmConfigs, &evmcfg.EVMConfig{
-			ChainID: utils.NewBig(big.NewInt(network.ChainID)),
+			ChainID: ubig.New(big.NewInt(network.ChainID)),
 			Chain: evmcfg.Chain{
 				AutoCreateKey:      ptr.Ptr(true),
 				FinalityDepth:      ptr.Ptr[uint32](50),

@@ -20,7 +20,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
+	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"

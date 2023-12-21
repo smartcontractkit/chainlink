@@ -22,6 +22,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
@@ -33,6 +35,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -41,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func makeTestEvmTxm(
@@ -206,7 +209,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("no eth key exists with address %s", rndAddr.String()))
 
-		_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth(), *utils.NewBigI(1337))
+		_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth(), *ubig.NewI(1337))
 
 		_, err = txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    otherAddress,
@@ -301,7 +304,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		// Create mock forwarder, mock authorizedsenders call.
 		form := forwarders.NewORM(db, logger.Test(t), cfg.Database())
 		fwdrAddr := testutils.NewAddress()
-		fwdr, err := form.CreateForwarder(fwdrAddr, utils.Big(cltest.FixtureChainID))
+		fwdr, err := form.CreateForwarder(fwdrAddr, ubig.Big(cltest.FixtureChainID))
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 
@@ -418,7 +421,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
-	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
+	require.NoError(t, commonutils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
 
 	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -441,7 +444,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
-	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
+	require.NoError(t, commonutils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
 
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -651,14 +654,15 @@ func mustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, txStore txmgr.Test
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
 	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := cltest.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = txAttemptState
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	var err error
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
@@ -685,7 +689,8 @@ func mustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, txSt
 
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	var err error
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
@@ -702,14 +707,15 @@ func mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStore 
 	require.NoError(t, txStore.InsertTx(&etx))
 	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := cltest.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = txmgrtypes.TxAttemptInsufficientFunds
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	var err error
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
@@ -740,13 +746,14 @@ func mustInsertInProgressEthTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxS
 	etx.State = txmgrcommon.TxInProgress
 	require.NoError(t, txStore.InsertTx(&etx))
 	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := cltest.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 	attempt.State = txmgrtypes.TxAttemptInProgress
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	var err error
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }

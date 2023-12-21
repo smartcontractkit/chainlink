@@ -24,7 +24,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -462,7 +462,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			servicetest.Run(t, mailbox.NewMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -496,7 +496,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			servicetest.Run(t, mailbox.NewMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -524,7 +524,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			servicetest.Run(t, mailbox.NewMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -579,7 +579,7 @@ answer1      [type=median index=0];
 				legacyChains,
 				lggr,
 				config.Database(),
-				servicetest.Run(t, mailbox.NewMonitor(t.Name())),
+				servicetest.Run(t, mailboxtest.NewMonitor(t)),
 			)
 
 			jb.OCROracleSpec.CaptureEATelemetry = tc.jbCaptureEATelemetry
@@ -623,7 +623,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			servicetest.Run(t, mailbox.NewMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)
