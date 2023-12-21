@@ -1811,7 +1811,7 @@ func TestRequestCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	registerProvingKey(t, uni.coordinatorV2UniverseCommon, vrfkey)
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey)
 	t.Run("non-proxied consumer", func(tt *testing.T) {
 		carol := uni.vrfConsumers[0]
 		carolContract := uni.consumerContracts[0]
@@ -1916,7 +1916,7 @@ func TestFulfillmentCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	registerProvingKey(t, uni.coordinatorV2UniverseCommon, vrfkey)
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey)
 
 	var (
 		nonProxiedConsumerGasEstimate uint64

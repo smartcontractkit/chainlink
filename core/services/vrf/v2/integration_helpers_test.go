@@ -32,8 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
@@ -1684,7 +1682,7 @@ func testMaliciousConsumer(
 	time.Sleep(1 * time.Second)
 
 	// Register a proving key associated with the VRF job.
-	registerProvingKey(t, uni, vrfkey)
+	registerProvingKeyHelper(t, uni, uni.rootContract, vrfkey)
 
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = uni.maliciousConsumerContract.CreateSubscriptionAndFund(carol,
@@ -1737,18 +1735,4 @@ func testMaliciousConsumer(
 		requests = append(requests, it2.Event())
 	}
 	require.Equal(t, 1, len(requests))
-}
-
-func registerProvingKey(t *testing.T, uni coordinatorV2UniverseCommon, vrfkey vrfkey.KeyV2) {
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	if uni.rootContract.Version() == vrfcommon.V2Plus {
-		_, err = uni.rootContract.RegisterProvingKey(
-			uni.neil, nil, pair(secp256k1.Coordinates(p)))
-	} else {
-		_, err = uni.rootContract.RegisterProvingKey(
-			uni.neil, &uni.nallory.From, pair(secp256k1.Coordinates(p)))
-	}
-	require.NoError(t, err)
-	uni.backend.Commit()
 }
