@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -91,7 +92,7 @@ func (p *OCRKeyBundlePresenter) RenderTable(rt RendererTable) error {
 	}
 	renderList(headers, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 func (p *OCRKeyBundlePresenter) ToRow() []string {
@@ -135,7 +136,7 @@ func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
 	}
 	renderList(headers, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 // CreateOCR2KeyBundle creates an OCR key bundle and saves it to the keystore

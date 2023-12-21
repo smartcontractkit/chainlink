@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -76,68 +75,6 @@ func TestUtils_DurationFromNow(t *testing.T) {
 	future := time.Now().Add(time.Second)
 	duration := utils.DurationFromNow(future)
 	assert.True(t, 0 < duration)
-}
-
-func TestWaitGroupChan(t *testing.T) {
-	t.Parallel()
-
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-
-	ch := utils.WaitGroupChan(wg)
-
-	select {
-	case <-ch:
-		t.Fatal("should not fire immediately")
-	default:
-	}
-
-	wg.Done()
-
-	select {
-	case <-ch:
-		t.Fatal("should not fire until finished")
-	default:
-	}
-
-	go func() {
-		time.Sleep(2 * time.Second)
-		wg.Done()
-	}()
-
-	cltest.CallbackOrTimeout(t, "WaitGroupChan fires", func() {
-		<-ch
-	}, 5*time.Second)
-}
-
-func TestDependentAwaiter(t *testing.T) {
-	t.Parallel()
-
-	da := utils.NewDependentAwaiter()
-	da.AddDependents(2)
-
-	select {
-	case <-da.AwaitDependents():
-		t.Fatal("should not fire immediately")
-	default:
-	}
-
-	da.DependentReady()
-
-	select {
-	case <-da.AwaitDependents():
-		t.Fatal("should not fire until finished")
-	default:
-	}
-
-	go func() {
-		time.Sleep(2 * time.Second)
-		da.DependentReady()
-	}()
-
-	cltest.CallbackOrTimeout(t, "dependents are now ready", func() {
-		<-da.AwaitDependents()
-	}, 5*time.Second)
 }
 
 func TestBoundedQueue(t *testing.T) {
@@ -242,14 +179,6 @@ func Test_WithJitter(t *testing.T) {
 		require.GreaterOrEqual(t, int(r), int(9*time.Second))
 		require.LessOrEqual(t, int(r), int(11*time.Second))
 	}
-}
-
-func TestAllEqual(t *testing.T) {
-	t.Parallel()
-
-	require.False(t, utils.AllEqual(1, 2, 3, 4, 5))
-	require.True(t, utils.AllEqual(1, 1, 1, 1, 1))
-	require.False(t, utils.AllEqual(1, 1, 1, 2, 1, 1, 1))
 }
 
 func TestIsEmpty(t *testing.T) {

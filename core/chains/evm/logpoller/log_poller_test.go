@@ -27,6 +27,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -1294,7 +1296,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	require.ErrorContains(t, err, "Invalid replay block number")
 
 	// Force a db error while loading the filters (tx aborted, already rolled back)
-	require.Error(t, utils.JustError(db.Exec(`invalid query`)))
+	require.Error(t, commonutils.JustError(db.Exec(`invalid query`)))
 	go func() {
 		err = lp.Replay(ctx, 2)
 		assert.ErrorContains(t, err, "current transaction is aborted")
