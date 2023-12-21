@@ -85,14 +85,13 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 
 	for _, d := range m.data {
 		var dividedData [][][]byte
-		chuckSize := 100
-		for i := 0; i < len(d); i += chuckSize {
-			end := i + chuckSize
+		chunkSize := 100
+		for i := 0; i < len(d); i += chunkSize {
+			end := i + chunkSize
 			if end > len(d) {
 				end = len(d)
 			}
 			dividedData = append(dividedData, d[i:end])
-
 		}
 
 		for _, a := range dividedData {

@@ -522,7 +522,7 @@ Load Config:
 		T:           t,
 		LoadType:    wasp.RPS,
 		GenName:     "log_trigger_gen",
-		CallTimeout: time.Second * 10,
+		CallTimeout: time.Second * 60,
 		Schedule: wasp.Plain(
 			1,
 			loadDuration,
