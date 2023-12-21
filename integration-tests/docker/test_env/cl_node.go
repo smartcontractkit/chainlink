@@ -3,6 +3,7 @@ package test_env
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math/big"
 	"net/url"
 	"os"
@@ -57,6 +58,15 @@ type ClNodeOption = func(c *ClNode)
 func WithSecrets(secretsTOML string) ClNodeOption {
 	return func(c *ClNode) {
 		c.NodeSecretsConfigTOML = secretsTOML
+	}
+}
+
+func WithNodeEnvVars(ev map[string]string) ClNodeOption {
+	return func(n *ClNode) {
+		if n.ContainerEnvs == nil {
+			n.ContainerEnvs = map[string]string{}
+		}
+		maps.Copy(n.ContainerEnvs, ev)
 	}
 }
 
