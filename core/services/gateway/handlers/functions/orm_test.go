@@ -29,7 +29,7 @@ func setupORM(t *testing.T) (functions.ORM, error) {
 	return functions.NewORM(db, lggr, pgtest.NewQConfig(true))
 }
 
-func createSubscription(t *testing.T, orm functions.ORM, amount int) []functions.CachedSubscription {
+func createSubscriptions(t *testing.T, orm functions.ORM, amount int) []functions.CachedSubscription {
 	cachedSubscriptions := make([]functions.CachedSubscription, 0)
 	for i := amount; i > 0; i-- {
 		address := testutils.NewAddress()
@@ -45,19 +45,19 @@ func createSubscription(t *testing.T, orm functions.ORM, amount int) []functions
 			},
 		}
 		cachedSubscriptions = append(cachedSubscriptions, cs)
-		err := orm.CreateSubscription(cs)
+		err := orm.UpsertSubscription(cs)
 		require.NoError(t, err)
 	}
 	return cachedSubscriptions
 }
 
-func TestORM_FetchSubscriptions(t *testing.T) {
+func TestORM_GetSubscriptions(t *testing.T) {
 	t.Parallel()
 	t.Run("fetch first page", func(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
-		cachedSubscriptions := createSubscription(t, orm, 2)
-		results, err := orm.FetchSubscriptions(0, 1)
+		cachedSubscriptions := createSubscriptions(t, orm, 2)
+		results, err := orm.GetSubscriptions(0, 1)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 		require.Equal(t, results[0].Owner, cachedSubscriptions[0].Owner)
@@ -66,11 +66,77 @@ func TestORM_FetchSubscriptions(t *testing.T) {
 	t.Run("fetch second page", func(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
-		cachedSubscriptions := createSubscription(t, orm, 2)
-		results, err := orm.FetchSubscriptions(1, 5)
+		cachedSubscriptions := createSubscriptions(t, orm, 2)
+		results, err := orm.GetSubscriptions(1, 5)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 		require.Equal(t, results[0].Owner, cachedSubscriptions[1].Owner)
+	})
+}
+
+func TestORM_UpsertSubscription(t *testing.T) {
+	t.Parallel()
+
+	t.Run("create a subscription", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		address := testutils.NewAddress()
+		expected := functions.CachedSubscription{
+			SubscriptionID: uint64(1),
+			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
+				Balance:        assets.Ether(10).ToInt(),
+				Owner:          address,
+				BlockedBalance: assets.Ether(20).ToInt(),
+				ProposedOwner:  common.Address{},
+				Consumers:      []common.Address{},
+				Flags:          defaultFlags,
+			},
+		}
+		err = orm.UpsertSubscription(expected)
+		require.NoError(t, err)
+
+		results, err := orm.GetSubscriptions(0, 1)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Equal(t, expected, results[0])
+	})
+
+	t.Run("update a subscription", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		address := testutils.NewAddress()
+
+		err = orm.UpsertSubscription(functions.CachedSubscription{
+			SubscriptionID: uint64(1),
+			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
+				Balance:        assets.Ether(10).ToInt(),
+				Owner:          address,
+				BlockedBalance: assets.Ether(20).ToInt(),
+				ProposedOwner:  common.Address{},
+				Consumers:      []common.Address{},
+				Flags:          defaultFlags,
+			},
+		})
+		require.NoError(t, err)
+
+		expected := functions.CachedSubscription{
+			SubscriptionID: uint64(1),
+			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
+				Balance:        assets.Ether(20).ToInt(),
+				Owner:          address,
+				BlockedBalance: assets.Ether(20).ToInt(),
+				ProposedOwner:  common.Address{},
+				Consumers:      []common.Address{},
+				Flags:          defaultFlags,
+			},
+		}
+		err = orm.UpsertSubscription(expected)
+		require.NoError(t, err)
+
+		results, err := orm.GetSubscriptions(0, 5)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Equal(t, expected, results[0])
 	})
 }
 

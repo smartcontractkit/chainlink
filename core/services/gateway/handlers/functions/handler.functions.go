@@ -136,9 +136,9 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err2
 		}
 
-		orm, err := NewORM(db, lggr, qcfg)
-		if err != nil {
-			return nil, err
+		orm, err2 := NewORM(db, lggr, qcfg)
+		if err2 != nil {
+			return nil, err2
 		}
 
 		subscriptions, err2 = NewOnchainSubscriptions(chain.Client(), *cfg.OnchainSubscriptions, orm, lggr)

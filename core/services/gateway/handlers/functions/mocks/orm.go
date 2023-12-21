@@ -14,33 +14,8 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateSubscription provides a mock function with given fields: subscription, qopts
-func (_m *ORM) CreateSubscription(subscription functions.CachedSubscription, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, subscription)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateSubscription")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(functions.CachedSubscription, ...pg.QOpt) error); ok {
-		r0 = rf(subscription, qopts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// FetchSubscriptions provides a mock function with given fields: offset, limit, qopts
-func (_m *ORM) FetchSubscriptions(offset uint, limit uint, qopts ...pg.QOpt) ([]functions.CachedSubscription, error) {
+// GetSubscriptions provides a mock function with given fields: offset, limit, qopts
+func (_m *ORM) GetSubscriptions(offset uint, limit uint, qopts ...pg.QOpt) ([]functions.CachedSubscription, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -51,7 +26,7 @@ func (_m *ORM) FetchSubscriptions(offset uint, limit uint, qopts ...pg.QOpt) ([]
 	ret := _m.Called(_ca...)
 
 	if len(ret) == 0 {
-		panic("no return value specified for FetchSubscriptions")
+		panic("no return value specified for GetSubscriptions")
 	}
 
 	var r0 []functions.CachedSubscription
@@ -74,6 +49,31 @@ func (_m *ORM) FetchSubscriptions(offset uint, limit uint, qopts ...pg.QOpt) ([]
 	}
 
 	return r0, r1
+}
+
+// UpsertSubscription provides a mock function with given fields: subscription, qopts
+func (_m *ORM) UpsertSubscription(subscription functions.CachedSubscription, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, subscription)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpsertSubscription")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(functions.CachedSubscription, ...pg.QOpt) error); ok {
+		r0 = rf(subscription, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // NewORM creates a new instance of ORM. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

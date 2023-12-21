@@ -3,8 +3,8 @@
 CREATE TABLE functions_subscriptions(
     subscription_id bigint PRIMARY KEY,
     owner bytea CHECK (octet_length(owner) = 20) NOT NULL,
-    balance bigint,
-    blocked_balance bigint,
+    balance text,
+    blocked_balance text,
     proposed_owner bytea,
     consumers bytea[],
     flags bytea

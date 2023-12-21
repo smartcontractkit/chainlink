@@ -18,8 +18,8 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	FetchSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error)
-	CreateSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error
+	GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error)
+	UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error
 }
 
 type orm struct {
@@ -38,9 +38,9 @@ const (
 
 type cachedSubscriptionRow struct {
 	SubscriptionID uint64
-	Balance        int64
+	Balance        string
 	Owner          common.Address
-	BlockedBalance int64
+	BlockedBalance string
 	ProposedOwner  common.Address
 	Consumers      pq.ByteaArray
 	Flags          []uint8
@@ -56,7 +56,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) (ORM, error) {
 	}, nil
 }
 
-func (o *orm) FetchSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error) {
+func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error) {
 	var cacheSubscriptions []CachedSubscription
 	var cacheSubscriptionRows []cachedSubscriptionRow
 	stmt := fmt.Sprintf(`
@@ -76,12 +76,23 @@ func (o *orm) FetchSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]Cached
 		for _, csc := range cs.Consumers {
 			consumers = append(consumers, common.BytesToAddress(csc))
 		}
+
+		balance, ok := big.NewInt(0).SetString(cs.Balance, 10)
+		if !ok {
+			return nil, fmt.Errorf("error parsing balance %s", cs.Balance)
+		}
+
+		blockedBalance, ok := big.NewInt(0).SetString(cs.BlockedBalance, 10)
+		if !ok {
+			return nil, fmt.Errorf("error parsing blockedBalance %s", cs.BlockedBalance)
+		}
+
 		cacheSubscriptions = append(cacheSubscriptions, CachedSubscription{
 			SubscriptionID: cs.SubscriptionID,
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
-				Balance:        big.NewInt(cs.Balance),
+				Balance:        balance,
 				Owner:          cs.Owner,
-				BlockedBalance: big.NewInt(cs.BlockedBalance),
+				BlockedBalance: blockedBalance,
 				ProposedOwner:  cs.ProposedOwner,
 				Consumers:      consumers,
 				Flags:          [32]byte(cs.Flags),
@@ -92,11 +103,11 @@ func (o *orm) FetchSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]Cached
 	return cacheSubscriptions, nil
 }
 
-func (o *orm) CreateSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error {
+func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error {
 	stmt := fmt.Sprintf(`
 		INSERT INTO %s (subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags)
-		VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (subscription_id) DO NOTHING;
-	`, tableName)
+		VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (subscription_id) DO UPDATE
+		SET owner=$2, balance=$3, blocked_balance=$4, proposed_owner=$5, consumers=$6, flags=$7;`, tableName)
 
 	if subscription.Balance == nil {
 		subscription.Balance = big.NewInt(0)
@@ -110,8 +121,8 @@ func (o *orm) CreateSubscription(subscription CachedSubscription, qopts ...pg.QO
 		stmt,
 		subscription.SubscriptionID,
 		subscription.Owner,
-		subscription.Balance.Int64(),
-		subscription.BlockedBalance.Int64(),
+		subscription.Balance.String(),
+		subscription.BlockedBalance.String(),
 		subscription.ProposedOwner,
 		subscription.Consumers,
 		subscription.Flags[:],

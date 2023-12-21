@@ -51,7 +51,8 @@ func TestSubscriptions_OnePass(t *testing.T) {
 		UpdateRangeSize:    3,
 	}
 	orm := fmocks.NewORM(t)
-	orm.On("FetchSubscriptions", uint(0), uint(100)).Return([]functions.CachedSubscription{}, nil)
+	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]functions.CachedSubscription{}, nil)
+	orm.On("UpsertSubscription", mock.Anything).Return(nil)
 	subscriptions, err := functions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
 
@@ -101,7 +102,8 @@ func TestSubscriptions_MultiPass(t *testing.T) {
 		UpdateRangeSize:    3,
 	}
 	orm := fmocks.NewORM(t)
-	orm.On("FetchSubscriptions", uint(0), uint(100)).Return([]functions.CachedSubscription{}, nil)
+	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]functions.CachedSubscription{}, nil)
+	orm.On("UpsertSubscription", mock.Anything).Return(nil)
 	subscriptions, err := functions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
 
@@ -142,7 +144,7 @@ func TestSubscriptions_Cached(t *testing.T) {
 
 	expectedBalance := big.NewInt(5)
 	orm := fmocks.NewORM(t)
-	orm.On("FetchSubscriptions", uint(0), uint(1)).Return([]functions.CachedSubscription{
+	orm.On("GetSubscriptions", uint(0), uint(1)).Return([]functions.CachedSubscription{
 		{
 			SubscriptionID: 1,
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
@@ -152,7 +154,8 @@ func TestSubscriptions_Cached(t *testing.T) {
 			},
 		},
 	}, nil)
-	orm.On("FetchSubscriptions", uint(1), uint(1)).Return([]functions.CachedSubscription{}, nil)
+	orm.On("GetSubscriptions", uint(1), uint(1)).Return([]functions.CachedSubscription{}, nil)
+	orm.On("UpsertSubscription", mock.Anything).Return(nil)
 
 	subscriptions, err := functions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)

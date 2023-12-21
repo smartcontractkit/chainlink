@@ -70,6 +70,7 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 
 	// if CacheBatchSize is not specified used the default value
 	if config.CacheBatchSize == 0 {
+		lggr.Info("CacheBatchSize not specified, using default size: ", defaultCacheBatchSize)
 		config.CacheBatchSize = defaultCacheBatchSize
 	}
 
@@ -98,8 +99,9 @@ func (s *onchainSubscriptions) Start(ctx context.Context) error {
 			return errors.New("OnchainSubscriptionsConfig.UpdateRangeSize must be greater than 0")
 		}
 
-		s.closeWait.Add(2)
-		go s.loadCachedSubscriptions()
+		s.loadCachedSubscriptions()
+
+		s.closeWait.Add(1)
 		go s.queryLoop()
 
 		return nil
@@ -203,6 +205,13 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 		subscriptionId := start + uint64(i)
 		subscription := subscription
 		s.subscriptions.UpdateSubscription(subscriptionId, &subscription)
+		err = s.orm.UpsertSubscription(CachedSubscription{
+			SubscriptionID:                      subscriptionId,
+			IFunctionsSubscriptionsSubscription: subscription,
+		})
+		if err != nil {
+			s.lggr.Errorf("unexpected error updating subscription in the cache: %w", err)
+		}
 	}
 
 	return nil
@@ -216,15 +225,13 @@ func (s *onchainSubscriptions) getSubscriptionsCount(ctx context.Context, blockN
 	})
 }
 func (s *onchainSubscriptions) loadCachedSubscriptions() {
-	defer s.closeWait.Done()
 	offset := uint(0)
 	for {
-		csBatch, err := s.orm.FetchSubscriptions(offset, s.config.CacheBatchSize)
+		csBatch, err := s.orm.GetSubscriptions(offset, s.config.CacheBatchSize)
 		if err != nil {
 			break
 		}
 
-		s.rwMutex.Lock()
 		for _, cs := range csBatch {
 			// only load subscriptions from cache db that are currently not present.
 			// if the subscription data is already present its more up to date.
@@ -239,7 +246,6 @@ func (s *onchainSubscriptions) loadCachedSubscriptions() {
 				})
 			}
 		}
-		s.rwMutex.Unlock()
 
 		if len(csBatch) != int(s.config.CacheBatchSize) {
 			break
