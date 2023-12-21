@@ -328,7 +328,7 @@ jobs:
             run: -run TestOCRJobReplacement
             file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated                         
-          - name: ocr2
+          - name: ocr2-replacement
             nodes: 1
             os: ubuntu-latest
             run: -run TestOCRv2JobReplacement
@@ -369,19 +369,19 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
-          - name: log_poller_finality_tag
+          - name: log-poller-finality-tag
             nodes: 1
             os: ubuntu-latest
             run: -run TestLogPollerFewFiltersFinalityTag
             file: log_poller
             pyroscope_env: ""
-          - name: log_poller_chaos_fixed_depth
+          - name: log-poller-chaos-fixed-depth
             nodes: 1
             os: ubuntu-latest
             run: -run TestLogPollerWithChaosFixedDepth
             file: log_poller
             pyroscope_env: ""          
-          - name: log_poller_replay_finality_tag
+          - name: log-poller-replay-finality-tag
             nodes: 1
             os: ubuntu-latest
             run: -run TestLogPollerReplayFinalityTag

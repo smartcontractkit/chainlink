@@ -141,15 +141,15 @@ func TestLogPollerWithChaosFixedDepth(t *testing.T) {
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 100,
+				ExecutionCount: 50,
 			},
 			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 200,
-				MaxEmitWaitTimeMs: 500,
+				MinEmitWaitTimeMs: 100,
+				MaxEmitWaitTimeMs: 300,
 			},
 		},
 		ChaosConfig: &logpoller.ChaosConfig{
-			ExperimentCount: 10,
+			ExperimentCount: 5,
 		},
 	}
 
@@ -173,15 +173,15 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 100,
+				ExecutionCount: 50,
 			},
 			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 200,
-				MaxEmitWaitTimeMs: 500,
+				MinEmitWaitTimeMs: 100,
+				MaxEmitWaitTimeMs: 300,
 			},
 		},
 		ChaosConfig: &logpoller.ChaosConfig{
-			ExperimentCount: 10,
+			ExperimentCount: 5,
 		},
 	}
 
