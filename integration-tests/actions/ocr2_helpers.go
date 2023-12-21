@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
@@ -383,9 +384,16 @@ func StartNewOCR2Round(
 		}
 		ocrRound := contracts.NewOffchainAggregatorV2RoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), timeout, logger)
 		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
-		err = client.WaitForEvents()
+		//err = client.WaitForEvents()
+		//if err != nil {
+		//	return fmt.Errorf("failed to wait for event subscriptions of OCR instance %d: %w", i+1, err)
+		//}
+		err = ocrRound.Wait() // wait for OCR Round to complete
 		if err != nil {
-			return fmt.Errorf("failed to wait for event subscriptions of OCR instance %d: %w", i+1, err)
+			return fmt.Errorf("failed to wait for OCR Round %d to complete for ocr instance %d", roundNumber, i)
+		}
+		if !ocrRound.Complete() {
+			return fmt.Errorf("failed to complete OCR Round %d for ocr instance %d", roundNumber, i)
 		}
 	}
 	return nil
