@@ -795,12 +795,9 @@ func runLoopedGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogE
 		for {
 			select {
 			case <-ctx.Done():
-				l.Info().Msg("context cancelled in error-searching goroutine")
 				return
 			case emitter := <-emitterCh:
-				l.Info().Msg("received log emitter channel")
 				if emitter.err != nil {
-					l.Error().Err(emitter.err).Msg("received error, cancelling")
 					emitErr = emitter.err
 					cancelFn()
 					return
@@ -1122,7 +1119,6 @@ func setupLogPollerTestDocker(
 }
 
 func uploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testing.T, testEnv *test_env.CLClusterTestEnv, cfg *Config) []*contracts.LogEmitter {
-	// Deploy Log Emitter contracts
 	logEmitters := make([]*contracts.LogEmitter, 0)
 	for i := 0; i < cfg.General.Contracts; i++ {
 		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
