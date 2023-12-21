@@ -378,6 +378,9 @@ Load Config:
 		F:                                       1,
 	}
 
+	startTime := time.Now()
+	l.Info().Str("START_TIME", startTime.String()).Msg("Test setup started")
+
 	a.SetupAutomationDeployment(t)
 
 	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(nodeFunding), 0)
@@ -523,7 +526,7 @@ Load Config:
 		T:           t,
 		LoadType:    wasp.RPS,
 		GenName:     "log_trigger_gen",
-		CallTimeout: time.Second * 60,
+		CallTimeout: time.Minute * 3,
 		Schedule: wasp.Plain(
 			1,
 			loadDuration,
@@ -538,14 +541,24 @@ Load Config:
 	})
 	p.Add(g, err)
 
-	l.Info().Msg("Starting load generators")
-	startTime := time.Now()
+	endTime := time.Now()
+	testSetupDuration := endTime.Sub(startTime)
+	l.Info().
+		Str("END_TIME", endTime.String()).
+		Str("Duration", testSetupDuration.String()).
+		Msg("Test setup ended")
+
 	ts, err := sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), "now",
 		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, slack.MsgOptionBlocks())
 	if err != nil {
 		l.Error().Err(err).Msg("Error sending slack notification")
 	}
+
+	startTime = time.Now()
+	l.Info().Str("START_TIME", startTime.String()).Msg("Test execution started")
+
+	l.Info().Msg("Starting load generators")
 	_, err = p.Run(true)
 	require.NoError(t, err, "Error running load generators")
 
@@ -553,12 +566,20 @@ Load Config:
 	l.Info().Str("STOP_WAIT_TIME", StopWaitTime.String()).Msg("Waiting for upkeeps to be performed")
 	time.Sleep(StopWaitTime)
 	l.Info().Msg("Finished waiting 60s for upkeeps to be performed")
-	endTime := time.Now()
-	testDuration := endTime.Sub(startTime)
-	l.Info().Str("Duration", testDuration.String()).Msg("Test Duration")
+	endTime = time.Now()
+	testExDuration := endTime.Sub(startTime)
+	l.Info().
+		Str("END_TIME", endTime.String()).
+		Str("Duration", testExDuration.String()).
+		Msg("Test execution ended")
+
+	l.Info().Str("Duration", testExDuration.String()).Msg("Test Execution Duration")
 	endBlock, err := chainClient.LatestBlockNumber(ctx)
 	require.NoError(t, err, "Error getting latest block number")
 	l.Info().Uint64("Starting Block", startBlock).Uint64("Ending Block", endBlock).Msg("Test Block Range")
+
+	startTime = time.Now()
+	l.Info().Str("START_TIME", startTime.String()).Msg("Test reporting started")
 
 	upkeepDelaysFast := make([][]int64, 0)
 	upkeepDelaysRecovery := make([][]int64, 0)
@@ -690,6 +711,7 @@ Average: %f
 Median: %d
 90th Percentile: %d
 99th Percentile: %d
+Max: %d
 
 Total Perform Count: %d
 Perform Count Fast Execution: %d
@@ -699,9 +721,16 @@ Total Events Missed: %d
 Percent Missed: %f
 Test Duration: %s`
 
+	endTime = time.Now()
+	testReDuration := endTime.Sub(startTime)
+	l.Info().
+		Str("END_TIME", endTime.String()).
+		Str("Duration", testReDuration.String()).
+		Msg("Test reporting ended")
+
 	testReport := fmt.Sprintf(testReportFormat, avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF,
-		avgR, medianR, ninetyPctR, ninetyNinePctR, len(allUpkeepDelays), len(allUpkeepDelaysFast),
-		len(allUpkeepDelaysRecovery), numberOfEventsEmitted, eventsMissed, percentMissed, testDuration.String())
+		avgR, medianR, ninetyPctR, ninetyNinePctR, maximumR, len(allUpkeepDelays), len(allUpkeepDelaysFast),
+		len(allUpkeepDelaysRecovery), numberOfEventsEmitted, eventsMissed, percentMissed, testExDuration.String())
 
 	_, err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
 		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(time.Now().UnixMilli(), 10),
