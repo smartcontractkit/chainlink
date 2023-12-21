@@ -1260,22 +1260,9 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveC
 	}
 
 	// Update in memory store
-	// TODO: WHERE LEFT OFF
-	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
-		if tx.ID != attempt.TxID {
-			return
-		}
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
-			return
-		}
-		if tx.BroadcastAt.Before(broadcastAt) {
-			tx.BroadcastAt = &broadcastAt
-		}
-
-		tx.TxAttempts[0].State = txmgrtypes.TxAttemptBroadcast
-		tx.State = TxConfirmedMissingReceipt
+	if err := as.MoveInProgressToConfirmedMissingReceipt(*attempt, broadcastAt); err != nil {
+		return err
 	}
-	as.ApplyToTxs(nil, fn, attempt.TxID)
 
 	return nil
 }
@@ -1293,14 +1280,23 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 		return err
 	}
 
+	// Update in memory store
 	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
 		if tx.ID != attempt.TxID {
 			return
 		}
-		if tx.TxAttempts == nil {
-			tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+		if tx.TxAttempts != nil && len(tx.TxAttempts) > 0 {
+			for i := 0; i < len(tx.TxAttempts); i++ {
+				if tx.TxAttempts[i].ID == attempt.ID {
+					tx.TxAttempts[i].State = txmgrtypes.TxAttemptInProgress
+					tx.TxAttempts[i].BroadcastBeforeBlockNum = attempt.BroadcastBeforeBlockNum
+					return
+				}
+			}
 		}
-		tx.TxAttempts = append(tx.TxAttempts, *attempt)
+		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{*attempt}
+		return
+
 	}
 	as.ApplyToTxs(nil, fn, attempt.TxID)
 

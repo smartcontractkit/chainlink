@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -625,12 +626,44 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveIn
 	return nil
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnconfirmedToConfirmedMissingReceipt() error {
-	// TODO
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnconfirmedToConfirmedMissingReceipt(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx, ok := as.unconfirmed[attempt.TxID]
+	if !ok || tx == nil {
+		return fmt.Errorf("move_unconfirmed_to_confirmed_missing_receipt: no unconfirmed transaction with ID %d: %w", attempt.TxID, ErrTxnNotFound)
+	}
+	if tx.BroadcastAt.Before(broadcastAt) {
+		tx.BroadcastAt = &broadcastAt
+	}
+	tx.State = TxConfirmedMissingReceipt
+	tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{attempt}
+	tx.TxAttempts[0].State = txmgrtypes.TxAttemptBroadcast
+
+	as.confirmedMissingReceipt[tx.ID] = tx
+	delete(as.unconfirmed, tx.ID)
+
 	return nil
 }
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveInProgressToConfirmedMissingReceipt() error {
-	// TODO
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveInProgressToConfirmedMissingReceipt(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx := as.inprogress
+	if tx == nil {
+		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: no transaction in progress")
+	}
+	if tx.BroadcastAt.Before(broadcastAt) {
+		tx.BroadcastAt = &broadcastAt
+	}
+	tx.State = TxConfirmedMissingReceipt
+	tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{attempt}
+	tx.TxAttempts[0].State = txmgrtypes.TxAttemptBroadcast
+
+	as.confirmedMissingReceipt[tx.ID] = tx
+	as.inprogress = nil
+
 	return nil
 }
 
