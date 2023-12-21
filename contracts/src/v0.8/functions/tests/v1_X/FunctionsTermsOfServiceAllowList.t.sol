@@ -247,6 +247,30 @@ contract FunctionsTermsOfServiceAllowList_GetAllAllowedSenders is FunctionsOwner
   }
 }
 
+/// @notice #getAllowedSendersInRange
+contract FunctionsTermsOfServiceAllowList_GetAllowedSendersInRange is FunctionsOwnerAcceptTermsOfServiceSetup {
+  function test_GetAllowedSendersInRange_Success() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    address[] memory expectedSenders = new address[](1);
+    expectedSenders[0] = OWNER_ADDRESS;
+
+    assertEq(s_termsOfServiceAllowList.getAllowedSendersInRange(1, 1), expectedSenders);
+  }
+
+  function test_GetAllowedSendersInRange_RevertIfEndIsAfterLastAllowedSender() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint64 lastAllowedSenderId = s_termsOfServiceAllowList.getAllowedSendersCount();
+    vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
+    s_termsOfServiceAllowList.getAllowedSendersInRange(1, lastAllowedSenderId + 1);
+  }
+}
+
 /// @notice #hasAccess
 contract FunctionsTermsOfServiceAllowList_HasAccess is FunctionsRoutesSetup {
   function test_HasAccess_FalseWhenEnabled() public {

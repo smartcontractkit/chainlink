@@ -22,6 +22,19 @@ interface ITermsOfServiceAllowList {
   /// @return addresses - all allowed addresses
   function getAllAllowedSenders() external view returns (address[] memory);
 
+  /// @notice Get details about the total number of allowed senders
+  /// @return count - total number of allowed senders in the system
+  function getAllowedSendersCount() external view returns (uint64);
+
+  /// @notice Retrieve a list of allowed senders using an inclusive range
+  /// @param allowedSenderIdStart - the ID of the allowed sender to start the range at
+  /// @param allowedSenderIdEnd - the ID of the allowed sender to end the range at
+  /// @return allowedSenders - all allowed addresses
+  function getAllowedSendersInRange(
+    uint64 allowedSenderIdStart,
+    uint64 allowedSenderIdEnd
+  ) external view returns (address[] memory allowedSenders);
+
   /// @notice Allows access to the sender based on acceptance of the Terms of Service
   /// @param acceptor - The wallet address that has accepted the Terms of Service on the UI
   /// @param recipient - The recipient address that the acceptor is taking responsibility for
