@@ -377,6 +377,7 @@ func StartNewOCR2Round(
 	timeout time.Duration,
 	logger zerolog.Logger,
 ) error {
+	time.Sleep(5 * time.Second)
 	for i := 0; i < len(ocrInstances); i++ {
 		err := ocrInstances[i].RequestNewRound()
 		if err != nil {
