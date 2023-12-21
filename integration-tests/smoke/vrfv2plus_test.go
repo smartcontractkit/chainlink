@@ -522,6 +522,7 @@ func TestVRFv2Plus(t *testing.T) {
 			"Active subscription ids should not contain sub id after sub cancellation",
 		)
 	})
+
 	t.Run("Owner Withdraw", func(t *testing.T) {
 		testConfig := vrfv2PlusConfig
 		subIDsForWithdraw, err := vrfv2plus.CreateFundSubsAndAddConsumers(

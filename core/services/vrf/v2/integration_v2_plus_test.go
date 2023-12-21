@@ -850,6 +850,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
+	registerProvingKey(t, uni.coordinatorV2UniverseCommon, vrfkey)
 	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
 	_, err = uni.rootContract.RegisterProvingKey(

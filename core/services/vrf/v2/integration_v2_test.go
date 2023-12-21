@@ -1808,18 +1808,7 @@ func TestRequestCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	if uni.rootContract.Version() == vrfcommon.V2Plus {
-		_, err = uni.rootContract.RegisterProvingKey(
-			uni.neil, nil, pair(secp256k1.Coordinates(p)))
-	} else {
-		_, err = uni.rootContract.RegisterProvingKey(
-			uni.neil, &uni.nallory.From, pair(secp256k1.Coordinates(p)))
-	}
-	require.NoError(t, err)
-	uni.backend.Commit()
-
+	registerProvingKey(t, uni.coordinatorV2UniverseCommon, vrfkey)
 	t.Run("non-proxied consumer", func(tt *testing.T) {
 		carol := uni.vrfConsumers[0]
 		carolContract := uni.consumerContracts[0]
@@ -1922,23 +1911,10 @@ func TestFulfillmentCost(t *testing.T) {
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	var vrfkey vrfkey.KeyV2
-	{
-		var err error
-		vrfkey, err = app.GetKeyStore().VRF().Create()
-		require.NoError(t, err)
-		p, err := vrfkey.PublicKey.Point()
-		require.NoError(t, err)
-		if uni.rootContract.Version() == vrfcommon.V2Plus {
-			_, err = uni.rootContract.RegisterProvingKey(
-				uni.neil, nil, pair(secp256k1.Coordinates(p)))
-		} else {
-			_, err = uni.rootContract.RegisterProvingKey(
-				uni.neil, &uni.nallory.From, pair(secp256k1.Coordinates(p)))
-		}
-		require.NoError(t, err)
-		uni.backend.Commit()
-	}
+	vrfkey, err := app.GetKeyStore().VRF().Create()
+	require.NoError(t, err)
+	registerProvingKey(t, uni.coordinatorV2UniverseCommon, vrfkey)
+
 	var (
 		nonProxiedConsumerGasEstimate uint64
 		proxiedConsumerGasEstimate    uint64
