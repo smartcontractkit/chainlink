@@ -119,6 +119,8 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // Discount percentage for link payment. Cannot exceed nativePremiumPercentage value. If nativePremiumPercentage is 15 and 
     // linkDiscountPercentage is 5, then the final premium is 10% premium of the total gas costs for link payment.
     uint8 linkDiscountPercentage;
+    // selfFulfillmentMaxGasPriceMultiplier is the maximum gas price multiplied to the gas lane max gas for self-fulfillment
+    uint8 selfFulfillmentMaxGasPriceMultiplier;
   }
   Config public s_config;
 

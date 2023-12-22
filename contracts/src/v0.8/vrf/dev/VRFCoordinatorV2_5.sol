@@ -38,6 +38,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   error PaymentTooLarge();
   error InvalidExtraArgsTag();
   error GasPriceExceedsGasLane(uint256 gasPrice, uint64 gasLaneMaxGasPrice);
+  error GasPriceExceedsSelfFulfillMaxGas(uint256 gasPrice, uint256 selfFulfillMaxGas);
   struct RequestCommitment {
     uint64 blockNum;
     uint256 subId;
@@ -90,7 +91,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
     uint8 nativePremiumPercentage,
-    uint8 linkDiscountPercentage
+    uint8 linkDiscountPercentage,
+    uint8 selfFulfillmentMaxGasPriceMultiplier
   );
 
   constructor(address blockhashStore) SubscriptionAPI() {
@@ -162,7 +164,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
     uint8 nativePremiumPercentage,
-    uint8 linkDiscountPercentage
+    uint8 linkDiscountPercentage,
+    uint8 selfFulfillmentMaxGasPriceMultiplier
   ) external onlyOwner {
     if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
       revert InvalidRequestConfirmations(
@@ -184,7 +187,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
       reentrancyLock: false,
       nativePremiumPercentage: nativePremiumPercentage,
-      linkDiscountPercentage: linkDiscountPercentage
+      linkDiscountPercentage: linkDiscountPercentage,
+      selfFulfillmentMaxGasPriceMultiplier: selfFulfillmentMaxGasPriceMultiplier
     });
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
     emit ConfigSet(
@@ -194,7 +198,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       gasAfterPaymentCalculation,
       fallbackWeiPerUnitLink,
       nativePremiumPercentage,
-      linkDiscountPercentage
+      linkDiscountPercentage,
+      selfFulfillmentMaxGasPriceMultiplier
     );
   }
 
@@ -415,69 +420,19 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     // Ensure gas price does not exceed the gas lane max gas price to prevent
     // scenarios where malicious attackers can drain the subscription balance
-    if (tx.gasprice > fr.key.maxGas * s_config.selfFulfillmentMaxGasPriceMultiplier) {
-      revert GasPriceExceedsGasLane(tx.gasprice, fr.key.maxGas);
+    uint256 selfFulfillMaxGas = fr.key.maxGas * s_config.selfFulfillmentMaxGasPriceMultiplier;
+    if (tx.gasprice > selfFulfillMaxGas) {
+      revert GasPriceExceedsSelfFulfillMaxGas(tx.gasprice, selfFulfillMaxGas);
     }
     // only charge premium for self fulfillments
     // the tx sender pays for the fulfillment gas cost
-    uint96 payment;
-    if (nativePayment) {
-      return
-        _calculatePaymentAmountNative(
-          startGas,
-          gasAfterPaymentCalculation,
-          weiPerUnitGas
-        );
-    }
-    return
-      _calculatePaymentAmountLink(
-        startGas,
-        gasAfterPaymentCalculation,
-        weiPerUnitGas
-      );
-    }
-  //    function _calculatePaymentAmount(
-  //  uint256 startGas,
-  //  uint256 gasAfterPaymentCalculation,
-  //  uint256 weiPerUnitGas,
-  //  bool nativePayment
-  //) internal view returns (uint96) {
-  //function _calculatePaymentAmountNative(
-  //  uint256 startGas,
-  //  uint256 gasAfterPaymentCalculation,
-  //  uint256 weiPerUnitGas
-  //) internal view returns (uint96) {
-  //  // Will return non-zero on chains that have this enabled
-  //  uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
-  //  // calculate the payment without the premium
-  //  uint256 baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft());
-  //  // calculate the flat fee in wei
-  //  return uint96((l1CostWei + baseFeeWei) * (100 + s_config.nativePremiumPercentage) / 100);
-  //}
-
-  //// Get the amount of gas used for fulfillment
-  //function _calculatePaymentAmountLink(
-  //  uint256 startGas,
-  //  uint256 gasAfterPaymentCalculation,
-  //  uint256 weiPerUnitGas
-  //) internal view returns (uint96) {
-  //  int256 weiPerUnitLink;
-  //  weiPerUnitLink = _getFeedData();
-  //  if (weiPerUnitLink <= 0) {
-  //    revert InvalidLinkWeiPrice(weiPerUnitLink);
-  //  }
-  //  // Will return non-zero on chains that have this enabled
-  //  uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
-  //  // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
-  //  uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
-  //    uint256(weiPerUnitLink);
-  //  Config memory config =  s_config;
-  //  uint256 payment = (paymentNoFee * (100 + config.nativePremiumPercentage - config.linkDiscountPercentage)) / 100;
-  //  if (payment > 1e27) {
-  //    revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
-  //  }
-  //  return uint96(payment);
-  //}
+    uint96 payment = _calculatePaymentAmount(
+      startGas,
+      s_config.gasAfterPaymentCalculation,
+      tx.gasprice,
+      fr.nativePayment,
+      true // self fulfillment
+    );
     _chargePayment(payment, fr.nativePayment, fr.key.oracle, rc.subId);
 
     // TODO: add a (bool isSelfFulfillment) to the event?
@@ -507,7 +462,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       startGas,
       s_config.gasAfterPaymentCalculation,
       tx.gasprice,
-      fr.nativePayment
+      fr.nativePayment,
+      false // not a self fulfillment
     );
     _chargePayment(payment, fr.nativePayment, fr.key.oracle, rc.subId);
 
@@ -573,42 +529,51 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
     uint256 weiPerUnitGas,
-    bool nativePayment
+    bool nativePayment,
+    bool isSelfFulfillment
   ) internal view returns (uint96) {
     if (nativePayment) {
       return
         _calculatePaymentAmountNative(
           startGas,
           gasAfterPaymentCalculation,
-          weiPerUnitGas
+          weiPerUnitGas,
+          isSelfFulfillment
         );
     }
     return
       _calculatePaymentAmountLink(
         startGas,
         gasAfterPaymentCalculation,
-        weiPerUnitGas
+        weiPerUnitGas,
+        isSelfFulfillment
       );
   }
 
   function _calculatePaymentAmountNative(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
-    uint256 weiPerUnitGas
+    uint256 weiPerUnitGas,
+    bool isSelfFulfillment
   ) internal view returns (uint96) {
     // Will return non-zero on chains that have this enabled
     uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
     // calculate the payment without the premium
     uint256 baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft());
     // calculate the flat fee in wei
-    return uint96((l1CostWei + baseFeeWei) * (100 + s_config.nativePremiumPercentage) / 100);
+    if (isSelfFulfillment) {
+      return uint96((l1CostWei + baseFeeWei) * (s_config.nativePremiumPercentage) / 100);
+    } else {
+      return uint96((l1CostWei + baseFeeWei) * (100 + s_config.nativePremiumPercentage) / 100);
+    }
   }
 
   // Get the amount of gas used for fulfillment
   function _calculatePaymentAmountLink(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
-    uint256 weiPerUnitGas
+    uint256 weiPerUnitGas,
+    bool isSelfFulfillment
   ) internal view returns (uint96) {
     int256 weiPerUnitLink;
     weiPerUnitLink = _getFeedData();
@@ -621,7 +586,12 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
       uint256(weiPerUnitLink);
     Config memory config =  s_config;
-    uint256 payment = (paymentNoFee * (100 + config.nativePremiumPercentage - config.linkDiscountPercentage)) / 100;
+    uint256 payment;
+    if (isSelfFulfillment) {
+      payment = (paymentNoFee * (config.nativePremiumPercentage - config.linkDiscountPercentage)) / 100;
+    } else {
+      payment = (paymentNoFee * (100 + config.nativePremiumPercentage - config.linkDiscountPercentage)) / 100;
+    }
     if (payment > 1e27) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
