@@ -22,6 +22,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
@@ -419,7 +421,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
-	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
+	require.NoError(t, commonutils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
 
 	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -442,7 +444,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
-	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
+	require.NoError(t, commonutils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
 
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)

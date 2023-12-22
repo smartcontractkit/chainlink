@@ -33,6 +33,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -808,7 +809,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 			defer wg.Done()
 			for dbname := range ch {
 				lggr.Infof("Dropping old, dangling test database: %q", dbname)
-				gerr := utils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
+				gerr := cutils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
 				errCh <- gerr
 			}
 		}()

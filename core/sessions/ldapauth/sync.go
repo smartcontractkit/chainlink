@@ -9,11 +9,11 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type LDAPServerStateSyncer struct {
@@ -30,7 +30,7 @@ func NewLDAPServerStateSync(
 	pgCfg pg.QConfig,
 	config config.LDAP,
 	lggr logger.Logger,
-) utils.SleeperTask {
+) *utils.SleeperTask {
 	namedLogger := lggr.Named("LDAPServerStateSync")
 	serverSync := LDAPServerStateSyncer{
 		q:            pg.NewQ(db, namedLogger, pgCfg),
