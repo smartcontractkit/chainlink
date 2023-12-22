@@ -234,8 +234,6 @@ func (s *onchainSubscriptions) loadCachedSubscriptions() {
 		}
 
 		for _, cs := range csBatch {
-			// only load subscriptions from cache db that are currently not present.
-			// if the subscription data is already present its more up to date.
 			if _, err := s.subscriptions.GetMaxUserBalance(cs.Owner); errors.Is(err, ErrUserHasNoSubscription) {
 				s.subscriptions.UpdateSubscription(cs.SubscriptionID, &functions_router.IFunctionsSubscriptionsSubscription{
 					Balance:        cs.Balance,

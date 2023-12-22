@@ -146,6 +146,50 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		require.Equal(t, expectedNotUpdated, results[0])
 		require.Equal(t, expectedUpdated, results[1])
 	})
+
+	t.Run("create a subscription with same id but different router address", func(t *testing.T) {
+		var (
+			db   = pgtest.NewSqlxDB(t)
+			lggr = logger.TestLogger(t)
+		)
+
+		orm1, err := functions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
+		require.NoError(t, err)
+		orm2, err := functions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
+		require.NoError(t, err)
+
+		subscription := functions.CachedSubscription{
+			SubscriptionID: uint64(1),
+			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
+				Balance:        assets.Ether(10).ToInt(),
+				Owner:          testutils.NewAddress(),
+				BlockedBalance: assets.Ether(20).ToInt(),
+				ProposedOwner:  common.Address{},
+				Consumers:      []common.Address{},
+				Flags:          defaultFlags,
+			},
+		}
+		err = orm1.UpsertSubscription(subscription)
+		require.NoError(t, err)
+
+		// should update the existing subscription
+		subscription.Balance = assets.Ether(12).ToInt()
+		err = orm1.UpsertSubscription(subscription)
+		require.NoError(t, err)
+
+		results, err := orm1.GetSubscriptions(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(results), "incorrect results length")
+
+		// should create a new subscription because it comes from a diferent router contract
+		err = orm2.UpsertSubscription(subscription)
+		require.NoError(t, err)
+
+		results, err = orm1.GetSubscriptions(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(results), "incorrect results length")
+
+	})
 }
 
 func Test_NewORM(t *testing.T) {

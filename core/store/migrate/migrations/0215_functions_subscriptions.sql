@@ -1,14 +1,15 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE functions_subscriptions(
-    subscription_id bigint PRIMARY KEY,
+    router_contract_address bytea,
+    subscription_id bigint,
     owner bytea CHECK (octet_length(owner) = 20) NOT NULL,
     balance text,
     blocked_balance text,
     proposed_owner bytea,
     consumers bytea[],
     flags bytea,
-    router_contract_address bytea
+    PRIMARY KEY(router_contract_address, subscription_id)
 );
 -- +goose StatementEnd
 

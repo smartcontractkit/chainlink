@@ -28,8 +28,7 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 var (
-	ErrDuplicateSubscriptionID = errors.New("Functions ORM: duplicate subscription ID")
-	ErrInvalidParameters       = errors.New("invalid parameters provided to create a subscription cache ORM")
+	ErrInvalidParameters = errors.New("invalid parameters provided to create a subscription cache ORM")
 )
 
 const (
@@ -108,7 +107,7 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error {
 	stmt := fmt.Sprintf(`
 		INSERT INTO %s (subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (subscription_id) DO UPDATE
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (subscription_id, router_contract_address) DO UPDATE
 		SET owner=$2, balance=$3, blocked_balance=$4, proposed_owner=$5, consumers=$6, flags=$7, router_contract_address=$8;`, tableName)
 
 	if subscription.Balance == nil {
