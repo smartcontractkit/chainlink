@@ -37,6 +37,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
   error InvalidExtraArgsTag();
+  error GasPriceExceedsGasLane(uint256 gasPrice, uint64 gasLaneMaxGasPrice);
   struct RequestCommitment {
     uint64 blockNum;
     uint256 subId;
@@ -45,11 +46,21 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     address sender;
     bytes extraArgs;
   }
-  mapping(bytes32 => address) /* keyHash */ /* oracle */ public s_provingKeys;
+  struct ProvingKey {
+    address oracle; // oracle can withdraw funds for fulfilling requests
+    uint64 maxGas; // gas lane max gas price for fulfilling requests
+  }
+  struct FulfillmentResult {
+    Output output;
+    ProvingKey key;
+    bool success;
+    bool nativePayment;
+  }
+  mapping(bytes32 => ProvingKey) /* keyHash */ /* provingKey */ public s_provingKeys;
   bytes32[] public s_provingKeyHashes;
   mapping(uint256 => bytes32) /* requestID */ /* commitment */ public s_requestCommitments;
-  event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle);
-  event ProvingKeyDeregistered(bytes32 keyHash, address indexed oracle);
+  event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle, uint64 maxGas);
+  event ProvingKeyDeregistered(bytes32 keyHash, address indexed oracle, uint64 maxGas);
   event RandomWordsRequested(
     bytes32 indexed keyHash,
     uint256 requestId,
@@ -91,14 +102,17 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @param oracle address of the oracle
    * @param publicProvingKey key that oracle can use to submit vrf fulfillments
    */
-  function registerProvingKey(address oracle, uint256[2] calldata publicProvingKey) external onlyOwner {
+  function registerProvingKey(address oracle, uint256[2] calldata publicProvingKey, uint64 maxGas) external onlyOwner {
     bytes32 kh = hashOfKey(publicProvingKey);
-    if (s_provingKeys[kh] != address(0)) {
+    if (s_provingKeys[kh].oracle != address(0)) {
       revert ProvingKeyAlreadyRegistered(kh);
     }
-    s_provingKeys[kh] = oracle;
+    s_provingKeys[kh] = ProvingKey({
+      oracle: oracle,
+      maxGas: maxGas
+    });
     s_provingKeyHashes.push(kh);
-    emit ProvingKeyRegistered(kh, oracle);
+    emit ProvingKeyRegistered(kh, oracle, maxGas);
   }
 
   /**
@@ -107,8 +121,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    */
   function deregisterProvingKey(uint256[2] calldata publicProvingKey) external onlyOwner {
     bytes32 kh = hashOfKey(publicProvingKey);
-    address oracle = s_provingKeys[kh];
-    if (oracle == address(0)) {
+    ProvingKey memory key = s_provingKeys[kh];
+    if (key.oracle == address(0)) {
       revert NoSuchProvingKey(kh);
     }
     delete s_provingKeys[kh];
@@ -120,7 +134,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
         s_provingKeyHashes.pop();
       }
     }
-    emit ProvingKeyDeregistered(kh, oracle);
+    emit ProvingKeyDeregistered(kh, key.oracle, key.maxGas);
   }
 
   /**
@@ -355,7 +369,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
-    address oracle = s_provingKeys[keyHash];
+    address oracle = s_provingKeys[keyHash].oracle;
     if (oracle == address(0)) {
       revert NoSuchProvingKey(keyHash);
     }
@@ -387,6 +401,92 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   /*
    * @notice Fulfill a randomness request
+   * @notice Only called when manual fulfillment is needed due to high network gas price
+   * @notice (i.e network gas price is higher than the gas lane max)
+   * @notice only charges VRF premimum to the subscription because the tx sender pays for the
+   * @notice fulfillment gas cost
+   * @param proof contains the proof and randomness
+   * @param rc request commitment pre-image, committed to at request time
+   * @return payment amount billed to the subscription
+   */
+  function selfFulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
+    uint256 startGas = gasleft();
+    FulfillmentResult memory fr = _fulfillRandomWords(proof, rc);
+
+    // Ensure gas price does not exceed the gas lane max gas price to prevent
+    // scenarios where malicious attackers can drain the subscription balance
+    if (tx.gasprice > fr.key.maxGas * s_config.selfFulfillmentMaxGasPriceMultiplier) {
+      revert GasPriceExceedsGasLane(tx.gasprice, fr.key.maxGas);
+    }
+    // only charge premium for self fulfillments
+    // the tx sender pays for the fulfillment gas cost
+    uint96 payment;
+    if (nativePayment) {
+      return
+        _calculatePaymentAmountNative(
+          startGas,
+          gasAfterPaymentCalculation,
+          weiPerUnitGas
+        );
+    }
+    return
+      _calculatePaymentAmountLink(
+        startGas,
+        gasAfterPaymentCalculation,
+        weiPerUnitGas
+      );
+    }
+  //    function _calculatePaymentAmount(
+  //  uint256 startGas,
+  //  uint256 gasAfterPaymentCalculation,
+  //  uint256 weiPerUnitGas,
+  //  bool nativePayment
+  //) internal view returns (uint96) {
+  //function _calculatePaymentAmountNative(
+  //  uint256 startGas,
+  //  uint256 gasAfterPaymentCalculation,
+  //  uint256 weiPerUnitGas
+  //) internal view returns (uint96) {
+  //  // Will return non-zero on chains that have this enabled
+  //  uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
+  //  // calculate the payment without the premium
+  //  uint256 baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft());
+  //  // calculate the flat fee in wei
+  //  return uint96((l1CostWei + baseFeeWei) * (100 + s_config.nativePremiumPercentage) / 100);
+  //}
+
+  //// Get the amount of gas used for fulfillment
+  //function _calculatePaymentAmountLink(
+  //  uint256 startGas,
+  //  uint256 gasAfterPaymentCalculation,
+  //  uint256 weiPerUnitGas
+  //) internal view returns (uint96) {
+  //  int256 weiPerUnitLink;
+  //  weiPerUnitLink = _getFeedData();
+  //  if (weiPerUnitLink <= 0) {
+  //    revert InvalidLinkWeiPrice(weiPerUnitLink);
+  //  }
+  //  // Will return non-zero on chains that have this enabled
+  //  uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
+  //  // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
+  //  uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
+  //    uint256(weiPerUnitLink);
+  //  Config memory config =  s_config;
+  //  uint256 payment = (paymentNoFee * (100 + config.nativePremiumPercentage - config.linkDiscountPercentage)) / 100;
+  //  if (payment > 1e27) {
+  //    revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
+  //  }
+  //  return uint96(payment);
+  //}
+    _chargePayment(payment, fr.nativePayment, fr.key.oracle, rc.subId);
+
+    // TODO: add a (bool isSelfFulfillment) to the event?
+    emit RandomWordsFulfilled(fr.output.requestId, fr.output.randomness, rc.subId, payment, fr.success);
+    return payment;
+  }
+
+  /*
+   * @notice Fulfill a randomness request. Called by oracles to deliver randomness
    * @param proof contains the proof and randomness
    * @param rc request commitment pre-image, committed to at request time
    * @return payment amount billed to the subscription
@@ -394,6 +494,31 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    */
   function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
+    FulfillmentResult memory fr = _fulfillRandomWords(proof, rc);
+    // Ensure gas price does not exceed the gas lane max gas price to prevent
+    // scenarios where malicious attackers can drain the subscription balance
+    if (tx.gasprice > fr.key.maxGas) {
+      revert GasPriceExceedsGasLane(tx.gasprice, fr.key.maxGas);
+    }
+    // We want to charge users exactly for how much gas they use in their callback.
+    // The gasAfterPaymentCalculation is meant to cover these additional operations where we
+    // decrement the subscription balance and increment the oracles withdrawable balance.
+    uint96 payment = _calculatePaymentAmount(
+      startGas,
+      s_config.gasAfterPaymentCalculation,
+      tx.gasprice,
+      fr.nativePayment
+    );
+    _chargePayment(payment, fr.nativePayment, fr.key.oracle, rc.subId);
+
+    // Include payment in the event for tracking costs.
+    // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
+    emit RandomWordsFulfilled(fr.output.requestId, fr.output.randomness, rc.subId, payment, fr.success);
+
+    return payment;
+  }
+
+  function _fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) internal returns (FulfillmentResult memory) {
     Output memory output = _getRandomnessFromProof(proof, rc);
 
     uint256[] memory randomWords = new uint256[](rc.numWords);
@@ -418,37 +543,29 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint64 reqCount = s_subscriptions[rc.subId].reqCount;
     s_subscriptions[rc.subId].reqCount = reqCount + 1;
 
-    // stack too deep error
-    {
-      bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
-      // We want to charge users exactly for how much gas they use in their callback.
-      // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-      // decrement the subscription balance and increment the oracles withdrawable balance.
-      uint96 payment = _calculatePaymentAmount(
-        startGas,
-        s_config.gasAfterPaymentCalculation,
-        tx.gasprice,
-        nativePayment
-      );
-      if (nativePayment) {
-        if (s_subscriptions[rc.subId].nativeBalance < payment) {
-          revert InsufficientBalance();
-        }
-        s_subscriptions[rc.subId].nativeBalance -= payment;
-        s_withdrawableNative[s_provingKeys[output.keyHash]] += payment;
-      } else {
-        if (s_subscriptions[rc.subId].balance < payment) {
-          revert InsufficientBalance();
-        }
-        s_subscriptions[rc.subId].balance -= payment;
-        s_withdrawableTokens[s_provingKeys[output.keyHash]] += payment;
+    bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
+
+    return FulfillmentResult({
+      output: output,
+      key: s_provingKeys[output.keyHash],
+      success: success,
+      nativePayment: nativePayment
+    });
+  }
+
+  function _chargePayment(uint96 payment, bool nativePayment, address oracle, uint256 subId ) internal {
+    if (nativePayment) {
+      if (s_subscriptions[subId].nativeBalance < payment) {
+        revert InsufficientBalance();
       }
-
-      // Include payment in the event for tracking costs.
-      // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
-      emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, success);
-
-      return payment;
+      s_subscriptions[subId].nativeBalance -= payment;
+      s_withdrawableNative[oracle] += payment;
+    } else {
+      if (s_subscriptions[subId].balance < payment) {
+        revert InsufficientBalance();
+      }
+      s_subscriptions[subId].balance -= payment;
+      s_withdrawableTokens[oracle] += payment;
     }
   }
 
@@ -657,7 +774,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     require(!pendingRequestExists(subId), "Pending request exists");
 
     V1MigrationData memory migrationData = V1MigrationData({
-      fromVersion: migrationVersion(),
+      fromVersion: 1,
       subId: subId,
       subOwner: owner,
       consumers: consumers,
@@ -683,9 +800,5 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     s_config.reentrancyLock = false;
 
     emit MigrationCompleted(newCoordinator, subId);
-  }
-  
-  function migrationVersion() public pure returns (uint8 version) {
-    return 1;
   }
 }

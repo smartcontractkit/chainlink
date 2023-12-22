@@ -124,10 +124,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
 
   error Reentrant();
   modifier nonReentrant() {
+    _nonReentrant();
+    _;
+  }
+
+  function _nonReentrant() internal view {
     if (s_config.reentrancyLock) {
       revert Reentrant();
     }
-    _;
   }
 
   constructor() ConfirmedOwner(msg.sender) {}
@@ -434,6 +438,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   modifier onlySubOwner(uint256 subId) {
+    _onlySubOwner(subId);
+    _;
+  }
+
+  function _onlySubOwner(uint256 subId) internal view {
     address owner = s_subscriptionConfigs[subId].owner;
     if (owner == address(0)) {
       revert InvalidSubscription();
@@ -441,6 +450,5 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (msg.sender != owner) {
       revert MustBeSubOwner(owner);
     }
-    _;
   }
 }

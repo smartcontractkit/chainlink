@@ -24,6 +24,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol"; // for Math.ceilDiv
 
 contract VRFV2Plus is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
+  uint64 internal constant GAS_LANE_MAX_GAS = 5000 gwei;
 
   // Bytecode for a VRFV2PlusConsumerExample contract.
   // to calculate: console.logBytes(type(VRFV2PlusConsumerExample).creationCode);
@@ -122,12 +123,12 @@ contract VRFV2Plus is BaseTest {
     // Should revert when already registered.
     uint256[2] memory uncompressedKeyParts = this.getProvingKeyParts(vrfUncompressedPublicKey);
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.ProvingKeyAlreadyRegistered.selector, vrfKeyHash));
-    s_testCoordinator.registerProvingKey(LINK_WHALE, uncompressedKeyParts);
+    s_testCoordinator.registerProvingKey(LINK_WHALE, uncompressedKeyParts, GAS_LANE_MAX_GAS);
   }
 
   function registerProvingKey() public {
     uint256[2] memory uncompressedKeyParts = this.getProvingKeyParts(vrfUncompressedPublicKey);
-    s_testCoordinator.registerProvingKey(LINK_WHALE, uncompressedKeyParts);
+    s_testCoordinator.registerProvingKey(LINK_WHALE, uncompressedKeyParts, GAS_LANE_MAX_GAS);
   }
 
   // note: Call this function via this.getProvingKeyParts to be able to pass memory as calldata and
