@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -16,7 +17,7 @@ var _ commontypes.Encoder = &encoder{}
 func (e *encoder) Encode(ctx context.Context, item any, itemType string) ([]byte, error) {
 	info, ok := e.Definitions[itemType]
 	if !ok {
-		return nil, commontypes.ErrInvalidType
+		return nil, fmt.Errorf("%w: cannot find definition for %s", commontypes.ErrInvalidType, itemType)
 	}
 
 	if item == nil {
@@ -42,7 +43,7 @@ func encode(item reflect.Value, info *codecEntry) ([]byte, error) {
 	case reflect.Struct, reflect.Map:
 		return encodeItem(item, info)
 	default:
-		return nil, commontypes.ErrInvalidEncoding
+		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
 	}
 }
 
@@ -58,7 +59,7 @@ func encodeArray(item reflect.Value, info *codecEntry) ([]byte, error) {
 	case reflect.Slice:
 		native = reflect.MakeSlice(info.nativeType, length, length)
 	default:
-		return nil, commontypes.ErrInvalidType
+		return nil, fmt.Errorf("%w: cannot encode %v as array", commontypes.ErrInvalidType, info.checkedType.Kind())
 	}
 
 	checkedElm := info.checkedType.Elem()
@@ -99,11 +100,12 @@ func encodeItem(item reflect.Value, info *codecEntry) ([]byte, error) {
 }
 
 func pack(info *codecEntry, values ...any) ([]byte, error) {
-	if bytes, err := info.Args.Pack(values...); err == nil {
-		withPrefix := make([]byte, 0, len(info.encodingPrefix)+len(bytes))
-		withPrefix = append(withPrefix, info.encodingPrefix...)
-		return append(withPrefix, bytes...), nil
+	bytes, err := info.Args.Pack(values...)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
 
-	return nil, commontypes.ErrInvalidType
+	withPrefix := make([]byte, 0, len(info.encodingPrefix)+len(bytes))
+	withPrefix = append(withPrefix, info.encodingPrefix...)
+	return append(withPrefix, bytes...), nil
 }
