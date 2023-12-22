@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+
+	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 )
 
 func pow2(arg int64) *big.Int {
@@ -590,7 +592,7 @@ func EVMTranscodeJSONWithFormat(value gjson.Result, format string) ([]byte, erro
 	case FormatBytes:
 		return EVMTranscodeBytes(value)
 	case FormatPreformatted:
-		return hex.DecodeString(RemoveHexPrefix(value.Str))
+		return hex.DecodeString(commonhex.TrimPrefix(value.Str))
 	case FormatUint256:
 		data, err := EVMTranscodeUint256(value)
 		if err != nil {

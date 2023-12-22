@@ -15,6 +15,8 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -60,7 +62,7 @@ type runner struct {
 	legacyEVMChains        legacyevm.LegacyChainContainer
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
-	runReaperWorker        utils.SleeperTask
+	runReaperWorker        *commonutils.SleeperTask
 	lggr                   logger.Logger
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client
@@ -118,8 +120,8 @@ func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, l
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
 	}
-	r.runReaperWorker = utils.NewSleeperTask(
-		utils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
+	r.runReaperWorker = commonutils.NewSleeperTask(
+		commonutils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
 	)
 	return r
 }
@@ -211,18 +213,39 @@ func (r *runner) OnRunFinished(fn func(*Run)) {
 	r.runFinished = fn
 }
 
-// Be careful with the ctx passed in here: it applies to requests in individual
-// tasks but should _not_ apply to the scheduler or run itself
+// github.com/smartcontractkit/libocr/offchainreporting2plus/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
+var overtime = 100 * time.Millisecond
+
+func init() {
+	// undocumented escape hatch
+	if v := env.PipelineOvertime.Get(); v != "" {
+		d, err := time.ParseDuration(v)
+		if err == nil {
+			overtime = d
+		}
+	}
+}
+
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,
 	vars Vars,
 	l logger.Logger,
 ) (*Run, TaskRunResults, error) {
+	// Pipeline runs may return results after the context is cancelled, so we modify the
+	// deadline to give them time to return before the parent context deadline.
+	var cancel func()
+	ctx, cancel = commonutils.ContextWithDeadlineFn(ctx, func(orig time.Time) time.Time {
+		if tenPct := time.Until(orig) / 10; overtime > tenPct {
+			return orig.Add(-tenPct)
+		}
+		return orig.Add(-overtime)
+	})
+	defer cancel()
+
 	run := NewRun(spec, vars)
 
 	pipeline, err := r.initializePipeline(run)
-
 	if err != nil {
 		return run, nil, err
 	}

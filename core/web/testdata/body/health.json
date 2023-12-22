@@ -110,6 +110,15 @@
     },
     {
       "type": "checks",
+      "id": "Mailbox.Monitor",
+      "attributes": {
+        "name": "Mailbox.Monitor",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "Mercury.WSRPCPool",
       "attributes": {
         "name": "Mercury.WSRPCPool",
@@ -119,9 +128,9 @@
     },
     {
       "type": "checks",
-      "id": "Monitor",
+      "id": "Mercury.WSRPCPool.CacheSet",
       "attributes": {
-        "name": "Monitor",
+        "name": "Mercury.WSRPCPool.CacheSet",
         "status": "passing",
         "output": ""
       }

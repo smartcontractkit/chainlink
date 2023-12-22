@@ -18,6 +18,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -100,14 +101,12 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 
 		if len(k.cfg.KeeperKeys) > 0 {
 			// import key if exists
-			var err error
 			nodeAddrHex, err = k.addKeyToKeeper(cl, k.cfg.KeeperKeys[i])
 			if err != nil {
 				log.Fatal("could not add key to keeper", err)
 			}
 		} else {
 			// get node's default wallet address
-			var err error
 			nodeAddrHex, err = getNodeAddress(cl)
 			if err != nil {
 				log.Println("Failed to get node addr: ", err)
@@ -220,35 +219,35 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 
 // cancelAndWithdrawActiveUpkeeps cancels all active upkeeps and withdraws funds for registry 1.2
 func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkeepIds []*big.Int, canceller canceller) error {
-	var err error
 	for i := 0; i < len(activeUpkeepIds); i++ {
-		var tx *ethtypes.Transaction
 		upkeepId := activeUpkeepIds[i]
-		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepId); err != nil {
+		tx, err := canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepId)
+		if err != nil {
 			return fmt.Errorf("failed to cancel upkeep %s: %s", upkeepId.String(), err)
 		}
 
-		if err := k.waitTx(ctx, tx); err != nil {
+		if err = k.waitTx(ctx, tx); err != nil {
 			log.Fatalf("failed to cancel upkeep for upkeepId: %s, error is: %s", upkeepId.String(), err.Error())
 		}
 
-		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), upkeepId, k.fromAddr); err != nil {
+		tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), upkeepId, k.fromAddr)
+		if err != nil {
 			return fmt.Errorf("failed to withdraw upkeep %s: %s", upkeepId.String(), err)
 		}
 
-		if err := k.waitTx(ctx, tx); err != nil {
+		if err = k.waitTx(ctx, tx); err != nil {
 			log.Fatalf("failed to withdraw upkeep for upkeepId: %s, error is: %s", upkeepId.String(), err.Error())
 		}
 
 		log.Printf("Upkeep %s successfully canceled and refunded: ", upkeepId.String())
 	}
 
-	var tx *ethtypes.Transaction
-	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
+	tx, err := canceller.RecoverFunds(k.buildTxOpts(ctx))
+	if err != nil {
 		return fmt.Errorf("failed to recover funds: %s", err)
 	}
 
-	if err := k.waitTx(ctx, tx); err != nil {
+	if err = k.waitTx(ctx, tx); err != nil {
 		log.Fatalf("failed to recover funds, error is: %s", err.Error())
 	}
 
@@ -264,7 +263,7 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 			return fmt.Errorf("failed to cancel upkeep %d: %s", i, err)
 		}
 
-		if err := k.waitTx(ctx, tx); err != nil {
+		if err = k.waitTx(ctx, tx); err != nil {
 			log.Fatalf("failed to cancel upkeep, error is: %s", err.Error())
 		}
 
@@ -272,7 +271,7 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 			return fmt.Errorf("failed to withdraw upkeep %d: %s", i, err)
 		}
 
-		if err := k.waitTx(ctx, tx); err != nil {
+		if err = k.waitTx(ctx, tx); err != nil {
 			log.Fatalf("failed to withdraw upkeep, error is: %s", err.Error())
 		}
 
@@ -284,7 +283,7 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 		return fmt.Errorf("failed to recover funds: %s", err)
 	}
 
-	if err := k.waitTx(ctx, tx); err != nil {
+	if err = k.waitTx(ctx, tx); err != nil {
 		log.Fatalf("failed to recover funds, error is: %s", err.Error())
 	}
 
@@ -411,7 +410,7 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 
 // addKeyToKeeper imports the provided ETH sending key to the keeper
 func (k *Keeper) addKeyToKeeper(client cmd.HTTPClient, privKeyHex string) (string, error) {
-	privkey, err := crypto.HexToECDSA(utils.RemoveHexPrefix(privKeyHex))
+	privkey, err := crypto.HexToECDSA(hex.TrimPrefix(privKeyHex))
 	if err != nil {
 		log.Fatalf("Failed to decode priv key %s: %v", privKeyHex, err)
 	}

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -26,6 +26,7 @@ import (
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -124,14 +125,14 @@ func generateCallbackReturnValues(t *testing.T, fulfilled bool) []byte {
 		// Empty callback
 		b, err2 := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
 			RandomnessFee:   big.NewInt(10),
-			SeedAndBlockNum: utils.EmptyHash,
+			SeedAndBlockNum: evmutils.EmptyHash,
 		})
 		require.NoError(t, err2)
 		return b
 	}
 	b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
 		RandomnessFee:   big.NewInt(10),
-		SeedAndBlockNum: utils.NewHash(),
+		SeedAndBlockNum: evmutils.NewHash(),
 	})
 	require.NoError(t, err)
 	return b
@@ -150,7 +151,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	vd := vrf.NewDelegate(
 		db,
@@ -185,7 +186,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	vuni, listener, jb := setup(t)
 
 	// Same request has already been fulfilled twice
-	reqID := utils.NewHash()
+	reqID := evmutils.NewHash()
 	var reqIDBytes [32]byte
 	copy(reqIDBytes[:], reqID.Bytes())
 	listener.SetRespCount(reqIDBytes, 2)
@@ -198,17 +199,17 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 		added <- struct{}{}
 	})
 	preSeed := common.BigToHash(big.NewInt(42)).Bytes()
-	txHash := utils.NewHash()
+	txHash := evmutils.NewHash()
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Maybe()
 	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Maybe()
 	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil).Maybe()
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
-			preSeed,                  // preSeed
-			utils.NewHash().Bytes(),  // sender
-			utils.NewHash().Bytes(),  // fee
-			reqID.Bytes()}, []byte{}, // requestID
+			preSeed,                    // preSeed
+			evmutils.NewHash().Bytes(), // sender
+			evmutils.NewHash().Bytes(), // fee
+			reqID.Bytes()}, []byte{},   // requestID
 		),
 		// JobID is indexed, thats why it lives in the Topics.
 		Topics: []common.Hash{
@@ -230,9 +231,9 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 
 func TestDelegate_ValidLog(t *testing.T) {
 	vuni, listener, jb := setup(t)
-	txHash := utils.NewHash()
-	reqID1 := utils.NewHash()
-	reqID2 := utils.NewHash()
+	txHash := evmutils.NewHash()
+	reqID1 := evmutils.NewHash()
+	reqID2 := evmutils.NewHash()
 	keyID := vuni.vrfkey.PublicKey.String()
 	pk, err := secp256k1.NewPublicKeyFromHex(keyID)
 	require.NoError(t, err)
@@ -241,7 +242,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		added <- struct{}{}
 	})
 	preSeed := common.BigToHash(big.NewInt(42)).Bytes()
-	bh := utils.NewHash()
+	bh := evmutils.NewHash()
 	var tt = []struct {
 		reqID [32]byte
 		log   types.Log
@@ -253,8 +254,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 				Data: bytes.Join([][]byte{
 					pk.MustHash().Bytes(),                    // key hash
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
-					utils.NewHash().Bytes(),                  // sender
-					utils.NewHash().Bytes(),                  // fee
+					evmutils.NewHash().Bytes(),               // sender
+					evmutils.NewHash().Bytes(),               // fee
 					reqID1.Bytes()},                          // requestID
 					[]byte{}),
 				// JobID is indexed, thats why it lives in the Topics.
@@ -275,8 +276,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 				Data: bytes.Join([][]byte{
 					pk.MustHash().Bytes(),                    // key hash
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
-					utils.NewHash().Bytes(),                  // sender
-					utils.NewHash().Bytes(),                  // fee
+					evmutils.NewHash().Bytes(),               // sender
+					evmutils.NewHash().Bytes(),               // fee
 					reqID2.Bytes()},                          // requestID
 					[]byte{}),
 				Topics: []common.Hash{
@@ -324,7 +325,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Should have 4 tasks all completed
 		assert.Len(t, runs[0].PipelineTaskRuns, 4)
 
-		p, err := vuni.ks.VRF().GenerateProof(keyID, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
+		p, err := vuni.ks.VRF().GenerateProof(keyID, evmutils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
 		require.NoError(t, err)
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -367,11 +368,11 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: append(append(append(append(
-			utils.NewHash().Bytes(),                      // key hash
+			evmutils.NewHash().Bytes(),                   // key hash
 			common.BigToHash(big.NewInt(42)).Bytes()...), // seed
-			utils.NewHash().Bytes()...), // sender
-			utils.NewHash().Bytes()...), // fee
-			utils.NewHash().Bytes()...), // requestID
+			evmutils.NewHash().Bytes()...), // sender
+			evmutils.NewHash().Bytes()...), // fee
+			evmutils.NewHash().Bytes()...), // requestID
 		// JobID is indexed, that's why it lives in the Topics.
 		Topics: []common.Hash{
 			solidity_cross_tests.VRFRandomnessRequestLogTopic(),
@@ -404,11 +405,13 @@ func TestDelegate_InvalidLog(t *testing.T) {
 		}
 	}
 
-	// Ensure we have NOT queued up an eth transaction
-	var ethTxes []txmgr.DbEthTx
-	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM evm.txes;`)
+	db := pgtest.NewSqlxDB(t)
+	cfg := pgtest.NewQConfig(false)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+
+	txes, err := txStore.GetAllTxes(testutils.Context(t))
 	require.NoError(t, err)
-	require.Len(t, ethTxes, 0)
+	require.Len(t, txes, 0)
 }
 
 func TestFulfilledCheck(t *testing.T) {
@@ -433,18 +436,18 @@ func TestFulfilledCheck(t *testing.T) {
 			Data: bytes.Join([][]byte{
 				vuni.vrfkey.PublicKey.MustHash().Bytes(), // key hash
 				common.BigToHash(big.NewInt(42)).Bytes(), // seed
-				utils.NewHash().Bytes(),                  // sender
-				utils.NewHash().Bytes(),                  // fee
-				utils.NewHash().Bytes()},                 // requestID
+				evmutils.NewHash().Bytes(),               // sender
+				evmutils.NewHash().Bytes(),               // fee
+				evmutils.NewHash().Bytes()},              // requestID
 				[]byte{}),
 			// JobID is indexed, that's why it lives in the Topics.
 			Topics: []common.Hash{
 				solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 				jb.ExternalIDEncodeBytesToTopic(), // jobID STRING
 			},
-			//TxHash:      utils.NewHash().Bytes(),
+			//TxHash:      evmutils.NewHash().Bytes(),
 			BlockNumber: 10,
-			//BlockHash:   utils.NewHash().Bytes(),
+			//BlockHash:   evmutils.NewHash().Bytes(),
 		}, vuni.cid, nil))
 
 	// Should queue the request, even though its already fulfilled
@@ -674,7 +677,7 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	vd := vrf.NewDelegate(
 		db,

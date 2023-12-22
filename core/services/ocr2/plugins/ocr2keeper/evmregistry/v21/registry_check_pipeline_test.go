@@ -90,7 +90,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		payload     ocr2keepers.UpkeepPayload
 		blocks      map[int64]string
 		poller      logpoller.LogPoller
-		state       uint8
+		state       encoding.PipelineExecutionState
 		retryable   bool
 		makeEthCall bool
 	}{
@@ -248,8 +248,8 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 		payload     ocr2keepers.UpkeepPayload
 		blocks      map[int64]string
 		makeEthCall bool
-		reason      uint8
-		state       uint8
+		reason      encoding.UpkeepFailureReason
+		state       encoding.PipelineExecutionState
 		retryable   bool
 		ethCallErr  error
 		receipt     *types.Receipt

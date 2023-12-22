@@ -2,7 +2,7 @@
   "tests": [
     {
       "name": "TestAutomationBasic",
-      "label": "ubuntu20.04-32cores-128GB",
+      "label": "ubuntu-latest",
       "nodes": 6
     },
     {
@@ -10,42 +10,42 @@
     },
     {
       "name": "TestAutomationAddFunds",
-      "label": "ubuntu20.04-32cores-128GB",
+      "label": "ubuntu-latest",
       "nodes": 2
     },
     {
       "name": "TestAutomationPauseUnPause",
-      "label": "ubuntu20.04-16cores-64GB",
+      "label": "ubuntu-latest",
       "nodes": 2
     },
     {
       "name": "TestAutomationRegisterUpkeep",
-      "label": "ubuntu20.04-16cores-64GB",
+      "label": "ubuntu-latest",
       "nodes": 2
     },
     {
       "name": "TestAutomationPauseRegistry",
-      "label": "ubuntu20.04-16cores-64GB",
+      "label": "ubuntu-latest",
       "nodes": 2
     },
     {
       "name": "TestAutomationKeeperNodesDown",
-      "label": "ubuntu20.04-16cores-64GB",
+      "label": "ubuntu-latest",
       "nodes": 2
     },
     {
       "name": "TestAutomationPerformSimulation",
-      "label": "ubuntu20.04-16cores-64GB",
+      "label": "ubuntu-latest",
       "nodes": 2
     },
     {
       "name": "TestAutomationCheckPerformGasLimit",
-      "label": "ubuntu20.04-32cores-128GB",
+      "label": "ubuntu-latest",
       "nodes": 2
     },
     {
       "name": "TestUpdateCheckData",
-      "label": "ubuntu20.04-32cores-128GB",
+      "label": "ubuntu-latest",
       "nodes": 2
     }
   ]

@@ -50,7 +50,6 @@ func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Shell, *cli.App) {
 var (
 	checkMarkEmoji = "✅"
 	xEmoji         = "❌"
-	infoEmoji      = "ℹ️"
 )
 
 func main() {
@@ -142,7 +141,7 @@ func main() {
 
 	output := &bytes.Buffer{}
 	for key, node := range nodesMap {
-
+		node := node
 		client, app := connectToNode(&node.URL, output, node.CredsFile)
 		ethKeys := createETHKeysIfNeeded(client, app, output, numEthKeys, &node.URL, maxGasPriceGwei)
 		if key == model.VRFPrimaryNodeName {
@@ -242,6 +241,7 @@ func main() {
 		}
 
 		for key, node := range nodesMap {
+			node := node
 			client, app := connectToNode(&node.URL, output, node.CredsFile)
 
 			//GET ALL JOBS
@@ -318,7 +318,7 @@ func getVRFKeys(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) []prese
 }
 
 func createJob(jobSpec string, client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
-	if err := os.WriteFile("job-spec.toml", []byte(jobSpec), 0666); err != nil {
+	if err := os.WriteFile("job-spec.toml", []byte(jobSpec), 0666); err != nil { //nolint:gosec
 		helpers.PanicErr(err)
 	}
 	job := presenters.JobResource{}
@@ -332,7 +332,7 @@ func createJob(jobSpec string, client *clcmd.Shell, app *cli.App, output *bytes.
 }
 
 func exportVRFKey(client *clcmd.Shell, app *cli.App, vrfKey presenters.VRFKeyResource, output *bytes.Buffer) {
-	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil {
+	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil { //nolint:gosec
 		helpers.PanicErr(err)
 	}
 	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
@@ -346,7 +346,7 @@ func exportVRFKey(client *clcmd.Shell, app *cli.App, vrfKey presenters.VRFKeyRes
 }
 
 func importVRFKey(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
-	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil {
+	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil { //nolint:gosec
 		helpers.PanicErr(err)
 	}
 	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
@@ -465,12 +465,8 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 		}(), ", "))
 	}
 	fmt.Println()
-	for _, vrfKey := range vrfKeys {
-		allVRFKeys = append(allVRFKeys, vrfKey)
-	}
-	for _, nk := range newKeys {
-		allVRFKeys = append(allVRFKeys, nk)
-	}
+	allVRFKeys = append(allVRFKeys, vrfKeys...)
+	allVRFKeys = append(allVRFKeys, newKeys...)
 	return allVRFKeys
 }
 
@@ -526,11 +522,7 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 	}
 	output.Reset()
 	fmt.Println()
-	for _, ethKey := range ethKeys {
-		allETHKeysNode = append(allETHKeysNode, ethKey)
-	}
-	for _, nk := range newKeys {
-		allETHKeysNode = append(allETHKeysNode, nk)
-	}
+	allETHKeysNode = append(allETHKeysNode, ethKeys...)
+	allETHKeysNode = append(allETHKeysNode, newKeys...)
 	return allETHKeysNode
 }

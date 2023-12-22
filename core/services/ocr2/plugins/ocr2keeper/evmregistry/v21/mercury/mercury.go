@@ -10,9 +10,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 )
 
 const (
@@ -65,14 +69,7 @@ type MercuryData struct {
 	Error     error
 	Retryable bool
 	Bytes     [][]byte
-	State     MercuryUpkeepState
-}
-
-type Packer interface {
-	UnpackCheckCallbackResult(callbackResp []byte) (uint8, bool, []byte, uint8, *big.Int, error)
-	PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error)
-	UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error)
-	DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError, error)
+	State     encoding.PipelineExecutionState
 }
 
 type MercuryConfigProvider interface {
@@ -88,7 +85,7 @@ type HttpClient interface {
 }
 
 type MercuryClient interface {
-	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (MercuryUpkeepState, MercuryUpkeepFailureReason, [][]byte, bool, time.Duration, error)
+	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, error)
 }
 
 type StreamsLookupError struct {
@@ -113,6 +110,70 @@ func (l *StreamsLookup) IsMercuryV03() bool {
 	return l.FeedParamKey == FeedIDs
 }
 
+// IsMercuryV03UsingBlockNumber is used to distinguish the batch path. It is used for Mercury V03 only
 func (l *StreamsLookup) IsMercuryV03UsingBlockNumber() bool {
 	return l.TimeParamKey == BlockNumber
+}
+
+type Packer interface {
+	UnpackCheckCallbackResult(callbackResp []byte) (encoding.PipelineExecutionState, bool, []byte, encoding.UpkeepFailureReason, *big.Int, error)
+	PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error)
+	UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error)
+	DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError, error)
+}
+
+type abiPacker struct {
+	registryABI abi.ABI
+	streamsABI  abi.ABI
+}
+
+func NewAbiPacker() *abiPacker {
+	return &abiPacker{registryABI: core.RegistryABI, streamsABI: core.StreamsCompatibleABI}
+}
+
+// DecodeStreamsLookupRequest decodes the revert error StreamsLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
+func (p *abiPacker) DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError, error) {
+	e := p.streamsABI.Errors["StreamsLookup"]
+	unpack, err := e.Unpack(data)
+	if err != nil {
+		return nil, fmt.Errorf("unpack error: %w", err)
+	}
+	errorParameters := unpack.([]interface{})
+
+	return &StreamsLookupError{
+		FeedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),
+		Feeds:        *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
+		TimeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
+		Time:         *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int),
+		ExtraData:    *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte),
+	}, nil
+}
+
+func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (encoding.PipelineExecutionState, bool, []byte, encoding.UpkeepFailureReason, *big.Int, error) {
+	out, err := p.registryABI.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
+	if err != nil {
+		return encoding.PackUnpackDecodeFailed, false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
+	}
+
+	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
+	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
+	failureReason := encoding.UpkeepFailureReason(*abi.ConvertType(out[2], new(uint8)).(*uint8))
+	gasUsed := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+
+	return encoding.NoPipelineError, upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
+}
+
+func (p *abiPacker) UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error) {
+	out, err := p.registryABI.Methods["getUpkeepPrivilegeConfig"].Outputs.UnpackValues(resp)
+	if err != nil {
+		return nil, fmt.Errorf("%w: unpack getUpkeepPrivilegeConfig return", err)
+	}
+
+	bts := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return bts, nil
+}
+
+func (p *abiPacker) PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
+	return p.registryABI.Pack("getUpkeepPrivilegeConfig", upkeepId)
 }

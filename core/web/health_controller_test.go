@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -90,24 +91,43 @@ func TestHealthController_Health_status(t *testing.T) {
 
 var (
 	//go:embed testdata/body/health.json
-	healthJSON string
+	bodyJSON string
+	//go:embed testdata/body/health.html
+	bodyHTML string
+	//go:embed testdata/body/health.txt
+	bodyTXT string
 )
 
 func TestHealthController_Health_body(t *testing.T) {
-	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	for _, tc := range []struct {
+		name    string
+		path    string
+		headers map[string]string
+		expBody string
+	}{
+		{"default", "/health", nil, bodyJSON},
+		{"json", "/health", map[string]string{"Accept": gin.MIMEJSON}, bodyJSON},
+		{"html", "/health", map[string]string{"Accept": gin.MIMEHTML}, bodyHTML},
+		{"text", "/health", map[string]string{"Accept": gin.MIMEPlain}, bodyTXT},
+		{".txt", "/health.txt", nil, bodyTXT},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app := cltest.NewApplicationWithKey(t)
+			require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Get("/health")
-	t.Cleanup(cleanup)
-	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	// pretty print for comparison
-	var b bytes.Buffer
-	require.NoError(t, json.Indent(&b, body, "", "  "))
-	body = b.Bytes()
-
-	assert.Equal(t, healthJSON, string(body))
+			client := app.NewHTTPClient(nil)
+			resp, cleanup := client.Get(tc.path, tc.headers)
+			t.Cleanup(cleanup)
+			assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			if tc.expBody == bodyJSON {
+				// pretty print for comparison
+				var b bytes.Buffer
+				require.NoError(t, json.Indent(&b, body, "", "  "))
+				body = b.Bytes()
+			}
+			assert.Equal(t, tc.expBody, string(body))
+		})
+	}
 }

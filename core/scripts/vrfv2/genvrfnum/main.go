@@ -16,6 +16,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
@@ -227,7 +228,7 @@ func main() {
 }
 
 func preseed(keyHash common.Hash, sender common.Address, subID, nonce uint64) [32]byte {
-	encoded, err := utils.ABIEncode(
+	encoded, err := evmutils.ABIEncode(
 		`[{"type":"bytes32"}, {"type":"address"}, {"type":"uint64"}, {"type", "uint64"}]`,
 		keyHash,
 		sender,

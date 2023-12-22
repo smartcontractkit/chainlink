@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -102,7 +103,7 @@ func (ps CSAKeyPresenters) RenderTable(rt RendererTable) error {
 		return err
 	}
 	renderList(headers, rows, rt.Writer)
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 // ListCSAKeys retrieves a list of all CSA keys

@@ -24,9 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// MaxConsecutiveTransmitFailures controls how many consecutive requests are
+// MaxConsecutiveRequestFailures controls how many consecutive requests are
 // allowed to time out before we reset the connection
-const MaxConsecutiveTransmitFailures = 5
+const MaxConsecutiveRequestFailures = 10
 
 var (
 	timeoutCount = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -55,7 +55,7 @@ var (
 	)
 	connectionResetCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "mercury_connection_reset_count",
-		Help: fmt.Sprintf("Running count of times connection to mercury server has been reset (connection reset happens automatically after %d consecutive transmit failures)", MaxConsecutiveTransmitFailures),
+		Help: fmt.Sprintf("Running count of times connection to mercury server has been reset (connection reset happens automatically after %d consecutive request failures)", MaxConsecutiveRequestFailures),
 	},
 		[]string{"serverURL"},
 	)
@@ -256,36 +256,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 		return nil, errors.Wrap(err, "Transmit call failed")
 	}
 	resp, err = w.rawClient.Transmit(ctx, req)
-	if errors.Is(err, context.DeadlineExceeded) {
-		w.timeoutCountMetric.Inc()
-		cnt := w.consecutiveTimeoutCnt.Add(1)
-		if cnt == MaxConsecutiveTransmitFailures {
-			w.logger.Errorf("Timed out on %d consecutive transmits, resetting transport", cnt)
-			// NOTE: If we get 5+ request timeouts in a row, close and re-open
-			// the websocket connection.
-			//
-			// This *shouldn't* be necessary in theory (ideally, wsrpc would
-			// handle it for us) but it acts as a "belts and braces" approach
-			// to ensure we get a websocket connection back up and running
-			// again if it gets itself into a bad state.
-			select {
-			case w.chResetTransport <- struct{}{}:
-			default:
-				// This can happen if we had 5 consecutive timeouts, already
-				// sent a reset signal, then the connection started working
-				// again (resetting the count) then we got 5 additional
-				// failures before the runloop was able to close the bad
-				// connection.
-				//
-				// It should be safe to just ignore in this case.
-				//
-				// Debug log in case my reasoning is wrong.
-				w.logger.Debugf("Transport is resetting, cnt=%d", cnt)
-			}
-		}
-	} else {
-		w.consecutiveTimeoutCnt.Store(0)
-	}
+	w.handleTimeout(err)
 	if err != nil {
 		w.logger.Warnw("Transmit call failed due to networking error", "err", err, "resp", resp)
 		incRequestStatusMetric(statusFailed)
@@ -297,6 +268,39 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	return
 }
 
+func (w *client) handleTimeout(err error) {
+	if errors.Is(err, context.DeadlineExceeded) {
+		w.timeoutCountMetric.Inc()
+		cnt := w.consecutiveTimeoutCnt.Add(1)
+		if cnt == MaxConsecutiveRequestFailures {
+			w.logger.Errorf("Timed out on %d consecutive transmits, resetting transport", cnt)
+			// NOTE: If we get at least MaxConsecutiveRequestFailures request
+			// timeouts in a row, close and re-open the websocket connection.
+			//
+			// This *shouldn't* be necessary in theory (ideally, wsrpc would
+			// handle it for us) but it acts as a "belts and braces" approach
+			// to ensure we get a websocket connection back up and running
+			// again if it gets itself into a bad state.
+			select {
+			case w.chResetTransport <- struct{}{}:
+			default:
+				// This can happen if we had MaxConsecutiveRequestFailures
+				// consecutive timeouts, already sent a reset signal, then the
+				// connection started working again (resetting the count) then
+				// we got MaxConsecutiveRequestFailures additional failures
+				// before the runloop was able to close the bad connection.
+				//
+				// It should be safe to just ignore in this case.
+				//
+				// Debug log in case my reasoning is wrong.
+				w.logger.Debugf("Transport is resetting, cnt=%d", cnt)
+			}
+		}
+	} else {
+		w.consecutiveTimeoutCnt.Store(0)
+	}
+}
+
 func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
 	lggr := w.logger.With("req.FeedId", hexutil.Encode(req.FeedId))
 	lggr.Trace("LatestReport")
@@ -306,6 +310,7 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 	var cached bool
 	if w.cache == nil {
 		resp, err = w.rawClient.LatestReport(ctx, req)
+		w.handleTimeout(err)
 	} else {
 		cached = true
 		resp, err = w.cache.LatestReport(ctx, req)
