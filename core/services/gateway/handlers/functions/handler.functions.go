@@ -136,7 +136,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err2
 		}
 
-		orm, err2 := NewORM(db, lggr, qcfg)
+		orm, err2 := NewORM(db, lggr, qcfg, cfg.OnchainSubscriptions.ContractAddress)
 		if err2 != nil {
 			return nil, err2
 		}

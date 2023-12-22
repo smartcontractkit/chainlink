@@ -23,7 +23,8 @@ type ORM interface {
 }
 
 type orm struct {
-	q pg.Q
+	q                     pg.Q
+	routerContractAddress common.Address
 }
 
 var _ ORM = (*orm)(nil)
@@ -46,13 +47,14 @@ type cachedSubscriptionRow struct {
 	RouterContractAddress common.Address
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) (ORM, error) {
-	if db == nil || cfg == nil || lggr == nil {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, routerContractAddress common.Address) (ORM, error) {
+	if db == nil || cfg == nil || lggr == nil || len(routerContractAddress) == 0 {
 		return nil, ErrInvalidParameters
 	}
 
 	return &orm{
-		q: pg.NewQ(db, lggr, cfg),
+		q:                     pg.NewQ(db, lggr, cfg),
+		routerContractAddress: routerContractAddress,
 	}, nil
 }
 
@@ -88,8 +90,7 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 		}
 
 		cacheSubscriptions = append(cacheSubscriptions, CachedSubscription{
-			SubscriptionID:        cs.SubscriptionID,
-			RouterContractAddress: cs.RouterContractAddress,
+			SubscriptionID: cs.SubscriptionID,
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        balance,
 				Owner:          cs.Owner,
@@ -127,7 +128,7 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 		subscription.ProposedOwner,
 		subscription.Consumers,
 		subscription.Flags[:],
-		subscription.RouterContractAddress,
+		o.routerContractAddress,
 	)
 
 	return err

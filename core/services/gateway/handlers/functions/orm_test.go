@@ -26,15 +26,14 @@ func setupORM(t *testing.T) (functions.ORM, error) {
 		lggr = logger.TestLogger(t)
 	)
 
-	return functions.NewORM(db, lggr, pgtest.NewQConfig(true))
+	return functions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
 }
 
 func createSubscriptions(t *testing.T, orm functions.ORM, amount int) []functions.CachedSubscription {
 	cachedSubscriptions := make([]functions.CachedSubscription, 0)
 	for i := amount; i > 0; i-- {
 		cs := functions.CachedSubscription{
-			SubscriptionID:        uint64(i),
-			RouterContractAddress: testutils.NewAddress(),
+			SubscriptionID: uint64(i),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        assets.Ether(10).ToInt(),
 				Owner:          testutils.NewAddress(),
@@ -81,8 +80,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := functions.CachedSubscription{
-			SubscriptionID:        uint64(1),
-			RouterContractAddress: testutils.NewAddress(),
+			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        assets.Ether(10).ToInt(),
 				Owner:          testutils.NewAddress(),
@@ -106,8 +104,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedUpdated := functions.CachedSubscription{
-			SubscriptionID:        uint64(1),
-			RouterContractAddress: testutils.NewAddress(),
+			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        assets.Ether(10).ToInt(),
 				Owner:          testutils.NewAddress(),
@@ -121,8 +118,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedNotUpdated := functions.CachedSubscription{
-			SubscriptionID:        uint64(2),
-			RouterContractAddress: testutils.NewAddress(),
+			SubscriptionID: uint64(2),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        assets.Ether(10).ToInt(),
 				Owner:          testutils.NewAddress(),
@@ -169,6 +165,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 				Flags:          defaultFlags,
 			},
 		}
+
 		err = orm1.UpsertSubscription(subscription)
 		require.NoError(t, err)
 
@@ -188,11 +185,10 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		results, err = orm1.GetSubscriptions(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(results), "incorrect results length")
-
 	})
 }
 
 func Test_NewORM(t *testing.T) {
-	_, err := functions.NewORM(nil, nil, nil)
+	_, err := functions.NewORM(nil, nil, nil, common.Address{})
 	require.Error(t, err)
 }
