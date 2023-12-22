@@ -405,6 +405,7 @@ type LogEmitter interface {
 	Address() common.Address
 	EmitLogInts(ints []int) (*types.Transaction, error)
 	EmitLogIntsIndexed(ints []int) (*types.Transaction, error)
+	EmitLogIntMultiIndexed(ints int, ints2 int, count int) (*types.Transaction, error)
 	EmitLogStrings(strings []string) (*types.Transaction, error)
 	EmitLogInt(payload int) (*types.Transaction, error)
 	EmitLogIntIndexed(payload int) (*types.Transaction, error)

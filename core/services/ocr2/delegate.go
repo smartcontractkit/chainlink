@@ -441,7 +441,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return d.newServicesOCR2VRF(lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.OCR2Keeper:
-		return d.newServicesOCR2Keepers(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesOCR2Keepers(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case types.Functions:
 		const (
@@ -1026,6 +1026,7 @@ func (d *Delegate) newServicesOCR2VRF(
 }
 
 func (d *Delegate) newServicesOCR2Keepers(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1046,7 +1047,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 
 	switch cfg.ContractVersion {
 	case "v2.1":
-		return d.newServicesOCR2Keepers21(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	case "v2.0":
 		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	default:
@@ -1055,6 +1056,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 }
 
 func (d *Delegate) newServicesOCR2Keepers21(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1079,14 +1081,41 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		return nil, fmt.Errorf("keeper2 services: expected EVM relayer got %s", rid.Network)
 	}
 
-	chain, err2 := d.legacyChains.Get(rid.ChainID)
-	if err2 != nil {
-		return nil, fmt.Errorf("keeper2 services: failed to get chain %s: %w", rid.ChainID, err2)
+	transmitterID := spec.TransmitterID.String
+	relayer, err := d.RelayGetter.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
 	}
 
-	keeperProvider, services, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, chain, mc, kb, d.cfg.Database(), d.ethKs)
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
+	provider, err := relayer.NewPluginProvider(ctx,
+		types.RelayArgs{
+			ExternalJobID: jb.ExternalJobID,
+			JobID:         jb.ID,
+			ContractID:    spec.ContractID,
+			New:           d.isNewlyCreatedJob,
+			RelayConfig:   spec.RelayConfig.Bytes(),
+			ProviderType:  string(spec.PluginType),
+		}, types.PluginArgs{
+			TransmitterID: transmitterID,
+			PluginConfig:  spec.PluginConfig.Bytes(),
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	keeperProvider, ok := provider.(types.AutomationProvider)
+	if !ok {
+		return nil, errors.New("could not coerce PluginProvider to AutomationProvider")
+	}
+
+	chain, err := d.legacyChains.Get(rid.ChainID)
+	if err != nil {
+		return nil, fmt.Errorf("keeper2 services: failed to get chain %s: %w", rid.ChainID, err)
+	}
+
+	services, err := ocr2keeper.EVMDependencies21(jb, d.db, lggr, chain, mc, kb, d.cfg.Database())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not build dependencies for ocr2 keepers")
 	}
 	// set some defaults
 	conf := ocr2keepers21config.ReportingFactoryConfig{

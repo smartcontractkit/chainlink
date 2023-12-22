@@ -24,6 +24,7 @@ import (
 
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 
+	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -34,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
@@ -86,7 +86,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 	// get upkeepID from command args
 	upkeepID := big.NewInt(0)
-	upkeepIDNoPrefix := utils.RemoveHexPrefix(args[0])
+	upkeepIDNoPrefix := commonhex.TrimPrefix(args[0])
 	_, wasBase10 := upkeepID.SetString(upkeepIDNoPrefix, 10)
 	if !wasBase10 {
 		_, wasBase16 := upkeepID.SetString(upkeepIDNoPrefix, 16)

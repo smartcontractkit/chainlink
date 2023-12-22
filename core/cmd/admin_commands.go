@@ -17,6 +17,8 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -155,7 +157,7 @@ func (p *AdminUsersPresenter) RenderTable(rt RendererTable) error {
 
 	renderList(adminUsersTableHeaders, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 type AdminUsersPresenters []AdminUsersPresenter
@@ -173,7 +175,7 @@ func (ps AdminUsersPresenters) RenderTable(rt RendererTable) error {
 	}
 	renderList(adminUsersTableHeaders, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 // ListUsers renders all API users and their roles
