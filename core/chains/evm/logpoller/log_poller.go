@@ -532,7 +532,7 @@ func (lp *logPoller) run() {
 			// frequently than the primary log poller.
 
 			// If pollPeriod is set to 1 block time, backup log poller will run once every 100 blocks
-			const backupPollerBlockDelay = 100
+			const backupPollerBlockDelay = 10000
 
 			backupLogPollTick = time.After(utils.WithJitter(backupPollerBlockDelay * lp.pollPeriod))
 			if !filtersLoaded {
