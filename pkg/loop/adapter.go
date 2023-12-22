@@ -2,7 +2,6 @@ package loop
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -57,11 +56,11 @@ func (r *RelayerAdapter) Close() error {
 }
 
 func (r *RelayerAdapter) Name() string {
-	return fmt.Sprintf("%s-%s", r.Relayer.Name(), r.RelayerExt.Name())
+	return r.Relayer.Name()
 }
 
 func (r *RelayerAdapter) Ready() (err error) {
-	return errors.Join(r.Relayer.Ready(), r.RelayerExt.Ready())
+	return r.Relayer.Ready()
 }
 
 func (r *RelayerAdapter) HealthReport() map[string]error {
