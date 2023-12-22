@@ -39,7 +39,7 @@ func TestGatewayLoad(t *testing.T) {
 			ft.DONPublicKey,
 		),
 		Labels:     labels,
-		LokiConfig: wasp.NewEnvLokiConfig(),
+		LokiConfig: tc.LokiConfigFromToml(&listConfig),
 	}
 
 	setConfig, err := tc.GetConfig(t.Name(), "gateway_set", tc.Functions)
@@ -60,7 +60,7 @@ func TestGatewayLoad(t *testing.T) {
 			ft.DONPublicKey,
 		),
 		Labels:     labels,
-		LokiConfig: wasp.NewEnvLokiConfig(),
+		LokiConfig: tc.LokiConfigFromToml(&setConfig),
 	}
 
 	t.Run("gateway secrets list soak test", func(t *testing.T) {

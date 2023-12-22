@@ -4,8 +4,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
@@ -41,15 +43,33 @@ type TestConfig struct {
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
 
-	TestType TestType
+	TestType TestType `toml:"-"`
 }
 
+// Returns Grafana URL from Logging config
 func (c *TestConfig) GetGrafanaURL() (string, error) {
 	if c.Logging.Grafana == nil || c.Logging.Grafana.GrafanaUrl == nil {
 		return "", errors.New("grafana url not set")
 	}
 
 	return *c.Logging.Grafana.GrafanaUrl, nil
+}
+
+// Saves Test Config to a local file
+func (c *TestConfig) Save() (string, error) {
+	filePath := fmt.Sprintf("test_config-%s.toml", uuid.New())
+
+	content, err := toml.Marshal(*c)
+	if err != nil {
+		return "", errors.Wrapf(err, "error marshaling test config")
+	}
+
+	err = os.WriteFile(filePath, content, 0600)
+	if err != nil {
+		return "", errors.Wrapf(err, "error writing test config")
+	}
+
+	return filePath, nil
 }
 
 type Common struct {
@@ -112,6 +132,8 @@ const (
 	Spike       TestType = "spike"
 	Volume      TestType = "volume"
 )
+
+var TestTypesWithLoki = []TestType{Load, Soak, Stress, Spike, Volume}
 
 const TestTypeEnvVarName = "TEST_TYPE"
 
@@ -220,6 +242,10 @@ func GetConfig(testName string, testType TestType, product Product) (TestConfig,
 	err = testConfig.Validate()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error validating test config")
+	}
+
+	if testConfig.Common == nil {
+		testConfig.Common = &Common{}
 	}
 
 	return testConfig, nil
@@ -423,6 +449,16 @@ func (c *TestConfig) Validate() error {
 		return errors.Wrapf(err, "logging config validation failed")
 	}
 
+	if slices.Contains(TestTypesWithLoki, c.TestType) {
+		if c.Logging.Loki == nil {
+			return fmt.Errorf("logging config must have loki config set")
+		}
+
+		if err := c.Logging.Loki.Validate(); err != nil {
+			return errors.Wrapf(err, "loki config validation failed")
+		}
+	}
+
 	if c.Pyroscope != nil {
 		if err := c.Pyroscope.Validate(); err != nil {
 			return errors.Wrapf(err, "pyroscope config validation failed")
@@ -494,7 +530,18 @@ func (c *TestConfig) Validate() error {
 
 func (c *TestConfig) SetForRemoteRunner() error {
 	key := Base64OverrideEnvVarName
-	return os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+	err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+	if err != nil {
+		return errors.Wrapf(err, "error setting env var %s", key)
+	}
+
+	key = ctf_config.Base64NetworkConfigEnvVarName
+	err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+	if err != nil {
+		return errors.Wrapf(err, "error setting env var %s", key)
+	}
+
+	return nil
 }
 
 func readFile(filePath string) ([]byte, error) {

@@ -64,29 +64,30 @@ func (c *Config) ApplyOverrides(from *Config) error {
 }
 
 func (c *Config) Validate() error {
-	if c.Common != nil {
-		if err := c.Common.Validate(); err != nil {
-			return err
-		}
+	if err := c.Common.Validate(); err != nil {
+		return err
 	}
 	if c.General != nil {
 		if err := c.General.Validate(); err != nil {
 			return err
 		}
 	}
-	if c.ExistingEnvConfig != nil {
-		if err := c.ExistingEnvConfig.Validate(); err != nil {
-			return err
-		}
-	}
-	if c.NewEnvConfig != nil {
-		if err := c.NewEnvConfig.Validate(); err != nil {
-			return err
-		}
-	}
 	if c.Performance != nil {
 		if err := c.Performance.Validate(); err != nil {
 			return err
+		}
+	}
+	if *c.Performance.UseExistingEnv {
+		if c.ExistingEnvConfig != nil {
+			if err := c.ExistingEnvConfig.Validate(); err != nil {
+				return err
+			}
+		}
+	} else {
+		if c.NewEnvConfig != nil {
+			if err := c.NewEnvConfig.Validate(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -113,17 +114,17 @@ func (c *Common) Validate() error {
 }
 
 type PerformanceConfig struct {
-	TestDuration          *models.Duration `toml:"test_duration"`            // How long to run the test for  default:"3m"
-	RPS                   *int64           `toml:"rps"`                      // How many requests per second to send default:"1"
-	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"` // default:"1m"
+	TestDuration          *models.Duration `toml:"test_duration"`
+	RPS                   *int64           `toml:"rps"`
+	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
 
 	// Using existing environment and contracts
-	UseExistingEnv     *bool   `toml:"use_existing_env"`    // Whether to use an existing environment or create a new one  default:"false"
-	CoordinatorAddress *string `toml:"coordinator_address"` // Coordinator address
-	ConsumerAddress    *string `toml:"consumer_address"`    // Consumer address
-	LinkAddress        *string `toml:"link_address"`        // Link address
-	SubID              *uint64 `toml:"sub_id"`              // Subscription ID
-	KeyHash            *string `toml:"key_hash"`
+	UseExistingEnv     *bool `toml:"use_existing_env"`
+	CoordinatorAddress *string
+	ConsumerAddress    *string
+	LinkAddress        *string
+	SubID              *uint64
+	KeyHash            *string
 }
 
 func (c *PerformanceConfig) ApplyOverrides(from *PerformanceConfig) error {
@@ -142,21 +143,6 @@ func (c *PerformanceConfig) ApplyOverrides(from *PerformanceConfig) error {
 	if from.UseExistingEnv != nil {
 		c.UseExistingEnv = from.UseExistingEnv
 	}
-	if from.CoordinatorAddress != nil {
-		c.CoordinatorAddress = from.CoordinatorAddress
-	}
-	if from.ConsumerAddress != nil {
-		c.ConsumerAddress = from.ConsumerAddress
-	}
-	if from.LinkAddress != nil {
-		c.LinkAddress = from.LinkAddress
-	}
-	if from.SubID != nil {
-		c.SubID = from.SubID
-	}
-	if from.KeyHash != nil {
-		c.KeyHash = from.KeyHash
-	}
 
 	return nil
 }
@@ -173,32 +159,6 @@ func (c *PerformanceConfig) Validate() error {
 	}
 	if c.UseExistingEnv == nil {
 		return errors.New("use_existing_env must be set ")
-	}
-	if *c.UseExistingEnv {
-		if c.CoordinatorAddress == nil {
-			return errors.New("coordinator_address must be set when using existing environment")
-		}
-		if !common.IsHexAddress(*c.CoordinatorAddress) {
-			return errors.New("coordinator_address must be a valid hex address")
-		}
-		if c.ConsumerAddress == nil {
-			return errors.New("consumer_address must be set when using existing environment")
-		}
-		if !common.IsHexAddress(*c.ConsumerAddress) {
-			return errors.New("consumer_address must be a valid hex address")
-		}
-		if c.LinkAddress == nil {
-			return errors.New("link_address must be set when using existing environment")
-		}
-		if !common.IsHexAddress(*c.LinkAddress) {
-			return errors.New("link_address must be a valid hex address")
-		}
-		if c.SubID == nil || *c.SubID == 0 {
-			return errors.New("sub_id must be set when using existing environment")
-		}
-		if c.KeyHash == nil || *c.KeyHash == "" {
-			return errors.New("key_hash must be set when using existing environment")
-		}
 	}
 
 	return nil
@@ -252,29 +212,14 @@ func (c *ExistingEnvConfig) ApplyOverrides(from *ExistingEnvConfig) error {
 }
 
 func (c *ExistingEnvConfig) Validate() error {
+	if c.CreateFundSubsAndAddConsumers == nil {
+		return errors.New("create_fund_subs_and_add_consumers must be set ")
+	}
 	if c.CoordinatorAddress == nil {
 		return errors.New("coordinator_address must be set when using existing environment")
 	}
 	if !common.IsHexAddress(*c.CoordinatorAddress) {
 		return errors.New("coordinator_address must be a valid hex address")
-	}
-	if c.ConsumerAddress == nil {
-		return errors.New("consumer_address must be set when using existing environment")
-	}
-	if !common.IsHexAddress(*c.ConsumerAddress) {
-		return errors.New("consumer_address must be a valid hex address")
-	}
-	if c.LinkAddress == nil {
-		return errors.New("link_address must be set when using existing environment")
-	}
-	if !common.IsHexAddress(*c.LinkAddress) {
-		return errors.New("link_address must be a valid hex address")
-	}
-	if c.SubID == nil {
-		return errors.New("sub_id must be set when using existing environment")
-	}
-	if *c.SubID == 0 {
-		return errors.New("sub_id must be a positive value")
 	}
 	if c.KeyHash == nil {
 		return errors.New("key_hash must be set when using existing environment")
@@ -282,6 +227,36 @@ func (c *ExistingEnvConfig) Validate() error {
 	if *c.KeyHash == "" {
 		return errors.New("key_hash must be a non-empty string")
 	}
+	if c.LinkAddress != nil && !common.IsHexAddress(*c.LinkAddress) {
+		return errors.New("link_address must be a valid hex address")
+	}
+
+	if *c.CreateFundSubsAndAddConsumers {
+		if c.ConsumerAddress == nil {
+			return errors.New("consumer_address must be set when using existing environment")
+		}
+		if !common.IsHexAddress(*c.ConsumerAddress) {
+			return errors.New("consumer_address must be a valid hex address")
+		}
+		if c.SubID == nil {
+			return errors.New("sub_id must be set when using existing environment")
+		}
+		if *c.SubID == 0 {
+			return errors.New("sub_id must be a positive value")
+		}
+		if c.Funding != nil {
+			if err := c.Funding.Validate(); err != nil {
+				return err
+			}
+		}
+		if c.Funding == nil && c.Funding.SubFunding == nil {
+			return errors.New("sub_funds_link must be set when using existing environment")
+		}
+		if err := c.Funding.SubFunding.Validate(); err != nil {
+			return err
+		}
+	}
+
 	if c.NodeSendingKeys != nil {
 		for _, key := range c.NodeSendingKeys {
 			if !common.IsHexAddress(key) {
@@ -341,10 +316,10 @@ func (c *Funding) ApplyOverrides(from *Funding) error {
 }
 
 func (c *Funding) Validate() error {
-	if c.NodeSendingKeyFunding != nil && *c.NodeSendingKeyFunding == 0 {
+	if c.NodeSendingKeyFunding != nil && *c.NodeSendingKeyFunding <= 0 {
 		return errors.New("when set node_sending_key_funding must be a positive value")
 	}
-	if c.NodeSendingKeyFundingMin != nil && *c.NodeSendingKeyFundingMin == 0 {
+	if c.NodeSendingKeyFundingMin != nil && *c.NodeSendingKeyFundingMin <= 0 {
 		return errors.New("when set node_sending_key_funding_min must be a positive value")
 	}
 
@@ -367,7 +342,7 @@ func (c *SubFunding) ApplyOverrides(from *SubFunding) error {
 }
 
 func (c *SubFunding) Validate() error {
-	if c.SubFundsLink != nil && *c.SubFundsLink == 0 {
+	if c.SubFundsLink == nil || *c.SubFundsLink == 0 {
 		return errors.New("when set sub_funds_link must be a positive value")
 	}
 

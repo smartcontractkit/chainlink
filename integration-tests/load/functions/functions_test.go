@@ -23,7 +23,7 @@ func TestFunctionsLoad(t *testing.T) {
 		"commit": "functions_healthcheck",
 	}
 
-	MonitorLoadStats(t, ft, labels)
+	MonitorLoadStats(t, ft, labels, &generalConfig)
 
 	t.Run("mumbai functions soak test http", func(t *testing.T) {
 		config, err := tc.GetConfig(t.Name(), tc.Soak, tc.Functions)
@@ -52,7 +52,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: wasp.NewEnvLokiConfig(),
+				LokiConfig: tc.LokiConfigFromToml(&config),
 			})).
 			Run(true)
 		require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: wasp.NewEnvLokiConfig(),
+				LokiConfig: tc.LokiConfigFromToml(&config),
 			})).
 			Run(true)
 		require.NoError(t, err)
@@ -118,7 +118,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: wasp.NewEnvLokiConfig(),
+				LokiConfig: tc.LokiConfigFromToml(&config),
 			})).
 			Run(true)
 		require.NoError(t, err)
@@ -151,7 +151,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: wasp.NewEnvLokiConfig(),
+				LokiConfig: tc.LokiConfigFromToml(&config),
 			})).
 			Run(true)
 		require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: wasp.NewEnvLokiConfig(),
+				LokiConfig: tc.LokiConfigFromToml(&config),
 			})).
 			Run(true)
 		require.NoError(t, err)
@@ -217,7 +217,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: wasp.NewEnvLokiConfig(),
+				LokiConfig: tc.LokiConfigFromToml(&config),
 			})).
 			Run(true)
 		require.NoError(t, err)

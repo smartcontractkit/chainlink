@@ -58,29 +58,30 @@ func (c *Config) ApplyOverrides(from *Config) error {
 }
 
 func (c *Config) Validate() error {
-	if c.Common != nil {
-		if err := c.Common.Validate(); err != nil {
-			return err
-		}
+	if err := c.Common.Validate(); err != nil {
+		return err
 	}
 	if c.General != nil {
 		if err := c.General.Validate(); err != nil {
 			return err
 		}
 	}
-	if c.ExistingEnvConfig != nil {
-		if err := c.ExistingEnvConfig.Validate(); err != nil {
-			return err
-		}
-	}
-	if c.NewEnvConfig != nil {
-		if err := c.NewEnvConfig.Validate(); err != nil {
-			return err
-		}
-	}
 	if c.Performance != nil {
 		if err := c.Performance.Validate(); err != nil {
 			return err
+		}
+	}
+	if *c.Performance.UseExistingEnv {
+		if c.ExistingEnvConfig != nil {
+			if err := c.ExistingEnvConfig.Validate(); err != nil {
+				return err
+			}
+		}
+	} else {
+		if c.NewEnvConfig != nil {
+			if err := c.NewEnvConfig.Validate(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -234,12 +235,13 @@ func (c *Funding) ApplyOverrides(from *Funding) error {
 }
 
 func (c *Funding) Validate() error {
-	if c.NodeSendingKeyFunding == nil || *c.NodeSendingKeyFunding <= 0 {
-		return errors.New("node_sending_key_funding must be greater than 0")
+	if c.NodeSendingKeyFunding != nil && *c.NodeSendingKeyFunding <= 0 {
+		return errors.New("when set node_sending_key_funding must be a positive value")
 	}
-	if c.NodeSendingKeyFundingMin == nil || *c.NodeSendingKeyFundingMin <= 0 {
-		return errors.New("node_sending_key_funding_min must be greater than 0")
+	if c.NodeSendingKeyFundingMin != nil && *c.NodeSendingKeyFundingMin <= 0 {
+		return errors.New("when set node_sending_key_funding_min must be a positive value")
 	}
+
 	return c.SubFunding.Validate()
 }
 
@@ -263,10 +265,13 @@ func (c *SubFunding) ApplyOverrides(from *SubFunding) error {
 }
 
 func (c *SubFunding) Validate() error {
-	if c.SubFundsLink == nil || *c.SubFundsLink <= 0 {
+	if c.SubFundsLink == nil && c.SubFundsNative == nil {
+		return errors.New("at least one of sub_funds_link or sub_funds_native must be set")
+	}
+	if c.SubFundsLink != nil && *c.SubFundsLink <= 0 {
 		return errors.New("sub_funds_link must be greater than 0")
 	}
-	if c.SubFundsNative == nil || *c.SubFundsNative <= 0 {
+	if c.SubFundsNative != nil && *c.SubFundsNative <= 0 {
 		return errors.New("sub_funds_native must be greater than 0")
 	}
 

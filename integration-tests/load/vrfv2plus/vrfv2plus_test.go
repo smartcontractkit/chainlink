@@ -41,20 +41,17 @@ var (
 )
 
 func TestVRFV2PlusPerformance(t *testing.T) {
+	l := logging.GetTestLogger(t)
+
 	testType, err := tc.GetTestTypeFromEnv()
 	require.NoError(t, err)
-	testConfig, err := tc.GetConfig(t.Name(), testType, tc.VRFv2)
+	testConfig, err := tc.GetConfig(t.Name(), testType, tc.VRFv2Plus)
 	require.NoError(t, err)
 
 	vrfv2PlusConfig := testConfig.VRFv2Plus
 	testReporter := &testreporters.VRFV2PlusTestReporter{}
 
-	l := logging.GetTestLogger(t)
-	//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
-	// vrfv2PlusConfig.MinimumConfirmations = cfg.Common.MinimumConfirmations
-
-	lokiConfig := wasp.NewEnvLokiConfig()
-	lc, err := wasp.NewLokiClient(lokiConfig)
+	lc, err := wasp.NewLokiClient(tc.LokiConfigFromToml(&testConfig))
 	if err != nil {
 		l.Error().Err(err).Msg(ErrLokiClient)
 		return
@@ -84,6 +81,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
+			WithTestConfig(&testConfig).
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, string(testType), &testConfig)
@@ -162,6 +160,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		vrfv2PlusConfig.General.SubscriptionFundingAmountNative = testConfig.VRFv2Plus.NewEnvConfig.Funding.SubFundsNative
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
+			WithTestConfig(&testConfig).
 			WithGeth().
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
@@ -232,7 +231,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			l,
 		),
 		Labels:      labels,
-		LokiConfig:  lokiConfig,
+		LokiConfig:  tc.LokiConfigFromToml(&testConfig),
 		CallTimeout: 2 * time.Minute,
 	}
 	require.Len(t, vrfv2PlusContracts.LoadTestConsumers, 1, "only one consumer should be created for Load Test")
@@ -243,7 +242,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
 	t.Run("vrfv2plus performance test", func(t *testing.T) {
-
 		singleFeedConfig.Schedule = wasp.Plain(
 			*vrfv2PlusConfig.Performance.RPS,
 			vrfv2PlusConfig.Performance.TestDuration.Duration(),

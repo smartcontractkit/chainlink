@@ -45,7 +45,7 @@ func TestOCRLoad(t *testing.T) {
 		Schedule:              wasp.Plain(*cfg.Volume.Rate, cfg.Common.TestDuration.Duration()),
 		Gun:                   NewGun(l, cc, ocrInstances),
 		Labels:                CommonTestLabels,
-		LokiConfig:            wasp.NewEnvLokiConfig(),
+		LokiConfig:            tc.LokiConfigFromToml(&config),
 	}))
 	_, err = p.Run(true)
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestOCRVolume(t *testing.T) {
 		Schedule:    wasp.Plain(*cfg.Volume.Rate, cfg.Common.TestDuration.Duration()),
 		VU:          NewVU(l, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration(), cc, lt, cd, bootstrapNode, workerNodes, msClient),
 		Labels:      CommonTestLabels,
-		LokiConfig:  wasp.NewEnvLokiConfig(),
+		LokiConfig:  tc.LokiConfigFromToml(&config),
 	}))
 	_, err = p.Run(true)
 	require.NoError(t, err)

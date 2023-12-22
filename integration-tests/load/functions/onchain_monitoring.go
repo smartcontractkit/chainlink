@@ -6,6 +6,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/wasp"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 /* Monitors on-chain stats of LoadConsumer and pushes them to Loki every second */
@@ -23,7 +25,7 @@ type LoadStats struct {
 	Empty     uint32
 }
 
-func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string) {
+func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string, config *tc.TestConfig) {
 	go func() {
 		updatedLabels := make(map[string]string)
 		for k, v := range labels {
@@ -32,7 +34,7 @@ func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string)
 		updatedLabels["type"] = LokiTypeLabel
 		updatedLabels["go_test_name"] = t.Name()
 		updatedLabels["gen_name"] = "performance"
-		lc, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
+		lc, err := wasp.NewLokiClient(tc.LokiConfigFromToml(config))
 		if err != nil {
 			log.Error().Err(err).Msg(ErrLokiClient)
 			return

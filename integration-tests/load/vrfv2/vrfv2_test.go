@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 
-	// "github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
@@ -49,13 +48,15 @@ func TestVRFV2Performance(t *testing.T) {
 	testConfig, err := tc.GetConfig(t.Name(), testType, tc.VRFv2)
 	require.NoError(t, err)
 
+	location, err := testConfig.Save()
+	require.NoError(t, err)
+
+	l.Warn().Str("Location", location).Msg("Test Config saved")
+
 	testReporter := &testreporters.VRFV2TestReporter{}
 	vrfv2Config := testConfig.VRFv2
 
-	//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
-	// vrfv2Config.MinimumConfirmations = cfg.Common.MinimumConfirmations
-
-	lokiConfig := wasp.NewEnvLokiConfig()
+	lokiConfig := tc.LokiConfigFromToml(&testConfig)
 	lc, err := wasp.NewLokiClient(lokiConfig)
 	if err != nil {
 		l.Error().Err(err).Msg(ErrLokiClient)
@@ -75,8 +76,6 @@ func TestVRFV2Performance(t *testing.T) {
 		Msg("Performance Test Configuration")
 
 	if *vrfv2Config.Performance.UseExistingEnv {
-		//TODO this messes up everything... we need better handling of existing env, or at least some interface
-		//current TOML implementation is not good enough and won't help with that
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		cfg := testConfig.VRFv2
 
@@ -89,6 +88,7 @@ func TestVRFV2Performance(t *testing.T) {
 
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
+			WithTestConfig(&testConfig).
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfv2Contracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, string(testType), &testConfig)
@@ -164,6 +164,7 @@ func TestVRFV2Performance(t *testing.T) {
 		vrfv2Config.General.SubscriptionFundingAmountLink = testConfig.VRFv2.NewEnvConfig.Funding.SubFundsLink
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
+			WithTestConfig(&testConfig).
 			WithGeth().
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
@@ -293,7 +294,7 @@ func cancelSubsAndReturnFunds(subIDs []uint64, l zerolog.Logger) {
 
 func FundNodesIfNeeded(config *tc.TestConfig, client blockchain.EVMClient, l zerolog.Logger) error {
 	cfg := config.VRFv2
-	if *cfg.ExistingEnvConfig.NodeSendingKeyFundingMin > 0 {
+	if cfg.ExistingEnvConfig.NodeSendingKeyFundingMin != nil && *cfg.ExistingEnvConfig.NodeSendingKeyFundingMin > 0 {
 		for _, sendingKey := range cfg.ExistingEnvConfig.NodeSendingKeys {
 			address := common.HexToAddress(sendingKey)
 			sendingKeyBalance, err := client.BalanceAt(context.Background(), address)
