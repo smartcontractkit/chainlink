@@ -184,7 +184,8 @@ func TestLogTrigger(t *testing.T) {
 	})
 
 	if testEnvironment.WillUseRemoteRunner() {
-		loadedTestConfig.SetForRemoteRunner()
+		err := loadedTestConfig.SetForRemoteRunner()
+		require.NoError(t, err, "Error setting env vars for remote runner")
 	}
 
 	testEnvironment.
