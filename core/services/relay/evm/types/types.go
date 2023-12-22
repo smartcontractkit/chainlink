@@ -13,19 +13,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
-
-type RelayOpts struct {
-	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
-	// make this private and wrap the arg fields with funcs on RelayOpts
-	commontypes.RelayArgs
-	c *RelayConfig
-}
 
 type ChainReaderConfig struct {
 	// ChainContractReaders key is contract name
@@ -80,7 +72,14 @@ type RelayConfig struct {
 
 var ErrBadRelayConfig = errors.New("bad relay config")
 
-func NewRelayOpts(args types.RelayArgs) *RelayOpts {
+type RelayOpts struct {
+	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
+	// make this private and wrap the arg fields with funcs on RelayOpts
+	commontypes.RelayArgs
+	c *RelayConfig
+}
+
+func NewRelayOpts(args commontypes.RelayArgs) *RelayOpts {
 	return &RelayOpts{
 		RelayArgs: args,
 		c:         nil, // lazy initialization

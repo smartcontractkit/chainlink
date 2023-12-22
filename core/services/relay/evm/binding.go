@@ -130,7 +130,7 @@ func (e *eventBinding) GetLatestValue(_ context.Context, _ any) ([]byte, error) 
 	if err != nil {
 		errStr := err.Error()
 		if strings.Contains(errStr, "not found") || strings.Contains(errStr, "no rows") {
-			return nil, nil
+			return nil, fmt.Errorf("%w: %w", commontypes.ErrNotFound, err)
 		}
 		return nil, err
 	}
