@@ -106,17 +106,11 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, config *tc.TestConfig)
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 
-			var (
-				upgradeImage   string
-				upgradeVersion string
-				err            error
-			)
+			var err error
 			if nodeUpgrade {
 				if cfg.ChainlinkUpgradeImage == nil {
 					t.Fatal("[ChainlinkUpgradeImage] must be set in TOML config to upgrade nodes")
 				}
-				upgradeImage = *cfg.ChainlinkUpgradeImage.Image
-				upgradeVersion = *cfg.ChainlinkUpgradeImage.Version
 			}
 
 			// Use the name to determine if this is a log trigger or mercury
@@ -185,7 +179,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, config *tc.TestConfig)
 				expect := 5
 				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 				for i := 0; i < 5; i++ {
-					err = actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, a.DockerEnv.ClCluster.Nodes[i])
+					err = actions.UpgradeChainlinkNodeVersionsLocal(cfg, a.DockerEnv.ClCluster.Nodes[i])
 					require.NoError(t, err, "Error when upgrading node %d", i)
 					time.Sleep(time.Second * 10)
 					expect = expect + 5
