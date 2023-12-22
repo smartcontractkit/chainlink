@@ -541,12 +541,12 @@ type medianProvider struct {
 func (p *medianProvider) Name() string { return p.lggr.Name() }
 
 func (p *medianProvider) Start(ctx context.Context) error {
-	startCloses := []services.StartClose{p.configWatcher, p.contractTransmitter, p.medianContract}
+	srvcs := []services.StartClose{p.configWatcher, p.contractTransmitter, p.medianContract}
 	if p.chainReader != nil {
-		startCloses = append(startCloses, p.chainReader)
+		srvcs = append(srvcs, p.chainReader)
 	}
 
-	return p.ms.Start(ctx, startCloses...)
+	return p.ms.Start(ctx, srvcs...)
 }
 
 func (p *medianProvider) Close() error { return p.ms.Close() }

@@ -61,7 +61,7 @@ func (entry *codecEntry) Init() error {
 
 func (entry *codecEntry) GetMaxSize(n int) (int, error) {
 	if entry == nil {
-		return 0, commontypes.ErrInvalidType
+		return 0, fmt.Errorf("%w: nil entry", commontypes.ErrInvalidType)
 	}
 	return GetMaxSize(n, entry.Args)
 }
@@ -104,7 +104,8 @@ func getNativeAndCheckedTypes(curType *abi.Type) (reflect.Type, reflect.Type, er
 			}
 			curType = curType.Elem
 		default:
-			return nil, nil, commontypes.ErrInvalidType
+			return nil, nil, fmt.Errorf(
+				"%w: cannot create type for kind %v", commontypes.ErrInvalidType, curType.GetType().Kind())
 		}
 	}
 	base, ok := types.GetType(curType.String())

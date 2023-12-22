@@ -73,7 +73,7 @@ func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
 
 	def, ok := itemTypes[itemType]
 	if !ok {
-		return nil, commontypes.ErrInvalidType
+		return nil, fmt.Errorf("%w: cannot find type name %s", commontypes.ErrInvalidType, itemType)
 	}
 
 	return reflect.New(def.checkedType).Interface(), nil
