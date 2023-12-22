@@ -454,7 +454,7 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
-          - name: vrfv2
+          - name: vrfv2plus
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated                       
