@@ -39,7 +39,8 @@ type multiNodeOpts struct {
 	chainID             types.ID
 	chainType           config.ChainType
 	chainFamily         string
-	sendOnlyErrorParser func(err error) SendTxReturnCode
+	classifySendTxError func(tx any, err error) SendTxReturnCode
+	sendTxSoftTimeout   time.Duration
 }
 
 func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
@@ -50,7 +51,7 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 	result := NewMultiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient](opts.logger,
 		opts.selectionMode, opts.leaseDuration, opts.noNewHeadsThreshold, opts.nodes, opts.sendonlys,
-		opts.chainID, opts.chainType, opts.chainFamily, opts.sendOnlyErrorParser)
+		opts.chainID, opts.chainType, opts.chainFamily, opts.classifySendTxError, opts.sendTxSoftTimeout)
 	return testMultiNode{
 		result.(*multiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 			types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient]),
@@ -560,7 +561,7 @@ func TestMultiNode_BatchCallContextAll(t *testing.T) {
 
 func TestMultiNode_SendTransaction(t *testing.T) {
 	t.Parallel()
-	sendOnlyErrorParser := func(err error) SendTxReturnCode {
+	classifySendTxError := func(tx any, err error) SendTxReturnCode {
 		if err != nil {
 			return Fatal
 		}
@@ -585,12 +586,6 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		})
 		return mn
 	}
-	newNodeSelector := func(node Node[types.ID, types.Head[Hashable], multiNodeRPCClient]) *mockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient] {
-		ns := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-		ns.On("Select").Return(node).Once()
-		ns.On("Name").Return("MockedNodeSelector").Maybe()
-		return ns
-	}
 	t.Run("Fails if there is no nodes available", func(t *testing.T) {
 		mn := newStartedMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
@@ -599,111 +594,210 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		err := mn.SendTransaction(tests.Context(t), nil)
 		assert.EqualError(t, err, ErroringNodeError.Error())
 	})
-	t.Run("Fails if failed to select active node, even if managed to send tx", func(t *testing.T) {
+	t.Run("Transaction failure happy path", func(t *testing.T) {
 		chainID := types.RandomID()
-		node := newNode(t, nil, nil)
-		mn := newStartedMultiNode(t, multiNodeOpts{
-			selectionMode:       NodeSelectionModeRoundRobin,
-			chainID:             chainID,
-			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{node},
-			sendOnlyErrorParser: sendOnlyErrorParser,
-		})
-
-		mn.nodeSelector = newNodeSelector(nil)
-		err := mn.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, err, ErroringNodeError.Error())
-	})
-	t.Run("Returns error from main node, logs all", func(t *testing.T) {
-		chainID := types.RandomID()
-		expectedError := errors.New("rpc failed to do the batch call")
-		unexpectedError := errors.New("error returned by non main node must be ignored")
+		expectedError := errors.New("transaction failed")
 		mainNode := newNode(t, expectedError, nil)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		mn := newStartedMultiNode(t, multiNodeOpts{
 			selectionMode:       NodeSelectionModeRoundRobin,
 			chainID:             chainID,
-			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{mainNode, newNode(t, unexpectedError, nil)},
-			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{newNode(t, unexpectedError, nil)},
-			sendOnlyErrorParser: sendOnlyErrorParser,
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{mainNode},
+			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{newNode(t, errors.New("unexpected error"), nil)},
+			classifySendTxError: classifySendTxError,
 			logger:              lggr,
 		})
-		mn.nodeSelector = newNodeSelector(mainNode)
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, err, expectedError.Error())
-		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 3)
-		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 3)
+		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 2)
+		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 2)
 	})
-	t.Run("Main node submission is successful", func(t *testing.T) {
-		// setup RPCs
-		failedNode := newNode(t, errors.New("rpc failed to send transaction"), nil)
-		failedSendOnly := newNode(t, errors.New("send only rpc failed to send transaction"), nil)
+	t.Run("Transaction success happy path", func(t *testing.T) {
+		chainID := types.RandomID()
 		mainNode := newNode(t, nil, nil)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		mn := newStartedMultiNode(t, multiNodeOpts{
 			selectionMode:       NodeSelectionModeRoundRobin,
-			chainID:             types.RandomID(),
-			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{failedNode, mainNode},
-			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{failedSendOnly},
+			chainID:             chainID,
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{mainNode},
+			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{newNode(t, errors.New("unexpected error"), nil)},
+			classifySendTxError: classifySendTxError,
 			logger:              lggr,
-			sendOnlyErrorParser: sendOnlyErrorParser,
 		})
-		mn.nodeSelector = newNodeSelector(mainNode)
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
-		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 3)
-		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 2)
+		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 2)
+		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 1)
 	})
-	t.Run("Secondary node returns success before main node fails", func(t *testing.T) {
-		// setup RPCs
-		ctx, cancel := context.WithCancel(context.Background())
-		mainNode := newNode(t, errors.New("main node failure"), func(args mock.Arguments) {
-			// ensure that main node returns result after secondary succeeded
-			<-ctx.Done()
+	t.Run("Context expired before collecting sufficient results", func(t *testing.T) {
+		chainID := types.RandomID()
+		testContext, testCancel := context.WithCancel(tests.Context(t))
+		defer testCancel()
+		mainNode := newNode(t, errors.New("unexpected error"), func(_ mock.Arguments) {
+			// block caller til end of the test
+			<-testContext.Done()
 		})
-		secondary := newNode(t, nil, nil)
-		secondaryFailed := newNode(t, errors.New("secondary node failure"), nil)
-		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		mn := newStartedMultiNode(t, multiNodeOpts{
 			selectionMode:       NodeSelectionModeRoundRobin,
-			chainID:             types.RandomID(),
-			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{mainNode, secondaryFailed},
-			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{secondary},
-			logger:              lggr,
-			sendOnlyErrorParser: sendOnlyErrorParser,
+			chainID:             chainID,
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{mainNode},
+			classifySendTxError: classifySendTxError,
 		})
-		mn.nodeSelector = newNodeSelector(mainNode)
-		err := mn.SendTransaction(tests.Context(t), nil)
-		require.NoError(t, err)
+		requestContext, cancel := context.WithCancel(tests.Context(t))
 		cancel()
-		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 3)
-		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 2)
+		err := mn.SendTransaction(requestContext, nil)
+		require.EqualError(t, err, "failed to collect tx results: context canceled")
 	})
-	t.Run("If there are several results to report, child goroutines are not stuck forever", func(t *testing.T) {
-		mainNode := newNode(t, nil, nil)
+	t.Run("Soft timeout stops results collection", func(t *testing.T) {
+		chainID := types.RandomID()
+		// hold reply from the node till end of the test
+		fastNode := newNode(t, nil, nil)
+		testContext, testCancel := context.WithCancel(tests.Context(t))
+		defer testCancel()
+		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
+			// block caller til end of the test
+			<-testContext.Done()
+		})
 		mn := newStartedMultiNode(t, multiNodeOpts{
 			selectionMode:       NodeSelectionModeRoundRobin,
-			chainID:             types.RandomID(),
-			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{newNode(t, nil, nil), mainNode},
-			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{newNode(t, nil, nil)},
-			sendOnlyErrorParser: sendOnlyErrorParser,
+			chainID:             chainID,
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{fastNode, slowNode},
+			classifySendTxError: classifySendTxError,
+			sendTxSoftTimeout:   tests.TestInterval,
 		})
-		mn.nodeSelector = newNodeSelector(mainNode)
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
 	})
-	t.Run("Fails if already closed", func(t *testing.T) {
-		mainNode := newNode(t, nil, nil)
+	t.Run("Fails when closed on sendonly broadcast", func(t *testing.T) {
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode:       NodeSelectionModeRoundRobin,
 			chainID:             types.RandomID(),
-			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{mainNode},
-			sendOnlyErrorParser: sendOnlyErrorParser,
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{newNode(t, nil, nil)},
+			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{newNode(t, nil, nil)},
+			classifySendTxError: classifySendTxError,
 		})
-		mn.nodeSelector = newNodeSelector(mainNode)
 		err := mn.StartOnce("startedTestMultiNode", func() error { return nil })
 		require.NoError(t, err)
 		require.NoError(t, mn.Close())
 		err = mn.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, err, "MulltiNode is stopped: context canceled")
+		require.EqualError(t, err, "aborted while broadcasting to sendonlys - multinode is stopped: context canceled")
 	})
+	t.Run("Fails when closed on nodes broadcast", func(t *testing.T) {
+		mn := newTestMultiNode(t, multiNodeOpts{
+			selectionMode:       NodeSelectionModeRoundRobin,
+			chainID:             types.RandomID(),
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{newNode(t, nil, nil)},
+			sendonlys:           nil,
+			classifySendTxError: classifySendTxError,
+		})
+		err := mn.StartOnce("startedTestMultiNode", func() error { return nil })
+		require.NoError(t, err)
+		require.NoError(t, mn.Close())
+		err = mn.SendTransaction(tests.Context(t), nil)
+		require.EqualError(t, err, "aborted while broadcasting to primary - multinode is stopped: context canceled")
+	})
+}
+
+func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
+	t.Parallel()
+	mn := newTestMultiNode(t, multiNodeOpts{
+		selectionMode: NodeSelectionModeRoundRobin,
+		chainID:       types.RandomID(),
+	})
+	err := mn.StartOnce("startedTestMultiNode", func() error { return nil })
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, mn.Close())
+	})
+	// ensure failure on new SendTxReturnCode
+	codesToCover := map[SendTxReturnCode]struct{}{}
+	for code := Successful; code < sendTxReturnCodeLen; code++ {
+		codesToCover[code] = struct{}{}
+	}
+
+	testCases := []struct {
+		Name                string
+		ExpectedErr         string
+		ExpectedCriticalErr string
+		ResultsByCode       map[SendTxReturnCode][]error
+	}{
+		{
+			Name:                "Returns error and logs critical error on Success and Fatal",
+			ExpectedErr:         "fatal",
+			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got Successful and severe error",
+			ResultsByCode: map[SendTxReturnCode][]error{
+				Successful: {nil},
+				Fatal:      {errors.New("fatal")},
+			},
+		},
+		{
+			Name:                "Returns error and logs critical error on TransactionAlreadyKnown and Fatal",
+			ExpectedErr:         "unsupported",
+			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got Successful and severe error",
+			ResultsByCode: map[SendTxReturnCode][]error{
+				TransactionAlreadyKnown: {nil},
+				Unsupported:             {errors.New("unsupported")},
+			},
+		},
+		{
+			Name:                "Prefers sever error to temporary",
+			ExpectedErr:         "underpriced",
+			ExpectedCriticalErr: "",
+			ResultsByCode: map[SendTxReturnCode][]error{
+				Retryable:   {errors.New("retryable")},
+				Underpriced: {errors.New("underpriced")},
+			},
+		},
+		{
+			Name:                "Returns temporary error",
+			ExpectedErr:         "retryable",
+			ExpectedCriticalErr: "",
+			ResultsByCode: map[SendTxReturnCode][]error{
+				Retryable: {errors.New("retryable")},
+			},
+		},
+		{
+			Name:                "Insufficient funds is treated as  error",
+			ExpectedErr:         "",
+			ExpectedCriticalErr: "",
+			ResultsByCode: map[SendTxReturnCode][]error{
+				Successful:        {nil},
+				InsufficientFunds: {errors.New("insufficientFunds")},
+			},
+		},
+		{
+			Name:                "Logs critical error on empty ResultsByCode",
+			ExpectedErr:         "invariant violation: expected at least one response on SendTransaction",
+			ExpectedCriticalErr: "invariant violation: expected at least one response on SendTransaction",
+			ResultsByCode:       map[SendTxReturnCode][]error{},
+		},
+	}
+
+	for _, testCase := range testCases {
+		for code := range testCase.ResultsByCode {
+			delete(codesToCover, code)
+		}
+		t.Run(testCase.Name, func(t *testing.T) {
+			err := mn.aggregateTxResults(nil, testCase.ResultsByCode)
+			if testCase.ExpectedErr == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, testCase.ExpectedErr)
+			}
+
+			if testCase.ExpectedCriticalErr == "" {
+				assert.NoError(t, mn.Healthy())
+			} else {
+				assert.EqualError(t, mn.Healthy(), testCase.ExpectedCriticalErr)
+			}
+		})
+	}
+
+	// explicitly signal that following codes are properly handled in aggregateTxResults,
+	//but dedicated test cases won't be beneficial
+	for _, codeToIgnore := range []SendTxReturnCode{Unknown, ExceedsMaxFee, FeeOutOfValidRange} {
+		delete(codesToCover, codeToIgnore)
+	}
+	assert.Empty(t, codesToCover, "all of the SendTxReturnCode must be covered by this test")
+
 }
