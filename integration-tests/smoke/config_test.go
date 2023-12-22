@@ -3,8 +3,9 @@ package smoke
 import (
 	"testing"
 
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/stretchr/testify/require"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestConfig(t *testing.T) {
