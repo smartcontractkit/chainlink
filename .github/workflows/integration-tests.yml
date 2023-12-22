@@ -270,10 +270,11 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
           CHAINLINK_VERSION: ${{ github.sha }}
+          LOKI_URL: ${{ secrets.LOKI_URL }}
           LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
         run: |
           echo ::add-mask::$CHAINLINK_IMAGE
 
@@ -541,10 +542,11 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
           CHAINLINK_VERSION: ${{ github.sha }}
+          LOKI_URL: ${{ secrets.LOKI_URL }}
           LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
         run: |
           echo ::add-mask::$CHAINLINK_IMAGE
 
