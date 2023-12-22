@@ -111,27 +111,6 @@ LimitDefault = 5_000_000`
 	}
 )
 
-// var (
-// 	NumberOfNodes, _        = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))
-// 	RegistryToTest          = getEnv("REGISTRY", "2_1")
-// 	NumberOfUpkeeps, _      = strconv.Atoi(getEnv("NUMBEROFUPKEEPS", "500"))
-// 	CheckGasToBurn, _       = strconv.ParseInt(getEnv("CHECKGASTOBURN", "100000"), 0, 64)
-// 	PerformGasToBurn, _     = strconv.ParseInt(getEnv("PERFORMGASTOBURN", "50000"), 0, 64)
-// 	BlockRange, _           = strconv.ParseInt(getEnv("BLOCKRANGE", "3600"), 0, 64)
-// 	BlockInterval, _        = strconv.ParseInt(getEnv("BLOCKINTERVAL", "20"), 0, 64)
-// 	ChainlinkNodeFunding, _ = strconv.ParseFloat(getEnv("CHAINLINKNODEFUNDING", "0.5"), 64)
-// 	MaxPerformGas, _        = strconv.ParseInt(getEnv("MAXPERFORMGAS", "5000000"), 0, 32)
-// 	UpkeepGasLimit, _       = strconv.ParseInt(getEnv("UPKEEPGASLIMIT", fmt.Sprint(PerformGasToBurn+100000)), 0, 64)
-// 	NumberOfRegistries, _   = strconv.Atoi(getEnv("NUMBEROFREGISTRIES", "1"))
-// 	ForceSingleTxnKey, _    = strconv.ParseBool(getEnv("FORCESINGLETXNKEY", "false"))
-// 	DeleteJobsOnEnd, _      = strconv.ParseBool(getEnv("DELETEJOBSONEND", "true"))
-// 	RegistryAddress         = getEnv("REGISTRYADDRESS", "")
-// 	RegistrarAddress        = getEnv("REGISTRARADDRESS", "")
-// 	LinkTokenAddress        = getEnv("LINKTOKENADDRESS", "")
-// 	EthFeedAddress          = getEnv("ETHFEEDADDRESS", "")
-// 	GasFeedAddress          = getEnv("GASFEEDADDRESS", "")
-// )
-
 type NetworkConfig struct {
 	upkeepSLA  int64
 	blockTime  time.Duration

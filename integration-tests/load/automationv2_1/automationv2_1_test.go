@@ -114,17 +114,6 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	}
 )
 
-// var (
-// 	numberofNodes, _   = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))      // Number of nodes in the DON
-// 	numberOfUpkeeps, _ = strconv.Atoi(getEnv("NUMBEROFUPKEEPS", "100"))  // Number of log triggered upkeeps
-// 	duration, _        = strconv.Atoi(getEnv("DURATION", "900"))         // Test duration in seconds
-// 	blockTime, _       = strconv.Atoi(getEnv("BLOCKTIME", "1"))          // Block time in seconds for geth simulated dev network
-// 	numberOfEvents, _  = strconv.Atoi(getEnv("NUMBEROFEVENTS", "1"))     // Number of events to emit per trigger
-// 	specType           = getEnv("SPECTYPE", "minimum")                   // minimum, recommended, local specs for the test
-// 	logLevel           = getEnv("LOGLEVEL", "info")                      // log level for the chainlink nodes
-// 	pyroscope, _       = strconv.ParseBool(getEnv("PYROSCOPE", "false")) // enable pyroscope for the chainlink nodes
-// )
-
 func TestLogTrigger(t *testing.T) {
 	ctx := tests.Context(t)
 	l := logging.GetTestLogger(t)
@@ -194,25 +183,9 @@ func TestLogTrigger(t *testing.T) {
 		PreventPodEviction: true,
 	})
 
-	//TODO this whole part needs reworking
-	// if testEnvironment.WillUseRemoteRunner() {
-	// key := "TEST_INPUTS"
-	// err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-	// require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
-
-	// key = config.EnvVarPyroscopeServer
-	// err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-	// require.NoError(t, err, "failed to set the environment variable PYROSCOPE_SERVER for remote runner")
-
-	// key = config.EnvVarPyroscopeKey
-	// err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-	// require.NoError(t, err, "failed to set the environment variable PYROSCOPE_KEY for remote runner")
-
-	//TODO how is this used?
-	// key := "GRAFANA_DASHBOARD_URL"
-	// err = os.Setenv(fmt.Sprintf("TEST_%s", key), getEnv(key, ""))
-	// require.NoError(t, err, "failed to set the environment variable GRAFANA_DASHBOARD_URL for remote runner")
-	// }
+	if testEnvironment.WillUseRemoteRunner() {
+		loadedTestConfig.SetForRemoteRunner()
+	}
 
 	testEnvironment.
 		AddHelm(ethereum.New(&ethereum.Props{
@@ -252,17 +225,9 @@ func TestLogTrigger(t *testing.T) {
 
 	}
 
-	//TODO refactor this
-	// if !pyroscope {
-	// 	err = os.Setenv(config.EnvVarPyroscopeServer, "")
-	// 	require.NoError(t, err, "Error setting pyroscope server env var")
-	// }
-
 	if *loadedTestConfig.Pyroscope.Enabled {
 		loadedTestConfig.Pyroscope.Environment = &testEnvironment.Cfg.Namespace
 	}
-	// err = os.Setenv(config.EnvVarPyroscopeEnvironment, testEnvironment.Cfg.Namespace)
-	// require.NoError(t, err, "Error setting pyroscope environment env var")
 
 	numberOfUpkeeps := *loadedTestConfig.Automation.General.NumberOfNodes
 

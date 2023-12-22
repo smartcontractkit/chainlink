@@ -423,13 +423,13 @@ jobs:
             run: -run TestOCRJobReplacement
             file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated                         
-          - name: ocr2
+          - name: ocr2-replacement
             nodes: 1
             os: ubuntu-latest
             run: -run TestOCRv2JobReplacement
             file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated
-          - name: ocr2
+          - name: ocr2-basic
             nodes: 1
             os: ubuntu-latest
             run: -run TestOCRv2Basic

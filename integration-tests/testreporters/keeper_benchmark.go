@@ -18,11 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
-// this should come from the config
-// var (
-// 	DashboardUrl = os.Getenv("GRAFANA_DASHBOARD_URL")
-// )
-
 // KeeperBenchmarkTestReporter enables reporting on the keeper benchmark test
 type KeeperBenchmarkTestReporter struct {
 	Reports                        []KeeperBenchmarkTestReport `json:"reports"`

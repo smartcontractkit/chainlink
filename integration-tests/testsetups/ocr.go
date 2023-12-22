@@ -82,32 +82,11 @@ type OCRSoakTest struct {
 	ocrV2InstanceMap map[string]contracts.OffchainAggregatorV2 // address : instance
 }
 
-// OCRSoakTestInputs define required inputs to run an OCR soak test
-// type OCRSoakTestInputs struct {
-// 	TestDuration            time.Duration `envconfig:"TEST_DURATION" default:"15m"`         // How long to run the test for
-// 	NumberOfContracts       int           `envconfig:"NUMBER_CONTRACTS" default:"2"`        // Number of OCR contracts to launch
-// 	ChainlinkNodeFunding    float64       `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"` // Amount of native currency to fund each chainlink node with
-// 	bigChainlinkNodeFunding *big.Float    // Convenience conversions for funding
-// 	TimeBetweenRounds       time.Duration `envconfig:"TIME_BETWEEN_ROUNDS" default:"1m"` // How long to wait before starting a new round; controls frequency of rounds
-// }
-
-// func (i OCRSoakTestInputs) setForRemoteRunner() {
-// 	os.Setenv("TEST_OCR_TEST_DURATION", i.TestDuration.String())
-// 	os.Setenv("TEST_OCR_NUMBER_CONTRACTS", fmt.Sprint(i.NumberOfContracts))
-// 	os.Setenv("TEST_OCR_CHAINLINK_NODE_FUNDING", strconv.FormatFloat(i.ChainlinkNodeFunding, 'f', -1, 64))
-// 	os.Setenv("TEST_OCR_TIME_BETWEEN_ROUNDS", i.TimeBetweenRounds.String())
-
-// 	selectedNetworks := strings.Split(os.Getenv("SELECTED_NETWORKS"), ",")
-// 	for _, networkPrefix := range selectedNetworks {
-// 		urlEnv := fmt.Sprintf("%s_URLS", networkPrefix)
-// 		httpEnv := fmt.Sprintf("%s_HTTP_URLS", networkPrefix)
-// 		os.Setenv(fmt.Sprintf("TEST_%s", urlEnv), os.Getenv(urlEnv))
-// 		os.Setenv(fmt.Sprintf("TEST_%s", httpEnv), os.Getenv(httpEnv))
-// 	}
-// }
-
 // NewOCRSoakTest creates a new OCR soak test to setup and run
 func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*OCRSoakTest, error) {
+	err := config.SetForRemoteRunner()
+	require.NoError(t, err, "Error setting config for remote runner")
+
 	test := &OCRSoakTest{
 		Config:                config,
 		OperatorForwarderFlow: forwarderFlow,

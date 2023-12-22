@@ -492,6 +492,11 @@ func (c *TestConfig) Validate() error {
 	return nil
 }
 
+func (c *TestConfig) SetForRemoteRunner() error {
+	key := Base64OverrideEnvVarName
+	return os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+}
+
 func readFile(filePath string) ([]byte, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
