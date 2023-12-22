@@ -204,13 +204,14 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 	for i, subscription := range subscriptions {
 		subscriptionId := start + uint64(i)
 		subscription := subscription
-		s.subscriptions.UpdateSubscription(subscriptionId, &subscription)
-		err = s.orm.UpsertSubscription(CachedSubscription{
-			SubscriptionID:                      subscriptionId,
-			IFunctionsSubscriptionsSubscription: subscription,
-		})
-		if err != nil {
-			s.lggr.Errorf("unexpected error updating subscription in the cache: %w", err)
+		updated := s.subscriptions.UpdateSubscription(subscriptionId, &subscription)
+		if updated {
+			if err = s.orm.UpsertSubscription(CachedSubscription{
+				SubscriptionID:                      subscriptionId,
+				IFunctionsSubscriptionsSubscription: subscription,
+			}); err != nil {
+				s.lggr.Errorf("unexpected error updating subscription in the cache: %w", err)
+			}
 		}
 	}
 
@@ -233,16 +234,14 @@ func (s *onchainSubscriptions) loadCachedSubscriptions() {
 		}
 
 		for _, cs := range csBatch {
-			if _, err := s.subscriptions.GetMaxUserBalance(cs.Owner); errors.Is(err, ErrUserHasNoSubscription) {
-				s.subscriptions.UpdateSubscription(cs.SubscriptionID, &functions_router.IFunctionsSubscriptionsSubscription{
-					Balance:        cs.Balance,
-					Owner:          cs.Owner,
-					BlockedBalance: cs.BlockedBalance,
-					ProposedOwner:  cs.ProposedOwner,
-					Consumers:      cs.Consumers,
-					Flags:          cs.Flags,
-				})
-			}
+			_ = s.subscriptions.UpdateSubscription(cs.SubscriptionID, &functions_router.IFunctionsSubscriptionsSubscription{
+				Balance:        cs.Balance,
+				Owner:          cs.Owner,
+				BlockedBalance: cs.BlockedBalance,
+				ProposedOwner:  cs.ProposedOwner,
+				Consumers:      cs.Consumers,
+				Flags:          cs.Flags,
+			})
 		}
 
 		if len(csBatch) != int(s.config.CacheBatchSize) {

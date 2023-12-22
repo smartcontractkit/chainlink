@@ -178,7 +178,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 
-		// should create a new subscription because it comes from a diferent router contract
+		// should create a new subscription because it comes from a different router contract
 		err = orm2.UpsertSubscription(subscription)
 		require.NoError(t, err)
 
