@@ -154,7 +154,7 @@ jobs:
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Load test outputs
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           path: ./artifacts
       - name: Build flakey test runner
