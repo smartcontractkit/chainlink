@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -55,8 +54,7 @@ func (m *decoder) GetMaxDecodingSize(ctx context.Context, n int, itemType string
 func extractDecoding(info *codecEntry, raw []byte) (any, error) {
 	unpacked := map[string]any{}
 	if err := info.Args.UnpackIntoMap(unpacked, raw); err != nil {
-		argsJson, _ := json.Marshal(info.Args)
-		return nil, fmt.Errorf("%w: %w: for args %s", commontypes.ErrInvalidEncoding, err, argsJson)
+		return nil, fmt.Errorf("%w: %w: for args %#v", commontypes.ErrInvalidEncoding, err, info.Args)
 	}
 	var decode any = unpacked
 
