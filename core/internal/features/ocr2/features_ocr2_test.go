@@ -373,9 +373,11 @@ juelsPerFeeCoinSource = """
 			// Watch for OCR2AggregatorTransmitted events
 			start := uint64(0)
 			txEvents := make(chan *ocr2aggregator.OCR2AggregatorTransmitted)
-			ocrContract.WatchTransmitted(&bind.WatchOpts{Start: &start, Context: testutils.Context(t)}, txEvents)
+			_, err := ocrContract.WatchTransmitted(&bind.WatchOpts{Start: &start, Context: testutils.Context(t)}, txEvents)
+			require.NoError(t, err)
 			newTxEvents := make(chan *ocr2aggregator.OCR2AggregatorNewTransmission)
-			ocrContract.WatchNewTransmission(&bind.WatchOpts{Start: &start, Context: testutils.Context(t)}, newTxEvents, []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+			_, err = ocrContract.WatchNewTransmission(&bind.WatchOpts{Start: &start, Context: testutils.Context(t)}, newTxEvents, []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+			require.NoError(t, err)
 
 			go func() {
 				var newTxEvent *ocr2aggregator.OCR2AggregatorNewTransmission
@@ -450,7 +452,9 @@ juelsPerFeeCoinSource = """
 				assert.Len(t, em, 0, "expected metadata %v", em)
 
 				t.Logf("======= Summary =======")
-				roundId, err := ocrContract.LatestRound(nil)
+				var roundId *big.Int
+				roundId, err = ocrContract.LatestRound(nil)
+				require.NoError(t, err)
 				for i := 0; i <= int(roundId.Int64()); i++ {
 					roundData, err := ocrContract.GetRoundData(nil, big.NewInt(int64(i)))
 					require.NoError(t, err)

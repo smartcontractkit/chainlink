@@ -103,10 +103,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
-require (
-	github.com/coreos/go-semver v0.3.0
-	gopkg.in/guregu/null.v2 v2.1.2
-)
+require gopkg.in/guregu/null.v2 v2.1.2
 
 require (
 	cloud.google.com/go/compute v1.23.3 // indirect
