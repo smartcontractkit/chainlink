@@ -5,19 +5,18 @@ import {MockScrollL1CrossDomainMessenger} from "../../mocks/MockScrollL1CrossDom
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/MockScrollL2CrossDomainMessenger.sol";
 import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUptimeFeed.sol";
 import {ScrollValidator} from "../../../dev/scroll/ScrollValidator.sol";
-
-import {Test} from "forge-std/Test.sol";
+import {L2EPTest} from "../L2EPTest.sol";
 
 // Use the following command to run this test file:
 //
 //  FOUNDRY_PROFILE=l2ep forge test -vvv --mp ./src/v0.8/l2ep/test/v1_0_0/scroll/ScrollValidator.t.sol
 //
-contract ScrollValidatorTest is Test {
+contract ScrollValidatorTest is L2EPTest {
   /// Sets a fake L2 target and the initial gas limit
   address internal constant L2_SEQ_STATUS_RECORDER_ADDRESS = 0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b;
   uint32 internal constant INIT_GAS_LIMIT = 1900000;
 
-  // L2EP contracts
+  /// L2EP contracts
   MockScrollL1CrossDomainMessenger internal s_mockScrollL1CrossDomainMessenger;
   MockScrollL2CrossDomainMessenger internal s_mockScrollL2CrossDomainMessenger;
   ScrollSequencerUptimeFeed internal s_scrollSequencerUptimeFeed;
@@ -33,6 +32,7 @@ contract ScrollValidatorTest is Test {
     bytes message
   );
 
+  /// Setup
   function setUp() public {
     s_mockScrollL1CrossDomainMessenger = new MockScrollL1CrossDomainMessenger();
     s_mockScrollL2CrossDomainMessenger = new MockScrollL2CrossDomainMessenger();
