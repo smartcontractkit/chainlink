@@ -1,0 +1,154 @@
+diff --git a/core/services/relay/evm/binding.go b/core/services/relay/evm/binding.go
+index 465a10b368..32699516e1 100644
+--- a/core/services/relay/evm/binding.go
++++ b/core/services/relay/evm/binding.go
+@@ -130,7 +130,7 @@ func (e *eventBinding) GetLatestValue(_ context.Context, _ any) ([]byte, error)
+ 	if err != nil {
+ 		errStr := err.Error()
+ 		if strings.Contains(errStr, "not found") || strings.Contains(errStr, "no rows") {
+-			return nil, nil
++			return nil, fmt.Errorf("%w: %w", commontypes.ErrNotFound, err)
+ 		}
+ 		return nil, err
+ 	}
+diff --git a/core/services/relay/evm/codec.go b/core/services/relay/evm/codec.go
+index b953d382d8..19b9c6e4f4 100644
+--- a/core/services/relay/evm/codec.go
++++ b/core/services/relay/evm/codec.go
+@@ -73,7 +73,7 @@ func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
+ 
+ 	def, ok := itemTypes[itemType]
+ 	if !ok {
+-		return nil, commontypes.ErrInvalidType
++		return nil, fmt.Errorf("%w: cannot find type name %s", commontypes.ErrInvalidType, itemType)
+ 	}
+ 
+ 	return reflect.New(def.checkedType).Interface(), nil
+diff --git a/core/services/relay/evm/codec_entry.go b/core/services/relay/evm/codec_entry.go
+index 1ef5d4f059..17289844b4 100644
+--- a/core/services/relay/evm/codec_entry.go
++++ b/core/services/relay/evm/codec_entry.go
+@@ -61,7 +61,7 @@ func (entry *codecEntry) Init() error {
+ 
+ func (entry *codecEntry) GetMaxSize(n int) (int, error) {
+ 	if entry == nil {
+-		return 0, commontypes.ErrInvalidType
++		return 0, fmt.Errorf("%w: nil entry", commontypes.ErrInvalidType)
+ 	}
+ 	return GetMaxSize(n, entry.Args)
+ }
+@@ -104,7 +104,8 @@ func getNativeAndCheckedTypes(curType *abi.Type) (reflect.Type, reflect.Type, er
+ 			}
+ 			curType = curType.Elem
+ 		default:
+-			return nil, nil, commontypes.ErrInvalidType
++			return nil, nil, fmt.Errorf(
++				"%w: cannot create type for kind %v", commontypes.ErrInvalidType, curType.GetType().Kind())
+ 		}
+ 	}
+ 	base, ok := types.GetType(curType.String())
+diff --git a/core/services/relay/evm/decoder.go b/core/services/relay/evm/decoder.go
+index 96f560ae9a..1b717b1a44 100644
+--- a/core/services/relay/evm/decoder.go
++++ b/core/services/relay/evm/decoder.go
+@@ -2,6 +2,8 @@ package evm
+ 
+ import (
+ 	"context"
++	"encoding/json"
++	"fmt"
+ 	"reflect"
+ 
+ 	"github.com/mitchellh/mapstructure"
+@@ -18,7 +20,7 @@ var _ commontypes.Decoder = &decoder{}
+ func (m *decoder) Decode(ctx context.Context, raw []byte, into any, itemType string) error {
+ 	info, ok := m.Definitions[itemType]
+ 	if !ok {
+-		return commontypes.ErrInvalidType
++		return fmt.Errorf("%w: cannot find definition for %s", commontypes.ErrInvalidType, itemType)
+ 	}
+ 
+ 	decode, err := extractDecoding(info, raw)
+@@ -53,7 +55,8 @@ func (m *decoder) GetMaxDecodingSize(ctx context.Context, n int, itemType string
+ func extractDecoding(info *codecEntry, raw []byte) (any, error) {
+ 	unpacked := map[string]any{}
+ 	if err := info.Args.UnpackIntoMap(unpacked, raw); err != nil {
+-		return nil, commontypes.ErrInvalidEncoding
++		argsJson, _ := json.Marshal(info.Args)
++		return nil, fmt.Errorf("%w: %w: for args %s", commontypes.ErrInvalidEncoding, err, argsJson)
+ 	}
+ 	var decode any = unpacked
+ 
+@@ -79,8 +82,13 @@ func mapstructureDecode(src, dest any) error {
+ 		Result:     dest,
+ 		Squash:     true,
+ 	})
+-	if err != nil || mDecoder.Decode(src) != nil {
+-		return commontypes.ErrInvalidType
++	if err != nil {
++		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
++	}
++
++	if err = mDecoder.Decode(src); err != nil {
++		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
+ 	}
++
+ 	return nil
+ }
+diff --git a/core/services/relay/evm/encoder.go b/core/services/relay/evm/encoder.go
+index b3ad6d70fe..58b6160bb8 100644
+--- a/core/services/relay/evm/encoder.go
++++ b/core/services/relay/evm/encoder.go
+@@ -2,6 +2,7 @@ package evm
+ 
+ import (
+ 	"context"
++	"fmt"
+ 	"reflect"
+ 
+ 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+@@ -16,7 +17,7 @@ var _ commontypes.Encoder = &encoder{}
+ func (e *encoder) Encode(ctx context.Context, item any, itemType string) ([]byte, error) {
+ 	info, ok := e.Definitions[itemType]
+ 	if !ok {
+-		return nil, commontypes.ErrInvalidType
++		return nil, fmt.Errorf("%w: cannot find definition for %s", commontypes.ErrInvalidType, itemType)
+ 	}
+ 
+ 	if item == nil {
+@@ -42,7 +43,7 @@ func encode(item reflect.Value, info *codecEntry) ([]byte, error) {
+ 	case reflect.Struct, reflect.Map:
+ 		return encodeItem(item, info)
+ 	default:
+-		return nil, commontypes.ErrInvalidEncoding
++		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
+ 	}
+ }
+ 
+@@ -58,7 +59,7 @@ func encodeArray(item reflect.Value, info *codecEntry) ([]byte, error) {
+ 	case reflect.Slice:
+ 		native = reflect.MakeSlice(info.nativeType, length, length)
+ 	default:
+-		return nil, commontypes.ErrInvalidType
++		return nil, fmt.Errorf("%w: cannot encode %v as array", commontypes.ErrInvalidType, info.checkedType.Kind())
+ 	}
+ 
+ 	checkedElm := info.checkedType.Elem()
+@@ -99,11 +100,12 @@ func encodeItem(item reflect.Value, info *codecEntry) ([]byte, error) {
+ }
+ 
+ func pack(info *codecEntry, values ...any) ([]byte, error) {
+-	if bytes, err := info.Args.Pack(values...); err == nil {
+-		withPrefix := make([]byte, 0, len(info.encodingPrefix)+len(bytes))
+-		withPrefix = append(withPrefix, info.encodingPrefix...)
+-		return append(withPrefix, bytes...), nil
++	bytes, err := info.Args.Pack(values...)
++	if err != nil {
++		return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
+ 	}
+ 
+-	return nil, commontypes.ErrInvalidType
++	withPrefix := make([]byte, 0, len(info.encodingPrefix)+len(bytes))
++	withPrefix = append(withPrefix, info.encodingPrefix...)
++	return append(withPrefix, bytes...), nil
+ }
