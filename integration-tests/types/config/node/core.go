@@ -7,15 +7,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/segmentio/ksuid"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/segmentio/ksuid"
-
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -23,8 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func NewBaseConfig() *chainlink.Config {
