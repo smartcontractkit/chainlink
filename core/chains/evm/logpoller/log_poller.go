@@ -659,9 +659,11 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
 			var rpcErr client.JsonError
-			if !errors.As(err, &rpcErr) || rpcErr.Code != jsonRpcLimitExceeded {
-				lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
-				return err
+			if errors.As(err, &rpcErr) {
+				if rpcErr.Code != jsonRpcLimitExceeded {
+					lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
+					return err
+				}
 			}
 			if batchSize == 1 {
 				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
