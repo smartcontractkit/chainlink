@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
@@ -410,11 +411,13 @@ juelsPerFeeCoinSource = """
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						completedRuns, err := apps[ic].JobORM().FindPipelineRunIDsByJobID(jids[ic], 0, 1000)
+						var completedRuns []int64
+						completedRuns, err = apps[ic].JobORM().FindPipelineRunIDsByJobID(jids[ic], 0, 1000)
 						require.NoError(t, err)
 						// Want at least 2 runs so we see all the metadata.
 						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
-						jb, err := pr[0].Outputs.MarshalJSON()
+						var jb []byte
+						jb, err = pr[0].Outputs.MarshalJSON()
 						require.NoError(t, err)
 						assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", retVal*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
 						require.NoError(t, err)
@@ -425,13 +428,15 @@ juelsPerFeeCoinSource = """
 				// Trail #1: 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
 				// Trial #2: 4 oracles reporting 0, 20, 40, 60. Answer should be 40 (results[4/2]).
 				gomega.NewGomegaWithT(t).Eventually(func() string {
-					answer, err := ocrContract.LatestAnswer(nil)
+					var answer *big.Int
+					answer, err = ocrContract.LatestAnswer(nil)
 					require.NoError(t, err)
 					return answer.String()
 				}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal(fmt.Sprintf("%d", 2*retVal)))
 
 				for _, app := range apps {
-					jobs, _, err := app.JobORM().FindJobs(0, 1000)
+					var jobs []job.Job
+					jobs, _, err = app.JobORM().FindJobs(0, 1000)
 					require.NoError(t, err)
 					// No spec errors
 					for _, j := range jobs {

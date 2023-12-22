@@ -355,7 +355,7 @@ require (
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231221191441-469c5f7cd657 // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231222201016-da3f0a763f71 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20231222013040-c93f24a1b105 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231221190253-3d670c36e181 // indirect
