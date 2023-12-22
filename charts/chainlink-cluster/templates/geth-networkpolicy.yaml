@@ -19,3 +19,13 @@ spec:
           port: 8544
         - protocol: TCP
           port: 8546
+    # Allow http and websocket connections from the runner pods.
+    - from:
+        - podSelector:
+            matchLabels:
+              app: runner
+      ports:
+        - protocol: TCP
+          port: 8544
+        - protocol: TCP
+          port: 8546

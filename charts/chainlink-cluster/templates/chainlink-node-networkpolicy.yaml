@@ -10,17 +10,25 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Allow all ingress traffic between the node pods.
+    # Allow all ingress traffic between the node pods and from runner pod.
     - from:
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}
+    - from:
+      - podSelector:
+          matchLabels:
+            app: runner
   egress:
-    # Allow all egress traffic between the node pods.
+    # Allow all egress traffic between the node pods and to runner pod.
     - to:
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: runner
     # Allow all node pods to access the database pods.
     - to:
         - podSelector:

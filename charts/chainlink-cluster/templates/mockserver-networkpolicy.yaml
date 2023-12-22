@@ -17,3 +17,11 @@ spec:
       ports:
         - protocol: TCP
           port: 1080
+    # Allow http traffic from the runner pods.
+    - from:
+        - podSelector:
+            matchLabels:
+              app: runner
+      ports:
+        - protocol: TCP
+          port: 1080

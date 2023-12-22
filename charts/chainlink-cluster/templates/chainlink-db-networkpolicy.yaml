@@ -17,3 +17,11 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
+    # Allow all runner pods to access the database pods.
+    - from:
+        - podSelector:
+            matchLabels:
+              app: runner
+      ports:
+        - protocol: TCP
+          port: 5432
