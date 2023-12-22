@@ -45,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
@@ -411,16 +410,14 @@ juelsPerFeeCoinSource = """
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						var completedRuns []int64
-						completedRuns, err = apps[ic].JobORM().FindPipelineRunIDsByJobID(jids[ic], 0, 1000)
-						require.NoError(t, err)
+						completedRuns, err2 := apps[ic].JobORM().FindPipelineRunIDsByJobID(jids[ic], 0, 1000)
+						require.NoError(t, err2)
 						// Want at least 2 runs so we see all the metadata.
 						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
-						var jb []byte
-						jb, err = pr[0].Outputs.MarshalJSON()
-						require.NoError(t, err)
+						jb, err2 := pr[0].Outputs.MarshalJSON()
+						require.NoError(t, err2)
 						assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", retVal*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
-						require.NoError(t, err)
+						require.NoError(t, err2)
 					}()
 				}
 				wg.Wait()
@@ -428,16 +425,14 @@ juelsPerFeeCoinSource = """
 				// Trail #1: 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
 				// Trial #2: 4 oracles reporting 0, 20, 40, 60. Answer should be 40 (results[4/2]).
 				gomega.NewGomegaWithT(t).Eventually(func() string {
-					var answer *big.Int
-					answer, err = ocrContract.LatestAnswer(nil)
-					require.NoError(t, err)
+					answer, err2 := ocrContract.LatestAnswer(nil)
+					require.NoError(t, err2)
 					return answer.String()
 				}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal(fmt.Sprintf("%d", 2*retVal)))
 
 				for _, app := range apps {
-					var jobs []job.Job
-					jobs, _, err = app.JobORM().FindJobs(0, 1000)
-					require.NoError(t, err)
+					jobs, _, err2 := app.JobORM().FindJobs(0, 1000)
+					require.NoError(t, err2)
 					// No spec errors
 					for _, j := range jobs {
 						ignore := 0
@@ -457,37 +452,36 @@ juelsPerFeeCoinSource = """
 				assert.Len(t, em, 0, "expected metadata %v", em)
 
 				t.Logf("======= Summary =======")
-				var roundId *big.Int
-				roundId, err = ocrContract.LatestRound(nil)
-				require.NoError(t, err)
+				roundId, err2 := ocrContract.LatestRound(nil)
+				require.NoError(t, err2)
 				for i := 0; i <= int(roundId.Int64()); i++ {
-					roundData, err := ocrContract.GetRoundData(nil, big.NewInt(int64(i)))
-					require.NoError(t, err)
+					roundData, err3 := ocrContract.GetRoundData(nil, big.NewInt(int64(i)))
+					require.NoError(t, err3)
 					t.Logf("RoundId: %d, AnsweredInRound: %d, Answer: %d, StartedAt: %v, UpdatedAt: %v", roundData.RoundId, roundData.AnsweredInRound, roundData.Answer, roundData.StartedAt, roundData.UpdatedAt)
 				}
 
 				expectedAnswer := big.NewInt(2 * int64(retVal))
 
 				// Assert we can read the latest config digest and epoch after a report has been submitted.
-				contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
-				require.NoError(t, err)
+				contractABI, err2 := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
+				require.NoError(t, err2)
 				apps[0].GetRelayers().LegacyEVMChains().Slice()
-				ct, err := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].Client(), contractABI, nil, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].LogPoller(), lggr, nil)
-				require.NoError(t, err)
-				configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
-				require.NoError(t, err)
-				details, err := ocrContract.LatestConfigDetails(nil)
-				require.NoError(t, err)
+				ct, err2 := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].Client(), contractABI, nil, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].LogPoller(), lggr, nil)
+				require.NoError(t, err2)
+				configDigest, epoch, err2 := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
+				require.NoError(t, err2)
+				details, err2 := ocrContract.LatestConfigDetails(nil)
+				require.NoError(t, err2)
 				assert.True(t, bytes.Equal(configDigest[:], details.ConfigDigest[:]))
-				digestAndEpoch, err := ocrContract.LatestConfigDigestAndEpoch(nil)
-				require.NoError(t, err)
+				digestAndEpoch, err2 := ocrContract.LatestConfigDigestAndEpoch(nil)
+				require.NoError(t, err2)
 				assert.Equal(t, digestAndEpoch.Epoch, epoch)
-				latestTransmissionDetails, err := ocrContract.LatestTransmissionDetails(nil)
-				require.NoError(t, err)
+				latestTransmissionDetails, err2 := ocrContract.LatestTransmissionDetails(nil)
+				require.NoError(t, err2)
 				assert.Equal(t, expectedAnswer, latestTransmissionDetails.LatestAnswer)
-				require.NoError(t, err)
-				newTransmissionEvents, err := ocrContract.FilterTransmitted(&bind.FilterOpts{Start: 0, End: nil})
-				require.NoError(t, err)
+				require.NoError(t, err2)
+				newTransmissionEvents, err2 := ocrContract.FilterTransmitted(&bind.FilterOpts{Start: 0, End: nil})
+				require.NoError(t, err2)
 				for newTransmissionEvents.Next() {
 					assert.Equal(t, 3, newTransmissionEvents.Event.Epoch)
 				}
