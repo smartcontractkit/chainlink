@@ -5,11 +5,12 @@ import {MockScrollL1CrossDomainMessenger} from "../../mocks/MockScrollL1CrossDom
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/MockScrollL2CrossDomainMessenger.sol";
 import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUptimeFeed.sol";
 import {ScrollValidator} from "../../../dev/scroll/ScrollValidator.sol";
+import {FeedConsumer} from "../../../../../v0.8/tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.sol";
 
-// Use the following command to run this test file:
+// Use this command from the /contracts directory to run this test file:
 //
-//  FOUNDRY_PROFILE=l2ep forge test -vvv --mp ./src/v0.8/l2ep/test/v1_0_0/scroll/ScrollSequencerUptimeFeed.t.sol
+//  FOUNDRY_PROFILE=l2ep forge test -vvv --match-path ./src/v0.8/l2ep/test/v1_0_0/scroll/ScrollSequencerUptimeFeed.t.sol
 //
 contract ScrollSequencerUptimeFeedTest is L2EPTest {
   /// Constants
@@ -336,31 +337,43 @@ contract ScrollSequencerUptimeFeed_AggregatorV3Interface is ScrollSequencerUptim
   }
 }
 
-/// @notice it should disallow reads on AggregatorV3Interface functions when consuming contract is not whitelisted
-contract ScrollSequencerUptimeFeed_AggregatorV3InterfaceDisallowReads is ScrollSequencerUptimeFeedTest {
-  function test_AggregatorV3InterfaceDisallowReadsIfConsumingContractIsNotWhitelisted() public {
-    // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+/// @notice it should disallow reads on AggregatorV2V3Interface functions when consuming contract is not whitelisted
+contract ScrollSequencerUptimeFeed_AggregatorV2V3InterfaceDisallowReads is ScrollSequencerUptimeFeedTest {
+  function test_AggregatorV2V3InterfaceDisallowReadsIfConsumingContractIsNotWhitelisted() public {
+    // Deploys a FeedConsumer contract
+    FeedConsumer feedConsumer = new FeedConsumer(address(s_scrollSequencerUptimeFeed));
 
-    // TODO:
+    // Sanity - consumer is not whitelisted
+    assertEq(s_scrollSequencerUptimeFeed.checkEnabled(), true);
+    assertEq(s_scrollSequencerUptimeFeed.hasAccess(address(feedConsumer), abi.encode("")), false);
 
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
+    // Asserts reads are not possible from consuming contract
+    vm.expectRevert("No access");
+    feedConsumer.latestAnswer();
+    vm.expectRevert("No access");
+    feedConsumer.latestRoundData();
   }
 }
 
-/// @notice it should allow reads on AggregatorV3Interface functions when consuming contract is whitelisted
-contract ScrollSequencerUptimeFeed_AggregatorV3InterfaceAllowReads is ScrollSequencerUptimeFeedTest {
-  function test_AggregatorV3InterfaceAllowReadsIfConsumingContractIsWhitelisted() public {
-    // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+/// @notice it should allow reads on AggregatorV2V3Interface functions when consuming contract is whitelisted
+contract ScrollSequencerUptimeFeed_AggregatorV2V3InterfaceAllowReads is ScrollSequencerUptimeFeedTest {
+  function test_AggregatorV2V3InterfaceAllowReadsIfConsumingContractIsWhitelisted() public {
+    // Deploys a FeedConsumer contract
+    FeedConsumer feedConsumer = new FeedConsumer(address(s_scrollSequencerUptimeFeed));
 
-    // TODO:
+    // Whitelist consumer
+    s_scrollSequencerUptimeFeed.addAccess(address(feedConsumer));
 
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
+    // Sanity - consumer is whitelisted
+    assertEq(s_scrollSequencerUptimeFeed.checkEnabled(), true);
+    assertEq(s_scrollSequencerUptimeFeed.hasAccess(address(feedConsumer), abi.encode("")), true);
+
+    // Asserts reads are possible from consuming contract
+    (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) = feedConsumer
+      .latestRoundData();
+    assertEq(feedConsumer.latestAnswer(), 0);
+    assertEq(roundId, 1);
+    assertEq(answer, 0);
   }
 }
 
@@ -371,7 +384,7 @@ contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
-    // TODO:
+    // Assert initial conditions
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp();
     assertEq(s_scrollSequencerUptimeFeed.latestAnswer(), 0);
 

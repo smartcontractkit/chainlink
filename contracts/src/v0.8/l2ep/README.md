@@ -88,18 +88,27 @@ test_<NameOfTest>
 
 #### Usage
 
-Assuming you already have foundry installed, you can use the following command
-to run all tests:
+First make sure you are in the contracts directory:
+
+```sh
+# Assuming you are currently in the /chainlink directory
+cd ./contracts
+```
+
+If you already have foundry installed, you can use the following command
+to run all L2EP tests:
 
 ```sh
 FOUNDRY_PROFILE=l2ep forge test -vvv
 ```
 
-Use the following command to run a specific test:
+To run a specific L2EP test, you can use a variation of the following command:
 
 ```sh
-FOUNDRY_PROFILE=l2ep forge test -vvv --mp ./path/to/foundry/test/file.t.sol 
+FOUNDRY_PROFILE=l2ep forge test -vvv --match-path ./src/v0.8/l2ep/test/v1_0_0/scroll/ScrollSequencerUptimeFeed.t.sol
 ```
+
+A full list of flags for `forge test` can be found [here](https://book.getfoundry.sh/reference/forge/forge-test).
 
 #### Coverage
 

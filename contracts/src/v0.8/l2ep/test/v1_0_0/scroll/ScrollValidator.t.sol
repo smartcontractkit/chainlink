@@ -7,9 +7,9 @@ import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUpti
 import {ScrollValidator} from "../../../dev/scroll/ScrollValidator.sol";
 import {L2EPTest} from "../L2EPTest.sol";
 
-// Use the following command to run this test file:
+// Use this command from the /contracts directory to run this test file:
 //
-//  FOUNDRY_PROFILE=l2ep forge test -vvv --mp ./src/v0.8/l2ep/test/v1_0_0/scroll/ScrollValidator.t.sol
+//  FOUNDRY_PROFILE=l2ep forge test -vvv --match-path ./src/v0.8/l2ep/test/v1_0_0/scroll/ScrollValidator.t.sol
 //
 contract ScrollValidatorTest is L2EPTest {
   /// Sets a fake L2 target and the initial gas limit
