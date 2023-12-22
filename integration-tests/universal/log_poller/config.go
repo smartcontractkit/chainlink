@@ -57,7 +57,8 @@ type General struct {
 }
 
 type ChaosConfig struct {
-	ExperimentCount int `toml:"experiment_count"`
+	ExperimentCount int    `toml:"experiment_count"`
+	TargetComponent string `toml:"target_component"`
 }
 
 type WaspConfig struct {

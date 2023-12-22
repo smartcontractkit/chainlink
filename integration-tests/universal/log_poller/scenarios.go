@@ -122,7 +122,8 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 	chaosError := <-chaosDoneCh
 	require.NoError(t, chaosError, "Error encountered during chaos experiment")
 
-	// look for block number of the last block in which logs were emitted as that's not trivial to do
+	// use ridciuously high end block so that we don't have to find out the block number of the last block in which logs were emitted
+	// as that's not trivial to do (tl;dr: just because chain was at block X during log emission it doesn't mean all events made it to that block)
 	endBlock := int64(eb) + 10000
 
 	logCountWaitDuration := "5m"
@@ -130,6 +131,11 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
+		}
+		if !logCountMatches {
+			matchesWider, _ := clNodesHaveExpectedLogCount(0, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
+			l.Warn().Int64("Start block", 0).Int64("End block", endBlock).Bool("Matches wider range?", matchesWider).Msg("Log count does not match, but maybe it matches for wider range?")
+
 		}
 		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
 	}, logCountWaitDuration, "10s").Should(gomega.Succeed())

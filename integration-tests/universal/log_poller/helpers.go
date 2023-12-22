@@ -832,17 +832,20 @@ func getExpectedLogCount(cfg *Config) int64 {
 	return int64(len(cfg.General.EventsToEmit) * cfg.LoopedConfig.ExecutionCount * cfg.General.Contracts * cfg.General.EventsPerTx)
 }
 
-var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv) error {
+var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, targetComponent string) error {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
-	randomBool := rand.Intn(2) == 0
+	// randomBool := rand.Intn(2) == 0
 
 	randomNode := testEnv.ClCluster.Nodes[rand.Intn(len(testEnv.ClCluster.Nodes)-1)+1]
 	var component ctf_test_env.EnvComponent
 
-	if randomBool {
+	switch strings.ToLower(targetComponent) {
+	case "chainlink":
 		component = randomNode.EnvComponent
-	} else {
+	case "postgres":
 		component = randomNode.PostgresDb.EnvComponent
+	default:
+		return fmt.Errorf("unknown component %s", targetComponent)
 	}
 
 	pauseTimeSec := rand.Intn(20-5) + 5
@@ -880,9 +883,10 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 				defer func() {
 					<-guardChan
 					wg.Done()
-					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", i, cfg.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
+					current := i + 1
+					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, cfg.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
 				}()
-				chaosChan <- chaosPauseSyncFn(l, testEnv)
+				chaosChan <- chaosPauseSyncFn(l, testEnv, cfg.ChaosConfig.TargetComponent)
 			}()
 		}
 
@@ -893,9 +897,7 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 
 	go func() {
 		for err := range chaosChan {
-			// This will receive errors until chaosChan is closed
 			if err != nil {
-				// If an error is encountered, log it, send it to the error channel, and return from the function
 				l.Err(err).Msg("Error encountered during chaos experiment")
 				errorCh <- err
 				return // Return on actual error
@@ -904,7 +906,6 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 			// the loop will exit and the following log and nil send will execute.
 		}
 
-		// After the loop exits, which it will do when chaosChan is closed, log that all experiments are finished.
 		l.Info().Msg("All chaos experiments finished")
 		errorCh <- nil // Only send nil once, after all errors have been handled and the channel is closed
 	}()

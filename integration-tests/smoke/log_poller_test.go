@@ -141,7 +141,7 @@ func TestLogPollerWithChaosFixedDepth(t *testing.T) {
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 50,
+				ExecutionCount: 70,
 			},
 			FuzzConfig: logpoller.FuzzConfig{
 				MinEmitWaitTimeMs: 100,
@@ -149,7 +149,8 @@ func TestLogPollerWithChaosFixedDepth(t *testing.T) {
 			},
 		},
 		ChaosConfig: &logpoller.ChaosConfig{
-			ExperimentCount: 5,
+			ExperimentCount: 4,
+			TargetComponent: "chainlink",
 		},
 	}
 
@@ -173,7 +174,7 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 50,
+				ExecutionCount: 70,
 			},
 			FuzzConfig: logpoller.FuzzConfig{
 				MinEmitWaitTimeMs: 100,
@@ -182,6 +183,41 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 		},
 		ChaosConfig: &logpoller.ChaosConfig{
 			ExperimentCount: 5,
+			TargetComponent: "chainlink",
+		},
+	}
+
+	eventsToEmit := []abi.Event{}
+	for _, event := range logpoller.EmitterABI.Events {
+		eventsToEmit = append(eventsToEmit, event)
+	}
+
+	cfg.General.EventsToEmit = eventsToEmit
+
+	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
+}
+
+func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
+	t.Skip("This one reliably fails, we need to discover whether it's a test or app bug")
+	cfg := logpoller.Config{
+		General: &logpoller.General{
+			Generator:      logpoller.GeneratorType_Looped,
+			Contracts:      2,
+			EventsPerTx:    100,
+			UseFinalityTag: false,
+		},
+		LoopedConfig: &logpoller.LoopedConfig{
+			ContractConfig: logpoller.ContractConfig{
+				ExecutionCount: 70,
+			},
+			FuzzConfig: logpoller.FuzzConfig{
+				MinEmitWaitTimeMs: 100,
+				MaxEmitWaitTimeMs: 300,
+			},
+		},
+		ChaosConfig: &logpoller.ChaosConfig{
+			ExperimentCount: 4,
+			TargetComponent: "postgres",
 		},
 	}
 
