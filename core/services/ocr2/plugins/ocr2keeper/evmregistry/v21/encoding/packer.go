@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 )
 
 // triggerWrapper is a wrapper for the different trigger types (log and condition triggers).
@@ -67,36 +66,7 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 	return result, nil
 }
 
-func (p *abiPacker) PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
-	return p.registryABI.Pack("getUpkeepPrivilegeConfig", upkeepId)
-}
-
-func (p *abiPacker) UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error) {
-	out, err := p.registryABI.Methods["getUpkeepPrivilegeConfig"].Outputs.UnpackValues(resp)
-	if err != nil {
-		return nil, fmt.Errorf("%w: unpack getUpkeepPrivilegeConfig return", err)
-	}
-
-	bts := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
-
-	return bts, nil
-}
-
-func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (uint8, bool, []byte, uint8, *big.Int, error) {
-	out, err := p.registryABI.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
-	if err != nil {
-		return PackUnpackDecodeFailed, false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
-	}
-
-	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
-	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
-	failureReason := *abi.ConvertType(out[2], new(uint8)).(*uint8)
-	gasUsed := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-
-	return NoPipelineError, upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
-}
-
-func (p *abiPacker) UnpackPerformResult(raw string) (uint8, bool, error) {
+func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return PackUnpackDecodeFailed, false, err
@@ -163,29 +133,11 @@ func (p *abiPacker) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistr
 	return report, nil
 }
 
-// DecodeStreamsLookupRequest decodes the revert error StreamsLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
-func (p *abiPacker) DecodeStreamsLookupRequest(data []byte) (*mercury.StreamsLookupError, error) {
-	e := p.streamsABI.Errors["StreamsLookup"]
-	unpack, err := e.Unpack(data)
-	if err != nil {
-		return nil, fmt.Errorf("unpack error: %w", err)
-	}
-	errorParameters := unpack.([]interface{})
-
-	return &mercury.StreamsLookupError{
-		FeedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),
-		Feeds:        *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
-		TimeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
-		Time:         *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int),
-		ExtraData:    *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte),
-	}, nil
-}
-
 // GetIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data
-func GetIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason uint8, state uint8, retryable bool) ocr2keepers.CheckResult {
+func GetIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason UpkeepFailureReason, state PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
 	return ocr2keepers.CheckResult{
-		IneligibilityReason:    reason,
-		PipelineExecutionState: state,
+		IneligibilityReason:    uint8(reason),
+		PipelineExecutionState: uint8(state),
 		Retryable:              retryable,
 		UpkeepID:               p.UpkeepID,
 		Trigger:                p.Trigger,

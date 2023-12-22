@@ -15,6 +15,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -187,7 +188,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 func checkFlagsAddress(t *testing.T, contractAddress ethkey.EIP55Address) func(args mock.Arguments) {
 	return func(args mock.Arguments) {
 		require.Equal(t, []common.Address{
-			utils.ZeroAddress,
+			evmutils.ZeroAddress,
 			contractAddress.Address(),
 		}, args.Get(1).([]common.Address))
 	}

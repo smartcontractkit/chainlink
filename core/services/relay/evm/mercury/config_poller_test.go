@@ -16,13 +16,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestMercuryConfigPoller(t *testing.T) {
-	feedID := utils.NewHash()
+	feedID := evmutils.NewHash()
 	feedIDBytes := [32]byte(feedID)
 
 	th := SetupTH(t, feedID)
@@ -42,12 +43,12 @@ func TestMercuryConfigPoller(t *testing.T) {
 	for i := 0; i < n; i++ {
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  utils.RandomAddress().Bytes(),
-				TransmitAccount:   ocrtypes2.Account(utils.RandomAddress().String()),
-				OffchainPublicKey: utils.RandomBytes32(),
+				OnchainPublicKey:  evmutils.RandomAddress().Bytes(),
+				TransmitAccount:   ocrtypes2.Account(evmutils.RandomAddress().String()),
+				OffchainPublicKey: evmutils.RandomBytes32(),
 				PeerID:            utils.MustNewPeerID(),
 			},
-			ConfigEncryptionPublicKey: utils.RandomBytes32(),
+			ConfigEncryptionPublicKey: evmutils.RandomBytes32(),
 		})
 	}
 	f := uint8(1)

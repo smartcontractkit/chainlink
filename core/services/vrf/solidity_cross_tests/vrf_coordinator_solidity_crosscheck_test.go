@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )

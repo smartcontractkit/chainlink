@@ -33,6 +33,7 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -41,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newTestChainScopedConfig(t *testing.T) evmconfig.ChainScopedConfig {
@@ -2984,13 +2984,19 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
+		done := make(chan struct{})
+		t.Cleanup(func() { <-done })
 		go func() {
+			defer close(done)
 			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
-			require.NoError(t, err2)
+			if !assert.NoError(t, err2) {
+				return
+			}
 			// Retrieve Tx to check if callback completed flag was set to true
 			updateTx, err3 := txStore.FindTxWithSequence(testutils.Context(t), fromAddress, nonce)
-			require.NoError(t, err3)
-			require.Equal(t, true, updateTx.CallbackCompleted)
+			if assert.NoError(t, err3) {
+				assert.Equal(t, true, updateTx.CallbackCompleted)
+			}
 		}()
 
 		select {
@@ -3032,13 +3038,19 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
+		done := make(chan struct{})
+		t.Cleanup(func() { <-done })
 		go func() {
+			defer close(done)
 			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
-			require.NoError(t, err2)
+			if !assert.NoError(t, err2) {
+				return
+			}
 			// Retrieve Tx to check if callback completed flag was set to true
 			updateTx, err3 := txStore.FindTxWithSequence(testutils.Context(t), fromAddress, nonce)
-			require.NoError(t, err3)
-			require.Equal(t, true, updateTx.CallbackCompleted)
+			if assert.NoError(t, err3) {
+				assert.Equal(t, true, updateTx.CallbackCompleted)
+			}
 		}()
 
 		select {

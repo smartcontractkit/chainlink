@@ -65,7 +65,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chainlink-automation v1.0.1
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231221211534-bc22ca78a8fb
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20231222013743-f67285bba7bd
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231221191441-469c5f7cd657
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20231222013040-c93f24a1b105
@@ -103,7 +103,10 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
-require gopkg.in/guregu/null.v2 v2.1.2
+require (
+	github.com/coreos/go-semver v0.3.0
+	gopkg.in/guregu/null.v2 v2.1.2
+)
 
 require (
 	cloud.google.com/go/compute v1.23.3 // indirect

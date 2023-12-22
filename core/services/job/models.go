@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -27,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 )
@@ -152,6 +152,8 @@ type Job struct {
 	GatewaySpecID                 *int32
 	EALSpec                       *EALSpec
 	EALSpecID                     *int32
+	LiquidityBalancerSpec         *LiquidityBalancerSpec
+	LiquidityBalancerSpecID       *int32
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError
@@ -520,6 +522,9 @@ type VRFSpec struct {
 	// for fulfilling requests. If set to true, batchCoordinatorAddress must be set in
 	// the job spec.
 	BatchFulfillmentEnabled bool `toml:"batchFulfillmentEnabled"`
+	// CustomRevertsPipelineEnabled indicates to the vrf job to run the
+	// custom reverted txns pipeline along with VRF listener
+	CustomRevertsPipelineEnabled bool `toml:"customRevertsPipelineEnabled"`
 	// BatchFulfillmentGasMultiplier is used to determine the final gas estimate for the batch
 	// fulfillment.
 	BatchFulfillmentGasMultiplier tomlutils.Float64 `toml:"batchFulfillmentGasMultiplier"`
@@ -811,4 +816,10 @@ type EALSpec struct {
 
 	// UpdatedAt is the time this job was last updated.
 	UpdatedAt time.Time `toml:"-"`
+}
+
+type LiquidityBalancerSpec struct {
+	ID int32
+
+	LiquidityBalancerConfig string `toml:"liquidityBalancerConfig" db:"liquidity_balancer_config"`
 }

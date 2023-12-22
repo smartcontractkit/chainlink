@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -484,6 +483,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 
 	medianProvider := medianProvider{
+		lggr:                lggr.Named("MedianProvider"),
 		configWatcher:       configWatcher,
 		reportCodec:         reportCodec,
 		contractTransmitter: contractTransmitter,
@@ -518,9 +518,17 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	return &medianProvider, nil
 }
 
+func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
+	lggr := r.lggr.Named("AutomationProvider").Named(rargs.ExternalJobID.String())
+	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.db, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth())
+
+	return ocr2keeperRelayer.NewOCR2KeeperProvider(rargs, pargs)
+}
+
 var _ commontypes.MedianProvider = (*medianProvider)(nil)
 
 type medianProvider struct {
+	lggr                logger.Logger
 	configWatcher       *configWatcher
 	contractTransmitter ContractTransmitter
 	reportCodec         median.ReportCodec
@@ -530,30 +538,27 @@ type medianProvider struct {
 	ms                  services.MultiStart
 }
 
-func (p *medianProvider) Name() string {
-	return "EVM.MedianProvider"
-}
+func (p *medianProvider) Name() string { return p.lggr.Name() }
 
 func (p *medianProvider) Start(ctx context.Context) error {
-	if p.chainReader == nil {
-		return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter)
+	srvcs := []services.StartClose{p.configWatcher, p.contractTransmitter, p.medianContract}
+	if p.chainReader != nil {
+		srvcs = append(srvcs, p.chainReader)
 	}
 
-	return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter, p.chainReader)
+	return p.ms.Start(ctx, srvcs...)
 }
 
-func (p *medianProvider) Close() error {
-	return p.ms.Close()
-}
+func (p *medianProvider) Close() error { return p.ms.Close() }
 
-func (p *medianProvider) Ready() error {
-	return multierr.Combine(p.configWatcher.Ready(), p.contractTransmitter.Ready())
-}
+func (p *medianProvider) Ready() error { return nil }
 
 func (p *medianProvider) HealthReport() map[string]error {
-	report := p.configWatcher.HealthReport()
-	services.CopyHealth(report, p.contractTransmitter.HealthReport())
-	return report
+	hp := map[string]error{p.Name(): p.Ready()}
+	services.CopyHealth(hp, p.configWatcher.HealthReport())
+	services.CopyHealth(hp, p.contractTransmitter.HealthReport())
+	services.CopyHealth(hp, p.medianContract.HealthReport())
+	return hp
 }
 
 func (p *medianProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
@@ -586,8 +591,4 @@ func (p *medianProvider) ChainReader() commontypes.ChainReader {
 
 func (p *medianProvider) Codec() commontypes.Codec {
 	return p.codec
-}
-
-func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
-	return nil, errors.New("automation is not supported for evm")
 }
