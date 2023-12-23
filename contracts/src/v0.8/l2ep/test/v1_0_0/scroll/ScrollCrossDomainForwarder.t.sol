@@ -34,7 +34,11 @@ contract ScrollCrossDomainForwarderTest is L2EPTest {
     vm.stopPrank();
   }
 
-  // Helper functions
+  /// @param message - the new greeting message, which will be passed as an argument to Greeter#setGreeting
+  /// @return a 2-layer encoding such that decoding the first layer provides the CrossDomainForwarder#forward
+  ///         function selector and the corresponding arguments to the forward function, and decoding the
+  ///         second layer provides the Greeter#setGreeting function selector and the corresponding
+  ///         arguments to the set greeting function (which in this case is the input message)
   function encodeCrossDomainForwardMessage(string memory message) public view returns (bytes memory) {
     return
       abi.encodeWithSelector(
