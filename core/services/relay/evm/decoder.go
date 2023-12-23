@@ -30,13 +30,7 @@ func (m *decoder) Decode(ctx context.Context, raw []byte, into any, itemType str
 	rDecode := reflect.ValueOf(decode)
 	switch rDecode.Kind() {
 	case reflect.Array:
-		iInto := reflect.Indirect(reflect.ValueOf(into))
-		length := rDecode.Len()
-		if length != iInto.Len() {
-			return commontypes.ErrWrongNumberOfElements
-		}
-		iInto.Set(reflect.New(iInto.Type()).Elem())
-		return setElements(length, rDecode, iInto)
+		return m.decodeArray(into, rDecode)
 	case reflect.Slice:
 		iInto := reflect.Indirect(reflect.ValueOf(into))
 		length := rDecode.Len()
@@ -45,6 +39,16 @@ func (m *decoder) Decode(ctx context.Context, raw []byte, into any, itemType str
 	default:
 		return mapstructureDecode(decode, into)
 	}
+}
+
+func (m *decoder) decodeArray(into any, rDecode reflect.Value) error {
+	iInto := reflect.Indirect(reflect.ValueOf(into))
+	length := rDecode.Len()
+	if length != iInto.Len() {
+		return commontypes.ErrWrongNumberOfElements
+	}
+	iInto.Set(reflect.New(iInto.Type()).Elem())
+	return setElements(length, rDecode, iInto)
 }
 
 func (m *decoder) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
