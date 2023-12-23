@@ -56,7 +56,7 @@ func (i *{{.Prefix}}int{{.Size}}) Verify() error {
 func (i *{{.Prefix}}int{{.Size}}) private() {}
 
 func init() {
-	typeMap["{{.Prefix}}int{{.Size}}"] = &AbiEncodingType {
+	typeMap["{{.Prefix}}int{{.Size}}"] = &ABIEncodingType {
 		Native: reflect.TypeOf((*big.Int)(nil)),
 		Checked: reflect.TypeOf((*{{.Prefix}}int{{.Size}})(nil)),
 	}

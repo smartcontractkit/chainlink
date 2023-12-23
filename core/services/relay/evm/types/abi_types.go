@@ -8,7 +8,7 @@ import (
 
 //go:generate go run ./gen/main.go
 
-var typeMap = map[string]*AbiEncodingType{
+var typeMap = map[string]*ABIEncodingType{
 	"bool": {
 		Native:  reflect.TypeOf(true),
 		Checked: reflect.TypeOf(true),
@@ -55,12 +55,12 @@ var typeMap = map[string]*AbiEncodingType{
 	},
 }
 
-type AbiEncodingType struct {
+type ABIEncodingType struct {
 	Native  reflect.Type
 	Checked reflect.Type
 }
 
-func GetType(name string) (*AbiEncodingType, bool) {
+func GetAbiEncodingType(name string) (*ABIEncodingType, bool) {
 	abiType, ok := typeMap[name]
 	return abiType, ok
 }

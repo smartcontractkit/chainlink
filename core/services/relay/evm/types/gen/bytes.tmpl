@@ -5,7 +5,7 @@ import "reflect"
 {{ range . }}
 type bytes{{.Size}} [{{.Size}}]byte
 func init() {
-	typeMap["bytes{{.Size}}"] = &AbiEncodingType {
+	typeMap["bytes{{.Size}}"] = &ABIEncodingType {
 		Native: reflect.TypeOf([{{.Size}}]byte{}),
 		Checked: reflect.TypeOf(bytes{{.Size}}{}),
 	}

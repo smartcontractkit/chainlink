@@ -117,7 +117,7 @@ func getNativeAndCheckedTypes(curType *abi.Type) (reflect.Type, reflect.Type, er
 				"%w: cannot create type for kind %v", commontypes.ErrInvalidType, curType.GetType().Kind())
 		}
 	}
-	base, ok := types.GetType(curType.String())
+	base, ok := types.GetAbiEncodingType(curType.String())
 	if ok {
 		return converter(base.Native), converter(base.Checked), nil
 	}
