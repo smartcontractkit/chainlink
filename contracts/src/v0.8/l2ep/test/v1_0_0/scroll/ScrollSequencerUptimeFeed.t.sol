@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import {MockScrollL1CrossDomainMessenger} from "../../mocks/MockScrollL1CrossDomainMessenger.sol";
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/MockScrollL2CrossDomainMessenger.sol";
 import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUptimeFeed.sol";
-import {ScrollValidator} from "../../../dev/scroll/ScrollValidator.sol";
 import {FeedConsumer} from "../../../../../v0.8/tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.sol";
 
@@ -46,9 +45,9 @@ contract ScrollSequencerUptimeFeedTest is L2EPTest {
   }
 }
 
-/// @notice it should have been deployed with the correct initial state
-contract ScrollSequencerUptimeFeed_CheckInitialState is ScrollSequencerUptimeFeedTest {
-  function test_CheckInitialState() public {
+contract Constructor is ScrollSequencerUptimeFeedTest {
+  /// @notice it should have been deployed with the correct initial state
+  function test_InitialState() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
 
@@ -72,8 +71,8 @@ contract ScrollSequencerUptimeFeed_CheckInitialState is ScrollSequencerUptimeFee
   }
 }
 
-/// @notice it should prevent state modifcations from unauthorized accounts
-contract ScrollSequencerUptimeFeed_UpdateStatusAccessControl is ScrollSequencerUptimeFeedTest {
+contract UpdateStatus is ScrollSequencerUptimeFeedTest {
+  /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger
   function test_RevertIfNotL2CrossDomainMessengerAddr() public {
     // Sets msg.sender and tx.origin to an unauthorized address
     vm.startPrank(strangerAddr, strangerAddr);
@@ -86,7 +85,8 @@ contract ScrollSequencerUptimeFeed_UpdateStatusAccessControl is ScrollSequencerU
     vm.stopPrank();
   }
 
-  function test_RevertIfNotL2CrossDomainMessengerAddrOrL1SenderAddr() public {
+  /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger and is not the L1 sender
+  function test_RevertIfNotL2CrossDomainMessengerAddrAndNotL1SenderAddr() public {
     // Sets msg.sender and tx.origin to an unauthorized address
     vm.startPrank(strangerAddr, strangerAddr);
 
@@ -100,11 +100,9 @@ contract ScrollSequencerUptimeFeed_UpdateStatusAccessControl is ScrollSequencerU
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
-}
 
-/// @notice it should update status when status has not changed and incoming timestamp is the same as latest
-contract ScrollSequencerUptimeFeed_UpdateStatus1 is ScrollSequencerUptimeFeedTest {
-  function test_UpdateStatus() public {
+  /// @notice it should update status when status has not changed and incoming timestamp is the same as latest
+  function test_UpdateStatusWhenNoChange() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
@@ -154,11 +152,9 @@ contract ScrollSequencerUptimeFeed_UpdateStatus1 is ScrollSequencerUptimeFeedTes
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
-}
 
-/// @notice it should update status when status has changed and incoming timestamp is newer than the latest
-contract ScrollSequencerUptimeFeed_UpdateStatus2 is ScrollSequencerUptimeFeedTest {
-  function test_UpdateStatus() public {
+  /// @notice it should update status when status has changed and incoming timestamp is newer than the latest
+  function test_UpdateStatusWhenStatusChangeAndTimeChange() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
@@ -182,11 +178,9 @@ contract ScrollSequencerUptimeFeed_UpdateStatus2 is ScrollSequencerUptimeFeedTes
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
-}
 
-/// @notice it should update status when status has changed and incoming timestamp is the same as latest
-contract ScrollSequencerUptimeFeed_UpdateStatus3 is ScrollSequencerUptimeFeedTest {
-  function test_UpdateStatus() public {
+  /// @notice it should update status when status has changed and incoming timestamp is the same as latest
+  function test_UpdateStatusWhenStatusChangeAndNoTimeChange() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
@@ -211,11 +205,9 @@ contract ScrollSequencerUptimeFeed_UpdateStatus3 is ScrollSequencerUptimeFeedTes
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
-}
 
-/// @notice it should ignore out-of-order updates
-contract ScrollSequencerUptimeFeed_UpdateStatus4 is ScrollSequencerUptimeFeedTest {
-  function test_UpdateStatus() public {
+  /// @notice it should ignore out-of-order updates
+  function test_IgnoreOutOfOrderUpdates() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
@@ -240,47 +232,8 @@ contract ScrollSequencerUptimeFeed_UpdateStatus4 is ScrollSequencerUptimeFeedTes
   }
 }
 
-/// @notice it should revert if no data is present
-contract ScrollSequencerUptimeFeed_AggregatorV3InterfaceNoDataPresentTests is ScrollSequencerUptimeFeedTest {
-  function test_RevertGetRoundDataWhenRoundDoesNotExistYet() public {
-    // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
-
-    // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
-    s_scrollSequencerUptimeFeed.getRoundData(2);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
-  }
-
-  function test_RevertGetAnswerWhenRoundDoesNotExistYet() public {
-    // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
-
-    // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
-    s_scrollSequencerUptimeFeed.getAnswer(2);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
-  }
-
-  function test_RevertGetTimestampWhenRoundDoesNotExistYet() public {
-    // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
-
-    // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
-    s_scrollSequencerUptimeFeed.getTimestamp(2);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
-  }
-}
-
-/// @notice it should return valid answer from getRoundData and latestRoundData
-contract ScrollSequencerUptimeFeed_AggregatorV3Interface is ScrollSequencerUptimeFeedTest {
+contract AggregatorV3Interface is ScrollSequencerUptimeFeedTest {
+  /// @notice it should return valid answer from getRoundData and latestRoundData
   function test_AggregatorV3Interface() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
@@ -335,10 +288,49 @@ contract ScrollSequencerUptimeFeed_AggregatorV3Interface is ScrollSequencerUptim
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
+
+  /// @notice it should revert from #getRoundData when round does not yet exist (future roundId)
+  function test_RevertGetRoundDataWhenRoundDoesNotExistYet() public {
+    // Sets msg.sender and tx.origin to a valid address
+    vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
+
+    // Gets data from a round that has not happened yet
+    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
+    s_scrollSequencerUptimeFeed.getRoundData(2);
+
+    // Resets msg.sender and tx.origin
+    vm.stopPrank();
+  }
+
+  /// @notice it should revert from #getAnswer when round does not yet exist (future roundId)
+  function test_RevertGetAnswerWhenRoundDoesNotExistYet() public {
+    // Sets msg.sender and tx.origin to a valid address
+    vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
+
+    // Gets data from a round that has not happened yet
+    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
+    s_scrollSequencerUptimeFeed.getAnswer(2);
+
+    // Resets msg.sender and tx.origin
+    vm.stopPrank();
+  }
+
+  /// @notice it should revert from #getTimestamp when round does not yet exist (future roundId)
+  function test_RevertGetTimestampWhenRoundDoesNotExistYet() public {
+    // Sets msg.sender and tx.origin to a valid address
+    vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
+
+    // Gets data from a round that has not happened yet
+    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
+    s_scrollSequencerUptimeFeed.getTimestamp(2);
+
+    // Resets msg.sender and tx.origin
+    vm.stopPrank();
+  }
 }
 
-/// @notice it should disallow reads on AggregatorV2V3Interface functions when consuming contract is not whitelisted
-contract ScrollSequencerUptimeFeed_AggregatorV2V3InterfaceDisallowReads is ScrollSequencerUptimeFeedTest {
+contract ProtectReadsOnAggregatorV2V3InterfaceFunctions is ScrollSequencerUptimeFeedTest {
+  /// @notice it should disallow reads on AggregatorV2V3Interface functions when consuming contract is not whitelisted
   function test_AggregatorV2V3InterfaceDisallowReadsIfConsumingContractIsNotWhitelisted() public {
     // Deploys a FeedConsumer contract
     FeedConsumer feedConsumer = new FeedConsumer(address(s_scrollSequencerUptimeFeed));
@@ -353,10 +345,8 @@ contract ScrollSequencerUptimeFeed_AggregatorV2V3InterfaceDisallowReads is Scrol
     vm.expectRevert("No access");
     feedConsumer.latestRoundData();
   }
-}
 
-/// @notice it should allow reads on AggregatorV2V3Interface functions when consuming contract is whitelisted
-contract ScrollSequencerUptimeFeed_AggregatorV2V3InterfaceAllowReads is ScrollSequencerUptimeFeedTest {
+  /// @notice it should allow reads on AggregatorV2V3Interface functions when consuming contract is whitelisted
   function test_AggregatorV2V3InterfaceAllowReadsIfConsumingContractIsWhitelisted() public {
     // Deploys a FeedConsumer contract
     FeedConsumer feedConsumer = new FeedConsumer(address(s_scrollSequencerUptimeFeed));
@@ -377,8 +367,8 @@ contract ScrollSequencerUptimeFeed_AggregatorV2V3InterfaceAllowReads is ScrollSe
   }
 }
 
-/// @notice it should consume a known amount of gas for updates @skip-coverage
-contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
+contract GasCosts is ScrollSequencerUptimeFeedTest {
+  /// @notice it should consume a known amount of gas for updates @skip-coverage
   function test_GasCosts() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
@@ -415,8 +405,8 @@ contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
   }
 }
 
-/// @notice it should consume a known amount of gas for getRoundData(uint80) @skip-coverage
-contract ScrollSequencerUptimeFeed_AggregatorInterfaceGetRoundDataGasTest is ScrollSequencerUptimeFeedTest {
+contract AggregatorInterfaceGasCosts is ScrollSequencerUptimeFeedTest {
+  /// @notice it should consume a known amount of gas for getRoundData(uint80) @skip-coverage
   function test_GasUsageForGetRoundData() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
@@ -443,10 +433,8 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGetRoundDataGasTest is Scr
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
-}
 
-/// @notice it should consume a known amount of gas for latestRoundData() @skip-coverage
-contract ScrollSequencerUptimeFeed_AggregatorInterfaceLatestRoundDataGasTest is ScrollSequencerUptimeFeedTest {
+  /// @notice it should consume a known amount of gas for latestRoundData() @skip-coverage
   function test_GasUsageForLatestRoundData() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
@@ -473,10 +461,8 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceLatestRoundDataGasTest is 
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
-}
 
-/// @notice it should consume a known amount of gas for latestAnswer() @skip-coverage
-contract ScrollSequencerUptimeFeed_AggregatorInterfaceLatestAnswerGasTest is ScrollSequencerUptimeFeedTest {
+  /// @notice it should consume a known amount of gas for latestAnswer() @skip-coverage
   function test_GasUsageForLatestAnswer() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
@@ -503,10 +489,8 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceLatestAnswerGasTest is Scr
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
-}
 
-/// @notice it should consume a known amount of gas for latestTimestamp() @skip-coverage
-contract ScrollSequencerUptimeFeed_AggregatorInterfaceLatestTimestampGasTest is ScrollSequencerUptimeFeedTest {
+  /// @notice it should consume a known amount of gas for latestTimestamp() @skip-coverage
   function test_GasUsageForLatestTimestamp() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
@@ -533,10 +517,8 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceLatestTimestampGasTest is 
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
-}
 
-/// @notice it should consume a known amount of gas for latestRound() @skip-coverage
-contract ScrollSequencerUptimeFeed_AggregatorInterfaceLatestRoundGasTest is ScrollSequencerUptimeFeedTest {
+  /// @notice it should consume a known amount of gas for latestRound() @skip-coverage
   function test_GasUsageForLatestRound() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
@@ -563,10 +545,8 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceLatestRoundGasTest is Scro
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
-}
 
-/// @notice it should consume a known amount of gas for getAnswer() @skip-coverage
-contract ScrollSequencerUptimeFeed_AggregatorInterfaceGetAnswerTest is ScrollSequencerUptimeFeedTest {
+  /// @notice it should consume a known amount of gas for getAnswer() @skip-coverage
   function test_GasUsageForGetAnswer() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
@@ -593,10 +573,8 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGetAnswerTest is ScrollSeq
     // Resets msg.sender and tx.origin
     vm.stopPrank();
   }
-}
 
-/// @notice it should consume a known amount of gas for getTimestamp() @skip-coverage
-contract ScrollSequencerUptimeFeed_AggregatorInterfaceGetTimestampTest is ScrollSequencerUptimeFeedTest {
+  /// @notice it should consume a known amount of gas for getTimestamp() @skip-coverage
   function test_GasUsageForGetTimestamp() public {
     // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);

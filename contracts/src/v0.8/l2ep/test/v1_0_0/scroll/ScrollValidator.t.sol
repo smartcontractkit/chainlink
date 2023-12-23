@@ -12,9 +12,13 @@ import {L2EPTest} from "../L2EPTest.sol";
 //  FOUNDRY_PROFILE=l2ep forge test -vvv --match-path ./src/v0.8/l2ep/test/v1_0_0/scroll/ScrollValidator.t.sol
 //
 contract ScrollValidatorTest is L2EPTest {
-  /// Sets a fake L2 target and the initial gas limit
+  /// Helper constants
   address internal constant L2_SEQ_STATUS_RECORDER_ADDRESS = 0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b;
   uint32 internal constant INIT_GAS_LIMIT = 1900000;
+
+  /// Helper variables
+  address internal strangerAddress = vm.addr(0x1);
+  address internal eoaValidator = vm.addr(0x2);
 
   /// L2EP contracts
   MockScrollL1CrossDomainMessenger internal s_mockScrollL1CrossDomainMessenger;
@@ -51,31 +55,28 @@ contract ScrollValidatorTest is L2EPTest {
   }
 }
 
-contract ScrollValidator_SetAndGetGasLimit is ScrollValidatorTest {
-  function test_SetAndGetGasLimit() public {
+contract SetGasLimit is ScrollValidatorTest {
+  /// @notice it correctly updates the gas limit
+  function test_CorrectlyUpdatesTheGasLimit() public {
     uint32 newGasLimit = 2000000;
-
     assertEq(s_scrollValidator.getGasLimit(), INIT_GAS_LIMIT);
     s_scrollValidator.setGasLimit(newGasLimit);
     assertEq(s_scrollValidator.getGasLimit(), newGasLimit);
   }
 }
 
-contract ScrollValidator_CheckValidateAccessControl is ScrollValidatorTest {
-  function test_CheckValidateAccessControl() public {
-    address strangerAddress = vm.addr(0x2);
-
+contract Validate is ScrollValidatorTest {
+  /// @notice it reverts if called by account with no access
+  function test_RevertsIfCalledByAnAccountWithNoAccess() public {
     vm.startPrank(strangerAddress, strangerAddress);
     vm.expectRevert("No access");
     s_scrollValidator.validate(0, 0, 1, 1);
     vm.stopPrank();
   }
-}
 
-contract ScrollValidator_SequencerOnline is ScrollValidatorTest {
-  function test_CheckValidateAccessControl() public {
+  /// @notice it posts sequencer status when there is not status change
+  function test_PostSequencerStatusWhenThereIsNotStatusChange() public {
     // Gives access to the eoaValidator
-    address eoaValidator = vm.addr(0x1);
     s_scrollValidator.addAccess(eoaValidator);
 
     // Sets block.timestamp to a later date
@@ -98,12 +99,10 @@ contract ScrollValidator_SequencerOnline is ScrollValidatorTest {
     s_scrollValidator.validate(0, 0, 0, 0);
     vm.stopPrank();
   }
-}
 
-contract ScrollValidator_SequencerOffline is ScrollValidatorTest {
-  function test_CheckValidateAccessControl() public {
+  /// @notice it post sequencer offline
+  function test_PostSequencerOffline() public {
     // Gives access to the eoaValidator
-    address eoaValidator = vm.addr(0x1);
     s_scrollValidator.addAccess(eoaValidator);
 
     // Sets block.timestamp to a later date

@@ -58,13 +58,11 @@ will define separate child contracts, and each will inherit from the base
 contract + define its own set of tests.
 
 The base contract defines a `setUp` function which is automatically called
-exactly once before any of the tests are run in an inheriting contract. The
-`setUp` function typically deploys a fresh set of test contracts so that tests
-can run independently of each other. If you add multiple tests to a contract
-that inherits from the base contract, remember that each of these tests will
-be interacting with the same set of test contracts and state will be persisted
-for each test. Alongside the `setUp` function, the base contract can also
-define variables, constants, events, etc. that are meant to be reused per test.
+exactly once before ***each*** of the tests are run in an inheriting contract.
+The `setUp` function typically deploys a fresh set of test contracts so that
+tests can run independently of each other. Alongside the `setUp` function,
+the base contract can also define variables, constants, events, etc. that
+are meant to be reused per test.
 
 The name of the base contract follows the following convention:
 
@@ -72,17 +70,14 @@ The name of the base contract follows the following convention:
 <NameOfContractBeingTested>Test
 ```
 
-The child contracts also follow a similar naming convention:
-
-```text
-<NameOfContractBeingTested>_<DescriptiveNameForFollowingTestCases>
-```
-
 Each test in the inheriting contract has a name that follows the pattern:
 
 ```text
 test_<NameOfTest>
 ```
+
+The child contract names do not follow a naming convention, but they should
+broadly describe the tests defined within it.
 
 ### Running Foundry Tests
 
