@@ -138,7 +138,9 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.bin MockAggregatorProxy mock_aggregator_proxy
 
 // Log tester
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/LogEmitter/LogEmitter.abi ../../contracts/solc/v0.8.19/LogEmitter/LogEmitter.bin LogEmitter log_emitter
+
+// ChainReader test contract
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ChainReaderTestContract/LatestValueHolder.abi ../../contracts/solc/v0.8.19/ChainReaderTestContract/LatestValueHolder.bin LatestValueHolder chain_reader_example
 
 // Chainlink Functions
 //go:generate go generate ./functions

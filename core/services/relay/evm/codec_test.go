@@ -15,9 +15,9 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_example"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/testfiles"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -109,11 +109,11 @@ func encodeFieldsOnSliceOrArray(t *testing.T, request *EncodeRequest) []byte {
 
 	switch request.TestOn {
 	case TestItemArray1Type:
-		args[0] = [1]testfiles.TestStruct{toInternalType(request.TestStructs[0])}
+		args[0] = [1]chain_reader_example.TestStruct{toInternalType(request.TestStructs[0])}
 	case TestItemArray2Type:
-		args[0] = [2]testfiles.TestStruct{toInternalType(request.TestStructs[0]), toInternalType(request.TestStructs[1])}
+		args[0] = [2]chain_reader_example.TestStruct{toInternalType(request.TestStructs[0]), toInternalType(request.TestStructs[1])}
 	default:
-		tmp := make([]testfiles.TestStruct, len(request.TestStructs))
+		tmp := make([]chain_reader_example.TestStruct, len(request.TestStructs))
 		for i, ts := range request.TestStructs {
 			tmp[i] = toInternalType(ts)
 		}
