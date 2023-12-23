@@ -42,14 +42,23 @@ func (entry *codecEntry) Init() error {
 		return nil
 	}
 
+	seenNames := map[string]bool{}
 	for i, arg := range args {
 		tmp := arg.Type
 		nativeArg, checkedArg, err := getNativeAndCheckedTypes(&tmp)
 		if err != nil {
 			return err
 		}
+		if len(arg.Name) == 0 {
+			return fmt.Errorf("%w: empty field names are not supported for multiple returns", commontypes.ErrInvalidType)
+		}
+
 		tag := reflect.StructTag(`json:"` + arg.Name + `"`)
 		name := strings.ToUpper(arg.Name[:1]) + arg.Name[1:]
+		if seenNames[name] {
+			return fmt.Errorf("%w: duplicate field name %s, first letter casing is ignored", commontypes.ErrInvalidType, name)
+		}
+		seenNames[name] = true
 		native[i] = reflect.StructField{Name: name, Type: nativeArg, Tag: tag}
 		checked[i] = reflect.StructField{Name: name, Type: checkedArg, Tag: tag}
 	}

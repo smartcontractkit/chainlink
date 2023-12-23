@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -151,5 +152,19 @@ func TestCodecEntry(t *testing.T) {
 		entry := codecEntry{Args: abi.Arguments{{Name: "foo", Type: address}}}
 		fmt.Printf("%+v\n", address.GetType())
 		require.NoError(t, entry.Init())
+	})
+
+	t.Run("Multiple unnamed parameters are not supported", func(t *testing.T) {
+		anyType, err := abi.NewType("int16[3]", "", []abi.ArgumentMarshaling{})
+		require.NoError(t, err)
+		entry := codecEntry{Args: abi.Arguments{{Name: "", Type: anyType}, {Name: "", Type: anyType}}}
+		assert.True(t, errors.Is(entry.Init(), commontypes.ErrInvalidType))
+	})
+
+	t.Run("Invalid parameters are not supported", func(t *testing.T) {
+		anyType, err := abi.NewType("int16[3]", "", []abi.ArgumentMarshaling{})
+		require.NoError(t, err)
+		entry := codecEntry{Args: abi.Arguments{{Name: "Name", Type: anyType}, {Name: "Name", Type: anyType}}}
+		assert.True(t, errors.Is(entry.Init(), commontypes.ErrInvalidType))
 	})
 }
