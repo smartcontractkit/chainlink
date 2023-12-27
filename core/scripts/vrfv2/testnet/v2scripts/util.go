@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -44,6 +45,22 @@ func DeployCoordinator(
 	linkEthAddress string,
 ) (coordinatorAddress common.Address) {
 	_, tx, _, err := vrf_coordinator_v2.DeployVRFCoordinatorV2(
+		e.Owner,
+		e.Ec,
+		common.HexToAddress(linkAddress),
+		common.HexToAddress(bhsAddress),
+		common.HexToAddress(linkEthAddress))
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func DeployTestCoordinator(
+	e helpers.Environment,
+	linkAddress string,
+	bhsAddress string,
+	linkEthAddress string,
+) (coordinatorAddress common.Address) {
+	_, tx, _, err := vrf_coordinator_test_v2.DeployVRFCoordinatorV2(
 		e.Owner,
 		e.Ec,
 		common.HexToAddress(linkAddress),

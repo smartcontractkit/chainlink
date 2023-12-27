@@ -53,7 +53,8 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 
 	batchFulfillmentEnabled := deployCmd.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
 
-	deployVRFOwner := deployCmd.Bool("deploy-vrf-owner", false, "whether to deploy VRF owner contracts")
+	deployVRFOwner := deployCmd.Bool("deploy-vrf-owner", true, "whether to deploy VRF owner contracts")
+	useTestCoordinator := deployCmd.Bool("use-test-coordinator", true, "whether to use test coordinator")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", constants.FallbackWeiPerUnitLink.String(), "fallback wei/link ratio")
@@ -146,6 +147,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		*batchFulfillmentEnabled,
 		nodesMap,
 		*deployVRFOwner,
+		*useTestCoordinator,
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -164,6 +166,7 @@ func VRFV2DeployUniverse(
 	batchFulfillmentEnabled bool,
 	nodesMap map[string]model.Node,
 	deployVRFOwner bool,
+	useTestCoordinator bool,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
@@ -212,9 +215,16 @@ func VRFV2DeployUniverse(
 		contractAddresses.BatchBHSAddress = DeployBatchBHS(e, contractAddresses.BhsContractAddress)
 	}
 
-	if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
-		fmt.Println("\nDeploying Coordinator...")
-		contractAddresses.CoordinatorAddress = DeployCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+	if useTestCoordinator {
+		if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
+			fmt.Println("\nDeploying Test Coordinator...")
+			contractAddresses.CoordinatorAddress = DeployTestCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+		}
+	} else {
+		if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
+			fmt.Println("\nDeploying Coordinator...")
+			contractAddresses.CoordinatorAddress = DeployCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+		}
 	}
 
 	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(contractAddresses.CoordinatorAddress, e.Ec)

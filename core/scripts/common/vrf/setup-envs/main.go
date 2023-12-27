@@ -88,6 +88,7 @@ func main() {
 	registerVRFKeyAgainstAddress := flag.String("register-vrf-key-against-address", "", "VRF Key registration against address - "+
 		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
 	deployVRFOwner := flag.Bool("deploy-vrfv2-owner", true, "whether to deploy VRF owner contracts")
+	useTestCoordinator := flag.Bool("use-test-coordinator", true, "whether to use test coordinator contract or use the normal one")
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
@@ -213,6 +214,7 @@ func main() {
 				*batchFulfillmentEnabled,
 				nodesMap,
 				*deployVRFOwner,
+				*useTestCoordinator,
 			)
 		case "v2plus":
 			feeConfigV2Plus := vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
