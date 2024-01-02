@@ -19,7 +19,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.ForwarderOcr)
+	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr)
 	if err != nil {
 		t.Fatal(err)
 	}

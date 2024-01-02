@@ -11,7 +11,7 @@ import (
 )
 
 func TestGatewayLoad(t *testing.T) {
-	listConfig, err := tc.GetConfig(t.Name(), "gateway_list", tc.Functions)
+	listConfig, err := tc.GetConfig("GatewayList", tc.Functions)
 	require.NoError(t, err)
 
 	require.NoError(t, err)
@@ -42,7 +42,7 @@ func TestGatewayLoad(t *testing.T) {
 		LokiConfig: tc.LokiConfigFromToml(&listConfig),
 	}
 
-	setConfig, err := tc.GetConfig(t.Name(), "gateway_set", tc.Functions)
+	setConfig, err := tc.GetConfig("GatewaySet", tc.Functions)
 	require.NoError(t, err)
 
 	secretsSetCfg := &wasp.Config{

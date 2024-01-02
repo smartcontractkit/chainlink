@@ -38,7 +38,7 @@ func TestOCRv2Basic(t *testing.T) {
 
 			l := logging.GetTestLogger(t)
 
-			config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.OCR2)
+			config, err := tc.GetConfig("Smoke", tc.OCR2)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -127,7 +127,7 @@ func TestOCRv2Request(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.ForwarderOcr)
+	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +212,7 @@ func TestOCRv2Request(t *testing.T) {
 func TestOCRv2JobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.OCR2)
+	config, err := tc.GetConfig("Smoke", tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}

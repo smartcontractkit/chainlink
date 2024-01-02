@@ -121,10 +121,10 @@ type NetworkConfig struct {
 
 func TestAutomationBenchmark(t *testing.T) {
 	l := logging.GetTestLogger(t)
-	testType, err := tc.GetTestTypeFromEnv()
+	testType, err := tc.GetConfigurationNameFromEnv()
 	require.NoError(t, err, "Error getting test type")
 
-	config, err := tc.GetConfig(t.Name(), testType, tc.Keeper)
+	config, err := tc.GetConfig(testType, tc.Keeper)
 	require.NoError(t, err, "Error getting test config")
 
 	testEnvironment, benchmarkNetwork := SetupAutomationBenchmarkEnv(t, &config)
@@ -308,7 +308,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 		TTL: time.Hour * 720, // 30 days,
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s-%s",
-			testConfig.TestType,
+			testConfig.ConfigurationName,
 			strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
 			strings.ReplaceAll(strings.ToLower(*testConfig.Keeper.Common.RegistryToTest), "_", "-"),
 		),
@@ -318,7 +318,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 
 	dbResources := performanceDbResources
 	chainlinkResources := performanceChainlinkResources
-	if testConfig.TestType == tc.Soak {
+	if strings.ToLower(testConfig.ConfigurationName) == "soak" {
 		chainlinkResources = soakChainlinkResources
 		dbResources = soakDbResources
 	}

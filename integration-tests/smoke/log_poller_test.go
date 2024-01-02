@@ -12,32 +12,32 @@ import (
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
 func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
-	executeLogPollerBasicTest(t, tc.Smoke)
+	executeLogPollerBasicTest(t)
 }
 
 func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
-	executeLogPollerBasicTest(t, tc.Smoke)
+	executeLogPollerBasicTest(t)
 }
 
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
 func TestLogManyFiltersPollerFixedDepth(t *testing.T) {
-	executeLogPollerBasicTest(t, tc.Smoke)
+	executeLogPollerBasicTest(t)
 }
 
 func TestLogManyFiltersPollerFinalityTag(t *testing.T) {
-	executeLogPollerBasicTest(t, tc.Smoke)
+	executeLogPollerBasicTest(t)
 }
 
 // consistency test that introduces random distruptions by pausing either Chainlink or Postgres containers for random interval of 5-20 seconds
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 func TestLogPollerWithChaosFixedDepth(t *testing.T) {
-	executeLogPollerBasicTest(t, tc.Chaos)
+	executeLogPollerBasicTest(t)
 }
 
 func TestLogPollerWithChaosFinalityTag(t *testing.T) {
-	executeLogPollerBasicTest(t, tc.Chaos)
+	executeLogPollerBasicTest(t)
 }
 
 // consistency test that registers filters after events were emitted and then triggers replay via API
@@ -46,20 +46,20 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 // with approximate emission of 24 logs per second for ~110 seconds
 // 6 filters are registered
 func TestLogPollerReplayFixedDepth(t *testing.T) {
-	executeLogPollerReplayTest(t, tc.Smoke, "5m")
+	executeLogPollerReplayTest(t, "5m")
 }
 
 func TestLogPollerReplayFinalityTag(t *testing.T) {
-	executeLogPollerReplayTest(t, tc.Smoke, "5m")
+	executeLogPollerReplayTest(t, "5m")
 }
 
-func executeLogPollerBasicTest(t *testing.T, testType tc.TestType) {
+func executeLogPollerBasicTest(t *testing.T) {
 	eventsToEmit := []abi.Event{}
 	for _, event := range logpoller.EmitterABI.Events {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg, err := tc.GetConfig(t.Name(), testType, tc.LogPoller)
+	cfg, err := tc.GetConfig(t.Name(), tc.LogPoller)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,13 +68,13 @@ func executeLogPollerBasicTest(t *testing.T, testType tc.TestType) {
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
-func executeLogPollerReplayTest(t *testing.T, testType tc.TestType, duration string) {
+func executeLogPollerReplayTest(t *testing.T, duration string) {
 	eventsToEmit := []abi.Event{}
 	for _, event := range logpoller.EmitterABI.Events {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
-	cfg, err := tc.GetConfig(t.Name(), testType, tc.LogPoller)
+	cfg, err := tc.GetConfig(t.Name(), tc.LogPoller)
 	if err != nil {
 		t.Fatal(err)
 	}

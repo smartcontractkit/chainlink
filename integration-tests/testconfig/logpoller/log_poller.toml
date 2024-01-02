@@ -1,0 +1,48 @@
+# product defaults
+[LogPoller]
+[LogPoller.General]
+generator = "looped"
+contracts = 2
+events_per_tx = 4
+use_finality_tag = true
+
+[LogPoller.Looped]
+execution_count = 100
+min_emit_wait_time_ms = 200
+max_emit_wait_time_ms = 500
+
+# test-specific
+[TestLogManyFiltersPollerFinalityTag]
+[TestLogManyFiltersPollerFinalityTag.LogPoller]
+[TestLogManyFiltersPollerFinalityTag.LogPoller.General]
+contracts = 300
+events_per_tx = 3
+
+[TestLogManyFiltersPollerFinalityTag.LogPoller.Looped]
+execution_count = 30
+
+[TestLogManyFiltersPollerFixedDepth.LogPoller]
+[TestLogManyFiltersPollerFixedDepth.LogPoller.General]
+use_finality_tag = false
+contracts = 300
+events_per_tx = 3
+
+[TestLogManyFiltersPollerFixedDepth.LogPoller.Looped]
+execution_count = 30
+
+[TestLogPollerFewFiltersFixedDepth.LogPoller]
+[TestLogPollerFewFiltersFixedDepth.LogPoller.General]
+use_finality_tag = false
+
+[TestLogPollerReplayFixedDepth.LogPoller]
+[TestLogPollerReplayFixedDepth.LogPoller.General]
+use_finality_tag = false
+
+[TestLogPollerWithChaosFinalityTag.LogPoller]
+[TestLogPollerWithChaosFinalityTag.LogPoller.Chaos]
+experiment_count = 10
+
+[TestLogPollerWithChaosFixedDepth.LogPoller]
+[TestLogPollerWithChaosFixedDepth.LogPoller.Chaos]
+experiment_count = 10
+use_finality_tag = false

@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
@@ -43,7 +45,7 @@ type TestConfig struct {
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
 
-	TestType TestType `toml:"-"`
+	ConfigurationName string `toml:"-"`
 }
 
 // Returns Grafana URL from Logging config
@@ -117,68 +119,34 @@ const (
 	VRFv2Plus     Product = "vrfv2plus"
 )
 
-type TestType string
-
-const (
-	Benchmark   TestType = "benchmark"
-	Chaos       TestType = "chaos"
-	Load        TestType = "load"
-	Migration   TestType = "migration"
-	Performance TestType = "performance"
-	Reorg       TestType = "reorg"
-	Smoke       TestType = "smoke"
-	Soak        TestType = "soak"
-	Stress      TestType = "stress"
-	Spike       TestType = "spike"
-	Volume      TestType = "volume"
-)
-
-var TestTypesWithLoki = []TestType{Load, Soak, Stress, Spike, Volume}
+var TestTypesWithLoki = []string{"Load", "Soak", "Stress", "Spike", "Volume"}
 
 const TestTypeEnvVarName = "TEST_TYPE"
 
-func GetTestTypeFromEnv() (TestType, error) {
+func GetConfigurationNameFromEnv() (string, error) {
 	testType := os.Getenv(TestTypeEnvVarName)
 	if testType == "" {
 		return "", fmt.Errorf("%s env var not set", TestTypeEnvVarName)
 	}
 
-	switch TestType(testType) {
-	case Smoke, Load, Soak, Performance, Benchmark, Reorg, Chaos, Stress, Spike:
-		return TestType(testType), nil
-	default:
-		return "", fmt.Errorf("invalid value for %s: %s", TestTypeEnvVarName, testType)
-	}
+	return cases.Title(language.English, cases.NoLower).String(testType), nil
 }
 
 const (
 	Base64OverrideEnvVarName = "BASE64_CONFIG_OVERRIDE"
-	NoTest                   = "NO_TEST"
+	NoKey                    = "NO_KEY"
 )
 
-func GetConfig(testName string, testType TestType, product Product) (TestConfig, error) {
+func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	logger := logging.GetTestLogger(nil)
 
-	testName = strings.ReplaceAll(testName, "/", "_")
-	testName = strings.ReplaceAll(testName, " ", "_")
+	configurationName = strings.ReplaceAll(configurationName, "/", "_")
+	configurationName = strings.ReplaceAll(configurationName, " ", "_")
+	configurationName = cases.Title(language.English, cases.NoLower).String(configurationName)
 	fileNames := []string{
 		"default.toml",
 		fmt.Sprintf("%s.toml", product),
-		fmt.Sprintf("%s_%s.toml", testType, product),
 		"overrides.toml",
-	}
-
-	var insert = func(slice []string, element string, position int) []string {
-		if position < 0 || position > len(slice) {
-			return slice
-		}
-
-		slice = append(slice[:position], append([]string{element}, slice[position:]...)...)
-		return slice
-	}
-
-	if testName != NoTest {
-		fileNames = insert(fileNames, fmt.Sprintf("%s_%s.toml", testName, testType), 3)
 	}
 
 	testConfig := TestConfig{}
@@ -205,6 +173,32 @@ func GetConfig(testName string, testType TestType, product Product) (TestConfig,
 			return TestConfig{}, errors.Wrapf(err, "error unmarshaling config")
 		}
 
+		maybeTestConfigs = append(maybeTestConfigs, readConfig)
+
+		// let's see if have overrides under configurationKey
+		var someToml map[string]interface{}
+		err = toml.Unmarshal(content, &someToml)
+		if err != nil {
+			return TestConfig{}, err
+		}
+
+		if _, ok := someToml[configurationName]; !ok {
+			logger.Debug().Msgf("Config file %s does not contain configuration named '%s', skipping.", fileName, configurationName)
+			continue
+		}
+
+		logger.Debug().Msgf("Config file %s contains configuration named '%s', unnmarshalling.", fileName, configurationName)
+		marshalled, err := toml.Marshal(someToml[configurationName])
+		if err != nil {
+			return TestConfig{}, err
+		}
+
+		err = toml.Unmarshal(marshalled, &readConfig)
+		if err != nil {
+			return TestConfig{}, err
+		}
+
+		logger.Debug().Msgf("Configuration named '%s' unnmarshalled successfully.", configurationName)
 		maybeTestConfigs = append(maybeTestConfigs, readConfig)
 	}
 
@@ -239,6 +233,7 @@ func GetConfig(testName string, testType TestType, product Product) (TestConfig,
 		}
 	}
 
+	testConfig.ConfigurationName = configurationName
 	err = testConfig.Validate()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error validating test config")
@@ -449,7 +444,7 @@ func (c *TestConfig) Validate() error {
 		return errors.Wrapf(err, "logging config validation failed")
 	}
 
-	if slices.Contains(TestTypesWithLoki, c.TestType) {
+	if slices.Contains(TestTypesWithLoki, c.ConfigurationName) {
 		if c.Logging.Loki == nil {
 			return fmt.Errorf("logging config must have loki config set")
 		}

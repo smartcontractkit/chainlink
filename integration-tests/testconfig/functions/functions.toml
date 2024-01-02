@@ -1,3 +1,4 @@
+# product defaults
 [Functions]
 [Functions.Common]
 # Polygon Mumbai only for now
@@ -34,3 +35,49 @@ secrets_version_id = 1693945705
 # uncomment to upload new secrets to s4 and use it in your run
 # TODO: not working now
 #secrets = "{\"secrets\": \"secretValue\"}"
+
+[GatewayList.Functions]
+[GatewayList.Functions.Performance]
+rps = 95
+duration = "10m"
+
+[GatewaySet.Functions]
+[GatewaySet.Functions.Performance]
+rps = 95
+duration = "10m"
+
+[RealSoak.Functions]
+[RealSoak.Functions.Performance]
+rps = 1
+requests_per_call = 20
+duration = "10m"
+
+[RealStress.Functions]
+[RealStress.Functions.Performance]
+rps = 1
+requests_per_call = 40
+duration = "10m"
+
+[SecretsSoak.Functions]
+[SecretsSoak.Functions.Performance]
+rps = 1
+requests_per_call = 20
+duration = "10m"
+
+[SecretsStress.Functions]
+[SecretsStress.Functions.Performance]
+rps = 1
+requests_per_call = 40
+duration = "10m"
+
+[Soak.Functions]
+[Soak.Functions.Performance]
+rps = 1
+requests_per_call = 40
+duration = "10m"
+
+[Stress.Functions]
+[Stress.Functions.Performance]
+rps = 1
+requests_per_call = 78
+duration = "10m"

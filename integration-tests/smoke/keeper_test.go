@@ -89,7 +89,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+			config, err := tc.GetConfig("Smoke", tc.Keeper)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -170,7 +170,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+			config, err := tc.GetConfig("Smoke", tc.Keeper)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -279,7 +279,7 @@ func TestKeeperSimulation(t *testing.T) {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+			config, err := tc.GetConfig("Smoke", tc.Keeper)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -357,7 +357,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+			config, err := tc.GetConfig("Smoke", tc.Keeper)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -474,7 +474,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+			config, err := tc.GetConfig("Smoke", tc.Keeper)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -567,7 +567,7 @@ func TestKeeperAddFunds(t *testing.T) {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+			config, err := tc.GetConfig("Smoke", tc.Keeper)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -634,7 +634,7 @@ func TestKeeperRemove(t *testing.T) {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+			config, err := tc.GetConfig("Smoke", tc.Keeper)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -716,7 +716,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+			config, err := tc.GetConfig("Smoke", tc.Keeper)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -781,7 +781,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 func TestKeeperMigrateRegistry(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+	config, err := tc.GetConfig("Smoke", tc.Keeper)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -877,7 +877,7 @@ func TestKeeperNodeDown(t *testing.T) {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+			config, err := tc.GetConfig("Smoke", tc.Keeper)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -987,7 +987,7 @@ type nodeAndJob struct {
 func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+	config, err := tc.GetConfig("Smoke", tc.Keeper)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1081,7 +1081,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 func TestKeeperUpdateCheckData(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+	config, err := tc.GetConfig("Smoke", tc.Keeper)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1186,7 +1186,7 @@ func TestKeeperJobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 	registryVersion := ethereum.RegistryVersion_1_3
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.Keeper)
+	config, err := tc.GetConfig("Smoke", tc.Keeper)
 	if err != nil {
 		t.Fatal(err)
 	}

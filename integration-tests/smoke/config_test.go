@@ -11,7 +11,7 @@ import (
 func TestConfig(t *testing.T) {
 	t.Parallel()
 
-	_, err := tc.GetConfig(t.Name(), tc.Smoke, tc.OCR)
+	_, err := tc.GetConfig("Smoke", tc.OCR)
 	if err != nil {
 		t.Fatal(err)
 	}

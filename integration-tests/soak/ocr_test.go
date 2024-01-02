@@ -22,7 +22,7 @@ func TestOCRSoak(t *testing.T) {
 	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customNetworkTOML, network))
 	// fmt.Println("---------------------")
 
-	config, err := tc.GetConfig(t.Name(), tc.Soak, tc.OCR)
+	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)

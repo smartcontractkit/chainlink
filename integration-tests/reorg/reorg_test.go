@@ -121,7 +121,7 @@ func TestDirectRequestReorg(t *testing.T) {
 		return
 	}
 
-	config, err := tc.GetConfig(t.Name(), tc.Reorg, tc.Automation)
+	config, err := tc.GetConfig("Reorg", tc.Automation)
 	if err != nil {
 		t.Fatal(err)
 	}

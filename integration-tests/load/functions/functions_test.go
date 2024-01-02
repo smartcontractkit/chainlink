@@ -11,7 +11,7 @@ import (
 )
 
 func TestFunctionsLoad(t *testing.T) {
-	generalConfig, err := tc.GetConfig(t.Name(), tc.Load, tc.Functions)
+	generalConfig, err := tc.GetConfig(tc.NoKey, tc.Functions)
 	require.NoError(t, err, "failed to get config")
 
 	ft, err := SetupLocalLoadTestEnv(&generalConfig)
@@ -26,7 +26,7 @@ func TestFunctionsLoad(t *testing.T) {
 	MonitorLoadStats(t, ft, labels, &generalConfig)
 
 	t.Run("mumbai functions soak test http", func(t *testing.T) {
-		config, err := tc.GetConfig(t.Name(), tc.Soak, tc.Functions)
+		config, err := tc.GetConfig("Soak", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		_, err = wasp.NewProfile().
@@ -59,7 +59,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test http", func(t *testing.T) {
-		config, err := tc.GetConfig(t.Name(), tc.Stress, tc.Functions)
+		config, err := tc.GetConfig("Stress", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		_, err = wasp.NewProfile().
@@ -92,7 +92,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions soak test only secrets", func(t *testing.T) {
-		config, err := tc.GetConfig(t.Name(), "secrets_soak", tc.Functions)
+		config, err := tc.GetConfig("SecretsSoak", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		_, err = wasp.NewProfile().
@@ -125,7 +125,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test only secrets", func(t *testing.T) {
-		config, err := tc.GetConfig(t.Name(), "secrets_stress", tc.Functions)
+		config, err := tc.GetConfig("SecretsStress", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		_, err = wasp.NewProfile().
@@ -158,7 +158,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions soak test real", func(t *testing.T) {
-		config, err := tc.GetConfig(t.Name(), "real_soak", tc.Functions)
+		config, err := tc.GetConfig("RealSoak", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		_, err = wasp.NewProfile().
@@ -191,7 +191,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test real", func(t *testing.T) {
-		config, err := tc.GetConfig(t.Name(), "real_stress", tc.Functions)
+		config, err := tc.GetConfig("RealStress", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		_, err = wasp.NewProfile().

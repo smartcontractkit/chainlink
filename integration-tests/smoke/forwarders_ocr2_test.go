@@ -25,7 +25,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.ForwarderOcr2)
+	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr2)
 	if err != nil {
 		t.Fatal(err)
 	}

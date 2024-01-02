@@ -43,9 +43,9 @@ var (
 func TestVRFV2Performance(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
-	testType, err := tc.GetTestTypeFromEnv()
+	testType, err := tc.GetConfigurationNameFromEnv()
 	require.NoError(t, err)
-	testConfig, err := tc.GetConfig(t.Name(), testType, tc.VRFv2)
+	testConfig, err := tc.GetConfig(testType, tc.VRFv2)
 	require.NoError(t, err)
 
 	location, err := testConfig.Save()

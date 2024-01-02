@@ -29,7 +29,7 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.VRFv2Plus)
+	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -620,7 +620,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.VRFv2Plus)
+	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -718,7 +718,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.VRFv2Plus)
+	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
 	if err != nil {
 		t.Fatal(err)
 	}

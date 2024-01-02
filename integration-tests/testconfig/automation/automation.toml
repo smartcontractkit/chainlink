@@ -1,8 +1,18 @@
+# product defaults
 [Common]
+chainlink_node_funding = 0.5
+
+# upgrade test specific override
+[TestAutomationNodeUpgrade.ChainlinkUpgradeImage]
+image="public.ecr.aws/chainlink/chainlink"
+version="2.8.0"
+
+# load test specific overrides
+[Load.Common]
 chainlink_node_funding = 100
 
-[Automation]
-[Automation.General]
+[Load.Automation]
+[Load.Automation.General]
 number_of_nodes=6
 duration=900
 block_time=1
@@ -11,7 +21,7 @@ spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
 
-[[Automation.Load]]
+[[Load.Automation.Load]]
 number_of_upkeeps=5
 number_of_events = 1
 number_of_spam_matching_events = 1
@@ -21,7 +31,7 @@ perform_burn_amount = 0
 upkeep_gas_limit = 1000000
 shared_trigger = false
 
-[[Automation.Load]]
+[[Load.Automation.Load]]
 number_of_upkeeps=5
 number_of_events = 1
 number_of_spam_matching_events = 0
@@ -31,5 +41,5 @@ perform_burn_amount = 0
 upkeep_gas_limit = 1000000
 shared_trigger = true
 
-[Pyroscope]
+[Load.Pyroscope]
 enabled=false

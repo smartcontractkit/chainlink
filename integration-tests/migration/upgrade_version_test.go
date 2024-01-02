@@ -13,7 +13,7 @@ import (
 func TestVersionUpgrade(t *testing.T) {
 	t.Parallel()
 
-	config, err := tc.GetConfig(t.Name(), tc.Migration, tc.Node)
+	config, err := tc.GetConfig("Migration", tc.Node)
 	require.NoError(t, err, "Error getting config")
 
 	err = config.ChainlinkUpgradeImage.Validate()

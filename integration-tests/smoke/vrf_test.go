@@ -24,7 +24,7 @@ func TestVRFBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.VRF)
+	config, err := tc.GetConfig("Smoke", tc.VRF)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestVRFBasic(t *testing.T) {
 func TestVRFJobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig(t.Name(), tc.Smoke, tc.VRF)
+	config, err := tc.GetConfig("Smoke", tc.VRF)
 	if err != nil {
 		t.Fatal(err)
 	}

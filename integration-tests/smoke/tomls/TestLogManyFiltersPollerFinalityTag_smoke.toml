@@ -1,8 +1,0 @@
-[LogPoller]
-[LogPoller.General]
-use_finality_tag = true
-contracts = 300
-events_per_tx = 3
-
-[LogPoller.Looped]
-execution_count = 30
