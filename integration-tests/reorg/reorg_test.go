@@ -131,12 +131,15 @@ func TestDirectRequestReorg(t *testing.T) {
 	time.Sleep(90 * time.Second)
 	network := networks.SimulatedEVMNonDev
 	netCfg := fmt.Sprintf(networkDRTOML, EVMFinalityDepth, EVMTrackerHistoryDepth)
-	chainlinkDeployment := chainlink.New(0, map[string]interface{}{
+
+	var overrideFn = func(_ interface{}, target interface{}) {
+		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+	}
+
+	chainlinkDeployment := chainlink.NewWithOverride(0, map[string]interface{}{
 		"replicas": 1,
 		"toml":     networks.AddNetworkDetailedConfig(baseDRTOML, config.Pyroscope, netCfg, network),
-	})
-
-	ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &chainlinkDeployment)
+	}, config.ChainlinkImage, overrideFn)
 
 	err = testEnvironment.AddHelm(chainlinkDeployment).Run()
 	require.NoError(t, err, "Error adding to test environment")

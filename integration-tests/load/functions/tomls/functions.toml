@@ -29,7 +29,7 @@ const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/pr
 return Functions.encodeString(JSON.stringify(secrets));
 """
 secrets_slot_id = 0
-secrets_version = 1693945705
+secrets_version_id = 1693945705
 
 # uncomment to upload new secrets to s4 and use it in your run
 # TODO: not working now

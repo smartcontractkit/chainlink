@@ -151,6 +151,7 @@ func setupKeeperTest(
 			WsURLs:      network.URLs,
 		})
 	}
+
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'
 
@@ -160,13 +161,16 @@ TurnLookBack = 0
 [Keeper.Registry]
 SyncInterval = '5s'
 PerformGasOverhead = 150_000`
+
+	var overrideFn = func(_ interface{}, target interface{}) {
+		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+	}
+
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
-	cd := chainlink.New(0, map[string]interface{}{
+	cd := chainlink.NewWithOverride(0, map[string]interface{}{
 		"replicas": 5,
 		"toml":     networks.AddNetworksConfig(baseTOML, config.Pyroscope, network),
-	})
-
-	ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &cd)
+	}, config.ChainlinkImage, overrideFn)
 
 	testEnvironment := environment.New(
 		&environment.Config{

@@ -408,13 +408,16 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 		testNetwork.HTTPURLs = []string{internalHttpURLs[i]}
 		testNetwork.URLs = []string{internalWsURLs[i]}
 
-		cd := chainlink.New(i, map[string]any{
+		var overrideFn = func(_ interface{}, target interface{}) {
+			ctf_config.MustConfigOverrideChainlinkVersion(testConfig.ChainlinkImage, target)
+		}
+
+		cd := chainlink.NewWithOverride(i, map[string]any{
 			"toml":      networks.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, testConfig.Pyroscope, networkDetailTOML, testNetwork),
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
-		})
+		}, testConfig.ChainlinkImage, overrideFn)
 
-		ctf_config.MustConfigOverrideChainlinkVersion(testConfig.ChainlinkImage, &cd)
 		testEnvironment.AddHelm(cd)
 	}
 	err = testEnvironment.Run()

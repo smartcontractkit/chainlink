@@ -153,11 +153,14 @@ func setupVRFTest(t *testing.T, config *tc.TestConfig) (testEnvironment *environ
 	}
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'`
-	cd := chainlink.New(0, map[string]interface{}{
-		"toml": networks.AddNetworksConfig(baseTOML, config.Pyroscope, testNetwork),
-	})
 
-	ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &cd)
+	var overrideFn = func(_ interface{}, target interface{}) {
+		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+	}
+
+	cd := chainlink.NewWithOverride(0, map[string]interface{}{
+		"toml": networks.AddNetworksConfig(baseTOML, config.Pyroscope, testNetwork),
+	}, config.ChainlinkImage, overrideFn)
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix:    fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),

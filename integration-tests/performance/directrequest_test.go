@@ -145,13 +145,18 @@ func setupDirectRequestTest(t *testing.T, config *tc.TestConfig) (testEnvironmen
 			WsURLs:      network.URLs,
 		})
 	}
+
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'`
-	cd := chainlink.New(0, map[string]interface{}{
+
+	var overrideFn = func(_ interface{}, target interface{}) {
+		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+	}
+
+	cd := chainlink.NewWithOverride(0, map[string]interface{}{
 		"replicas": 1,
 		"toml":     networks.AddNetworksConfig(baseTOML, config.Pyroscope, network),
-	})
-	ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &cd)
+	}, config.ChainlinkImage, overrideFn)
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix:    fmt.Sprintf("performance-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),

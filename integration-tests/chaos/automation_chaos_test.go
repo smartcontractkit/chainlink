@@ -138,8 +138,11 @@ func TestAutomationChaos(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			chainlinkCfg := chainlink.New(0, getDefaultAutomationSettings(&config))
-			ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &chainlinkCfg)
+			var overrideFn = func(_ interface{}, target interface{}) {
+				ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+			}
+
+			chainlinkCfg := chainlink.NewWithOverride(0, getDefaultAutomationSettings(&config), config.ChainlinkImage, overrideFn)
 
 			testCases := map[string]struct {
 				networkChart environment.ConnectedChart

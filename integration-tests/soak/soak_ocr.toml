@@ -1,8 +1,11 @@
 [Common]
-ocr_version="1"
-chainlink_node_funding = 0.1
-test_duration = "15m"
+chainlink_node_funding = 100
 
-[Soak]
+[OCR]
+[OCR.Common]
+test_duration="15m"
+
+[OCR.Soak]
+ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"

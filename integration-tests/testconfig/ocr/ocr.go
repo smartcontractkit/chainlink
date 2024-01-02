@@ -149,11 +149,10 @@ func (o *Volume) Validate() error {
 	return nil
 }
 
-// this came from env config!
 type SoakConfig struct {
-	OCRVersion        *string                 `toml:"ocr_version"`         // Version of OCR to use (1 or 2)
-	NumberOfContracts *int                    `toml:"number_of_contracts"` //default:"2"
-	TimeBetweenRounds *blockchain.StrDuration `toml:"time_between_rounds"` //default:"1m"
+	OCRVersion        *string                 `toml:"ocr_version"`
+	NumberOfContracts *int                    `toml:"number_of_contracts"`
+	TimeBetweenRounds *blockchain.StrDuration `toml:"time_between_rounds"`
 }
 
 func (o *SoakConfig) ApplyOverrides(from *SoakConfig) error {

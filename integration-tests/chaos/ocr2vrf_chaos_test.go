@@ -56,8 +56,11 @@ func TestOCR2VRFChaos(t *testing.T) {
 		WsURLs:      loadedNetwork.URLs,
 	}
 
-	chainlinkCfg := chainlink.New(0, defaultOCR2VRFSettings)
-	ctf_config.MustConfigOverrideChainlinkVersion(testconfig.ChainlinkImage, &chainlinkCfg)
+	var overrideFn = func(_ interface{}, target interface{}) {
+		ctf_config.MustConfigOverrideChainlinkVersion(testconfig.ChainlinkImage, target)
+	}
+
+	chainlinkCfg := chainlink.NewWithOverride(0, defaultOCR2VRFSettings, testconfig.ChainlinkImage, overrideFn)
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart

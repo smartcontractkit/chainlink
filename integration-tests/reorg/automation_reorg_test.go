@@ -148,9 +148,12 @@ func TestAutomationReorg(t *testing.T) {
 
 			defaultAutomationSettings["replicas"] = numberOfNodes
 			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
-			cd := chainlink.New(0, defaultAutomationSettings)
 
-			ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &cd)
+			var overrideFn = func(_ interface{}, target interface{}) {
+				ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+			}
+
+			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)
 
 			ethSetting := defaultReorgEthereumSettings
 			ethSetting.NetworkName = network.Name

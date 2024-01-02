@@ -229,14 +229,14 @@ func getStringSlice(length int) []string {
 var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contracts.LogEmitter, cfg *lp_config.Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
 	address := (*logEmitter).Address().String()
 	localCounter := 0
-	select {
-	case <-ctx.Done():
-		l.Warn().Str("Emitter address", address).Msg("Context cancelled, not emitting events")
-		return
-	default:
-		defer wg.Done()
-		for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
-			for _, event := range cfg.General.EventsToEmit {
+	defer wg.Done()
+	for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
+		for _, event := range cfg.General.EventsToEmit {
+			select {
+			case <-ctx.Done():
+				l.Warn().Str("Emitter address", address).Msg("Context cancelled, not emitting events")
+				return
+			default:
 				l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", (i+1), cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
 				var err error
 				switch event.Name {
@@ -246,14 +246,15 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 					_, err = (*logEmitter).EmitLogIntsIndexed(getIntSlice(*cfg.General.EventsPerTx))
 				case "Log3":
 					_, err = (*logEmitter).EmitLogStrings(getStringSlice(*cfg.General.EventsPerTx))
+				case "Log4":
+					_, err = (*logEmitter).EmitLogIntMultiIndexed(1, 1, *cfg.General.EventsPerTx)
 				default:
 					err = fmt.Errorf("unknown event name: %s", event.Name)
 				}
 
 				if err != nil {
 					results <- LogEmitterChannel{
-						logsEmitted: 0,
-						err:         err,
+						err: err,
 					}
 					return
 				}
@@ -263,16 +264,16 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 			}
 
 			if (i+1)%10 == 0 {
-				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", i+1, cfg.LoopedConfig.ExecutionCount)).Msg("Emitted all three events")
+				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", i+1, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitted all three events")
 			}
 		}
+	}
 
-		l.Info().Str("Emitter address", address).Int("Total logs emitted", localCounter).Msg("Finished emitting events")
+	l.Info().Str("Emitter address", address).Int("Total logs emitted", localCounter).Msg("Finished emitting events")
 
-		results <- LogEmitterChannel{
-			logsEmitted: localCounter,
-			err:         nil,
-		}
+	results <- LogEmitterChannel{
+		logsEmitted: localCounter,
+		err:         nil,
 	}
 }
 
@@ -800,25 +801,30 @@ func runLoopedGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*cont
 	aggrChan := make(chan int, len(logEmitters))
 
 	go func() {
-		for emitter := range emitterCh {
-			if emitter.err != nil {
-				emitErr = emitter.err
-				cancelFn()
+		for {
+			select {
+			case <-ctx.Done():
 				return
+			case emitter := <-emitterCh:
+				if emitter.err != nil {
+					emitErr = emitter.err
+					cancelFn()
+					return
+				}
+				aggrChan <- emitter.logsEmitted
 			}
-			aggrChan <- emitter.logsEmitted
 		}
 	}()
 
 	wg.Wait()
 	close(emitterCh)
 
-	for i := 0; i < len(logEmitters); i++ {
-		total += <-aggrChan
-	}
-
 	if emitErr != nil {
 		return 0, emitErr
+	}
+
+	for i := 0; i < len(logEmitters); i++ {
+		total += <-aggrChan
 	}
 
 	return int(total), nil

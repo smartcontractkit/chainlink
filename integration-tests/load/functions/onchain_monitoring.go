@@ -48,16 +48,20 @@ func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string,
 			if err != nil {
 				log.Error().Err(err).Msg(ErrMetrics)
 			}
-			log.Info().
-				Hex("LastReqID", []byte(stats.LastRequestID)).
-				Str("LastResponse", stats.LastResponse).
-				Str("LastError", stats.LastError).
-				Uint32("Total", stats.Total).
-				Uint32("Succeeded", stats.Succeeded).
-				Uint32("Errored", stats.Errored).
-				Uint32("Empty", stats.Empty).Msg("On-chain stats for load test client")
-			if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), stats); err != nil {
-				log.Error().Err(err).Msg(ErrLokiPush)
+			if stats != nil {
+				log.Info().
+					Hex("LastReqID", []byte(stats.LastRequestID)).
+					Str("LastResponse", stats.LastResponse).
+					Str("LastError", stats.LastError).
+					Uint32("Total", stats.Total).
+					Uint32("Succeeded", stats.Succeeded).
+					Uint32("Errored", stats.Errored).
+					Uint32("Empty", stats.Empty).Msg("On-chain stats for load test client")
+				if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), stats); err != nil {
+					log.Error().Err(err).Msg(ErrLokiPush)
+				}
+			} else {
+				log.Warn().Msg("No stats to push to Loki")
 			}
 		}
 	}()

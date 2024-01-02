@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/smartcontractkit/wasp"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -62,7 +60,7 @@ func callSecretsSet(m *GatewaySecretsSetGun) *wasp.Response {
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
-	network := networks.MustGetSelectedNetworkConfig(m.Cfg.Network)[0].Name
+	network := m.Cfg.Network.SelectedNetworks[0]
 	if len(m.Cfg.Network.WalletKeys[network]) < 1 {
 		panic(fmt.Sprintf("no wallet keys found for %s", network))
 	}
@@ -90,7 +88,7 @@ func callSecretsList(m *GatewaySecretsSetGun) *wasp.Response {
 	randSlot := uint(rand.Intn(5))
 	version := uint64(time.Now().UnixNano())
 	expiration := int64(60 * 60 * 1000)
-	network := networks.MustGetSelectedNetworkConfig(m.Cfg.Network)[0].Name
+	network := m.Cfg.Network.SelectedNetworks[0]
 	if len(m.Cfg.Network.WalletKeys[network]) < 1 {
 		panic(fmt.Sprintf("no wallet keys found for %s", network))
 	}

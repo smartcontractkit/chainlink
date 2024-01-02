@@ -128,15 +128,18 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, testC
 	} else if *testConfig.OCR.Soak.OCRVersion == "2" {
 		conf = config.BaseOCR2Config
 	}
-	cd := chainlink.New(0, map[string]any{
+
+	var overrideFn = func(_ interface{}, target interface{}) {
+		ctf_config.MustConfigOverrideChainlinkVersion(testConfig.ChainlinkImage, target)
+	}
+
+	cd := chainlink.NewWithOverride(0, map[string]any{
 		"replicas": 6,
 		"toml":     networks.AddNetworkDetailedConfig(conf, testConfig.Pyroscope, customChainlinkNetworkTOML, network),
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
-	})
-
-	ctf_config.MustConfigOverrideChainlinkVersion(testConfig.ChainlinkImage, &cd)
+	}, testConfig.ChainlinkImage, overrideFn)
 
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).

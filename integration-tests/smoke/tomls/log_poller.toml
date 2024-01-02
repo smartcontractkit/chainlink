@@ -1,0 +1,32 @@
+# product defaults
+[LogPoller]
+[LogPoller.General]
+generator = "looped"
+contracts = 2
+events_per_tx = 4
+use_finality_tag = true
+
+[LogPoller.Looped]
+execution_count = 100
+min_emit_wait_time_ms = 200
+max_emit_wait_time_ms = 500
+
+# test-specific
+[TestLogManyFiltersPollerFinalityTag]
+[TestLogManyFiltersPollerFinalityTag.LogPoller]
+[TestLogManyFiltersPollerFinalityTag.LogPoller.General]
+contracts = 300
+events_per_tx = 3
+
+[TestLogManyFiltersPollerFinalityTag.LogPoller.Looped]
+execution_count = 30
+
+# test-type specific
+[Load]
+[Load.LogPoller]
+[Load.LogPoller.General]
+contracts = 3000
+events_per_tx = 50
+
+[Load.LogPoller.Looped]
+execution_count = 3000

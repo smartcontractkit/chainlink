@@ -64,8 +64,11 @@ func TestOCRChaos(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	chainlinkCfg := chainlink.New(0, getDefaultOcrSettings(&config))
-	ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &chainlinkCfg)
+	var overrideFn = func(_ interface{}, target interface{}) {
+		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+	}
+
+	chainlinkCfg := chainlink.NewWithOverride(0, getDefaultOcrSettings(&config), config.ChainlinkImage, overrideFn)
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
