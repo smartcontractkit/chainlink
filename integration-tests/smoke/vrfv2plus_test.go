@@ -34,13 +34,13 @@ func TestVRFv2Plus(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
-	// require.NoError(t, err, "Error building ethereum network config")
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		// WithPrivateEthereumNetwork(network).
+		WithPrivateEthereumNetwork(network).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).

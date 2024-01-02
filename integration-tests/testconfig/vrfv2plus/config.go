@@ -58,8 +58,10 @@ func (c *Config) ApplyOverrides(from *Config) error {
 }
 
 func (c *Config) Validate() error {
-	if err := c.Common.Validate(); err != nil {
-		return err
+	if c.Common != nil {
+		if err := c.Common.Validate(); err != nil {
+			return err
+		}
 	}
 	if c.General != nil {
 		if err := c.General.Validate(); err != nil {
