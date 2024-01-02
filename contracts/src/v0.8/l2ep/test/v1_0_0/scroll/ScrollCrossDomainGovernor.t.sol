@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {MockScrollCrossDomainMessenger} from "../../mocks/MockScrollCrossDomainMessenger.sol";
+import {MockScrollCrossDomainMessenger} from "../../mocks/scroll/MockScrollCrossDomainMessenger.sol";
 import {ScrollCrossDomainGovernor} from "../../../dev/scroll/ScrollCrossDomainGovernor.sol";
 import {MultiSend} from "../../../../../v0.8/vendor/MultiSend.sol";
 import {Greeter} from "../../../../../v0.8/tests/Greeter.sol";
