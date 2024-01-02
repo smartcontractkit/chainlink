@@ -27,6 +27,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
@@ -134,6 +135,8 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, testC
 			"stateful": true, // stateful DB by default for soak tests
 		},
 	})
+
+	ctf_config.MustConfigOverrideChainlinkVersion(testConfig.ChainlinkImage, &cd)
 
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).

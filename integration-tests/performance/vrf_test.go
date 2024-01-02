@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
@@ -155,6 +156,8 @@ HTTPWriteTimout = '300s'`
 	cd := chainlink.New(0, map[string]interface{}{
 		"toml": networks.AddNetworksConfig(baseTOML, config.Pyroscope, testNetwork),
 	})
+
+	ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &cd)
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix:    fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
@@ -55,6 +56,9 @@ func TestOCR2VRFChaos(t *testing.T) {
 		WsURLs:      loadedNetwork.URLs,
 	}
 
+	chainlinkCfg := chainlink.New(0, defaultOCR2VRFSettings)
+	ctf_config.MustConfigOverrideChainlinkVersion(testconfig.ChainlinkImage, &chainlinkCfg)
+
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -72,7 +76,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//4. verify VRF request gets fulfilled
 		PodChaosFailMinorityNodes: {
 			ethereum.New(defaultOCR2VRFEthereumSettings),
-			chainlink.New(0, defaultOCR2VRFSettings),
+			chainlinkCfg,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
@@ -82,7 +86,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//todo - currently failing, need to investigate deeper
 		//PodChaosFailMajorityNodes: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	chainlink.New(0, defaultOCR2VRFSettings),
+		//	chainlinkCfg,
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
 		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -92,7 +96,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//todo - do we need these chaos tests?
 		//PodChaosFailMajorityDB: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	chainlink.New(0, defaultOCR2VRFSettings),
+		//	chainlinkCfg,
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
 		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -102,7 +106,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//},
 		//NetworkChaosFailMajorityNetwork: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	chainlink.New(0, defaultOCR2VRFSettings),
+		//	chainlinkCfg,
 		//	chaos.NewNetworkPartition,
 		//	&chaos.Props{
 		//		FromLabels:  &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -112,7 +116,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//},
 		//NetworkChaosFailBlockchainNode: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	chainlink.New(0, defaultOCR2VRFSettings),
+		//	chainlinkCfg,
 		//	chaos.NewNetworkPartition,
 		//	&chaos.Props{
 		//		FromLabels:  &map[string]*string{"app": ptr.Ptr("geth")},

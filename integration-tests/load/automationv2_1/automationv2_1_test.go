@@ -13,6 +13,7 @@ import (
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/require"
 
@@ -28,6 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
@@ -123,11 +126,12 @@ func TestLogTrigger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	image := *loadedTestConfig.ChainlinkImage.Image
 	version := *loadedTestConfig.ChainlinkImage.Version
+	image := *loadedTestConfig.ChainlinkImage.Image
 
 	l.Info().Msg("Starting automation v2.1 log trigger load test")
-	l.Info().Str("TEST_INPUTS", strings.Join(*loadedTestConfig.Automation.General.TestInputs, ",")).Int("Number of Nodes", *loadedTestConfig.Automation.General.NumberOfNodes).
+	l.Info().
+		Int("Number of Nodes", *loadedTestConfig.Automation.General.NumberOfNodes).
 		Int("Duration", *loadedTestConfig.Automation.General.Duration).
 		Int("Block Time", *loadedTestConfig.Automation.General.BlockTime).
 		Str("Spec Type", *loadedTestConfig.Automation.General.SpecType).
@@ -145,10 +149,13 @@ func TestLogTrigger(t *testing.T) {
 		Tag: %s
 		
 		Load Config:
-		%+v`
+		%s`
+
+	prettyLoadConfig, err := toml.Marshal(loadedTestConfig.Automation.Load)
+	require.NoError(t, err, "Error marshalling load config")
 
 	testConfig := fmt.Sprintf(testConfigFormat, *loadedTestConfig.Automation.General.NumberOfNodes, *loadedTestConfig.Automation.General.Duration,
-		*loadedTestConfig.Automation.General.BlockTime, *loadedTestConfig.Automation.General.SpecType, *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel, image, version, loadedTestConfig.Automation.Load)
+		*loadedTestConfig.Automation.General.BlockTime, *loadedTestConfig.Automation.General.SpecType, *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel, image, version, string(prettyLoadConfig))
 	l.Info().Str("testConfig", testConfig).Msg("Test Config")
 
 	testNetwork := networks.MustGetSelectedNetworkConfig(loadedTestConfig.Network)[0]
@@ -239,13 +246,20 @@ func TestLogTrigger(t *testing.T) {
 		} else {
 			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"info\"", baseTOML)
 		}
-		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
-		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
+
+		var overrideFn = func(_ interface{}, target interface{}) {
+			ctf_config.MustConfigOverrideChainlinkVersion(loadedTestConfig.ChainlinkImage, target)
+		}
+
+		cd := chainlink.NewWithOverride(i, map[string]any{
 			"toml":       nodeTOML,
 			"chainlink":  nodeSpec,
 			"db":         dbSpec,
 			"prometheus": *loadedTestConfig.Automation.General.UsePrometheus,
-		}))
+		}, loadedTestConfig.ChainlinkImage, overrideFn)
+
+		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
+		testEnvironment.AddHelm(cd)
 	}
 
 	err = testEnvironment.Run()

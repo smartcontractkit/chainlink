@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
@@ -116,6 +117,8 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		"replicas": 6,
 		"toml":     networks.AddNetworksConfig(baseTOML, config.Pyroscope, testNetwork),
 	})
+
+	ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &cd)
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix:    fmt.Sprintf("performance-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),

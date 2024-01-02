@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
@@ -190,6 +191,7 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 			testNetwork,
 		),
 	})
+	ctf_config.MustConfigOverrideChainlinkVersion(ocr2vrfSmokeConfig.ChainlinkImage, &cd)
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr2vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),

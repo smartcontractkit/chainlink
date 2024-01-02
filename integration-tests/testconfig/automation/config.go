@@ -48,13 +48,12 @@ func (c *Config) Validate() error {
 
 // General is a common configuration for all automation performance tests
 type General struct {
-	NumberOfNodes         *int      `toml:"number_of_nodes"`
-	Duration              *int      `toml:"duration"`
-	BlockTime             *int      `toml:"block_time"`
-	SpecType              *string   `toml:"spec_type"`
-	ChainlinkNodeLogLevel *string   `toml:"chainlink_node_log_level"`
-	TestInputs            *[]string `toml:"test_inputs"` //is this still needed?
-	UsePrometheus         *bool     `toml:"use_prometheus"`
+	NumberOfNodes         *int    `toml:"number_of_nodes"`
+	Duration              *int    `toml:"duration"`
+	BlockTime             *int    `toml:"block_time"`
+	SpecType              *string `toml:"spec_type"`
+	ChainlinkNodeLogLevel *string `toml:"chainlink_node_log_level"`
+	UsePrometheus         *bool   `toml:"use_prometheus"`
 }
 
 func (c *General) ApplyOverrides(from *General) error {
@@ -75,9 +74,6 @@ func (c *General) ApplyOverrides(from *General) error {
 	}
 	if from.ChainlinkNodeLogLevel != nil {
 		c.ChainlinkNodeLogLevel = from.ChainlinkNodeLogLevel
-	}
-	if from.TestInputs != nil {
-		c.TestInputs = from.TestInputs
 	}
 	if from.UsePrometheus != nil {
 		c.UsePrometheus = from.UsePrometheus

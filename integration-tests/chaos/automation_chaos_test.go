@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
@@ -137,6 +138,9 @@ func TestAutomationChaos(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			chainlinkCfg := chainlink.New(0, getDefaultAutomationSettings(&config))
+			ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &chainlinkCfg)
+
 			testCases := map[string]struct {
 				networkChart environment.ConnectedChart
 				clChart      environment.ConnectedChart
@@ -146,7 +150,7 @@ func TestAutomationChaos(t *testing.T) {
 				// see ocr_chaos.test.go for comments
 				PodChaosFailMinorityNodes: {
 					ethereum.New(getDefaultEthereumSettings(&config)),
-					chainlink.New(0, getDefaultAutomationSettings(&config)),
+					chainlinkCfg,
 					chaos.NewFailPods,
 					&chaos.Props{
 						LabelsSelector: &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
@@ -155,7 +159,7 @@ func TestAutomationChaos(t *testing.T) {
 				},
 				PodChaosFailMajorityNodes: {
 					ethereum.New(getDefaultEthereumSettings(&config)),
-					chainlink.New(0, getDefaultAutomationSettings(&config)),
+					chainlinkCfg,
 					chaos.NewFailPods,
 					&chaos.Props{
 						LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -164,7 +168,7 @@ func TestAutomationChaos(t *testing.T) {
 				},
 				PodChaosFailMajorityDB: {
 					ethereum.New(getDefaultEthereumSettings(&config)),
-					chainlink.New(0, getDefaultAutomationSettings(&config)),
+					chainlinkCfg,
 					chaos.NewFailPods,
 					&chaos.Props{
 						LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -174,7 +178,7 @@ func TestAutomationChaos(t *testing.T) {
 				},
 				NetworkChaosFailMajorityNetwork: {
 					ethereum.New(getDefaultEthereumSettings(&config)),
-					chainlink.New(0, getDefaultAutomationSettings(&config)),
+					chainlinkCfg,
 					chaos.NewNetworkPartition,
 					&chaos.Props{
 						FromLabels:  &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -184,7 +188,7 @@ func TestAutomationChaos(t *testing.T) {
 				},
 				NetworkChaosFailBlockchainNode: {
 					ethereum.New(getDefaultEthereumSettings(&config)),
-					chainlink.New(0, getDefaultAutomationSettings(&config)),
+					chainlinkCfg,
 					chaos.NewNetworkPartition,
 					&chaos.Props{
 						FromLabels:  &map[string]*string{"app": ptr.Ptr("geth")},

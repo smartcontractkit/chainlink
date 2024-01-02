@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
@@ -164,6 +165,8 @@ PerformGasOverhead = 150_000`
 		"replicas": 5,
 		"toml":     networks.AddNetworksConfig(baseTOML, config.Pyroscope, network),
 	})
+
+	ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &cd)
 
 	testEnvironment := environment.New(
 		&environment.Config{

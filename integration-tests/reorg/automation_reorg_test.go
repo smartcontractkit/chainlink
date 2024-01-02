@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
@@ -148,6 +149,8 @@ func TestAutomationReorg(t *testing.T) {
 			defaultAutomationSettings["replicas"] = numberOfNodes
 			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
 			cd := chainlink.New(0, defaultAutomationSettings)
+
+			ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &cd)
 
 			ethSetting := defaultReorgEthereumSettings
 			ethSetting.NetworkName = network.Name

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	env_client "github.com/smartcontractkit/chainlink-testing-framework/k8s/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
@@ -406,11 +407,15 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 	for i := 0; i < numberOfNodes; i++ {
 		testNetwork.HTTPURLs = []string{internalHttpURLs[i]}
 		testNetwork.URLs = []string{internalWsURLs[i]}
-		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
+
+		cd := chainlink.New(i, map[string]any{
 			"toml":      networks.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, testConfig.Pyroscope, networkDetailTOML, testNetwork),
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
-		}))
+		})
+
+		ctf_config.MustConfigOverrideChainlinkVersion(testConfig.ChainlinkImage, &cd)
+		testEnvironment.AddHelm(cd)
 	}
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")

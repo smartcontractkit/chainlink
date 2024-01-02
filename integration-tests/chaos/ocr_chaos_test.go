@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
@@ -63,6 +64,9 @@ func TestOCRChaos(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	chainlinkCfg := chainlink.New(0, getDefaultOcrSettings(&config))
+	ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &chainlinkCfg)
+
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -81,7 +85,7 @@ func TestOCRChaos(t *testing.T) {
 		// https://github.com/smartcontractkit/chainlink-testing-framework/k8s/blob/master/README.md
 		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(nil),
-			chainlink.New(0, getDefaultOcrSettings(&config)),
+			chainlinkCfg,
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -91,7 +95,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		NetworkChaosFailBlockchainNode: {
 			ethereum.New(nil),
-			chainlink.New(0, getDefaultOcrSettings(&config)),
+			chainlinkCfg,
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": ptr.Ptr("geth")},
@@ -101,7 +105,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMinorityNodes: {
 			ethereum.New(nil),
-			chainlink.New(0, getDefaultOcrSettings(&config)),
+			chainlinkCfg,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
@@ -110,7 +114,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityNodes: {
 			ethereum.New(nil),
-			chainlink.New(0, getDefaultOcrSettings(&config)),
+			chainlinkCfg,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -119,7 +123,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityDB: {
 			ethereum.New(nil),
-			chainlink.New(0, getDefaultOcrSettings(&config)),
+			chainlinkCfg,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},

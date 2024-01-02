@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
@@ -134,6 +135,8 @@ func TestDirectRequestReorg(t *testing.T) {
 		"replicas": 1,
 		"toml":     networks.AddNetworkDetailedConfig(baseDRTOML, config.Pyroscope, netCfg, network),
 	})
+
+	ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, &chainlinkDeployment)
 
 	err = testEnvironment.AddHelm(chainlinkDeployment).Run()
 	require.NoError(t, err, "Error adding to test environment")
