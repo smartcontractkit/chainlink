@@ -17,8 +17,8 @@ contract ScrollValidatorTest is L2EPTest {
   uint32 internal constant INIT_GAS_LIMIT = 1900000;
 
   /// Helper variables
-  address internal strangerAddress = vm.addr(0x1);
-  address internal eoaValidator = vm.addr(0x2);
+  address internal s_strangerAddress = vm.addr(0x1);
+  address internal s_eoaValidator = vm.addr(0x2);
 
   /// L2EP contracts
   MockScrollL1CrossDomainMessenger internal s_mockScrollL1CrossDomainMessenger;
@@ -68,7 +68,7 @@ contract SetGasLimit is ScrollValidatorTest {
 contract Validate is ScrollValidatorTest {
   /// @notice it reverts if called by account with no access
   function test_RevertsIfCalledByAnAccountWithNoAccess() public {
-    vm.startPrank(strangerAddress, strangerAddress);
+    vm.startPrank(s_strangerAddress, s_strangerAddress);
     vm.expectRevert("No access");
     s_scrollValidator.validate(0, 0, 1, 1);
     vm.stopPrank();
@@ -76,12 +76,12 @@ contract Validate is ScrollValidatorTest {
 
   /// @notice it posts sequencer status when there is not status change
   function test_PostSequencerStatusWhenThereIsNotStatusChange() public {
-    // Gives access to the eoaValidator
-    s_scrollValidator.addAccess(eoaValidator);
+    // Gives access to the s_eoaValidator
+    s_scrollValidator.addAccess(s_eoaValidator);
 
     // Sets block.timestamp to a later date
     uint256 futureTimestampInSeconds = block.timestamp + 5000;
-    vm.startPrank(eoaValidator, eoaValidator);
+    vm.startPrank(s_eoaValidator, s_eoaValidator);
     vm.warp(futureTimestampInSeconds);
 
     // Sets up the expected event data
@@ -102,12 +102,12 @@ contract Validate is ScrollValidatorTest {
 
   /// @notice it post sequencer offline
   function test_PostSequencerOffline() public {
-    // Gives access to the eoaValidator
-    s_scrollValidator.addAccess(eoaValidator);
+    // Gives access to the s_eoaValidator
+    s_scrollValidator.addAccess(s_eoaValidator);
 
     // Sets block.timestamp to a later date
     uint256 futureTimestampInSeconds = block.timestamp + 10000;
-    vm.startPrank(eoaValidator, eoaValidator);
+    vm.startPrank(s_eoaValidator, s_eoaValidator);
     vm.warp(futureTimestampInSeconds);
 
     // Sets up the expected event data

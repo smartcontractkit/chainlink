@@ -16,8 +16,8 @@ contract ScrollSequencerUptimeFeedTest is L2EPTest {
   uint256 internal constant GAS_USED_DEVIATION = 100;
 
   /// Helper variables
-  address internal mockL1OwnerAddr = vm.addr(0x1);
-  address internal strangerAddr = vm.addr(0x2);
+  address internal s_mockL1OwnerAddr = vm.addr(0x1);
+  address internal s_strangerAddr = vm.addr(0x2);
 
   /// L2EP contracts
   MockScrollL1CrossDomainMessenger internal s_mockScrollL1CrossDomainMessenger;
@@ -35,13 +35,13 @@ contract ScrollSequencerUptimeFeedTest is L2EPTest {
     s_mockScrollL1CrossDomainMessenger = new MockScrollL1CrossDomainMessenger();
     s_mockScrollL2CrossDomainMessenger = new MockScrollL2CrossDomainMessenger();
     s_scrollSequencerUptimeFeed = new ScrollSequencerUptimeFeed(
-      mockL1OwnerAddr,
+      s_mockL1OwnerAddr,
       address(s_mockScrollL2CrossDomainMessenger),
       false
     );
 
     // Sets mock sender in mock L2 messenger contract
-    s_mockScrollL2CrossDomainMessenger.setSender(mockL1OwnerAddr);
+    s_mockScrollL2CrossDomainMessenger.setSender(s_mockL1OwnerAddr);
   }
 }
 
@@ -49,20 +49,14 @@ contract Constructor is ScrollSequencerUptimeFeedTest {
   /// @notice it should have been deployed with the correct initial state
   function test_InitialState() public {
     // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
+    vm.startPrank(s_mockL1OwnerAddr, s_mockL1OwnerAddr);
 
     // Checks L1 sender
     address actualL1Addr = s_scrollSequencerUptimeFeed.l1Sender();
-    assertEq(actualL1Addr, mockL1OwnerAddr);
+    assertEq(actualL1Addr, s_mockL1OwnerAddr);
 
     // Checks latest round data
-    (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    ) = s_scrollSequencerUptimeFeed.latestRoundData();
+    (uint80 roundId, int256 answer, , , ) = s_scrollSequencerUptimeFeed.latestRoundData();
     assertEq(roundId, 1);
     assertEq(answer, 0);
 
@@ -75,7 +69,7 @@ contract UpdateStatus is ScrollSequencerUptimeFeedTest {
   /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger
   function test_RevertIfNotL2CrossDomainMessengerAddr() public {
     // Sets msg.sender and tx.origin to an unauthorized address
-    vm.startPrank(strangerAddr, strangerAddr);
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
     vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.InvalidSender.selector));
@@ -88,10 +82,10 @@ contract UpdateStatus is ScrollSequencerUptimeFeedTest {
   /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger and is not the L1 sender
   function test_RevertIfNotL2CrossDomainMessengerAddrAndNotL1SenderAddr() public {
     // Sets msg.sender and tx.origin to an unauthorized address
-    vm.startPrank(strangerAddr, strangerAddr);
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Sets mock sender in mock L2 messenger contract
-    s_mockScrollL2CrossDomainMessenger.setSender(strangerAddr);
+    s_mockScrollL2CrossDomainMessenger.setSender(s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
     vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.InvalidSender.selector));
@@ -122,7 +116,7 @@ contract UpdateStatus is ScrollSequencerUptimeFeedTest {
       uint80 roundIdBeforeUpdate,
       int256 answerBeforeUpdate,
       uint256 startedAtBeforeUpdate,
-      uint256 updatedAtBeforeUpdate,
+      ,
       uint80 answeredInRoundBeforeUpdate
     ) = s_scrollSequencerUptimeFeed.latestRoundData();
 
@@ -292,7 +286,7 @@ contract AggregatorV3Interface is ScrollSequencerUptimeFeedTest {
   /// @notice it should revert from #getRoundData when round does not yet exist (future roundId)
   function test_RevertGetRoundDataWhenRoundDoesNotExistYet() public {
     // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
+    vm.startPrank(s_mockL1OwnerAddr, s_mockL1OwnerAddr);
 
     // Gets data from a round that has not happened yet
     vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
@@ -305,7 +299,7 @@ contract AggregatorV3Interface is ScrollSequencerUptimeFeedTest {
   /// @notice it should revert from #getAnswer when round does not yet exist (future roundId)
   function test_RevertGetAnswerWhenRoundDoesNotExistYet() public {
     // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
+    vm.startPrank(s_mockL1OwnerAddr, s_mockL1OwnerAddr);
 
     // Gets data from a round that has not happened yet
     vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
@@ -318,7 +312,7 @@ contract AggregatorV3Interface is ScrollSequencerUptimeFeedTest {
   /// @notice it should revert from #getTimestamp when round does not yet exist (future roundId)
   function test_RevertGetTimestampWhenRoundDoesNotExistYet() public {
     // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(mockL1OwnerAddr, mockL1OwnerAddr);
+    vm.startPrank(s_mockL1OwnerAddr, s_mockL1OwnerAddr);
 
     // Gets data from a round that has not happened yet
     vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
@@ -359,8 +353,7 @@ contract ProtectReadsOnAggregatorV2V3InterfaceFunctions is ScrollSequencerUptime
     assertEq(s_scrollSequencerUptimeFeed.hasAccess(address(feedConsumer), abi.encode("")), true);
 
     // Asserts reads are possible from consuming contract
-    (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) = feedConsumer
-      .latestRoundData();
+    (uint80 roundId, int256 answer, , , ) = feedConsumer.latestRoundData();
     assertEq(feedConsumer.latestAnswer(), 0);
     assertEq(roundId, 1);
     assertEq(answer, 0);
@@ -382,7 +375,6 @@ contract GasCosts is ScrollSequencerUptimeFeedTest {
     uint256 expectedGasUsed;
     uint256 gasStart;
     uint256 gasFinal;
-    uint256 gasUsed;
 
     // measures gas used for no update
     expectedGasUsed = 10197; // TODO: used to be 38594
@@ -416,7 +408,6 @@ contract AggregatorInterfaceGasCosts is ScrollSequencerUptimeFeedTest {
     uint256 expectedGasUsed = 4504; // TODO: used to be 30952
     uint256 gasStart;
     uint256 gasFinal;
-    uint256 gasUsed;
 
     // Initializes a round
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp() + 1000;
@@ -444,7 +435,6 @@ contract AggregatorInterfaceGasCosts is ScrollSequencerUptimeFeedTest {
     uint256 expectedGasUsed = 2154; // TODO: used to be 28523
     uint256 gasStart;
     uint256 gasFinal;
-    uint256 gasUsed;
 
     // Initializes a round
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp() + 1000;
@@ -472,7 +462,6 @@ contract AggregatorInterfaceGasCosts is ScrollSequencerUptimeFeedTest {
     uint256 expectedGasUsed = 1566; // TODO: used to be 28229
     uint256 gasStart;
     uint256 gasFinal;
-    uint256 gasUsed;
 
     // Initializes a round
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp() + 1000;
@@ -500,7 +489,6 @@ contract AggregatorInterfaceGasCosts is ScrollSequencerUptimeFeedTest {
     uint256 expectedGasUsed = 1459; // TODO: used to be 28129
     uint256 gasStart;
     uint256 gasFinal;
-    uint256 gasUsed;
 
     // Initializes a round
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp() + 1000;
@@ -528,7 +516,6 @@ contract AggregatorInterfaceGasCosts is ScrollSequencerUptimeFeedTest {
     uint256 expectedGasUsed = 1470; // TODO: used to be 28145
     uint256 gasStart;
     uint256 gasFinal;
-    uint256 gasUsed;
 
     // Initializes a round
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp() + 1000;
@@ -556,7 +543,6 @@ contract AggregatorInterfaceGasCosts is ScrollSequencerUptimeFeedTest {
     uint256 expectedGasUsed = 3929; // TODO: used to be 30682
     uint256 gasStart;
     uint256 gasFinal;
-    uint256 gasUsed;
 
     // Initializes a round
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp() + 1000;
@@ -584,7 +570,6 @@ contract AggregatorInterfaceGasCosts is ScrollSequencerUptimeFeedTest {
     uint256 expectedGasUsed = 3817; // TODO: used to be 30570
     uint256 gasStart;
     uint256 gasFinal;
-    uint256 gasUsed;
 
     // Initializes a round
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp() + 1000;

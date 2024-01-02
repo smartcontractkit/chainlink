@@ -12,8 +12,8 @@ import {L2EPTest} from "../L2EPTest.sol";
 //
 contract ScrollCrossDomainForwarderTest is L2EPTest {
   /// Helper variables
-  address internal strangerAddr = vm.addr(0x1);
-  address internal l1OwnerAddr = vm.addr(0x2);
+  address internal s_strangerAddr = vm.addr(0x1);
+  address internal s_l1OwnerAddr = vm.addr(0x2);
 
   /// Contracts
   MockScrollCrossDomainMessenger internal s_mockScrollCrossDomainMessenger;
@@ -27,9 +27,9 @@ contract ScrollCrossDomainForwarderTest is L2EPTest {
   /// Setup
   function setUp() public {
     // Deploys contracts
-    vm.startPrank(l1OwnerAddr, l1OwnerAddr);
-    s_mockScrollCrossDomainMessenger = new MockScrollCrossDomainMessenger(l1OwnerAddr);
-    s_scrollCrossDomainForwarder = new ScrollCrossDomainForwarder(s_mockScrollCrossDomainMessenger, l1OwnerAddr);
+    vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
+    s_mockScrollCrossDomainMessenger = new MockScrollCrossDomainMessenger(s_l1OwnerAddr);
+    s_scrollCrossDomainForwarder = new ScrollCrossDomainForwarder(s_mockScrollCrossDomainMessenger, s_l1OwnerAddr);
     s_greeter = new Greeter(address(s_scrollCrossDomainForwarder));
     vm.stopPrank();
   }
@@ -52,12 +52,12 @@ contract ScrollCrossDomainForwarderTest is L2EPTest {
 contract Constructor is ScrollCrossDomainForwarderTest {
   /// @notice it should set the owner correctly
   function test_Owner() public {
-    assertEq(s_scrollCrossDomainForwarder.owner(), l1OwnerAddr);
+    assertEq(s_scrollCrossDomainForwarder.owner(), s_l1OwnerAddr);
   }
 
   /// @notice it should set the l1Owner correctly
   function test_L1Owner() public {
-    assertEq(s_scrollCrossDomainForwarder.l1Owner(), l1OwnerAddr);
+    assertEq(s_scrollCrossDomainForwarder.l1Owner(), s_l1OwnerAddr);
   }
 
   /// @notice it should set the crossdomain messenger correctly
@@ -74,7 +74,7 @@ contract Constructor is ScrollCrossDomainForwarderTest {
 contract Forward is ScrollCrossDomainForwarderTest {
   /// @notice it should not be callable by unknown address
   function test_NotCallableByUnknownAddress() public {
-    vm.startPrank(strangerAddr, strangerAddr);
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
     vm.expectRevert("Sender is not the L2 messenger");
     s_scrollCrossDomainForwarder.forward(address(s_greeter), abi.encode(""));
     vm.stopPrank();
@@ -83,7 +83,7 @@ contract Forward is ScrollCrossDomainForwarderTest {
   /// @notice it should be callable by crossdomain messenger address / L1 owner
   function test_Forward() public {
     // Sets msg.sender and tx.origin
-    vm.startPrank(strangerAddr, strangerAddr);
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Defines the cross domain message to send
     string memory greeting = "hello";
@@ -106,7 +106,7 @@ contract Forward is ScrollCrossDomainForwarderTest {
   /// @notice it should revert when contract call reverts
   function test_ForwardRevert() public {
     // Sets msg.sender and tx.origin
-    vm.startPrank(strangerAddr, strangerAddr);
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Sends an invalid message
     vm.expectRevert("Invalid greeting length");
@@ -125,35 +125,35 @@ contract Forward is ScrollCrossDomainForwarderTest {
 contract TransferL1Ownership is ScrollCrossDomainForwarderTest {
   /// @notice it should not be callable by non-owners
   function test_NotCallableByNonOwners() public {
-    vm.startPrank(strangerAddr, strangerAddr);
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
     vm.expectRevert("Sender is not the L2 messenger");
-    s_scrollCrossDomainForwarder.transferL1Ownership(strangerAddr);
+    s_scrollCrossDomainForwarder.transferL1Ownership(s_strangerAddr);
     vm.stopPrank();
   }
 
   /// @notice it should not be callable by L2 owner
   function test_NotCallableByL2Owner() public {
-    vm.startPrank(l1OwnerAddr, l1OwnerAddr);
-    assertEq(s_scrollCrossDomainForwarder.owner(), l1OwnerAddr);
+    vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
+    assertEq(s_scrollCrossDomainForwarder.owner(), s_l1OwnerAddr);
     vm.expectRevert("Sender is not the L2 messenger");
-    s_scrollCrossDomainForwarder.transferL1Ownership(strangerAddr);
+    s_scrollCrossDomainForwarder.transferL1Ownership(s_strangerAddr);
     vm.stopPrank();
   }
 
   /// @notice it should be callable by current L1 owner
   function test_CallableByL1Owner() public {
     // Sets msg.sender and tx.origin
-    vm.startPrank(strangerAddr, strangerAddr);
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Defines the cross domain message to send
     vm.expectEmit(false, false, false, true);
-    emit L1OwnershipTransferRequested(s_scrollCrossDomainForwarder.l1Owner(), strangerAddr);
+    emit L1OwnershipTransferRequested(s_scrollCrossDomainForwarder.l1Owner(), s_strangerAddr);
 
     // Sends the message
     s_mockScrollCrossDomainMessenger.sendMessage(
       address(s_scrollCrossDomainForwarder), // target
       0, // value
-      abi.encodeWithSelector(s_scrollCrossDomainForwarder.transferL1Ownership.selector, strangerAddr), // message
+      abi.encodeWithSelector(s_scrollCrossDomainForwarder.transferL1Ownership.selector, s_strangerAddr), // message
       0 // gas limit
     );
 
@@ -164,7 +164,7 @@ contract TransferL1Ownership is ScrollCrossDomainForwarderTest {
   /// @notice it should be callable by current L1 owner to zero address
   function test_CallableByL1OwnerOrZeroAddress() public {
     // Sets msg.sender and tx.origin
-    vm.startPrank(strangerAddr, strangerAddr);
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Defines the cross domain message to send
     vm.expectEmit(false, false, false, true);
@@ -187,7 +187,7 @@ contract AcceptL1Ownership is ScrollCrossDomainForwarderTest {
   /// @notice it should not be callable by non pending-owners
   function test_NotCallableByNonPendingOwners() public {
     // Sets msg.sender and tx.origin
-    vm.startPrank(strangerAddr, strangerAddr);
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Sends the message
     vm.expectRevert("Must be proposed L1 owner");
@@ -205,33 +205,33 @@ contract AcceptL1Ownership is ScrollCrossDomainForwarderTest {
   /// @notice it should be callable by pending L1 owner
   function test_CallableByPendingL1Owner() public {
     // Sets msg.sender and tx.origin
-    vm.startPrank(strangerAddr, strangerAddr);
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Request ownership transfer
     s_mockScrollCrossDomainMessenger.sendMessage(
       address(s_scrollCrossDomainForwarder), // target
       0, // value
-      abi.encodeWithSelector(s_scrollCrossDomainForwarder.transferL1Ownership.selector, strangerAddr), // message
+      abi.encodeWithSelector(s_scrollCrossDomainForwarder.transferL1Ownership.selector, s_strangerAddr), // message
       0 // gas limit
     );
 
     // Sets a mock message sender
-    s_mockScrollCrossDomainMessenger._setMockMessageSender(strangerAddr);
+    s_mockScrollCrossDomainMessenger._setMockMessageSender(s_strangerAddr);
 
     // Prepares expected event payload
     vm.expectEmit(false, false, false, true);
-    emit L1OwnershipTransferred(l1OwnerAddr, strangerAddr);
+    emit L1OwnershipTransferred(s_l1OwnerAddr, s_strangerAddr);
 
     // Accepts ownership transfer request
     s_mockScrollCrossDomainMessenger.sendMessage(
       address(s_scrollCrossDomainForwarder), // target
       0, // value
-      abi.encodeWithSelector(s_scrollCrossDomainForwarder.acceptL1Ownership.selector, strangerAddr), // message
+      abi.encodeWithSelector(s_scrollCrossDomainForwarder.acceptL1Ownership.selector, s_strangerAddr), // message
       0 // gas limit
     );
 
     // Asserts that the ownership was actually transferred
-    assertEq(s_scrollCrossDomainForwarder.l1Owner(), strangerAddr);
+    assertEq(s_scrollCrossDomainForwarder.l1Owner(), s_strangerAddr);
 
     // Resets msg.sender and tx.origin
     vm.stopPrank();

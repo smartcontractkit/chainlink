@@ -34,28 +34,36 @@ By convention, each testing file should end in `.t.sol` (this has no effect on
 Foundry, but it is a standard that other projects have also adopted). Each
 testing file in this folder follows a similar structure.
 
-```sh
-L2EPTest Contract
-|
-|--- TestFile1.t.sol
-      |
-      |--- Base Contract
-      |     |
-      |     |--- Child Contract 1
-      |     |--- Child Contract 2
-      |     ...
-      |
-      ...
+```text
+TestFile.t.sol
+  |
+  |--- Base Contract (inherits L2EPTest contract)
+       |
+       |--- Child Contract 1 (inherits base contract)
+       |     |
+       |     |--- Test Function
+       |     |
+       |     |--- ... 
+       |
+       |
+       |--- Child Contract 2 (inherits base contract)
+       |     |
+       |     |--- Test Function
+       |     |
+       |     |--- ... 
+       |
+       |
+       ...
 ```
 
 All test files contain a base contract defined at the top of the file. This
 base contract inherits from a contract called `L2EPTest`. The `L2EPTest`
 contract and base contracts have no test cases. Instead, the `L2EPTest`
-contract is meant to store data that will be reused among all the base
-contracts. Similarly, the base contract is meant to store data that will
-be reused among any contracts that inherit it. As such, each test file
-will define separate child contracts, and each will inherit from the base
-contract + define its own set of tests.
+contract is meant to store data/functions that will be reused among all
+the base contracts. Similarly, the base contract is meant to store data
+and/or functions that will be reused by any contracts that inherit it.
+As such, each test file will define separate child contracts, and each
+will inherit from the base contract + define its own set of tests.
 
 The base contract defines a `setUp` function which is automatically called
 exactly once before ***each*** of the tests are run in an inheriting contract.
@@ -70,14 +78,13 @@ The name of the base contract follows the following convention:
 <NameOfContractBeingTested>Test
 ```
 
-Each test in the inheriting contract has a name that follows the pattern:
+The child contract names do not follow a naming convention, but they should
+broadly describe the tests defined within it. Each test function follows the
+same pattern:
 
 ```text
 test_<NameOfTest>
 ```
-
-The child contract names do not follow a naming convention, but they should
-broadly describe the tests defined within it.
 
 ### Running Foundry Tests
 
