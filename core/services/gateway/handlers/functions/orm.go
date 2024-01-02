@@ -20,6 +20,8 @@ import (
 type ORM interface {
 	GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error)
 	UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error
+	GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error)
+	UpsertAllowedSender(id int64, allowedSender common.Address, qopts ...pg.QOpt) error
 }
 
 type orm struct {
@@ -29,11 +31,12 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 var (
-	ErrInvalidParameters = errors.New("invalid parameters provided to create a subscription cache ORM")
+	ErrInvalidParameters = errors.New("invalid parameters provided to create a functions contract cache ORM")
 )
 
 const (
-	tableName = "functions_subscriptions"
+	subscriptionsTableName = "functions_subscriptions"
+	allowlistTableName     = "functions_allowlist"
 )
 
 type cachedSubscriptionRow struct {
@@ -68,7 +71,7 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 		ORDER BY subscription_id ASC
 		OFFSET $2
 		LIMIT $3;
-	`, tableName)
+	`, subscriptionsTableName)
 	err := o.q.WithOpts(qopts...).Select(&cacheSubscriptionRows, stmt, o.routerContractAddress, offset, limit)
 	if err != nil {
 		return cacheSubscriptions, err
@@ -87,7 +90,7 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 	stmt := fmt.Sprintf(`
 		INSERT INTO %s (subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (subscription_id, router_contract_address) DO UPDATE
-		SET owner=$2, balance=$3, blocked_balance=$4, proposed_owner=$5, consumers=$6, flags=$7, router_contract_address=$8;`, tableName)
+		SET owner=$2, balance=$3, blocked_balance=$4, proposed_owner=$5, consumers=$6, flags=$7, router_contract_address=$8;`, subscriptionsTableName)
 
 	if subscription.Balance == nil {
 		subscription.Balance = big.NewInt(0)
@@ -129,4 +132,12 @@ func (cs *cachedSubscriptionRow) encode() CachedSubscription {
 			Flags:          [32]byte(cs.Flags),
 		},
 	}
+}
+
+func (o *orm) GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error) {
+	return nil, nil
+}
+
+func (o *orm) UpsertAllowedSender(id int64, allowedSender common.Address, qopts ...pg.QOpt) error {
+	return nil
 }

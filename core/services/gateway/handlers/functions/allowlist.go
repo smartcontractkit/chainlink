@@ -22,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+const defaultAllowlistCacheBatchSize = 100
+
 type OnchainAllowlistConfig struct {
 	// ContractAddress is required
 	ContractAddress    common.Address `json:"contractAddress"`
@@ -30,6 +32,7 @@ type OnchainAllowlistConfig struct {
 	// UpdateFrequencySec can be zero to disable periodic updates
 	UpdateFrequencySec uint `json:"updateFrequencySec"`
 	UpdateTimeoutSec   uint `json:"updateTimeoutSec"`
+	CacheBatchSize     uint `json:"cacheBatchSize"`
 }
 
 // OnchainAllowlist maintains an allowlist of addresses fetched from the blockchain (EVM-only).
@@ -50,6 +53,7 @@ type onchainAllowlist struct {
 
 	config             OnchainAllowlistConfig
 	allowlist          atomic.Pointer[map[common.Address]struct{}]
+	orm                ORM
 	client             evmclient.Client
 	contractV1         *functions_router.FunctionsRouter
 	blockConfirmations *big.Int
@@ -58,7 +62,7 @@ type onchainAllowlist struct {
 	stopCh             services.StopChan
 }
 
-func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig, lggr logger.Logger) (OnchainAllowlist, error) {
+func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig, orm ORM, lggr logger.Logger) (OnchainAllowlist, error) {
 	if client == nil {
 		return nil, errors.New("client is nil")
 	}
@@ -68,12 +72,20 @@ func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig,
 	if config.ContractVersion != 1 {
 		return nil, fmt.Errorf("unsupported contract version %d", config.ContractVersion)
 	}
+
+	// if CacheBatchSize is not specified used the default value
+	if config.CacheBatchSize == 0 {
+		lggr.Info("CacheBatchSize not specified, using default size: ", defaultAllowlistCacheBatchSize)
+		config.CacheBatchSize = defaultAllowlistCacheBatchSize
+	}
+
 	contractV1, err := functions_router.NewFunctionsRouter(config.ContractAddress, client)
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %s", err)
 	}
 	allowlist := &onchainAllowlist{
 		config:             config,
+		orm:                orm,
 		client:             client,
 		contractV1:         contractV1,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
@@ -100,6 +112,8 @@ func (a *onchainAllowlist) Start(ctx context.Context) error {
 			}
 			cancel()
 		}
+
+		a.loadCachedAllowedList()
 
 		a.closeWait.Add(1)
 		go func() {
@@ -172,17 +186,42 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	if err != nil {
 		return errors.Wrap(err, "unexpected error during functions_allow_list.NewTermsOfServiceAllowList")
 	}
-	addrList, err := tosContract.GetAllAllowedSenders(&bind.CallOpts{
+
+	idEnd, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
 		Pending:     false,
 		BlockNumber: blockNum,
 		Context:     ctx,
 	})
 	if err != nil {
-		return errors.Wrap(err, "error calling GetAllAllowedSenders")
+		return errors.Wrap(err, "unexpected error during functions_allow_list.GetAllowedSendersCount")
 	}
-	a.update(addrList)
+
+	idStart := uint64(0)
+	allowedSenderList := make([]common.Address, 0)
+	for {
+		allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
+			Pending:     false,
+			BlockNumber: blockNum,
+			Context:     ctx,
+		}, idStart, idEnd)
+		if err != nil {
+			return errors.Wrap(err, "error calling GetAllowedSendersInRange")
+		}
+
+		allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
+
+		if len(allowedSendersBatch) < int(a.config.CacheBatchSize) {
+			break
+		}
+
+		idStart += uint64(a.config.CacheBatchSize)
+	}
+
+	a.update(allowedSenderList)
+	a.updateCache(allowedSenderList)
 	return nil
 }
+
 func (a *onchainAllowlist) update(addrList []common.Address) {
 	newAllowlist := make(map[common.Address]struct{})
 	for _, addr := range addrList {
@@ -190,4 +229,32 @@ func (a *onchainAllowlist) update(addrList []common.Address) {
 	}
 	a.allowlist.Store(&newAllowlist)
 	a.lggr.Infow("allowlist updated successfully", "len", len(addrList))
+}
+
+func (a *onchainAllowlist) updateCache(addrList []common.Address) {
+	for id, addr := range addrList {
+		if err := a.orm.UpsertAllowedSender(int64(id), addr); err != nil {
+			a.lggr.Errorf("failed to update cache: %w", err)
+		}
+	}
+}
+
+func (a *onchainAllowlist) loadCachedAllowedList() {
+	allowedList := make([]common.Address, 0)
+	offset := uint(0)
+	for {
+		asBatch, err := a.orm.GetAllowedSenders(offset, a.config.CacheBatchSize)
+		if err != nil {
+			break
+		}
+
+		allowedList = append(allowedList, asBatch...)
+
+		if len(asBatch) != int(a.config.CacheBatchSize) {
+			break
+		}
+		offset += a.config.CacheBatchSize
+	}
+
+	a.update(allowedList)
 }

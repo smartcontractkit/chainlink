@@ -111,7 +111,12 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 		if err2 != nil {
 			return nil, err2
 		}
-		allowlist, err2 = NewOnchainAllowlist(chain.Client(), *cfg.OnchainAllowlist, lggr)
+
+		orm, err2 := NewORM(db, lggr, qcfg, cfg.OnchainAllowlist.ContractAddress)
+		if err2 != nil {
+			return nil, err2
+		}
+		allowlist, err2 = NewOnchainAllowlist(chain.Client(), *cfg.OnchainAllowlist, orm, lggr)
 		if err2 != nil {
 			return nil, err2
 		}

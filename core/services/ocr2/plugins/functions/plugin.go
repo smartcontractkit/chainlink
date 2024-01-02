@@ -134,17 +134,17 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
 
 	if pluginConfig.GatewayConnectorConfig != nil && s4Storage != nil && pluginConfig.OnchainAllowlist != nil && pluginConfig.RateLimiter != nil && pluginConfig.OnchainSubscriptions != nil {
-		allowlist, err2 := gwFunctions.NewOnchainAllowlist(conf.Chain.Client(), *pluginConfig.OnchainAllowlist, conf.Logger)
+		gwFunctionsORM, err := gwFunctions.NewORM(conf.DB, conf.Logger, conf.QConfig, pluginConfig.OnchainSubscriptions.ContractAddress)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create functions ORM")
+		}
+		allowlist, err2 := gwFunctions.NewOnchainAllowlist(conf.Chain.Client(), *pluginConfig.OnchainAllowlist, gwFunctionsORM, conf.Logger)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create OnchainAllowlist")
 		}
 		rateLimiter, err2 := hc.NewRateLimiter(*pluginConfig.RateLimiter)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a RateLimiter")
-		}
-		gwFunctionsORM, err := gwFunctions.NewORM(conf.DB, conf.Logger, conf.QConfig, pluginConfig.OnchainSubscriptions.ContractAddress)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create functions ORM")
 		}
 		subscriptions, err2 := gwFunctions.NewOnchainSubscriptions(conf.Chain.Client(), *pluginConfig.OnchainSubscriptions, gwFunctionsORM, conf.Logger)
 		if err2 != nil {

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
+	fmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/mocks"
 )
 
 const (
@@ -47,7 +48,12 @@ func TestAllowlist_UpdateAndCheck(t *testing.T) {
 		ContractAddress:    common.Address{},
 		BlockConfirmations: 1,
 	}
-	allowlist, err := functions.NewOnchainAllowlist(client, config, logger.TestLogger(t))
+
+	orm := fmocks.NewORM(t)
+	orm.On("UpsertAllowedSender", int64(0), common.HexToAddress(addr1)).Return(nil)
+	orm.On("UpsertAllowedSender", int64(1), common.HexToAddress(addr2)).Return(nil)
+
+	allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	err = allowlist.Start(testutils.Context(t))
@@ -72,7 +78,9 @@ func TestAllowlist_UnsupportedVersion(t *testing.T) {
 		ContractAddress:    common.Address{},
 		BlockConfirmations: 1,
 	}
-	_, err := functions.NewOnchainAllowlist(client, config, logger.TestLogger(t))
+
+	orm := fmocks.NewORM(t)
+	_, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.Error(t, err)
 }
 
@@ -92,7 +100,13 @@ func TestAllowlist_UpdatePeriodically(t *testing.T) {
 		UpdateFrequencySec: 1,
 		UpdateTimeoutSec:   1,
 	}
-	allowlist, err := functions.NewOnchainAllowlist(client, config, logger.TestLogger(t))
+
+	orm := fmocks.NewORM(t)
+	orm.On("GetAllowedSenders", uint(0), uint(100)).Return([]common.Address{}, nil)
+	orm.On("UpsertAllowedSender", int64(0), common.HexToAddress(addr1)).Return(nil)
+	orm.On("UpsertAllowedSender", int64(1), common.HexToAddress(addr2)).Return(nil)
+
+	allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	err = allowlist.Start(ctx)
