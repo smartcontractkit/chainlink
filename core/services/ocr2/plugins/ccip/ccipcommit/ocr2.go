@@ -109,7 +109,7 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 
 	// Will return 0,0 if no messages are found. This is a valid case as the report could
 	// still contain fee updates.
-	min, max, err := r.calculateMinMaxSequenceNumbers(ctx, lggr)
+	minSeqNr, maxSeqNr, err := r.calculateMinMaxSequenceNumbers(ctx, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +126,8 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 	}
 
 	lggr.Infow("Observation",
-		"minSeqNr", min,
-		"maxSeqNr", max,
+		"minSeqNr", minSeqNr,
+		"maxSeqNr", maxSeqNr,
 		"sourceGasPriceUSD", sourceGasPriceUSD,
 		"tokenPricesUSD", tokenPricesUSD,
 		"epochAndRound", epochAndRound)
@@ -135,8 +135,8 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 	// with the other nodes, therefore, we always return the observed values.
 	return ccip.CommitObservation{
 		Interval: ccipdata.CommitStoreInterval{
-			Min: min,
-			Max: max,
+			Min: minSeqNr,
+			Max: maxSeqNr,
 		},
 		TokenPricesUSD:    tokenPricesUSD,
 		SourceGasPriceUSD: sourceGasPriceUSD,
