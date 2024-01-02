@@ -76,7 +76,7 @@ func (d ExecOnchainConfig) PermissionLessExecutionThresholdDuration() time.Durat
 	return time.Duration(d.PermissionLessExecutionThresholdSeconds) * time.Second
 }
 
-// In 1.2 we have a different estimator impl
+// OffRamp In 1.2 we have a different estimator impl
 type OffRamp struct {
 	*v1_0_0.OffRamp
 

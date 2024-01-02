@@ -59,13 +59,13 @@ func newInflightCommitReportsContainer(inflightCacheExpiry time.Duration) *infli
 func (c *inflightCommitReportsContainer) maxInflightSeqNr() uint64 {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
-	var max uint64
+	var maxSeqNr uint64
 	for _, report := range c.inFlight {
-		if report.report.Interval.Max >= max {
-			max = report.report.Interval.Max
+		if report.report.Interval.Max >= maxSeqNr {
+			maxSeqNr = report.report.Interval.Max
 		}
 	}
-	return max
+	return maxSeqNr
 }
 
 // latestInflightGasPriceUpdates returns a map of the latest gas price updates.

@@ -250,7 +250,7 @@ func UnregisterExecPluginLpFilters(ctx context.Context, lggr logger.Logger, jb j
 	return execPluginConfig.commitStoreReader.Close(qopts...)
 }
 
-// ExecutionReportToEthTxMeta generates a txmgr.EthTxMeta from the given report.
+// ExecReportToEthTxMeta generates a txmgr.EthTxMeta from the given report.
 // Only MessageIDs will be populated in the TxMeta.
 func ExecReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
 	return factory.ExecReportToEthTxMeta(typ, ver)
