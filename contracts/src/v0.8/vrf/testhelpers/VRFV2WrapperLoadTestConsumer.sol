@@ -92,7 +92,10 @@ contract VRFV2WrapperLoadTestConsumer is VRFV2WrapperConsumerBase, ConfirmedOwne
 
   function getRequestStatus(
     uint256 _requestId
-  ) external view returns (
+  )
+    external
+    view
+    returns (
       uint256 paid,
       bool fulfilled,
       uint256[] memory randomWords,
@@ -100,7 +103,8 @@ contract VRFV2WrapperLoadTestConsumer is VRFV2WrapperConsumerBase, ConfirmedOwne
       uint256 fulfilmentTimestamp,
       uint256 requestBlockNumber,
       uint256 fulfilmentBlockNumber
-  ) {
+    )
+  {
     // solhint-disable-next-line custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     RequestStatus memory request = s_requests[_requestId];
