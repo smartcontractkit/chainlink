@@ -184,7 +184,11 @@ func TestORM_UpsertSubscription(t *testing.T) {
 
 		results, err = orm1.GetSubscriptions(0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Equal(t, 1, len(results), "incorrect results length")
+
+		results, err = orm2.GetSubscriptions(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(results), "incorrect results length")
 	})
 }
 

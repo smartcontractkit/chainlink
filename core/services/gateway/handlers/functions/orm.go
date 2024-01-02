@@ -64,11 +64,12 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 	stmt := fmt.Sprintf(`
 		SELECT subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address
 		FROM %s
+		WHERE router_contract_address = $1
 		ORDER BY subscription_id DESC
-		OFFSET $1
-		LIMIT $2;
+		OFFSET $2
+		LIMIT $3;
 	`, tableName)
-	err := o.q.WithOpts(qopts...).Select(&cacheSubscriptionRows, stmt, offset, limit)
+	err := o.q.WithOpts(qopts...).Select(&cacheSubscriptionRows, stmt, o.routerContractAddress, offset, limit)
 	if err != nil {
 		return cacheSubscriptions, err
 	}
