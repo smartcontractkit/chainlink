@@ -53,7 +53,7 @@ func encodeArray(item reflect.Value, info *codecEntry) ([]byte, error) {
 	switch info.checkedType.Kind() {
 	case reflect.Array:
 		if info.checkedType.Len() != length {
-			return nil, commontypes.ErrWrongNumberOfElements
+			return nil, commontypes.ErrSliceWrongLen
 		}
 		native = reflect.New(info.nativeType).Elem()
 	case reflect.Slice:

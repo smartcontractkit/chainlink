@@ -115,7 +115,7 @@ func decodeAccountHook(from, to reflect.Type, data any) (any, error) {
 		} else if len(decoded) != common.AddressLength {
 			return nil, fmt.Errorf(
 				"%w: wrong number size for address expected %v got %v",
-				commontypes.ErrWrongNumberOfElements,
+				commontypes.ErrSliceWrongLen,
 				common.AddressLength, len(decoded))
 		}
 		return common.Address(decoded), nil

@@ -45,7 +45,7 @@ func (m *decoder) decodeArray(into any, rDecode reflect.Value) error {
 	iInto := reflect.Indirect(reflect.ValueOf(into))
 	length := rDecode.Len()
 	if length != iInto.Len() {
-		return commontypes.ErrWrongNumberOfElements
+		return commontypes.ErrSliceWrongLen
 	}
 	iInto.Set(reflect.New(iInto.Type()).Elem())
 	return setElements(length, rDecode, iInto)
