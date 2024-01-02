@@ -1,6 +1,3 @@
-[CCIP]
-[CCIP.Deployments]
-Data = """
 {
     "lane_configs": {
       "Arbitrum Mainnet": {
@@ -258,7 +255,7 @@ Data = """
         "fee_token": "",
         "bridge_tokens": ["0xC1F6f7622ad37C3f46cDF6F8AA0344ADE80BF450"],
         "bridge_tokens_pools": ["0xd9547B702673c61c84bb2dF6FDf6D2F5309fE536"],
-        "arm" : "0x6E4d2dBBF8a1A943412aD451422FE11A25C781DE",
+        "arm" : "0xB59779d3364BC6d71168245f9ebb96469E5a5a98",
         "router": "0xE93E8B0d1b1CEB44350C8758ed1E2799CCee31aB",
         "price_registry": "0x8155B4710e7bbC90924E957104F94Afd4f95Eca2",
         "wrapped_native": "0x4200000000000000000000000000000000000001",
@@ -401,29 +398,3 @@ Data = """
       }
     }
 }
-"""
-
-[CCIP.Groups.load]
-NetworkPairs = ['BASE_MAINNET,ARBITRUM_MAINNET']
-MsgType = 'WithoutToken'
-PhaseTimeout = '50m'
-TestDuration = '168h'
-ExistingDeployment = true
-RequestPerUnitTime = [1]
-TimeUnit = '1h'
-NoOfTokensPerChain = 1
-NoOfTokensInMsg = 1
-AmountPerToken = 1
-ExistingEnv = 'mainnet-2.7-ccip1.2'
-
-[CCIP.Groups.smoke]
-MsgType = 'WithoutToken'
-NetworkPairs = ['AVALANCHE_MAINNET,POLYGON_MAINNET','BASE_MAINNET,OPTIMISM_MAINNET','BSC_MAINNET,POLYGON_MAINNET','OPTIMISM_MAINNET,POLYGON_MAINNET','AVALANCHE_MAINNET,BSC_MAINNET','BASE_MAINNET,BSC_MAINNET']
-BiDirectionalLane = true
-PhaseTimeout = '50m'
-LocalCluster = false
-ExistingDeployment = true
-ReuseContracts = true
-NoOfTokensPerChain = 1
-NoOfTokensInMsg = 1
-AmountPerToken = 1
