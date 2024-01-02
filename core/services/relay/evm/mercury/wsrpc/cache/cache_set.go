@@ -67,7 +67,7 @@ func (cs *cacheSet) Close() error {
 func (cs *cacheSet) Get(ctx context.Context, client Client) (f Fetcher, err error) {
 	if cs.cfg.LatestReportTTL == 0 {
 		// caching disabled
-		return client, nil
+		return nil, nil
 	}
 	ok := cs.IfStarted(func() {
 		f, err = cs.get(ctx, client)
