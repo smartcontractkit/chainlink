@@ -114,6 +114,7 @@ const (
 	OCR           Product = "ocr"
 	OCR2          Product = "ocr2"
 	OCR2VRF       Product = "ocr2vrf"
+	RunLog        Product = "runlog"
 	VRF           Product = "vrf"
 	VRFv2         Product = "vrfv2"
 	VRFv2Plus     Product = "vrfv2plus"
@@ -173,6 +174,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, errors.Wrapf(err, "error unmarshaling config")
 		}
 
+		logger.Debug().Msgf("Successfully unmarshalled config file %s", fileName)
 		maybeTestConfigs = append(maybeTestConfigs, readConfig)
 
 		// let's see if have overrides under configurationKey

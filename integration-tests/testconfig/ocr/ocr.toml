@@ -1,6 +1,8 @@
+# product defaults
 [Common]
 chainlink_node_funding = 0.5
 
+# load test specific configuration
 [Load.OCR]
 [Load.OCR.Common]
 test_duration = "3m"
@@ -13,6 +15,7 @@ verification_interval = "5s"
 verification_timeout = "3m"
 ea_change_interval = "5s"
 
+# volume test specific configuration
 [Volume.OCR]
 [Volume.OCR.Common]
 test_duration = "3m"
@@ -26,6 +29,7 @@ verification_interval = "5s"
 verification_timeout = "3m"
 ea_change_interval = "5s"
 
+# soak test specific configuration
 [Soak.Common]
 chainlink_node_funding = 100
 

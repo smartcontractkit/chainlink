@@ -76,17 +76,17 @@ func (c *Config) Validate() error {
 		if err := c.Performance.Validate(); err != nil {
 			return err
 		}
-	}
-	if *c.Performance.UseExistingEnv {
-		if c.ExistingEnvConfig != nil {
-			if err := c.ExistingEnvConfig.Validate(); err != nil {
-				return err
+		if *c.Performance.UseExistingEnv {
+			if c.ExistingEnvConfig != nil {
+				if err := c.ExistingEnvConfig.Validate(); err != nil {
+					return err
+				}
 			}
-		}
-	} else {
-		if c.NewEnvConfig != nil {
-			if err := c.NewEnvConfig.Validate(); err != nil {
-				return err
+		} else {
+			if c.NewEnvConfig != nil {
+				if err := c.NewEnvConfig.Validate(); err != nil {
+					return err
+				}
 			}
 		}
 	}

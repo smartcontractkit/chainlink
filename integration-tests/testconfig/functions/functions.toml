@@ -36,46 +36,54 @@ secrets_version_id = 1693945705
 # TODO: not working now
 #secrets = "{\"secrets\": \"secretValue\"}"
 
+# gateway-list specific test configuration
 [GatewayList.Functions]
 [GatewayList.Functions.Performance]
 rps = 95
 duration = "10m"
 
+# gateway-set specific test configuration
 [GatewaySet.Functions]
 [GatewaySet.Functions.Performance]
 rps = 95
 duration = "10m"
 
+# real-soak specific test configuration
 [RealSoak.Functions]
 [RealSoak.Functions.Performance]
 rps = 1
 requests_per_call = 20
 duration = "10m"
 
+# real-stress specific test configuration
 [RealStress.Functions]
 [RealStress.Functions.Performance]
 rps = 1
 requests_per_call = 40
 duration = "10m"
 
+# secrets-soak specific test configuration
 [SecretsSoak.Functions]
 [SecretsSoak.Functions.Performance]
 rps = 1
 requests_per_call = 20
 duration = "10m"
 
+# secrets-stress specific test configuration
 [SecretsStress.Functions]
 [SecretsStress.Functions.Performance]
 rps = 1
 requests_per_call = 40
 duration = "10m"
 
+# soak specific test configuration
 [Soak.Functions]
 [Soak.Functions.Performance]
 rps = 1
 requests_per_call = 40
 duration = "10m"
 
+# soak specific test configuration
 [Stress.Functions]
 [Stress.Functions.Performance]
 rps = 1

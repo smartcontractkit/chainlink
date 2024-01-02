@@ -1,3 +1,4 @@
+# product defaults
 [Common]
 chainlink_node_funding = 0.5
 
