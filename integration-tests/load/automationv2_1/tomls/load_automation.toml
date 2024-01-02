@@ -1,3 +1,6 @@
+[Common]
+chainlink_node_funding = 100
+
 [Automation]
 [Automation.General]
 number_of_nodes=6

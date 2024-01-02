@@ -247,6 +247,7 @@ func TestLogTrigger(t *testing.T) {
 		} else {
 			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"info\"", baseTOML)
 		}
+		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
 
 		var overrideFn = func(_ interface{}, target interface{}) {
 			ctf_config.MustConfigOverrideChainlinkVersion(loadedTestConfig.ChainlinkImage, target)
@@ -259,7 +260,6 @@ func TestLogTrigger(t *testing.T) {
 			"prometheus": *loadedTestConfig.Automation.General.UsePrometheus,
 		}, loadedTestConfig.ChainlinkImage, overrideFn)
 
-		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
 		testEnvironment.AddHelm(cd)
 	}
 
@@ -412,7 +412,7 @@ func TestLogTrigger(t *testing.T) {
 			UpkeepName:     fmt.Sprintf("LogTriggerUpkeep-%d", i),
 			EncryptedEmail: []byte("test@mail.com"),
 			UpkeepContract: common.HexToAddress(consumerContract.Address()),
-			GasLimit:       *loadedTestConfig.Automation.Load[i].UpkeepGasLimit,
+			GasLimit:       *loadConfigs[i].UpkeepGasLimit,
 			AdminAddress:   common.HexToAddress(chainClient.GetDefaultWallet().Address()),
 			TriggerType:    uint8(1),
 			CheckData:      encodedCheckDataStruct,
