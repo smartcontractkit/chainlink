@@ -15,7 +15,7 @@ func extraBlockWithText(text string) slack.Block {
 		"mrkdwn", text, false, false), nil, nil)
 }
 
-func sendSlackNotification(config *tc.TestConfig, header string, l zerolog.Logger, namespace string, numberOfNodes,
+func sendSlackNotification(header string, l zerolog.Logger, config *tc.TestConfig, namespace string, numberOfNodes,
 	startingTime string, endingTime string, extraBlocks []slack.Block, msgOption slack.MsgOption) (string, error) {
 	slackClient := slack.New(reportModel.SlackAPIKey)
 
