@@ -23,13 +23,13 @@ func Test_CacheSet(t *testing.T) {
 
 		var err error
 		var f Fetcher
-		t.Run("with caching disabled, returns the passed client", func(t *testing.T) {
+		t.Run("with caching disabled, returns nil, nil", func(t *testing.T) {
 			assert.Len(t, disabledCs.caches, 0)
 
 			f, err = disabledCs.Get(ctx, c)
 			require.NoError(t, err)
 
-			assert.Same(t, c, f)
+			assert.Nil(t, f)
 			assert.Len(t, disabledCs.caches, 0)
 		})
 

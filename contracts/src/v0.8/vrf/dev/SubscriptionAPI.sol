@@ -83,8 +83,8 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   // A discrepancy with this contract's native balance indicates someone
   // sent native using transfer and so we may need to use recoverNativeFunds.
   uint96 public s_totalNativeBalance;
-  mapping(address => uint96) /* oracle */ /* LINK balance */ internal s_withdrawableTokens;
-  mapping(address => uint96) /* oracle */ /* native balance */ internal s_withdrawableNative;
+  uint96 internal s_withdrawableTokens;
+  uint96 internal s_withdrawableNative;
 
   event SubscriptionCreated(uint256 indexed subId, address owner);
   event SubscriptionFunded(uint256 indexed subId, uint256 oldBalance, uint256 newBalance);
@@ -204,18 +204,19 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   /*
-   * @notice Oracle withdraw LINK earned through fulfilling requests
+   * @notice withdraw LINK earned through fulfilling requests
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function oracleWithdraw(address recipient, uint96 amount) external nonReentrant {
+  function withdraw(address recipient) external nonReentrant onlyOwner {
     if (address(LINK) == address(0)) {
       revert LinkNotSet();
     }
-    if (s_withdrawableTokens[msg.sender] < amount) {
+    if (s_withdrawableTokens == 0) {
       revert InsufficientBalance();
     }
-    s_withdrawableTokens[msg.sender] -= amount;
+    uint96 amount = s_withdrawableTokens;
+    s_withdrawableTokens -= amount;
     s_totalBalance -= amount;
     if (!LINK.transfer(recipient, amount)) {
       revert InsufficientBalance();
@@ -223,16 +224,17 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   /*
-   * @notice Oracle withdraw native earned through fulfilling requests
+   * @notice withdraw native earned through fulfilling requests
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function oracleWithdrawNative(address payable recipient, uint96 amount) external nonReentrant {
-    if (s_withdrawableNative[msg.sender] < amount) {
+  function withdrawNative(address payable recipient) external nonReentrant onlyOwner {
+    if (s_withdrawableNative == 0) {
       revert InsufficientBalance();
     }
     // Prevent re-entrancy by updating state before transfer.
-    s_withdrawableNative[msg.sender] -= amount;
+    uint96 amount = s_withdrawableNative;
+    s_withdrawableNative -= amount;
     s_totalNativeBalance -= amount;
     (bool sent, ) = recipient.call{value: amount}("");
     if (!sent) {

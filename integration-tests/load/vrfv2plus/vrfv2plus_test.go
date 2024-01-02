@@ -200,8 +200,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			&testConfig,
 			linkToken,
 			mockETHLinkFeed,
-			//register proving key against EOA address in order to return funds to this address
-			env.EVMClient.GetDefaultWallet().Address(),
 			0,
 			1,
 			*vrfv2PlusConfig.General.NumberOfSubToCreate,
