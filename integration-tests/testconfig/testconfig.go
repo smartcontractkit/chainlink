@@ -25,6 +25,8 @@ import (
 	vrf_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrf"
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
+
+	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 )
 
 type TestConfig struct {
@@ -134,7 +136,7 @@ func GetConfigurationNameFromEnv() (string, error) {
 }
 
 const (
-	Base64OverrideEnvVarName = "BASE64_CONFIG_OVERRIDE"
+	Base64OverrideEnvVarName = k8s_config.EnvBase64ConfigOverride
 	NoKey                    = "NO_KEY"
 )
 
@@ -219,6 +221,8 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 		logger.Debug().Msgf("Applying base64 config override from environment variable %s", Base64OverrideEnvVarName)
 		maybeTestConfigs = append(maybeTestConfigs, base64override)
+	} else {
+		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
 	// currently we need to read that kind of secrets only for network configuration
@@ -526,13 +530,13 @@ func (c *TestConfig) Validate() error {
 }
 
 func (c *TestConfig) SetForRemoteRunner() error {
-	key := Base64OverrideEnvVarName
+	key := k8s_config.EnvBase64ConfigOverride
 	err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
 	if err != nil {
 		return errors.Wrapf(err, "error setting env var %s", key)
 	}
 
-	key = ctf_config.Base64NetworkConfigEnvVarName
+	key = k8s_config.EnvBase64NetworkConfig
 	err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
 	if err != nil {
 		return errors.Wrapf(err, "error setting env var %s", key)
