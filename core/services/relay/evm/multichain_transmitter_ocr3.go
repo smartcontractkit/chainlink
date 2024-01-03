@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethcrypto "github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -43,7 +46,11 @@ func (m *multichainTransmitterOCR3[RI]) FromAccount() (types.Account, error) {
 		}
 		accounts = append(accounts, string(account))
 	}
-	return types.Account(strings.Join(accounts, ",")), nil
+	// return a deterministic account based on the list of accounts
+	// it has to be 20 bytes long because the transmitter is of type address in
+	// the solidity contracts.
+	h := gethcrypto.Keccak256Hash([]byte(strings.Join(accounts, ",")))
+	return types.Account(hexutil.Encode(h[:20])), nil
 }
 
 // Transmit implements ocr3types.ContractTransmitter.
