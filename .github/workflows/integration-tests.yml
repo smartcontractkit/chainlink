@@ -277,8 +277,7 @@ jobs:
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
           BASE64_CONFIG_OVERRIDE: "override-me"
         run: |
-          echo ::add-mask::$CHAINLINK_IMAGE
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "::add-mask::$CHAINLINK_IMAGE"
 
           convert_to_toml_array() {
             local IFS=','
@@ -344,6 +343,7 @@ jobs:
           url="$GRAFANA_URL"
           EOF
           
+          echo "::add-mask::$BASE64_CONFIG_OVERRIDE"
           echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
@@ -550,8 +550,7 @@ jobs:
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
           BASE64_CONFIG_OVERRIDE : "override-me"
         run: |
-          echo ::add-mask::$CHAINLINK_IMAGE
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "::add-mask::$CHAINLINK_IMAGE"
 
           convert_to_toml_array() {
             local IFS=','
@@ -617,6 +616,7 @@ jobs:
           url="$GRAFANA_URL"
           EOF
           
+          echo "::add-mask::$BASE64_CONFIG_OVERRIDE"
           echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
