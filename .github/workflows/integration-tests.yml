@@ -275,7 +275,7 @@ jobs:
           LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-          BASE64_CONFIG_OVERRIDE_TOKEN: "override-me"
+          BASE64_CONFIG_OVERRIDE: "override-me"
         run: |
           echo "::add-mask::$CHAINLINK_IMAGE"
 
@@ -343,8 +343,8 @@ jobs:
           url="$GRAFANA_URL"
           EOF
           
-          echo "::add-mask::$BASE64_CONFIG_OVERRIDE_TOKEN"
-          echo "BASE64_CONFIG_OVERRIDE_TOKEN=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
+          echo "::add-mask::$BASE64_CONFIG_OVERRIDE"
+          echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
@@ -548,7 +548,7 @@ jobs:
           LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-          BASE64_CONFIG_OVERRIDE_TOKEN : "override-me"
+          BASE64_CONFIG_OVERRIDE : "override-me"
         run: |
           echo "::add-mask::$CHAINLINK_IMAGE"
 
@@ -616,8 +616,8 @@ jobs:
           url="$GRAFANA_URL"
           EOF
           
-          echo "::add-mask::$BASE64_CONFIG_OVERRIDE_TOKEN"
-          echo "BASE64_CONFIG_OVERRIDE_TOKEN=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
+          echo "::add-mask::$BASE64_CONFIG_OVERRIDE"
+          echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
