@@ -797,7 +797,7 @@ func (o *evmTxStore) UpdateTxsUnconfirmed(ctx context.Context, ids []int64) erro
 	return nil
 }
 
-func (o *evmTxStore) FindTxAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) (attempts []TxAttempt, err error) {
+func (o *evmTxStore) FindLikelyConfirmedTxAttemptsRequiringReceipt(ctx context.Context, chainID *big.Int, minedNonce evmtypes.Nonce) (attempts []TxAttempt, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -806,18 +806,45 @@ func (o *evmTxStore) FindTxAttemptsRequiringReceiptFetch(ctx context.Context, ch
 		var dbAttempts []DbEthTxAttempt
 		err = tx.Select(&dbAttempts, `
 SELECT evm.tx_attempts.* FROM evm.tx_attempts
-JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.txes.state IN ('unconfirmed', 'confirmed_missing_receipt') AND evm.txes.evm_chain_id = $1
-WHERE evm.tx_attempts.state != 'insufficient_eth'
-ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas_tip_cap DESC
-`, chainID.String())
+JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.txes.state = 'unconfirmed' AND evm.txes.evm_chain_id = $1 AND evm.txes.nonce <= $2 
+WHERE evm.tx_attempts.state = 'broadcast'
+`, chainID.String(), minedNonce)
 		if err != nil {
-			return pkgerrors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load evm.tx_attempts")
+			return pkgerrors.Wrap(err, "FindLikelyConfirmedTxAttemptsRequiringReceipt failed to load evm.tx_attempts")
 		}
 		attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
 		err = o.preloadTxesAtomic(attempts, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
-		return pkgerrors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load evm.txes")
+		return pkgerrors.Wrap(err, "FindLikelyConfirmedTxAttemptsRequiringReceipt failed to load evm.txes")
 	}, pg.OptReadOnlyTx())
 	return
+}
+
+func (o *evmTxStore) FindConfirmedTxsRequiringReceipt(ctx context.Context, chainID *big.Int, minedNonce evmtypes.Nonce) (etxs []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		var dbEtxs []DbEthTx
+		err = tx.Select(&dbEtxs, `
+SELECT DISTINCT evm.txes.* FROM evm.txes
+INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.tx_attempts.state = 'broadcast'
+INNER JOIN evm.receipts ON evm.receipts.tx_hash = evm.tx_attempts.hash
+WHERE evm.txes.state = 'confirmed' AND evm.txes.nonce > $1 AND evm_chain_id = $2
+ORDER BY nonce ASC
+`, minedNonce, chainID.String())
+		if err != nil {
+			return pkgerrors.Wrap(err, "FindConfirmedTxsRequiringReceipt failed to load evm.txes")
+		}
+		etxs = make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
+		if err = o.LoadTxesAttempts(etxs, pg.WithParentCtx(ctx), pg.WithQueryer(tx)); err != nil {
+			return pkgerrors.Wrap(err, "FindConfirmedTxsRequiringReceipt failed to load evm.tx_attempts")
+		}
+		err = loadEthTxesAttemptsReceipts(tx, etxs)
+		return pkgerrors.Wrap(err, "FindConfirmedTxsRequiringReceipt failed to load evm.receipts")
+	}, pg.OptReadOnlyTx())
+	return etxs, pkgerrors.Wrap(err, "FindConfirmedTxsRequiringReceipt failed")
 }
 
 func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error) {
@@ -903,58 +930,6 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 
 	err = qq.ExecQ(stmt, valueArgs...)
 	return pkgerrors.Wrap(err, "SaveFetchedReceipts failed to save receipts")
-}
-
-// MarkAllConfirmedMissingReceipt
-// It is possible that we can fail to get a receipt for all evm.tx_attempts
-// even though a transaction with this nonce has long since been confirmed (we
-// know this because transactions with higher nonces HAVE returned a receipt).
-//
-// This can probably only happen if an external wallet used the account (or
-// conceivably because of some bug in the remote eth node that prevents it
-// from returning a receipt for a valid transaction).
-//
-// In this case we mark these transactions as 'confirmed_missing_receipt' to
-// prevent gas bumping.
-//
-// NOTE: We continue to attempt to resend evm.txes in this state on
-// every head to guard against the extremely rare scenario of nonce gap due to
-// reorg that excludes the transaction (from another wallet) that had this
-// nonce (until finality depth is reached, after which we make the explicit
-// decision to give up). This is done in the EthResender.
-//
-// We will continue to try to fetch a receipt for these attempts until all
-// attempts are below the finality depth from current head.
-func (o *evmTxStore) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) (err error) {
-	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
-	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	res, err := qq.Exec(`
-UPDATE evm.txes
-SET state = 'confirmed_missing_receipt'
-FROM (
-	SELECT from_address, MAX(nonce) as max_nonce 
-	FROM evm.txes
-	WHERE state = 'confirmed' AND evm_chain_id = $1
-	GROUP BY from_address
-) AS max_table
-WHERE state = 'unconfirmed'
-	AND evm_chain_id = $1
-	AND nonce < max_table.max_nonce
-	AND evm.txes.from_address = max_table.from_address
-	`, chainID.String())
-	if err != nil {
-		return pkgerrors.Wrap(err, "markAllConfirmedMissingReceipt failed")
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return pkgerrors.Wrap(err, "markAllConfirmedMissingReceipt RowsAffected failed")
-	}
-	if rowsAffected > 0 {
-		o.logger.Infow(fmt.Sprintf("%d transactions missing receipt", rowsAffected), "n", rowsAffected)
-	}
-	return
 }
 
 func (o *evmTxStore) GetInProgressTxAttempts(ctx context.Context, address common.Address, chainID *big.Int) (attempts []TxAttempt, err error) {
@@ -1414,107 +1389,6 @@ ORDER BY nonce ASC
 		return pkgerrors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load evm.tx_attempts")
 	}, pg.OptReadOnlyTx())
 	return
-}
-
-// markOldTxesMissingReceiptAsErrored
-//
-// Once eth_tx has all of its attempts broadcast before some cutoff threshold
-// without receiving any receipts, we mark it as fatally errored (never sent).
-//
-// The job run will also be marked as errored in this case since we never got a
-// receipt and thus cannot pass on any transaction hash
-func (o *evmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID *big.Int) error {
-	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
-	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	// cutoffBlockNum is a block height
-	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
-	// We will not try to query for receipts for this transaction any more
-	cutoff := blockNum - int64(finalityDepth)
-	if cutoff <= 0 {
-		return nil
-	}
-	if cutoff <= 0 {
-		return nil
-	}
-	// note: if QOpt passes in a sql.Tx this will reuse it
-	return qq.Transaction(func(q pg.Queryer) error {
-		type etx struct {
-			ID    int64
-			Nonce int64
-		}
-		var data []etx
-		err := q.Select(&data, `
-UPDATE evm.txes
-SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL, initial_broadcast_at=NULL
-FROM (
-	SELECT e1.id, e1.nonce, e1.from_address FROM evm.txes AS e1 WHERE id IN (
-		SELECT e2.id FROM evm.txes AS e2
-		INNER JOIN evm.tx_attempts ON e2.id = evm.tx_attempts.eth_tx_id
-		WHERE e2.state = 'confirmed_missing_receipt'
-		AND e2.evm_chain_id = $3
-		GROUP BY e2.id
-		HAVING max(evm.tx_attempts.broadcast_before_block_num) < $2
-	)
-	FOR UPDATE OF e1
-) e0
-WHERE e0.id = evm.txes.id
-RETURNING e0.id, e0.nonce`, ErrCouldNotGetReceipt, cutoff, chainID.String())
-
-		if err != nil {
-			return pkgerrors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
-		}
-
-		// We need this little lookup table because we have to have the nonce
-		// from the first query, BEFORE it was updated/nullified
-		lookup := make(map[int64]etx)
-		for _, d := range data {
-			lookup[d.ID] = d
-		}
-		etxIDs := make([]int64, len(data))
-		for i := 0; i < len(data); i++ {
-			etxIDs[i] = data[i].ID
-		}
-
-		type result struct {
-			ID                         int64
-			FromAddress                common.Address
-			MaxBroadcastBeforeBlockNum int64
-			TxHashes                   pq.ByteaArray
-		}
-
-		var results []result
-		err = q.Select(&results, `
-SELECT e.id, e.from_address, max(a.broadcast_before_block_num) AS max_broadcast_before_block_num, array_agg(a.hash) AS tx_hashes
-FROM evm.txes e
-INNER JOIN evm.tx_attempts a ON e.id = a.eth_tx_id
-WHERE e.id = ANY($1)
-GROUP BY e.id
-`, etxIDs)
-
-		if err != nil {
-			return pkgerrors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to load additional data")
-		}
-
-		for _, r := range results {
-			nonce := lookup[r.ID].Nonce
-			txHashesHex := make([]common.Address, len(r.TxHashes))
-			for i := 0; i < len(r.TxHashes); i++ {
-				txHashesHex[i] = common.BytesToAddress(r.TxHashes[i])
-			}
-
-			o.logger.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
-				"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
-				"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
-				"an external wallet has been used to send a transaction from account %s with nonce %v."+
-				" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
-				" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
-				r.ID, blockNum, r.MaxBroadcastBeforeBlockNum, r.FromAddress, nonce), "ethTxID", r.ID, "nonce", nonce, "fromAddress", r.FromAddress, "txHashes", txHashesHex)
-		}
-
-		return nil
-	})
 }
 
 func (o *evmTxStore) SaveReplacementInProgressAttempt(ctx context.Context, oldAttempt TxAttempt, replacementAttempt *TxAttempt) error {
