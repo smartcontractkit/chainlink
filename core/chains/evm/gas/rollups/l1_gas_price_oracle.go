@@ -14,11 +14,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
@@ -31,7 +31,7 @@ type l1GasPriceOracle struct {
 	services.StateMachine
 	client     ethClient
 	pollPeriod time.Duration
-	logger     logger.Logger
+	logger     logger.SugaredLogger
 	address    string
 	callArgs   string
 
@@ -94,7 +94,7 @@ func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType conf
 	return &l1GasPriceOracle{
 		client:        ethClient,
 		pollPeriod:    PollPeriod,
-		logger:        logger.Named(lggr, fmt.Sprintf("L1GasPriceOracle(%s)", chainType)),
+		logger:        logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasPriceOracle(%s)", chainType))),
 		address:       address,
 		callArgs:      callArgs,
 		chInitialised: make(chan struct{}),
@@ -159,7 +159,7 @@ func (o *l1GasPriceOracle) refresh() (t *time.Timer) {
 	}
 
 	if len(b) != 32 { // returns uint256;
-		logger.Criticalf(o.logger, "return data length (%d) different than expected (%d)", len(b), 32)
+		o.logger.Criticalf("return data length (%d) different than expected (%d)", len(b), 32)
 		return
 	}
 	price := new(big.Int).SetBytes(b)

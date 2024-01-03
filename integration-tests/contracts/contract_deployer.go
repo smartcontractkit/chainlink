@@ -1,10 +1,14 @@
 package contracts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -135,6 +139,7 @@ type ContractDeployer interface {
 	DeployOffchainAggregatorEventsMock() (OffchainAggregatorEventsMock, error)
 	DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error)
 	DeployOffchainAggregatorV2(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregatorV2, error)
+	LoadOffChainAggregatorV2(address *common.Address) (OffchainAggregatorV2, error)
 	DeployKeeperRegistryCheckUpkeepGasUsageWrapper(keeperRegistryAddr string) (KeeperRegistryCheckUpkeepGasUsageWrapper, error)
 	DeployKeeperRegistry11Mock() (KeeperRegistry11Mock, error)
 	DeployKeeperRegistrar12Mock() (KeeperRegistrar12Mock, error)
@@ -144,6 +149,7 @@ type ContractDeployer interface {
 	DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error)
 	DeployMercuryRewardManager(linkAddress common.Address) (MercuryRewardManager, error)
 	DeployLogEmitterContract() (LogEmitter, error)
+	DeployMultiCallContract() (common.Address, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -1584,6 +1590,25 @@ func (e *EthereumContractDeployer) DeployOffchainAggregatorV2(
 	}, err
 }
 
+// LoadOffChainAggregatorV2 loads an already deployed offchain aggregator v2 contract
+func (e *EthereumContractDeployer) LoadOffChainAggregatorV2(address *common.Address) (OffchainAggregatorV2, error) {
+	instance, err := e.client.LoadContract("OffChainAggregatorV2", *address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return ocr2aggregator.NewOCR2Aggregator(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOffchainAggregatorV2{
+		client:   e.client,
+		contract: instance.(*ocr2aggregator.OCR2Aggregator),
+		address:  address,
+		l:        e.l,
+	}, err
+}
+
 func (e *EthereumContractDeployer) DeployMercuryVerifierContract(verifierProxyAddr common.Address) (MercuryVerifier, error) {
 	address, _, instance, err := e.client.DeployContract("Mercury Verifier", func(
 		auth *bind.TransactOpts,
@@ -1690,4 +1715,33 @@ func (e *EthereumContractDeployer) DeployLogEmitterContract() (LogEmitter, error
 		address:  *address,
 		l:        e.l,
 	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMultiCallContract() (common.Address, error) {
+	multiCallABI, err := abi.JSON(strings.NewReader(MultiCallABI))
+	if err != nil {
+		return common.Address{}, err
+	}
+	address, tx, _, err := e.client.DeployContract("MultiCall Contract", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		address, tx, contract, err := bind.DeployContract(auth, multiCallABI, common.FromHex(MultiCallBIN), backend)
+		if err != nil {
+			return common.Address{}, nil, nil, err
+		}
+		return address, tx, contract, err
+	})
+	if err != nil {
+		return common.Address{}, err
+	}
+	r, err := bind.WaitMined(context.Background(), e.client.DeployBackend(), tx)
+	if err != nil {
+		return common.Address{}, err
+	}
+	if r.Status != types.ReceiptStatusSuccessful {
+		return common.Address{}, fmt.Errorf("deploy multicall failed")
+	}
+	return *address, nil
+
 }

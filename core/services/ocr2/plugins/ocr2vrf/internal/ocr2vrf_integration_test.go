@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
@@ -31,8 +30,10 @@ import (
 	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -55,7 +56,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ocr2vrfUniverse struct {
@@ -134,13 +134,13 @@ func setupOCR2VRFContracts(
 	require.NoError(t, err)
 	b.Commit()
 
-	require.NoError(t, utils.JustError(coordinator.SetCallbackConfig(owner, vrf_wrapper.VRFCoordinatorCallbackConfig{
+	require.NoError(t, commonutils.JustError(coordinator.SetCallbackConfig(owner, vrf_wrapper.VRFCoordinatorCallbackConfig{
 		MaxCallbackGasLimit:        2.5e6,
 		MaxCallbackArgumentsLength: 160, // 5 EVM words
 	})))
 	b.Commit()
 
-	require.NoError(t, utils.JustError(coordinator.SetCoordinatorConfig(owner, vrf_wrapper.VRFBeaconTypesCoordinatorConfig{
+	require.NoError(t, commonutils.JustError(coordinator.SetCoordinatorConfig(owner, vrf_wrapper.VRFBeaconTypesCoordinatorConfig{
 		RedeemableRequestGasOverhead: 50_000,
 		CallbackRequestGasOverhead:   50_000,
 		StalenessSeconds:             60,
@@ -164,7 +164,7 @@ func setupOCR2VRFContracts(
 	b.Commit()
 
 	// Set up coordinator subscription for billing.
-	require.NoError(t, utils.JustError(coordinator.CreateSubscription(owner)))
+	require.NoError(t, commonutils.JustError(coordinator.CreateSubscription(owner)))
 	b.Commit()
 
 	fopts := &bind.FilterOpts{}
@@ -175,13 +175,13 @@ func setupOCR2VRFContracts(
 	require.True(t, subscriptionIterator.Next())
 	subID := subscriptionIterator.Event.SubId
 
-	require.NoError(t, utils.JustError(coordinator.AddConsumer(owner, subID, consumerAddress)))
+	require.NoError(t, commonutils.JustError(coordinator.AddConsumer(owner, subID, consumerAddress)))
 	b.Commit()
-	require.NoError(t, utils.JustError(coordinator.AddConsumer(owner, subID, loadTestConsumerAddress)))
+	require.NoError(t, commonutils.JustError(coordinator.AddConsumer(owner, subID, loadTestConsumerAddress)))
 	b.Commit()
 	data, err := utils.ABIEncode(`[{"type":"uint256"}]`, subID)
 	require.NoError(t, err)
-	require.NoError(t, utils.JustError(link.TransferAndCall(owner, coordinatorAddress, big.NewInt(5e18), data)))
+	require.NoError(t, commonutils.JustError(link.TransferAndCall(owner, coordinatorAddress, big.NewInt(5e18), data)))
 	b.Commit()
 
 	_, err = dkg.AddClient(owner, keyID, beaconAddress)
@@ -299,7 +299,7 @@ func setupNodeOCR2(
 		n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 		require.NoError(t, err)
 
-		tx := types.NewTransaction(
+		tx := cltest.NewLegacyTransaction(
 			n, k.Address,
 			assets.Ether(1).ToInt(),
 			21000,
@@ -663,7 +663,7 @@ linkEthFeedAddress     	= "%s"
 		// Fund the payee with some ETH.
 		n, err2 := uni.backend.NonceAt(testutils.Context(t), uni.owner.From, nil)
 		require.NoError(t, err2)
-		tx := types.NewTransaction(
+		tx := cltest.NewLegacyTransaction(
 			n, payeeTransactor.From,
 			assets.Ether(1).ToInt(),
 			21000,

@@ -23,9 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
-	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -147,7 +147,6 @@ func CreateVRFV2PlusJob(
 
 func VRFV2_5RegisterProvingKey(
 	vrfKey *client.VRFKey,
-	oracleAddress string,
 	coordinator contracts.VRFCoordinatorV2_5,
 ) (VRFV2PlusEncodedProvingKey, error) {
 	provingKey, err := actions.EncodeOnChainVRFProvingKey(*vrfKey)
@@ -155,7 +154,6 @@ func VRFV2_5RegisterProvingKey(
 		return VRFV2PlusEncodedProvingKey{}, fmt.Errorf("%s, err %w", ErrEncodingProvingKey, err)
 	}
 	err = coordinator.RegisterProvingKey(
-		oracleAddress,
 		provingKey,
 	)
 	if err != nil {
@@ -166,7 +164,6 @@ func VRFV2_5RegisterProvingKey(
 
 func VRFV2PlusUpgradedVersionRegisterProvingKey(
 	vrfKey *client.VRFKey,
-	oracleAddress string,
 	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
 ) (VRFV2PlusEncodedProvingKey, error) {
 	provingKey, err := actions.EncodeOnChainVRFProvingKey(*vrfKey)
@@ -174,7 +171,6 @@ func VRFV2PlusUpgradedVersionRegisterProvingKey(
 		return VRFV2PlusEncodedProvingKey{}, fmt.Errorf("%s, err %w", ErrEncodingProvingKey, err)
 	}
 	err = coordinator.RegisterProvingKey(
-		oracleAddress,
 		provingKey,
 	)
 	if err != nil {
@@ -207,7 +203,6 @@ func SetupVRFV2_5Environment(
 	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
-	registerProvingKeyAgainstAddress string,
 	numberOfTxKeysToCreate int,
 	numberOfConsumers int,
 	numberOfSubToCreate int,
@@ -265,7 +260,7 @@ func SetupVRFV2_5Environment(
 	pubKeyCompressed := vrfKey.Data.ID
 
 	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Registering Proving Key")
-	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, registerProvingKeyAgainstAddress, vrfv2_5Contracts.Coordinator)
+	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, vrfv2_5Contracts.Coordinator)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrRegisteringProvingKey, err)
 	}
@@ -848,9 +843,8 @@ func ReturnFundsForFulfilledRequests(client blockchain.EVMClient, coordinator co
 		Str("LINK amount", linkTotalBalance.String()).
 		Str("Returning to", defaultWallet).
 		Msg("Returning LINK for fulfilled requests")
-	err = coordinator.OracleWithdraw(
+	err = coordinator.Withdraw(
 		common.HexToAddress(defaultWallet),
-		linkTotalBalance,
 	)
 	if err != nil {
 		return fmt.Errorf("Error withdrawing LINK from coordinator to default wallet, err: %w", err)
@@ -860,12 +854,11 @@ func ReturnFundsForFulfilledRequests(client blockchain.EVMClient, coordinator co
 		return fmt.Errorf("Error getting NATIVE total balance, err: %w", err)
 	}
 	l.Info().
-		Str("Native Token amount", linkTotalBalance.String()).
+		Str("Native Token amount", nativeTotalBalance.String()).
 		Str("Returning to", defaultWallet).
 		Msg("Returning Native Token for fulfilled requests")
-	err = coordinator.OracleWithdrawNative(
+	err = coordinator.WithdrawNative(
 		common.HexToAddress(defaultWallet),
-		nativeTotalBalance,
 	)
 	if err != nil {
 		return fmt.Errorf("Error withdrawing NATIVE from coordinator to default wallet, err: %w", err)

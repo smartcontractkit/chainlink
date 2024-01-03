@@ -27,6 +27,8 @@ var (
 	LOOPPHostName = Var("CL_LOOPP_HOSTNAME")
 	// Work around for Solana LOOPPs configured with zero values.
 	MinOCR2MaxDurationQuery = Var("CL_MIN_OCR2_MAX_DURATION_QUERY")
+	// PipelineOvertime is an undocumented escape hatch for overriding the default padding in pipeline executions.
+	PipelineOvertime = Var("CL_PIPELINE_OVERTIME")
 
 	DatabaseAllowSimplePasswords = Var("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	DatabaseURL                  = Secret("CL_DATABASE_URL")

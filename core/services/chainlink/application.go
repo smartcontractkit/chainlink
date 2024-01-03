@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -57,7 +59,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -129,7 +130,7 @@ type ChainlinkApplication struct {
 	Config                   GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	SessionReaper            utils.SleeperTask
+	SessionReaper            *utils.SleeperTask
 	shutdownOnce             sync.Once
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
@@ -241,7 +242,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	// pool must be started before all relayers and stopped after them
-	srvcs = append(srvcs, opts.MercuryPool)
+	if opts.MercuryPool != nil {
+		srvcs = append(srvcs, opts.MercuryPool)
+	}
 
 	// EVM chains are used all over the place. This will need to change for fully EVM extraction
 	// TODO: BCF-2510, BCF-2511
@@ -264,7 +267,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// localDB auth or remote LDAP auth
 	authMethod := cfg.WebServer().AuthenticationMethod()
 	var authenticationProvider sessions.AuthenticationProvider
-	var sessionReaper utils.SleeperTask
+	var sessionReaper *utils.SleeperTask
 
 	switch sessions.AuthenticationProviderName(authMethod) {
 	case sessions.LDAPAuth:
@@ -738,14 +741,14 @@ func (app *ChainlinkApplication) RunJobV2(
 				Data: bytes.Join([][]byte{
 					jb.VRFSpec.PublicKey.MustHash().Bytes(),  // key hash
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
-					utils.NewHash().Bytes(),                  // sender
-					utils.NewHash().Bytes(),                  // fee
-					utils.NewHash().Bytes()},                 // requestID
+					evmutils.NewHash().Bytes(),               // sender
+					evmutils.NewHash().Bytes(),               // fee
+					evmutils.NewHash().Bytes()},              // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
-				TxHash:      utils.NewHash(),
+				TxHash:      evmutils.NewHash(),
 				BlockNumber: 10,
-				BlockHash:   utils.NewHash(),
+				BlockHash:   evmutils.NewHash(),
 			}
 			vars = map[string]interface{}{
 				"jobSpec": map[string]interface{}{

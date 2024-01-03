@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -297,7 +298,7 @@ func VRFV2DeployUniverse(
 		tx, err := vrfOwner.SetAuthorizedSenders(e.Owner, authorizedSendersSlice)
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf owner set authorized senders")
-		fmt.Printf("\nTransfering ownership of coordinator: %v, VRF Owner %v\n", contractAddresses.CoordinatorAddress, vrfOwnerAddress.String())
+		fmt.Printf("\nTransferring ownership of coordinator: %v, VRF Owner %v\n", contractAddresses.CoordinatorAddress, vrfOwnerAddress.String())
 		tx, err = coordinator.TransferOwnership(e.Owner, vrfOwnerAddress)
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer ownership to", vrfOwnerAddress.String())
@@ -320,9 +321,8 @@ func VRFV2DeployUniverse(
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
-			} else {
-				return common.HexToAddress("0x0").String()
 			}
+			return common.HexToAddress("0x0").String()
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
@@ -347,9 +347,8 @@ func VRFV2DeployUniverse(
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
-			} else {
-				return common.HexToAddress("0x0").String()
 			}
+			return common.HexToAddress("0x0").String()
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,

@@ -181,6 +181,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 				assert.Equal(t, snapshotRow.Version, sr.Version)
 				assert.Equal(t, snapshotRow.Expiration, sr.Expiration)
 				assert.Equal(t, snapshotRow.Confirmed, sr.Confirmed)
+				assert.Equal(t, snapshotRow.PayloadSize, uint64(len(sr.Payload)))
 			}
 		})
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/caigo"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 
 	starktxm "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_StarkNetKeyStore_E2E(t *testing.T) {

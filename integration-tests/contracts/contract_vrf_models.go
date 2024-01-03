@@ -54,10 +54,13 @@ type VRFCoordinatorV2 interface {
 	Address() string
 	GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_v2.GetSubscription, error)
 	PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)
+	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
 	CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error)
 	FindSubscriptionID(subID uint64) (uint64, error)
 	WaitForRandomWordsFulfilledEvent(requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error)
 	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
+	WaitForSubscriptionCanceledEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
+	OracleWithdraw(recipient common.Address, amount *big.Int) error
 }
 
 type VRFCoordinatorV2_5 interface {
@@ -74,7 +77,6 @@ type VRFCoordinatorV2_5 interface {
 		feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig,
 	) error
 	RegisterProvingKey(
-		oracleAddr string,
 		publicProvingKey [2]*big.Int,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
@@ -89,8 +91,8 @@ type VRFCoordinatorV2_5 interface {
 	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2_5.GetSubscription, error)
 	OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error)
 	CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error)
-	OracleWithdraw(recipient common.Address, amount *big.Int) error
-	OracleWithdrawNative(recipient common.Address, amount *big.Int) error
+	Withdraw(recipient common.Address) error
+	WithdrawNative(recipient common.Address) error
 	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)
 	GetLinkTotalBalance(ctx context.Context) (*big.Int, error)
 	FindSubscriptionID(subID *big.Int) (*big.Int, error)
@@ -115,7 +117,6 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 		feeConfig vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig,
 	) error
 	RegisterProvingKey(
-		oracleAddr string,
 		publicProvingKey [2]*big.Int,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
