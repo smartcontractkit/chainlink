@@ -154,7 +154,7 @@ jobs:
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Load test outputs
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: ./artifacts
       - name: Build flakey test runner
@@ -197,7 +197,7 @@ jobs:
         with:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 # v3.0.1
+        uses: actions/download-artifact@f44cd7b40bfd40b6aa1cc1b9b5b7bf03d3c67110 # v4.1.0
       - name: Set SonarQube Report Paths
         id: sonarqube_report_paths
         shell: bash
