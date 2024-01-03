@@ -1110,12 +1110,7 @@ observationSource                      = """
 {{$key}} = {{$value}}{{end}}
 {{end}}
 [relayConfig]{{range $key, $value := .RelayConfig}}
-  {{if or (eq $key "chainReader") (eq $key "codec")}}
-    {{$key}} = '{{$value}}'
-  {{else}}
-    {{$key}} = {{$value}}
-  {{end}}
-{{end}}
+{{$key}} = {{$value}}{{end}}
 `
 	return MarshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }

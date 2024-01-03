@@ -282,21 +282,7 @@ type JSONConfig map[string]interface{}
 
 // Bytes returns the raw bytes
 func (r JSONConfig) Bytes() []byte {
-	var retCopy = make(JSONConfig, len(r))
-	for key, value := range r {
-		copiedVal := value
-		// If the value is a json structure string, unmarshal it to preserve JSON structure
-		// e.g. instead of this {"key":"{\"nestedKey\":{\"nestedValue\":123}}"}
-		//      we want this    {"key":{"nestedKey":{"nestedValue":123}}},
-		if strValue, ok := copiedVal.(string); ok {
-			if object, ok := asObject(strValue); ok {
-				copiedVal = object
-			}
-		}
-		retCopy[key] = copiedVal
-	}
-
-	b, _ := json.Marshal(retCopy)
+	b, _ := json.Marshal(r)
 	return b
 }
 
@@ -324,11 +310,6 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 		return "", fmt.Errorf("expected string mercuryCredentialName but got: %T", url)
 	}
 	return name, nil
-}
-
-func asObject(s string) (any, bool) {
-	var js map[string]interface{}
-	return js, json.Unmarshal([]byte(s), &js) == nil
 }
 
 var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG, types.OCR2VRF, types.OCR2Keeper, types.Functions}

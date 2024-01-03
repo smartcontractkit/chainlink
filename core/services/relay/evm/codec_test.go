@@ -71,13 +71,13 @@ func (it *codecInterfaceTester) EncodeFields(t *testing.T, request *EncodeReques
 }
 
 func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
-	codecConfig := types.CodecConfig{ChainCodecConfigs: map[string]types.ChainCodedConfig{}}
+	codecConfig := types.CodecConfig{ChainCodecConfigs: map[string]types.ChainCodecConfig{}}
 	testStruct := CreateTestStruct(0, it)
 	for k, v := range codecDefs {
 		defBytes, err := json.Marshal(v)
 		require.NoError(t, err)
 		entry := codecConfig.ChainCodecConfigs[k]
-		entry.TypeAbi = string(defBytes)
+		entry.TypeABI = string(defBytes)
 		if k == TestItemWithConfigExtra {
 			entry.ModifierConfigs = codec.ModifiersConfig{
 				&codec.HardCodeModifierConfig{
