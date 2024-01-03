@@ -68,7 +68,7 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %s", err)
 	}
 
-	// if CacheBatchSize is not specified used the default value
+	// if CacheBatchSize is not specified use the default value
 	if config.CacheBatchSize == 0 {
 		lggr.Info("CacheBatchSize not specified, using default size: ", defaultCacheBatchSize)
 		config.CacheBatchSize = defaultCacheBatchSize
@@ -225,6 +225,7 @@ func (s *onchainSubscriptions) getSubscriptionsCount(ctx context.Context, blockN
 		Context:     ctx,
 	})
 }
+
 func (s *onchainSubscriptions) loadCachedSubscriptions() {
 	offset := uint(0)
 	for {
@@ -242,6 +243,7 @@ func (s *onchainSubscriptions) loadCachedSubscriptions() {
 				Consumers:      cs.Consumers,
 				Flags:          cs.Flags,
 			})
+			s.lggr.Debugw("Loading cached subscriptions", "offset", offset, "batch_length", len(csBatch))
 		}
 
 		if len(csBatch) != int(s.config.CacheBatchSize) {

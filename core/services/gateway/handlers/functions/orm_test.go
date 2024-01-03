@@ -1,6 +1,7 @@
 package functions_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -35,9 +36,9 @@ func createSubscriptions(t *testing.T, orm functions.ORM, amount int) []function
 		cs := functions.CachedSubscription{
 			SubscriptionID: uint64(i),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
-				Balance:        assets.Ether(10).ToInt(),
+				Balance:        big.NewInt(10),
 				Owner:          testutils.NewAddress(),
-				BlockedBalance: assets.Ether(20).ToInt(),
+				BlockedBalance: big.NewInt(20),
 				ProposedOwner:  common.Address{},
 				Consumers:      []common.Address{},
 				Flags:          defaultFlags,
@@ -59,7 +60,7 @@ func TestORM_GetSubscriptions(t *testing.T) {
 		results, err := orm.GetSubscriptions(0, 1)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
-		require.Equal(t, results[0], cachedSubscriptions[0])
+		require.Equal(t, cachedSubscriptions[0], results[0])
 	})
 
 	t.Run("fetch second page", func(t *testing.T) {
@@ -69,7 +70,7 @@ func TestORM_GetSubscriptions(t *testing.T) {
 		results, err := orm.GetSubscriptions(1, 5)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
-		require.Equal(t, results[0], cachedSubscriptions[1])
+		require.Equal(t, cachedSubscriptions[1], results[0])
 	})
 }
 
@@ -82,9 +83,9 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		expected := functions.CachedSubscription{
 			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
-				Balance:        assets.Ether(10).ToInt(),
+				Balance:        big.NewInt(10),
 				Owner:          testutils.NewAddress(),
-				BlockedBalance: assets.Ether(20).ToInt(),
+				BlockedBalance: big.NewInt(20),
 				ProposedOwner:  common.Address{},
 				Consumers:      []common.Address{},
 				Flags:          defaultFlags,
@@ -106,9 +107,9 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		expectedUpdated := functions.CachedSubscription{
 			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
-				Balance:        assets.Ether(10).ToInt(),
+				Balance:        big.NewInt(10),
 				Owner:          testutils.NewAddress(),
-				BlockedBalance: assets.Ether(20).ToInt(),
+				BlockedBalance: big.NewInt(20),
 				ProposedOwner:  common.Address{},
 				Consumers:      []common.Address{},
 				Flags:          defaultFlags,
@@ -120,9 +121,9 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		expectedNotUpdated := functions.CachedSubscription{
 			SubscriptionID: uint64(2),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
-				Balance:        assets.Ether(10).ToInt(),
+				Balance:        big.NewInt(10),
 				Owner:          testutils.NewAddress(),
-				BlockedBalance: assets.Ether(20).ToInt(),
+				BlockedBalance: big.NewInt(20),
 				ProposedOwner:  common.Address{},
 				Consumers:      []common.Address{},
 				Flags:          defaultFlags,
@@ -132,7 +133,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		require.NoError(t, err)
 
 		// update the balance value
-		expectedUpdated.Balance = assets.Ether(20).ToInt()
+		expectedUpdated.Balance = big.NewInt(20)
 		err = orm.UpsertSubscription(expectedUpdated)
 		require.NoError(t, err)
 
@@ -141,6 +142,43 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		require.Equal(t, 2, len(results), "incorrect results length")
 		require.Equal(t, expectedNotUpdated, results[0])
 		require.Equal(t, expectedUpdated, results[1])
+	})
+
+	t.Run("update a deleted subscription", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+
+		subscription := functions.CachedSubscription{
+			SubscriptionID: uint64(1),
+			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
+				Balance:        big.NewInt(10),
+				Owner:          testutils.NewAddress(),
+				BlockedBalance: big.NewInt(20),
+				ProposedOwner:  common.Address{},
+				Consumers:      []common.Address{},
+				Flags:          defaultFlags,
+			},
+		}
+		err = orm.UpsertSubscription(subscription)
+		require.NoError(t, err)
+
+		// empty subscription
+		subscription.IFunctionsSubscriptionsSubscription = functions_router.IFunctionsSubscriptionsSubscription{
+			Balance:        big.NewInt(0),
+			Owner:          common.Address{},
+			BlockedBalance: big.NewInt(0),
+			ProposedOwner:  common.Address{},
+			Consumers:      []common.Address{},
+			Flags:          [32]byte{},
+		}
+
+		err = orm.UpsertSubscription(subscription)
+		require.NoError(t, err)
+
+		results, err := orm.GetSubscriptions(0, 5)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Equal(t, subscription, results[0])
 	})
 
 	t.Run("create a subscription with same id but different router address", func(t *testing.T) {
@@ -193,6 +231,16 @@ func TestORM_UpsertSubscription(t *testing.T) {
 }
 
 func Test_NewORM(t *testing.T) {
-	_, err := functions.NewORM(nil, nil, nil, common.Address{})
-	require.Error(t, err)
+	t.Run("OK-create_ORM", func(t *testing.T) {
+		_, err := functions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), pgtest.NewQConfig(true), testutils.NewAddress())
+		require.NoError(t, err)
+	})
+	t.Run("NOK-create_ORM_with_nil_fields", func(t *testing.T) {
+		_, err := functions.NewORM(nil, nil, nil, common.Address{})
+		require.Error(t, err)
+	})
+	t.Run("NOK-create_ORM_with_empty_address", func(t *testing.T) {
+		_, err := functions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), pgtest.NewQConfig(true), common.Address{})
+		require.Error(t, err)
+	})
 }

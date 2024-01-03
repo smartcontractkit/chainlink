@@ -38,9 +38,9 @@ const (
 
 type cachedSubscriptionRow struct {
 	SubscriptionID        uint64
-	Balance               string
 	Owner                 common.Address
-	BlockedBalance        string
+	Balance               int64
+	BlockedBalance        int64
 	ProposedOwner         common.Address
 	Consumers             pq.ByteaArray
 	Flags                 []uint8
@@ -48,7 +48,7 @@ type cachedSubscriptionRow struct {
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, routerContractAddress common.Address) (ORM, error) {
-	if db == nil || cfg == nil || lggr == nil || len(routerContractAddress) == 0 {
+	if db == nil || cfg == nil || lggr == nil || routerContractAddress == *new(common.Address) {
 		return nil, ErrInvalidParameters
 	}
 
@@ -75,32 +75,7 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 	}
 
 	for _, cs := range cacheSubscriptionRows {
-		consumers := make([]common.Address, 0)
-		for _, csc := range cs.Consumers {
-			consumers = append(consumers, common.BytesToAddress(csc))
-		}
-
-		balance, ok := big.NewInt(0).SetString(cs.Balance, 10)
-		if !ok {
-			return nil, fmt.Errorf("error parsing balance %s", cs.Balance)
-		}
-
-		blockedBalance, ok := big.NewInt(0).SetString(cs.BlockedBalance, 10)
-		if !ok {
-			return nil, fmt.Errorf("error parsing blockedBalance %s", cs.BlockedBalance)
-		}
-
-		cacheSubscriptions = append(cacheSubscriptions, CachedSubscription{
-			SubscriptionID: cs.SubscriptionID,
-			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
-				Balance:        balance,
-				Owner:          cs.Owner,
-				BlockedBalance: blockedBalance,
-				ProposedOwner:  cs.ProposedOwner,
-				Consumers:      consumers,
-				Flags:          [32]byte(cs.Flags),
-			},
-		})
+		cacheSubscriptions = append(cacheSubscriptions, cs.encode())
 	}
 
 	return cacheSubscriptions, nil
@@ -124,8 +99,8 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 		stmt,
 		subscription.SubscriptionID,
 		subscription.Owner,
-		subscription.Balance.String(),
-		subscription.BlockedBalance.String(),
+		subscription.Balance.Int64(),
+		subscription.BlockedBalance.Int64(),
 		subscription.ProposedOwner,
 		subscription.Consumers,
 		subscription.Flags[:],
@@ -133,4 +108,23 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 	)
 
 	return err
+}
+
+func (cs *cachedSubscriptionRow) encode() CachedSubscription {
+	consumers := make([]common.Address, 0)
+	for _, csc := range cs.Consumers {
+		consumers = append(consumers, common.BytesToAddress(csc))
+	}
+
+	return CachedSubscription{
+		SubscriptionID: cs.SubscriptionID,
+		IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
+			Balance:        big.NewInt(cs.Balance),
+			Owner:          cs.Owner,
+			BlockedBalance: big.NewInt(cs.BlockedBalance),
+			ProposedOwner:  cs.ProposedOwner,
+			Consumers:      consumers,
+			Flags:          [32]byte(cs.Flags),
+		},
+	}
 }
