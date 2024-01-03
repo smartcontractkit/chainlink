@@ -84,7 +84,7 @@ jobs:
       - name: Rename coverage
         run: mv ./contracts/coverage.json ./contracts/coverage-${{ matrix.split.idx }}.json
       - name: Upload coverage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: solidity-coverage-${{ matrix.split.idx }}
           path: ./contracts/coverage-${{ matrix.split.idx }}.json
