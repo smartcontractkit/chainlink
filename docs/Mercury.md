@@ -24,7 +24,7 @@ TODO: updated process here @Austin Born
 
 `reportingPluginConfig.deltaC` - set this to `0` so every round will result in a report.
 
-Example `verifier/<0xaddress>.json`:
+<details><summary>Example `verifier/<0xaddress>.json`</summary>
 
 ```json
 {
@@ -156,6 +156,7 @@ Example `verifier/<0xaddress>.json`:
   "status": "testing"
 }
 ```
+</details>
 
 ## Jobs
 
@@ -167,7 +168,7 @@ Example `verifier/<0xaddress>.json`:
 
 `contractID` - the contract address of the verifier contract.
 
-Example:
+<details><summary>Example bootstrap TOML</summary>
 
 ```toml
 type = "bootstrap"
@@ -182,10 +183,11 @@ contractConfigTrackerPollInterval = "15s"
 chainID = $evm_chain_id
 fromBlock = $from_block
 ```
+</details>
 
 ### OCR2
 
-Example:
+<details><summary>Example OCR2 Mercury TOML</summary>
 
 ```toml
 type = "offchainreporting2"
@@ -262,6 +264,7 @@ serverPubKey = "$mercury_server_public_key"
 chainID = $evm_chain_id
 fromBlock = $from_block
 ```
+</details>
 
 ## Nodes
 
@@ -279,7 +282,7 @@ fromBlock = $from_block
 
 `Database` - **must** increase connection limits above the standard defaults
 
-Example:
+<details><summary>Example node config TOML</summary>
 
 ```toml
 RootDir = '$ROOT_DIR'
@@ -344,3 +347,4 @@ MaxOpenConns = 400 # caution! ensure postgres is configured to support this
 [[EVM.Nodes]]
 < put RPC nodes here >
 ```
+</details>
