@@ -47,7 +47,7 @@ func NewOCR3ContractTransmitter[RI any](
 		Addresses: []gethcommon.Address{address},
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to register filter: %w", err)
 	}
 	if reportToEvmTxMeta == nil {
 		reportToEvmTxMeta = reportToEvmTxMetaNoop
@@ -103,7 +103,7 @@ func (c *contractTransmitterOCR3[RI]) Transmit(ctx context.Context, configDigest
 
 	payload, err := c.contractABI.Pack("transmit", rawReportCtx, []byte(rwi.Report), rs, ss, vs)
 	if err != nil {
-		return errors.Wrapf(err, "abi.Pack failed with args: (%v, %s, %v, %v, %v)", rawReportCtx, hex.EncodeToString(rwi.Report), rs, ss, vs)
+		return fmt.Errorf("%w: abi.Pack failed with args: (%+v, %s, %+v, %+v, %+v)", err, rawReportCtx, hex.EncodeToString(rwi.Report), rs, ss, vs)
 	}
 
 	return errors.Wrap(c.transmitter.CreateEthTransaction(ctx, c.contractAddress, payload, txMeta), "failed to send Eth transaction")
