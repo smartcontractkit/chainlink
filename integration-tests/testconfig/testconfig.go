@@ -134,7 +134,7 @@ func GetConfigurationNameFromEnv() (string, error) {
 }
 
 const (
-	Base64OverrideEnvVarName = "BASE64_CONFIG_OVERRIDE_SECRET"
+	Base64OverrideEnvVarName = "BASE64_CONFIG_OVERRIDE_TOKEN"
 	NoKey                    = "NO_KEY"
 )
 
