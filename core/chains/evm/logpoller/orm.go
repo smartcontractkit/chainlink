@@ -324,8 +324,7 @@ func (o *DbORM) SelectLogs(start, end int64, address common.Address, eventSig co
 	filter := NewBasicAndFilter(
 		address,
 		eventSig,
-		NewBlockFilter(start, Gte),
-		NewBlockFilter(end, Lte),
+		NewBlockRangeFilter(start, end),
 	)
 	return o.SelectFilteredLogs(filter, DefaultSortAndLimit, qopts...)
 }
