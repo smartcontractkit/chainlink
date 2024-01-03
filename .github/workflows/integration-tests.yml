@@ -275,8 +275,10 @@ jobs:
           LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+          BASE64_CONFIG_OVERRIDE: "override-me"
         run: |
           echo ::add-mask::$CHAINLINK_IMAGE
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
 
           convert_to_toml_array() {
             local IFS=','
@@ -546,8 +548,10 @@ jobs:
           LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+          BASE64_CONFIG_OVERRIDE : "override-me"
         run: |
           echo ::add-mask::$CHAINLINK_IMAGE
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
 
           convert_to_toml_array() {
             local IFS=','
