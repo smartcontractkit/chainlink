@@ -102,6 +102,8 @@ type logEventProvider struct {
 	opts LogTriggersOptions
 
 	currentPartitionIdx uint64
+
+	servedLogs int64
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
@@ -140,6 +142,21 @@ func (p *logEventProvider) Start(context.Context) error {
 					lggr.Warnw("readQ is full, dropping ids", "ids", ids)
 				}
 			})
+		})
+
+		p.threadCtrl.Go(func(ctx context.Context) {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					p.lggr.Debugw("logs stats", "servedLogs", atomic.LoadInt64(&p.servedLogs), "logsInBuffer", atomic.LoadInt64(&p.buffer.logsInBuffer), "latestBlockSeen", p.buffer.latestBlockSeen())
+				case <-ctx.Done():
+					return
+				}
+			}
+
 		})
 
 		return nil
@@ -187,6 +204,8 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 
 		payloads = append(payloads, payload)
 	}
+
+	atomic.AddInt64(&p.servedLogs, int64(len(logs)))
 
 	return payloads, nil
 }
