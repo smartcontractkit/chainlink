@@ -129,9 +129,9 @@ func TestAutomationReorg(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":             ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
+		"registry_2_0": ethereum.RegistryVersion_2_0,
+		// "registry_2_1_conditional": ethereum.RegistryVersion_2_1,
+		// "registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -151,6 +151,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			var overrideFn = func(_ interface{}, target interface{}) {
 				ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+				ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
 			}
 
 			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)

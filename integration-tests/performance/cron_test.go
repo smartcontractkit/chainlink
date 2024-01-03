@@ -131,6 +131,7 @@ HTTPWriteTimout = '300s'`
 
 	var overrideFn = func(_ interface{}, target interface{}) {
 		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+		ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
 	}
 
 	cd := chainlink.NewWithOverride(0, map[string]interface{}{

@@ -155,6 +155,8 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	testConfig := TestConfig{}
 	maybeTestConfigs := []TestConfig{}
 
+	logger.Debug().Msgf("Will apply configuration named '%s' if it is found in any of the configs", configurationName)
+
 	for _, fileName := range fileNames {
 		logger.Debug().Msgf("Looking for config file %s", fileName)
 		filePath, err := osutil.FindFile(fileName, osutil.DEFAULT_STOP_FILE_NAME)
@@ -191,7 +193,6 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			continue
 		}
 
-		logger.Debug().Msgf("Config file %s contains configuration named '%s', unnmarshalling.", fileName, configurationName)
 		marshalled, err := toml.Marshal(someToml[configurationName])
 		if err != nil {
 			return TestConfig{}, err
@@ -202,7 +203,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, err
 		}
 
-		logger.Debug().Msgf("Configuration named '%s' unnmarshalled successfully.", configurationName)
+		logger.Debug().Msgf("Configuration named '%s' read successfully.", configurationName)
 		maybeTestConfigs = append(maybeTestConfigs, readConfig)
 	}
 
@@ -524,22 +525,6 @@ func (c *TestConfig) Validate() error {
 		if err := c.VRFv2Plus.Validate(); err != nil {
 			return errors.Wrapf(err, "VRFv2Plus config validation failed")
 		}
-	}
-
-	return nil
-}
-
-func (c *TestConfig) SetForRemoteRunner() error {
-	key := k8s_config.EnvBase64ConfigOverride
-	err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-	if err != nil {
-		return errors.Wrapf(err, "error setting env var %s", key)
-	}
-
-	key = k8s_config.EnvBase64NetworkConfig
-	err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-	if err != nil {
-		return errors.Wrapf(err, "error setting env var %s", key)
 	}
 
 	return nil

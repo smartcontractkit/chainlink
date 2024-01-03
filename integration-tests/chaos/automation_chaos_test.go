@@ -140,6 +140,7 @@ func TestAutomationChaos(t *testing.T) {
 
 			var overrideFn = func(_ interface{}, target interface{}) {
 				ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+				ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
 			}
 
 			chainlinkCfg := chainlink.NewWithOverride(0, getDefaultAutomationSettings(&config), config.ChainlinkImage, overrideFn)

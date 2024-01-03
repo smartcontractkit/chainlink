@@ -164,6 +164,7 @@ PerformGasOverhead = 150_000`
 
 	var overrideFn = func(_ interface{}, target interface{}) {
 		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+		ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
 	}
 
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")

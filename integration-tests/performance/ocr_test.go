@@ -115,6 +115,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 
 	var overrideFn = func(_ interface{}, target interface{}) {
 		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+		ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
 	}
 
 	cd := chainlink.NewWithOverride(0, map[string]interface{}{

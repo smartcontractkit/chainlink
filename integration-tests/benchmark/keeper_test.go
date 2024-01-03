@@ -410,6 +410,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 
 		var overrideFn = func(_ interface{}, target interface{}) {
 			ctf_config.MustConfigOverrideChainlinkVersion(testConfig.ChainlinkImage, target)
+			ctf_config.MightConfigOverridePyroscopeKey(testConfig.Pyroscope, target)
 		}
 
 		cd := chainlink.NewWithOverride(i, map[string]any{

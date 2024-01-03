@@ -121,7 +121,7 @@ func TestDirectRequestReorg(t *testing.T) {
 		return
 	}
 
-	config, err := tc.GetConfig("Reorg", tc.Automation)
+	config, err := tc.GetConfig("Reorg", tc.DirectRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,6 +134,7 @@ func TestDirectRequestReorg(t *testing.T) {
 
 	var overrideFn = func(_ interface{}, target interface{}) {
 		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+		ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
 	}
 
 	chainlinkDeployment := chainlink.NewWithOverride(0, map[string]interface{}{

@@ -191,11 +191,6 @@ func TestLogTrigger(t *testing.T) {
 		PreventPodEviction: true,
 	})
 
-	if testEnvironment.WillUseRemoteRunner() {
-		err := loadedTestConfig.SetForRemoteRunner()
-		require.NoError(t, err, "Error setting env vars for remote runner")
-	}
-
 	testEnvironment.
 		AddHelm(ethereum.New(&ethereum.Props{
 			NetworkName: testNetwork.Name,
@@ -251,6 +246,7 @@ func TestLogTrigger(t *testing.T) {
 
 		var overrideFn = func(_ interface{}, target interface{}) {
 			ctf_config.MustConfigOverrideChainlinkVersion(loadedTestConfig.ChainlinkImage, target)
+			ctf_config.MightConfigOverridePyroscopeKey(loadedTestConfig.Pyroscope, target)
 		}
 
 		cd := chainlink.NewWithOverride(i, map[string]any{

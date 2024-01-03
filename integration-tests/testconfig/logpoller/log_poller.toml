@@ -46,3 +46,16 @@ experiment_count = 10
 [TestLogPollerWithChaosFixedDepth.LogPoller.Chaos]
 experiment_count = 10
 use_finality_tag = false
+
+# load test specific config
+[Load.LogPoller]
+[Load.LogPoller.General]
+generator = "looped"
+contracts = 200
+events_per_tx = 20
+use_finality_tag = true
+
+[Load.LogPoller.Looped]
+execution_count = 100
+min_emit_wait_time_ms = 200
+max_emit_wait_time_ms = 500

@@ -85,9 +85,6 @@ type OCRSoakTest struct {
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
 func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*OCRSoakTest, error) {
-	err := config.SetForRemoteRunner()
-	require.NoError(t, err, "Error setting config for remote runner")
-
 	test := &OCRSoakTest{
 		Config:                config,
 		OperatorForwarderFlow: forwarderFlow,
@@ -131,6 +128,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, testC
 
 	var overrideFn = func(_ interface{}, target interface{}) {
 		ctf_config.MustConfigOverrideChainlinkVersion(testConfig.ChainlinkImage, target)
+		ctf_config.MightConfigOverridePyroscopeKey(testConfig.Pyroscope, target)
 	}
 
 	cd := chainlink.NewWithOverride(0, map[string]any{

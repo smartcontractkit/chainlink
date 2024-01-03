@@ -2,7 +2,7 @@
 [Common]
 chainlink_node_funding = 0.5
 
-[Keeper]
+[Keeper.Common]
 registry_to_test = "2_1"
 number_of_registries = 1
 number_of_nodes = 6
