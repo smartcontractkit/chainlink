@@ -65,7 +65,7 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 		SELECT subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address
 		FROM %s
 		WHERE router_contract_address = $1
-		ORDER BY subscription_id DESC
+		ORDER BY subscription_id ASC
 		OFFSET $2
 		LIMIT $3;
 	`, tableName)

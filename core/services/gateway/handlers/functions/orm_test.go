@@ -60,7 +60,7 @@ func TestORM_GetSubscriptions(t *testing.T) {
 		results, err := orm.GetSubscriptions(0, 1)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
-		require.Equal(t, cachedSubscriptions[0], results[0])
+		require.Equal(t, cachedSubscriptions[1], results[0])
 	})
 
 	t.Run("fetch second page", func(t *testing.T) {
@@ -70,7 +70,7 @@ func TestORM_GetSubscriptions(t *testing.T) {
 		results, err := orm.GetSubscriptions(1, 5)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
-		require.Equal(t, cachedSubscriptions[1], results[0])
+		require.Equal(t, cachedSubscriptions[0], results[0])
 	})
 }
 
@@ -140,8 +140,8 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		results, err := orm.GetSubscriptions(0, 5)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(results), "incorrect results length")
-		require.Equal(t, expectedNotUpdated, results[0])
-		require.Equal(t, expectedUpdated, results[1])
+		require.Equal(t, expectedNotUpdated, results[1])
+		require.Equal(t, expectedUpdated, results[0])
 	})
 
 	t.Run("update a deleted subscription", func(t *testing.T) {
