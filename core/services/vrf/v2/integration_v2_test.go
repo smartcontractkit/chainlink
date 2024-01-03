@@ -1485,8 +1485,13 @@ func registerProvingKeyHelper(t *testing.T, uni coordinatorV2UniverseCommon, coo
 	// Register a proving key associated with the VRF job.
 	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
-	_, err = coordinator.RegisterProvingKey(
-		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
+	if uni.rootContract.Version() == vrfcommon.V2Plus {
+		_, err = coordinator.RegisterProvingKey(
+			uni.neil, nil, pair(secp256k1.Coordinates(p)))
+	} else {
+		_, err = coordinator.RegisterProvingKey(
+			uni.neil, &uni.nallory.From, pair(secp256k1.Coordinates(p)))
+	}
 	require.NoError(t, err)
 	uni.backend.Commit()
 }
@@ -1806,13 +1811,7 @@ func TestRequestCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
-	require.NoError(t, err)
-	uni.backend.Commit()
-
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey)
 	t.Run("non-proxied consumer", func(tt *testing.T) {
 		carol := uni.vrfConsumers[0]
 		carolContract := uni.consumerContracts[0]
@@ -1915,18 +1914,10 @@ func TestFulfillmentCost(t *testing.T) {
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	var vrfkey vrfkey.KeyV2
-	{
-		var err error
-		vrfkey, err = app.GetKeyStore().VRF().Create()
-		require.NoError(t, err)
-		p, err := vrfkey.PublicKey.Point()
-		require.NoError(t, err)
-		_, err = uni.rootContract.RegisterProvingKey(
-			uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
-		require.NoError(t, err)
-		uni.backend.Commit()
-	}
+	vrfkey, err := app.GetKeyStore().VRF().Create()
+	require.NoError(t, err)
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey)
+
 	var (
 		nonProxiedConsumerGasEstimate uint64
 		proxiedConsumerGasEstimate    uint64

@@ -17,6 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
+// simulate start without dialling
+func simulateStart(ctx context.Context, t *testing.T, c *client) {
+	require.NoError(t, c.StartOnce("Mock WSRPC Client", func() (err error) {
+		c.cache, err = c.cacheSet.Get(ctx, c)
+		return err
+	}))
+}
+
 var _ cache.CacheSet = &mockCacheSet{}
 
 type mockCacheSet struct{}
@@ -160,9 +168,8 @@ func Test_Client_LatestReport(t *testing.T) {
 		c.conn = conn
 		c.rawClient = wsrpcClient
 
-		// simulate start without dialling
-		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
 		servicetest.Run(t, cacheSet)
+		simulateStart(ctx, t, c)
 
 		for i := 0; i < 5; i++ {
 			r, err := c.LatestReport(ctx, req)
@@ -195,12 +202,8 @@ func Test_Client_LatestReport(t *testing.T) {
 		c.conn = conn
 		c.rawClient = wsrpcClient
 
-		// simulate start without dialling
-		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
-		var err error
 		servicetest.Run(t, cacheSet)
-		c.cache, err = cacheSet.Get(ctx, c)
-		require.NoError(t, err)
+		simulateStart(ctx, t, c)
 
 		for i := 0; i < 5; i++ {
 			r, err := c.LatestReport(ctx, req)
