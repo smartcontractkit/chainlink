@@ -336,12 +336,12 @@ jobs:
           log_targets=$log_targets
 
           [Logging.Loki]
-          loki_tenant_id="$LOKI_TENANT_ID"
-          loki_url="$LOKI_URL"
-          loki_basic_auth="$LOKI_BASIC_AUTH"
+          tenant_id="$LOKI_TENANT_ID"
+          url="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
 
           [Logging.Grafana]
-          grafana_url="$GRAFANA_URL"
+          url="$GRAFANA_URL"
           EOF
           
           echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV
@@ -609,12 +609,12 @@ jobs:
           log_targets=$log_targets
 
           [Logging.Loki]
-          loki_tenant_id="$LOKI_TENANT_ID"
-          loki_url="$LOKI_URL"
-          loki_basic_auth="$LOKI_BASIC_AUTH"
+          tenant_id="$LOKI_TENANT_ID"
+          url="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
 
           [Logging.Grafana]
-          grafana_url="$GRAFANA_URL"
+          url="$GRAFANA_URL"
           EOF
           
           echo "BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)" >> $GITHUB_ENV

@@ -48,11 +48,6 @@ func TestVRFV2Performance(t *testing.T) {
 	testConfig, err := tc.GetConfig(testType, tc.VRFv2)
 	require.NoError(t, err)
 
-	location, err := testConfig.Save()
-	require.NoError(t, err)
-
-	l.Warn().Str("Location", location).Msg("Test Config saved")
-
 	testReporter := &testreporters.VRFV2TestReporter{}
 	vrfv2Config := testConfig.VRFv2
 

@@ -50,11 +50,11 @@ type TestConfig struct {
 
 // Returns Grafana URL from Logging config
 func (c *TestConfig) GetGrafanaURL() (string, error) {
-	if c.Logging.Grafana == nil || c.Logging.Grafana.GrafanaUrl == nil {
+	if c.Logging.Grafana == nil || c.Logging.Grafana.Url == nil {
 		return "", errors.New("grafana url not set")
 	}
 
-	return *c.Logging.Grafana.GrafanaUrl, nil
+	return *c.Logging.Grafana.Url, nil
 }
 
 // Saves Test Config to a local file
