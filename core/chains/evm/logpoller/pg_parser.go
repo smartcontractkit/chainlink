@@ -33,10 +33,11 @@ func limitBy(limit int) string {
 // PgParserVisitor is a visitor that builds a postgres query and arguments from a QFilter
 // Keep in mind it's not designed to be thread safe so should not be used concurrently.
 type PgParserVisitor struct {
-	evmChainId      *big.Int
-	query           strings.Builder
-	args            map[string]any
-	errors          []error
+	evmChainId *big.Int
+	query      strings.Builder
+	args       map[string]any
+	errors     []error
+	// filterNameIndex is an increment used for avoiding name collision when filtering the same column by multiple values
 	filterNameIndex int
 }
 
@@ -92,7 +93,7 @@ func (sd SortDirection) pgString() string {
 	}
 }
 
-func (v *PgParserVisitor) visitAndFilter(node AndFilter) {
+func (v *PgParserVisitor) VisitAndFilter(node AndFilter) {
 	for i, filter := range node.filters {
 		if i > 0 {
 			v.query.WriteString(" AND ")
@@ -101,7 +102,7 @@ func (v *PgParserVisitor) visitAndFilter(node AndFilter) {
 	}
 }
 
-func (v *PgParserVisitor) visitAddressFilter(node AddressFilter) {
+func (v *PgParserVisitor) VisitAddressFilter(node AddressFilter) {
 	switch len(node.address) {
 	case 0:
 		v.errors = append(v.errors, errors.New("address filter must have at least one address signature"))
@@ -114,7 +115,7 @@ func (v *PgParserVisitor) visitAddressFilter(node AddressFilter) {
 	}
 }
 
-func (v *PgParserVisitor) visitEventSigFilter(node EventSigFilter) {
+func (v *PgParserVisitor) VisitEventSigFilter(node EventSigFilter) {
 	switch len(node.eventSig) {
 	case 0:
 		v.errors = append(v.errors, errors.New("event sig filter must have at least one event signature"))
@@ -127,7 +128,7 @@ func (v *PgParserVisitor) visitEventSigFilter(node EventSigFilter) {
 	}
 }
 
-func (v *PgParserVisitor) visitDataWordFilter(node DataWordFilter) {
+func (v *PgParserVisitor) VisitDataWordFilter(node DataWordFilter) {
 	argumentName, valueName := v.wordValueVariables()
 
 	v.query.WriteString(fmt.Sprintf(
@@ -140,18 +141,18 @@ func (v *PgParserVisitor) visitDataWordFilter(node DataWordFilter) {
 	v.args[valueName] = node.value.Bytes()
 }
 
-func (v *PgParserVisitor) visitConfirmationFilter(node ConfirmationFilter) {
+func (v *PgParserVisitor) VisitConfirmationFilter(node ConfirmationFilter) {
 	v.query.WriteString("block_number <= ")
 	v.query.WriteString(nestedBlockNumberQuery(node.confs))
 	v.args["confs"] = node.confs
 }
 
-func (v *PgParserVisitor) visitEvmChainIdFilter(node EvmChainIdFilter) {
+func (v *PgParserVisitor) VisitEvmChainIdFilter(node EvmChainIdFilter) {
 	v.query.WriteString("evm_chain_id = :evm_chain_id")
 	v.args["evm_chain_id"] = node.chainId
 }
 
-func (v *PgParserVisitor) visitTopicFilter(node TopicFilter) {
+func (v *PgParserVisitor) VisitTopicFilter(node TopicFilter) {
 	topicIndex, err := sanitizeTopicIndex(node.index)
 	if err != nil {
 		v.errors = append(v.errors, err)
@@ -164,7 +165,7 @@ func (v *PgParserVisitor) visitTopicFilter(node TopicFilter) {
 	v.args[topicValueName] = node.value.Bytes()
 }
 
-func (v *PgParserVisitor) visitTopicsFilter(node TopicsFilter) {
+func (v *PgParserVisitor) VisitTopicsFilter(node TopicsFilter) {
 	topicIndex, err := sanitizeTopicIndex(node.index)
 	if err != nil {
 		v.errors = append(v.errors, err)
@@ -175,14 +176,6 @@ func (v *PgParserVisitor) visitTopicsFilter(node TopicsFilter) {
 	v.query.WriteString(fmt.Sprintf("topics[:%s] = ANY(:%s)", topicIndexName, topicValueName))
 	v.args[topicIndexName] = topicIndex
 	v.args[topicValueName] = concatBytes(node.values)
-}
-
-func (v *PgParserVisitor) visitNamedFilter(node NamedFilter) {
-	v.filterNameIndex++
-	argumentValue := fmt.Sprintf("%s_%d", node.fieldName, v.filterNameIndex)
-
-	v.query.WriteString(fmt.Sprintf("%s %s :%s", node.fieldName, node.operator.pgString(), argumentValue))
-	v.args[argumentValue] = node.value
 }
 
 func (v *PgParserVisitor) topicVariables() (string, string) {
@@ -197,6 +190,26 @@ func (v *PgParserVisitor) wordValueVariables() (string, string) {
 	argumentName := fmt.Sprintf("word_index_%d", v.filterNameIndex)
 	valueName := fmt.Sprintf("word_value_%d", v.filterNameIndex)
 	return argumentName, valueName
+}
+
+func (v *PgParserVisitor) VisitBlockFilter(node BlockFilter) {
+	v.visitSimpleNameFilter("block_number", node.operator, node.block)
+}
+
+func (v *PgParserVisitor) VisitBlockTimestampFilter(node BlockTimestampFilter) {
+	v.visitSimpleNameFilter("block_timestamp", node.operator, node.timestamp)
+}
+
+func (v *PgParserVisitor) VisitTxHashFilter(node TxHashFilter) {
+	v.visitSimpleNameFilter("tx_hash", Eq, node.txHash.Bytes())
+}
+
+func (v *PgParserVisitor) visitSimpleNameFilter(fieldName string, operator ComparisonOperator, value interface{}) {
+	v.filterNameIndex++
+	argumentValue := fmt.Sprintf("%s_%d", fieldName, v.filterNameIndex)
+
+	v.query.WriteString(fmt.Sprintf("%s %s :%s", fieldName, operator.pgString(), argumentValue))
+	v.args[argumentValue] = value
 }
 
 func sanitizeTopicIndex(index int) (int, error) {

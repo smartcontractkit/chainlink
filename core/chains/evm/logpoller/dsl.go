@@ -82,7 +82,7 @@ func AppendedNewFilter(root *AndFilter, other ...QFilter) *AndFilter {
 }
 
 func (f *AndFilter) accept(visitor Visitor) {
-	visitor.visitAndFilter(*f)
+	visitor.VisitAndFilter(*f)
 }
 
 type EvmChainIdFilter struct {
@@ -94,7 +94,7 @@ func NewEvmChainIdFilter(chainId *big.Int) *EvmChainIdFilter {
 }
 
 func (f *EvmChainIdFilter) accept(visitor Visitor) {
-	visitor.visitEvmChainIdFilter(*f)
+	visitor.VisitEvmChainIdFilter(*f)
 }
 
 type AddressFilter struct {
@@ -106,7 +106,7 @@ func NewAddressFilter(address ...common.Address) *AddressFilter {
 }
 
 func (f *AddressFilter) accept(visitor Visitor) {
-	visitor.visitAddressFilter(*f)
+	visitor.VisitAddressFilter(*f)
 }
 
 type EventSigFilter struct {
@@ -118,7 +118,7 @@ func NewEventSigFilter(eventSig ...common.Hash) *EventSigFilter {
 }
 
 func (f *EventSigFilter) accept(visitor Visitor) {
-	visitor.visitEventSigFilter(*f)
+	visitor.VisitEventSigFilter(*f)
 }
 
 type DataWordFilter struct {
@@ -140,7 +140,7 @@ func NewDataWordLteFilter(index int, value common.Hash) *DataWordFilter {
 }
 
 func (f *DataWordFilter) accept(visitor Visitor) {
-	visitor.visitDataWordFilter(*f)
+	visitor.VisitDataWordFilter(*f)
 }
 
 type TopicFilter struct {
@@ -161,7 +161,7 @@ func NewTopicRangeFilter(index int, topicValueMin, topicValueMax common.Hash) *A
 }
 
 func (f *TopicFilter) accept(visitor Visitor) {
-	visitor.visitTopicFilter(*f)
+	visitor.VisitTopicFilter(*f)
 }
 
 type TopicsFilter struct {
@@ -174,7 +174,7 @@ func NewTopicsFilter(index int, values ...common.Hash) *TopicsFilter {
 }
 
 func (f *TopicsFilter) accept(visitor Visitor) {
-	visitor.visitTopicsFilter(*f)
+	visitor.VisitTopicsFilter(*f)
 }
 
 type ConfirmationFilter struct {
@@ -186,11 +186,11 @@ func NewConfirmationFilter(confs Confirmations) *ConfirmationFilter {
 }
 
 func (f *ConfirmationFilter) accept(visitor Visitor) {
-	visitor.visitConfirmationFilter(*f)
+	visitor.VisitConfirmationFilter(*f)
 }
 
-func NewBlockFilter(block int64, operator ComparisonOperator) *NamedFilter {
-	return NewNamedFilter("block_number", operator, block)
+func NewBlockFilter(block int64, operator ComparisonOperator) *BlockFilter {
+	return &BlockFilter{operator, block}
 }
 
 func NewBlockRangeFilter(start, end int64) *AndFilter {
@@ -200,40 +200,54 @@ func NewBlockRangeFilter(start, end int64) *AndFilter {
 	)
 }
 
-func NewBlockTimestampAfterFilter(after time.Time) *NamedFilter {
+type BlockFilter struct {
+	operator ComparisonOperator
+	block    int64
+}
+
+func (f *BlockFilter) accept(visitor Visitor) {
+	visitor.VisitBlockFilter(*f)
+}
+
+func NewBlockTimestampAfterFilter(after time.Time) *BlockTimestampFilter {
 	return NewBlockTimeStampFilter(after, Gt)
 }
 
-func NewBlockTimeStampFilter(timestamp time.Time, operator ComparisonOperator) *NamedFilter {
-	return NewNamedFilter("block_timestamp", operator, timestamp)
+func NewBlockTimeStampFilter(timestamp time.Time, operator ComparisonOperator) *BlockTimestampFilter {
+	return &BlockTimestampFilter{operator, timestamp}
 }
 
-func NewTxHashFilter(txHash common.Hash) *NamedFilter {
-	return NewNamedFilter("tx_hash", Eq, txHash)
-}
-
-type NamedFilter struct {
-	fieldName string
+type BlockTimestampFilter struct {
 	operator  ComparisonOperator
-	value     interface{}
+	timestamp time.Time
 }
 
-func NewNamedFilter(fieldName string, operator ComparisonOperator, value interface{}) *NamedFilter {
-	return &NamedFilter{fieldName: fieldName, operator: operator, value: value}
+func (f *BlockTimestampFilter) accept(visitor Visitor) {
+	visitor.VisitBlockTimestampFilter(*f)
 }
 
-func (f *NamedFilter) accept(visitor Visitor) {
-	visitor.visitNamedFilter(*f)
+func NewTxHashFilter(txHash common.Hash) *TxHashFilter {
+	return &TxHashFilter{txHash}
+}
+
+type TxHashFilter struct {
+	txHash common.Hash
+}
+
+func (f *TxHashFilter) accept(visitor Visitor) {
+	visitor.VisitTxHashFilter(*f)
 }
 
 type Visitor interface {
-	visitAndFilter(node AndFilter)
-	visitEvmChainIdFilter(node EvmChainIdFilter)
-	visitAddressFilter(node AddressFilter)
-	visitEventSigFilter(node EventSigFilter)
-	visitDataWordFilter(node DataWordFilter)
-	visitConfirmationFilter(node ConfirmationFilter)
-	visitTopicFilter(node TopicFilter)
-	visitTopicsFilter(node TopicsFilter)
-	visitNamedFilter(node NamedFilter)
+	VisitAndFilter(node AndFilter)
+	VisitEvmChainIdFilter(node EvmChainIdFilter)
+	VisitAddressFilter(node AddressFilter)
+	VisitEventSigFilter(node EventSigFilter)
+	VisitDataWordFilter(node DataWordFilter)
+	VisitTopicFilter(node TopicFilter)
+	VisitTopicsFilter(node TopicsFilter)
+	VisitBlockFilter(node BlockFilter)
+	VisitConfirmationFilter(node ConfirmationFilter)
+	VisitBlockTimestampFilter(node BlockTimestampFilter)
+	VisitTxHashFilter(node TxHashFilter)
 }
