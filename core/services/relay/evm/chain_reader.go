@@ -97,7 +97,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 				err = cr.addEvent(contractName, typeName, contractAbi, chainReaderDefinition)
 			default:
 				return fmt.Errorf(
-					"%w: invalid chain reader definition read type: %d",
+					"%w: invalid chain reader definition read type: %s",
 					commontypes.ErrInvalidConfig,
 					chainReaderDefinition.ReadType)
 			}

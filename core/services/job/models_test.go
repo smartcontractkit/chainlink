@@ -108,6 +108,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 						ChainReaderDefinitions: map[string]evmtypes.ChainReaderDefinition{
 							"LatestTransmissionDetails": {
 								ChainSpecificName: "latestTransmissionDetails",
+								ReadType:          evmtypes.Method,
 								OutputModifications: codec.ModifiersConfig{
 									&codec.RenameModifierConfig{
 										Fields: map[string]string{
@@ -119,7 +120,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 							},
 							"LatestRoundRequested": {
 								ChainSpecificName: "RoundRequested",
-								ReadType:          1,
+								ReadType:          evmtypes.Event,
 							},
 						},
 					},

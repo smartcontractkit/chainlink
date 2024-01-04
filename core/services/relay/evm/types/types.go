@@ -43,7 +43,7 @@ type ChainReaderDefinition struct {
 	//TODO test this!
 	CacheEnabled bool `json:"cacheEnabled" toml:"cacheEnabled,omitempty"`
 	// chain specific contract method name or event type.
-	ChainSpecificName string `json:"chainSpecificName" toml:"chainSpecificName"`
+	ChainSpecificName   string `json:"chainSpecificName" toml:"chainSpecificName"`
 	ReadType            `json:"readType" toml:"readType,omitempty"`
 	InputModifications  codec.ModifiersConfig `json:"input_modifications" toml:"inputModifications,omitempty"`
 	OutputModifications codec.ModifiersConfig `json:"output_modifications" toml:"outputModifications,omitempty"`
@@ -52,11 +52,11 @@ type ChainReaderDefinition struct {
 	EventInputFields []string `json:"eventInputFields"`
 }
 
-type ReadType int64
+type ReadType string
 
 const (
-	Method ReadType = 0
-	Event  ReadType = 1
+	Method ReadType = "method"
+	Event  ReadType = "event"
 )
 
 // TODO toml?
