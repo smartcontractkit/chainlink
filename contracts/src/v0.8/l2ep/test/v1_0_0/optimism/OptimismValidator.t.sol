@@ -5,7 +5,7 @@ import {MockOptimismL1CrossDomainMessenger} from "../../../../tests/MockOptimism
 import {MockOptimismL2CrossDomainMessenger} from "../../../../tests/MockOptimismL2CrossDomainMessenger.sol";
 import {OptimismSequencerUptimeFeed} from "../../../dev/optimism/OptimismSequencerUptimeFeed.sol";
 import {OptimismValidator} from "../../../dev/optimism/OptimismValidator.sol";
-import {L2EPTest} from "../L2EPTest.sol";
+import {L2EPTest} from "../L2EPTest.t.sol";
 
 // Use this command from the /contracts directory to run this test file:
 //

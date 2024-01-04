@@ -5,7 +5,7 @@ import {MockScrollCrossDomainMessenger} from "../../mocks/scroll/MockScrollCross
 import {ScrollCrossDomainGovernor} from "../../../dev/scroll/ScrollCrossDomainGovernor.sol";
 import {MultiSend} from "../../../../../v0.8/vendor/MultiSend.sol";
 import {Greeter} from "../../../../../v0.8/tests/Greeter.sol";
-import {L2EPTest} from "../L2EPTest.sol";
+import {L2EPTest} from "../L2EPTest.t.sol";
 
 // Use this command from the /contracts directory to run this test file:
 //

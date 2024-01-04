@@ -30,9 +30,9 @@ Hardhat test cases should be considered deprecated at this point)
 
 ### Testing Conventions and Methodology
 
-By convention, each testing file should end in `.t.sol` (this has no effect on
-Foundry, but it is a standard that other projects have also adopted). Each
-testing file in this folder follows a similar structure.
+By convention, each testing file should end in `.t.sol` (this is a standard
+that other projects have also adopted). Each testing file in this folder
+follows a similar structure.
 
 ```text
 TestFile.t.sol

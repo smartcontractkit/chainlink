@@ -5,7 +5,7 @@ import {MockScrollL1CrossDomainMessenger} from "../../mocks/scroll/MockScrollL1C
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/scroll/MockScrollL2CrossDomainMessenger.sol";
 import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUptimeFeed.sol";
 import {FeedConsumer} from "../../../../../v0.8/tests/FeedConsumer.sol";
-import {L2EPTest} from "../L2EPTest.sol";
+import {L2EPTest} from "../L2EPTest.t.sol";
 
 // Use this command from the /contracts directory to run this test file:
 //

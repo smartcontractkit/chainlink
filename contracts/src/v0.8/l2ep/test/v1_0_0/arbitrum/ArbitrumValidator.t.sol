@@ -7,7 +7,7 @@ import {ArbitrumSequencerUptimeFeed} from "../../../dev/arbitrum/ArbitrumSequenc
 import {MockArbitrumInbox} from "../../../../../v0.8/tests/MockArbitrumInbox.sol";
 import {ArbitrumValidator} from "../../../dev/arbitrum/ArbitrumValidator.sol";
 import {MockAggregatorV2V3} from "../../mocks/MockAggregatorV2V3.sol";
-import {L2EPTest} from "../L2EPTest.sol";
+import {L2EPTest} from "../L2EPTest.t.sol";
 
 // Use this command from the /contracts directory to run this test file:
 //

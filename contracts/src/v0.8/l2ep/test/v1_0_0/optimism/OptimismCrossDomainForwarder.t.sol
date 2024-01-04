@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {OptimismCrossDomainForwarder} from "../../../dev/optimism/OptimismCrossDomainForwarder.sol";
 import {MockOVMCrossDomainMessenger} from "../../mocks/optimism/MockOVMCrossDomainMessenger.sol";
 import {Greeter} from "../../../../../v0.8/tests/Greeter.sol";
-import {L2EPTest} from "../L2EPTest.sol";
+import {L2EPTest} from "../L2EPTest.t.sol";
 
 // Use this command from the /contracts directory to run this test file:
 //
