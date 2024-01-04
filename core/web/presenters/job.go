@@ -8,7 +8,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
@@ -273,15 +273,15 @@ type VRFSpec struct {
 	CoordinatorAddress            ethkey.EIP55Address   `json:"coordinatorAddress"`
 	PublicKey                     secp256k1.PublicKey   `json:"publicKey"`
 	FromAddresses                 []ethkey.EIP55Address `json:"fromAddresses"`
-	PollPeriod                    sqlutil.Duration      `json:"pollPeriod"`
+	PollPeriod                    commonconfig.Duration `json:"pollPeriod"`
 	MinIncomingConfirmations      uint32                `json:"confirmations"`
 	CreatedAt                     time.Time             `json:"createdAt"`
 	UpdatedAt                     time.Time             `json:"updatedAt"`
 	EVMChainID                    *big.Big              `json:"evmChainID"`
 	ChunkSize                     uint32                `json:"chunkSize"`
-	RequestTimeout                sqlutil.Duration      `json:"requestTimeout"`
-	BackoffInitialDelay           sqlutil.Duration      `json:"backoffInitialDelay"`
-	BackoffMaxDelay               sqlutil.Duration      `json:"backoffMaxDelay"`
+	RequestTimeout                commonconfig.Duration `json:"requestTimeout"`
+	BackoffInitialDelay           commonconfig.Duration `json:"backoffInitialDelay"`
+	BackoffMaxDelay               commonconfig.Duration `json:"backoffMaxDelay"`
 	GasLanePrice                  *assets.Wei           `json:"gasLanePrice"`
 	RequestedConfsDelay           int64                 `json:"requestedConfsDelay"`
 	VRFOwnerAddress               *ethkey.EIP55Address  `json:"vrfOwnerAddress,omitempty"`
@@ -296,15 +296,15 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 		CoordinatorAddress:            spec.CoordinatorAddress,
 		PublicKey:                     spec.PublicKey,
 		FromAddresses:                 spec.FromAddresses,
-		PollPeriod:                    sqlutil.MustMakeDuration(spec.PollPeriod),
+		PollPeriod:                    commonconfig.MustMakeDuration(spec.PollPeriod),
 		MinIncomingConfirmations:      spec.MinIncomingConfirmations,
 		CreatedAt:                     spec.CreatedAt,
 		UpdatedAt:                     spec.UpdatedAt,
 		EVMChainID:                    spec.EVMChainID,
 		ChunkSize:                     spec.ChunkSize,
-		RequestTimeout:                sqlutil.MustMakeDuration(spec.RequestTimeout),
-		BackoffInitialDelay:           sqlutil.MustMakeDuration(spec.BackoffInitialDelay),
-		BackoffMaxDelay:               sqlutil.MustMakeDuration(spec.BackoffMaxDelay),
+		RequestTimeout:                commonconfig.MustMakeDuration(spec.RequestTimeout),
+		BackoffInitialDelay:           commonconfig.MustMakeDuration(spec.BackoffInitialDelay),
+		BackoffMaxDelay:               commonconfig.MustMakeDuration(spec.BackoffMaxDelay),
 		GasLanePrice:                  spec.GasLanePrice,
 		RequestedConfsDelay:           spec.RequestedConfsDelay,
 		VRFOwnerAddress:               spec.VRFOwnerAddress,

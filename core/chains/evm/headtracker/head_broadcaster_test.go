@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func waitHeadBroadcasterToStart(t *testing.T, hb types.HeadBroadcaster) {
@@ -48,7 +47,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].HeadTracker.SamplingInterval = &sqlutil.Duration{}
+		c.EVM[0].HeadTracker.SamplingInterval = &commonconfig.Duration{}
 	})
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	db := pgtest.NewSqlxDB(t)

@@ -8,13 +8,13 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ValidationConfig interface {
-	DefaultHTTPTimeout() sqlutil.Duration
+	DefaultHTTPTimeout() commonconfig.Duration
 }
 
 func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, error) {

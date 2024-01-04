@@ -20,7 +20,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -65,7 +65,7 @@ type (
 
 	Config interface {
 		DefaultHTTPLimit() int64
-		DefaultHTTPTimeout() sqlutil.Duration
+		DefaultHTTPTimeout() commonconfig.Duration
 		MaxRunDuration() time.Duration
 		ReaperInterval() time.Duration
 		ReaperThreshold() time.Duration

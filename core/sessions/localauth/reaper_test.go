@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -18,12 +18,12 @@ import (
 
 type sessionReaperConfig struct{}
 
-func (c sessionReaperConfig) SessionTimeout() sqlutil.Duration {
-	return sqlutil.MustMakeDuration(42 * time.Second)
+func (c sessionReaperConfig) SessionTimeout() commonconfig.Duration {
+	return commonconfig.MustMakeDuration(42 * time.Second)
 }
 
-func (c sessionReaperConfig) SessionReaperExpiration() sqlutil.Duration {
-	return sqlutil.MustMakeDuration(142 * time.Second)
+func (c sessionReaperConfig) SessionReaperExpiration() commonconfig.Duration {
+	return commonconfig.MustMakeDuration(142 * time.Second)
 }
 
 func TestSessionReaper_ReapSessions(t *testing.T) {

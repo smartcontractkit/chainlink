@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 )
@@ -10,7 +10,7 @@ type V2 interface {
 	Enabled() bool
 	AnnounceAddresses() []string
 	DefaultBootstrappers() (locators []ocrcommontypes.BootstrapperLocator)
-	DeltaDial() sqlutil.Duration
-	DeltaReconcile() sqlutil.Duration
+	DeltaDial() commonconfig.Duration
+	DeltaReconcile() commonconfig.Duration
 	ListenAddresses() []string
 }

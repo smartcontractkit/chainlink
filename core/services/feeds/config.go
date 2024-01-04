@@ -3,11 +3,11 @@ package feeds
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 type JobConfig interface {
-	DefaultHTTPTimeout() sqlutil.Duration
+	DefaultHTTPTimeout() commonconfig.Duration
 }
 
 type InsecureConfig interface {

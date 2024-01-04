@@ -13,7 +13,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
@@ -358,12 +357,12 @@ func (g *generalConfig) AutoPprofCPUProfileRate() int {
 	return int(*g.c.AutoPprof.CPUProfileRate)
 }
 
-func (g *generalConfig) AutoPprofGatherDuration() sqlutil.Duration {
-	return sqlutil.MustMakeDuration(g.c.AutoPprof.GatherDuration.Duration())
+func (g *generalConfig) AutoPprofGatherDuration() commonconfig.Duration {
+	return commonconfig.MustMakeDuration(g.c.AutoPprof.GatherDuration.Duration())
 }
 
-func (g *generalConfig) AutoPprofGatherTraceDuration() sqlutil.Duration {
-	return sqlutil.MustMakeDuration(g.c.AutoPprof.GatherTraceDuration.Duration())
+func (g *generalConfig) AutoPprofGatherTraceDuration() commonconfig.Duration {
+	return commonconfig.MustMakeDuration(g.c.AutoPprof.GatherTraceDuration.Duration())
 }
 
 func (g *generalConfig) AutoPprofGoroutineThreshold() int {
@@ -386,7 +385,7 @@ func (g *generalConfig) AutoPprofMutexProfileFraction() int {
 	return int(*g.c.AutoPprof.MutexProfileFraction)
 }
 
-func (g *generalConfig) AutoPprofPollInterval() sqlutil.Duration {
+func (g *generalConfig) AutoPprofPollInterval() commonconfig.Duration {
 	return *g.c.AutoPprof.PollInterval
 }
 

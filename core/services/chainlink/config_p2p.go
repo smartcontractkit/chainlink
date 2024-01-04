@@ -1,7 +1,7 @@
 package chainlink
 
 import (
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -59,19 +59,19 @@ func (v *p2pv2) DefaultBootstrappers() (locators []commontypes.BootstrapperLocat
 	return nil
 }
 
-func (v *p2pv2) DeltaDial() sqlutil.Duration {
+func (v *p2pv2) DeltaDial() commonconfig.Duration {
 	if d := v.c.DeltaDial; d != nil {
 		return *d
 	}
-	return sqlutil.Duration{}
+	return commonconfig.Duration{}
 }
 
-func (v *p2pv2) DeltaReconcile() sqlutil.Duration {
+func (v *p2pv2) DeltaReconcile() commonconfig.Duration {
 	if d := v.c.DeltaReconcile; d != nil {
 		return *d
 
 	}
-	return sqlutil.Duration{}
+	return commonconfig.Duration{}
 }
 
 func (v *p2pv2) ListenAddresses() []string {

@@ -8,7 +8,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 )
 
@@ -86,10 +86,10 @@ type PerformanceTestConfig struct {
 	NumberOfSubToCreate int `toml:"number_of_sub_to_create"`
 
 	RPS int64 `toml:"rps"`
-	//Duration *sqlutil.Duration `toml:"duration"`
-	RateLimitUnitDuration                     *sqlutil.Duration `toml:"rate_limit_unit_duration"`
-	RandomnessRequestCountPerRequest          uint16            `toml:"randomness_request_count_per_request"`
-	RandomnessRequestCountPerRequestDeviation uint16            `toml:"randomness_request_count_per_request_deviation"`
+	//Duration *commonconfig.Duration `toml:"duration"`
+	RateLimitUnitDuration                     *commonconfig.Duration `toml:"rate_limit_unit_duration"`
+	RandomnessRequestCountPerRequest          uint16                 `toml:"randomness_request_count_per_request"`
+	RandomnessRequestCountPerRequestDeviation uint16                 `toml:"randomness_request_count_per_request_deviation"`
 }
 
 func ReadConfig() (*PerformanceConfig, error) {

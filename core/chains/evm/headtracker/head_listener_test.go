@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -39,7 +39,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// no need to test head timeouts here
-		c.EVM[0].NoNewHeadsThreshold = &sqlutil.Duration{}
+		c.EVM[0].NoNewHeadsThreshold = &commonconfig.Duration{}
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
@@ -100,7 +100,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].NoNewHeadsThreshold = sqlutil.MustNewDuration(time.Second)
+		c.EVM[0].NoNewHeadsThreshold = commonconfig.MustNewDuration(time.Second)
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
