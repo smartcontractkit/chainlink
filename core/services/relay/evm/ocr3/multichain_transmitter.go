@@ -1,9 +1,8 @@
-package evm
+package ocr3
 
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -15,6 +14,9 @@ type MultichainMeta interface {
 	GetDestinationChainID() string
 }
 
+// multichainTransmitterOCR3 is a transmitter that can transmit to multiple chains.
+// It uses the information in the MultichainMeta to determine which chain to transmit to.
+// Note that this would only work with the appropriate multi-chain config tracker implementation.
 type multichainTransmitterOCR3[RI MultichainMeta] struct {
 	transmitters map[string]ocr3types.ContractTransmitter[RI]
 	lp           logpoller.LogPoller
@@ -43,7 +45,7 @@ func (m *multichainTransmitterOCR3[RI]) FromAccount() (types.Account, error) {
 		}
 		accounts = append(accounts, string(account))
 	}
-	return types.Account(strings.Join(accounts, ",")), nil
+	return types.Account(joinTransmitters(accounts)), nil
 }
 
 // Transmit implements ocr3types.ContractTransmitter.

@@ -1,4 +1,4 @@
-package evm
+package ocr3
 
 import (
 	"context"
@@ -7,14 +7,31 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
+
+type Transmitter interface {
+	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
+	FromAddress() gethcommon.Address
+}
+
+type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
+
+func reportToEvmTxMetaNoop([]byte) (*txmgr.TxMeta, error) {
+	return nil, nil
+}
+
+func transmitterFilterName(addr common.Address) string {
+	return logpoller.FilterName("OCR3 ContractTransmitter", addr.String())
+}
 
 var _ ocr3types.ContractTransmitter[any] = &contractTransmitterOCR3[any]{}
 
