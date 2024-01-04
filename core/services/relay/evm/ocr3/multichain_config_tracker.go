@@ -7,15 +7,18 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/no_op_ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var (
@@ -146,7 +149,6 @@ func (m *multichainConfigTracker) LatestConfig(ctx context.Context, changedInBlo
 		return ocrtypes.ContractConfig{}, err
 	}
 	if len(lgs) == 0 {
-		// TODO: fallback to RPC call?
 		return ocrtypes.ContractConfig{}, fmt.Errorf("no logs found for config on contract %s (chain %s) at block %d", m.contractAddresses[m.masterChain].Hex(), m.clients[m.masterChain].ConfiguredChainID().String(), changedInBlock)
 	}
 	masterConfig, err := configFromLog(lgs[len(lgs)-1].Data)
@@ -162,18 +164,18 @@ func (m *multichainConfigTracker) LatestConfig(ctx context.Context, changedInBlo
 			continue
 		}
 
-		lgs, err := lp.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, m.contractAddresses[id], pg.WithParentCtx(ctx))
-		if err != nil {
-			return ocrtypes.ContractConfig{}, err
+		lgs, err2 := lp.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, m.contractAddresses[id], pg.WithParentCtx(ctx))
+		if err2 != nil {
+			return ocrtypes.ContractConfig{}, err2
 		}
 
 		if len(lgs) == 0 {
 			return ocrtypes.ContractConfig{}, fmt.Errorf("no logs found for config on contract %s (chain %s) at block %d", m.contractAddresses[id].Hex(), m.clients[id].ConfiguredChainID().String(), changedInBlock)
 		}
 
-		configSet, err := configFromLog(lgs[len(lgs)-1].Data)
-		if err != nil {
-			return ocrtypes.ContractConfig{}, err
+		configSet, err2 := configFromLog(lgs[len(lgs)-1].Data)
+		if err2 != nil {
+			return ocrtypes.ContractConfig{}, err2
 		}
 		followerConfigs = append(followerConfigs, configSet)
 	}
@@ -192,15 +194,24 @@ func (m *multichainConfigTracker) LatestConfigDetails(ctx context.Context) (chan
 	latest, err := m.logPollers[m.masterChain].LatestLogByEventSigWithConfs(ConfigSet, m.contractAddresses[m.masterChain], 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// TODO: try eth-call to get the config
-			return 0, ocrtypes.ConfigDigest{}, err
+			return m.callLatestConfigDetails(ctx, m.masterChain)
 		}
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
 	masterConfig, err := configFromLog(latest.Data)
 	if err != nil {
-		return 0, ocrtypes.ConfigDigest{}, err
+		return 0, ocrtypes.ConfigDigest{}, fmt.Errorf("failed to unpack latest config details: %w", err)
 	}
 
 	return uint64(latest.BlockNumber), masterConfig.ConfigDigest, nil
+}
+
+func (m *multichainConfigTracker) callLatestConfigDetails(ctx context.Context, id relay.ID) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+	lcd, err := m.contracts[id].LatestConfigDetails(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return 0, ocrtypes.ConfigDigest{}, fmt.Errorf("failed to get latest config details: %w", err)
+	}
+	return uint64(lcd.BlockNumber), lcd.ConfigDigest, nil
 }
