@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-import "../../../../../v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Address.sol";
+import {Address} from "../../../../../v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Address.sol";
 import {IScrollMessenger} from "@scroll-tech/contracts/libraries/IScrollMessenger.sol";
 
 contract MockScrollCrossDomainMessenger is IScrollMessenger {
-  address internal mockMessageSender;
+  address internal s_mockMessageSender;
 
   constructor(address sender) {
-    mockMessageSender = sender;
+    s_mockMessageSender = sender;
   }
 
   function xDomainMessageSender() external view override returns (address) {
-    return mockMessageSender;
+    return s_mockMessageSender;
   }
 
   function _setMockMessageSender(address sender) external {
-    mockMessageSender = sender;
+    s_mockMessageSender = sender;
   }
 
   /// *****************************
@@ -36,4 +36,6 @@ contract MockScrollCrossDomainMessenger is IScrollMessenger {
   function sendMessage(address _target, uint256, bytes calldata _message, uint256, address) external payable override {
     Address.functionCall(_target, _message, "sendMessage reverted");
   }
+
 }
+
