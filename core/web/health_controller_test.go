@@ -62,7 +62,7 @@ func TestHealthController_Health_status(t *testing.T) {
 		{
 			name:   "not ready",
 			ready:  false,
-			status: http.StatusServiceUnavailable,
+			status: http.StatusMultiStatus,
 		},
 		{
 			name:   "ready",
@@ -118,7 +118,7 @@ func TestHealthController_Health_body(t *testing.T) {
 			client := app.NewHTTPClient(nil)
 			resp, cleanup := client.Get(tc.path, tc.headers)
 			t.Cleanup(cleanup)
-			assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+			assert.Equal(t, http.StatusMultiStatus, resp.StatusCode)
 			body, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
 			if tc.expBody == bodyJSON {
