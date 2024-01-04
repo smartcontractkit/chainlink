@@ -18,11 +18,12 @@ pipelines:
   # You can run this pipeline via `devspace deploy` (or `devspace run-pipeline deploy`)
   deploy:
     run: |-
-      run_dependencies --all                            # 1. Deploy any projects this project needs (see "dependencies")
-      ensure_pull_secrets --all                         # 2. Ensure pull secrets
-      build_images --all -t $(git rev-parse --short HEAD)    # 3. Build, tag (git commit hash) and push all images (see "images")
-      create_deployments --all                          # 5. Deploy Helm charts and manifests specfied as "deployments"
+      run_dependencies --all                           
+      ensure_pull_secrets --all                         
+      build_images ---var DOCKER_DEFAULT_PLATFORM=linux/amd64  --all -t $(git rev-parse --short HEAD)
       kubectl annotate namespace ${DEVSPACE_NAMESPACE} janitor/ttl=${NS_TTL}
+      kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib
+      create_deployments --all                          
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
   purge:
     run: |-
