@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/core/txpool"
+	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
@@ -486,9 +486,9 @@ type GasEstimator struct {
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
-	if uint64(*e.BumpPercent) < txpool.DefaultConfig.PriceBump {
+	if uint64(*e.BumpPercent) < legacypool.DefaultConfig.PriceBump {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "BumpPercent", Value: *e.BumpPercent,
-			Msg: fmt.Sprintf("may not be less than Geth's default of %d", txpool.DefaultConfig.PriceBump)})
+			Msg: fmt.Sprintf("may not be less than Geth's default of %d", legacypool.DefaultConfig.PriceBump)})
 	}
 	if e.TipCapDefault.Cmp(e.TipCapMin) < 0 {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "TipCapDefault", Value: e.TipCapDefault,
