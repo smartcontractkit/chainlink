@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Test} from "foundry-lib/forge-std/src/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
 contract L2EPTest is Test {
   function assertGasUsageIsCloseTo(
