@@ -71,13 +71,48 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ github.head_ref || github.ref_name }}
+      - name: Prepare Base64 TOML config
+        env:
+          SELECTED_NETWORKS: ${{ matrix.tests.network }}
+          UPGRADE_IMAGE: ${{ env.CHAINLINK_IMAGE }}          
+          UPGRADE_VERSION: ${{ github.sha }}
+        run: |
+          echo ::add-mask::$UPGRADE_IMAGE
+          convert_to_toml_array() {
+            local IFS=','
+            local input_array=($1)
+            local toml_array_format="["
+        
+            for element in "${input_array[@]}"; do
+                toml_array_format+="\"$element\","
+            done
+        
+            toml_array_format="${toml_array_format%,}]"
+            echo "$toml_array_format"
+          }
+        
+          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")          
+
+          cat << EOF > config.toml
+          [Network]
+          selected_networks=$selected_networks
+          
+          [ChainlinkImage]
+          image="public.ecr.aws/chainlink/chainlink"
+          version="latest"
+
+          [ChainlinkUpgradeImage]
+          image="$UPGRADE_IMAGE"
+          version="$UPGRADE_VERSION"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         env:
-          SELECTED_NETWORKS: ${{ matrix.tests.network }}
           TEST_SUITE: ${{ matrix.tests.suite }}
-          UPGRADE_VERSION: ${{ github.sha }}
-          UPGRADE_IMAGE: ${{ env.CHAINLINK_IMAGE }}
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download

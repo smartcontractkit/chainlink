@@ -20,7 +20,6 @@ env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   MOD_CACHE_VERSION: 2
-  CHAINLINK_NODE_FUNDING: .5
 
   CHAINLINK_COMMIT_SHA: ${{ github.sha }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
@@ -127,6 +126,55 @@ jobs:
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           binary_name: tests
+      - name: Prepare Base64 network config
+        run: |
+          cat << EOF > network_config.toml
+          [RpcHttpUrls]
+          sepolia = [$(convert_to_toml_array "$SEPOLIA_HTTP_URLS")]
+          bsc_testnet = [$(convert_to_toml_array "$BSC_TESTNET_HTTP_URLS")]
+          optimism_sepolia = [$(convert_to_toml_array "$OPTIMISM_SEPOLIA_HTTP_URLS")]
+          arbitrum_sepolia = [$(convert_to_toml_array "$ARBITRUM_SEPOLIA_HTTP_URLS")]
+          base_goerli = [$(convert_to_toml_array "$BASE_GOERLI_HTTP_URLS")]
+          base_sepolia = [$(convert_to_toml_array "$BASE_SEPOLIA_HTTP_URLS")]
+          polygon_mumbai = [$(convert_to_toml_array "$POLYGON_MUMBAI_HTTP_URLS")]
+          avalanche_fuji = [$(convert_to_toml_array "$AVALANCHE_FUJI_HTTP_URLS")]
+          fantom_testnet = [$(convert_to_toml_array "$FANTOM_TESTNET_HTTP_URLS")]
+          celo_alfajores = [$(convert_to_toml_array "$CELO_ALFAJORES_HTTP_URLS")]
+          scroll_sepolia = [$(convert_to_toml_array "$SCROLL_SEPOLIA_HTTP_URLS")]
+          linea_goerli = [$(convert_to_toml_array "$LINEA_GOERLI_HTTP_URLS")]
+          
+          [RpcWsUrls]
+          sepolia = [$(convert_to_toml_array "$SEPOLIA_URLS")]
+          bsc_testnet = [$(convert_to_toml_array "$BSC_TESTNET_URLS")]
+          optimism_sepolia = [$(convert_to_toml_array "$OPTIMISM_SEPOLIA_URLS")]
+          arbitrum_sepolia = [$(convert_to_toml_array "$ARBITRUM_SEPOLIA_URLS")]
+          base_goerli = [$(convert_to_toml_array "$BASE_GOERLI_URLS")]
+          base_sepolia = [$(convert_to_toml_array "$BASE_SEPOLIA_URLS")]
+          polygon_mumbai = [$(convert_to_toml_array "$POLYGON_MUMBAI_URLS")]
+          avalanche_fuji = [$(convert_to_toml_array "$AVALANCHE_FUJI_URLS")]
+          fantom_testnet = [$(convert_to_toml_array "$FANTOM_TESTNET_URLS")]
+          celo_alfajores = [$(convert_to_toml_array "$CELO_ALFAJORES_URLS")]
+          scroll_sepolia = [$(convert_to_toml_array "$SCROLL_SEPOLIA_URLS")]
+          linea_goerli = [$(convert_to_toml_array "$LINEA_GOERLI_URLS")]
+          
+          [WalletKeys]
+          sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
+          bsc_testnet = [$(convert_to_toml_array "$EVM_KEYS")]
+          optimism_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
+          arbitrum_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
+          base_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
+          base_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
+          polygon_mumbai = [$(convert_to_toml_array "$EVM_KEYS")]
+          avalanche_fuji = [$(convert_to_toml_array "$EVM_KEYS")]
+          fantom_testnet = [$(convert_to_toml_array "$EVM_KEYS")]
+          celo_alfajores = [$(convert_to_toml_array "$EVM_KEYS")]
+          scroll_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
+          linea_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
+          EOF
+          
+          BASE64_NETWORK_CONFIG=$(cat network_config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_NETWORK_CONFIG
+          echo "BASE64_NETWORK_CONFIG=$BASE64_NETWORK_CONFIG" >> $GITHUB_ENV        
 
   # End Build Test Dependencies
 
@@ -233,8 +281,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: SEPOLIA
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -253,12 +299,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["sepolia"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -285,8 +360,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: BSC_TESTNET
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -305,12 +378,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-bsc-testnet
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["bsc_testnet"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV        
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -335,8 +437,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: OPTIMISM_SEPOLIA
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -355,12 +455,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["optimism_sepolia"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -385,8 +514,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: ARBITRUM_SEPOLIA
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -405,12 +532,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["arbitrum_sepolia"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV                   
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -435,8 +591,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: BASE_GOERLI
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -451,12 +605,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-goerli
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["base_goerli"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -481,8 +664,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: BASE_SEPOLIA
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -497,12 +678,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["base_sepolia"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -527,8 +737,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: POLYGON_MUMBAI
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -547,12 +755,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-polygon-mumbai
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["polygon_mumbai"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV           
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -577,8 +814,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: AVALANCHE_FUJI
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -597,12 +832,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-avalanche-fuji
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["avalanche_fuji"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -627,8 +891,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: FANTOM_TESTNET
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -647,12 +909,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-fantom-testnet
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["fantom_testnet"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -677,8 +968,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: CELO_ALFAJORES
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -693,12 +982,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-celo-alfajores
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["celo_alfajores"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -725,8 +1043,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: SCROLL_SEPOLIA
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -741,12 +1057,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-scroll-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["scroll_sepolia"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -771,8 +1116,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: LINEA_GOERLI
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -787,12 +1130,41 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-linea-goerli
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+        run: |
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+          
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+          
+          [Network]
+          selected_networks=["linea_goerli"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+          
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests

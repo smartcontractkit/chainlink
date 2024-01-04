@@ -1,3 +1,4 @@
+# NEEDS ADJUSTING TO TOML CONFIG BEFORE USING!!
 name: E2E Functions staging tests
 
 on:
