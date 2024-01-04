@@ -30,7 +30,6 @@ type expected struct {
 }
 
 func TestUSDCClientMonitoring(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		server   *httptest.Server
@@ -52,7 +51,7 @@ func TestUSDCClientMonitoring(t *testing.T) {
 			requests: 26,
 			expected: []expected{
 				{"200", "true", 0},
-				{"429", "false", 26},
+				{"429", "false", 1},
 			},
 		},
 	}
@@ -90,7 +89,9 @@ func testMonitoring(t *testing.T, name string, server *httptest.Server, requests
 	require.NotNil(t, tokenDataReader)
 
 	for i := 0; i < requests; i++ {
-		_, _ = tokenDataReader.ReadTokenData(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{})
+		_, _ = tokenDataReader.ReadTokenData(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+			EVM2EVMMessage: internal.EVM2EVMMessage{TokenAmounts: make([]internal.TokenAmount, 1)},
+		}, 0)
 	}
 
 	// Check that the metrics are updated as expected.

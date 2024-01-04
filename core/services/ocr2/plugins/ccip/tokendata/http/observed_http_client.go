@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -49,20 +50,20 @@ func NewObservedIHttpClientWithMetric(origin IHttpClient, histogram *prometheus.
 	}
 }
 
-func (o *ObservedIHttpClient) Get(ctx context.Context, url string, timeout time.Duration) ([]byte, int, error) {
-	return withObservedHttpClient(o.histogram, func() ([]byte, int, error) {
+func (o *ObservedIHttpClient) Get(ctx context.Context, url string, timeout time.Duration) ([]byte, int, http.Header, error) {
+	return withObservedHttpClient(o.histogram, func() ([]byte, int, http.Header, error) {
 		return o.IHttpClient.Get(ctx, url, timeout)
 	})
 }
 
-func withObservedHttpClient[T any](histogram *prometheus.HistogramVec, contract func() (T, int, error)) (T, int, error) {
+func withObservedHttpClient[T any](histogram *prometheus.HistogramVec, contract func() (T, int, http.Header, error)) (T, int, http.Header, error) {
 	contractExecutionStarted := time.Now()
-	value, status, err := contract()
+	value, status, headers, err := contract()
 	histogram.
 		WithLabelValues(
 			strconv.FormatInt(int64(status), 10),
 			strconv.FormatBool(err == nil),
 		).
 		Observe(float64(time.Since(contractExecutionStarted)))
-	return value, status, err
+	return value, status, headers, err
 }

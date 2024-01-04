@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
@@ -100,6 +101,8 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			p.inflightReports = newInflightExecReportsContainer(time.Minute)
 			p.inflightReports.reports = tc.inflightReports
 			p.lggr = logger.TestLogger(t)
+			p.tokenDataWorker = tokendata.NewBackgroundWorker(
+				ctx, make(map[common.Address]tokendata.Reader), 10, 5*time.Second, time.Hour)
 
 			commitStoreReader := ccipdatamocks.NewCommitStoreReader(t)
 			commitStoreReader.On("IsDown", mock.Anything).Return(tc.commitStorePaused, nil)
@@ -601,6 +604,8 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		},
 	}
 
+	ctx := testutils.Context(t)
+
 	for _, tc := range tt {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -616,6 +621,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			mockOffRampReader.On("GetSenderNonce", mock.Anything, sender1).Return(uint64(0), nil).Maybe()
 
 			plugin := ExecutionReportingPlugin{
+				tokenDataWorker:   tokendata.NewBackgroundWorker(ctx, map[common.Address]tokendata.Reader{}, 10, 5*time.Second, time.Hour),
 				offRampReader:     mockOffRampReader,
 				destWrappedNative: destNative,
 				offchainConfig: ccipdata.ExecOffchainConfig{
@@ -1026,6 +1032,58 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 					assert.Equal(t, expReq.SequenceNumber, populatedReports[i].sendRequestsWithMeta[j].SequenceNumber)
 				}
 			}
+		})
+	}
+}
+
+type delayedTokenDataWorker struct {
+	delay time.Duration
+	tokendata.Worker
+}
+
+func (m delayedTokenDataWorker) GetMsgTokenData(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([][]byte, error) {
+	time.Sleep(m.delay)
+	return nil, ctx.Err()
+}
+
+func TestExecutionReportingPlugin_getTokenDataWithCappedLatency(t *testing.T) {
+	testCases := []struct {
+		name               string
+		allowedWaitingTime time.Duration
+		workerLatency      time.Duration
+		expErr             bool
+	}{
+		{
+			name:               "happy flow",
+			allowedWaitingTime: 10 * time.Millisecond,
+			workerLatency:      time.Nanosecond,
+			expErr:             false,
+		},
+		{
+			name:               "worker takes long to reply",
+			allowedWaitingTime: 10 * time.Millisecond,
+			workerLatency:      20 * time.Millisecond,
+			expErr:             true,
+		},
+	}
+
+	ctx := testutils.Context(t)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &ExecutionReportingPlugin{}
+			p.tokenDataWorker = delayedTokenDataWorker{delay: tc.workerLatency}
+
+			msg := internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+				EVM2EVMMessage: internal.EVM2EVMMessage{TokenAmounts: make([]internal.TokenAmount, 1)},
+			}
+
+			_, _, err := p.getTokenDataWithTimeout(ctx, msg, tc.allowedWaitingTime)
+			if tc.expErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
 		})
 	}
 }

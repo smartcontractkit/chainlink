@@ -75,7 +75,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 			F:                        config.F,
 			lggr:                     rf.config.lggr.Named("ExecutionReportingPlugin"),
 			offchainConfig:           offchainConfig,
-			tokenDataProviders:       rf.config.tokenDataProviders,
+			tokenDataWorker:          rf.config.tokenDataWorker,
 			gasPriceEstimator:        rf.config.offRampReader.GasPriceEstimator(),
 			sourcePriceRegistry:      rf.config.sourcePriceRegistry,
 			sourceWrappedNativeToken: rf.config.sourceWrappedNativeToken,

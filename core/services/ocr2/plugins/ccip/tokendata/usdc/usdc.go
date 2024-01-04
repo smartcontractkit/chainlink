@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -26,6 +28,13 @@ const (
 	apiVersion                = "v1"
 	attestationPath           = "attestations"
 	defaultAttestationTimeout = 5 * time.Second
+
+	// defaultCoolDownDurationSec defines the default time to wait after getting rate limited.
+	// this value is only used if the 429 response does not contain the Retry-After header
+	defaultCoolDownDuration = 60 * time.Second
+
+	// maxCoolDownDuration defines the maximum duration we can wait till firing the next request
+	maxCoolDownDuration = 10 * time.Minute
 )
 
 type attestationStatus string
@@ -69,6 +78,10 @@ type TokenDataReader struct {
 	httpClient            http.IHttpClient
 	attestationApi        *url.URL
 	attestationApiTimeout time.Duration
+
+	// coolDownUntil defines whether requests are blocked or not.
+	coolDownUntil time.Time
+	coolDownMu    *sync.RWMutex
 }
 
 type attestationResponse struct {
@@ -89,6 +102,7 @@ func NewUSDCTokenDataReader(lggr logger.Logger, usdcReader ccipdata.USDCReader, 
 		httpClient:            http.NewObservedIHttpClient(&http.HttpClient{}),
 		attestationApi:        usdcAttestationApi,
 		attestationApiTimeout: timeout,
+		coolDownMu:            &sync.RWMutex{},
 	}
 }
 
@@ -99,10 +113,20 @@ func NewUSDCTokenDataReaderWithHttpClient(origin TokenDataReader, httpClient htt
 		httpClient:            httpClient,
 		attestationApi:        origin.attestationApi,
 		attestationApiTimeout: origin.attestationApiTimeout,
+		coolDownMu:            origin.coolDownMu,
 	}
 }
 
-func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) (messageAndAttestation []byte, err error) {
+func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) (messageAndAttestation []byte, err error) {
+	if tokenIndex < 0 || tokenIndex >= len(msg.TokenAmounts) {
+		return nil, fmt.Errorf("token index out of bounds")
+	}
+
+	if s.inCoolDownPeriod() {
+		// rate limiting cool-down period, we prevent new requests from being sent
+		return nil, tokendata.ErrRequestsBlocked
+	}
+
 	messageBody, err := s.getUSDCMessageBody(ctx, msg)
 	if err != nil {
 		return []byte{}, errors.Wrap(err, "failed getting the USDC message body")
@@ -153,11 +177,27 @@ func (s *TokenDataReader) getUSDCMessageBody(ctx context.Context, msg internal.E
 }
 
 func (s *TokenDataReader) callAttestationApi(ctx context.Context, usdcMessageHash [32]byte) (attestationResponse, error) {
-	fullAttestationUrl := fmt.Sprintf("%s/%s/%s/0x%x", s.attestationApi, apiVersion, attestationPath, usdcMessageHash)
-	body, _, err := s.httpClient.Get(ctx, fullAttestationUrl, s.attestationApiTimeout)
-	if err != nil {
-		return attestationResponse{}, err
+	body, _, headers, err := s.httpClient.Get(
+		ctx,
+		fmt.Sprintf("%s/%s/%s/0x%x", s.attestationApi, apiVersion, attestationPath, usdcMessageHash),
+		s.attestationApiTimeout,
+	)
+	switch {
+	case errors.Is(err, tokendata.ErrRateLimit):
+		coolDownDuration := defaultCoolDownDuration
+		if retryAfterHeader, exists := headers["Retry-After"]; exists && len(retryAfterHeader) > 0 {
+			if retryAfterSec, errParseInt := strconv.ParseInt(retryAfterHeader[0], 10, 64); errParseInt == nil {
+				coolDownDuration = time.Duration(retryAfterSec) * time.Second
+			}
+		}
+		s.setCoolDownPeriod(coolDownDuration)
+
+		// Explicitly signal if the API is being rate limited
+		return attestationResponse{}, tokendata.ErrRateLimit
+	case err != nil:
+		return attestationResponse{}, fmt.Errorf("request error: %w", err)
 	}
+
 	var response attestationResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
@@ -167,6 +207,21 @@ func (s *TokenDataReader) callAttestationApi(ctx context.Context, usdcMessageHas
 		return attestationResponse{}, fmt.Errorf("invalid attestation response: %s", string(body))
 	}
 	return response, nil
+}
+
+func (s *TokenDataReader) setCoolDownPeriod(d time.Duration) {
+	s.coolDownMu.Lock()
+	if d > maxCoolDownDuration {
+		d = maxCoolDownDuration
+	}
+	s.coolDownUntil = time.Now().Add(d)
+	s.coolDownMu.Unlock()
+}
+
+func (s *TokenDataReader) inCoolDownPeriod() bool {
+	s.coolDownMu.RLock()
+	defer s.coolDownMu.RUnlock()
+	return time.Now().Before(s.coolDownUntil)
 }
 
 func (s *TokenDataReader) Close(qopts ...pg.QOpt) error {
