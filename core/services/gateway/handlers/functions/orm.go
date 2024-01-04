@@ -48,7 +48,7 @@ type cachedSubscriptionRow struct {
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, routerContractAddress common.Address) (ORM, error) {
-	if db == nil || cfg == nil || lggr == nil || routerContractAddress == *new(common.Address) {
+	if db == nil || cfg == nil || lggr == nil || routerContractAddress == (common.Address{}) {
 		return nil, ErrInvalidParameters
 	}
 
@@ -81,6 +81,8 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 	return cacheSubscriptions, nil
 }
 
+// UpsertSubscription will update if a subscription exists or create if it does not.
+// In case a subscription gets deleted we will update it with an owner address equal to 0x0.
 func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error {
 	stmt := fmt.Sprintf(`
 		INSERT INTO %s (subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address)

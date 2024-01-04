@@ -243,8 +243,8 @@ func (s *onchainSubscriptions) loadCachedSubscriptions() {
 				Consumers:      cs.Consumers,
 				Flags:          cs.Flags,
 			})
-			s.lggr.Debugw("Loading cached subscriptions", "offset", offset, "batch_length", len(csBatch))
 		}
+		s.lggr.Debugw("Loading cached subscriptions", "offset", offset, "batch_length", len(csBatch))
 
 		if len(csBatch) != int(s.config.CacheBatchSize) {
 			break
