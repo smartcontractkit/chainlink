@@ -20,7 +20,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -195,10 +195,10 @@ var (
 )
 
 func TestConfig_Marshal(t *testing.T) {
-	zeroSeconds := sqlutil.MustMakeDuration(time.Second * 0)
-	second := sqlutil.MustMakeDuration(time.Second)
-	minute := sqlutil.MustMakeDuration(time.Minute)
-	hour := sqlutil.MustMakeDuration(time.Hour)
+	zeroSeconds := *commonconfig.MustNewDuration(time.Second * 0)
+	second := *commonconfig.MustNewDuration(time.Second)
+	minute := *commonconfig.MustNewDuration(time.Minute)
+	hour := *commonconfig.MustNewDuration(time.Hour)
 	mustPeerID := func(s string) *p2pkey.PeerID {
 		id, err := p2pkey.MakePeerID(s)
 		require.NoError(t, err)

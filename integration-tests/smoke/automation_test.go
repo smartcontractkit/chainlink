@@ -24,12 +24,12 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -1072,7 +1072,7 @@ func setupAutomationTestDocker(
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
-	syncInterval := sqlutil.MustMakeDuration(5 * time.Minute)
+	syncInterval := *commonconfig.MustNewDuration(5 * time.Minute)
 	clNodeConfig.Feature.LogPoller = ptr.Ptr[bool](true)
 	clNodeConfig.OCR2.Enabled = ptr.Ptr[bool](true)
 	clNodeConfig.Keeper.TurnLookBack = ptr.Ptr[int64](int64(0))
