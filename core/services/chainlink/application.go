@@ -344,6 +344,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			job.Gateway: gateway.NewDelegate(
 				legacyEVMChains,
 				keyStore.Eth(),
+				db,
+				cfg.Database(),
 				globalLogger),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
