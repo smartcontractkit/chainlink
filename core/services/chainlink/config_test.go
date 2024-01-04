@@ -293,7 +293,7 @@ func TestConfig_Marshal(t *testing.T) {
 		SendInterval: commonconfig.MustNewDuration(time.Minute),
 		SendTimeout:  commonconfig.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
-		URL:          ptr(models.URL{}),
+		URL:          ptr(commonconfig.URL{}),
 		ServerPubKey: ptr(""),
 		Endpoints: []toml.TelemetryIngressEndpoint{{
 			Network:      ptr("EVM"),
@@ -1124,7 +1124,7 @@ func TestConfig_full(t *testing.T) {
 	for c := range got.EVM {
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
-				got.EVM[c].Nodes[n].WSURL = new(models.URL)
+				got.EVM[c].Nodes[n].WSURL = new(commonconfig.URL)
 			}
 			if got.EVM[c].Nodes[n].SendOnly == nil {
 				got.EVM[c].Nodes[n].SendOnly = ptr(true)
@@ -1143,7 +1143,7 @@ func TestConfig_full(t *testing.T) {
 	// Except for TelemetryIngress.URL as this will be removed in the future
 	// and its only use is to signal to NOPs that these fields are no longer allowed
 	if got.TelemetryIngress.URL == nil {
-		got.TelemetryIngress.URL = new(models.URL)
+		got.TelemetryIngress.URL = new(commonconfig.URL)
 	}
 
 	cfgtest.AssertFieldsNotNil(t, got)
@@ -1256,8 +1256,8 @@ func TestConfig_Validate(t *testing.T) {
 	}
 }
 
-func mustURL(s string) *models.URL {
-	var u models.URL
+func mustURL(s string) *commonconfig.URL {
+	var u commonconfig.URL
 	if err := u.UnmarshalText([]byte(s)); err != nil {
 		panic(err)
 	}

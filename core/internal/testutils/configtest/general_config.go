@@ -60,7 +60,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.P2P.V2.Enabled = ptr(false)
 
 	c.WebServer.SessionTimeout = commonconfig.MustNewDuration(2 * time.Minute)
-	c.WebServer.BridgeResponseURL = models.MustParseURL("http://localhost:6688")
+	c.WebServer.BridgeResponseURL = commonconfig.MustParseURL("http://localhost:6688")
 	testIP := net.ParseIP("127.0.0.1")
 	c.WebServer.ListenIP = &testIP
 	c.WebServer.TLS.ListenIP = &testIP
@@ -72,8 +72,8 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 		Nodes: evmcfg.EVMNodes{
 			&evmcfg.Node{
 				Name:     ptr("test"),
-				WSURL:    &models.URL{},
-				HTTPURL:  &models.URL{},
+				WSURL:    &commonconfig.URL{},
+				HTTPURL:  &commonconfig.URL{},
 				SendOnly: new(bool),
 				Order:    ptr[int32](100),
 			},
@@ -113,8 +113,8 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 
 var validTestNode = evmcfg.Node{
 	Name:     ptr("simulated-node"),
-	WSURL:    models.MustParseURL("WSS://simulated-wss.com/ws"),
-	HTTPURL:  models.MustParseURL("http://simulated.com"),
+	WSURL:    commonconfig.MustParseURL("WSS://simulated-wss.com/ws"),
+	HTTPURL:  commonconfig.MustParseURL("http://simulated.com"),
 	SendOnly: nil,
 	Order:    ptr(int32(1)),
 }

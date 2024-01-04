@@ -439,14 +439,14 @@ type TelemetryIngress struct {
 	UseBatchSend *bool
 	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
 
-	URL          *models.URL `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, this field will be removed in future versions
-	ServerPubKey *string     `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, this field will be removed in future versions
+	URL          *commonconfig.URL `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, this field will be removed in future versions
+	ServerPubKey *string           `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, this field will be removed in future versions
 }
 
 type TelemetryIngressEndpoint struct {
 	Network      *string
 	ChainID      *string
-	URL          *models.URL
+	URL          *commonconfig.URL
 	ServerPubKey *string
 }
 
@@ -499,7 +499,7 @@ func (t *TelemetryIngress) ValidateConfig() (err error) {
 
 type AuditLogger struct {
 	Enabled        *bool
-	ForwardToUrl   *models.URL
+	ForwardToUrl   *commonconfig.URL
 	JsonWrapperKey *string
 	Headers        *[]models.ServiceHeader
 }
@@ -598,7 +598,7 @@ func (l *LogFile) setFrom(f *LogFile) {
 type WebServer struct {
 	AuthenticationMethod    *string
 	AllowOrigins            *string
-	BridgeResponseURL       *models.URL
+	BridgeResponseURL       *commonconfig.URL
 	BridgeCacheTTL          *commonconfig.Duration
 	HTTPWriteTimeout        *commonconfig.Duration
 	HTTPPort                *uint16

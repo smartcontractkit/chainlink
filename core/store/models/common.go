@@ -17,7 +17,6 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -399,25 +398,6 @@ func (s Sha256Hash) Value() (driver.Value, error) {
 	b := make([]byte, 32)
 	copy(b, s[:])
 	return b, nil
-}
-
-// URL extends url.URL to implement encoding.TextMarshaler.
-type URL = commonconfig.URL
-
-func ParseURL(s string) (*URL, error) {
-	u, err := url.Parse(s)
-	if err != nil {
-		return nil, err
-	}
-	return (*URL)(u), nil
-}
-
-func MustParseURL(s string) *URL {
-	u, err := ParseURL(s)
-	if err != nil {
-		panic(err)
-	}
-	return u
 }
 
 // ServiceHeader is an HTTP header to include in POST to log service.
