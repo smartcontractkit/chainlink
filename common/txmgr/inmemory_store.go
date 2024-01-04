@@ -1379,11 +1379,9 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	}
 
 	// Update in memory store
-
-	// TODO
-	// delete receipts
-	// update tx unconfirmed
-	// update tx_attempt unbroadcast
+	if err := as.MoveConfirmedToUnconfirmed(etxAttempt); err != nil {
+		return err
+	}
 
 	return nil
 }
