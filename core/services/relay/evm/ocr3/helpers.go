@@ -68,14 +68,15 @@ func TransmitterCombiner(masterConfig ocrtypes.ContractConfig, followerConfigs [
 		OffchainConfig:        masterConfig.OffchainConfig,
 	}
 
-	// use the hex-ified onchain pub key as a key since []byte can't
-	// be used as a map key.
 	var combinedTransmitters []ocrtypes.Account
-
 	for i, signer := range masterConfig.Signers {
+		// the transmitter index is the same as the signer index for the same config object.
+		// this is enforced in the standard OCR3Base.setOCR3Config method.
 		transmitters := []string{string(masterConfig.Transmitters[i])}
+
 		for _, followerConfig := range followerConfigs {
 			// signer might be at a different index than master chain (but ideally shouldn't be)
+			// so we can't just use i here.
 			signerIdx := slices.IndexFunc(followerConfig.Signers, func(opk ocrtypes.OnchainPublicKey) bool {
 				return hexutil.Encode(opk) == hexutil.Encode(signer)
 			})
@@ -83,7 +84,7 @@ func TransmitterCombiner(masterConfig ocrtypes.ContractConfig, followerConfigs [
 				// signer not found, bad config
 				return ocrtypes.ContractConfig{}, fmt.Errorf("unable to find signer %x (oracle index %d) in follower config %+v", signer, i, followerConfig)
 			}
-			// signer and transmitter indexes match
+			// the transmitter index is the same as the signer index for the same config object.
 			transmitters = append(transmitters, string(followerConfig.Transmitters[signerIdx]))
 		}
 		combinedTransmitter := joinTransmitters(transmitters)
