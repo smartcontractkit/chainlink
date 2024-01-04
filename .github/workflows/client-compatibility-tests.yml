@@ -145,13 +145,59 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML config
         env:
+          SELECTED_NETWORKS: ${{ matrix.tests.network }}
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.client }}-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-          ETH2_EL_CLIENT: ${{matrix.client}}
+          ETH2_EL_CLIENT: ${{matrix.client}}          
+        run: |
+          echo ::add-mask::$UPGRADE_IMAGE
+          convert_to_toml_array() {
+            local IFS=','
+            local input_array=($1)
+            local toml_array_format="["
+        
+            for element in "${input_array[@]}"; do
+                toml_array_format+="\"$element\","
+            done
+        
+            toml_array_format="${toml_array_format%,}]"
+            echo "$toml_array_format"
+          }
+        
+          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")          
+
+          if [ -n "$ETH2_EL_CLIENT" ]; then
+            execution_layer="$ETH2_EL_CLIENT"
+          else
+            execution_layer="geth"
+          fi
+
+          cat << EOF > config.toml
+          [Network]
+          selected_networks=$selected_networks
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          
+          [PrivateEthereumNetwork]
+          execution_layer="$execution_layer"          
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV                    
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.run ${{ matrix.test }}
           binary_name: tests
