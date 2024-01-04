@@ -2,7 +2,6 @@ package headtracker_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"

@@ -30,6 +30,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"

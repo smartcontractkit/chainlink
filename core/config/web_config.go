@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/sessions"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 

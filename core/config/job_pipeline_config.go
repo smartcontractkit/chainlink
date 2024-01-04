@@ -1,8 +1,9 @@
 package config
 
 import (
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"time"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 type JobPipeline interface {
