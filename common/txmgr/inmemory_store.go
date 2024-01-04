@@ -1421,9 +1421,52 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	if ms.chainID.String() != chainID.String() {
 		return nil, fmt.Errorf("find_txs_requiring_gas_bump: %w", ErrInvalidChainID)
 	}
+	if gasBumpThreshold == 0 {
+		return nil, nil
+	}
 
-	// TODO
-	return nil, nil
+	as, ok := ms.addressStates[address]
+	if !ok {
+		return nil, fmt.Errorf("find_txs_requiring_gas_bump: %w", ErrAddressNotFound)
+	}
+
+	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return false
+		}
+		attempt := tx.TxAttempts[0]
+		if *attempt.BroadcastBeforeBlockNum <= blockNum ||
+			attempt.State == txmgrtypes.TxAttemptBroadcast {
+			return false
+		}
+
+		if tx.State != TxUnconfirmed ||
+			attempt.ID != 0 {
+			return false
+		}
+
+		return true
+	}
+	states := []txmgrtypes.TxState{TxUnconfirmed}
+	txs := as.FetchTxs(states, filter)
+	// sort by sequence ASC
+	sort.Slice(txs, func(i, j int) bool {
+		return (*txs[i].Sequence).Int64() < (*txs[j].Sequence).Int64()
+	})
+
+	if depth > 0 {
+		// LIMIT by depth
+		if len(txs) > int(depth) {
+			txs = txs[:depth]
+		}
+	}
+
+	etxs := make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(txs))
+	for i, tx := range txs {
+		etxs[i] = ms.deepCopyTx(&tx)
+	}
+
+	return etxs, nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) error {
 	if ms.chainID.String() != chainID.String() {
