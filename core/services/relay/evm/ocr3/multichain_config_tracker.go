@@ -202,35 +202,5 @@ func (m *multichainConfigTracker) LatestConfigDetails(ctx context.Context) (chan
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
 
-	// check all other chains for their config
-	var followerConfigs []ocrtypes.ContractConfig
-	for id, lp := range m.logPollers {
-		if id == m.masterChain {
-			continue
-		}
-
-		latest, err := lp.LatestLogByEventSigWithConfs(ConfigSet, m.contractAddresses[id], 1, pg.WithParentCtx(ctx))
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				// TODO: try RPC call for config
-				return 0, ocrtypes.ConfigDigest{}, err
-			}
-			return 0, ocrtypes.ConfigDigest{}, err
-		}
-
-		followerConfig, err := configFromLog(latest.Data)
-		if err != nil {
-			return 0, ocrtypes.ConfigDigest{}, err
-		}
-
-		followerConfigs = append(followerConfigs, followerConfig)
-	}
-
-	// at this point we can combine the configs into a single one
-	combined, err := m.combiner(masterConfig, followerConfigs)
-	if err != nil {
-		return 0, ocrtypes.ConfigDigest{}, err
-	}
-
 	return uint64(latest.BlockNumber), masterConfig.ConfigDigest, nil
 }
