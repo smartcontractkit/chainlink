@@ -123,8 +123,8 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 	cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.PeerID = ptr(k.PeerID())
-		c.P2P.V2.DeltaDial = sqlutil.MustNewDuration(100 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = sqlutil.MustNewDuration(1 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(1 * time.Second)
 
 		p2paddresses := []string{
 			"127.0.0.1:17193",

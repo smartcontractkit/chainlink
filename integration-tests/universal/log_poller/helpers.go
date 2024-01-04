@@ -1025,7 +1025,7 @@ func setupLogPollerTestDocker(
 	clNodesCount := 5
 
 	var logPolllerSettingsFn = func(chain *evmcfg.Chain) *evmcfg.Chain {
-		chain.LogPollInterval = sqlutil.MustNewDuration(lpPollingInterval)
+		chain.LogPollInterval = commonconfig.MustNewDuration(lpPollingInterval)
 		chain.FinalityDepth = ptr.Ptr[uint32](uint32(finalityDepth))
 		chain.FinalityTagEnabled = ptr.Ptr[bool](finalityTagEnabled)
 		return chain

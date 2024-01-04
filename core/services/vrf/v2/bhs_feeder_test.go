@@ -55,7 +55,7 @@ func TestStartHeartbeats(t *testing.T) {
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
-		c.EVM[0].LogPollInterval = sqlutil.MustNewDuration(time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(time.Second)
 	})
 
 	heartbeatPeriod := 5 * time.Second

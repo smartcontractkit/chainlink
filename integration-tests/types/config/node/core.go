@@ -45,7 +45,7 @@ func NewBaseConfig() *chainlink.Config {
 				AllowOrigins:   ptr.Ptr("*"),
 				HTTPPort:       ptr.Ptr[uint16](6688),
 				SecureCookies:  ptr.Ptr(false),
-				SessionTimeout: sqlutil.MustNewDuration(time.Hour * 999),
+				SessionTimeout: commonconfig.MustNewDuration(time.Hour * 999),
 				TLS: toml.WebServerTLS{
 					HTTPSPort: ptr.Ptr[uint16](0),
 				},
@@ -183,7 +183,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 				AutoCreateKey:      ptr.Ptr(true),
 				FinalityDepth:      ptr.Ptr[uint32](50),
 				MinContractPayment: commonassets.NewLinkFromJuels(0),
-				LogPollInterval:    sqlutil.MustNewDuration(1 * time.Second),
+				LogPollInterval:    commonconfig.MustNewDuration(1 * time.Second),
 				HeadTracker: evmcfg.HeadTracker{
 					HistoryDepth: ptr.Ptr(uint32(100)),
 				},
@@ -234,6 +234,6 @@ func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfig
 
 func WithLogPollInterval(interval time.Duration) NodeConfigOpt {
 	return func(c *chainlink.Config) {
-		c.EVM[0].Chain.LogPollInterval = sqlutil.MustNewDuration(interval)
+		c.EVM[0].Chain.LogPollInterval = commonconfig.MustNewDuration(interval)
 	}
 }

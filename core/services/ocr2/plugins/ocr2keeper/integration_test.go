@@ -124,8 +124,8 @@ func setupNode(
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
 		c.P2P.V2.Enabled = ptr(true)
-		c.P2P.V2.DeltaDial = sqlutil.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = sqlutil.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
 		if len(p2pV2Bootstrappers) > 0 {

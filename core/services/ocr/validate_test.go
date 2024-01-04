@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -359,7 +359,7 @@ answer1      [type=median index=0];
 				require.Contains(t, err.Error(), "data source timeout must be between 1s and 20s, but is currently 20m0s")
 			},
 			overrides: func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR.ObservationTimeout = sqlutil.MustNewDuration(20 * time.Minute)
+				c.OCR.ObservationTimeout = commonconfig.MustNewDuration(20 * time.Minute)
 			},
 		},
 	}

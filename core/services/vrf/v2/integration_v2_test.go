@@ -1226,7 +1226,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = sqlutil.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -1465,13 +1465,13 @@ func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.Ke
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
 
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = sqlutil.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 
 		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
-		c.EVM[0].HeadTracker.SamplingInterval = sqlutil.MustNewDuration(0) // Head sampling disabled
+		c.EVM[0].HeadTracker.SamplingInterval = commonconfig.MustNewDuration(0) // Head sampling disabled
 
-		c.EVM[0].Transactions.ResendAfterThreshold = sqlutil.MustNewDuration(0)
-		c.EVM[0].Transactions.ReaperThreshold = sqlutil.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].Transactions.ResendAfterThreshold = commonconfig.MustNewDuration(0)
+		c.EVM[0].Transactions.ReaperThreshold = commonconfig.MustNewDuration(100 * time.Millisecond)
 
 		c.EVM[0].FinalityDepth = ptr[uint32](15)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)

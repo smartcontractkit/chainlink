@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -106,7 +106,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	// Set this to the smallest non-zero value possible for the attempt to be eligible for resend
-	delay := sqlutil.MustNewDuration(1 * time.Nanosecond)
+	delay := commonconfig.MustNewDuration(1 * time.Nanosecond)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0] = &toml.EVMConfig{
 			Chain: toml.Defaults(ubig.New(big.NewInt(0)), &toml.Chain{
@@ -144,7 +144,7 @@ func Test_EthResender_Start(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// This can be anything as long as it isn't zero
-		c.EVM[0].Transactions.ResendAfterThreshold = sqlutil.MustNewDuration(42 * time.Hour)
+		c.EVM[0].Transactions.ResendAfterThreshold = commonconfig.MustNewDuration(42 * time.Hour)
 		// Set batch size low to test batching
 		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
 	})

@@ -1380,7 +1380,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		etx := mustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
 		require.Len(t, etx.TxAttempts, 1)
 
-		zero := sqlutil.MustNewDuration(time.Duration(0))
+		zero := commonconfig.MustNewDuration(time.Duration(0))
 		evmCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].Chain.Transactions.ReaperInterval = zero
 			c.EVM[0].Chain.Transactions.ReaperThreshold = zero

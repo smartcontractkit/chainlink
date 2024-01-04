@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -133,7 +133,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 		c.EVM[0].BlockBackfillDepth = ptr[uint32](500)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
-		c.EVM[0].LogPollInterval = sqlutil.MustNewDuration(time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(time.Second)
 		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 	})
 	key := cltest.MustGenerateRandomKey(t)

@@ -67,7 +67,7 @@ var (
 			},
 			Database: toml.Database{
 				Listener: toml.DatabaseListener{
-					FallbackPollInterval: sqlutil.MustNewDuration(2 * time.Minute),
+					FallbackPollInterval: commonconfig.MustNewDuration(2 * time.Minute),
 				},
 			},
 			Log: toml.Log{
@@ -76,16 +76,16 @@ var (
 			},
 			JobPipeline: toml.JobPipeline{
 				HTTPRequest: toml.JobPipelineHTTPRequest{
-					DefaultTimeout: sqlutil.MustNewDuration(30 * time.Second),
+					DefaultTimeout: commonconfig.MustNewDuration(30 * time.Second),
 				},
 			},
 			OCR2: toml.OCR2{
 				Enabled:         ptr(true),
-				DatabaseTimeout: sqlutil.MustNewDuration(20 * time.Second),
+				DatabaseTimeout: commonconfig.MustNewDuration(20 * time.Second),
 			},
 			OCR: toml.OCR{
 				Enabled:           ptr(true),
-				BlockchainTimeout: sqlutil.MustNewDuration(5 * time.Second),
+				BlockchainTimeout: commonconfig.MustNewDuration(5 * time.Second),
 			},
 			P2P: toml.P2P{
 				IncomingMessageBufferSize: ptr[int64](999),
@@ -220,7 +220,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Core: toml.Core{
 			InsecureFastScrypt:  ptr(true),
 			RootDir:             ptr("test/root/dir"),
-			ShutdownGracePeriod: sqlutil.MustNewDuration(10 * time.Second),
+			ShutdownGracePeriod: commonconfig.MustNewDuration(10 * time.Second),
 			Insecure: toml.Insecure{
 				DevWebServer:         ptr(false),
 				OCRDevelopmentMode:   ptr(false),
@@ -261,17 +261,17 @@ func TestConfig_Marshal(t *testing.T) {
 		UICSAKeys:    ptr(true),
 	}
 	full.Database = toml.Database{
-		DefaultIdleInTxSessionTimeout: sqlutil.MustNewDuration(time.Minute),
-		DefaultLockTimeout:            sqlutil.MustNewDuration(time.Hour),
-		DefaultQueryTimeout:           sqlutil.MustNewDuration(time.Second),
+		DefaultIdleInTxSessionTimeout: commonconfig.MustNewDuration(time.Minute),
+		DefaultLockTimeout:            commonconfig.MustNewDuration(time.Hour),
+		DefaultQueryTimeout:           commonconfig.MustNewDuration(time.Second),
 		LogQueries:                    ptr(true),
 		MigrateOnStartup:              ptr(true),
 		MaxIdleConns:                  ptr[int64](7),
 		MaxOpenConns:                  ptr[int64](13),
 		Listener: toml.DatabaseListener{
-			MaxReconnectDuration: sqlutil.MustNewDuration(time.Minute),
-			MinReconnectInterval: sqlutil.MustNewDuration(5 * time.Minute),
-			FallbackPollInterval: sqlutil.MustNewDuration(2 * time.Minute),
+			MaxReconnectDuration: commonconfig.MustNewDuration(time.Minute),
+			MinReconnectInterval: commonconfig.MustNewDuration(5 * time.Minute),
+			FallbackPollInterval: commonconfig.MustNewDuration(2 * time.Minute),
 		},
 		Lock: toml.DatabaseLock{
 			Enabled:              ptr(false),
@@ -290,8 +290,8 @@ func TestConfig_Marshal(t *testing.T) {
 		Logging:      ptr(true),
 		BufferSize:   ptr[uint16](1234),
 		MaxBatchSize: ptr[uint16](4321),
-		SendInterval: sqlutil.MustNewDuration(time.Minute),
-		SendTimeout:  sqlutil.MustNewDuration(5 * time.Second),
+		SendInterval: commonconfig.MustNewDuration(time.Minute),
+		SendTimeout:  commonconfig.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
 		URL:          ptr(models.URL{}),
 		ServerPubKey: ptr(""),
@@ -318,14 +318,14 @@ func TestConfig_Marshal(t *testing.T) {
 		AuthenticationMethod:    ptr("local"),
 		AllowOrigins:            ptr("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
-		BridgeCacheTTL:          sqlutil.MustNewDuration(10 * time.Second),
-		HTTPWriteTimeout:        sqlutil.MustNewDuration(time.Minute),
+		BridgeCacheTTL:          commonconfig.MustNewDuration(10 * time.Second),
+		HTTPWriteTimeout:        commonconfig.MustNewDuration(time.Minute),
 		HTTPPort:                ptr[uint16](56),
 		SecureCookies:           ptr(true),
-		SessionTimeout:          sqlutil.MustNewDuration(time.Hour),
-		SessionReaperExpiration: sqlutil.MustNewDuration(7 * 24 * time.Hour),
+		SessionTimeout:          commonconfig.MustNewDuration(time.Hour),
+		SessionReaperExpiration: commonconfig.MustNewDuration(7 * 24 * time.Hour),
 		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
-		StartTimeout:            sqlutil.MustNewDuration(15 * time.Second),
+		StartTimeout:            commonconfig.MustNewDuration(15 * time.Second),
 		ListenIP:                mustIP("192.158.1.37"),
 		MFA: toml.WebServerMFA{
 			RPID:     ptr("test-rpid"),
@@ -333,8 +333,8 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 		LDAP: toml.WebServerLDAP{
 			ServerTLS:                   ptr(true),
-			SessionTimeout:              sqlutil.MustNewDuration(15 * time.Minute),
-			QueryTimeout:                sqlutil.MustNewDuration(2 * time.Minute),
+			SessionTimeout:              commonconfig.MustNewDuration(15 * time.Minute),
+			QueryTimeout:                commonconfig.MustNewDuration(2 * time.Minute),
 			BaseUserAttr:                ptr("uid"),
 			BaseDN:                      ptr("dc=custom,dc=example,dc=com"),
 			UsersDN:                     ptr("ou=users"),
@@ -346,15 +346,15 @@ func TestConfig_Marshal(t *testing.T) {
 			RunUserGroupCN:              ptr("NodeRunners"),
 			ReadUserGroupCN:             ptr("NodeReadOnly"),
 			UserApiTokenEnabled:         ptr(false),
-			UserAPITokenDuration:        sqlutil.MustNewDuration(240 * time.Hour),
-			UpstreamSyncInterval:        sqlutil.MustNewDuration(0 * time.Second),
-			UpstreamSyncRateLimit:       sqlutil.MustNewDuration(2 * time.Minute),
+			UserAPITokenDuration:        commonconfig.MustNewDuration(240 * time.Hour),
+			UpstreamSyncInterval:        commonconfig.MustNewDuration(0 * time.Second),
+			UpstreamSyncRateLimit:       commonconfig.MustNewDuration(2 * time.Minute),
 		},
 		RateLimit: toml.WebServerRateLimit{
 			Authenticated:         ptr[int64](42),
-			AuthenticatedPeriod:   sqlutil.MustNewDuration(time.Second),
+			AuthenticatedPeriod:   commonconfig.MustNewDuration(time.Second),
 			Unauthenticated:       ptr[int64](7),
-			UnauthenticatedPeriod: sqlutil.MustNewDuration(time.Minute),
+			UnauthenticatedPeriod: commonconfig.MustNewDuration(time.Minute),
 		},
 		TLS: toml.WebServerTLS{
 			CertPath:      ptr("tls/cert/path"),
@@ -367,14 +367,14 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.JobPipeline = toml.JobPipeline{
 		ExternalInitiatorsEnabled: ptr(true),
-		MaxRunDuration:            sqlutil.MustNewDuration(time.Hour),
+		MaxRunDuration:            commonconfig.MustNewDuration(time.Hour),
 		MaxSuccessfulRuns:         ptr[uint64](123456),
-		ReaperInterval:            sqlutil.MustNewDuration(4 * time.Hour),
-		ReaperThreshold:           sqlutil.MustNewDuration(7 * 24 * time.Hour),
+		ReaperInterval:            commonconfig.MustNewDuration(4 * time.Hour),
+		ReaperThreshold:           commonconfig.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
 		HTTPRequest: toml.JobPipelineHTTPRequest{
 			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
-			DefaultTimeout: sqlutil.MustNewDuration(time.Minute),
+			DefaultTimeout: commonconfig.MustNewDuration(time.Minute),
 		},
 	}
 	full.FluxMonitor = toml.FluxMonitor{
@@ -384,11 +384,11 @@ func TestConfig_Marshal(t *testing.T) {
 	full.OCR2 = toml.OCR2{
 		Enabled:                            ptr(true),
 		ContractConfirmations:              ptr[uint32](11),
-		BlockchainTimeout:                  sqlutil.MustNewDuration(3 * time.Second),
-		ContractPollInterval:               sqlutil.MustNewDuration(time.Hour),
-		ContractSubscribeInterval:          sqlutil.MustNewDuration(time.Minute),
-		ContractTransmitterTransmitTimeout: sqlutil.MustNewDuration(time.Minute),
-		DatabaseTimeout:                    sqlutil.MustNewDuration(8 * time.Second),
+		BlockchainTimeout:                  commonconfig.MustNewDuration(3 * time.Second),
+		ContractPollInterval:               commonconfig.MustNewDuration(time.Hour),
+		ContractSubscribeInterval:          commonconfig.MustNewDuration(time.Minute),
+		ContractTransmitterTransmitTimeout: commonconfig.MustNewDuration(time.Minute),
+		DatabaseTimeout:                    commonconfig.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
 		CaptureAutomationCustomTelemetry:   ptr(true),
@@ -398,10 +398,10 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.OCR = toml.OCR{
 		Enabled:                      ptr(true),
-		ObservationTimeout:           sqlutil.MustNewDuration(11 * time.Second),
-		BlockchainTimeout:            sqlutil.MustNewDuration(3 * time.Second),
-		ContractPollInterval:         sqlutil.MustNewDuration(time.Hour),
-		ContractSubscribeInterval:    sqlutil.MustNewDuration(time.Minute),
+		ObservationTimeout:           commonconfig.MustNewDuration(11 * time.Second),
+		BlockchainTimeout:            commonconfig.MustNewDuration(3 * time.Second),
+		ContractPollInterval:         commonconfig.MustNewDuration(time.Hour),
+		ContractSubscribeInterval:    commonconfig.MustNewDuration(time.Minute),
 		DefaultTransactionQueueDepth: ptr[uint32](12),
 		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		SimulateTransactions:         ptr(true),
@@ -421,8 +421,8 @@ func TestConfig_Marshal(t *testing.T) {
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"test:99"}},
 			},
-			DeltaDial:       sqlutil.MustNewDuration(time.Minute),
-			DeltaReconcile:  sqlutil.MustNewDuration(time.Second),
+			DeltaDial:       commonconfig.MustNewDuration(time.Minute),
+			DeltaReconcile:  commonconfig.MustNewDuration(time.Second),
 			ListenAddresses: &[]string{"foo", "bar"},
 		},
 	}
@@ -436,7 +436,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Registry: toml.KeeperRegistry{
 			CheckGasOverhead:    ptr[uint32](90),
 			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
-			SyncInterval:        sqlutil.MustNewDuration(time.Hour),
+			SyncInterval:        commonconfig.MustNewDuration(time.Hour),
 			SyncUpkeepQueueSize: ptr[uint32](31),
 			MaxPerformDataSize:  ptr[uint32](5000),
 		},
@@ -444,9 +444,9 @@ func TestConfig_Marshal(t *testing.T) {
 	full.AutoPprof = toml.AutoPprof{
 		Enabled:              ptr(true),
 		ProfileRoot:          ptr("prof/root"),
-		PollInterval:         sqlutil.MustNewDuration(time.Minute),
-		GatherDuration:       sqlutil.MustNewDuration(12 * time.Second),
-		GatherTraceDuration:  sqlutil.MustNewDuration(13 * time.Second),
+		PollInterval:         commonconfig.MustNewDuration(time.Minute),
+		GatherDuration:       commonconfig.MustNewDuration(12 * time.Second),
+		GatherTraceDuration:  commonconfig.MustNewDuration(13 * time.Second),
 		MaxProfileSize:       ptr[utils.FileSize](utils.GB),
 		CPUProfileRate:       ptr[int64](7),
 		MemProfileRate:       ptr[int64](9),
@@ -565,8 +565,8 @@ func TestConfig_Marshal(t *testing.T) {
 					ContractConfirmations:              ptr[uint16](11),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
-					DeltaCOverride:                     sqlutil.MustNewDuration(time.Hour),
-					DeltaCJitterOverride:               sqlutil.MustNewDuration(time.Second),
+					DeltaCOverride:                     commonconfig.MustNewDuration(time.Hour),
+					DeltaCJitterOverride:               commonconfig.MustNewDuration(time.Second),
 					ObservationGracePeriod:             &second,
 				},
 				OCR2: evmcfg.OCR2{
@@ -663,9 +663,9 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Mercury = toml.Mercury{
 		Cache: toml.MercuryCache{
-			LatestReportTTL:      sqlutil.MustNewDuration(100 * time.Second),
-			MaxStaleAge:          sqlutil.MustNewDuration(101 * time.Second),
-			LatestReportDeadline: sqlutil.MustNewDuration(102 * time.Second),
+			LatestReportTTL:      commonconfig.MustNewDuration(100 * time.Second),
+			MaxStaleAge:          commonconfig.MustNewDuration(101 * time.Second),
+			LatestReportDeadline: commonconfig.MustNewDuration(102 * time.Second),
 		},
 	}
 

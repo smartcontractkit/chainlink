@@ -12,7 +12,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -296,7 +296,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 		c.EVM[0].ChainID = (*ubig.Big)(testutils.FixtureChainID)
 		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
 		// Testing triggers requires committing transactions and does not work with transactional tests
-		c.Database.Listener.FallbackPollInterval = sqlutil.MustNewDuration(time.Second)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(time.Second)
 	})
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)

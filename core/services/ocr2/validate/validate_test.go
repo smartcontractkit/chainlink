@@ -308,7 +308,7 @@ chainID = 1337
 				require.Contains(t, err.Error(), "database timeout must be between 100ms and 10s, but is currently 20m0s")
 			},
 			overrides: func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.DatabaseTimeout = sqlutil.MustNewDuration(20 * time.Minute)
+				c.OCR2.DatabaseTimeout = commonconfig.MustNewDuration(20 * time.Minute)
 			},
 		},
 		{

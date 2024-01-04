@@ -18,8 +18,8 @@ import (
 func lease(c *chainlink.Config, s *chainlink.Secrets) {
 	t := true
 	c.Database.Lock.Enabled = &t
-	c.Database.Lock.LeaseDuration = sqlutil.MustNewDuration(10 * time.Second)
-	c.Database.Lock.LeaseRefreshInterval = sqlutil.MustNewDuration(time.Second)
+	c.Database.Lock.LeaseDuration = commonconfig.MustNewDuration(10 * time.Second)
+	c.Database.Lock.LeaseRefreshInterval = commonconfig.MustNewDuration(time.Second)
 }
 
 func TestLockedDB_HappyPath(t *testing.T) {

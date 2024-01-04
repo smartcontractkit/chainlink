@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -151,7 +151,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 
 		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
 		// Testing triggers requires committing transactions and does not work with transactional tests
-		c.Database.Listener.FallbackPollInterval = sqlutil.MustNewDuration(time.Second)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(time.Second)
 	},
 		withKey(),
 		withMocks(ethMock, key),
@@ -217,7 +217,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 
 		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
 		// Testing triggers requires committing transactions and does not work with transactional tests
-		c.Database.Listener.FallbackPollInterval = sqlutil.MustNewDuration(time.Second)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(time.Second)
 	},
 		withKey(),
 		withMocks(ethMock, key),
