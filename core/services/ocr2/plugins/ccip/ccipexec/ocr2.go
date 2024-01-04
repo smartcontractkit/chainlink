@@ -35,6 +35,11 @@ const (
 
 	// MaxDataLenPerBatch limits the total length of msg data that can be in a batch.
 	MaxDataLenPerBatch = 60_000
+
+	// MaximumAllowedTokenDataWaitTimePerBatch defines the maximum time that is allowed
+	// for the plugin to wait for token data to be fetched from external providers per batch.
+	MaximumAllowedTokenDataWaitTimePerBatch = 2 * time.Second
+
 	// MessagesIterationStep limits number of messages fetched to memory at once when iterating through unexpired CommitRoots
 	MessagesIterationStep = 800
 )
@@ -51,17 +56,17 @@ type ExecutionPluginStaticConfig struct {
 	commitStoreReader        ccipdata.CommitStoreReader
 	sourcePriceRegistry      ccipdata.PriceRegistryReader
 	sourceWrappedNativeToken common.Address
+	tokenDataWorker          tokendata.Worker
 	destChainSelector        uint64
-	tokenDataProviders       map[common.Address]tokendata.Reader
 	priceRegistryProvider    ccipdataprovider.PriceRegistry
 }
 
 type ExecutionReportingPlugin struct {
 	// Misc
-	F                  int
-	lggr               logger.Logger
-	offchainConfig     ccipdata.ExecOffchainConfig
-	tokenDataProviders map[common.Address]tokendata.Reader
+	F               int
+	lggr            logger.Logger
+	offchainConfig  ccipdata.ExecOffchainConfig
+	tokenDataWorker tokendata.Worker
 	// Source
 	gasPriceEstimator        prices.GasPriceEstimatorExec
 	sourcePriceRegistry      ccipdata.PriceRegistryReader
@@ -158,6 +163,10 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 			}
 			return r.destPoolRateLimits(ctx, unexpiredReportsWithSendReqs, tokenExecData.sourceToDestTokens)
 		})
+
+		for _, unexpiredReport := range unexpiredReportsWithSendReqs {
+			r.tokenDataWorker.AddJobsFromMsgs(ctx, unexpiredReport.sendRequestsWithMeta)
+		}
 
 		for _, rep := range unexpiredReportsWithSendReqs {
 			if ctx.Err() != nil {
@@ -336,8 +345,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 	availableGas := uint64(r.offchainConfig.BatchGasLimit)
 	expectedNonces := make(map[common.Address]uint64)
 	availableDataLen := MaxDataLenPerBatch
-	skipTokenWithData := false
-
+	tokenDataRemainingDuration := MaximumAllowedTokenDataWaitTimePerBatch
 	for _, msg := range report.sendRequestsWithMeta {
 		msgLggr := lggr.With("messageID", hexutil.Encode(msg.MessageId[:]))
 		if msg.Executed {
@@ -387,15 +395,10 @@ func (r *ExecutionReportingPlugin) buildBatch(
 			continue
 		}
 
-		tokenData, err2 := getTokenData(ctx, msgLggr, msg, r.tokenDataProviders, skipTokenWithData)
-		if err2 != nil {
-			// When fetching token data, 3rd party API could hang or rate limit or fail due to any reason.
-			// If this happens, we skip all remaining msgs that require token data in this batch.
-			// If the issue is transient, then it is likely for other nodes in the DON to succeed and execute the msg anyway.
-			// If the issue is API outage or rate limit, then we should indeed avoid calling the API.
-			// If API issues do not resolve, eventually the root will only contain msg that should be skipped, and be snoozed.
-			skipTokenWithData = true
-			msgLggr.Errorw("Skipping message unable to get token data", "err", err2)
+		tokenData, elapsed, err := r.getTokenDataWithTimeout(ctx, msg, tokenDataRemainingDuration)
+		tokenDataRemainingDuration -= elapsed
+		if err != nil {
+			msgLggr.Errorw("skipping message error while getting token data", "err", err)
 			continue
 		}
 
@@ -476,31 +479,27 @@ func (r *ExecutionReportingPlugin) buildBatch(
 
 		expectedNonces[msg.Sender] = msg.Nonce + 1
 	}
+
 	return executableMessages
 }
 
-func getTokenData(ctx context.Context, lggr logger.Logger, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenDataProviders map[common.Address]tokendata.Reader, skipTokenWithData bool) (tokenData [][]byte, err error) {
-	for _, token := range msg.TokenAmounts {
-		offchainTokenDataProvider, ok := tokenDataProviders[token.Token]
-		if !ok {
-			// No token data required
-			tokenData = append(tokenData, []byte{})
-			continue
-		}
-		if skipTokenWithData {
-			// If token data is required but should be skipped, exit without calling the API
-			return [][]byte{}, errors.New("token requiring data is flagged to be skipped")
-		}
-		lggr.Infow("Fetching token data", "token", token.Token.Hex())
-		tknData, err2 := offchainTokenDataProvider.ReadTokenData(ctx, msg)
-		if err2 != nil {
-			return [][]byte{}, err2
-		}
-
-		lggr.Infow("Token data retrieved", "token", token.Token.Hex())
-		tokenData = append(tokenData, tknData)
+// getTokenDataWithCappedLatency gets the token data for the provided message.
+// Stops and returns an error if more than allowedWaitingTime is passed.
+func (r *ExecutionReportingPlugin) getTokenDataWithTimeout(
+	ctx context.Context,
+	msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta,
+	timeout time.Duration,
+) ([][]byte, time.Duration, error) {
+	if len(msg.TokenAmounts) == 0 {
+		return nil, 0, nil
 	}
-	return tokenData, nil
+
+	ctxTimeout, cf := context.WithTimeout(ctx, timeout)
+	defer cf()
+	tStart := time.Now()
+	tokenData, err := r.tokenDataWorker.GetMsgTokenData(ctxTimeout, msg)
+	tDur := time.Since(tStart)
+	return tokenData, tDur, err
 }
 
 func (r *ExecutionReportingPlugin) isRateLimitEnoughForTokenPool(

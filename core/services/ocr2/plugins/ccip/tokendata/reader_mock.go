@@ -40,9 +40,9 @@ func (_m *MockReader) Close(qopts ...pg.QOpt) error {
 	return r0
 }
 
-// ReadTokenData provides a mock function with given fields: ctx, msg
-func (_m *MockReader) ReadTokenData(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([]byte, error) {
-	ret := _m.Called(ctx, msg)
+// ReadTokenData provides a mock function with given fields: ctx, msg, tokenIndex
+func (_m *MockReader) ReadTokenData(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) ([]byte, error) {
+	ret := _m.Called(ctx, msg, tokenIndex)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ReadTokenData")
@@ -50,19 +50,19 @@ func (_m *MockReader) ReadTokenData(ctx context.Context, msg internal.EVM2EVMOnR
 
 	var r0 []byte
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([]byte, error)); ok {
-		return rf(ctx, msg)
+	if rf, ok := ret.Get(0).(func(context.Context, internal.EVM2EVMOnRampCCIPSendRequestedWithMeta, int) ([]byte, error)); ok {
+		return rf(ctx, msg, tokenIndex)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) []byte); ok {
-		r0 = rf(ctx, msg)
+	if rf, ok := ret.Get(0).(func(context.Context, internal.EVM2EVMOnRampCCIPSendRequestedWithMeta, int) []byte); ok {
+		r0 = rf(ctx, msg, tokenIndex)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) error); ok {
-		r1 = rf(ctx, msg)
+	if rf, ok := ret.Get(1).(func(context.Context, internal.EVM2EVMOnRampCCIPSendRequestedWithMeta, int) error); ok {
+		r1 = rf(ctx, msg, tokenIndex)
 	} else {
 		r1 = ret.Error(1)
 	}

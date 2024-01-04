@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -37,8 +38,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-// TODO pass context?
-func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer) (*ExecutionPluginStaticConfig, *ccipcommon.BackfillArgs, error) {
+const numTokenDataWorkers = 5
+
+func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer) (*ExecutionPluginStaticConfig, *ccipcommon.BackfillArgs, error) {
 	if jb.OCR2OracleSpec == nil {
 		return nil, nil, errors.New("spec is nil")
 	}
@@ -132,6 +134,7 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet legacyev
 		"dynamicOnRampConfig", dynamicOnRampConfig,
 		"sourceNative", sourceWrappedNative,
 		"sourceRouter", sourceRouter.Address())
+
 	return &ExecutionPluginStaticConfig{
 			lggr:                     execLggr,
 			onRampReader:             onRampReader,
@@ -140,8 +143,14 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet legacyev
 			sourcePriceRegistry:      sourcePriceRegistry,
 			sourceWrappedNativeToken: sourceWrappedNative,
 			destChainSelector:        destChainSelector,
-			tokenDataProviders:       tokenDataProviders,
 			priceRegistryProvider:    ccipdataprovider.NewEvmPriceRegistry(destChain.LogPoller(), destChain.Client(), execLggr, ccip.ExecPluginLabel),
+			tokenDataWorker: tokendata.NewBackgroundWorker(
+				ctx,
+				tokenDataProviders,
+				numTokenDataWorkers,
+				5*time.Second,
+				offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds,
+			),
 		}, &ccipcommon.BackfillArgs{
 			SourceLP:         sourceChain.LogPoller(),
 			DestLP:           destChain.LogPoller(),
@@ -150,8 +159,8 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet legacyev
 		}, nil
 }
 
-func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string), qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
-	execPluginConfig, backfillArgs, err := jobSpecToExecPluginConfig(lggr, jb, chainSet)
+func NewExecutionServices(ctx context.Context, lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string), qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+	execPluginConfig, backfillArgs, err := jobSpecToExecPluginConfig(ctx, lggr, jb, chainSet)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +175,7 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet legacyevm.Leg
 	if err1 := execPluginConfig.commitStoreReader.RegisterFilters(qopts...); err1 != nil {
 		return nil, err1
 	}
-	for _, dp := range execPluginConfig.tokenDataProviders {
+	for _, dp := range execPluginConfig.tokenDataWorker.GetReaders() {
 		if err1 := dp.RegisterFilters(qopts...); err1 != nil {
 			return nil, err1
 		}
@@ -215,14 +224,13 @@ func getTokenDataProviders(lggr logger.Logger, pluginConfig ccipconfig.Execution
 		if err != nil {
 			return nil, err
 		}
-		tokenDataProviders[pluginConfig.USDCConfig.SourceTokenAddress] = tokendata.NewCachedReader(
-			usdc.NewUSDCTokenDataReader(
-				lggr,
-				usdcReader,
-				attestationURI,
-				pluginConfig.USDCConfig.AttestationAPITimeoutSeconds,
-			),
+		tokenDataProviders[pluginConfig.USDCConfig.SourceTokenAddress] = usdc.NewUSDCTokenDataReader(
+			lggr,
+			usdcReader,
+			attestationURI,
+			pluginConfig.USDCConfig.AttestationAPITimeoutSeconds,
 		)
+
 	}
 
 	return tokenDataProviders, nil
@@ -232,14 +240,14 @@ func getTokenDataProviders(lggr logger.Logger, pluginConfig ccipconfig.Execution
 // See comment in UnregisterCommitPluginLpFilters
 // It MUST mirror the filters registered in NewExecutionServices.
 func UnregisterExecPluginLpFilters(ctx context.Context, lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer, qopts ...pg.QOpt) error {
-	execPluginConfig, _, err := jobSpecToExecPluginConfig(lggr, jb, chainSet)
+	execPluginConfig, _, err := jobSpecToExecPluginConfig(ctx, lggr, jb, chainSet)
 	if err != nil {
 		return err
 	}
 	if err := execPluginConfig.onRampReader.Close(qopts...); err != nil {
 		return err
 	}
-	for _, tokenReader := range execPluginConfig.tokenDataProviders {
+	for _, tokenReader := range execPluginConfig.tokenDataWorker.GetReaders() {
 		if err := tokenReader.Close(qopts...); err != nil {
 			return err
 		}

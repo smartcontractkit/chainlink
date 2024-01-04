@@ -68,10 +68,11 @@ func TestUSDCReader_ReadTokenData(t *testing.T) {
 	msgAndAttestation, err := usdcService.ReadTokenData(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 		EVM2EVMMessage: internal.EVM2EVMMessage{
 			SequenceNumber: seqNum,
+			TokenAmounts:   []internal.TokenAmount{{Token: utils.RandomAddress(), Amount: nil}},
 		},
 		TxHash:   txHash,
 		LogIndex: uint(logIndex),
-	})
+	}, 0)
 	require.NoError(t, err)
 	// Expected attestation for parsed body.
 	require.Equal(t, expectedMessageAndAttestation, hexutil.Encode(msgAndAttestation))
