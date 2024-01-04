@@ -143,7 +143,11 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a RateLimiter")
 		}
-		subscriptions, err2 := gwFunctions.NewOnchainSubscriptions(conf.Chain.Client(), *pluginConfig.OnchainSubscriptions, conf.Logger)
+		gwFunctionsORM, err := gwFunctions.NewORM(conf.DB, conf.Logger, conf.QConfig, pluginConfig.OnchainSubscriptions.ContractAddress)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create functions ORM")
+		}
+		subscriptions, err2 := gwFunctions.NewOnchainSubscriptions(conf.Chain.Client(), *pluginConfig.OnchainSubscriptions, gwFunctionsORM, conf.Logger)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a OnchainSubscriptions")
 		}
